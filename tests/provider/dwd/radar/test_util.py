@@ -4,10 +4,16 @@ import datetime
 from io import BytesIO
 
 import pytest
-import requests
+from fsspec.implementations.http import HTTPFileSystem
 
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_from_filename, verify_hdf5
+
+HDF5_EXAMPLE = (
+    "https://github.com/earthobservations/testdata/raw/main/opendata.dwd.de"
+    "/weather/radar/sites/sweep_vol_v/ess/hdf5/filter_polarimetric"
+    "/ras07-vol5minng01_sweeph5onem_vradh_00-2021040423555700-ess-10410-hd5"
+)
 
 
 def test_radar_get_date_from_filename():
@@ -47,18 +53,12 @@ def test_radar_get_date_from_filename():
     assert date == datetime.datetime(2023, 1, 1, 0, 0)
 
 
-hdf5_example = (
-    "https://github.com/earthobservations/testdata/raw/main/opendata.dwd.de"
-    "/weather/radar/sites/sweep_vol_v/ess/hdf5/filter_polarimetric"
-    "/ras07-vol5minng01_sweeph5onem_vradh_00-2021040423555700-ess-10410-hd5"
-)
-
-
 @pytest.mark.remote
 def test_radar_verify_hdf5_valid():
     pytest.importorskip("h5py", reason="h5py not installed")
+    httpfs = HTTPFileSystem()
 
-    buffer = BytesIO(requests.get(hdf5_example, timeout=10).content)
+    buffer = BytesIO(httpfs.cat(HDF5_EXAMPLE))
 
     verify_hdf5(buffer)
 
