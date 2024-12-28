@@ -218,7 +218,6 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
   # general
-  "coverage[toml]>=7.3",
   "dirty-equals>=0.5",
   "freezegun>=1.2",
   "h5py>=3.1",
@@ -252,8 +251,12 @@ docs = "cd docs && make html"
 test = [ "test:parallel", "test:cflakes" ]
 # For Windows CI
 test-slow = "uv run pytest"
-coverage = "uv run pytest --cov=wetterdienst"
-coverage-parallel = "uv run pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'"
+"_coverage:parallel" = "uv run pytest --cov-report xml --cov wetterdienst tests/ --numprocesses=auto -m 'not (explorer or cflake)'"
+"_coverage:cflakes" = "uv run pytest --cov-report xml --cov-append --cov wetterdienst tests/ -m cflake"
+coverage = [
+  "_coverage:parallel",
+  "_coverage:cflakes",
+]
 sync = "uv sync"
 lock = "uv lock"
 

@@ -4697,7 +4697,6 @@ sql = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "coverage", extra = ["toml"] },
     { name = "dirty-equals" },
     { name = "freezegun" },
     { name = "h5py" },
@@ -4795,7 +4794,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "coverage", extras = ["toml"], specifier = ">=7.3" },
     { name = "dirty-equals", specifier = ">=0.5" },
     { name = "freezegun", specifier = ">=1.2" },
     { name = "h5py", specifier = ">=3.1" },

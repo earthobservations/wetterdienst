@@ -38,8 +38,7 @@ jobs:
 
       - name: Run tests, with coverage
         run: |
-          uv run pytest --cov=wetterdienst tests/
-          uv run coverage xml
+          uv run poe coverage
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v5
