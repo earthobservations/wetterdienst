@@ -103,7 +103,6 @@ dependencies = [
   "pypdf>=3.12.1",
   "python-dateutil",
   "rapidfuzz>=3.1",
-  "requests>=2.20",
   "scikit-learn>=1.0.2",
   "stamina>=23",
   "tabulate>=0.8",

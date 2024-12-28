@@ -7,7 +7,8 @@ import importlib.resources
 import json
 from typing import Any
 
-import requests
+from wetterdienst import Settings
+from wetterdienst.util.network import download_file
 
 
 class OperaRadarSites:
@@ -99,7 +100,8 @@ class OperaRadarSitesGenerator:
     )
 
     def get_opera_radar_sites(self) -> list[dict]:  # pragma: no cover
-        data = requests.get(self.url, timeout=10).json()
+        payload = download_file(self.url, settings=Settings())
+        data = json.load(payload)
 
         # Filter empty elements and convert data types.
         integer_values = ["maxrange", "number", "startyear", "status", "wmocode"]

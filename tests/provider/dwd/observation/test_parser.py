@@ -2,12 +2,12 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 from io import BytesIO
-from zipfile import ZipFile
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
-import requests
+from fsspec.implementations.http import HTTPFileSystem
+from fsspec.implementations.zip import ZipFileSystem
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Period
@@ -21,11 +21,11 @@ def test_parse_dwd_data():
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
         "climate/daily/kl/historical/tageswerte_KL_00001_19370101_19860630_hist.zip"
     )
-    r = requests.get(url, timeout=10)
-    r.raise_for_status()
-    payload = BytesIO(r.content)
+    httpfs = HTTPFileSystem()
+    payload = BytesIO(httpfs.cat(url))
     filename = "produkt_klima_tag_19370101_19860630_00001.txt"
-    file = ZipFile(payload).read(filename)
+    zfs = ZipFileSystem(payload)
+    file = zfs.cat(filename)
     given_df = parse_climate_observations_data(
         filenames_and_files=[(filename, BytesIO(file))],
         dataset=DwdObservationMetadata.daily.climate_summary,
