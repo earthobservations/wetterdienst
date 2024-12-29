@@ -93,23 +93,21 @@ class ExportMixin:
 
     @staticmethod
     def _filter_by_sql(df: pl.DataFrame, sql: str) -> pl.DataFrame:
-        """
-        Filter Pandas DataFrame using an SQL query.
-        The virtual table name is "data", so queries
-        should look like ``SELECT * FROM data;``.
+        """Filter df using an SQL query WHERE clause.
 
         This implementation is based on DuckDB, so please
         have a look at its SQL documentation.
 
         - https://duckdb.org/docs/sql/introduction
 
-        :param sql: A SQL expression.
+        :param sql: SQL WHERE clause
         :return: Filtered DataFrame
         """
         import duckdb
 
-        df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone(None)).to_pandas()
-        df = duckdb.query_df(df, "data", sql).pl()
+        df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone(None))  # uses df from local scope
+        sql = f"FROM df WHERE {sql}"
+        df = duckdb.sql(sql).pl()
         return df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
 
     def to_target(self, target: str):
@@ -251,7 +249,6 @@ class ExportMixin:
             for column in (Columns.START_DATE.value, Columns.END_DATE.value, Columns.DATE.value):
                 if column in df.columns:
                     df = df.with_columns(pl.col(column).dt.replace_time_zone(None))
-            df = df.to_pandas()
 
             connection = duckdb.connect(database=database, read_only=False)
             connection.register("origin", df)

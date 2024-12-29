@@ -434,24 +434,24 @@ SQL filtering:
 
     # Find stations by state.
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --sql="SELECT * FROM data WHERE state='Sachsen'"
+        --sql="state='Sachsen'"
 
     # Find stations by name (LIKE query).
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --sql="SELECT * FROM data WHERE lower(name) LIKE lower('%dresden%')"
+        --sql="lower(name) LIKE lower('%dresden%')"
 
     # Find stations by name (regexp query).
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --sql="SELECT * FROM data WHERE regexp_matches(lower(name), lower('.*dresden.*'))"
+        --sql="regexp_matches(lower(name), lower('.*dresden.*'))"
 
     # Filter values: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --station=1048,4411 --sql-values="SELECT * FROM data WHERE wind_gust_max > 20.0;"
+        --station=1048,4411 --sql-values="wind_gust_max > 20.0;"
 
     # Filter measurements: Same as above, but use long format.
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
         --station=1048,4411 --shape="long" \\
-        --sql-values="SELECT * FROM data WHERE parameter='wind_gust_max' AND value > 20.0"
+        --sql-values="parameter='wind_gust_max' AND value > 20.0"
 
 Inquire metadata:
 
