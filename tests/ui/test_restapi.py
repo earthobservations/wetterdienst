@@ -38,7 +38,100 @@ def test_health(client):
     assert response.json() == {"status": "OK"}
 
 
-def test_no_provider(client):
+@pytest.mark.remote
+def test_coverage(client):
+    response = client.get(
+        "/api/coverage",
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.keys() == {
+        "dwd",
+        "ea",
+        "eaufrance",
+        "eccc",
+        "geosphere",
+        "imgw",
+        "noaa",
+        "nws",
+        "wsv",
+    }
+    networks = data["dwd"]
+    assert networks == ["observation", "mosmix", "dmo", "road", "radar"]
+
+
+@pytest.mark.remote
+def test_coverage_dwd_observation(client):
+    response = client.get(
+        "/api/coverage",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "1_minute" in data
+    assert "precipitation" in data["1_minute"]
+    assert len(data["1_minute"]["precipitation"]) > 0
+    parameters = [item["name"] for item in data["1_minute"]["precipitation"]]
+    assert parameters == [
+        "precipitation_height",
+        "precipitation_height_droplet",
+        "precipitation_height_rocker",
+        "precipitation_index",
+    ]
+
+
+@pytest.mark.remote
+def test_coverage_dwd_observation_resolution_1_minute(client):
+    response = client.get(
+        "/api/coverage",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "resolutions": "1_minute",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.keys() == {"1_minute"}
+
+
+@pytest.mark.remote
+def test_coverage_dwd_observation_dataset_climate_summary(client):
+    response = client.get(
+        "/api/coverage",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "datasets": "climate_summary",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.keys() == {"daily", "monthly", "annual"}
+    assert data["daily"].keys() == {"climate_summary"}
+    assert data["monthly"].keys() == {"climate_summary"}
+    assert data["annual"].keys() == {"climate_summary"}
+
+
+@pytest.mark.remote
+def test_coverage_wrong_only_provider_given(client):
+    response = client.get(
+        "/api/coverage",
+        params={
+            "provider": "dwd",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Either both or none of 'provider' and 'network' must be given. If none are given, all providers and "
+        "networks are returned."
+    }
+
+
+def test_stations_no_provider(client):
     response = client.get(
         "/api/stations",
         params={
@@ -53,7 +146,7 @@ def test_no_provider(client):
     assert "Choose provider and network from /api/coverage" in response.text
 
 
-def test_no_network(client):
+def test_stations_no_network(client):
     response = client.get(
         "/api/stations",
         params={
@@ -80,68 +173,12 @@ def test_stations_wrong_format(client):
             "format": "abc",
         },
     )
-    assert response.status_code == 400
-    assert "Query argument 'format' must be one of 'json', 'geojson' or 'csv'" in response.text
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == "Input should be 'json', 'geojson' or 'csv'"
 
 
 @pytest.mark.remote
-def test_dwd_coverage(client):
-    response = client.get(
-        "/api/coverage",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-        },
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "1_minute" in data
-    assert "precipitation" in data["1_minute"]
-    assert len(data["1_minute"]["precipitation"]) > 0
-    parameters = [item["name"] for item in data["1_minute"]["precipitation"]]
-    assert parameters == [
-        "precipitation_height",
-        "precipitation_height_droplet",
-        "precipitation_height_rocker",
-        "precipitation_index",
-    ]
-
-
-@pytest.mark.remote
-def test_dwd_coverage_resolution_1_minute(client):
-    response = client.get(
-        "/api/coverage",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "resolutions": "1_minute",
-        },
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data.keys() == {"1_minute"}
-
-
-@pytest.mark.remote
-def test_dwd_coverage_dataset_climate_summary(client):
-    response = client.get(
-        "/api/coverage",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "datasets": "climate_summary",
-        },
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data.keys() == {"daily", "monthly", "annual"}
-    assert data["daily"].keys() == {"climate_summary"}
-    assert data["monthly"].keys() == {"climate_summary"}
-    assert data["annual"].keys() == {"climate_summary"}
-
-
-@pytest.mark.remote
-def test_dwd_stations_basic(client):
+def test_stations_dwd_basic(client):
     response = client.get(
         "/api/stations",
         params={
@@ -167,7 +204,7 @@ def test_dwd_stations_basic(client):
 
 
 @pytest.mark.remote
-def test_dwd_stations_geo(client):
+def test_stations_dwd_geo(client):
     response = client.get(
         "/api/stations",
         params={
@@ -195,7 +232,7 @@ def test_dwd_stations_geo(client):
 
 
 @pytest.mark.remote
-def test_dwd_stations_sql(client):
+def test_stations_dwd_sql(client):
     response = client.get(
         "/api/stations",
         params={
@@ -221,7 +258,7 @@ def test_dwd_stations_sql(client):
 
 
 @pytest.mark.remote
-def test_dwd_values_success(client):
+def test_values_dwd_success(client):
     response = client.get(
         "/api/values",
         params={
@@ -245,7 +282,7 @@ def test_dwd_values_success(client):
     }
 
 
-def test_dwd_values_no_station(client):
+def test_values_dwd_no_station(client):
     response = client.get(
         "/api/values",
         params={
@@ -264,23 +301,9 @@ def test_dwd_values_no_station(client):
     )
 
 
-def test_dwd_values_no_parameter(client):
-    response = client.get(
-        "/api/values",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "station": "01048,4411",
-            "periods": "recent",
-        },
-    )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'parameters' is required"}
-
-
 @pytest.mark.remote
 @pytest.mark.sql
-def test_dwd_values_sql_tabular(client):
+def test_values_dwd_sql_tabular(client):
     response = client.get(
         "/api/values",
         params={
@@ -336,7 +359,7 @@ def test_dwd_values_sql_tabular(client):
 
 @pytest.mark.remote
 @pytest.mark.sql
-def test_dwd_values_sql_long(client):
+def test_values_dwd_sql_long(client):
     response = client.get(
         "/api/values",
         params={
@@ -362,7 +385,7 @@ def test_dwd_values_sql_long(client):
 
 
 @pytest.mark.remote
-def test_dwd_interpolate(client):
+def test_interpolate_dwd(client):
     response = client.get(
         "/api/interpolate",
         params={
@@ -395,7 +418,7 @@ def test_dwd_interpolate(client):
 
 
 @pytest.mark.remote
-def test_dwd_summarize(client):
+def test_summarize_dwd(client):
     response = client.get(
         "/api/summarize",
         params={
@@ -428,7 +451,7 @@ def test_dwd_summarize(client):
 
 
 @pytest.mark.remote
-def test_api_values_missing_null(client):
+def test_values_missing_null(client):
     response = client.get(
         "/api/values",
         params={
@@ -443,7 +466,7 @@ def test_api_values_missing_null(client):
 
 
 @pytest.mark.remote
-def test_api_values_missing_empty(client):
+def test_values_missing_empty(client):
     response = client.get(
         "/api/values",
         params={
@@ -459,7 +482,7 @@ def test_api_values_missing_empty(client):
 
 
 @pytest.mark.remote
-def test_api_stations_missing_null(client):
+def test_stations_missing_null(client):
     response = client.get(
         "/api/stations",
         params={
@@ -485,7 +508,7 @@ def test_api_stations_missing_null(client):
 
 
 @pytest.mark.remote
-def test_dwd_mosmix(client):
+def test_values_dwd_mosmix(client):
     response = client.get(
         "/api/values",
         params={
@@ -508,7 +531,7 @@ def test_dwd_mosmix(client):
 
 
 @pytest.mark.remote
-def test_dwd_dmo_lead_time_long(client):
+def test_values_dwd_dmo_lead_time_long(client):
     response = client.get(
         "/api/values",
         params={
@@ -666,8 +689,8 @@ def test_stripes_values_unknown_format(client):
             "format": "foobar",
         },
     )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'format' must be one of 'png', 'jpg', 'svg' or 'pdf'"}
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == "Input should be 'png', 'jpg', 'svg' or 'pdf'"
 
 
 @pytest.mark.remote
@@ -680,5 +703,5 @@ def test_stripes_values_wrong_dpi(client):
             "dpi": 0,
         },
     )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'dpi' must be more than 0"}
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == "Input should be greater than 0"

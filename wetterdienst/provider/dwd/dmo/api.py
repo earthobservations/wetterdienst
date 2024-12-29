@@ -6,7 +6,7 @@ import datetime as dt
 import logging
 from enum import Enum
 from io import StringIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
@@ -277,7 +277,7 @@ class DwdDmoRequest(TimeseriesRequest):
         end_date: _DATETIME_TYPE = None,
         issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST,
         station_group: str | DwdDmoStationGroup | None = None,
-        lead_time: str | DwdDmoLeadTime | None = None,
+        lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
         """

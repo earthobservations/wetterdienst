@@ -27,7 +27,7 @@ class Author:
 class Info:
     def __init__(self):
         self.name = __appname__
-        self.slogan = f"{self.name} - open weather data for humans."
+        self.slogan = "open weather data for humans"
         self.version = __version__
         self.authors = [
             Author("Benjamin Gutzmann", "gutzemann@gmail.com", "gutzbenj"),
