@@ -153,6 +153,7 @@ def calculate_interpolation(
                 Columns.DISTANCE_MEAN.value: pl.Float64,
                 Columns.TAKEN_STATION_IDS.value: pl.List(inner=pl.String),
             },
+            orient="row",
         )
         param_df = pl.concat([param_df, results], how="horizontal")
         data.append(param_df)

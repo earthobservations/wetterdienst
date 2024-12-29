@@ -225,7 +225,6 @@ dev = [
   "pybufrkit>=0.2",
   "pytest>=7.2",
   "pytest-cov>=4",
-  "pytest-notebook>=0.10",
   "pytest-rerunfailures",
   "pytest-xdist>=3",
   "surrogate==0.1",
