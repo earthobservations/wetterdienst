@@ -203,7 +203,7 @@ def test_dwd_stations_sql(client):
             "network": "observation",
             "parameters": "daily/kl",
             "periods": "recent",
-            "sql": "SELECT * FROM data WHERE lower(name) LIKE '%dresden%';",
+            "sql": "lower(name) LIKE '%dresden%';",
         },
     )
     assert response.status_code == 200
@@ -290,7 +290,7 @@ def test_dwd_values_sql_tabular(client):
             "parameters": "daily/kl",
             "periods": "historical",
             "date": "2020/2021",
-            "sql-values": "SELECT * FROM data WHERE temperature_air_max_2m < 2.0",
+            "sql-values": "temperature_air_max_2m < 2.0",
             "shape": "wide",
             "si-units": False,
         },
@@ -345,7 +345,7 @@ def test_dwd_values_sql_long(client):
             "station": "01048,4411",
             "parameters": "daily/kl",
             "date": "2019-12-01/2019-12-31",
-            "sql-values": "SELECT * FROM data WHERE parameter='temperature_air_max_2m' AND value < 1.5",
+            "sql-values": "parameter='temperature_air_max_2m' AND value < 1.5",
             "si-units": False,
         },
     )

@@ -548,9 +548,9 @@ class TimeseriesRequest(Core):
 
     def filter_by_sql(self, sql: str) -> StationsResult:
         """
-
-        :param sql:
-        :return:
+        Method to filter stations by sql query
+        :param sql: SQL WHERE clause for filtering e.g. "name = 'Berlin'"
+        :return: df with stations filtered by sql
         """
         import duckdb
 
@@ -559,8 +559,8 @@ class TimeseriesRequest(Core):
             pl.col(Columns.START_DATE.value).dt.replace_time_zone(None),
             pl.col(Columns.END_DATE.value).dt.replace_time_zone(None),
         )
-        df = duckdb.query_df(df.to_pandas(), "data", sql).df()
-        df = pl.from_pandas(df)
+        sql = f"FROM df WHERE {sql}"
+        df = duckdb.sql(sql).pl()  # uses "df" from local scope
         df = df.with_columns(
             pl.col(Columns.START_DATE.value).dt.replace_time_zone(time_zone="UTC"),
             pl.col(Columns.END_DATE.value).dt.replace_time_zone(time_zone="UTC"),

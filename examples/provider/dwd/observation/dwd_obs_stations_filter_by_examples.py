@@ -49,7 +49,7 @@ def stations_filter_by_examples():
     print(request.filter_by_bbox(*bbox).df)
 
     print("Filter by sql (starting with Dre)")
-    sql = "SELECT * FROM df WHERE name LIKE 'Dre%'"
+    sql = "name LIKE 'Dre%'"
     print(request.filter_by_sql(sql).df)
 
 

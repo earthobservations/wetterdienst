@@ -530,7 +530,7 @@ The result data is provided through a virtual table called ``data``.
     )
     stations = request.filter_by_station_id(station_id=[1048])
     values = stations.values.all()
-    df = values.filter_by_sql("SELECT * FROM data WHERE parameter='temperature_air_mean_2m' AND value < -7.0;")
+    df = values.filter_by_sql("parameter='temperature_air_mean_2m' AND value < -7.0;")
     print(df.head())
 ```
 

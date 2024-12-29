@@ -7,6 +7,7 @@
 - Settings: Switch to `pydantic_settings` for settings management
 - Improve wetterdienst api class
 - Dissolve wetterdienst notebook into examples
+- Use `duckdb.sql` and ask only for WHERE clause
 
 ## 0.98.0 - 2024-12-09
 

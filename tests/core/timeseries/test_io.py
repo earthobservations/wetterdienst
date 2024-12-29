@@ -593,11 +593,11 @@ def test_filter_by_date_interval(df_values):
 def test_filter_by_sql(df_values):
     """Test filter by sql statement"""
     df = ExportMixin(df=df_values).filter_by_sql(
-        sql="SELECT * FROM data WHERE parameter='temperature_air_max_2m' AND value < 1.5",
+        sql="parameter='temperature_air_max_2m' AND value < 1.5",
     )
     assert not df.is_empty()
     df = ExportMixin(df=df_values).filter_by_sql(
-        sql="SELECT * FROM data WHERE parameter='temperature_air_max_2m' AND value > 4",
+        sql="parameter='temperature_air_max_2m' AND value > 4",
     )
     assert df.is_empty()
 
