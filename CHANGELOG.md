@@ -6,6 +6,7 @@
 - Docs: Change to markdown using mkdocs
 - Settings: Switch to `pydantic_settings` for settings management
 - Improve wetterdienst api class
+- Dissolve wetterdienst notebook into examples
 
 ## 0.98.0 - 2024-12-09
 

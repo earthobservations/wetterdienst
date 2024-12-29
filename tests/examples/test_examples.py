@@ -11,20 +11,24 @@ def test_examples():
     from examples.provider.dwd.observation import (
         dwd_obs_climate_summary_duckdb_dump,
         dwd_obs_climate_summary_zarr_dump,
+        dwd_obs_interpolate,
         dwd_obs_plot_german_weather_stations,
         dwd_obs_plot_hohenpeissenberg_warming_stripes,
         dwd_obs_plot_temperature_timeseries,
-        dwd_obs_stations_filter_by_distance,
+        dwd_obs_stations_filter_by_examples,
+        dwd_obs_summarize,
         dwd_obs_values_sql,
     )
 
     assert dwd_mosmix_forecasts.main() is None
-    assert dwd_obs_climate_summary_zarr_dump.main() is None
     assert dwd_obs_climate_summary_duckdb_dump.main() is None
+    assert dwd_obs_climate_summary_zarr_dump.main() is None
+    assert dwd_obs_interpolate.main() is None
     assert dwd_obs_plot_german_weather_stations.main() is None
     assert dwd_obs_plot_hohenpeissenberg_warming_stripes.main() is None
     assert dwd_obs_plot_temperature_timeseries.main() is None
-    assert dwd_obs_stations_filter_by_distance.main() is None
+    assert dwd_obs_stations_filter_by_examples.main() is None
+    assert dwd_obs_summarize.main() is None
     assert dwd_obs_values_sql.main() is None
 
 
@@ -46,9 +50,9 @@ def test_pdbufr_examples():
 @pytest.mark.skipif(IS_CI and IS_LINUX, reason="stalls on Mac/Windows in CI")
 @pytest.mark.cflake
 def test_gaussian_example(tmp_path):
-    from examples.provider.dwd.observation import dwd_obs_station_gaussian_model
+    from examples.provider.dwd.observation import dwd_obs_gaussian_model
 
-    assert dwd_obs_station_gaussian_model.main(tmp_path) is None
+    assert dwd_obs_gaussian_model.main(tmp_path) is None
 
 
 @pytest.mark.cflake
