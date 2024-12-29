@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
-from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
@@ -41,8 +40,6 @@ app = FastAPI(debug=False)
 
 log = logging.getLogger(__name__)
 
-CommaSeparator = StringListParamType(",")
-
 
 REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_stations": "api/stations?provider=dwd&network=observation&parameters=daily/kl&periods=recent&all=true",  # noqa:E501
@@ -60,7 +57,7 @@ def index():
         # create author string Max Mustermann (Github href, Mailto)
         return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"  # noqa:E501
 
-    title = f"{info.name} restapi"
+    title = f"{info.slogan} | {info.name}"
     sources = []
     for provider in Provider:
         shortname = provider.name
@@ -73,7 +70,7 @@ def index():
     <html lang="en">
         <head>
             <title>{title}</title>
-            <meta name="description" content="{info.slogan}">
+            <meta name="description" content="{info.name} - {info.slogan}">
             <meta name="keywords" content="weather, climate, data, api, open, source, wetterdienst">
             <style>
                 body {{
@@ -190,15 +187,23 @@ def health():
 
 @app.get("/api/coverage")
 def coverage(
-    provider: Annotated[Optional[str], Query()] = None,
-    network: Annotated[Optional[str], Query()] = None,
-    debug: Annotated[bool, Query()] = False,
-    resolutions: Annotated[Optional[str], Query()] = None,
-    datasets: Annotated[Optional[str], Query()] = None,
+    provider: str | None = None,
+    network: str | None = None,
+    resolutions: str = None,
+    datasets: str = None,
+    pretty: bool = False,
+    debug: bool = False,
 ):
     set_logging_level(debug)
 
-    if not provider or not network:
+    if (provider and not network) or (not provider and network):
+        raise HTTPException(
+            status_code=400,
+            detail="Either both or none of 'provider' and 'network' must be given. If none are given, all providers "
+            "and networks are returned.",
+        )
+
+    if not provider and not network:
         cov = Wetterdienst.discover()
         return Response(content=json.dumps(cov, indent=4), media_type="application/json")
 
@@ -221,7 +226,7 @@ def coverage(
         datasets=datasets,
     )
 
-    return Response(content=json.dumps(cov, indent=4), media_type="application/json")
+    return Response(content=json.dumps(cov, indent=4 if pretty else None), media_type="application/json")
 
 
 # response models for the different formats are
@@ -230,38 +235,22 @@ def coverage(
 # - str for csv
 @app.get("/api/stations", response_model=Union[_StationsDict, _StationsOgcFeatureCollection, str])
 def stations(
-    provider: Annotated[Optional[str], Query()] = None,
-    network: Annotated[Optional[str], Query()] = None,
-    parameters: Annotated[Optional[str], Query()] = None,
-    periods: Annotated[Optional[str], Query()] = None,
-    all_: Annotated[Optional[bool], Query(alias="all")] = None,
-    station: Annotated[Optional[str], Query()] = None,
-    name: Annotated[Optional[str], Query()] = None,
-    coordinates: Annotated[Optional[str], Query()] = None,
-    rank: Annotated[Optional[int], Query()] = None,
-    distance: Annotated[Optional[float], Query()] = None,
-    bbox: Annotated[Optional[str], Query()] = None,
-    sql: Annotated[Optional[str], Query()] = None,
-    fmt: Annotated[str, Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = None,
-    debug: Annotated[bool, Query()] = None,
+    provider: Annotated[str, Query()],
+    network: Annotated[str, Query()],
+    parameters: Annotated[str, Query()],
+    periods: Annotated[str | None, Query()] = None,
+    all_: Annotated[bool | None, Query(alias="all")] = None,
+    station: Annotated[str | None, Query()] = None,
+    name: Annotated[str | None, Query()] = None,
+    coordinates: Annotated[str | None, Query()] = None,
+    rank: Annotated[int | None, Query()] = None,
+    distance: Annotated[float | None, Query()] = None,
+    bbox: Annotated[str | None, Query()] = None,
+    sql: Annotated[str | None, Query()] = None,
+    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
+    pretty: Annotated[bool, Query()] = False,
+    debug: Annotated[bool, Query()] = False,
 ) -> Any:
-    if provider is None or network is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Query arguments 'provider' and 'network' are required",
-        )
-    if parameters is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'parameters' is required",
-        )
-    if fmt not in ("json", "geojson", "csv"):
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
-        )
-
     set_logging_level(debug)
 
     try:
@@ -327,49 +316,33 @@ def stations(
 # - str for csv
 @app.get("/api/values", response_model=Union[_ValuesDict, _ValuesOgcFeatureCollection, str])
 def values(
-    provider: Annotated[Optional[str], Query()] = None,
-    network: Annotated[Optional[str], Query()] = None,
-    parameters: Annotated[Optional[str], Query()] = None,
-    periods: Annotated[Optional[str], Query()] = None,
+    provider: Annotated[str, Query()],
+    network: Annotated[str, Query()],
+    parameters: Annotated[str, Query()],
+    periods: Annotated[str | None, Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
-    date: Annotated[Optional[str], Query()] = None,
-    issue: Annotated[Optional[str], Query()] = None,
-    all_: Annotated[Optional[bool], Query(alias="all")] = None,
-    station: Annotated[Optional[str], Query()] = None,
-    name: Annotated[Optional[str], Query()] = None,
-    coordinates: Annotated[Optional[str], Query()] = None,
-    rank: Annotated[Optional[int], Query()] = None,
-    distance: Annotated[Optional[float], Query()] = None,
-    bbox: Annotated[Optional[str], Query()] = None,
-    sql: Annotated[Optional[str], Query()] = None,
-    sql_values: Annotated[Optional[str], Query(alias="sql-values")] = None,
+    date: Annotated[str | None, Query()] = None,
+    issue: Annotated[str | None, Query()] = None,
+    all_: Annotated[bool | None, Query(alias="all")] = None,
+    station: Annotated[str | None, Query()] = None,
+    name: Annotated[str | None, Query()] = None,
+    coordinates: Annotated[str | None, Query()] = None,
+    rank: Annotated[int | None, Query()] = None,
+    distance: Annotated[float | None, Query()] = None,
+    bbox: Annotated[str | None, Query()] = None,
+    sql: Annotated[str | None, Query()] = None,
+    sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
     humanize: Annotated[bool, Query()] = True,
-    shape: Annotated[str, Query()] = "long",
+    shape: Annotated[Literal["long", "wide"], Query()] = "long",
     si_units: Annotated[bool, Query(alias="si-units")] = True,
     skip_empty: Annotated[bool, Query(alias="skip-empty")] = False,
     skip_threshold: Annotated[float, Query(alias="skip-threshold", gt=0, le=1)] = 0.95,
-    skip_criteria: Annotated[str, Query(alias="skip-criteria")] = "min",
+    skip_criteria: Annotated[Literal["min", "mean", "max"], Query(alias="skip-criteria")] = "min",
     dropna: Annotated[bool, Query(alias="dropna")] = False,
-    fmt: Annotated[str, Query(alias="format")] = "json",
+    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
     pretty: Annotated[bool, Query()] = False,
     debug: Annotated[bool, Query()] = False,
 ) -> Any:
-    if provider is None or network is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Query arguments 'provider' and 'network' are required",
-        )
-    if parameters is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'parameters' is required",
-        )
-    if fmt not in ("json", "geojson", "csv"):
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
-        )
-
     set_logging_level(debug)
 
     try:
@@ -435,16 +408,16 @@ def values(
     response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str],
 )
 def interpolate(
-    provider: Annotated[Optional[str], Query()] = None,
-    network: Annotated[Optional[str], Query()] = None,
-    parameters: Annotated[Optional[str], Query()] = None,
-    periods: Annotated[Optional[str], Query()] = None,
+    provider: Annotated[str, Query()],
+    network: Annotated[str, Query()],
+    parameters: Annotated[str, Query()],
+    periods: Annotated[str | None, Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
-    date: Annotated[Optional[str], Query()] = None,
-    issue: Annotated[Optional[str], Query()] = None,
-    station: Annotated[Optional[str], Query()] = None,
-    coordinates: Annotated[Optional[str], Query()] = None,
-    sql_values: Annotated[Optional[str], Query(alias="sql-values")] = None,
+    date: Annotated[str | None, Query()] = None,
+    issue: Annotated[str | None, Query()] = None,
+    station: Annotated[str | None, Query()] = None,
+    coordinates: Annotated[str | None, Query()] = None,
+    sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
     humanize: Annotated[bool, Query()] = True,
     si_units: Annotated[bool, Query(alias="si-units")] = True,
     use_nearby_station_distance: Annotated[float, Query()] = 1.0,
@@ -453,22 +426,6 @@ def interpolate(
     debug: Annotated[bool, Query()] = False,
 ) -> Any:
     """Wrapper around get_interpolate to provide results via restapi"""
-    if provider is None or network is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Query arguments 'provider' and 'network' are required",
-        )
-    if parameters is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'parameters' is required",
-        )
-    if fmt not in ("json", "geojson", "csv"):
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
-        )
-
     set_logging_level(debug)
 
     try:
@@ -521,16 +478,16 @@ def interpolate(
 # - str for csv
 @app.get("/api/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
 def summarize(
-    provider: Annotated[Optional[str], Query()] = None,
-    network: Annotated[Optional[str], Query()] = None,
-    parameters: Annotated[Optional[str], Query()] = None,
-    periods: Annotated[Optional[str], Query()] = None,
+    provider: Annotated[str, Query()],
+    network: Annotated[str, Query()],
+    parameters: Annotated[str, Query()],
+    periods: Annotated[str | None, Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
-    date: Annotated[Optional[str], Query()] = None,
-    issue: Annotated[Optional[str], Query()] = "latest",
-    station: Annotated[Optional[str], Query()] = None,
-    coordinates: Annotated[Optional[str], Query()] = None,
-    sql_values: Annotated[Optional[str], Query(alias="sql-values")] = None,
+    date: Annotated[str | None, Query()] = None,
+    issue: Annotated[str | None, Query()] = None,
+    station: Annotated[str | None, Query()] = None,
+    coordinates: Annotated[str | None, Query()] = None,
+    sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
     humanize: Annotated[bool, Query()] = True,
     si_units: Annotated[bool, Query(alias="si-units")] = True,
     fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
@@ -538,22 +495,6 @@ def summarize(
     debug: Annotated[bool, Query()] = False,
 ) -> Any:
     """Wrapper around get_summarize to provide results via restapi"""
-    if provider is None or network is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Query arguments 'provider' and 'network' are required",
-        )
-    if parameters is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'parameters' is required",
-        )
-    if fmt not in ("json", "geojson", "csv"):
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
-        )
-
     set_logging_level(debug)
 
     try:
@@ -601,24 +542,15 @@ def summarize(
 
 @app.get("/api/stripes/stations")
 def stripes_stations(
-    kind: Annotated[str, Query()],
+    kind: Annotated[Literal["temperature", "precipitation"], Query()],
     active: Annotated[bool, Query()] = True,
-    fmt: Annotated[str, Query(alias="format")] = "json",
+    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
     pretty: Annotated[bool, Query()] = False,
     debug: Annotated[bool, Query()] = False,
 ) -> Any:
     """Wrapper around get_climate_stripes_temperature_request to provide results via restapi"""
     set_logging_level(debug)
-    if kind not in ["temperature", "precipitation"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'kind' must be one of 'temperature' or 'precipitation'",
-        )
-    if fmt not in ["json", "geojson", "csv"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
-        )
+
     try:
         stations = _get_stripes_stations(kind=kind, active=active)
     except Exception as e:
@@ -634,26 +566,22 @@ def stripes_stations(
 
 @app.get("/api/stripes/values")
 def stripes_values(
-    kind: Annotated[str, Query()],
-    station: Annotated[Optional[str], Query()] = None,
-    name: Annotated[Optional[str], Query()] = None,
-    start_year: Annotated[Optional[int], Query()] = None,
-    end_year: Annotated[Optional[int], Query()] = None,
-    name_threshold: Annotated[Optional[float], Query()] = 0.9,
+    kind: Annotated[Literal["temperature", "precipitation"], Query()],
+    station: Annotated[str | None, Query()] = None,
+    name: Annotated[str | None, Query()] = None,
+    start_year: Annotated[int | None, Query()] = None,
+    end_year: Annotated[int | None, Query()] = None,
+    name_threshold: Annotated[float, Query()] = 0.9,
     show_title: Annotated[bool, Query()] = True,
     show_years: Annotated[bool, Query()] = True,
     show_data_availability: Annotated[bool, Query()] = True,
-    fmt: Annotated[str, Query(alias="format")] = "png",
-    dpi: Annotated[int, Query()] = 300,
+    fmt: Annotated[Literal["png", "jpg", "svg", "pdf"], Query(alias="format")] = "png",
+    dpi: Annotated[int, Query(gt=0)] = 300,
     debug: Annotated[bool, Query()] = False,
 ) -> Any:
     """Wrapper around get_summarize to provide results via restapi"""
     set_logging_level(debug)
-    if kind not in ["temperature", "precipitation"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'kind' must be one of 'temperature' or 'precipitation'",
-        )
+
     if not station and not name:
         raise HTTPException(
             status_code=400,
@@ -675,16 +603,7 @@ def stripes_values(
             status_code=400,
             detail="Query argument 'name_threshold' must be between 0.0 and 1.0",
         )
-    if fmt not in ["png", "jpg", "svg", "pdf"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'format' must be one of 'png', 'jpg', 'svg' or 'pdf'",
-        )
-    if dpi <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'dpi' must be more than 0",
-        )
+
     try:
         buf = _thread_safe_plot_stripes(
             kind=kind,
