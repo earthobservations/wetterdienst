@@ -37,7 +37,7 @@ def test_cli_help():
 def test_cli_about_parameters():
     """Test cli coverage of dwd parameters"""
     runner = CliRunner()
-    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
+    result = runner.invoke(cli, ["about", "coverage", "--provider=dwd", "--network=observation"])
     # resolution
     assert "1_minute" in result.output
     # datasets
@@ -50,7 +50,7 @@ def test_cli_about_parameters():
 
 def test_no_provider():
     runner = CliRunner()
-    result = runner.invoke(cli, "stations --provider=abc --network=abc")
+    result = runner.invoke(cli, ["stations", "--provider=abc", "--network=abc"])
     assert (
         "Error: Invalid value for '--provider': 'abc' is not one of 'DWD', 'EA', 'EAUFRANCE', 'ECCC', 'GEOSPHERE', "
         "'IMGW', 'NOAA', 'NWS', 'WSV'" in result.output
@@ -61,14 +61,20 @@ def test_no_network(caplog):
     runner = CliRunner()
     runner.invoke(
         cli,
-        "stations --provider=dwd --network=abc --parameters=daily/climate_summary/precipitation_height --all",
+        [
+            "stations",
+            "--provider=dwd",
+            "--network=abc",
+            "--parameters=daily/climate_summary/precipitation_height",
+            "--all",
+        ],
     )
     assert "No API available for provider dwd and network abc" in caplog.text
 
 
 def test_coverage():
     runner = CliRunner()
-    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
+    result = runner.invoke(cli, ["about", "coverage", "--provider=dwd", "--network=observation"])
     assert result.exit_code == 0
     response = json.loads(result.stdout)
     assert "1_minute" in response
@@ -85,7 +91,9 @@ def test_coverage():
 
 def test_coverage_resolution_1_minute():
     runner = CliRunner()
-    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation --resolutions=1_minute")
+    result = runner.invoke(
+        cli, ["about", "coverage", "--provider=dwd", "--network=observation", "--resolutions=1_minute"]
+    )
     assert result.exit_code == 0
     response = json.loads(result.stdout)
     assert response.keys() == {"1_minute"}
@@ -93,7 +101,9 @@ def test_coverage_resolution_1_minute():
 
 def test_coverage_dataset_climate_summary():
     runner = CliRunner()
-    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation --datasets=climate_summary")
+    result = runner.invoke(
+        cli, ["about", "coverage", "--provider=dwd", "--network=observation", "--datasets=climate_summary"]
+    )
     assert result.exit_code == 0
     response = json.loads(result.stdout)
     assert response.keys() == {"daily", "monthly", "annual"}
@@ -104,7 +114,7 @@ def test_coverage_dataset_climate_summary():
 
 def test_cli_radar_stations_opera():
     runner = CliRunner()
-    result = runner.invoke(cli, "radar --odim-code=ukdea")
+    result = runner.invoke(cli, ["radar", "--odim-code=ukdea"])
     response = json.loads(result.output)
     assert isinstance(response, dict)
     assert response["location"] == "Dean Hill"
@@ -112,7 +122,7 @@ def test_cli_radar_stations_opera():
 
 def test_cli_radar_stations_dwd():
     runner = CliRunner()
-    result = runner.invoke(cli, "radar --dwd")
+    result = runner.invoke(cli, ["radar", "--dwd"])
     response = json.loads(result.output)
     assert isinstance(response, list)
     assert len(response) == 20
