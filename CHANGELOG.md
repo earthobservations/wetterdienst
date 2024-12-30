@@ -12,6 +12,7 @@
 - Use `Settings` in restapi/cli core functions
 - Restapi/Cli: Use pydantic models for request parameters
 - Rename `dropna` to `drop_nulls`
+- Change default of `drop_nulls` to True
 
 ## 0.98.0 - 2024-12-09
 

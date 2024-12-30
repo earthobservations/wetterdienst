@@ -9,13 +9,13 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
 @pytest.mark.remote
-def test_dwd_mosmix_l(settings_humanize_false):
+def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false):
     """
     Test some details of a typical MOSMIX-L response.
     """
     request = DwdMosmixRequest(
         parameters=[("hourly", "large")],
-        settings=settings_humanize_false,
+        settings=settings_humanize_false_drop_nulls_false,
     ).filter_by_station_id(
         station_id=["01001"],
     )
@@ -164,11 +164,11 @@ def test_dwd_mosmix_l(settings_humanize_false):
 
 @pytest.mark.remote
 @pytest.mark.slow
-def test_dwd_mosmix_s(settings_humanize_false):
+def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false):
     """Test some details of a typical MOSMIX-S response."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "small")],
-        settings=settings_humanize_false,
+        settings=settings_humanize_false_drop_nulls_false,
     ).filter_by_station_id(
         station_id=["01028"],
     )
@@ -246,11 +246,11 @@ def test_mosmix_date_filter(default_settings):
         settings=default_settings,
     ).filter_by_rank(latlon=(52.122050, 11.619845), rank=1)
     given_df = request.values.all().df
-    assert len(given_df) == 40
+    assert len(given_df) == 38
 
 
 @pytest.mark.remote
-def test_mosmix_l_parameters(settings_humanize_false):
+def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false):
     """
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
@@ -259,7 +259,7 @@ def test_mosmix_l_parameters(settings_humanize_false):
             ("hourly", "large", "dd"),
             ("hourly", "large", "ww"),
         ],
-        settings=settings_humanize_false,
+        settings=settings_humanize_false_drop_nulls_false,
     ).filter_by_station_id(
         station_id=("01001", "123"),
     )

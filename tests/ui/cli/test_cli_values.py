@@ -39,7 +39,7 @@ SETTINGS_VALUES = (
         [
             "--parameters=hourly/icon",
             "--lead_time=long",
-            f"--date={datetime.strftime(datetime.today() + timedelta(days=4), '%Y-%m-%d')}",
+            f"--date={datetime.strftime(datetime.today() + timedelta(days=3), '%Y-%m-%d')}",
         ],
         "10488",
         "DRESDEN",

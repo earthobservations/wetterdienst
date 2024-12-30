@@ -21,21 +21,21 @@ def default_settings():
     return Settings()
 
 
+@pytest.fixture
+def settings_drop_nulls_false():
+    return Settings(ts_drop_nulls=False)
+
+
 # True settings
 @pytest.fixture
 def settings_skip_empty_true():
     return Settings(ts_skip_empty=True)
 
 
-@pytest.fixture
-def settings_drop_nulls_true():
-    return Settings(ts_drop_nulls=True)
-
-
 # False settings
 @pytest.fixture
-def settings_humanize_false():
-    return Settings(ts_humanize=False)
+def settings_humanize_false_drop_nulls_false():
+    return Settings(ts_humanize=False, ts_drop_nulls=False)
 
 
 @pytest.fixture

@@ -265,13 +265,13 @@ def test_values_dwd_success(client):
             "provider": "dwd",
             "network": "observation",
             "station": "01359",
-            "parameters": "daily/kl",
+            "parameters": "daily/kl/wind_gust_max",
             "periods": "historical",
             "date": "1982-01-01",
         },
     )
     assert response.status_code == 200
-    item = response.json()["values"][12]
+    item = response.json()["values"][0]
     assert item == {
         "station_id": "01359",
         "dataset": "climate_summary",
