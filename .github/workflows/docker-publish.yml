@@ -42,7 +42,7 @@ jobs:
         run: uv sync
 
       - name: Build wheel package
-        run: uvx --from build pyproject-build --installer uv
+        run: uv build
 
       - name: Upload wheel package
         uses: actions/upload-artifact@v4

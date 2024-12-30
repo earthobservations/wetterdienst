@@ -18,6 +18,7 @@
 - Change default of `drop_nulls` to True
 - Replace occurrences of `dt.timezone.utc` by `ZoneInfo("UTC")`
 - Improve release workflow using `uv build` and `uv publish`
+- Improve docker-publish workflow to use `uv build`
 
 ## 0.98.0 - 2024-12-09
 
