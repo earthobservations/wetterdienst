@@ -11,9 +11,15 @@ def test_cli_summarize():
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        "summarize --provider=dwd --network=observation "
-        "--parameters=daily/climate_summary/temperature_air_mean_2m "
-        "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
+        [
+            "summarize",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31/1986-11-01",
+            "--format=json",
+        ],
     )
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
@@ -44,9 +50,15 @@ def test_cli_summarize_geojson():
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        "summarize --provider=dwd --network=observation "
-        "--parameters=daily/climate_summary/temperature_air_mean_2m "
-        "--station=00071 --date=1986-10-31/1986-11-01 --format=geojson",
+        [
+            "summarize",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31/1986-11-01",
+            "--format=geojson",
+        ],
     )
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)

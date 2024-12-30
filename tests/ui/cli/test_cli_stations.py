@@ -14,7 +14,7 @@ SETTINGS_STATIONS = (
     (
         "dwd",
         "observation",
-        "--parameters=daily/kl --periods=recent",
+        ["--parameters=daily/kl", "--periods=recent"],
         "01048",
         # expected dict
         {
@@ -34,7 +34,9 @@ SETTINGS_STATIONS = (
     (
         "dwd",
         "mosmix",
-        "--parameters=hourly/large",
+        [
+            "--parameters=hourly/large",
+        ],
         "10488",
         {
             "station_id": "10488",
@@ -53,7 +55,9 @@ SETTINGS_STATIONS = (
     (
         "dwd",
         "dmo",
-        "--parameters=hourly/icon",
+        [
+            "--parameters=hourly/icon",
+        ],
         "10488",
         {
             "station_id": "10488",
@@ -76,15 +80,23 @@ def invoke_wetterdienst_stations_empty(provider, network, setting, fmt="json"):
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} {setting} --station=123456 --format={fmt}",
+        ["stations", f"--provider={provider}", f"--network={network}", "--station=123456", f"--format={fmt}"] + setting,
     )
 
 
-def invoke_wetterdienst_stations_static(provider, network, setting, station, fmt="json", additional=""):
+def invoke_wetterdienst_stations_static(provider, network, setting, station, fmt="json", additional: list = None):
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} {setting} --station={station} --format={fmt} {additional}",
+        [
+            "stations",
+            f"--provider={provider}",
+            f"--network={network}",
+            f"--station={station}",
+            f"--format={fmt}",
+        ]
+        + setting
+        + (additional or []),
     )
 
 
@@ -92,17 +104,31 @@ def invoke_wetterdienst_stations_export(provider, network, setting, station, tar
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} {setting} --station={station} --target={target}",
+        [
+            "stations",
+            f"--provider={provider}",
+            f"--network={network}",
+            f"--station={station}",
+            f"--target={target}",
+        ]
+        + setting,
     )
 
 
-def invoke_wetterdienst_stations_filter_by_rank(provider, network, setting, fmt="json", additional=""):
+def invoke_wetterdienst_stations_filter_by_rank(provider, network, setting, fmt="json", additional: list = None):
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} "
-        f"{setting} --coordinates=51.1278,13.7543 --rank=5 "
-        f"--format={fmt} {additional}",
+        [
+            "stations",
+            f"--provider={provider}",
+            f"--network={network}",
+            "--coordinates=51.1278,13.7543",
+            "--rank=5",
+            f"--format={fmt}",
+        ]
+        + setting
+        + (additional or []),
     )
 
 
@@ -139,10 +165,10 @@ def test_cli_stations_json_with_metadata(metadata):
     result = invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="json",
-        additional="--with-metadata=true",
+        additional=["--with-metadata=true"],
     )
     response = json.loads(result.output)
     assert response.keys() == {"stations", "metadata"}
@@ -192,10 +218,10 @@ def test_cli_stations_geojson_with_metadata(metadata):
     result = invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="geojson",
-        additional="--with-metadata=true",
+        additional=["--with-metadata=true"],
     )
     response = json.loads(result.output)
     assert response.keys() == {"data", "metadata"}
@@ -286,10 +312,10 @@ def test_cli_stations_json_pretty_false(json_dumps_mock):
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="json",
-        additional="--pretty=false",
+        additional=["--pretty=false"],
     )
     assert json_dumps_mock.call_args.kwargs["indent"] is None
 
@@ -300,10 +326,10 @@ def test_cli_stations_json_pretty_true(json_dumps_mock):
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="json",
-        additional="--pretty=true",
+        additional=["--pretty=true"],
     )
     assert json_dumps_mock.call_args.kwargs["indent"] == 4
 
@@ -314,10 +340,10 @@ def test_cli_stations_geojson_pretty_false(json_dumps_mock):
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="geojson",
-        additional="--pretty=false",
+        additional=["--pretty=false"],
     )
     assert json_dumps_mock.call_args.kwargs["indent"] is None
 
@@ -328,9 +354,9 @@ def test_cli_stations_geojson_pretty_true(json_dumps_mock):
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="geojson",
-        additional="--pretty=true",
+        additional=["--pretty=true"],
     )
     assert json_dumps_mock.call_args.kwargs["indent"] == 4

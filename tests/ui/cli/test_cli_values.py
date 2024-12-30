@@ -15,68 +15,105 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "observation",
-        "--parameters=daily/kl --date=2020-06-30",
+        ["--parameters=daily/kl", "--date=2020-06-30"],
         "01048",
         "Dresden-Klotzsche",
     ),
     (
         "dwd",
         "mosmix",
-        "--parameters=hourly/large " f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
+        ["--parameters=hourly/large", f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}"],
         "10488",
         "DRESDEN",
     ),
     (
         "dwd",
         "dmo",
-        "--parameters=hourly/icon " f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
+        ["--parameters=hourly/icon", f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}"],
         "10488",
         "DRESDEN",
     ),
     (
         "dwd",
         "dmo",
-        "--parameters=hourly/icon --lead-time=long "
-        f"--date={datetime.strftime(datetime.today() + timedelta(days=4), '%Y-%m-%d')}",
+        [
+            "--parameters=hourly/icon",
+            "--lead-time=long",
+            f"--date={datetime.strftime(datetime.today() + timedelta(days=4), '%Y-%m-%d')}",
+        ],
         "10488",
         "DRESDEN",
     ),
 )
 
 
-def invoke_wetterdienst_values_static(provider, network, setting, station, fmt="json", additional=""):
+def invoke_wetterdienst_values_static(provider, network, setting: list, station, fmt="json", additional: list = None):
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} "
-        f"{setting} --station={station} --format={fmt} --shape=long {additional}",
+        [
+            "values",
+            f"--provider={provider}",
+            f"--network={network}",
+            f"--station={station}",
+            f"--format={fmt}",
+            "--shape=long",
+        ]
+        + setting
+        + (additional or []),
     )
 
 
-def invoke_wetterdienst_values_static_wide(provider, network, setting, station, fmt="json", additional=""):
+def invoke_wetterdienst_values_static_wide(
+    provider, network, setting: list, station, fmt="json", additional: list = None
+):
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} --station={station} "
-        f"--shape=wide --format={fmt} {additional}",
+        [
+            "values",
+            f"--provider={provider}",
+            f"--network={network}",
+            f"--station={station}",
+            "--shape=wide",
+            f"--format={fmt}",
+        ]
+        + setting
+        + (additional or []),
     )
 
 
-def invoke_wetterdienst_values_export_wide(provider, network, setting, station, target):
+def invoke_wetterdienst_values_export_wide(provider, network, setting: list, station, target):
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} --station={station} "
-        f"--shape=wide --target={target}",
+        [
+            "values",
+            f"--provider={provider}",
+            f"--network={network}",
+            f"--station={station}",
+            "--shape=wide",
+            f"--target={target}",
+        ]
+        + setting,
     )
 
 
-def invoke_wetterdienst_values_filter_by_rank(provider, network, setting, fmt="json", additional=""):
+def invoke_wetterdienst_values_filter_by_rank(provider, network, setting: list, fmt="json", additional: list = None):
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} "
-        f"--coordinates=51.1280,13.7543 --rank=10 --shape=wide --format={fmt} {additional}",
+        [
+            "values",
+            f"--provider={provider}",
+            f"--network={network}",
+            "--coordinates=51.1280,13.7543",
+            "--rank=10",
+            "--shape=wide",
+            f"--format={fmt}",
+        ]
+        + setting
+        + (additional or []),
     )
 
 
@@ -107,7 +144,10 @@ def test_cli_values_json_multiple_stations():
     result = invoke_wetterdienst_values_static_wide(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=historical",
+        setting=[
+            "--parameters=daily/kl",
+            "--periods=historical",
+        ],
         station="01047,01048",
         fmt="json",
     )
@@ -121,7 +161,10 @@ def test_cli_values_json_multiple_datasets():
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl,daily/more_precip --date=2020-06-30",
+        setting=[
+            "--parameters=daily/kl,daily/more_precip",
+            "--date=2020-06-30",
+        ],
         station="01048",
         fmt="json",
     )
@@ -172,10 +215,16 @@ def test_cli_values_json_with_metadata_with_stations(metadata):
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=historical",
+        setting=[
+            "--parameters=daily/kl",
+            "--periods=historical",
+        ],
         station="01047,01048",
         fmt="json",
-        additional="--with-metadata=true --with-stations=true",
+        additional=[
+            "--with-metadata=true",
+            "--with-stations=true",
+        ],
     )
     response = json.loads(result.output)
     assert response.keys() == {"values", "metadata", "stations"}
@@ -210,10 +259,15 @@ def test_cli_values_json_indent_false(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=[
+            "--parameters=daily/kl",
+            "--periods=recent",
+        ],
         station="01048",
         fmt="json",
-        additional="--pretty=false",
+        additional=[
+            "--pretty=false",
+        ],
     )
     assert json_dumps_mock.call_args.kwargs["indent"] is None
 
@@ -224,10 +278,15 @@ def test_cli_values_json_indent_true(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=[
+            "--parameters=daily/kl",
+            "--periods=recent",
+        ],
         station="01048",
         fmt="json",
-        additional="--pretty=true",
+        additional=[
+            "--pretty=true",
+        ],
     )
     assert json_dumps_mock.call_args.kwargs["indent"] == 4
 
@@ -237,7 +296,10 @@ def test_cli_values_geojson():
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=[
+            "--parameters=daily/kl",
+            "--periods=recent",
+        ],
         station="01048",
         fmt="geojson",
     )
@@ -268,10 +330,15 @@ def test_cli_values_geojson_with_metadata(metadata):
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=[
+            "--parameters=daily/kl",
+            "--periods=recent",
+        ],
         station="01048",
         fmt="geojson",
-        additional="--with-metadata=true",
+        additional=[
+            "--with-metadata=true",
+        ],
     )
     response = json.loads(result.output)
     assert response.keys() == {"data", "metadata"}
@@ -284,10 +351,15 @@ def test_cli_values_geojson_pretty_false(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=[
+            "--parameters=daily/kl",
+            "--periods=recent",
+        ],
         station="01048",
         fmt="geojson",
-        additional="--pretty=false",
+        additional=[
+            "--pretty=false",
+        ],
     )
     assert json_dumps_mock.call_args.kwargs["indent"] is None
 
@@ -298,10 +370,15 @@ def test_cli_values_geojson_pretty_true(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameters=daily/kl --periods=recent",
+        setting=[
+            "--parameters=daily/kl",
+            "--periods=recent",
+        ],
         station="01048",
         fmt="geojson",
-        additional="--pretty=true",
+        additional=[
+            "--pretty=true",
+        ],
     )
     assert json_dumps_mock.call_args.kwargs["indent"] == 4
 

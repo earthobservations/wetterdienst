@@ -12,9 +12,15 @@ def test_cli_interpolate():
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        "interpolate --provider=dwd --network=observation "
-        "--parameters=daily/kl/temperature_air_mean_2m "
-        "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
+        [
+            "interpolate",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31/1986-11-01",
+            "--format=json",
+        ],
     )
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
@@ -45,9 +51,17 @@ def test_cli_interpolate_with_metadata_with_stations(metadata):
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        "interpolate --provider=dwd --network=observation "
-        "--parameters=daily/climate_summary/temperature_air_mean_2m "
-        "--station=00071 --date=1986-10-31/1986-11-01 --format=json --with-metadata=true --with-stations=true",
+        [
+            "interpolate",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31/1986-11-01",
+            "--format=json",
+            "--with-metadata=true",
+            "--with-stations=true",
+        ],
     )
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
@@ -113,9 +127,15 @@ def test_cli_interpolate_geojson():
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        "interpolate --provider=dwd --network=observation "
-        "--parameters=daily/climate_summary/temperature_air_mean_2m "
-        "--station=00071 --date=1986-10-31/1986-11-01 --format=geojson",
+        [
+            "interpolate",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31/1986-11-01",
+            "--format=geojson",
+        ],
     )
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
