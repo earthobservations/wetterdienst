@@ -14,7 +14,6 @@ from wetterdienst.core.timeseries.metadata import parse_parameters
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import parse_date
 
 if TYPE_CHECKING:
@@ -25,6 +24,7 @@ if TYPE_CHECKING:
         SummarizedValuesResult,
         ValuesResult,
     )
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -66,28 +66,10 @@ def _get_stations_request(
     lead_time: Literal["short", "long"] | None,
     date: str | None,
     issue: str,
-    si_units: bool,
-    shape: Literal["long", "wide"],
-    humanize: bool,
-    skip_empty: bool,
-    skip_threshold: float,
-    skip_criteria: Literal["min", "mean", "max"],
-    dropna: bool,
-    use_nearby_station_distance: float,
+    settings: Settings,
 ):
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
-
-    settings = Settings(
-        ts_si_units=si_units,
-        ts_shape=shape,
-        ts_humanize=humanize,
-        ts_skip_empty=skip_empty,
-        ts_skip_criteria=skip_criteria,
-        ts_skip_threshold=skip_threshold,
-        ts_dropna=dropna,
-        ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
-    )
 
     # TODO: move this into Request core
     start_date, end_date = None, None
@@ -130,7 +112,7 @@ def get_stations(
     api,
     parameters: list[str],
     periods: list[str],
-    lead_time: str,
+    lead_time: Literal["short", "long"] | None,
     date: str | None,
     issue: str | None,
     all_: bool,
@@ -141,30 +123,11 @@ def get_stations(
     distance: float,
     bbox: str,
     sql: str,
-    si_units: bool,
-    shape: Literal["wide", "long"],
-    humanize: bool,
-    skip_empty: bool,
-    skip_threshold: float,
-    skip_criteria: Literal["min", "mean", "max"],
-    dropna: bool,
+    settings,
 ) -> StationsResult:
     """Core function for querying stations via cli and restapi"""
     r = _get_stations_request(
-        api=api,
-        parameters=parameters,
-        periods=periods,
-        lead_time=lead_time,
-        date=date,
-        issue=issue,
-        si_units=si_units,
-        shape=shape,
-        humanize=humanize,
-        skip_empty=skip_empty,
-        skip_threshold=skip_threshold,
-        skip_criteria=skip_criteria,
-        dropna=dropna,
-        use_nearby_station_distance=0,
+        api=api, parameters=parameters, periods=periods, lead_time=lead_time, date=date, issue=issue, settings=settings
     )
 
     if all_:
@@ -237,13 +200,7 @@ def get_values(
     bbox: str,
     sql: str,
     sql_values: str,
-    si_units: bool,
-    shape: Literal["wide", "long"],
-    humanize: bool,
-    skip_empty: bool,
-    skip_threshold: float,
-    skip_criteria: Literal["min", "mean", "max"],
-    dropna: bool,
+    settings: Settings,
 ) -> ValuesResult:
     """Core function for querying values via cli and restapi"""
     stations_ = get_stations(
@@ -261,13 +218,7 @@ def get_values(
         distance=distance,
         bbox=bbox,
         sql=sql,
-        si_units=si_units,
-        shape=shape,
-        humanize=humanize,
-        skip_empty=skip_empty,
-        skip_threshold=skip_threshold,
-        skip_criteria=skip_criteria,
-        dropna=dropna,
+        settings=settings,
     )
 
     try:
@@ -299,26 +250,11 @@ def get_interpolate(
     coordinates: str,
     station_id: str,
     sql_values: str,
-    si_units: bool,
-    humanize: bool,
-    use_nearby_station_distance: float,
+    settings: Settings,
 ) -> InterpolatedValuesResult:
     """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
-        api=api,
-        parameters=parameters,
-        periods=periods,
-        lead_time=lead_time,
-        date=date,
-        issue=issue,
-        si_units=si_units,
-        shape="long",
-        humanize=humanize,
-        skip_empty=False,
-        skip_threshold=0,
-        skip_criteria="min",
-        dropna=False,
-        use_nearby_station_distance=use_nearby_station_distance,
+        api=api, parameters=parameters, periods=periods, lead_time=lead_time, date=date, issue=issue, settings=settings
     )
 
     try:
@@ -352,25 +288,11 @@ def get_summarize(
     coordinates: str,
     station_id: str,
     sql_values: str,
-    si_units: bool,
-    humanize: bool,
+    settings: Settings,
 ) -> SummarizedValuesResult:
     """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
-        api=api,
-        parameters=parameters,
-        periods=periods,
-        lead_time=lead_time,
-        date=date,
-        issue=issue,
-        si_units=si_units,
-        shape="long",
-        humanize=humanize,
-        skip_empty=False,
-        skip_threshold=0,
-        skip_criteria="min",
-        dropna=False,
-        use_nearby_station_distance=0,
+        api=api, parameters=parameters, periods=periods, lead_time=lead_time, date=date, issue=issue, settings=settings
     )
 
     try:

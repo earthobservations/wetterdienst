@@ -18,7 +18,7 @@ from cloup import Section
 from cloup.constraints import If, RequireExactly, accept_none
 from PIL import Image
 
-from wetterdienst import Provider, Wetterdienst, __appname__, __version__
+from wetterdienst import Provider, Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.ui.core import (
     _get_stripes_stations,
     _plot_stripes,
@@ -787,13 +787,7 @@ def stations(
         distance=distance,
         bbox=bbox,
         sql=sql,
-        shape="long",
-        si_units=False,
-        humanize=False,
-        skip_empty=False,
-        skip_criteria="min",
-        skip_threshold=0.95,
-        dropna=False,
+        settings=Settings(),
     )
 
     if stations_.df.is_empty():
@@ -877,6 +871,16 @@ def values(
 
     api = get_api(provider, network)
 
+    settings = Settings(
+        ts_humanize=humanize,
+        ts_shape=shape,
+        ts_si_units=si_units,
+        ts_skip_empty=skip_empty,
+        ts_skip_criteria=skip_criteria,
+        ts_skip_threshold=skip_threshold,
+        ts_dropna=dropna,
+    )
+
     try:
         values_ = get_values(
             api=api,
@@ -894,13 +898,7 @@ def values(
             bbox=bbox,
             sql=sql,
             sql_values=sql_values,
-            si_units=si_units,
-            shape=shape,
-            humanize=humanize,
-            skip_empty=skip_empty,
-            skip_criteria=skip_criteria,
-            skip_threshold=skip_threshold,
-            dropna=dropna,
+            settings=settings,
         )
     except ValueError as e:
         log.exception(e)
@@ -973,6 +971,12 @@ def interpolate(
 
     api = get_api(provider, network)
 
+    settings = Settings(
+        ts_humanize=humanize,
+        ts_si_units=si_units,
+        ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
+    )
+
     try:
         values_ = get_interpolate(
             api=api,
@@ -984,9 +988,7 @@ def interpolate(
             station_id=station,
             coordinates=coordinates,
             sql_values=sql_values,
-            si_units=si_units,
-            humanize=humanize,
-            use_nearby_station_distance=use_nearby_station_distance,
+            settings=settings,
         )
     except ValueError as e:
         log.exception(e)
@@ -1057,6 +1059,11 @@ def summarize(
 
     api = get_api(provider, network)
 
+    settings = Settings(
+        ts_humanize=humanize,
+        ts_si_units=si_units,
+    )
+
     try:
         values_ = get_summarize(
             api=api,
@@ -1068,8 +1075,7 @@ def summarize(
             station_id=station,
             coordinates=coordinates,
             sql_values=sql_values,
-            si_units=si_units,
-            humanize=humanize,
+            settings=settings,
         )
     except ValueError as e:
         log.exception(e)

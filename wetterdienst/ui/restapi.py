@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal, Union
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
-from wetterdienst import Author, Info, Provider, Wetterdienst
+from wetterdienst import Author, Info, Provider, Settings, Wetterdienst
 from wetterdienst.core.timeseries.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -30,9 +30,6 @@ from wetterdienst.ui.core import (
     set_logging_level,
 )
 from wetterdienst.util.cli import read_list, setup_logging
-
-if TYPE_CHECKING:
-    from wetterdienst.core.timeseries.request import TimeseriesRequest
 
 info = Info()
 
@@ -283,13 +280,7 @@ def stations(
             distance=distance,
             bbox=bbox,
             sql=sql,
-            shape="long",
-            si_units=False,
-            humanize=False,
-            skip_empty=False,
-            skip_threshold=0.95,
-            skip_criteria="min",
-            dropna=False,
+            settings=Settings(),
         )
     except (KeyError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -339,6 +330,7 @@ def values(
     skip_threshold: Annotated[float, Query(alias="skip-threshold", gt=0, le=1)] = 0.95,
     skip_criteria: Annotated[Literal["min", "mean", "max"], Query(alias="skip-criteria")] = "min",
     dropna: Annotated[bool, Query(alias="dropna")] = False,
+    use_nearby_station_distance: Annotated[float, Query()] = 1.0,
     fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
     pretty: Annotated[bool, Query()] = False,
     debug: Annotated[bool, Query()] = False,
@@ -360,6 +352,17 @@ def values(
     if station:
         station = read_list(station)
 
+    settings = Settings(
+        ts_si_units=si_units,
+        ts_shape=shape,
+        ts_humanize=humanize,
+        ts_skip_empty=skip_empty,
+        ts_skip_criteria=skip_criteria,
+        ts_skip_threshold=skip_threshold,
+        ts_dropna=dropna,
+        ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
+    )
+
     try:
         values_ = get_values(
             api=api,
@@ -377,13 +380,7 @@ def values(
             bbox=bbox,
             sql=sql,
             sql_values=sql_values,
-            si_units=si_units,
-            skip_empty=skip_empty,
-            skip_threshold=skip_threshold,
-            skip_criteria=skip_criteria,
-            dropna=dropna,
-            shape=shape,
-            humanize=humanize,
+            settings=settings,
         )
     except Exception as e:
         log.exception(e)
@@ -420,6 +417,7 @@ def interpolate(
     sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
     humanize: Annotated[bool, Query()] = True,
     si_units: Annotated[bool, Query(alias="si-units")] = True,
+    interpolation_station_distance: Annotated[str | None, Query()] = None,
     use_nearby_station_distance: Annotated[float, Query()] = 1.0,
     fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
     pretty: Annotated[bool, Query()] = False,
@@ -429,7 +427,7 @@ def interpolate(
     set_logging_level(debug)
 
     try:
-        api: TimeseriesRequest = Wetterdienst(provider, network)
+        api = Wetterdienst(provider, network)
     except KeyError as e:
         raise HTTPException(
             status_code=404,
@@ -443,6 +441,23 @@ def interpolate(
     if station:
         station = read_list(station)
 
+    if interpolation_station_distance:
+        try:
+            interpolation_station_distance = json.loads(interpolation_station_distance)
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=400,
+                detail="""Interpolation station distance must be a valid JSON object
+                e.g. '{"precipitation_height": 20.0}'""",
+            ) from e
+
+    settings = Settings(
+        ts_humanize=humanize,
+        ts_si_units=si_units,
+        ts_interpolation_station_distance=interpolation_station_distance,
+        ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
+    )
+
     try:
         values_ = get_interpolate(
             api=api,
@@ -454,9 +469,7 @@ def interpolate(
             station_id=station,
             coordinates=coordinates,
             sql_values=sql_values,
-            si_units=si_units,
-            humanize=humanize,
-            use_nearby_station_distance=use_nearby_station_distance,
+            settings=settings,
         )
     except Exception as e:
         log.exception(e)
@@ -498,7 +511,7 @@ def summarize(
     set_logging_level(debug)
 
     try:
-        api: TimeseriesRequest = Wetterdienst(provider, network)
+        api = Wetterdienst(provider, network)
     except KeyError as e:
         raise HTTPException(
             status_code=404,
@@ -512,6 +525,11 @@ def summarize(
     if station:
         station = read_list(station)
 
+    settings = Settings(
+        ts_humanize=humanize,
+        ts_si_units=si_units,
+    )
+
     try:
         values_ = get_summarize(
             api=api,
@@ -523,8 +541,7 @@ def summarize(
             station_id=station,
             coordinates=coordinates,
             sql_values=sql_values,
-            si_units=si_units,
-            humanize=humanize,
+            settings=settings,
         )
     except Exception as e:
         log.exception(e)
