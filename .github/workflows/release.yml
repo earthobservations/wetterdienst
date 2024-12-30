@@ -21,11 +21,8 @@ jobs:
       - name: Install project
         run: uv sync
 
-      - name: Install project
-        run: .github/workflows/install.sh testing
-
       - name: Build
-        run: uvx --from build pyproject-build --installer uv
+        run: uv build
 
       - name: Publish
-        run: uvx twine upload dist/* --username=__token__ --password=${{ secrets.PYPI_TOKEN }}
+        run: uv publish
