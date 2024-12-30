@@ -782,7 +782,7 @@ def stations(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "all_": all_,
+            "all": all_,
             "station": station,
             "name": name,
             "coordinates": coordinates,
@@ -850,7 +850,7 @@ def stations(
 @cloup.option("--skip_empty", type=click.BOOL, default=False)
 @cloup.option("--skip_criteria", type=click.Choice(["min", "mean", "max"]), default="min")
 @cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
-@cloup.option("--drop_nulls", type=click.BOOL, default=False)
+@cloup.option("--drop_nulls", type=click.BOOL, default=True)
 @cloup.option("--with_metadata", type=click.BOOL, default=False)
 @cloup.option("--with_stations", type=click.BOOL, default=False)
 @debug_opt

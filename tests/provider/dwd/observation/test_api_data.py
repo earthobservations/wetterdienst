@@ -170,14 +170,14 @@ def test_request_period_empty(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_missing_data(default_settings):
+def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false):
     """Test for DataFrame having empty values for dates where the station should not
     have values"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start_date="1933-12-27",  # few days before official start
         end_date="1934-01-04",  # few days after official start,
-        settings=default_settings,
+        settings=settings_drop_nulls_false,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -187,7 +187,7 @@ def test_dwd_observation_data_result_missing_data(default_settings):
         parameters=[DwdObservationMetadata.hourly.temperature_air.temperature_air_mean_2m],
         start_date="2020-06-09 12:00:00",  # no data at this time (reason unknown)
         end_date="2020-06-09 12:00:00",
-        settings=default_settings,
+        settings=settings_drop_nulls_false,
     ).filter_by_station_id(
         station_id=["03348"],
     )
@@ -568,13 +568,13 @@ def test_dwd_observation_data_result_wide_two_datasets(
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
+def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_false):
     """Test for actual values (format) in metric units"""
     request = DwdObservationRequest(
         parameters=[("daily", "kl")],
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        settings=settings_humanize_false,
+        settings=settings_humanize_false_drop_nulls_false,
     ).filter_by_station_id(
         station_id=(1048,),
     )
@@ -1119,13 +1119,13 @@ def test_create_humanized_column_names_mapping():
 
 
 @pytest.mark.remote
-def test_tidy_up_data(settings_humanize_false):
+def test_tidy_up_data(settings_humanize_false_drop_nulls_false):
     """Test for function to format data"""
     request = DwdObservationRequest(
         parameters=[("daily", "kl")],
         periods="historical",
         start_date="2019-01-23 00:00:00",
-        settings=settings_humanize_false,
+        settings=settings_humanize_false_drop_nulls_false,
     ).filter_by_station_id(("01048",))
     df = pl.DataFrame(
         [
@@ -1436,4 +1436,4 @@ def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings):
         settings=default_settings,
     ).filter_by_station_id(1048)
     values = request.values.all().df
-    assert values.get_column("value").sum() == 2681.8
+    assert round(values.get_column("value").sum(), 2) == 2681.8

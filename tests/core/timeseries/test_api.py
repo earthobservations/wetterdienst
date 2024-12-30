@@ -69,7 +69,7 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(s
 
 
 @pytest.mark.remote
-def test_api_drop_nulls(settings_drop_nulls_true):
+def test_api_drop_nulls(default_settings):
     request = DwdObservationRequest(
         parameters=[
             ("minute_10", "temperature_air"),
@@ -77,7 +77,7 @@ def test_api_drop_nulls(settings_drop_nulls_true):
         ],
         start_date="2021-01-01",
         end_date="2021-12-31",
-        settings=settings_drop_nulls_true,
+        settings=default_settings,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=20)
     values = next(request.values.query())
     assert values.df.shape[0] == 51971

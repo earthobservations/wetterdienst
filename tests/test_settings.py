@@ -22,7 +22,7 @@ def test_default_settings(caplog):
     assert default_settings.ts_si_units
     assert not default_settings.ts_skip_empty
     assert default_settings.ts_skip_threshold == 0.95
-    assert not default_settings.ts_drop_nulls
+    assert default_settings.ts_drop_nulls
     assert default_settings.ts_interpolation_station_distance == {
         "default": 40.0,
         "precipitation_height": 20.0,

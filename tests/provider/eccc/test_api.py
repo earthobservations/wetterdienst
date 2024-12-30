@@ -195,22 +195,6 @@ def test_eccc_api_values(settings_si_false):
             {
                 "station_id": "1652",
                 "dataset": "data",
-                "parameter": "wind_direction_gust_max",
-                "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "1652",
-                "dataset": "data",
-                "parameter": "wind_direction_gust_max",
-                "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "1652",
-                "dataset": "data",
                 "parameter": "wind_gust_max",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 31.0,
