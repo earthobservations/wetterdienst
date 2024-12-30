@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
+import json
 import logging
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -9,12 +10,14 @@ from io import BytesIO
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
+from pydantic import BaseModel, Field, confloat, field_validator
 
 from wetterdienst.core.timeseries.metadata import parse_parameters
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import parse_date
+from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -27,6 +30,261 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+
+# only used by restapi for raw type hints
+class StationsRequestRaw(BaseModel):
+    provider: str
+    network: str
+    parameters: str
+    periods: str | None = None
+
+    # Mosmix/DMO
+    lead_time: Literal["short", "long"] | None = None
+    issue: str | None = None
+
+    # station filter parameters
+    all: bool | None = False
+    station: str | None = Field(default=None)
+    name: str | None = None
+    coordinates: str | None = None
+    rank: int | None = Field(default=None, ge=1)
+    distance: float | None = Field(default=None, ge=0)
+    bbox: str | None = None
+    sql: str | None = None
+
+    format: Literal["json", "geojson", "csv"] = "json"
+    pretty: bool = False
+    debug: bool = False
+
+
+class StationsRequest(StationsRequestRaw):
+    parameters: list[str]
+    periods: list[str] | None = None
+    # comma separated list parameters
+    station: list[str] | None = None
+    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+    bbox: (
+        tuple[confloat(ge=-180, le=180), confloat(ge=-90, le=90), confloat(ge=-180, le=180), confloat(ge=-90, le=90)]
+        | None
+    ) = None
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v):
+        return read_list(v)
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("station", mode="before")
+    @classmethod
+    def validate_station(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("coordinates", mode="before")
+    @classmethod
+    def validate_coordinates(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def validate_bbox(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+
+class ValuesRequestRaw(StationsRequestRaw):
+    date: str | None = None
+    sql_values: str | None = None
+    humanize: bool = True
+    shape: Literal["long", "wide"] = "long"
+    si_units: bool = True
+    skip_empty: bool = False
+    skip_threshold: confloat(gt=0, le=1) = 0.95
+    skip_criteria: Literal["min", "mean", "max"] = "min"
+    dropna: bool = False
+
+
+class ValuesRequest(ValuesRequestRaw):
+    parameters: list[str]
+    periods: list[str] | None = None
+    # comma separated list parameters
+    station: list[str] | None = None
+    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+    bbox: (
+        tuple[confloat(ge=-180, le=180), confloat(ge=-90, le=90), confloat(ge=-180, le=180), confloat(ge=-90, le=90)]
+        | None
+    ) = None
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v):
+        return read_list(v)
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("station", mode="before")
+    @classmethod
+    def validate_station(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("coordinates", mode="before")
+    @classmethod
+    def validate_coordinates(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def validate_bbox(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+
+# start from scratch as parameters are different
+class InterpolationRequestRaw(BaseModel):
+    provider: str
+    network: str
+    parameters: str
+    periods: str | None = None
+
+    date: str
+
+    # Mosmix/DMO
+    lead_time: Literal["short", "long"] | None = None
+    issue: str | None = None
+
+    # station filter parameters
+    station: str | None = Field(default=None)
+    coordinates: str | None = None
+
+    sql_values: str | None = None
+    humanize: bool = True
+    si_units: bool = True
+    interpolation_station_distance: str | None = None
+    use_nearby_station_distance: confloat(ge=0) = 1.0
+    format: Literal["json", "geojson", "csv"] = "json"
+    pretty: bool = False
+    debug: bool = False
+
+
+class InterpolationRequest(InterpolationRequestRaw):
+    parameters: list[str]
+    periods: list[str] | None = None
+    # comma separated list parameters
+    station: list[str] | None = None
+    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+    interpolation_station_distance: dict[str, confloat(ge=0)] | None = None
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v):
+        return read_list(v)
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("station", mode="before")
+    @classmethod
+    def validate_station(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("coordinates", mode="before")
+    @classmethod
+    def validate_coordinates(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("interpolation_station_distance", mode="before")
+    @classmethod
+    def validate_interpolation_station_distance(cls, v):
+        if v:
+            return json.loads(v)
+        return None
+
+
+class SummaryRequestRaw(BaseModel):
+    provider: str
+    network: str
+    parameters: str
+    periods: str | None = None
+
+    date: str
+
+    # Mosmix/DMO
+    lead_time: Literal["short", "long"] | None = None
+    issue: str | None = None
+
+    # station filter parameters
+    station: str | None = Field(default=None)
+    coordinates: str | None = None
+
+    sql_values: str | None = None
+    humanize: bool = True
+    si_units: bool = True
+    format: Literal["json", "geojson", "csv"] = "json"
+    pretty: bool = False
+    debug: bool = False
+
+
+class SummaryRequest(SummaryRequestRaw):
+    parameters: list[str]
+    periods: list[str] | None = None
+    # comma separated list parameters
+    station: list[str] | None = None
+    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v):
+        return read_list(v)
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("station", mode="before")
+    @classmethod
+    def validate_station(cls, v):
+        if v:
+            return read_list(v)
+        return None
+
+    @field_validator("coordinates", mode="before")
+    @classmethod
+    def validate_coordinates(cls, v):
+        if v:
+            return read_list(v)
+        return None
 
 
 def unpack_parameters(parameter: str) -> list[str]:
@@ -61,11 +319,8 @@ def unpack_parameters(parameter: str) -> list[str]:
 
 def _get_stations_request(
     api,
-    parameters: list[str],
-    periods: list[str],
-    lead_time: Literal["short", "long"] | None,
+    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
     date: str | None,
-    issue: str,
     settings: Settings,
 ):
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
@@ -83,7 +338,7 @@ def _get_stations_request(
         else:
             start_date = parse_date(date)
 
-    parameters = parse_parameters(parameters, api.metadata)
+    parameters = parse_parameters(request.parameters, api.metadata)
 
     any_date_required = any(parameter.dataset.date_required for parameter in parameters)
     if any_date_required and (not start_date or not end_date):
@@ -97,80 +352,53 @@ def _get_stations_request(
         "end_date": end_date,
     }
     if any_multiple_period_dataset:
-        kwargs["periods"] = periods
+        kwargs["periods"] = request.periods
 
     if isinstance(api, DwdMosmixRequest):
-        kwargs["issue"] = issue
+        kwargs["issue"] = request.issue
     elif isinstance(api, DwdDmoRequest):
-        kwargs["issue"] = issue
-        kwargs["lead_time"] = lead_time
+        kwargs["issue"] = request.issue
+        kwargs["lead_time"] = request.lead_time
 
     return api(**kwargs, settings=settings)
 
 
 def get_stations(
     api,
-    parameters: list[str],
-    periods: list[str],
-    lead_time: Literal["short", "long"] | None,
+    request: StationsRequest | ValuesRequest | InterpolationRequest,
     date: str | None,
-    issue: str | None,
-    all_: bool,
-    station_id: list[str],
-    name: str,
-    coordinates: str,
-    rank: int,
-    distance: float,
-    bbox: str,
-    sql: str,
     settings,
 ) -> StationsResult:
     """Core function for querying stations via cli and restapi"""
-    r = _get_stations_request(
-        api=api, parameters=parameters, periods=periods, lead_time=lead_time, date=date, issue=issue, settings=settings
-    )
+    r = _get_stations_request(api=api, request=request, date=date, settings=settings)
 
-    if all_:
+    if request.all:
         return r.all()
 
-    elif station_id:
-        return r.filter_by_station_id(station_id)
+    elif request.station:
+        return r.filter_by_station_id(request.station)
 
-    elif name:
-        return r.filter_by_name(name)
+    elif request.name:
+        return r.filter_by_name(request.name)
 
     # Use coordinates twice in main if-elif to get same KeyError
-    elif coordinates and rank:
-        lat, lon = coordinates.split(",")
-
+    elif request.coordinates and request.rank:
         return r.filter_by_rank(
-            latlon=(float(lat), float(lon)),
-            rank=rank,
+            latlon=request.coordinates,
+            rank=request.rank,
         )
 
-    elif coordinates and distance:
-        lat, lon = coordinates.split(",")
-
+    elif request.coordinates and request.distance:
         return r.filter_by_distance(
-            latlon=(float(lat), float(lon)),
-            distance=distance,
+            latlon=request.coordinates,
+            distance=request.distance,
         )
 
-    elif bbox:
-        try:
-            left, bottom, right, top = bbox.split(",")
-        except ValueError as e:
-            raise ValueError("bbox requires four floats separated by comma") from e
+    elif request.bbox:
+        return r.filter_by_bbox(*request.bbox)
 
-        return r.filter_by_bbox(
-            left=float(left),
-            bottom=float(bottom),
-            right=float(right),
-            top=float(top),
-        )
-
-    elif sql:
-        return r.filter_by_sql(sql)
+    elif request.sql:
+        return r.filter_by_sql(request.sql)
 
     else:
         param_options = [
@@ -186,38 +414,16 @@ def get_stations(
 
 def get_values(
     api: TimeseriesRequest,
-    parameters: list[str],
-    lead_time: Literal["short", "long"] | None,
-    date: str,
-    issue: str,
-    periods: list[str],
-    all_,
-    station_id: list[str],
-    name: str,
-    coordinates: str,
-    rank: int,
-    distance: float,
-    bbox: str,
-    sql: str,
-    sql_values: str,
+    request: ValuesRequest,
+    # date: str,
+    # sql_values: str,
     settings: Settings,
 ) -> ValuesResult:
     """Core function for querying values via cli and restapi"""
     stations_ = get_stations(
         api=api,
-        parameters=parameters,
-        periods=periods,
-        lead_time=lead_time,
-        date=date,
-        issue=issue,
-        all_=all_,
-        station_id=station_id,
-        name=name,
-        coordinates=coordinates,
-        rank=rank,
-        distance=distance,
-        bbox=bbox,
-        sql=sql,
+        request=request,
+        date=request.date,
         settings=settings,
     )
 
@@ -232,86 +438,53 @@ def get_values(
             log.error("No data available for given constraints")
             return values_
 
-    if sql_values:
-        log.info(f"Filtering with SQL: {sql_values}")
-
-        values_.filter_by_sql(sql_values)
+    if request.sql_values:
+        log.info(f"Filtering with SQL: {request.sql_values}")
+        values_.filter_by_sql(request.sql_values)
 
     return values_
 
 
 def get_interpolate(
     api: TimeseriesRequest,
-    parameters: list[str],
-    periods: list[str],
-    lead_time: Literal["short", "long"] | None,
-    date: str,
-    issue: str,
-    coordinates: str,
-    station_id: str,
-    sql_values: str,
+    request: InterpolationRequest,
     settings: Settings,
 ) -> InterpolatedValuesResult:
     """Core function for querying values via cli and restapi"""
-    r = _get_stations_request(
-        api=api, parameters=parameters, periods=periods, lead_time=lead_time, date=date, issue=issue, settings=settings
-    )
+    r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
-    try:
-        if coordinates:
-            lat, lon = coordinates.split(",")
-            values_ = r.interpolate((float(lat), float(lon)))
-        else:
-            values_ = r.interpolate_by_station_id(station_id)
-    except ValueError as e:
-        log.exception(e)
-        sys.exit(1)
+    if request.coordinates:
+        values_ = r.interpolate(request.coordinates)
+    elif request.station:
+        values_ = r.interpolate_by_station_id(request.station)
     else:
-        if values_.df.is_empty():
-            log.error("No data available for given constraints")
-            return values_
+        raise ValueError("Either coordinates or station must be provided")
 
-    if sql_values:
-        log.info(f"Filtering with SQL: {sql_values}")
-        values_.filter_by_sql(sql_values)
+    if request.sql_values:
+        log.info(f"Filtering with SQL: {request.sql_values}")
+        values_.filter_by_sql(request.sql_values)
 
     return values_
 
 
 def get_summarize(
     api: TimeseriesRequest,
-    parameters: list[str],
-    periods: list[str],
-    lead_time: Literal["short", "long"] | None,
-    date: str,
-    issue: str,
-    coordinates: str,
-    station_id: str,
-    sql_values: str,
+    request: SummaryRequest,
     settings: Settings,
 ) -> SummarizedValuesResult:
     """Core function for querying values via cli and restapi"""
-    r = _get_stations_request(
-        api=api, parameters=parameters, periods=periods, lead_time=lead_time, date=date, issue=issue, settings=settings
-    )
+    r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
-    try:
-        if coordinates:
-            lat, lon = coordinates.split(",")
-            values_ = r.summarize((float(lat), float(lon)))
-        else:
-            values_ = r.summarize_by_station_id(station_id)
-    except ValueError as e:
-        log.exception(e)
-        sys.exit(1)
+    if request.coordinates:
+        values_ = r.summarize(request.coordinates)
+    elif request.station:
+        values_ = r.summarize_by_station_id(request.station)
     else:
-        if values_.df.is_empty():
-            log.error("No data available for given constraints")
-            return values_
+        raise ValueError("Either coordinates or station must be provided")
 
-    if sql_values:
-        log.info(f"Filtering with SQL: {sql_values}")
-        values_.filter_by_sql(sql_values)
+    if request.sql_values:
+        log.info(f"Filtering with SQL: {request.sql_values}")
+        values_.filter_by_sql(request.sql_values)
 
     return values_
 

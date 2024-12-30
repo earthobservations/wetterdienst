@@ -20,6 +20,10 @@ from PIL import Image
 
 from wetterdienst import Provider, Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.ui.core import (
+    InterpolationRequest,
+    StationsRequest,
+    SummaryRequest,
+    ValuesRequest,
     _get_stripes_stations,
     _plot_stripes,
     get_interpolate,
@@ -86,8 +90,8 @@ def station_options_core(command):
     :return:
     """
     arguments = [
-        cloup.option("--parameters", type=comma_separated_list, required=True),
-        cloup.option("--periods", type=comma_separated_list),
+        cloup.option("--parameters", type=str, required=True),
+        cloup.option("--periods", type=str),
     ]
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
@@ -103,7 +107,7 @@ def station_options_extension(command):
         cloup.option_group("All stations", click.option("--all", "all_", is_flag=True)),
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=comma_separated_list),
+            cloup.option("--station", type=str),
         ),
         cloup.option_group(
             "Station name filtering",
@@ -146,7 +150,7 @@ def station_options_interpolate_summarize(command):
     arguments = [
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=comma_separated_list),
+            cloup.option("--station", type=str),
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
@@ -204,7 +208,7 @@ Data acquisition:
 
         # Output options
         [--format=<format>] [--pretty]
-        [--shape=<shape>] [--humanize] [--si-units]
+        [--shape=<shape>] [--humanize] [--si_units]
         [--dropna] [--skip_empty] [--skip_threshold=0.95]
 
         # Export options
@@ -227,7 +231,7 @@ Data computation:
 
         # Output options
         [--format=<format>] [--pretty]
-        [--shape=<shape>] [--humanize] [--si-units]
+        [--shape=<shape>] [--humanize] [--si_units]
         [--dropna] [--skip_empty] [--skip_threshold=0.95]
 
         # Export options
@@ -280,12 +284,12 @@ Filtering options:
 
     --sql                       SQL filter statement
 
-    --sql-values                SQL filter to apply to values
+    --sql_values                SQL filter to apply to values
 
 Transformation options:
     --shape                     Shape of DataFrame, "wide" or "long"
     --humanize                  Humanize parameters
-    --si-units                  Convert to SI units
+    --si_units                  Convert to SI units
     --skip_empty                Skip empty stations according to ts_skip_threshold
     --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
     --dropna                    Whether to drop nan values from the result
@@ -395,10 +399,10 @@ Acquire DMO data:
     wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon_eu/ttt --station=65510
 
     # short lead time
-    wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --station=65510 --lead-time=short
+    wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --station=65510 --lead_time=short
 
     # long lead time
-    wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --station=65510 --lead-time=long
+    wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --station=65510 --lead_time=long
 
 Compute data:
 
@@ -450,12 +454,12 @@ SQL filtering:
 
     # Filter values: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --station=1048,4411 --sql-values="wind_gust_max > 20.0;"
+        --station=1048,4411 --sql_values="wind_gust_max > 20.0;"
 
     # Filter measurements: Same as above, but use long format.
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
         --station=1048,4411 --shape="long" \\
-        --sql-values="parameter='wind_gust_max' AND value > 20.0"
+        --sql_values="parameter='wind_gust_max' AND value > 20.0"
 
 Inquire metadata:
 
@@ -751,7 +755,7 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
     ["rank", "distance"],
 )
 @cloup.option("--pretty", type=click.BOOL, default=False)
-@cloup.option("--with-metadata", type=click.BOOL, default=False)
+@cloup.option("--with_metadata", type=click.BOOL, default=False)
 @debug_opt
 def stations(
     provider: str,
@@ -772,25 +776,35 @@ def stations(
     with_metadata: bool,
     debug: bool,
 ):
+    request = StationsRequest.model_validate(
+        {
+            "provider": provider,
+            "network": network,
+            "parameters": parameters,
+            "periods": periods,
+            "all_": all_,
+            "station": station,
+            "name": name,
+            "coordinates": coordinates,
+            "rank": rank,
+            "distance": distance,
+            "bbox": bbox,
+            "sql": sql,
+            "fmt": fmt,
+            "target": target,
+            "pretty": pretty,
+            "with_metadata": with_metadata,
+            "debug": debug,
+        }
+    )
     set_logging_level(debug)
 
     api = get_api(provider=provider, network=network)
 
     stations_ = get_stations(
         api=api,
-        parameters=parameters,
-        periods=periods,
-        lead_time="short",
+        request=request,
         date=None,
-        issue=None,
-        all_=all_,
-        station_id=station,
-        name=name,
-        coordinates=coordinates,
-        rank=rank,
-        distance=distance,
-        bbox=bbox,
-        sql=sql,
         settings=Settings(),
     )
 
@@ -813,10 +827,10 @@ def stations(
 @provider_opt
 @network_opt
 @station_options_core
-@cloup.option("--lead-time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
+@cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_extension
 @cloup.option("--date", type=click.STRING)
-@cloup.option("--sql-values", type=click.STRING)
+@cloup.option("--sql_values", type=click.STRING)
 @cloup.option_group(
     "Format/Target",
     cloup.option(
@@ -830,15 +844,15 @@ def stations(
 )
 @cloup.option("--issue", type=click.STRING)
 @cloup.option("--shape", type=click.Choice(["long", "wide"]), default="long")
-@cloup.option("--si-units", type=click.BOOL, default=True)
+@cloup.option("--si_units", type=click.BOOL, default=True)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", type=click.BOOL, default=False)
 @cloup.option("--skip_empty", type=click.BOOL, default=False)
 @cloup.option("--skip_criteria", type=click.Choice(["min", "mean", "max"]), default="min")
 @cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
 @cloup.option("--dropna", type=click.BOOL, default=False)
-@cloup.option("--with-metadata", type=click.BOOL, default=False)
-@cloup.option("--with-stations", type=click.BOOL, default=False)
+@cloup.option("--with_metadata", type=click.BOOL, default=False)
+@cloup.option("--with_stations", type=click.BOOL, default=False)
 @debug_opt
 def values(
     provider: str,
@@ -871,6 +885,38 @@ def values(
     with_stations: bool,
     debug: bool,
 ):
+    request = ValuesRequest.model_validate(
+        {
+            "provider": provider,
+            "network": network,
+            "parameters": parameters,
+            "periods": periods,
+            "lead_time": lead_time,
+            "date": date,
+            "issue": issue,
+            "all_": all_,
+            "station": station,
+            "name": name,
+            "coordinates": coordinates,
+            "rank": rank,
+            "distance": distance,
+            "bbox": bbox,
+            "sql": sql,
+            "sql_values": sql_values,
+            "fmt": fmt,
+            "shape": shape,
+            "si_units": si_units,
+            "humanize": humanize,
+            "skip_empty": skip_empty,
+            "skip_criteria": skip_criteria,
+            "skip_threshold": skip_threshold,
+            "dropna": dropna,
+            "pretty": pretty,
+            "with_metadata": with_metadata,
+            "with_stations": with_stations,
+            "debug": debug,
+        }
+    )
     set_logging_level(debug)
 
     api = get_api(provider, network)
@@ -888,20 +934,7 @@ def values(
     try:
         values_ = get_values(
             api=api,
-            parameters=parameters,
-            periods=periods,
-            lead_time=lead_time,
-            date=date,
-            issue=issue,
-            all_=all_,
-            station_id=station,
-            name=name,
-            coordinates=coordinates,
-            rank=rank,
-            distance=distance,
-            bbox=bbox,
-            sql=sql,
-            sql_values=sql_values,
+            request=request,
             settings=settings,
         )
     except ValueError as e:
@@ -927,12 +960,12 @@ def values(
 @provider_opt
 @network_opt
 @station_options_core
-@cloup.option("--lead-time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
+@cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize
 @cloup.option("--interpolation_station_distance", type=click.STRING, default=None)
 @cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
 @cloup.option("--date", type=click.STRING, required=True)
-@cloup.option("--sql-values", type=click.STRING)
+@cloup.option("--sql_values", type=click.STRING)
 @cloup.option_group(
     "Format/Target",
     cloup.option(
@@ -945,11 +978,11 @@ def values(
     help="Provide either --format or --target.",
 )
 @cloup.option("--issue", type=click.STRING)
-@cloup.option("--si-units", type=click.BOOL, default=True)
+@cloup.option("--si_units", type=click.BOOL, default=True)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
-@cloup.option("--with-metadata", type=click.BOOL, default=False)
-@cloup.option("--with-stations", type=click.BOOL, default=False)
+@cloup.option("--with_metadata", type=click.BOOL, default=False)
+@cloup.option("--with_stations", type=click.BOOL, default=False)
 @debug_opt
 def interpolate(
     provider: str,
@@ -973,6 +1006,29 @@ def interpolate(
     with_stations: bool,
     debug: bool,
 ):
+    request = InterpolationRequest.model_validate(
+        {
+            "provider": provider,
+            "network": network,
+            "parameters": parameters,
+            "periods": periods,
+            "lead_time": lead_time,
+            "interpolation_station_distance": interpolation_station_distance,
+            "use_nearby_station_distance": use_nearby_station_distance,
+            "date": date,
+            "issue": issue,
+            "station": station,
+            "coordinates": coordinates,
+            "sql_values": sql_values,
+            "fmt": fmt,
+            "target": target,
+            "si_units": si_units,
+            "humanize": humanize,
+            "pretty": pretty,
+            "debug": debug,
+        }
+    )
+
     set_logging_level(debug)
 
     api = get_api(provider, network)
@@ -994,14 +1050,7 @@ def interpolate(
     try:
         values_ = get_interpolate(
             api=api,
-            parameters=parameters,
-            periods=periods,
-            lead_time=lead_time,
-            date=date,
-            issue=issue,
-            station_id=station,
-            coordinates=coordinates,
-            sql_values=sql_values,
+            request=request,
             settings=settings,
         )
     except ValueError as e:
@@ -1027,10 +1076,10 @@ def interpolate(
 @provider_opt
 @network_opt
 @station_options_core
-@cloup.option("--lead-time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
+@cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize
 @cloup.option("--date", type=click.STRING, required=True)
-@cloup.option("--sql-values", type=click.STRING)
+@cloup.option("--sql_values", type=click.STRING)
 @cloup.option_group(
     "Format/Target",
     cloup.option(
@@ -1043,11 +1092,11 @@ def interpolate(
     help="Provide either --format or --target.",
 )
 @cloup.option("--issue", type=click.STRING)
-@cloup.option("--si-units", type=click.BOOL, default=True)
+@cloup.option("--si_units", type=click.BOOL, default=True)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
-@cloup.option("--with-metadata", type=click.BOOL, default=False)
-@cloup.option("--with-stations", type=click.BOOL, default=False)
+@cloup.option("--with_metadata", type=click.BOOL, default=False)
+@cloup.option("--with_stations", type=click.BOOL, default=False)
 @debug_opt
 def summarize(
     provider: str,
@@ -1069,6 +1118,26 @@ def summarize(
     with_stations: bool,
     debug: bool,
 ):
+    request = SummaryRequest.model_validate(
+        {
+            "provider": provider,
+            "network": network,
+            "parameters": parameters,
+            "periods": periods,
+            "lead_time": lead_time,
+            "date": date,
+            "issue": issue,
+            "station": station,
+            "coordinates": coordinates,
+            "sql_values": sql_values,
+            "fmt": fmt,
+            "target": target,
+            "si_units": si_units,
+            "humanize": humanize,
+            "pretty": pretty,
+            "debug": debug,
+        }
+    )
     set_logging_level(debug)
 
     api = get_api(provider, network)
@@ -1081,14 +1150,7 @@ def summarize(
     try:
         values_ = get_summarize(
             api=api,
-            parameters=parameters,
-            periods=periods,
-            lead_time=lead_time,
-            date=date,
-            issue=issue,
-            station_id=station,
-            coordinates=coordinates,
-            sql_values=sql_values,
+            request=request,
             settings=settings,
         )
     except ValueError as e:
@@ -1114,8 +1176,8 @@ def summarize(
 @cloup.option("--dwd", is_flag=True)
 @cloup.option("--all", "all_", is_flag=True)
 @cloup.option("--odim-code", type=click.STRING)
-@cloup.option("--wmo-code", type=click.STRING)
-@cloup.option("--country-name", type=click.STRING)
+@cloup.option("--wmo_code", type=click.STRING)
+@cloup.option("--country_name", type=click.STRING)
 @cloup.constraint(
     RequireExactly(1),
     ["dwd", "all_", "odim_code", "wmo_code", "country_name"],

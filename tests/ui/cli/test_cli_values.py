@@ -38,7 +38,7 @@ SETTINGS_VALUES = (
         "dmo",
         [
             "--parameters=hourly/icon",
-            "--lead-time=long",
+            "--lead_time=long",
             f"--date={datetime.strftime(datetime.today() + timedelta(days=4), '%Y-%m-%d')}",
         ],
         "10488",
@@ -222,8 +222,8 @@ def test_cli_values_json_with_metadata_with_stations(metadata):
         station="01047,01048",
         fmt="json",
         additional=[
-            "--with-metadata=true",
-            "--with-stations=true",
+            "--with_metadata=true",
+            "--with_stations=true",
         ],
     )
     response = json.loads(result.output)
@@ -337,7 +337,7 @@ def test_cli_values_geojson_with_metadata(metadata):
         station="01048",
         fmt="geojson",
         additional=[
-            "--with-metadata=true",
+            "--with_metadata=true",
         ],
     )
     response = json.loads(result.output)

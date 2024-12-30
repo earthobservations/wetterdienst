@@ -313,9 +313,9 @@ def test_values_dwd_sql_tabular(client):
             "parameters": "daily/kl",
             "periods": "historical",
             "date": "2020/2021",
-            "sql-values": "temperature_air_max_2m < 2.0",
+            "sql_values": "temperature_air_max_2m < 2.0",
             "shape": "wide",
-            "si-units": False,
+            "si_units": False,
         },
     )
     assert response.status_code == 200
@@ -368,8 +368,8 @@ def test_values_dwd_sql_long(client):
             "station": "01048,4411",
             "parameters": "daily/kl",
             "date": "2019-12-01/2019-12-31",
-            "sql-values": "parameter='temperature_air_max_2m' AND value < 1.5",
-            "si-units": False,
+            "sql_values": "parameter='temperature_air_max_2m' AND value < 1.5",
+            "si_units": False,
         },
     )
     assert response.status_code == 200
@@ -607,7 +607,7 @@ def test_values_dwd_dmo_lead_time_long(client):
             "network": "dmo",
             "parameters": "hourly/icon/ttt",
             "station": "01025",
-            "lead-time": "long",
+            "lead_time": "long",
         },
     )
     assert response.status_code == 200
