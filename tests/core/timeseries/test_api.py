@@ -14,15 +14,17 @@ from wetterdienst.provider.dwd.observation import (
     "ts_skip_criteria,expected_stations",
     [("min", ["05906", "04928"]), ("mean", ["05426", "04177"]), ("max", ["00377", "05426"])],
 )
-def test_api_skip_empty_stations(settings_skip_empty_true, ts_skip_criteria, expected_stations):
+def test_api_skip_empty_stations(
+    settings_drop_nulls_false_complete_true_skip_empty_true, ts_skip_criteria, expected_stations
+):
     # overcharge skip criteria
-    settings_skip_empty_true.ts_skip_criteria = ts_skip_criteria
-    settings_skip_empty_true.ts_skip_threshold = 0.6
+    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = ts_skip_criteria
+    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_threshold = 0.6
     request = DwdObservationRequest(
         parameters=[("daily", "kl"), ("daily", "solar")],
         start_date="2021-01-01",
         end_date="2021-12-31",
-        settings=settings_skip_empty_true,
+        settings=settings_drop_nulls_false_complete_true_skip_empty_true,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=2)
     values = request.values.all()
     assert (
@@ -34,7 +36,9 @@ def test_api_skip_empty_stations(settings_skip_empty_true, ts_skip_criteria, exp
 
 
 @pytest.mark.remote
-def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(settings_skip_empty_true):
+def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
+    settings_drop_nulls_false_complete_true_skip_empty_true,
+):
     """If there is only one parameter any skip criteria (min, mean, max) should return the same station"""
 
     def _get_values(settings):
@@ -49,21 +53,21 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(s
             .values.all()
         )
 
-    settings_skip_empty_true.ts_skip_threshold = 0.9
+    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_threshold = 0.9
     expected_station = ["05426"]
 
-    settings_skip_empty_true.ts_skip_criteria = "min"
-    values = _get_values(settings_skip_empty_true)
+    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = "min"
+    values = _get_values(settings_drop_nulls_false_complete_true_skip_empty_true)
     assert values.df.get_column("station_id").unique().to_list() == expected_station
     assert values.df_stations.get_column("station_id").to_list() == expected_station
 
-    settings_skip_empty_true.ts_skip_criteria = "mean"
-    values = _get_values(settings_skip_empty_true)
+    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = "mean"
+    values = _get_values(settings_drop_nulls_false_complete_true_skip_empty_true)
     assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_station
     assert values.df_stations.get_column("station_id").to_list() == expected_station
 
-    settings_skip_empty_true.ts_skip_criteria = "max"
-    values = _get_values(settings_skip_empty_true)
+    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = "max"
+    values = _get_values(settings_drop_nulls_false_complete_true_skip_empty_true)
     assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_station
     assert values.df_stations.get_column("station_id").to_list() == expected_station
 
