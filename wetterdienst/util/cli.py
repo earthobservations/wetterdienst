@@ -22,18 +22,6 @@ def setup_logging(level=logging.INFO) -> None:
     pint_logger.setLevel(logging.ERROR)
 
 
-def read_list(data: str | None, separator: str = ",") -> list[str]:
-    if data is None:
-        return []
-
-    result = [x.strip() for x in data.split(separator)]
-
-    if len(result) == 1 and not result[0]:
-        return []
-
-    return result
-
-
 def docstring_format_verbatim(text: str) -> str:
     """
     Format docstring to be displayed verbatim as a help text by Click.

@@ -168,7 +168,7 @@ def test_cli_stations_json_with_metadata(metadata):
         setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="json",
-        additional=["--with-metadata=true"],
+        additional=["--with_metadata=true"],
     )
     response = json.loads(result.output)
     assert response.keys() == {"stations", "metadata"}
@@ -221,7 +221,7 @@ def test_cli_stations_geojson_with_metadata(metadata):
         setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="geojson",
-        additional=["--with-metadata=true"],
+        additional=["--with_metadata=true"],
     )
     response = json.loads(result.output)
     assert response.keys() == {"data", "metadata"}

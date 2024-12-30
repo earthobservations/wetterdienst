@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal, Union
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
+from pydantic import ValidationError
 
 from wetterdienst import Author, Info, Provider, Settings, Wetterdienst
 from wetterdienst.core.timeseries.result import (
@@ -21,6 +22,14 @@ from wetterdienst.core.timeseries.result import (
     _ValuesOgcFeatureCollection,
 )
 from wetterdienst.ui.core import (
+    InterpolationRequest,
+    InterpolationRequestRaw,
+    StationsRequest,
+    StationsRequestRaw,
+    SummaryRequest,
+    SummaryRequestRaw,
+    ValuesRequest,
+    ValuesRequestRaw,
     _get_stripes_stations,
     _thread_safe_plot_stripes,
     get_interpolate,
@@ -29,7 +38,8 @@ from wetterdienst.ui.core import (
     get_values,
     set_logging_level,
 )
-from wetterdienst.util.cli import read_list, setup_logging
+from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.ui import read_list
 
 info = Info()
 
@@ -231,69 +241,36 @@ def coverage(
 # - _StationsOgcFeatureCollection for geojson
 # - str for csv
 @app.get("/api/stations", response_model=Union[_StationsDict, _StationsOgcFeatureCollection, str])
-def stations(
-    provider: Annotated[str, Query()],
-    network: Annotated[str, Query()],
-    parameters: Annotated[str, Query()],
-    periods: Annotated[str | None, Query()] = None,
-    all_: Annotated[bool | None, Query(alias="all")] = None,
-    station: Annotated[str | None, Query()] = None,
-    name: Annotated[str | None, Query()] = None,
-    coordinates: Annotated[str | None, Query()] = None,
-    rank: Annotated[int | None, Query()] = None,
-    distance: Annotated[float | None, Query()] = None,
-    bbox: Annotated[str | None, Query()] = None,
-    sql: Annotated[str | None, Query()] = None,
-    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = False,
-    debug: Annotated[bool, Query()] = False,
-) -> Any:
-    set_logging_level(debug)
+def stations(request: Annotated[StationsRequestRaw, Query()]) -> Any:
+    # parse list-like parameters into lists
+    try:
+        request = StationsRequest.model_validate(request.model_dump())
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    set_logging_level(request.debug)
 
     try:
-        api = Wetterdienst(provider, network)
+        api = Wetterdienst(request.provider, request.network)
     except KeyError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",
         ) from e
 
-    parameters = read_list(parameters)
-    if periods:
-        periods = read_list(periods)
-    if station:
-        station = read_list(station)
-
     try:
         stations_ = get_stations(
             api=api,
-            parameters=parameters,
-            periods=periods,
-            lead_time="short",
+            request=request,
             date=None,
-            issue=None,
-            all_=all_,
-            station_id=station,
-            name=name,
-            coordinates=coordinates,
-            rank=rank,
-            distance=distance,
-            bbox=bbox,
-            sql=sql,
             settings=Settings(),
         )
     except (KeyError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    if not stations_.parameters:
-        raise HTTPException(
-            status_code=400,
-            detail=f"No parameter found for provider {provider}, network {network}, parameter(s) {parameters}.",
-        )
+    content = stations_.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
 
-    content = stations_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
-
-    if fmt == "csv":
+    if request.format == "csv":
         media_type = "text/csv"
     else:
         media_type = "application/json"
@@ -307,38 +284,17 @@ def stations(
 # - str for csv
 @app.get("/api/values", response_model=Union[_ValuesDict, _ValuesOgcFeatureCollection, str])
 def values(
-    provider: Annotated[str, Query()],
-    network: Annotated[str, Query()],
-    parameters: Annotated[str, Query()],
-    periods: Annotated[str | None, Query()] = None,
-    lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
-    date: Annotated[str | None, Query()] = None,
-    issue: Annotated[str | None, Query()] = None,
-    all_: Annotated[bool | None, Query(alias="all")] = None,
-    station: Annotated[str | None, Query()] = None,
-    name: Annotated[str | None, Query()] = None,
-    coordinates: Annotated[str | None, Query()] = None,
-    rank: Annotated[int | None, Query()] = None,
-    distance: Annotated[float | None, Query()] = None,
-    bbox: Annotated[str | None, Query()] = None,
-    sql: Annotated[str | None, Query()] = None,
-    sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
-    humanize: Annotated[bool, Query()] = True,
-    shape: Annotated[Literal["long", "wide"], Query()] = "long",
-    si_units: Annotated[bool, Query(alias="si-units")] = True,
-    skip_empty: Annotated[bool, Query(alias="skip-empty")] = False,
-    skip_threshold: Annotated[float, Query(alias="skip-threshold", gt=0, le=1)] = 0.95,
-    skip_criteria: Annotated[Literal["min", "mean", "max"], Query(alias="skip-criteria")] = "min",
-    dropna: Annotated[bool, Query(alias="dropna")] = False,
-    use_nearby_station_distance: Annotated[float, Query()] = 1.0,
-    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = False,
-    debug: Annotated[bool, Query()] = False,
+    request: Annotated[ValuesRequestRaw, Query()],
 ) -> Any:
-    set_logging_level(debug)
+    try:
+        request = ValuesRequest.model_validate(request.model_dump())
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    set_logging_level(request.debug)
 
     try:
-        api = Wetterdienst(provider, network)
+        api = Wetterdienst(request.provider, request.network)
     except KeyError as e:
         raise HTTPException(
             status_code=404,
@@ -346,49 +302,29 @@ def values(
             f"Choose provider and network from {Wetterdienst.discover()}",
         ) from e
 
-    parameters = read_list(parameters)
-    if periods:
-        periods = read_list(periods)
-    if station:
-        station = read_list(station)
-
     settings = Settings(
-        ts_si_units=si_units,
-        ts_shape=shape,
-        ts_humanize=humanize,
-        ts_skip_empty=skip_empty,
-        ts_skip_criteria=skip_criteria,
-        ts_skip_threshold=skip_threshold,
-        ts_dropna=dropna,
-        ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
+        ts_si_units=request.si_units,
+        ts_shape=request.shape,
+        ts_humanize=request.humanize,
+        ts_skip_empty=request.skip_empty,
+        ts_skip_criteria=request.skip_criteria,
+        ts_skip_threshold=request.skip_threshold,
+        ts_dropna=request.dropna,
     )
 
     try:
         values_ = get_values(
             api=api,
-            parameters=parameters,
-            date=date,
-            issue=issue,
-            periods=periods,
-            lead_time=lead_time,
-            all_=all_,
-            station_id=station,
-            name=name,
-            coordinates=coordinates,
-            rank=rank,
-            distance=distance,
-            bbox=bbox,
-            sql=sql,
-            sql_values=sql_values,
+            request=request,
             settings=settings,
         )
     except Exception as e:
         log.exception(e)
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    content = values_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
+    content = values_.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
 
-    if fmt == "csv":
+    if request.format == "csv":
         media_type = "text/csv"
     else:
         media_type = "application/json"
@@ -404,30 +340,17 @@ def values(
     "/api/interpolate",
     response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str],
 )
-def interpolate(
-    provider: Annotated[str, Query()],
-    network: Annotated[str, Query()],
-    parameters: Annotated[str, Query()],
-    periods: Annotated[str | None, Query()] = None,
-    lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
-    date: Annotated[str | None, Query()] = None,
-    issue: Annotated[str | None, Query()] = None,
-    station: Annotated[str | None, Query()] = None,
-    coordinates: Annotated[str | None, Query()] = None,
-    sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
-    humanize: Annotated[bool, Query()] = True,
-    si_units: Annotated[bool, Query(alias="si-units")] = True,
-    interpolation_station_distance: Annotated[str | None, Query()] = None,
-    use_nearby_station_distance: Annotated[float, Query()] = 1.0,
-    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = False,
-    debug: Annotated[bool, Query()] = False,
-) -> Any:
+def interpolate(request: Annotated[InterpolationRequestRaw, Query()]) -> Any:
     """Wrapper around get_interpolate to provide results via restapi"""
-    set_logging_level(debug)
+    try:
+        request = InterpolationRequest.model_validate(request.model_dump())
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    set_logging_level(request.debug)
 
     try:
-        api = Wetterdienst(provider, network)
+        api = Wetterdienst(request.provider, request.network)
     except KeyError as e:
         raise HTTPException(
             status_code=404,
@@ -435,49 +358,26 @@ def interpolate(
             f"Choose provider and network from {Wetterdienst.discover()}",
         ) from e
 
-    parameters = read_list(parameters)
-    if periods:
-        periods = read_list(periods)
-    if station:
-        station = read_list(station)
-
-    if interpolation_station_distance:
-        try:
-            interpolation_station_distance = json.loads(interpolation_station_distance)
-        except json.JSONDecodeError as e:
-            raise HTTPException(
-                status_code=400,
-                detail="""Interpolation station distance must be a valid JSON object
-                e.g. '{"precipitation_height": 20.0}'""",
-            ) from e
-
     settings = Settings(
-        ts_humanize=humanize,
-        ts_si_units=si_units,
-        ts_interpolation_station_distance=interpolation_station_distance,
-        ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
+        ts_humanize=request.humanize,
+        ts_si_units=request.si_units,
+        ts_interpolation_station_distance=request.interpolation_station_distance,
+        ts_interpolation_use_nearby_station_distance=request.use_nearby_station_distance,
     )
 
     try:
         values_ = get_interpolate(
             api=api,
-            parameters=parameters,
-            periods=periods,
-            lead_time=lead_time,
-            date=date,
-            issue=issue,
-            station_id=station,
-            coordinates=coordinates,
-            sql_values=sql_values,
+            request=request,
             settings=settings,
         )
     except Exception as e:
         log.exception(e)
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-    content = values_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
+    content = values_.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
 
-    if fmt == "csv":
+    if request.format == "csv":
         media_type = "text/csv"
     else:
         media_type = "application/json"
@@ -491,27 +391,18 @@ def interpolate(
 # - str for csv
 @app.get("/api/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
 def summarize(
-    provider: Annotated[str, Query()],
-    network: Annotated[str, Query()],
-    parameters: Annotated[str, Query()],
-    periods: Annotated[str | None, Query()] = None,
-    lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
-    date: Annotated[str | None, Query()] = None,
-    issue: Annotated[str | None, Query()] = None,
-    station: Annotated[str | None, Query()] = None,
-    coordinates: Annotated[str | None, Query()] = None,
-    sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
-    humanize: Annotated[bool, Query()] = True,
-    si_units: Annotated[bool, Query(alias="si-units")] = True,
-    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = False,
-    debug: Annotated[bool, Query()] = False,
+    request: Annotated[SummaryRequestRaw, Query()],
 ) -> Any:
     """Wrapper around get_summarize to provide results via restapi"""
-    set_logging_level(debug)
+    try:
+        request = SummaryRequest.model_validate(request.model_dump())
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    set_logging_level(request.debug)
 
     try:
-        api = Wetterdienst(provider, network)
+        api = Wetterdienst(request.provider, request.network)
     except KeyError as e:
         raise HTTPException(
             status_code=404,
@@ -519,37 +410,24 @@ def summarize(
             f"Choose provider and network from {Wetterdienst.discover()}",
         ) from e
 
-    parameters = read_list(parameters)
-    if periods:
-        periods = read_list(periods)
-    if station:
-        station = read_list(station)
-
     settings = Settings(
-        ts_humanize=humanize,
-        ts_si_units=si_units,
+        ts_humanize=request.humanize,
+        ts_si_units=request.si_units,
     )
 
     try:
         values_ = get_summarize(
             api=api,
-            parameters=parameters,
-            periods=periods,
-            lead_time=lead_time,
-            date=date,
-            issue=issue,
-            station_id=station,
-            coordinates=coordinates,
-            sql_values=sql_values,
+            request=request,
             settings=settings,
         )
     except Exception as e:
         log.exception(e)
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-    content = values_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
+    content = values_.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
 
-    if fmt == "csv":
+    if request.format == "csv":
         media_type = "text/csv"
     else:
         media_type = "application/json"

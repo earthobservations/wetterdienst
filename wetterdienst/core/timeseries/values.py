@@ -53,7 +53,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
     def __eq__(self, other):
         """Equal method of request object"""
-        return self.sr.stations == other.sr.stations and self.sr.station_id == other.sr.station_id
+        return self.sr.stations == other.sr.stations and self.sr.station_id == other.sr.station
 
     def __repr__(self):
         """Representation of values object"""
