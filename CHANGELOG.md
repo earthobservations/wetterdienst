@@ -9,6 +9,7 @@
 - Dissolve wetterdienst notebook into examples
 - Use `duckdb.sql` and ask only for WHERE clause
 - Update restapi annotations
+- Use `Settings` in restapi/cli core functions
 
 ## 0.98.0 - 2024-12-09
 

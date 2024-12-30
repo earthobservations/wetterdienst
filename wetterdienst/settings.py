@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     @classmethod
     def validate_ts_interpolation_station_distance(cls, values):
         default = cls.model_fields["ts_interpolation_station_distance"].default_factory()
+        if not values:
+            return default
         return default | values
 
     @model_validator(mode="after")
