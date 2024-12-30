@@ -418,6 +418,74 @@ def test_interpolate_dwd(client):
 
 
 @pytest.mark.remote
+def test_interpolate_dwd_lower_interpolation_distance(client):
+    response = client.get(
+        "/api/interpolate",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "interpolation_station_distance": '{"temperature_air_mean_2m": 10.0}',
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["values"] == [
+        {
+            "station_id": "6754d04d",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-10-31T00:00:00+00:00",
+            "value": None,
+            "distance_mean": None,
+            "taken_station_ids": [],
+        },
+        {
+            "station_id": "6754d04d",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-11-01T00:00:00+00:00",
+            "value": 281.85,
+            "distance_mean": 0.0,
+            "taken_station_ids": ["00071"],
+        },
+    ]
+
+
+@pytest.mark.remote
+def test_interpolate_dwd_dont_use_nearby_station(client):
+    response = client.get(
+        "/api/interpolate",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "use_nearby_station_distance": 0,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["values"] == [
+        {
+            "station_id": "6754d04d",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-10-31T00:00:00+00:00",
+            "value": 279.52,
+            "distance_mean": 16.99,
+            "taken_station_ids": ["00072", "02074", "02638", "04703"],
+        },
+        {
+            "station_id": "6754d04d",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-11-01T00:00:00+00:00",
+            "value": 281.85,
+            "distance_mean": 11.33,
+            "taken_station_ids": ["00071", "00072", "02074", "02638"],
+        },
+    ]
+
+
+@pytest.mark.remote
 def test_summarize_dwd(client):
     response = client.get(
         "/api/summarize",
