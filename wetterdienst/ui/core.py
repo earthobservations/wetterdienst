@@ -112,7 +112,7 @@ class ValuesRequestRaw(StationsRequestRaw):
     skip_empty: bool = False
     skip_threshold: confloat(gt=0, le=1) = 0.95
     skip_criteria: Literal["min", "mean", "max"] = "min"
-    dropna: bool = False
+    drop_nulls: bool = False
 
 
 class ValuesRequest(ValuesRequestRaw):

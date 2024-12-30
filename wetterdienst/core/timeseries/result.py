@@ -170,8 +170,8 @@ class StationsResult(ExportMixin):
         return self.stations.skip_threshold
 
     @property
-    def dropna(self) -> float:
-        return self.stations.dropna
+    def drop_nulls(self) -> float:
+        return self.stations.drop_nulls
 
     @property
     def _dataset_accessor(self) -> str:

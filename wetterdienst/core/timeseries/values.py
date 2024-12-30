@@ -462,7 +462,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                     )
                     continue
 
-            if self.sr.dropna:
+            if self.sr.drop_nulls:
                 df = df.drop_nulls(subset="value")
 
             if not df.is_empty():

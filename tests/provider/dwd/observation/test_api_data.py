@@ -1334,7 +1334,7 @@ def test_dwd_observation_solar_hourly():
         ts_skip_empty=True,
         ts_skip_threshold=0.90,
         ts_skip_criteria="min",
-        ts_dropna=True,
+        ts_drop_nulls=True,
     )
     latlon_bremen = 53.0980433, 8.7747248
     # request for radiation

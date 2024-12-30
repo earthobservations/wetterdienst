@@ -309,7 +309,7 @@ def values(
         ts_skip_empty=request.skip_empty,
         ts_skip_criteria=request.skip_criteria,
         ts_skip_threshold=request.skip_threshold,
-        ts_dropna=request.dropna,
+        ts_drop_nulls=request.drop_nulls,
     )
 
     try:

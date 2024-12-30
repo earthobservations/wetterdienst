@@ -170,7 +170,7 @@ class TimeseriesRequest(Core):
         self.skip_empty = self.tidy and settings.ts_skip_empty
         self.skip_threshold = settings.ts_skip_threshold
 
-        self.dropna = self.tidy and settings.ts_dropna
+        self.drop_nulls = self.tidy and settings.ts_drop_nulls
         self.interp_use_nearby_station_until_km = settings.ts_interpolation_use_nearby_station_distance
 
         if not self.tidy and settings.ts_skip_empty:
@@ -179,9 +179,9 @@ class TimeseriesRequest(Core):
                 "and is thus ignored in this request.",
             )
 
-        if not self.tidy and settings.ts_dropna:
+        if not self.tidy and settings.ts_drop_nulls:
             log.info(
-                "option 'ts_dropna' is only available with option 'ts_shape' and is thus ignored in this request.",
+                "option 'ts_drop_nulls' is only available with option 'ts_shape' and is thus ignored in this request.",
             )
 
         log.info(f"Processing request {self.__repr__()}")

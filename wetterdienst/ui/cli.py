@@ -209,7 +209,7 @@ Data acquisition:
         # Output options
         [--format=<format>] [--pretty]
         [--shape=<shape>] [--humanize] [--si_units]
-        [--dropna] [--skip_empty] [--skip_threshold=0.95]
+        [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
 
         # Export options
         [--target=<target>]
@@ -232,7 +232,7 @@ Data computation:
         # Output options
         [--format=<format>] [--pretty]
         [--shape=<shape>] [--humanize] [--si_units]
-        [--dropna] [--skip_empty] [--skip_threshold=0.95]
+        [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
 
         # Export options
         [--target=<target>]
@@ -292,7 +292,7 @@ Transformation options:
     --si_units                  Convert to SI units
     --skip_empty                Skip empty stations according to ts_skip_threshold
     --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
-    --dropna                    Whether to drop nan values from the result
+    --drop_nulls                    Whether to drop nan values from the result
 
 Output options:
     --format                    Output format. [Default: json]
@@ -850,7 +850,7 @@ def stations(
 @cloup.option("--skip_empty", type=click.BOOL, default=False)
 @cloup.option("--skip_criteria", type=click.Choice(["min", "mean", "max"]), default="min")
 @cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
-@cloup.option("--dropna", type=click.BOOL, default=False)
+@cloup.option("--drop_nulls", type=click.BOOL, default=False)
 @cloup.option("--with_metadata", type=click.BOOL, default=False)
 @cloup.option("--with_stations", type=click.BOOL, default=False)
 @debug_opt
@@ -879,7 +879,7 @@ def values(
     skip_empty: bool,
     skip_criteria: Literal["min", "mean", "max"],
     skip_threshold: float,
-    dropna: bool,
+    drop_nulls: bool,
     pretty: bool,
     with_metadata: bool,
     with_stations: bool,
@@ -910,7 +910,7 @@ def values(
             "skip_empty": skip_empty,
             "skip_criteria": skip_criteria,
             "skip_threshold": skip_threshold,
-            "dropna": dropna,
+            "drop_nulls": drop_nulls,
             "pretty": pretty,
             "with_metadata": with_metadata,
             "with_stations": with_stations,
@@ -928,7 +928,7 @@ def values(
         ts_skip_empty=skip_empty,
         ts_skip_criteria=skip_criteria,
         ts_skip_threshold=skip_threshold,
-        ts_dropna=dropna,
+        ts_drop_nulls=drop_nulls,
     )
 
     try:
