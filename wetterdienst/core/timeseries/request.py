@@ -166,22 +166,30 @@ class TimeseriesRequest(Core):
         self.tidy = 1 if self.shape == "long" else 0
         self.si_units = settings.ts_si_units
 
+        self.drop_nulls = self.tidy and settings.ts_drop_nulls
+        self.complete = not self.drop_nulls and settings.ts_complete
         # skip empty stations
-        self.skip_empty = self.tidy and settings.ts_skip_empty
+        self.skip_empty = self.complete and settings.ts_skip_empty
         self.skip_threshold = settings.ts_skip_threshold
 
-        self.drop_nulls = self.tidy and settings.ts_drop_nulls
         self.interp_use_nearby_station_until_km = settings.ts_interpolation_use_nearby_station_distance
 
-        if not self.tidy and settings.ts_skip_empty:
+        if self.drop_nulls != settings.ts_drop_nulls:
             log.info(
-                "option 'ts_skip_empty' is only available with option 'ts_shape' "
-                "and is thus ignored in this request.",
+                "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
+                "is thus ignored in this request.",
             )
 
-        if not self.tidy and settings.ts_drop_nulls:
+        if self.complete != settings.ts_complete:
             log.info(
-                "option 'ts_drop_nulls' is only available with option 'ts_shape' and is thus ignored in this request.",
+                "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and "
+                "is thus ignored in this request.",
+            )
+
+        if self.skip_empty != settings.ts_skip_empty:
+            log.info(
+                "option 'ts_skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' "
+                "and is thus ignored in this request.",
             )
 
         log.info(f"Processing request {self.__repr__()}")

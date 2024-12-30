@@ -432,7 +432,10 @@ class TimeseriesValues(metaclass=ABCMeta):
                     df = self._convert_values_to_si(df, dataset)
 
                 df = df.unique(subset=[Columns.DATE.value, Columns.PARAMETER.value], maintain_order=True)
-                if self.sr.start_date and dataset.resolution.value != Resolution.DYNAMIC:
+
+                if self.sr.drop_nulls:
+                    df = df.drop_nulls(subset=[Columns.VALUE.value])
+                elif self.sr.complete and self.sr.start_date and dataset.resolution.value != Resolution.DYNAMIC:
                     df = self._build_complete_df(df, station_id, dataset.resolution.value)
 
                 df = self._organize_df_columns(df, station_id, dataset)
@@ -462,21 +465,18 @@ class TimeseriesValues(metaclass=ABCMeta):
                     )
                     continue
 
-            if self.sr.drop_nulls:
-                df = df.drop_nulls(subset="value")
+            # if not df.is_empty():
+            if self.sr.humanize:
+                df = self._humanize(df=df, humanized_parameters_mapping=hpm)
 
-            if not df.is_empty():
-                if self.sr.humanize:
-                    df = self._humanize(df=df, humanized_parameters_mapping=hpm)
+            if not self.sr.tidy:
+                df = self._widen_df(df=df)
 
-                if not self.sr.tidy:
-                    df = self._widen_df(df=df)
-
-                if self.sr.tidy:
-                    sort_columns = [Columns.DATASET.value, Columns.PARAMETER.value, Columns.DATE.value]
-                else:
-                    sort_columns = [Columns.DATASET.value, Columns.DATE.value]
-                df = df.sort(sort_columns)
+            if self.sr.tidy:
+                sort_columns = [Columns.DATASET.value, Columns.PARAMETER.value, Columns.DATE.value]
+            else:
+                sort_columns = [Columns.DATASET.value, Columns.DATE.value]
+            df = df.sort(sort_columns)
 
             self.stations_counter += 1
             self.stations_collected.append(station_id)
@@ -495,8 +495,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         pass
 
-    @staticmethod
-    def _widen_df(df: pl.DataFrame) -> pl.DataFrame:
+    def _widen_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """
         Method to widen a dataframe with each row having one timestamp and
         all parameter values and corresponding quality levels.
@@ -520,7 +519,8 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid
         # column name conflicts
-        if df.get_column(Columns.DATASET.value).unique().len() > 1:
+        datasets = set(parameter.dataset.name for parameter in self.sr.parameters)
+        if len(datasets) > 1:
             df = df.with_columns(
                 pl.struct([pl.col(Columns.DATASET.value), pl.col(Columns.PARAMETER.value)])
                 .map_elements(lambda x: f"""{x["dataset"]}_{x["parameter"]}""", return_dtype=pl.String)
@@ -530,13 +530,24 @@ class TimeseriesValues(metaclass=ABCMeta):
             [pl.col(Columns.STATION_ID.value), pl.col(Columns.DATASET.value), pl.col(Columns.DATE.value)],
         ).unique()
 
-        for (parameter,), parameter_df in df.group_by([Columns.PARAMETER.value], maintain_order=True):
-            # Build quality column name
-            parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter}"
-            parameter_df = parameter_df.select([Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value]).rename(
-                mapping={Columns.VALUE.value: parameter, Columns.QUALITY.value: parameter_quality},
-            )
-            df_wide = df_wide.join(parameter_df, on=[Columns.DATE.value])
+        if not df.is_empty():
+            for (parameter,), parameter_df in df.group_by([Columns.PARAMETER.value], maintain_order=True):
+                # Build quality column name
+                parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter}"
+                parameter_df = parameter_df.select(
+                    [Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value]
+                ).rename(
+                    mapping={Columns.VALUE.value: parameter, Columns.QUALITY.value: parameter_quality},
+                )
+                df_wide = df_wide.join(parameter_df, on=[Columns.DATE.value])
+        else:
+            for parameter in self.sr.parameters:
+                parameter_name = parameter.name_original if not self.sr.humanize else parameter.name
+                parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter_name}"
+                df_wide = df_wide.with_columns(
+                    pl.lit(None, pl.Float64).alias(parameter_name),
+                    pl.lit(None, pl.Float64).alias(parameter_quality),
+                )
 
         return df_wide
 

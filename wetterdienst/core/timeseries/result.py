@@ -170,12 +170,12 @@ class StationsResult(ExportMixin):
         return self.stations.skip_threshold
 
     @property
-    def drop_nulls(self) -> float:
-        return self.stations.drop_nulls
+    def complete(self) -> bool:
+        return self.stations.complete
 
     @property
-    def _dataset_accessor(self) -> str:
-        return self.stations._dataset_accessor
+    def drop_nulls(self) -> float:
+        return self.stations.drop_nulls
 
     def get_metadata(self) -> _Metadata:
         """

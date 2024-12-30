@@ -2,6 +2,9 @@
 
 ## Development
 
+### Feature
+- Add setting `ts_complete=False` that allows to prevent building a complete time series
+
 ### Refactor
 - Docs: Change to markdown using mkdocs
 - Settings: Switch to `pydantic_settings` for settings management

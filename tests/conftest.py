@@ -26,10 +26,15 @@ def settings_drop_nulls_false():
     return Settings(ts_drop_nulls=False)
 
 
+@pytest.fixture
+def settings_drop_nulls_false_complete_true():
+    return Settings(ts_drop_nulls=False, ts_complete=True)
+
+
 # True settings
 @pytest.fixture
-def settings_skip_empty_true():
-    return Settings(ts_skip_empty=True)
+def settings_drop_nulls_false_complete_true_skip_empty_true():
+    return Settings(ts_drop_nulls=False, ts_complete=True, ts_skip_empty=True)
 
 
 # False settings
@@ -44,13 +49,13 @@ def settings_humanize_si_false():
 
 
 @pytest.fixture
-def settings_humanize_si_false_wide_shape():
-    return Settings(ts_shape="wide", ts_humanize=False, ts_si_units=False)
+def settings_humanize_si_false_wide_shape_drop_nulls_complete():
+    return Settings(ts_shape="wide", ts_humanize=False, ts_si_units=False, ts_drop_nulls=False, ts_complete=True)
 
 
 @pytest.fixture
-def settings_humanize_false_wide_shape():
-    return Settings(ts_shape="wide", ts_humanize=False)
+def settings_humanize_false_wide_shape_drop_nulls_complete():
+    return Settings(ts_shape="wide", ts_humanize=False, ts_drop_nulls=False, ts_complete=True)
 
 
 @pytest.fixture

@@ -236,17 +236,17 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false):
 
 
 @pytest.mark.remote
-def test_mosmix_date_filter(default_settings):
+def test_mosmix_date_filter(settings_drop_nulls_false):
     now = dt.datetime.now(tz=ZoneInfo("UTC"))
     request = DwdMosmixRequest(
         parameters=[("hourly", "small")],
         start_date=now - dt.timedelta(hours=1),
         end_date=now,
         issue=now - dt.timedelta(hours=5),
-        settings=default_settings,
+        settings=settings_drop_nulls_false,
     ).filter_by_rank(latlon=(52.122050, 11.619845), rank=1)
     given_df = request.values.all().df
-    assert len(given_df) == 38
+    assert len(given_df) == 40
 
 
 @pytest.mark.remote

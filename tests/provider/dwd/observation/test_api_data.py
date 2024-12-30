@@ -170,24 +170,28 @@ def test_request_period_empty(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false):
+def test_dwd_observation_data_count_null_values(settings_drop_nulls_false_complete_true):
     """Test for DataFrame having empty values for dates where the station should not
     have values"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start_date="1933-12-27",  # few days before official start
         end_date="1934-01-04",  # few days after official start,
-        settings=settings_drop_nulls_false,
+        settings=settings_drop_nulls_false_complete_true,
     ).filter_by_station_id(
         station_id=[1048],
     )
-    given_df = request.values.all().df.drop("quality")
-    assert not given_df.filter(pl.col("date").dt.year().is_in((1933, 1934)) & pl.col("value").is_null()).is_empty()
+    given_df = request.values.all().df
+    assert given_df.get_column("value").is_null().sum() == 86
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false_complete_true):
     request = DwdObservationRequest(
-        parameters=[DwdObservationMetadata.hourly.temperature_air.temperature_air_mean_2m],
+        parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")],
         start_date="2020-06-09 12:00:00",  # no data at this time (reason unknown)
         end_date="2020-06-09 12:00:00",
-        settings=settings_drop_nulls_false,
+        settings=settings_drop_nulls_false_complete_true,
     ).filter_by_station_id(
         station_id=["03348"],
     )
@@ -228,12 +232,12 @@ def test_dwd_observation_data_result_all_missing_data(default_settings):
         settings=default_settings,
     ).filter_by_station_id(["05435"])
     given_df = request.values.all().df
-    assert given_df.drop_nulls(Columns.VALUE.value).is_empty()
+    assert given_df.is_empty()
 
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_single_dataset(
-    settings_humanize_si_false_wide_shape,
+    settings_humanize_si_false_wide_shape_drop_nulls_complete,
     dwd_climate_summary_wide_columns,
 ):
     """Test for actual values (wide)"""
@@ -241,7 +245,7 @@ def test_dwd_observation_data_result_wide_single_dataset(
         parameters=[("daily", "climate_summary")],
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        settings=settings_humanize_si_false_wide_shape,
+        settings=settings_humanize_si_false_wide_shape_drop_nulls_complete,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -327,14 +331,14 @@ def test_dwd_observation_data_result_wide_single_dataset(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_single_parameter(
-    settings_humanize_si_false_wide_shape,
+    settings_humanize_si_false_wide_shape_drop_nulls_complete,
 ):
     """Test for actual values (wide)"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "precipitation_height")],
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        settings=settings_humanize_si_false_wide_shape,
+        settings=settings_humanize_si_false_wide_shape_drop_nulls_complete,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -371,7 +375,7 @@ def test_dwd_observation_data_result_wide_single_parameter(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_si(
-    settings_humanize_false_wide_shape,
+    settings_humanize_false_wide_shape_drop_nulls_complete,
     dwd_climate_summary_wide_columns,
 ):
     """Test for actual values (wide) in metric units"""
@@ -379,7 +383,7 @@ def test_dwd_observation_data_result_wide_si(
         parameters=[("daily", "climate_summary")],
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        settings=settings_humanize_false_wide_shape,
+        settings=settings_humanize_false_wide_shape_drop_nulls_complete,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -462,14 +466,14 @@ def test_dwd_observation_data_result_wide_si(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_two_datasets(
-    settings_humanize_si_false_wide_shape,
+    settings_humanize_si_false_wide_shape_drop_nulls_complete,
 ):
     """Test for actual values (wide)"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")],
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        settings=settings_humanize_si_false_wide_shape,
+        settings=settings_humanize_si_false_wide_shape_drop_nulls_complete,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -593,14 +597,6 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "fm",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "fm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
                 "quality": None,
@@ -609,23 +605,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "fx",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "fx",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "nm",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
                 "value": None,
                 "quality": None,
             },
@@ -641,25 +621,9 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "pm",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "pm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 100860.0,
                 "quality": 1.0,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "rsk",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
             },
             {
                 "station_id": "01048",
@@ -673,14 +637,6 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "rskf",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "rskf",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 8.0,
                 "quality": 1.0,
@@ -689,23 +645,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "sdk",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "sdk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "shk_tag",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
                 "value": None,
                 "quality": None,
             },
@@ -721,23 +661,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "tgk",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "tgk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "tmk",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
                 "value": None,
                 "quality": None,
             },
@@ -753,25 +677,9 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "tnk",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "tnk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 273.34999999999997,
                 "quality": 1.0,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "txk",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
             },
             {
                 "station_id": "01048",
@@ -785,25 +693,9 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "upm",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "upm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 97.00,
                 "quality": 1.0,
-            },
-            {
-                "station_id": "01048",
-                "dataset": "climate_summary",
-                "parameter": "vpm",
-                "date": dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
             },
             {
                 "station_id": "01048",
