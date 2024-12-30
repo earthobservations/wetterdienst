@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.99.0 - 2024-12-30
+
 ### Feature
 - Add setting `ts_complete=False` that allows to prevent building a complete time series
 
