@@ -7,6 +7,13 @@ from tests.conftest import IS_WINDOWS
 from wetterdienst.ui.cli import cli
 
 
+def test_cli_stripes():
+    runner = CliRunner()
+    result = runner.invoke(cli, "stripes --help")
+    assert result.exit_code == 0
+    assert "Commands:\n  interactive\n  stations\n  values\n" in result.output
+
+
 @pytest.mark.remote
 def test_stripes_values_default():
     runner = CliRunner()
