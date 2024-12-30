@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
 
@@ -101,5 +102,5 @@ def parse_date(date_string):
         if not date_parsed:
             raise ValueError(f"date_string {date_string} could not be parsed")
     if date_parsed and not date_parsed.tzinfo:
-        date_parsed = date_parsed.replace(tzinfo=dt.timezone.utc)
+        date_parsed = date_parsed.replace(tzinfo=ZoneInfo("UTC"))
     return date_parsed

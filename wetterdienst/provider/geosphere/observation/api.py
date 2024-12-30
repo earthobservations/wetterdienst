@@ -7,6 +7,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -59,8 +60,8 @@ class GeosphereObservationValues(TimeseriesValues):
             station_id=station_id,
             parameters=",".join(parameters),
             dataset=parameter_or_dataset.name_original,
-            start_date=start_date.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%m"),
-            end_date=end_date.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%m"),
+            start_date=start_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
+            end_date=end_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
         )
         log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
