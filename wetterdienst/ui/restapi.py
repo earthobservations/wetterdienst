@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal, Union
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from pydantic import ValidationError
+from starlette.responses import RedirectResponse
 
 from wetterdienst import Author, Info, Provider, Settings, Wetterdienst
 from wetterdienst.core.timeseries.result import (
@@ -191,6 +192,9 @@ Disallow: /api/
 def health():
     return {"status": "OK"}
 
+@app.get("/favicon.ico")
+def favicon():
+    return RedirectResponse(url="https://raw.githubusercontent.com/earthobservations/wetterdienst/refs/heads/main/docs/assets/logo.png")
 
 @app.get("/api/coverage")
 def coverage(

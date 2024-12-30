@@ -2,6 +2,9 @@
 
 ## Development
 
+### Feature
+- Add logo for restapi
+
 ## 0.99.0 - 2024-12-30
 
 ### Feature
