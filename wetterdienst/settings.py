@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     ts_skip_empty: bool = False
     ts_skip_threshold: float = 0.95
     ts_skip_criteria: Literal["min", "mean", "max"] = "min"
-    ts_dropna: bool = False
+    ts_drop_nulls: bool = False
     ts_interpolation_station_distance: dict[str, float] = Field(
         default_factory=lambda: {
             "default": 40.0,

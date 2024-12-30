@@ -28,8 +28,8 @@ def settings_skip_empty_true():
 
 
 @pytest.fixture
-def settings_dropna_true():
-    return Settings(ts_dropna=True)
+def settings_drop_nulls_true():
+    return Settings(ts_drop_nulls=True)
 
 
 # False settings

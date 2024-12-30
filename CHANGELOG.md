@@ -11,6 +11,7 @@
 - Update restapi annotations
 - Use `Settings` in restapi/cli core functions
 - Restapi/Cli: Use pydantic models for request parameters
+- Rename `dropna` to `drop_nulls`
 
 ## 0.98.0 - 2024-12-09
 
