@@ -221,6 +221,10 @@ Data computation:
         --station=<station>
         --coordinates=<latitude,longitude>
 
+        # Interpolation options
+        --interpolation_station_distance=<distance>
+        --use_nearby_station_distance=<distance>
+
         # Output options
         [--format=<format>] [--pretty]
         [--shape=<shape>] [--humanize] [--si-units]
@@ -925,6 +929,7 @@ def values(
 @station_options_core
 @cloup.option("--lead-time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize
+@cloup.option("--interpolation_station_distance", type=click.STRING, default=None)
 @cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
 @cloup.option("--date", type=click.STRING, required=True)
 @cloup.option("--sql-values", type=click.STRING)
@@ -952,6 +957,7 @@ def interpolate(
     parameters: list[str],
     periods: list[str],
     lead_time: Literal["short", "long"],
+    interpolation_station_distance: str,
     use_nearby_station_distance: float,
     date: str,
     issue: str,
@@ -971,9 +977,17 @@ def interpolate(
 
     api = get_api(provider, network)
 
+    if interpolation_station_distance:
+        try:
+            interpolation_station_distance = json.loads(interpolation_station_distance)
+        except json.JSONDecodeError as e:
+            log.exception(e)
+            sys.exit(1)
+
     settings = Settings(
         ts_humanize=humanize,
         ts_si_units=si_units,
+        ts_interpolation_station_distance=interpolation_station_distance,
         ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
     )
 
