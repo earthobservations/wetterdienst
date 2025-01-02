@@ -1222,7 +1222,7 @@ def test_dwd_observation_solar_hourly():
     # Snippet provided by @lasinludwig
     settings = Settings(
         ts_shape="long",
-        ts_si_units=False,
+        ts_convert_units=False,
         ts_skip_empty=True,
         ts_skip_threshold=0.90,
         ts_skip_criteria="min",

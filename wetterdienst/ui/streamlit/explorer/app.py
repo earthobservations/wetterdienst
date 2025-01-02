@@ -63,7 +63,7 @@ def get_values(provider: str, network: str, request_kwargs: dict, station_id: st
     request_kwargs["settings"] = settings
     request_station = get_station(provider, network, request_kwargs, station_id)
     units = request_station.discover("daily", "climate_summary")["daily"]
-    units = {parameter: (unit["si"] if settings.ts_si_units else unit["origin"]) for parameter, unit in units.items()}
+    units = {parameter: (unit["si"] if settings.ts_convert_units else unit["origin"]) for parameter, unit in units.items()}
     values = request_station.values.all().df
     return values.with_columns(pl.col("parameter").replace(units).alias("unit"))
 

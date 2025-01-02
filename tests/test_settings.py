@@ -19,7 +19,7 @@ def test_default_settings(caplog):
     assert default_settings.fsspec_client_kwargs == {}
     assert default_settings.ts_humanize
     assert default_settings.ts_shape == "long"
-    assert default_settings.ts_si_units
+    assert default_settings.ts_convert_units
     assert not default_settings.ts_skip_empty
     assert default_settings.ts_skip_threshold == 0.95
     assert default_settings.ts_drop_nulls
@@ -58,7 +58,7 @@ def test_settings_mixed(caplog):
     caplog.set_level(logging.INFO)
     settings = Settings(
         ts_skip_threshold=0.81,
-        ts_si_units=False,
+        ts_convert_units=False,
         ts_interpolation_station_distance={"just_another": 43},
     )
     log_message = caplog.messages[0]
@@ -66,7 +66,7 @@ def test_settings_mixed(caplog):
     assert log_message == "Wetterdienst cache is disabled"  # env variable
     assert settings.ts_shape  # default variable
     assert settings.ts_skip_threshold == 0.81  # argument variable overrules env variable
-    assert not settings.ts_si_units  # argument variable
+    assert not settings.ts_convert_units  # argument variable
     assert settings.ts_interpolation_station_distance == {
         "default": 40.0,
         "precipitation_height": 40.0,

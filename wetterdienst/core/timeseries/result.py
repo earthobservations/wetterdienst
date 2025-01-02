@@ -158,8 +158,8 @@ class StationsResult(ExportMixin):
         return self.stations.humanize
 
     @property
-    def si_units(self) -> bool:
-        return self.stations.si_units
+    def convert_units(self) -> bool:
+        return self.stations.convert_units
 
     @property
     def skip_empty(self) -> bool:

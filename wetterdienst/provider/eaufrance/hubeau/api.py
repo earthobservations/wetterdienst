@@ -60,14 +60,14 @@ HubeauMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "Q",
-                            "unit": "cubic_meters_per_second",
-                            "unit_original": "liters_per_second",
+                            "unit_type": "cubic_meters_per_second",
+                            "unit": "liters_per_second",
                         },
                         {
                             "name": "stage",
                             "name_original": "H",
-                            "unit": "meter",
-                            "unit_original": "millimeter",
+                            "unit_type": "meter",
+                            "unit": "millimeter",
                         },
                     ],
                 }

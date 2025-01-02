@@ -12,11 +12,13 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 from dateutil.relativedelta import relativedelta
+from jedi.inference.gradual.typing import Callable
 from pint import Quantity
 from tqdm import tqdm
 from tzfpy import get_tz
 
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
+from wetterdienst.core.timeseries.unit import UnitConverter
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import DAILY_AT_MOST, Frequency, Resolution
 from wetterdienst.metadata.timezone import Timezone
@@ -46,6 +48,9 @@ class TimeseriesValues(metaclass=ABCMeta):
         self.sr = stations_result
         self.stations_counter = 0
         self.stations_collected = []
+        self.unit_converter = UnitConverter()
+        self.unit_converter.update_targets(self.sr.settings.ts_unit_targets)
+
 
     @classmethod
     def from_stations(cls, stations: StationsResult):
@@ -210,7 +215,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             {Columns.DATE.value: self._get_complete_dates(start_date, end_date, resolution)}, orient="col"
         )
 
-    def _convert_values_to_si(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
+    def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """
         Function to convert values to metric units with help of conversion factors
 
@@ -221,83 +226,85 @@ class TimeseriesValues(metaclass=ABCMeta):
         if df.is_empty():
             return df
 
-        conversion_factors = self._create_conversion_factors(dataset)
+        # create lambdas here because not every parameter exists in DataFrame
+        # and we can just use the name of the parameter to get the conversion factor
+        # without going back to the dataset model
+        conversion_factors = self._create_conversion_lambdas(dataset)
 
         data = []
         for (parameter,), group in df.group_by(
             [Columns.PARAMETER.value],
             maintain_order=True,
         ):
-            op, factor = conversion_factors.get(parameter, (None, None))
-            if op:
-                group = group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda s, o=op, f=factor: o(s, f)))
+            lambda_ = conversion_factors[parameter]
+            group = group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda_))
             data.append(group)
 
         return pl.concat(data)
 
-    def _create_conversion_factors(
+    def _create_conversion_lambdas(
         self,
         dataset: DatasetModel,
-    ) -> dict[str, dict[str, tuple[operator.add | operator.mul, float]]]:
+    ) -> dict[str, Callable]:
         """
         Function to create conversion factors based on a given dataset
 
         :param dataset: dataset for which conversion factors are created
         :return: dictionary with conversion factors for given parameter name
         """
-        conversion_factors = {}
+        lambdas = {}
         for parameter in dataset:
-            conversion_factors[parameter.name_original] = self._get_conversion_factor(
-                parameter.unit_original, parameter.unit
+            lambdas[parameter.name_original] = self.unit_converter.get_lambda(
+                parameter.unit, parameter.unit_type
             )
-        return conversion_factors
+        return lambdas
 
-    @staticmethod
-    def _get_conversion_factor(
-        unit_original: str,
-        unit_si: str,
-    ) -> tuple[operator.mul | operator.add | None, float | None]:
-        """
-        Method to get the conversion factor (flaot) for a specific parameter
-        :param origin_unit: origin unit enumeration of parameter
-        :param si_unit: si unit enumeration of parameter
-        :return: conversion factor as float
-        """
-        origin_unit = OriginUnit[unit_original.upper()].value
-        si_unit = SIUnit[unit_si.upper()].value
-        if si_unit == SIUnit.KILOGRAM_PER_SQUARE_METER.value:
-            # Fixed conversion factors to kg / m², as it only applies
-            # for water with density 1 g / cm³
-            if origin_unit == OriginUnit.MILLIMETER.value:
-                return operator.mul, 1
-            elif origin_unit == si_unit:
-                return operator.mul, 1
-            else:
-                raise ValueError("manually set conversion factor for precipitation unit")
-        elif si_unit == SIUnit.DEGREE_KELVIN.value:
-            # Apply offset addition to temperature measurements
-            # Take 0 as this is appropriate for adding on other numbers
-            # (just the difference)
-            degree_offset = Quantity(0, origin_unit).to(si_unit).magnitude
-            return operator.add, degree_offset
-        elif si_unit == SIUnit.PERCENT.value:
-            factor = REGISTRY(str(origin_unit)).to(str(si_unit)).magnitude
-            try:
-                factor = factor.item()
-            except AttributeError:
-                pass
-            return operator.mul, factor
-        elif si_unit == SIUnit.DIMENSIONLESS.value:
-            return None, None
-        else:
-            # For multiplicative units we need to use 1 as quantity to apply the
-            # appropriate factor
-            factor = Quantity(1, origin_unit).to(si_unit).magnitude
-            try:
-                factor = factor.item()
-            except AttributeError:
-                pass
-            return operator.mul, factor
+    # @staticmethod
+    # def _get_conversion_factor(
+    #     unit_original: str,
+    #     unit_si: str,
+    # ) -> tuple[operator.mul | operator.add | None, float | None]:
+    #     """
+    #     Method to get the conversion factor (flaot) for a specific parameter
+    #     :param origin_unit: origin unit enumeration of parameter
+    #     :param si_unit: si unit enumeration of parameter
+    #     :return: conversion factor as float
+    #     """
+    #     origin_unit = OriginUnit[unit_original.upper()].value
+    #     si_unit = SIUnit[unit_si.upper()].value
+    #     if si_unit == SIUnit.KILOGRAM_PER_SQUARE_METER.value:
+    #         # Fixed conversion factors to kg / m², as it only applies
+    #         # for water with density 1 g / cm³
+    #         if origin_unit == OriginUnit.MILLIMETER.value:
+    #             return operator.mul, 1
+    #         elif origin_unit == si_unit:
+    #             return operator.mul, 1
+    #         else:
+    #             raise ValueError("manually set conversion factor for precipitation unit")
+    #     elif si_unit == SIUnit.DEGREE_KELVIN.value:
+    #         # Apply offset addition to temperature measurements
+    #         # Take 0 as this is appropriate for adding on other numbers
+    #         # (just the difference)
+    #         degree_offset = Quantity(0, origin_unit).to(si_unit).magnitude
+    #         return operator.add, degree_offset
+    #     elif si_unit == SIUnit.PERCENT.value:
+    #         factor = REGISTRY(str(origin_unit)).to(str(si_unit)).magnitude
+    #         try:
+    #             factor = factor.item()
+    #         except AttributeError:
+    #             pass
+    #         return operator.mul, factor
+    #     elif si_unit == SIUnit.DIMENSIONLESS.value:
+    #         return None, None
+    #     else:
+    #         # For multiplicative units we need to use 1 as quantity to apply the
+    #         # appropriate factor
+    #         factor = Quantity(1, origin_unit).to(si_unit).magnitude
+    #         try:
+    #             factor = factor.item()
+    #         except AttributeError:
+    #             pass
+    #         return operator.mul, factor
 
     def _create_empty_station_df(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """
@@ -428,8 +435,8 @@ class TimeseriesValues(metaclass=ABCMeta):
                 if df.is_empty():
                     df = self._create_empty_station_df(station_id=station_id, dataset=dataset)
 
-                if self.sr.si_units:
-                    df = self._convert_values_to_si(df, dataset)
+                if self.sr.convert_units:
+                    df = self._convert_units(df, dataset)
 
                 df = df.unique(subset=[Columns.DATE.value, Columns.PARAMETER.value], maintain_order=True)
 

@@ -33,44 +33,37 @@ DATASET_NAME_DEFAULT = "data"
 class ParameterModel(BaseModel):
     name: str
     name_original: str
+    unit_type: str
     unit: str
-    unit_original: str
     description: str | None = None
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)
 
-    @field_validator("name", mode="after")
-    @classmethod
-    def validate_name(cls, value):
-        if value.startswith("quality"):
-            return value
-        if value in PARAMETER_NAMES:
-            return value
-        raise ValueError(f"Parameter name '{value}' not in {PARAMETER_NAMES}")
-
-    @field_validator("unit", mode="after")
-    @classmethod
-    def validate_unit(cls, value):
-        if value in UNIT_NAMES:
-            return value
-        raise ValueError(f"Unit name '{value}' not in {UNIT_NAMES}")
-
-    @field_validator("unit_original", mode="after")
-    @classmethod
-    def validate_unit_original(cls, value):
-        if value in UNIT_ORIGINAL_NAMES:
-            return value
-        raise ValueError(f"Unit name '{value}' not in {UNIT_ORIGINAL_NAMES}")
+    # @field_validator("name", mode="after")
+    # @classmethod
+    # def validate_name(cls, value):
+    #     if value.startswith("quality"):
+    #         return value
+    #     if value in PARAMETER_NAMES:
+    #         return value
+    #     raise ValueError(f"Parameter name '{value}' not in {PARAMETER_NAMES}")
+    #
+    # @field_validator("unit_original", mode="after")
+    # @classmethod
+    # def validate_unit_original(cls, value):
+    #     if value in UNIT_ORIGINAL_NAMES:
+    #         return value
+    #     raise ValueError(f"Unit name '{value}' not in {UNIT_ORIGINAL_NAMES}")
 
     def __eq__(self, other):
         return (
-            self.name == other.name
-            and self.name_original == other.name_original
-            and self.unit == other.unit
-            and self.unit_original == other.unit_original
-            and self.description == other.description
-            # don't compare the dataset object itself because it'd be circular
-            and self.dataset.name == other.dataset.name
-            and self.dataset.resolution.name == other.dataset.resolution.name
+                self.name == other.name
+                and self.name_original == other.name_original
+                and self.unit_type == other.unit_type
+                and self.unit == other.unit
+                and self.description == other.description
+                # don't compare the dataset object itself because it'd be circular
+                and self.dataset.name == other.dataset.name
+                and self.dataset.resolution.name == other.dataset.resolution.name
         )
 
 

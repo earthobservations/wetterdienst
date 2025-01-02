@@ -41,14 +41,14 @@ EAHydrologyMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "flow",
+                            "unit_type": "cubic_meters_per_second",
                             "unit": "cubic_meters_per_second",
-                            "unit_original": "cubic_meters_per_second",
                         },
                         {
                             "name": "groundwater_level",
                             "name_original": "groundwater_level",
+                            "unit_type": "meter",
                             "unit": "meter",
-                            "unit_original": "meter",
                         },
                     ],
                 }
@@ -68,14 +68,14 @@ EAHydrologyMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "flow",
+                            "unit_type": "cubic_meters_per_second",
                             "unit": "cubic_meters_per_second",
-                            "unit_original": "cubic_meters_per_second",
                         },
                         {
                             "name": "groundwater_level",
                             "name_original": "groundwater_level",
+                            "unit_type": "meter",
                             "unit": "meter",
-                            "unit_original": "meter",
                         },
                     ],
                 }
@@ -96,14 +96,14 @@ EAHydrologyMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "flow",
+                            "unit_type": "cubic_meters_per_second",
                             "unit": "cubic_meters_per_second",
-                            "unit_original": "cubic_meters_per_second",
                         },
                         {
                             "name": "groundwater_level",
                             "name_original": "groundwater_level",
+                            "unit_type": "meter",
                             "unit": "meter",
-                            "unit_original": "meter",
                         },
                     ],
                 }

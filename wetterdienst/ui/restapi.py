@@ -311,7 +311,7 @@ def values(
         ) from e
 
     settings = Settings(
-        ts_si_units=request.si_units,
+        ts_convert_units=request.si_units,
         ts_shape=request.shape,
         ts_humanize=request.humanize,
         ts_skip_empty=request.skip_empty,
@@ -368,7 +368,7 @@ def interpolate(request: Annotated[InterpolationRequestRaw, Query()]) -> Any:
 
     settings = Settings(
         ts_humanize=request.humanize,
-        ts_si_units=request.si_units,
+        ts_convert_units=request.si_units,
         ts_interpolation_station_distance=request.interpolation_station_distance,
         ts_interpolation_use_nearby_station_distance=request.use_nearby_station_distance,
     )
@@ -420,7 +420,7 @@ def summarize(
 
     settings = Settings(
         ts_humanize=request.humanize,
-        ts_si_units=request.si_units,
+        ts_convert_units=request.si_units,
     )
 
     try:

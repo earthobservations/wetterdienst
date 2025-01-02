@@ -519,19 +519,19 @@ The result data is provided through a virtual table called ``data``.
 
 ```python
     from wetterdienst import Settings
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    settings = Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)  # defaults
-    request = DwdObservationRequest(
-        parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-        start_date="2019-01-01",
-        end_date="2020-01-01",
-        settings=settings
-    )
-    stations = request.filter_by_station_id(station_id=[1048])
-    values = stations.values.all()
-    df = values.filter_by_sql("parameter='temperature_air_mean_2m' AND value < -7.0;")
-    print(df.head())
+settings = Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)  # defaults
+request = DwdObservationRequest(
+  parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
+  start_date="2019-01-01",
+  end_date="2020-01-01",
+  settings=settings
+)
+stations = request.filter_by_station_id(station_id=[1048])
+values = stations.values.all()
+df = values.filter_by_sql("parameter='temperature_air_mean_2m' AND value < -7.0;")
+print(df.head())
 ```
 
 ### Export
@@ -551,12 +551,12 @@ Examples:
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-settings = Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)  # defaults
+settings = Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)  # defaults
 request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air"),
-    start_date="2019-01-01",
-    end_date="2020-01-01",
-    settings=settings
+  parameters=("hourly", "temperature_air"),
+  start_date="2019-01-01",
+  end_date="2020-01-01",
+  settings=settings
 )
 stations = request.filter_by_station_id(station_id=[1048])
 values = stations.values.all()

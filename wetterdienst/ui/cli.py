@@ -924,7 +924,7 @@ def values(
     settings = Settings(
         ts_humanize=humanize,
         ts_shape=shape,
-        ts_si_units=si_units,
+        ts_convert_units=si_units,
         ts_skip_empty=skip_empty,
         ts_skip_criteria=skip_criteria,
         ts_skip_threshold=skip_threshold,
@@ -1042,7 +1042,7 @@ def interpolate(
 
     settings = Settings(
         ts_humanize=humanize,
-        ts_si_units=si_units,
+        ts_convert_units=si_units,
         ts_interpolation_station_distance=interpolation_station_distance,
         ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
     )
@@ -1144,7 +1144,7 @@ def summarize(
 
     settings = Settings(
         ts_humanize=humanize,
-        ts_si_units=si_units,
+        ts_convert_units=si_units,
     )
 
     try:
