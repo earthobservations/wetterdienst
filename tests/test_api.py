@@ -4,20 +4,22 @@ import zoneinfo
 
 import pytest
 
+from wetterdienst import Parameter
 from wetterdienst.api import Wetterdienst
-from wetterdienst.provider.dwd.dmo import DwdDmoRequest
-from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.provider.dwd.road import DwdRoadRequest
-from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
-from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
-from wetterdienst.provider.eccc.observation import EcccObservationRequest
-from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
-from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
-from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
-from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
-from wetterdienst.provider.nws.observation import NwsObservationRequest
-from wetterdienst.provider.wsv.pegel import WsvPegelRequest
+from wetterdienst.core.timeseries.unit import UnitConverter
+from wetterdienst.provider.dwd.dmo import DwdDmoRequest, DwdDmoMetadata
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixMetadata
+from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
+from wetterdienst.provider.dwd.road import DwdRoadRequest, DwdRoadMetadata
+from wetterdienst.provider.ea.hydrology import EAHydrologyRequest, EAHydrologyMetadata
+from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, HubeauMetadata
+from wetterdienst.provider.eccc.observation import EcccObservationRequest, EcccObservationMetadata
+from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, GeosphereObservationMetadata
+from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest, ImgwHydrologyMetadata
+from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest, ImgwMeteorologyMetadata
+from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest, NoaaGhcnMetadata
+from wetterdienst.provider.nws.observation import NwsObservationRequest, NwsObservationMetadata
+from wetterdienst.provider.wsv.pegel import WsvPegelRequest, WsvPegelMetadata
 from wetterdienst.util.eccodes import ensure_eccodes
 
 DF_STATIONS_MINIMUM_COLUMNS = {
@@ -32,6 +34,20 @@ DF_STATIONS_MINIMUM_COLUMNS = {
 }
 DF_VALUES_MINIMUM_COLUMNS = {"station_id", "parameter", "date", "value", "quality"}
 
+@pytest.fixture
+def parameter_names():
+    return {parameter.name.lower() for parameter in Parameter}
+
+@pytest.fixture
+def unit_converter():
+    return UnitConverter()
+
+@pytest.fixture
+def unit_converter_unit_type_units(unit_converter):
+    return {
+        unit_type: [unit.name for unit in units]
+        for unit_type,units in unit_converter.units.items()
+    }
 
 @pytest.mark.parametrize(
     "provider, network",
@@ -40,6 +56,56 @@ DF_VALUES_MINIMUM_COLUMNS = {"station_id", "parameter", "date", "value", "qualit
 def test_wetterdienst_api(provider, network):
     request = Wetterdienst.resolve(provider, network)
     assert request
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        DwdDmoMetadata,
+        DwdMosmixMetadata,
+        DwdObservationMetadata,
+        DwdRoadMetadata,
+        EAHydrologyMetadata,
+        EcccObservationMetadata,
+        GeosphereObservationMetadata,
+        HubeauMetadata,
+        ImgwHydrologyMetadata,
+        ImgwMeteorologyMetadata,
+        NoaaGhcnMetadata,
+        NwsObservationMetadata,
+        WsvPegelMetadata,
+    ]
+)
+def test_metadata_parameter_names(parameter_names, metadata):
+    for resolution in metadata:
+        for dataset in resolution:
+            for parameter in dataset:
+                assert parameter.name in parameter_names
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        DwdDmoMetadata,
+        DwdMosmixMetadata,
+        DwdObservationMetadata,
+        DwdRoadMetadata,
+        EAHydrologyMetadata,
+        EcccObservationMetadata,
+        GeosphereObservationMetadata,
+        HubeauMetadata,
+        ImgwHydrologyMetadata,
+        ImgwMeteorologyMetadata,
+        NoaaGhcnMetadata,
+        NwsObservationMetadata,
+        WsvPegelMetadata,
+    ]
+)
+def test_metadata_units(unit_converter, unit_converter_unit_type_units, metadata):
+    for resolution in metadata:
+        for dataset in resolution:
+            for parameter in dataset:
+                assert parameter.unit_type in unit_converter.targets
+                assert parameter.unit in unit_converter_unit_type_units[parameter.unit_type]
+
 
 
 def test_api_dwd_observation(settings_si_true):

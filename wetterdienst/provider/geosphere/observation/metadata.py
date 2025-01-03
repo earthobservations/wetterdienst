@@ -18,19 +18,19 @@ GeosphereObservationMetadata = {
                         {
                             "name": "humidity",
                             "name_original": "rf",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_duration",
                             "name_original": "rrm",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "minute",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "rr",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -48,13 +48,13 @@ GeosphereObservationMetadata = {
                         {
                             "name": "radiation_global",
                             "name_original": "cglo",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "radiation_sky_short_wave_diffuse",
                             "name_original": "chim",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
@@ -66,73 +66,73 @@ GeosphereObservationMetadata = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "so",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "second",
                         },
                         {
                             "name": "temperature_air_max_0_05m",
                             "name_original": "tsmax",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "tlmax",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_0_05m",
                             "name_original": "ts",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tl",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_0_05m",
                             "name_original": "tsmin",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "tlmin",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_1m",
                             "name_original": "tb10",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_2m",
                             "name_original": "tb20",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_5m",
                             "name_original": "tb50",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "wind_direction",
                             "name_original": "dd",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "ddx",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
@@ -171,19 +171,19 @@ GeosphereObservationMetadata = {
                         {
                             "name": "humidity",
                             "name_original": "rf",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_duration",
                             "name_original": "rrm",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "minute",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "rr",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -201,7 +201,7 @@ GeosphereObservationMetadata = {
                         {
                             "name": "radiation_global",
                             "name_original": "cglo",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
@@ -213,61 +213,61 @@ GeosphereObservationMetadata = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "so_h",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "hour",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tl",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_0_05m",
                             "name_original": "tsmin",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_1m",
                             "name_original": "tb10",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_2m",
                             "name_original": "tb20",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_5m",
                             "name_original": "tb50",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_1m",
                             "name_original": "tb100",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_2m",
                             "name_original": "tb200",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "wind_direction",
                             "name_original": "dd",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "ddx",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
@@ -300,19 +300,19 @@ GeosphereObservationMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "bewm_mittel",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_hundredth",
                         },
                         {
                             "name": "humidity",
                             "name_original": "rf_mittel",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "rr",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -330,7 +330,7 @@ GeosphereObservationMetadata = {
                         {
                             "name": "radiation_global",
                             "name_original": "cglo_j",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
@@ -354,31 +354,31 @@ GeosphereObservationMetadata = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "so_h",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "hour",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "tlmax",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tl_mittel",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "tlmin",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_0_05m",
                             "name_original": "tsmin",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -411,25 +411,25 @@ GeosphereObservationMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "bewm_mittel",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_hundredth",
                         },
                         {
                             "name": "humidity",
                             "name_original": "rf_mittel",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "rr",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_max",
                             "name_original": "rr_max",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -459,7 +459,7 @@ GeosphereObservationMetadata = {
                         {
                             "name": "radiation_global",
                             "name_original": "cglo_j",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
@@ -483,19 +483,19 @@ GeosphereObservationMetadata = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "so_h",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "hour",
                         },
                         {
                             "name": "sunshine_duration_relative",
                             "name_original": "so_r",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "tlmax",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {

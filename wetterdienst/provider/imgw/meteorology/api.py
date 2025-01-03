@@ -39,19 +39,19 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "średnie dobowe zachmurzenie ogólne",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "humidity",
                             "name_original": "średnia dobowa wilgotność względna",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "suma dobowa opadów",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -63,25 +63,25 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "maksymalna temperatura dobowa",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_0_05m",
                             "name_original": "temperatura minimalna przy gruncie",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "średnia dobowa temperatura",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "minimalna temperatura dobowa",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -100,7 +100,7 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "suma dobowa opadów",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -125,25 +125,25 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "średnie dobowe zachmurzenie ogólne",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "humidity",
                             "name_original": "średnia dobowa wilgotność względna",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_height_day",
                             "name_original": "suma opadu dzień",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_night",
                             "name_original": "suma opadu noc",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -167,7 +167,7 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "średnia dobowa temperatura",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -194,25 +194,25 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "średnie miesięczne zachmurzenie ogólne",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "humidity",
                             "name_original": "średnia miesięczna wilgotność względna",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "miesieczna suma opadów",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_max",
                             "name_original": "opad maksymalny",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -224,37 +224,37 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "absolutna temperatura maksymalna",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_max_2m_mean",
                             "name_original": "średnia temperatura maksymalna",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "średnia miesięczna temperatura",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_0_05m",
                             "name_original": "minimalna temperatura przy gruncie",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "absolutna temperatura minimalna",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m_mean",
                             "name_original": "średnia temperatura minimalna",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -273,13 +273,13 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "miesięczna suma opadów",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_max",
                             "name_original": "opad maksymalny",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                     ],
@@ -292,37 +292,37 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "średnie miesięczne zachmurzenie ogólne",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "humidity",
                             "name_original": "średnia miesięczna wilgotność względna",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "miesięczna suma opadów",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_day",
                             "name_original": "suma opadu dzień",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_max",
                             "name_original": "maksymalna dobowa suma opadów",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_night",
                             "name_original": "suma opadu noc",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -352,37 +352,37 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "absolutna temperatura maksymalna",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_max_2m_mean",
                             "name_original": "średnia temperatura maksymalna",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "absolutna temperatura minimalna",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m_mean",
                             "name_original": "średnia temperatura minimalna",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_0_05m",
                             "name_original": "minimalna temperatura przy gruncie",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "średnia miesięczna temperatura",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {

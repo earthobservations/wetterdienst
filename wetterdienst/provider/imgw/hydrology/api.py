@@ -49,7 +49,7 @@ ImgwHydrologyMetadata = {
                         {
                             "name": "temperature_water",
                             "name_original": "temperatura wody",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {

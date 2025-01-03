@@ -58,7 +58,7 @@ WsvPegelMetadata = {
                         {
                             "name": "temperature_water",
                             "name_original": "WT",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -76,7 +76,7 @@ WsvPegelMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "LT",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -100,7 +100,7 @@ WsvPegelMetadata = {
                         {
                             "name": "humidity",
                             "name_original": "HL",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
@@ -124,13 +124,13 @@ WsvPegelMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "WR",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "NIEDERSCHLAG",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {

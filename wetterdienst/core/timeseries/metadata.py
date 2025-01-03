@@ -15,13 +15,6 @@ if TYPE_CHECKING:
 
     from wetterdienst.core.timeseries.request import _PARAMETER_TYPE
 
-from wetterdienst.metadata.parameter import Parameter
-from wetterdienst.metadata.unit import OriginUnit, SIUnit
-
-PARAMETER_NAMES = {parameter.name.lower() for parameter in Parameter}
-UNIT_NAMES = {unit.name.lower() for unit in SIUnit}
-UNIT_ORIGINAL_NAMES = {unit.name.lower() for unit in OriginUnit}
-
 log = logging.getLogger(__name__)
 
 POSSIBLE_SEPARATORS = ("/", ".", ":")
@@ -37,22 +30,6 @@ class ParameterModel(BaseModel):
     unit: str
     description: str | None = None
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)
-
-    # @field_validator("name", mode="after")
-    # @classmethod
-    # def validate_name(cls, value):
-    #     if value.startswith("quality"):
-    #         return value
-    #     if value in PARAMETER_NAMES:
-    #         return value
-    #     raise ValueError(f"Parameter name '{value}' not in {PARAMETER_NAMES}")
-    #
-    # @field_validator("unit_original", mode="after")
-    # @classmethod
-    # def validate_unit_original(cls, value):
-    #     if value in UNIT_ORIGINAL_NAMES:
-    #         return value
-    #     raise ValueError(f"Unit name '{value}' not in {UNIT_ORIGINAL_NAMES}")
 
     def __eq__(self, other):
         return (

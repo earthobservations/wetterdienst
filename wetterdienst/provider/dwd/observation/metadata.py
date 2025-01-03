@@ -163,7 +163,7 @@ DwdObservationMetadata = {
                         {
                             "name": "radiation_sky_long_wave",
                             "name_original": "ls_10",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                     ],
@@ -188,7 +188,7 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tt_10",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -197,7 +197,7 @@ DwdObservationMetadata = {
                             "unit_type": "degree_kelvin",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_10", "unit_type": "percent", "unit": "percent"},
+                        {"name": "humidity", "name_original": "rf_10", "unit_type": "fraction", "unit": "percent"},
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "td_10",
@@ -263,7 +263,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "dd_10",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                     ],
@@ -300,7 +300,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "dx_10",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                     ],
@@ -327,7 +327,7 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "v_n",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
@@ -351,13 +351,13 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_height_layer1",
                             "name_original": "v_s1_hhs",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                         {
                             "name": "cloud_cover_layer1",
                             "name_original": "v_s1_ns",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
@@ -375,13 +375,13 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_height_layer2",
                             "name_original": "v_s2_hhs",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                         {
                             "name": "cloud_cover_layer2",
                             "name_original": "v_s2_ns",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
@@ -399,13 +399,13 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_height_layer3",
                             "name_original": "v_s3_hhs",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                         {
                             "name": "cloud_cover_layer3",
                             "name_original": "v_s3_ns",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
@@ -423,13 +423,13 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_height_layer4",
                             "name_original": "v_s4_hhs",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                         {
                             "name": "cloud_cover_layer4",
                             "name_original": "v_s4_ns",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                     ],
@@ -454,7 +454,7 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "v_n",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                     ],
@@ -525,7 +525,7 @@ DwdObservationMetadata = {
                             "unit_type": "degree_kelvin",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_std", "unit_type": "percent", "unit": "percent"},
+                        {"name": "humidity", "name_original": "rf_std", "unit_type": "fraction", "unit": "percent"},
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "td_std",
@@ -548,7 +548,7 @@ DwdObservationMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "r1",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -610,31 +610,31 @@ DwdObservationMetadata = {
                         {
                             "name": "radiation_sky_long_wave",
                             "name_original": "atmo_lberg",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "radiation_sky_short_wave_diffuse",
                             "name_original": "fd_lberg",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "radiation_global",
                             "name_original": "fg_lberg",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "sunshine_duration",
                             "name_original": "sd_lberg",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "minute",
                         },
                         {
                             "name": "sun_zenith_angle",
                             "name_original": "zenit",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
@@ -659,7 +659,7 @@ DwdObservationMetadata = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "sd_so",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "minute",
                         },
                     ],
@@ -681,7 +681,7 @@ DwdObservationMetadata = {
                             "unit_type": "degree_kelvin",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_tu", "unit_type": "percent", "unit": "percent"},
+                        {"name": "humidity", "name_original": "rf_tu", "unit_type": "fraction", "unit": "percent"},
                     ],
                 },
                 {
@@ -753,7 +753,7 @@ DwdObservationMetadata = {
                         {
                             "name": "visibility_range",
                             "name_original": "v_vv",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                     ],
@@ -800,7 +800,7 @@ DwdObservationMetadata = {
                             "unit_type": "meter_per_second",
                             "unit": "meter_per_second",
                         },
-                        {"name": "wind_direction", "name_original": "d", "unit_type": "degree", "unit": "degree"},
+                        {"name": "wind_direction", "name_original": "d", "unit_type": "angle", "unit": "degree"},
                     ],
                 },
                 {
@@ -839,7 +839,7 @@ DwdObservationMetadata = {
                             "unit_type": "meter_per_second",
                             "unit": "meter_per_second",
                         },
-                        {"name": "wind_direction", "name_original": "dd", "unit_type": "degree", "unit": "degree"},
+                        {"name": "wind_direction", "name_original": "dd", "unit_type": "angle", "unit": "degree"},
                     ],
                 },
                 # urban datasets
@@ -857,7 +857,7 @@ DwdObservationMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "niederschlagshoehe",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                     ],
@@ -901,7 +901,7 @@ DwdObservationMetadata = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "sonnenscheindauer",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "minute",
                         },
                     ],
@@ -926,7 +926,7 @@ DwdObservationMetadata = {
                         {
                             "name": "humidity",
                             "name_original": "rel_feuchte",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                     ],
@@ -994,7 +994,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "windrichtung",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                     ],
@@ -1136,7 +1136,7 @@ DwdObservationMetadata = {
                         {
                             "name": "visibility_range",
                             "name_original": "vk_ter",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                     ],
@@ -1155,7 +1155,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "dk_ter",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
@@ -1317,7 +1317,7 @@ DwdObservationMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "rs",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -1354,25 +1354,25 @@ DwdObservationMetadata = {
                         {
                             "name": "radiation_sky_long_wave",
                             "name_original": "atmo_strahl",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "radiation_sky_short_wave_diffuse",
                             "name_original": "fd_strahl",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "radiation_global",
                             "name_original": "fg_strahl",
-                            "unit_type": "joule_per_square_meter",
+                            "unit_type": "energy_per_area",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "sunshine_duration",
                             "name_original": "sd_strahl",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "hour",
                         },
                     ],
@@ -1452,13 +1452,13 @@ DwdObservationMetadata = {
                         {
                             "name": "water_equivalent_snow_depth",
                             "name_original": "wash_6",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "water_equivalent_snow_depth_excelled",
                             "name_original": "waas_6",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                     ],
@@ -1613,7 +1613,7 @@ DwdObservationMetadata = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "mo_sd_s",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "hour",
                         },
                         {
@@ -1649,13 +1649,13 @@ DwdObservationMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "mo_rr",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_max",
                             "name_original": "mx_rs",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                     ],
@@ -1680,7 +1680,7 @@ DwdObservationMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "mo_rr",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -1692,7 +1692,7 @@ DwdObservationMetadata = {
                         {
                             "name": "precipitation_height_max",
                             "name_original": "mx_rs",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                     ],
@@ -1804,7 +1804,7 @@ DwdObservationMetadata = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "ja_sd_s",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "hour",
                         },
                         {
@@ -1840,13 +1840,13 @@ DwdObservationMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "ja_rr",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_max",
                             "name_original": "ja_mx_rs",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                     ],
@@ -1871,7 +1871,7 @@ DwdObservationMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "ja_rr",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -1883,7 +1883,7 @@ DwdObservationMetadata = {
                         {
                             "name": "precipitation_height_max",
                             "name_original": "ja_mx_rs",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                     ],

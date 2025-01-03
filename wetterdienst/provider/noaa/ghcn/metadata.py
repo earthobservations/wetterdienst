@@ -21,7 +21,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "humidity",
                             "name_original": "relative_humidity",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         # total liquid precipitation (rain or melted snow) for past hour; a “T” in the measurement
@@ -29,7 +29,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "precipitation",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         # 3-hour total liquid precipitation (rain or melted snow) accumulation
@@ -39,49 +39,49 @@ NoaaGhcnMetadata = {
                         {
                             "name": "precipitation_height_last_3h",
                             "name_original": "precipitation_3_hour",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_last_6h",
                             "name_original": "precipitation_6_hour",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_last_9h",
                             "name_original": "precipitation_9_hour",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_last_12h",
                             "name_original": "precipitation_12_hour",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_last_15h",
                             "name_original": "precipitation_15_hour",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_last_18h",
                             "name_original": "precipitation_18_hour",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_last_21h",
                             "name_original": "precipitation_21_hour",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_last_24h",
                             "name_original": "precipitation_24_hour",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         # reduction estimates the pressure that would exist at sea level at a point directly below
@@ -130,28 +130,28 @@ NoaaGhcnMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "temperature",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # Dew Point Temperature (⁰C to tenths)
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "dew_point_temperature",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # Wet bulb temperature (⁰C to tenths)
                         {
                             "name": "temperature_wet_mean_2m",
                             "name_original": "wet_bulb_temperature",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # horizontal distance at which an object can be seen and identified (kilometers)
                         {
                             "name": "visibility_range",
                             "name_original": "visibility",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "kilometer",
                         },
                         # Wind Direction from true north using compass directions (e.g. 360=true north, 180=south,
@@ -160,7 +160,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "wind_direction",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         # Peak short duration (usually < 20 seconds) wind speed (meters per second) that exceeds the
@@ -199,7 +199,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "prcp",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         # SNOW = Snowfall (mm or inches as per user preference,
@@ -224,7 +224,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "tmax",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # TMIN  =  Minimum  temperature  (Fahrenheit  or  Celsius  as
@@ -233,14 +233,14 @@ NoaaGhcnMetadata = {
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "tmin",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # derived from temperature_air_max_2m and temperature_air_min_2m
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tavg",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # additional parameters
@@ -248,28 +248,28 @@ NoaaGhcnMetadata = {
                         {
                             "name": "cloud_cover_total_midnight_to_midnight",
                             "name_original": "acmc",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         # Average cloudiness midnight to midnight from manual observation (percent)
                         {
                             "name": "cloud_cover_total_midnight_to_midnight_manual",
                             "name_original": "acmh",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         # Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)
                         {
                             "name": "cloud_cover_total_sunrise_to_sunset",
                             "name_original": "acsc",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         # Average cloudiness sunrise to sunset from manual observation (percent)
                         {
                             "name": "cloud_cover_total_sunrise_to_sunset_manual",
                             "name_original": "acsh",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         # Average daily wind speed (meters per second or miles per hour as per user preference)
@@ -333,7 +333,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "evaporation_height",
                             "name_original": "evap",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         # time_wind_gust_max_1mile_or_1min (fmtm) is left out
@@ -369,7 +369,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "evaporation_height_multiday",
                             "name_original": "mdev",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         # Multiday precipitation total (mm or inches as per user preference; use with DAPR and DWPR,
@@ -377,7 +377,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "precipitation_height_multiday",
                             "name_original": "mdpr",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         # Multiday snowfall total (mm or inches as per user preference)
@@ -391,14 +391,14 @@ NoaaGhcnMetadata = {
                         {
                             "name": "temperature_air_min_2m_multiday",
                             "name_original": "mdtn",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # Multiday maximum temperature (Fahrenheit or Celsius as per user preference ; use with DATX)
                         {
                             "name": "temperature_air_max_2m_multiday",
                             "name_original": "mdtx",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # Multiday wind movement (miles or km as per user preference)
@@ -413,7 +413,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "temperature_water_evaporation_pan_min",
                             "name_original": "mnpn",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # Daily maximum temperature of water in an evaporation pan
@@ -421,7 +421,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "temperature_water_evaporation_pan_max",
                             "name_original": "mxpn",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # time_wind_gust_max (pgtm) is left out
@@ -429,7 +429,7 @@ NoaaGhcnMetadata = {
                         {
                             "name": "sunshine_duration_relative",
                             "name_original": "psun",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         # soil temperature
@@ -465,92 +465,92 @@ NoaaGhcnMetadata = {
                         {
                             "name": "temperature_soil_min_unknown_0_05m",
                             "name_original": "sn01",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_min_unknown_0_1m",
                             "name_original": "sn02",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_min_unknown_0_2m",
                             "name_original": "sn03",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_min_unknown_0_5m",
                             "name_original": "sn04",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_min_unknown_1m",
                             "name_original": "sn05",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_min_unknown_1_5m",
                             "name_original": "sn06",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_min_unknown_1_8m",
                             "name_original": "sn07",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_max_unknown_0_05m",
                             "name_original": "sx01",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_max_unknown_0_1m",
                             "name_original": "sx02",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_max_unknown_0_2m",
                             "name_original": "sx03",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_max_unknown_0_5m",
                             "name_original": "sx04",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_max_unknown_1m",
                             "name_original": "sx05",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_max_unknown_1_5m",
                             "name_original": "sx06",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_max_unknown_1_8m",
                             "name_original": "sx07",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         # 1 - grass
                         {
                             "name": "temperature_soil_min_grass_0_05m",
                             "name_original": "sn11",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -1244,49 +1244,49 @@ NoaaGhcnMetadata = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "tsun",
-                            "unit_type": "second",
+                            "unit_type": "time",
                             "unit": "minute",
                         },
                         # Direction of fastest 5-second wind (degrees)
                         {
                             "name": "wind_direction_gust_max_5sec",
                             "name_original": "wdf5",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         # Direction of fastest 1-minute wind (degrees)
                         {
                             "name": "wind_direction_gust_max_1min",
                             "name_original": "wdf1",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         # Direction of fastest 2-minute wind (degrees)
                         {
                             "name": "wind_direction_gust_max_2min",
                             "name_original": "wdf2",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         # Direction of peak wind gust (degrees)
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "wdfg",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         # Direction of highest instantaneous wind (degrees)
                         {
                             "name": "wind_direction_gust_max_instant",
                             "name_original": "wdfi",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         # Fastest mile wind direction (degrees)
                         {
                             "name": "wind_direction_gust_max_1mile",
                             "name_original": "wdfm",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         # 24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)
@@ -1300,14 +1300,14 @@ NoaaGhcnMetadata = {
                         {
                             "name": "water_equivalent_snow_depth",
                             "name_original": "wesd",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         # Water equivalent of snowfall (inches or mm as per user preference)
                         {
                             "name": "water_equivalent_snow_depth_new",
                             "name_original": "wesf",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         # Fastest 5-second wind speed (miles per hour or  meters per second as per user preference)

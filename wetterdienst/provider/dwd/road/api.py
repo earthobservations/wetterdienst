@@ -55,7 +55,7 @@ DwdRoadMetadata = {
                         {
                             "name": "humidity",
                             "name_original": "relativeHumidity",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
@@ -67,7 +67,7 @@ DwdRoadMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "totalPrecipitationOrTotalWaterEquivalent",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -85,25 +85,25 @@ DwdRoadMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "airTemperature",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_kelvin",
                         },
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "dewpointTemperature",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_kelvin",
                         },
                         {
                             "name": "temperature_surface_mean",
                             "name_original": "roadSurfaceTemperature",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_kelvin",
                         },
                         {
                             "name": "visibility_range",
                             "name_original": "horizontalVisibility",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "kilometer",
                         },
                         {
@@ -115,13 +115,13 @@ DwdRoadMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "windDirection",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "maximumWindGustDirection",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {

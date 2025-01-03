@@ -18,7 +18,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -30,7 +30,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "dew point temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -42,7 +42,7 @@ EcccObservationMetadata = {
                         {
                             "name": "humidity",
                             "name_original": "rel hum (%)",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
@@ -54,7 +54,7 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "wind dir (10s deg)",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
@@ -78,7 +78,7 @@ EcccObservationMetadata = {
                         {
                             "name": "visibility_range",
                             "name_original": "visibility (km)",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "kilometer",
                         },
                         {
@@ -147,7 +147,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "max temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -159,7 +159,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "min temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -171,7 +171,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "mean temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -207,7 +207,7 @@ EcccObservationMetadata = {
                         {
                             "name": "precipitation_height_liquid",
                             "name_original": "total rain (mm)",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -231,7 +231,7 @@ EcccObservationMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "total precip (mm)",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -255,7 +255,7 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "dir of max gust (10s deg)",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
@@ -294,7 +294,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_max_2m_mean",
                             "name_original": "mean max temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -306,7 +306,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_min_2m_mean",
                             "name_original": "mean min temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -318,7 +318,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "mean temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -330,7 +330,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "extr max temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -342,7 +342,7 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "extr min temp (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -354,7 +354,7 @@ EcccObservationMetadata = {
                         {
                             "name": "precipitation_height_liquid",
                             "name_original": "total rain (mm)",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -378,7 +378,7 @@ EcccObservationMetadata = {
                         {
                             "name": "precipitation_height",
                             "name_original": "total precip (mm)",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
@@ -402,7 +402,7 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "dir of max gust (10s deg)",
-                            "unit_type": "degree",
+                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
@@ -441,43 +441,43 @@ EcccObservationMetadata = {
                         {
                             "name": "temperature_air_max_2m_mean",
                             "name_original": "average max. temp. (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m_mean",
                             "name_original": "average min. temp. (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "precipitation_frequency",
                             "name_original": "frequency of precip. (%)",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "highest temp. (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "lowest temp. (°c)",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "precipitation_height_max",
                             "name_original": "greatest precip. (mm)",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_liquid_max",
                             "name_original": "greatest rainfall (mm)",
-                            "unit_type": "kilogram_per_square_meter",
+                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
