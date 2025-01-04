@@ -73,7 +73,7 @@ DwdRoadMetadata = {
                         {
                             "name": "precipitation_intensity",
                             "name_original": "intensityOfPrecipitation",
-                            "unit_type": "millimeter_per_hour",
+                            "unit_type": "precipitation_intensity",
                             "unit": "millimeter_per_hour",
                         },
                         {
@@ -109,7 +109,7 @@ DwdRoadMetadata = {
                         {
                             "name": "water_film_thickness",
                             "name_original": "waterFilmThickness",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -127,13 +127,13 @@ DwdRoadMetadata = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "maximumWindGustSpeed",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "wind_speed",
                             "name_original": "windSpeed",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                     ],

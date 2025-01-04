@@ -182,7 +182,7 @@ DwdObservationMetadata = {
                         {
                             "name": "pressure_air_site",
                             "name_original": "pp_10",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
@@ -194,14 +194,14 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_air_mean_0_05m",
                             "name_original": "tm5_10",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {"name": "humidity", "name_original": "rf_10", "unit_type": "fraction", "unit": "percent"},
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "td_10",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                     ],
@@ -220,25 +220,25 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "tx_10",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_max_0_05m",
                             "name_original": "tx5_10",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "tn_10",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_0_05m",
                             "name_original": "tn5_10",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                     ],
@@ -257,7 +257,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "ff_10",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
@@ -282,19 +282,19 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "fx_10",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "wind_speed_min",
                             "name_original": "fnx_10",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "wind_speed_rolling_mean_max",
                             "name_original": "fmx_10",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
@@ -473,13 +473,13 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tt",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "td",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                     ],
@@ -504,32 +504,32 @@ DwdObservationMetadata = {
                         {
                             "name": "pressure_vapor",
                             "name_original": "vp_std",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "temperature_wet_mean_2m",
                             "name_original": "tf_std",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "p_std",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tt_std",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {"name": "humidity", "name_original": "rf_std", "unit_type": "fraction", "unit": "percent"},
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "td_std",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                     ],
@@ -579,13 +579,13 @@ DwdObservationMetadata = {
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "p",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "p0",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                     ],
@@ -678,7 +678,7 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tt_tu",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {"name": "humidity", "name_original": "rf_tu", "unit_type": "fraction", "unit": "percent"},
@@ -698,37 +698,37 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_soil_mean_0_02m",
                             "name_original": "v_te002",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_05m",
                             "name_original": "v_te005",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_1m",
                             "name_original": "v_te010",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_2m",
                             "name_original": "v_te020",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_5m",
                             "name_original": "v_te050",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_1m",
                             "name_original": "v_te100",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                     ],
@@ -797,7 +797,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "f",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {"name": "wind_direction", "name_original": "d", "unit_type": "angle", "unit": "degree"},
@@ -817,7 +817,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "fx_911",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                     ],
@@ -836,7 +836,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "ff",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {"name": "wind_direction", "name_original": "dd", "unit_type": "angle", "unit": "degree"},
@@ -876,13 +876,13 @@ DwdObservationMetadata = {
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "luftdruck_nn",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "luftdruck_stationshoehe",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                     ],
@@ -920,7 +920,7 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "lufttemperatur",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -945,31 +945,31 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_soil_mean_0_05m",
                             "name_original": "erdbt_005",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_1m",
                             "name_original": "erdbt_010",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_2m",
                             "name_original": "erdbt_020",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_5m",
                             "name_original": "erdbt_050",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_1m",
                             "name_original": "erdbt_100",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                     ],
@@ -988,7 +988,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "windgeschwindigkeit",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
@@ -1021,7 +1021,7 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "n_ter",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
@@ -1046,22 +1046,22 @@ DwdObservationMetadata = {
                         {
                             "name": "pressure_vapor",
                             "name_original": "vp_ter",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "temperature_air_mean_0_05m",
                             "name_original": "e_tf_ter",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tf_ter",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_ter", "unit_type": "percent", "unit": "percent"},
+                        {"name": "humidity", "name_original": "rf_ter", "unit_type": "fraction", "unit": "percent"},
                     ],
                 },
                 {
@@ -1078,7 +1078,7 @@ DwdObservationMetadata = {
                         {
                             "name": "pressure_air_site",
                             "name_original": "pp_ter",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                     ],
@@ -1097,7 +1097,7 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_soil_mean_0_05m",
                             "name_original": "ek_ter",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                     ],
@@ -1116,10 +1116,10 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tt_ter",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_ter", "unit_type": "percent", "unit": "percent"},
+                        {"name": "humidity", "name_original": "rf_ter", "unit_type": "fraction", "unit": "percent"},
                     ],
                 },
                 {
@@ -1161,7 +1161,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_force_beaufort",
                             "name_original": "fk_ter",
-                            "unit_type": "beaufort",
+                            "unit_type": "wind_scale",
                             "unit": "beaufort",
                         },
                     ],
@@ -1180,7 +1180,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_gust_max_last_3h",
                             "name_original": "fx_911_3",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
@@ -1192,7 +1192,7 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_gust_max_last_6h",
                             "name_original": "fx_911_6",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                     ],
@@ -1329,13 +1329,13 @@ DwdObservationMetadata = {
                         {
                             "name": "snow_depth",
                             "name_original": "sh_tag",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
                             "name": "snow_depth_new",
                             "name_original": "nsh_tag",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                     ],
@@ -1391,37 +1391,37 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_soil_mean_0_02m",
                             "name_original": "v_te002m",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_05m",
                             "name_original": "v_te005m",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_1m",
                             "name_original": "v_te010m",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_2m",
                             "name_original": "v_te020m",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_0_5m",
                             "name_original": "v_te050m",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_soil_mean_1m",
                             "name_original": "v_te100m",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                     ],
@@ -1440,13 +1440,13 @@ DwdObservationMetadata = {
                         {
                             "name": "snow_depth_excelled",
                             "name_original": "ash_6",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
                             "name": "snow_depth",
                             "name_original": "sh_tag",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -1589,25 +1589,25 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "mo_n",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "mo_tt",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_max_2m_mean",
                             "name_original": "mo_tx",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m_mean",
                             "name_original": "mo_tn",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -1619,25 +1619,25 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_force_beaufort",
                             "name_original": "mo_fk",
-                            "unit_type": "beaufort",
+                            "unit_type": "wind_scale",
                             "unit": "beaufort",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "mx_tx",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "wind_gust_max",
                             "name_original": "mx_fx",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "mx_tn",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -1674,7 +1674,7 @@ DwdObservationMetadata = {
                         {
                             "name": "snow_depth_new",
                             "name_original": "mo_nsh",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -1686,7 +1686,7 @@ DwdObservationMetadata = {
                         {
                             "name": "snow_depth",
                             "name_original": "mo_sh_s",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -1780,25 +1780,25 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "ja_n",
-                            "unit_type": "percent",
+                            "unit_type": "fraction",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "ja_tt",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_max_2m_mean",
                             "name_original": "ja_tx",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m_mean",
                             "name_original": "ja_tn",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -1810,25 +1810,25 @@ DwdObservationMetadata = {
                         {
                             "name": "wind_force_beaufort",
                             "name_original": "ja_fk",
-                            "unit_type": "beaufort",
+                            "unit_type": "wind_scale",
                             "unit": "beaufort",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "ja_mx_tx",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "wind_gust_max",
                             "name_original": "ja_mx_fx",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "ja_mx_tn",
-                            "unit_type": "degree_kelvin",
+                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
@@ -1865,7 +1865,7 @@ DwdObservationMetadata = {
                         {
                             "name": "snow_depth_new",
                             "name_original": "ja_nsh",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -1877,7 +1877,7 @@ DwdObservationMetadata = {
                         {
                             "name": "snow_depth",
                             "name_original": "ja_sh_s",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {

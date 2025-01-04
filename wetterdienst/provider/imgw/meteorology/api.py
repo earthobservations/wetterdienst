@@ -57,7 +57,7 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "snow_depth",
                             "name_original": "wysokość pokrywy śnieżnej",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -87,7 +87,7 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "średnia dobowa prędkość wiatru",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                     ],
@@ -106,13 +106,13 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "snow_depth",
                             "name_original": "wysokość pokrywy śnieżnej",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
                             "name": "snow_depth_new",
                             "name_original": "wysokość świeżospałego śniegu",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                     ],
@@ -149,19 +149,19 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "pressure_air_site",
                             "name_original": "średnia dobowe ciśnienie na poziomie stacji",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "średnie dobowe ciśnienie na pozimie morza",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_vapor",
                             "name_original": "średnia dobowe ciśnienie pary wodnej",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
@@ -173,7 +173,7 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "średnia dobowa prędkość wiatru",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                     ],
@@ -218,7 +218,7 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "snow_depth_max",
                             "name_original": "maksymalna wysokość pokrywy śnieżnej",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -260,7 +260,7 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "średnia miesięczna prędkość wiatru",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                     ],
@@ -328,25 +328,25 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "pressure_air_site",
                             "name_original": "średnie miesięczne ciśnienie na poziomie stacji",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "średnie miesięczne ciśnienie na pozimie morza",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_vapor",
                             "name_original": "średnie miesięczne ciśnienie pary wodnej",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "snow_depth_max",
                             "name_original": "maksymalna wysokość pokrywy śnieżnej",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -388,7 +388,7 @@ ImgwMeteorologyMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "średnia miesięczna prędkość wiatru",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                     ],

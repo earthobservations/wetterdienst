@@ -51,6 +51,7 @@ class UnitConverter:
         ],
         "length_medium": [
             Unit("meter", "m"),
+            Unit("kilometer", "km"),
         ],
         "length_long": [
             Unit("kilometer", "km"),
@@ -63,6 +64,10 @@ class UnitConverter:
         "precipitation": [
             Unit("millimeter", "mm"),
             Unit("liter_per_square_meter", "l/m²"),
+        ],
+        "precipitation_intensity": [
+            Unit("millimeter_per_hour", "mm/h"),
+            Unit("liter_per_square_meter_per_hour", "l/m²/h"),
         ],
         "pressure": [
             Unit("pascal", "Pa"),
@@ -98,6 +103,9 @@ class UnitConverter:
         "wave_period": [
             Unit("wave_period", "1/s"),  # TODO: check if this is correct
         ],
+        "wind_scale": [
+            Unit("beaufort", "bft"),
+        ],
     }
     # dict of target unit types and their default unit, default is the first unit in the list, can be changed with
     # update_targets
@@ -113,6 +121,7 @@ class UnitConverter:
         "length_long": units["length_long"][0],
         "fraction": units["fraction"][0],
         "precipitation": units["precipitation"][0],
+        "precipitation_intensity": units["precipitation_intensity"][0],
         "pressure": units["pressure"][1],
         "significant_weather": units["significant_weather"][0],
         "speed": units["speed"][0],
@@ -121,6 +130,7 @@ class UnitConverter:
         "turbidity": units["turbidity"][0],
         "volume_per_time": units["volume_per_time"][1],
         "wave_period": units["wave_period"][0],
+        "wind_scale": units["wind_scale"][0],
     }
     # dict of lambdas for conversion between units (described by names)
     lambdas: dict[tuple[str, str], Callable[[Any], Any]] = {
@@ -165,6 +175,9 @@ class UnitConverter:
         ("centimeter", "meter"): lambda x: x / 100,
         ("meter", "millimeter"): lambda x: x * 1000,
         ("meter", "centimeter"): lambda x: x * 100,
+        # length_medium
+        ("meter", "kilometer"): lambda x: x / 1000,
+        ("kilometer", "meter"): lambda x: x * 1000,
         # length_long
         ("kilometer", "mile"): lambda x: x / 1.609,
         ("kilometer", "nautical_mile"): lambda x: x / 1.852,
@@ -175,6 +188,9 @@ class UnitConverter:
         # precipitation
         ("millimeter", "liter_per_square_meter"): lambda x: x,
         ("liter_per_square_meter", "millimeter"): lambda x: x,
+        # precipitation_intensity
+        ("millimeter_per_hour", "liter_per_square_meter_per_hour"): lambda x: x,
+        ("liter_per_square_meter_per_hour", "millimeter_per_hour"): lambda x: x,
         # pressure
         ("pascal", "hectopascal"): lambda x: x / 100,
         ("pascal", "kilopascal"): lambda x: x / 1000,

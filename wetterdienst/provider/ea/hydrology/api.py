@@ -47,7 +47,7 @@ EAHydrologyMetadata = {
                         {
                             "name": "groundwater_level",
                             "name_original": "groundwater_level",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                     ],
@@ -74,7 +74,7 @@ EAHydrologyMetadata = {
                         {
                             "name": "groundwater_level",
                             "name_original": "groundwater_level",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                     ],
@@ -102,7 +102,7 @@ EAHydrologyMetadata = {
                         {
                             "name": "groundwater_level",
                             "name_original": "groundwater_level",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                     ],

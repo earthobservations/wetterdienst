@@ -55,25 +55,25 @@ NwsObservationMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "windspeed",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "kilometer_per_hour",
                         },
                         {
                             "name": "wind_gust_max",
                             "name_original": "windgust",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "kilometer_per_hour",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "barometricpressure",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "pascal",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "sealevelpressure",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "pascal",
                         },
                         {

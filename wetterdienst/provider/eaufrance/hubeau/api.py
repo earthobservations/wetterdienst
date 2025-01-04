@@ -66,7 +66,7 @@ HubeauMetadata = {
                         {
                             "name": "stage",
                             "name_original": "H",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "millimeter",
                         },
                     ],

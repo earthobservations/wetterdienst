@@ -46,7 +46,7 @@ WsvPegelMetadata = {
                         {
                             "name": "stage",
                             "name_original": "W",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -70,7 +70,7 @@ WsvPegelMetadata = {
                         {
                             "name": "clearance_height",
                             "name_original": "DFH",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "meter",
                         },
                         {
@@ -82,19 +82,19 @@ WsvPegelMetadata = {
                         {
                             "name": "flow_speed",
                             "name_original": "VA",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "groundwater_level",
                             "name_original": "GRU",
-                            "unit_type": "meter",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                         {
                             "name": "wind_speed",
                             "name_original": "WG",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
@@ -136,7 +136,7 @@ WsvPegelMetadata = {
                         {
                             "name": "precipitation_intensity",
                             "name_original": "NIEDERSCHLAGSINTENSITÄT",
-                            "unit_type": "millimeter_per_hour",
+                            "unit_type": "precipitation_intensity",
                             "unit": "millimeter_per_hour",
                         },
                         {
@@ -148,13 +148,13 @@ WsvPegelMetadata = {
                         {
                             "name": "wave_height_sign",
                             "name_original": "SIGH",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
                             "name": "wave_height_max",
                             "name_original": "MAXH",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {

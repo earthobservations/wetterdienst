@@ -66,7 +66,7 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_speed",
                             "name_original": "wind spd (km/h)",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "kilometer_per_hour",
                         },
                         {
@@ -90,7 +90,7 @@ EcccObservationMetadata = {
                         {
                             "name": "pressure_air_site",
                             "name_original": "stn press (kpa)",
-                            "unit_type": "pascal",
+                            "unit_type": "pressure",
                             "unit": "kilopascal",
                         },
                         {
@@ -114,7 +114,7 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "wind chill",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "kilometer_per_hour",
                         },
                         {
@@ -219,7 +219,7 @@ EcccObservationMetadata = {
                         {
                             "name": "snow_depth_new",
                             "name_original": "total snow (cm)",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -243,7 +243,7 @@ EcccObservationMetadata = {
                         {
                             "name": "snow_depth",
                             "name_original": "snow on grnd (cm)",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -267,7 +267,7 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "spd of max gust (km/h)",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "kilometer_per_hour",
                         },
                         {
@@ -366,7 +366,7 @@ EcccObservationMetadata = {
                         {
                             "name": "snow_depth_new",
                             "name_original": "total snow (cm)",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -390,7 +390,7 @@ EcccObservationMetadata = {
                         {
                             "name": "snow_depth",
                             "name_original": "snow grnd last day (cm)",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
@@ -414,7 +414,7 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "spd of max gust(km/h)",
-                            "unit_type": "meter_per_second",
+                            "unit_type": "speed",
                             "unit": "kilometer_per_hour",
                         },
                         {
@@ -483,13 +483,13 @@ EcccObservationMetadata = {
                         {
                             "name": "snow_depth_new_max",
                             "name_original": "greatest snowfall (cm)",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
                             "name": "snow_depth_max",
                             "name_original": "most snow on the ground (cm)",
-                            "unit_type": "meter",
+                            "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                     ],
