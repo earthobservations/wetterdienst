@@ -108,7 +108,8 @@ class ValuesRequestRaw(StationsRequestRaw):
     sql_values: str | None = None
     humanize: bool = True
     shape: Literal["long", "wide"] = "long"
-    si_units: bool = True
+    convert_units: bool = True
+    unit_targets: str | None = None
     skip_empty: bool = False
     skip_threshold: confloat(gt=0, le=1) = 0.95
     skip_criteria: Literal["min", "mean", "max"] = "min"
@@ -125,6 +126,7 @@ class ValuesRequest(ValuesRequestRaw):
         tuple[confloat(ge=-180, le=180), confloat(ge=-90, le=90), confloat(ge=-180, le=180), confloat(ge=-90, le=90)]
         | None
     ) = None
+    unit_targets: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -159,6 +161,13 @@ class ValuesRequest(ValuesRequestRaw):
             return read_list(v)
         return None
 
+    @field_validator("unit_targets", mode="before")
+    @classmethod
+    def validate_unit_targets(cls, v):
+        if v:
+            return json.loads(v)
+        return None
+
 
 # start from scratch as parameters are different
 class InterpolationRequestRaw(BaseModel):
@@ -179,7 +188,8 @@ class InterpolationRequestRaw(BaseModel):
 
     sql_values: str | None = None
     humanize: bool = True
-    si_units: bool = True
+    convert_units: bool = True
+    unit_targets: str | None = None
     interpolation_station_distance: str | None = None
     use_nearby_station_distance: confloat(ge=0) = 1.0
     format: Literal["json", "geojson", "csv"] = "json"
@@ -193,6 +203,7 @@ class InterpolationRequest(InterpolationRequestRaw):
     # comma separated list parameters
     station: list[str] | None = None
     coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+    unit_targets: dict[str, str] = Field(default_factory=dict)
     interpolation_station_distance: dict[str, confloat(ge=0)] | None = None
 
     @field_validator("parameters", mode="before")
@@ -221,6 +232,13 @@ class InterpolationRequest(InterpolationRequestRaw):
             return read_list(v)
         return None
 
+    @field_validator("unit_targets", mode="before")
+    @classmethod
+    def validate_unit_targets(cls, v):
+        if v:
+            return json.loads(v)
+        return None
+
     @field_validator("interpolation_station_distance", mode="before")
     @classmethod
     def validate_interpolation_station_distance(cls, v):
@@ -247,7 +265,8 @@ class SummaryRequestRaw(BaseModel):
 
     sql_values: str | None = None
     humanize: bool = True
-    si_units: bool = True
+    convert_units: bool = True
+    unit_targets: str | None = None
     format: Literal["json", "geojson", "csv"] = "json"
     pretty: bool = False
     debug: bool = False
@@ -259,6 +278,7 @@ class SummaryRequest(SummaryRequestRaw):
     # comma separated list parameters
     station: list[str] | None = None
     coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+    unit_targets: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -284,6 +304,13 @@ class SummaryRequest(SummaryRequestRaw):
     def validate_coordinates(cls, v):
         if v:
             return read_list(v)
+        return None
+
+    @field_validator("unit_targets", mode="before")
+    @classmethod
+    def validate_unit_targets(cls, v):
+        if v:
+            return json.loads(v)
         return None
 
 

@@ -52,8 +52,8 @@ WsvPegelMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "Q",
-                            "unit_type": "cubic_meters_per_second",
-                            "unit": "cubic_meters_per_second",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "temperature_water",
@@ -64,7 +64,7 @@ WsvPegelMetadata = {
                         {
                             "name": "electric_conductivity",
                             "name_original": "LF",
-                            "unit_type": "siemens_per_meter",
+                            "unit_type": "conductivity",
                             "unit": "microsiemens_per_centimeter",
                         },
                         {
@@ -106,19 +106,19 @@ WsvPegelMetadata = {
                         {
                             "name": "oxygen_level",
                             "name_original": "O2",
-                            "unit_type": "milligram_per_liter",
+                            "unit_type": "concentration",
                             "unit": "milligram_per_liter",
                         },
                         {
                             "name": "turbidity",
                             "name_original": "TR",
                             "unit_type": "turbidity",
-                            "unit": "turbidity",
+                            "unit": "nephelometric_turbidity",
                         },
                         {
                             "name": "current",
                             "name_original": "R",
-                            "unit_type": "magnetic_field_strength",
+                            "unit_type": "magnetic_field_intensity",
                             "unit": "magnetic_field_strength",
                         },
                         {
@@ -166,7 +166,7 @@ WsvPegelMetadata = {
                         {
                             "name": "chlorid_concentration",
                             "name_original": "CL",
-                            "unit_type": "milligram_per_liter",
+                            "unit_type": "concentration",
                             "unit": "milligram_per_liter",
                         },
                     ],

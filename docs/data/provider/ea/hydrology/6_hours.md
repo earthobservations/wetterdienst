@@ -24,7 +24,7 @@
 
 #### parameters
 
-| name              | original name     | description                    | unit | original unit | constraints |
-|-------------------|-------------------|--------------------------------|------|---------------|-------------|
-| flow              | water flow        | 6 hours mean flow              | m³/s | m³/s          | >=0         |
-| groundwater_level | groundwater level | 6 hours mean groundwater level | m    | m             | >=0         |
+| name              | original name     | description                    | unit type       | unit          | constraints |
+|-------------------|-------------------|--------------------------------|-----------------|---------------|-------------|
+| flow              | water flow        | 6 hours mean flow              | volume_per_time | m³/s          | >=0         |
+| groundwater_level | groundwater level | 6 hours mean groundwater level | length_medium   | m             | >=0         |

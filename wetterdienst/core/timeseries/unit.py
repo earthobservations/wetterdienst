@@ -1,6 +1,7 @@
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Any
+from typing import Any
 
 
 @dataclass
@@ -10,6 +11,15 @@ class Unit:
 
 
 class UnitConverter:
+    # we use those multiple times for length_short, length_medium and length_long
+    _length = [
+        Unit("millimeter", "mm"),
+        Unit("centimeter", "cm"),
+        Unit("meter", "m"),
+        Unit("kilometer", "km"),
+        Unit("mile", "mi"),
+        Unit("nautical_mile", "nmi"),
+    ]
     # dict of unit types and their possible units
     units: dict[str, list[Unit]] = {
         "angle": [
@@ -18,11 +28,13 @@ class UnitConverter:
             Unit("gradian", "grad"),
         ],
         "concentration": [
-            Unit("milligram_per_liter", "mg/l"), # == g/m³
+            Unit("milligram_per_liter", "mg/l"),  # == g/m³
             Unit("gram_per_liter", "g/l"),
         ],
         "conductivity": [
+            Unit("microsiemens_per_centimeter", "µS/cm"),
             Unit("microsiemens_per_meter", "µS/m"),
+            Unit("siemens_per_centimeter", "S/cm"),
             Unit("siemens_per_meter", "S/m"),
         ],
         # special unit, don't do any conversion
@@ -44,21 +56,10 @@ class UnitConverter:
             Unit("watt_per_square_meter", "W/m²"),
             Unit("kilowatt_per_square_meter", "kW/m²"),
         ],
-        "length_short": [
-            Unit("millimeter", "mm"),
-            Unit("centimeter", "cm"),
-            Unit("meter", "m"),
-        ],
-        "length_medium": [
-            Unit("meter", "m"),
-            Unit("kilometer", "km"),
-        ],
-        "length_long": [
-            Unit("kilometer", "km"),
-            Unit("mile", "mi"),
-            Unit("nautical_mile", "nmi"),
-        ],
-        "magnetic_field_strength": [
+        "length_short": _length,
+        "length_medium": _length,
+        "length_long": _length,
+        "magnetic_field_intensity": [
             Unit("magnetic_field_strength", "A/m"),
         ],
         "precipitation": [
@@ -112,13 +113,14 @@ class UnitConverter:
     targets: dict[str, Unit] = {
         "angle": units["angle"][0],
         "concentration": units["concentration"][0],
-        "conductivity": units["conductivity"][1],
+        "conductivity": units["conductivity"][3],
         "dimensionless": units["dimensionless"][0],
         "energy_per_area": units["energy_per_area"][0],
         "power_per_area": units["power_per_area"][0],
         "length_short": units["length_short"][1],
-        "length_medium": units["length_medium"][0],
-        "length_long": units["length_long"][0],
+        "length_medium": units["length_medium"][2],
+        "length_long": units["length_long"][3],
+        "magnetic_field_intensity": units["magnetic_field_intensity"][0],
         "fraction": units["fraction"][0],
         "precipitation": units["precipitation"][0],
         "precipitation_intensity": units["precipitation_intensity"][0],
@@ -145,8 +147,18 @@ class UnitConverter:
         ("milligram_per_liter", "gram_per_liter"): lambda x: x / 1000,
         ("gram_per_liter", "milligram_per_liter"): lambda x: x * 1000,
         # conductivity
+        ("microsiemens_per_centimeter", "microsiemens_per_meter"): lambda x: x / 100,
+        ("microsiemens_per_centimeter", "siemens_per_centimeter"): lambda x: x / 1000000,
+        ("microsiemens_per_centimeter", "siemens_per_meter"): lambda x: x / 1000000,
+        ("microsiemens_per_meter", "microsiemens_per_centimeter"): lambda x: x * 100,
+        ("microsiemens_per_meter", "siemens_per_centimeter"): lambda x: x / 1000000,
         ("microsiemens_per_meter", "siemens_per_meter"): lambda x: x / 1000000,
+        ("siemens_per_centimeter", "microsiemens_per_centimeter"): lambda x: x * 1000000,
+        ("siemens_per_centimeter", "microsiemens_per_meter"): lambda x: x * 1000000,
+        ("siemens_per_centimeter", "siemens_per_meter"): lambda x: x / 100,
+        ("siemens_per_meter", "microsiemens_per_centimeter"): lambda x: x * 1000000,
         ("siemens_per_meter", "microsiemens_per_meter"): lambda x: x * 1000000,
+        ("siemens_per_meter", "siemens_per_centimeter"): lambda x: x * 100,
         # energy_per_area
         ("joule_per_square_centimeter", "joule_per_square_meter"): lambda x: x * 10000,
         ("joule_per_square_centimeter", "kilojoule_per_square_meter"): lambda x: x * 10,
@@ -168,21 +180,35 @@ class UnitConverter:
         ("percent", "decimal"): lambda x: x / 100,
         ("one_eighth", "percent"): lambda x: x / 8 * 100,
         ("one_eighth", "decimal"): lambda x: x / 8,
-        # length_short
+        # length_xxx
         ("millimeter", "centimeter"): lambda x: x / 10,
         ("millimeter", "meter"): lambda x: x / 1000,
+        ("millimeter", "kilometer"): lambda x: x / 1000000,
+        ("millimeter", "mile"): lambda x: x / 1609344,
+        ("millimeter", "nautical_mile"): lambda x: x / 1852000,
         ("centimeter", "millimeter"): lambda x: x * 10,
         ("centimeter", "meter"): lambda x: x / 100,
+        ("centimeter", "kilometer"): lambda x: x / 100000,
+        ("centimeter", "mile"): lambda x: x / 160934.4,
+        ("centimeter", "nautical_mile"): lambda x: x / 185200,
         ("meter", "millimeter"): lambda x: x * 1000,
         ("meter", "centimeter"): lambda x: x * 100,
-        # length_medium
         ("meter", "kilometer"): lambda x: x / 1000,
+        ("meter", "mile"): lambda x: x / 1609.344,
+        ("meter", "nautical_mile"): lambda x: x / 1852,
+        ("kilometer", "millimeter"): lambda x: x * 1000000,
+        ("kilometer", "centimeter"): lambda x: x * 100000,
         ("kilometer", "meter"): lambda x: x * 1000,
-        # length_long
         ("kilometer", "mile"): lambda x: x / 1.609,
         ("kilometer", "nautical_mile"): lambda x: x / 1.852,
+        ("nautical_mile", "millimeter"): lambda x: x * 1852000,
+        ("nautical_mile", "centimeter"): lambda x: x * 185200,
+        ("nautical_mile", "meter"): lambda x: x * 1852,
         ("nautical_mile", "kilometer"): lambda x: x * 1.852,
         ("nautical_mile", "mile"): lambda x: x * 1.151,
+        ("mile", "millimeter"): lambda x: x * 1609344,
+        ("mile", "centimeter"): lambda x: x * 160934.4,
+        ("mile", "meter"): lambda x: x * 1609.344,
         ("mile", "kilometer"): lambda x: x * 1.609,
         ("mile", "nautical_mile"): lambda x: x / 1.151,
         # precipitation
@@ -237,7 +263,8 @@ class UnitConverter:
             # find the unit with the given name
             unit = next((unit for unit in self.units[key] if unit.name == value), None)
             if not unit:
-                raise ValueError(f"Unit {value} not supported for type {key}. Supported units are: {', '.join([unit.name for unit in self.units[key]])}")
+                supported_units = ",".join(unit.name for unit in self.units[key])
+                raise ValueError(f"Unit {value} not supported for type {key}. Supported units are: {supported_units}")
             self.targets[key] = unit
 
     def _get_lambda(self, unit: str, unit_target: str) -> Callable[[Any], Any]:
@@ -253,19 +280,3 @@ class UnitConverter:
             raise ValueError(f"Unit type {unit_type} not supported")
         unit_target = self.targets[unit_type]
         return self._get_lambda(unit, unit_target.name)
-
-
-
-if __name__ == "__main__":
-    unit_original = "degree_kelvin"
-    unit_type = "temperature"
-    unit = "degree_celsius"
-    
-    unit_converter = UnitConverter()
-    unit_converter.update_targets(
-        {
-            "temperature": unit
-        }
-    )
-    converter = unit_converter.get_lambda(unit_original, unit_type)
-    print(converter(300))

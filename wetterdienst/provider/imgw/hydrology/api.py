@@ -43,8 +43,8 @@ ImgwHydrologyMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "przepływ",
-                            "unit_type": "cubic_meters_per_second",
-                            "unit": "cubic_meters_per_second",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "temperature_water",
@@ -76,20 +76,20 @@ ImgwHydrologyMetadata = {
                         {
                             "name": "discharge_max",
                             "name_original": "maksymalna przepływ",
-                            "unit_type": "cubic_meters_per_second",
-                            "unit": "cubic_meters_per_second",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "discharge_mean",
                             "name_original": "średnia przepływ",
-                            "unit_type": "cubic_meters_per_second",
-                            "unit": "cubic_meters_per_second",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "discharge_min",
                             "name_original": "minimalna przepływ",
-                            "unit_type": "cubic_meters_per_second",
-                            "unit": "cubic_meters_per_second",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "temperature_water_max",

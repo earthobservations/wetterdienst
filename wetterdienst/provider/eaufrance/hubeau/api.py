@@ -60,8 +60,8 @@ HubeauMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "Q",
-                            "unit_type": "cubic_meters_per_second",
-                            "unit": "liters_per_second",
+                            "unit_type": "volume_per_time",
+                            "unit": "liter_per_second",
                         },
                         {
                             "name": "stage",

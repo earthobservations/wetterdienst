@@ -2,51 +2,61 @@ import pytest
 
 from wetterdienst.core.timeseries.unit import UnitConverter
 
+
 @pytest.fixture
 def unit_converter():
     return UnitConverter()
+
 
 def test_unit_converter_targets_defaults(unit_converter):
     """test that the default targets are as expected"""
     unit_converter_targets_defaults = {k: v.name for k, v in unit_converter.targets.items()}
     assert unit_converter_targets_defaults == {
-        'angle': 'degree',
+        "angle": "degree",
         "concentration": "milligram_per_liter",
-        'conductivity': 'siemens_per_meter',
-        'dimensionless': 'dimensionless',
-        'energy_per_area': 'joule_per_square_centimeter',
-        'fraction': 'decimal',
-        'length_long': 'kilometer',
-        'length_short': 'centimeter',
-        'power_per_area': 'watt_per_square_centimeter',
-        'precipitation': 'millimeter',
-        'pressure': 'hectopascal',
-        'significant_weather': 'significant_weather',
-        'speed': 'meter_per_second',
-        'temperature': 'degree_celsius',
-        'time': 'second',
-        'turbidity': 'nephelometric_turbidity',
-        'volume_per_time': 'cubic_meter_per_second',
-        'wave_period': 'wave_period'
+        "conductivity": "siemens_per_meter",
+        "dimensionless": "dimensionless",
+        "energy_per_area": "joule_per_square_centimeter",
+        "fraction": "decimal",
+        "length_short": "centimeter",
+        "length_medium": "meter",
+        "length_long": "kilometer",
+        "magnetic_field_intensity": "magnetic_field_strength",
+        "power_per_area": "watt_per_square_centimeter",
+        "precipitation": "millimeter",
+        "precipitation_intensity": "millimeter_per_hour",
+        "pressure": "hectopascal",
+        "significant_weather": "significant_weather",
+        "speed": "meter_per_second",
+        "temperature": "degree_celsius",
+        "time": "second",
+        "turbidity": "nephelometric_turbidity",
+        "volume_per_time": "cubic_meter_per_second",
+        "wave_period": "wave_period",
+        "wind_scale": "beaufort",
     }
+
 
 def test_unit_converter_lambdas_combinations(unit_converter):
     """test that lambdas contain all combinations of each unit"""
-    unit_combinations = []
+    unit_combinations = set()
     for units in unit_converter.units.values():
         unit_names = [unit.name for unit in units]
         for unit_1 in unit_names:
             for unit_2 in unit_names:
                 if unit_1 != unit_2:
-                    unit_combinations.append((unit_1, unit_2))
-    assert unit_converter.lambdas.keys() == set(unit_combinations)
+                    unit_combinations.add((unit_1, unit_2))
+    assert unit_converter.lambdas.keys() == unit_combinations, set(unit_converter.lambdas.keys()).symmetric_difference(
+        unit_combinations
+    )
+
 
 def test_unit_converter_update_targets(unit_converter):
     """test that the update_targets method works as expected"""
     unit_converter.update_targets(
         {
             "fraction": "percent",
-            "dimensionless": "dimensionless" # possible although nothing changes
+            "dimensionless": "dimensionless",  # possible although nothing changes
         }
     )
     assert unit_converter.targets["fraction"].name == "percent"
@@ -56,11 +66,13 @@ def test_unit_converter_update_targets(unit_converter):
     lambda_dimensionless = unit_converter.get_lambda("dimensionless", "dimensionless")
     assert lambda_dimensionless(42) == 42
 
+
 def test_unit_converter_lambda_dimensionless(unit_converter):
     """test that the lambda function for dimensionless units works as expected"""
     lambda_dimensionless = unit_converter.get_lambda("dimensionless", "dimensionless")
     assert lambda_dimensionless(42) == 42
-    assert lambda_dimensionless("foo") == "foo" # this is not a valid use case but should not raise an error
+    assert lambda_dimensionless("foo") == "foo"  # this is not a valid use case but should not raise an error
+
 
 @pytest.mark.parametrize(
     "unit, target, value, expected",
@@ -69,8 +81,8 @@ def test_unit_converter_lambda_dimensionless(unit_converter):
         ("degree", "degree", 42, 42),
         ("degree", "radian", 42, 0.7330382858376184),
         ("degree", "gradian", 42, 46.666666666666664),
-        ("radian", "degree", 0.7330382858376184, 42),
-        ("radian", "gradian", 0.7330382858376184, 46.66666666666667),
+        ("radian", "degree", 0.733, 41.99780638308934),
+        ("radian", "gradian", 0.733, 46.66422931454371),
         # concentration
         ("milligram_per_liter", "milligram_per_liter", 42, 42),
         ("milligram_per_liter", "gram_per_liter", 42, 0.042),
@@ -157,27 +169,25 @@ def test_unit_converter_lambda_dimensionless(unit_converter):
         ("cubic_meter_per_second", "cubic_meter_per_second", 42, 42),
         ("cubic_meter_per_second", "liter_per_second", 42, 42000),
         ("liter_per_second", "cubic_meter_per_second", 42000, 42),
-    ]
+    ],
 )
 def test_unit_converter_lambdas(unit_converter, unit, target, value, expected):
     """test that the lambda functions work as expected"""
     lambda_ = unit_converter._get_lambda(unit, target)
     assert lambda_(value) == expected
 
+
 def test_unit_converter_update_targets_invalid(unit_converter):
     """test that the update_targets method raises an error for invalid units"""
     with pytest.raises(ValueError):
-        unit_converter.update_targets(
-            {
-                "fraction": "percent",
-                "dimensionless": "invalid"
-            }
-        )
+        unit_converter.update_targets({"fraction": "percent", "dimensionless": "invalid"})
+
 
 def test_unit_converter_get_lambda(unit_converter):
     """test retrieval of lambda function"""
     lambda_ = unit_converter.get_lambda("degree_kelvin", "temperature")
     assert lambda_(0) == -273.15
+
 
 def test_unit_converter_get_lambda_invalid(unit_converter):
     """test retrieval of lambda function for invalid unit"""
@@ -186,10 +196,12 @@ def test_unit_converter_get_lambda_invalid(unit_converter):
     with pytest.raises(ValueError):
         unit_converter.get_lambda("degree_kelvin", "invalid")
 
+
 def test_unit_converter__get_lambda(unit_converter):
     """test retrieval of lambda function (direct unit - unit target combination)"""
     lambda_ = unit_converter._get_lambda("degree_kelvin", "degree_fahrenheit")
     assert lambda_(0) == -459.67
+
 
 def test_unit_converter__get_lambda_invalid(unit_converter):
     """test retrieval of lambda function for invalid unit (direct unit - unit target combination)"""

@@ -844,7 +844,8 @@ def stations(
 )
 @cloup.option("--issue", type=click.STRING)
 @cloup.option("--shape", type=click.Choice(["long", "wide"]), default="long")
-@cloup.option("--si_units", type=click.BOOL, default=True)
+@cloup.option("--convert_units", type=click.BOOL, default=True)
+@cloup.option("--unit_targets", type=click.STRING, default=None)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", type=click.BOOL, default=False)
 @cloup.option("--skip_empty", type=click.BOOL, default=False)
@@ -874,7 +875,8 @@ def values(
     fmt: str,
     target: str,
     shape: Literal["long", "wide"],
-    si_units: bool,
+    convert_units: bool,
+    unit_targets: str,
     humanize: bool,
     skip_empty: bool,
     skip_criteria: Literal["min", "mean", "max"],
@@ -905,7 +907,8 @@ def values(
             "sql_values": sql_values,
             "fmt": fmt,
             "shape": shape,
-            "si_units": si_units,
+            "convert_units": convert_units,
+            "unit_targets": unit_targets,
             "humanize": humanize,
             "skip_empty": skip_empty,
             "skip_criteria": skip_criteria,
@@ -919,16 +922,17 @@ def values(
     )
     set_logging_level(debug)
 
-    api = get_api(provider, network)
+    api = get_api(request.provider, request.network)
 
     settings = Settings(
-        ts_humanize=humanize,
-        ts_shape=shape,
-        ts_convert_units=si_units,
-        ts_skip_empty=skip_empty,
-        ts_skip_criteria=skip_criteria,
-        ts_skip_threshold=skip_threshold,
-        ts_drop_nulls=drop_nulls,
+        ts_humanize=request.humanize,
+        ts_shape=request.shape,
+        ts_convert_units=request.convert_units,
+        ts_unit_targets=request.unit_targets,
+        ts_skip_empty=request.skip_empty,
+        ts_skip_criteria=request.skip_criteria,
+        ts_skip_threshold=request.skip_threshold,
+        ts_drop_nulls=request.drop_nulls,
     )
 
     try:
@@ -978,7 +982,8 @@ def values(
     help="Provide either --format or --target.",
 )
 @cloup.option("--issue", type=click.STRING)
-@cloup.option("--si_units", type=click.BOOL, default=True)
+@cloup.option("--convert_units", type=click.BOOL, default=True)
+@cloup.option("--unit_targets", type=click.STRING, default=None)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
 @cloup.option("--with_metadata", type=click.BOOL, default=False)
@@ -999,7 +1004,8 @@ def interpolate(
     sql_values,
     fmt: str,
     target: str,
-    si_units: bool,
+    convert_units: bool,
+    unit_targets: str,
     humanize: bool,
     pretty: bool,
     with_metadata: bool,
@@ -1022,7 +1028,8 @@ def interpolate(
             "sql_values": sql_values,
             "fmt": fmt,
             "target": target,
-            "si_units": si_units,
+            "convert_units": convert_units,
+            "unit_targets": unit_targets,
             "humanize": humanize,
             "pretty": pretty,
             "debug": debug,
@@ -1031,20 +1038,14 @@ def interpolate(
 
     set_logging_level(debug)
 
-    api = get_api(provider, network)
-
-    if interpolation_station_distance:
-        try:
-            interpolation_station_distance = json.loads(interpolation_station_distance)
-        except json.JSONDecodeError as e:
-            log.exception(e)
-            sys.exit(1)
+    api = get_api(request.provider, request.network)
 
     settings = Settings(
-        ts_humanize=humanize,
-        ts_convert_units=si_units,
-        ts_interpolation_station_distance=interpolation_station_distance,
-        ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
+        ts_humanize=request.humanize,
+        ts_convert_units=request.convert_units,
+        ts_unit_targets=request.unit_targets,
+        ts_interpolation_station_distance=request.interpolation_station_distance,
+        ts_interpolation_use_nearby_station_distance=request.use_nearby_station_distance,
     )
 
     try:
@@ -1092,7 +1093,8 @@ def interpolate(
     help="Provide either --format or --target.",
 )
 @cloup.option("--issue", type=click.STRING)
-@cloup.option("--si_units", type=click.BOOL, default=True)
+@cloup.option("--convert_units", type=click.BOOL, default=True)
+@cloup.option("--unit_targets", type=click.STRING, default=None)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
 @cloup.option("--with_metadata", type=click.BOOL, default=False)
@@ -1111,7 +1113,8 @@ def summarize(
     sql_values,
     fmt: str,
     target: str,
-    si_units: bool,
+    convert_units: bool,
+    unit_targets: str,
     humanize: bool,
     pretty: bool,
     with_metadata: bool,
@@ -1132,7 +1135,8 @@ def summarize(
             "sql_values": sql_values,
             "fmt": fmt,
             "target": target,
-            "si_units": si_units,
+            "convert_units": convert_units,
+            "unit_targets": unit_targets,
             "humanize": humanize,
             "pretty": pretty,
             "debug": debug,
@@ -1140,11 +1144,12 @@ def summarize(
     )
     set_logging_level(debug)
 
-    api = get_api(provider, network)
+    api = get_api(request.provider, request.network)
 
     settings = Settings(
-        ts_humanize=humanize,
-        ts_convert_units=si_units,
+        ts_humanize=request.humanize,
+        ts_convert_units=request.convert_units,
+        ts_unit_targets=request.unit_targets,
     )
 
     try:

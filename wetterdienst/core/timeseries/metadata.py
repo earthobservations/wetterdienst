@@ -33,14 +33,14 @@ class ParameterModel(BaseModel):
 
     def __eq__(self, other):
         return (
-                self.name == other.name
-                and self.name_original == other.name_original
-                and self.unit_type == other.unit_type
-                and self.unit == other.unit
-                and self.description == other.description
-                # don't compare the dataset object itself because it'd be circular
-                and self.dataset.name == other.dataset.name
-                and self.dataset.resolution.name == other.dataset.resolution.name
+            self.name == other.name
+            and self.name_original == other.name_original
+            and self.unit_type == other.unit_type
+            and self.unit == other.unit
+            and self.description == other.description
+            # don't compare the dataset object itself because it'd be circular
+            and self.dataset.name == other.dataset.name
+            and self.dataset.resolution.name == other.dataset.resolution.name
         )
 
 

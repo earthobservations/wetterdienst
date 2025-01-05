@@ -65,7 +65,7 @@ class Wetterdienst:
         except AttributeError as e:
             raise AttributeError(f"Class {class_name} not found in module {module_path}") from e
 
-    def __new__(cls, provider: str, network: str) -> TimeseriesRequest:
+    def __new__(cls, provider: str, network: str) -> type[TimeseriesRequest]:
         """
 
         :param provider: provider of data e.g. DWD

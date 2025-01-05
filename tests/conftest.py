@@ -44,7 +44,7 @@ def settings_humanize_false_drop_nulls_false():
 
 
 @pytest.fixture
-def settings_humanize_si_false():
+def settings_humanize_false_convert_units_false():
     return Settings(ts_humanize=False, ts_convert_units=False)
 
 

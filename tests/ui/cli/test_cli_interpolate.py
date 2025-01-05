@@ -301,3 +301,43 @@ def test_cli_interpolate_dont_use_nearby_station():
             "taken_station_ids": ["00071", "00072", "02074", "02638"],
         },
     ]
+
+
+@pytest.mark.remote
+def test_cli_interpolate_custom_units():
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "interpolate",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31/1986-11-01",
+            "--format=json",
+            '--unit_targets={"temperature": "degree_fahrenheit"}',
+        ],
+    )
+    if result.exit_code != 0:
+        raise ChildProcessError(result.stderr)
+    response = json.loads(result.stdout)
+    assert response.keys() == {"values"}
+    assert response["values"] == [
+        {
+            "station_id": "6754d04d",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-10-31T00:00:00+00:00",
+            "value": 43.47,
+            "distance_mean": 16.99,
+            "taken_station_ids": ["00072", "02074", "02638", "04703"],
+        },
+        {
+            "station_id": "6754d04d",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-11-01T00:00:00+00:00",
+            "value": 47.66,
+            "distance_mean": 0.0,
+            "taken_station_ids": ["00071"],
+        },
+    ]

@@ -315,8 +315,8 @@ class TimeseriesRequest(Core):
                         {
                             "name": parameter.name,
                             "name_original": parameter.name_original,
-                            "unit": parameter.unit_type,
-                            "unit_original": parameter.unit,
+                            "unit_type": parameter.unit_type,
+                            "unit": parameter.unit,
                         }
                     )
             if not data[resolution.name]:

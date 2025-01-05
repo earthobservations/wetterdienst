@@ -93,7 +93,7 @@ def test_request_period_historical_recent(default_settings):
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start_date="1971-01-01",
-        end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=400),
+        end_date=dt.dt.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=400),
         settings=default_settings,
     )
     assert request.periods == [
@@ -107,7 +107,7 @@ def test_request_period_historical_recent_now(default_settings):
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start_date="1971-01-01",
-        end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
+        end_date=dt.dt.now(ZoneInfo("UTC")).replace(tzinfo=None),
         settings=default_settings,
     )
     assert request.periods == [
@@ -121,7 +121,7 @@ def test_request_period_historical_recent_now(default_settings):
 def test_request_period_recent_now(default_settings):
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
+        start_date=dt.dt.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
     assert request.periods == [Period.RECENT, Period.NOW]
@@ -132,7 +132,7 @@ def test_request_period_now(default_settings):
     # Now period
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
+        start_date=dt.dt.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
     assert request.periods == [Period.NOW]
@@ -143,7 +143,7 @@ def test_request_period_now_fixed_date(default_settings):
     # Now period
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
+        start_date=dt.dt.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
     assert Period.NOW in request.periods
@@ -153,7 +153,7 @@ def test_request_period_now_previous_hour(default_settings):
     # Now period
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=1),
+        start_date=dt.dt.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=1),
         settings=default_settings,
     )
     assert Period.NOW in request.periods
@@ -163,7 +163,7 @@ def test_request_period_empty(default_settings):
     # No period (for example in future)
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) + dt.timedelta(days=720),
+        start_date=dt.dt.now(ZoneInfo("UTC")).replace(tzinfo=None) + dt.timedelta(days=720),
         settings=default_settings,
     )
     assert request.periods == []
@@ -409,19 +409,19 @@ def test_dwd_observation_data_result_wide_si(
             "qn_sdk": [None, None],
             "shk_tag": [None, 0.0],
             "qn_shk_tag": [None, 1.0],
-            "nm": [None, 100.0],
+            "nm": [None, 1.0],
             "qn_nm": [None, 1.0],
-            "vpm": [None, 640.0],
+            "vpm": [None, 6.400],
             "qn_vpm": [None, 1.0],
-            "pm": [None, 100860.0],
+            "pm": [None, 1008.600],
             "qn_pm": [None, 1.0],
-            "tmk": [None, 273.65],
+            "tmk": [None, 0.5],
             "qn_tmk": [None, 1.0],
-            "upm": [None, 97.00],
+            "upm": [None, 0.9700],
             "qn_upm": [None, 1.0],
-            "txk": [None, 273.84999999999997],
+            "txk": [None, 0.7],
             "qn_txk": [None, 1.0],
-            "tnk": [None, 273.34999999999997],
+            "tnk": [None, 0.2],
             "qn_tnk": [None, 1.0],
             "tgk": [None, None],
             "qn_tgk": [None, None],
@@ -614,7 +614,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "dataset": "climate_summary",
                 "parameter": "nm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 100.0,
+                "value": 1.0,
                 "quality": 1.0,
             },
             {
@@ -622,7 +622,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "dataset": "climate_summary",
                 "parameter": "pm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 100860.0,
+                "value": 1008.600,
                 "quality": 1.0,
             },
             {
@@ -670,7 +670,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "dataset": "climate_summary",
                 "parameter": "tmk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 273.65,
+                "value": 0.5,
                 "quality": 1.0,
             },
             {
@@ -678,7 +678,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "dataset": "climate_summary",
                 "parameter": "tnk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 273.34999999999997,
+                "value": 0.2,
                 "quality": 1.0,
             },
             {
@@ -686,7 +686,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "dataset": "climate_summary",
                 "parameter": "txk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 273.84999999999997,
+                "value": 0.7,
                 "quality": 1.0,
             },
             {
@@ -694,7 +694,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "dataset": "climate_summary",
                 "parameter": "upm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 97.00,
+                "value": 0.9700,
                 "quality": 1.0,
             },
             {
@@ -702,7 +702,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false_drop_nulls_
                 "dataset": "climate_summary",
                 "parameter": "vpm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 640.0,
+                "value": 6.400,
                 "quality": 1.0,
             },
         ],
@@ -739,8 +739,8 @@ def test_dwd_observations_urban_values(default_settings):
             ],
             "date": [dt.datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC"))] * 2,
             "value": [
-                83.0,
-                286.54999999999995,
+                0.83,
+                13.4,
             ],
             "quality": [3.0, 3.0],
         },
@@ -773,13 +773,13 @@ def test_dwd_observations_urban_values_basic(dataset, default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_si_false):
+def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_false_convert_units_false):
     """Test for actual values (format) in metric units"""
     request = DwdObservationRequest(
         parameters=[("minute_10", "temperature_air", "pressure_air_site")],
         start_date="1999-12-31 21:00",
         end_date="1999-12-31 22:00",
-        settings=settings_humanize_si_false,
+        settings=settings_humanize_false_convert_units_false,
     ).filter_by_station_id(
         station_id=(1048,),
     )
@@ -1167,7 +1167,7 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false):
 
 
 @pytest.mark.remote
-def test_dwd_observation_weather_phenomena(settings_humanize_si_false):
+def test_dwd_observation_weather_phenomena(settings_humanize_false_convert_units_false):
     """Test for DWD weather phenomena data, thanks saschnet (https://github.com/saschnet) for providing the sample,
     see also https://github.com/earthobservations/wetterdienst/issues/647
     """
@@ -1175,7 +1175,7 @@ def test_dwd_observation_weather_phenomena(settings_humanize_si_false):
         parameters=[("hourly", "weather_phenomena")],
         start_date=dt.datetime(year=2022, month=3, day=1, tzinfo=ZoneInfo("UTC")),
         end_date=dt.datetime(year=2022, month=3, day=31, tzinfo=ZoneInfo("UTC")),
-        settings=settings_humanize_si_false,
+        settings=settings_humanize_false_convert_units_false,
     )
     given_df = request.all().df.drop_nulls()
     assert len(given_df) > 0
@@ -1241,13 +1241,13 @@ def test_dwd_observation_solar_hourly():
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_si_false):
+def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_false_convert_units_false):
     """Test for actual values with correctly dropped -999 values"""
     request = DwdObservationRequest(
         parameters=[("minute_10", "precipitation", "precipitation_height")],
         start_date="1991-01-01 00:00",
         end_date="1992-12-31 23:00",
-        settings=settings_humanize_si_false,
+        settings=settings_humanize_false_convert_units_false,
     ).filter_by_station_id(
         station_id=(1048,),
     )
@@ -1329,3 +1329,146 @@ def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings):
     ).filter_by_station_id(1048)
     values = request.values.all().df
     assert round(values.get_column("value").sum(), 2) == 2681.8
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_daily_climate_summary_custom_units():
+    """Test for custom unit conversion"""
+    unit_targets = {
+        "temperature": "degree_fahrenheit",
+        "fraction": "percent",
+        "pressure": "pascal",
+        "speed": "kilometer_per_hour",
+    }
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl")],
+        start_date="2022-01-01",
+        settings=Settings(ts_unit_targets=unit_targets),
+    ).filter_by_station_id("1048")
+    given_df = request.values.all().df
+    expected_df = pl.DataFrame(
+        [
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "cloud_cover_total",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 95.0,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "humidity",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 78.0,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_form",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 0.0,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 0.0,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "pressure_air_site",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 99560.0,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "pressure_vapor",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 1060.0,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "snow_depth",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 0.0,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "sunshine_duration",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 0.0,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_max_2m",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 53.96,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_mean_2m",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 52.52,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_min_0_05m",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 37.76,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_min_2m",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 43.52,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "wind_gust_max",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 44.28,
+                "quality": 10.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "wind_speed",
+                "date": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "value": 18.36,
+                "quality": 10.0,
+            },
+        ],
+        schema={
+            "station_id": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
+        orient="row",
+    )
+    assert_frame_equal(given_df, expected_df)

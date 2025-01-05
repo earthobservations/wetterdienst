@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import json
+
 import pytest
 from dirty_equals import IsNumber, IsStr
 
@@ -486,6 +488,43 @@ def test_interpolate_dwd_dont_use_nearby_station(client):
 
 
 @pytest.mark.remote
+def test_interpolate_dwd_custom_unit(client):
+    unit_targets = {
+        "temperature": "degree_fahrenheit",
+    }
+    response = client.get(
+        "/api/interpolate",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "unit_targets": json.dumps(unit_targets),
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["values"] == [
+        {
+            "station_id": "6754d04d",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-10-31T00:00:00+00:00",
+            "value": 43.47,
+            "distance_mean": 16.99,
+            "taken_station_ids": ["00072", "02074", "02638", "04703"],
+        },
+        {
+            "station_id": "6754d04d",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-11-01T00:00:00+00:00",
+            "value": 47.66,
+            "distance_mean": 0.0,
+            "taken_station_ids": ["00071"],
+        },
+    ]
+
+
+@pytest.mark.remote
 def test_summarize_dwd(client):
     response = client.get(
         "/api/summarize",
@@ -512,6 +551,43 @@ def test_summarize_dwd(client):
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 281.85,
+            "distance": 0.0,
+            "taken_station_id": "00071",
+        },
+    ]
+
+
+@pytest.mark.remote
+def test_summarize_dwd_custom_unit(client):
+    unit_targets = {
+        "temperature": "degree_fahrenheit",
+    }
+    response = client.get(
+        "/api/summarize",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/climate_summary/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "unit_targets": json.dumps(unit_targets),
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["values"] == [
+        {
+            "station_id": "a87291a8",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-10-31T00:00:00+00:00",
+            "value": 43.88,
+            "distance": 6.97,
+            "taken_station_id": "00072",
+        },
+        {
+            "station_id": "a87291a8",
+            "parameter": "temperature_air_mean_2m",
+            "date": "1986-11-01T00:00:00+00:00",
+            "value": 47.66,
             "distance": 0.0,
             "taken_station_id": "00071",
         },
@@ -619,6 +695,34 @@ def test_values_dwd_dmo_lead_time_long(client):
         "date": IsStr,
         "value": IsNumber,
         "quality": None,
+    }
+
+
+@pytest.mark.remote
+def test_values_dwd_observation_climate_summary_custom_units(client):
+    unit_targets = {
+        "temperature": "degree_fahrenheit",
+    }
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "1048",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "date": "2022-01-01",
+            "unit_targets": json.dumps(unit_targets),
+        },
+    )
+    assert response.status_code == 200
+    first = response.json()["values"][0]
+    assert first == {
+        "station_id": "01048",
+        "dataset": "climate_summary",
+        "parameter": "temperature_air_mean_2m",
+        "date": "2022-01-01T00:00:00+00:00",
+        "value": 52.52,
+        "quality": 10.0,
     }
 
 

@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import logging
-import operator
 from abc import ABCMeta, abstractmethod
 from itertools import groupby
 from textwrap import dedent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 import polars as pl
 from dateutil.relativedelta import relativedelta
-from jedi.inference.gradual.typing import Callable
-from pint import Quantity
 from tqdm import tqdm
 from tzfpy import get_tz
 
@@ -22,12 +19,11 @@ from wetterdienst.core.timeseries.unit import UnitConverter
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import DAILY_AT_MOST, Frequency, Resolution
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import REGISTRY, OriginUnit, SIUnit
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from wetterdienst.core.timeseries.metadata import DatasetModel, ParameterModel
 
@@ -50,7 +46,6 @@ class TimeseriesValues(metaclass=ABCMeta):
         self.stations_collected = []
         self.unit_converter = UnitConverter()
         self.unit_converter.update_targets(self.sr.settings.ts_unit_targets)
-
 
     @classmethod
     def from_stations(cls, stations: StationsResult):
@@ -237,7 +232,8 @@ class TimeseriesValues(metaclass=ABCMeta):
             maintain_order=True,
         ):
             lambda_ = conversion_factors[parameter]
-            group = group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda_))
+            # round by 4 decimals to avoid long floats but keep precision
+            group = group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda_).round(4))
             data.append(group)
 
         return pl.concat(data)
@@ -245,7 +241,7 @@ class TimeseriesValues(metaclass=ABCMeta):
     def _create_conversion_lambdas(
         self,
         dataset: DatasetModel,
-    ) -> dict[str, Callable]:
+    ) -> dict[str, Callable[[Any], Any]]:
         """
         Function to create conversion factors based on a given dataset
 
@@ -254,57 +250,8 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         lambdas = {}
         for parameter in dataset:
-            lambdas[parameter.name_original] = self.unit_converter.get_lambda(
-                parameter.unit, parameter.unit_type
-            )
+            lambdas[parameter.name_original] = self.unit_converter.get_lambda(parameter.unit, parameter.unit_type)
         return lambdas
-
-    # @staticmethod
-    # def _get_conversion_factor(
-    #     unit_original: str,
-    #     unit_si: str,
-    # ) -> tuple[operator.mul | operator.add | None, float | None]:
-    #     """
-    #     Method to get the conversion factor (flaot) for a specific parameter
-    #     :param origin_unit: origin unit enumeration of parameter
-    #     :param si_unit: si unit enumeration of parameter
-    #     :return: conversion factor as float
-    #     """
-    #     origin_unit = OriginUnit[unit_original.upper()].value
-    #     si_unit = SIUnit[unit_si.upper()].value
-    #     if si_unit == SIUnit.KILOGRAM_PER_SQUARE_METER.value:
-    #         # Fixed conversion factors to kg / m², as it only applies
-    #         # for water with density 1 g / cm³
-    #         if origin_unit == OriginUnit.MILLIMETER.value:
-    #             return operator.mul, 1
-    #         elif origin_unit == si_unit:
-    #             return operator.mul, 1
-    #         else:
-    #             raise ValueError("manually set conversion factor for precipitation unit")
-    #     elif si_unit == SIUnit.DEGREE_KELVIN.value:
-    #         # Apply offset addition to temperature measurements
-    #         # Take 0 as this is appropriate for adding on other numbers
-    #         # (just the difference)
-    #         degree_offset = Quantity(0, origin_unit).to(si_unit).magnitude
-    #         return operator.add, degree_offset
-    #     elif si_unit == SIUnit.PERCENT.value:
-    #         factor = REGISTRY(str(origin_unit)).to(str(si_unit)).magnitude
-    #         try:
-    #             factor = factor.item()
-    #         except AttributeError:
-    #             pass
-    #         return operator.mul, factor
-    #     elif si_unit == SIUnit.DIMENSIONLESS.value:
-    #         return None, None
-    #     else:
-    #         # For multiplicative units we need to use 1 as quantity to apply the
-    #         # appropriate factor
-    #         factor = Quantity(1, origin_unit).to(si_unit).magnitude
-    #         try:
-    #             factor = factor.item()
-    #         except AttributeError:
-    #             pass
-    #         return operator.mul, factor
 
     def _create_empty_station_df(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """

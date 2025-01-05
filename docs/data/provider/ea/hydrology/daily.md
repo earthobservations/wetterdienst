@@ -23,7 +23,7 @@
 
 #### parameters
 
-| name              | original name     | description                  | unit | original unit | constraints |
-|-------------------|-------------------|------------------------------|------|---------------|-------------|
-| flow              | water flow        | daily mean flow              | m³/s | m³/s          | >=0         |
-| groundwater_level | groundwater level | daily mean groundwater level | m    | m             | >=0         |
+| name              | original name     | description                  | unit type       | unit          | constraints |
+|-------------------|-------------------|------------------------------|-----------------|---------------|-------------|
+| flow              | water flow        | daily mean flow              | volume_per_time | m³/s          | >=0         |
+| groundwater_level | groundwater level | daily mean groundwater level | length_medium   | m             | >=0         |

@@ -130,6 +130,7 @@ nav:
     - usage/explorer.md
     - usage/docker.md
     - usage/settings.md
+    - usage/units.md
   - Library:
     - library/api.md
     - library/machinery.md

@@ -23,14 +23,14 @@
 
 #### parameters
 
-| name                   | original name               | description            | unit | original unit | constraints |
-|------------------------|-----------------------------|------------------------|------|---------------|-------------|
-| discharge_max          | maksymalna przepływ         | discharge max          | m³/s | m³/s          | >=0         |
-| discharge_mean         | średnia przepływ            | discharge mean         | m³/s | m³/s          | >=0         |
-| discharge_min          | minimalna przepływ          | discharge min          | m³/s | m³/s          | >=0         |
-| temperature_water_max  | maksymalna temperatura wody | temperature water max  | K    | °C            | -           |
-| temperature_water_mean | średnia temperatura wody    | temperature water mean | K    | °C            | -           |
-| temperature_water_min  | minimalna temperatura wody  | temperature water min  | K    | °C            | -           |
-| stage_max              | maksymalna stan wody        | stage max              | m    | cm            | -           |
-| stage_mean             | średnia stan wody           | stage mean             | m    | cm            | -           |
-| stage_min              | minimalna stan wody         | stage min              | m    | cm            | -           |
+| name                   | original name               | description            | unit type       | unit | constraints |
+|------------------------|-----------------------------|------------------------|-----------------|------|-------------|
+| discharge_max          | maksymalna przepływ         | discharge max          | volume_per_time | m³/s | >=0         |
+| discharge_mean         | średnia przepływ            | discharge mean         | volume_per_time | m³/s | >=0         |
+| discharge_min          | minimalna przepływ          | discharge min          | volume_per_time | m³/s | >=0         |
+| temperature_water_max  | maksymalna temperatura wody | temperature water max  | temperature     | °C   | -           |
+| temperature_water_mean | średnia temperatura wody    | temperature water mean | temperature     | °C   | -           |
+| temperature_water_min  | minimalna temperatura wody  | temperature water min  | temperature     | °C   | -           |
+| stage_max              | maksymalna stan wody        | stage max              | length_short    | cm   | -           |
+| stage_mean             | średnia stan wody           | stage mean             | length_short    | cm   | -           |
+| stage_min              | minimalna stan wody         | stage min              | length_short    | cm   | -           |

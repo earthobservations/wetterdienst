@@ -41,8 +41,8 @@ EAHydrologyMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "flow",
-                            "unit_type": "cubic_meters_per_second",
-                            "unit": "cubic_meters_per_second",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "groundwater_level",
@@ -68,8 +68,8 @@ EAHydrologyMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "flow",
-                            "unit_type": "cubic_meters_per_second",
-                            "unit": "cubic_meters_per_second",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "groundwater_level",
@@ -96,8 +96,8 @@ EAHydrologyMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "flow",
-                            "unit_type": "cubic_meters_per_second",
-                            "unit": "cubic_meters_per_second",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "groundwater_level",

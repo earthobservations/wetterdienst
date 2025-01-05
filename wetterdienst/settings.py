@@ -46,7 +46,9 @@ class Settings(BaseSettings):
     @classmethod
     def validate_ts_unit_targets(cls, values):
         if not values.keys() <= UnitConverter.targets.keys():
-            raise ValueError(f"Invalid unit targets: one of {set(values.keys())} not in {set(UnitConverter.targets.keys())}")
+            raise ValueError(
+                f"Invalid unit targets: one of {set(values.keys())} not in {set(UnitConverter.targets.keys())}"
+            )
         return values
 
     # make ts_interpolation_station_distance update but not replace the default values
