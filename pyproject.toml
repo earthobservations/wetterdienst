@@ -80,7 +80,6 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-  "aenum>=3",
   "backports-datetime-fromisoformat>=2; python_version<'3.11'",
   "cachetools>=5.2",
   "click>=8",
@@ -93,7 +92,6 @@ dependencies = [
   "measurement>=3.2",
   "numpy>=1.22",
   "pillow>=10.3",
-  "pint>=0.17",
   "platformdirs",
   "polars>=1.0.0",
   "portion>=2.4.2",

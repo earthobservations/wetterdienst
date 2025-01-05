@@ -11,9 +11,12 @@ import platformdirs
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from wetterdienst.core.timeseries.unit import UnitConverter
 from wetterdienst.metadata.parameter import Parameter
 
 log = logging.getLogger(__name__)
+
+_UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 
 
 class Settings(BaseSettings):
@@ -26,7 +29,8 @@ class Settings(BaseSettings):
     fsspec_client_kwargs: dict = Field(default_factory=dict)
     ts_humanize: bool = True
     ts_shape: Literal["wide", "long"] = "long"
-    ts_si_units: bool = True
+    ts_convert_units: bool = True
+    ts_unit_targets: dict[str, str] = Field(default_factory=dict)
     ts_skip_empty: bool = False
     ts_skip_threshold: float = 0.95
     ts_skip_criteria: Literal["min", "mean", "max"] = "min"
@@ -39,6 +43,18 @@ class Settings(BaseSettings):
         }
     )
     ts_interpolation_use_nearby_station_distance: float = 1.0
+
+    @field_validator("ts_unit_targets", mode="before")
+    @classmethod
+    def validate_ts_unit_targets_before(cls, values):
+        return values or {}
+
+    @field_validator("ts_unit_targets", mode="after")
+    @classmethod
+    def validate_ts_unit_targets_after(cls, values):
+        if not values.keys() <= _UNIT_CONVERTER_TARGETS:
+            raise ValueError(f"Invalid unit targets: one of {set(values.keys())} not in {set(_UNIT_CONVERTER_TARGETS)}")
+        return values
 
     # make ts_interpolation_station_distance update but not replace the default values
     @field_validator("ts_interpolation_station_distance", mode="before")

@@ -31,7 +31,7 @@ def test_dwd_road_weather():
         "station_group": "KK",
     }
     values = request.values.all().df.drop_nulls(subset="value")
-    assert 230 <= values.get_column("value").min() <= 313  # approx. -+40 K
+    assert -40 <= values.get_column("value").min() <= 40  # approx. -+40 K
 
 
 @pytest.mark.xfail(reason="number of station groups may change")

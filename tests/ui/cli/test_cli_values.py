@@ -472,3 +472,28 @@ def test_cli_values_filter_by_rank(
     response = json.loads(result.output)
     station_ids = {reading["station_id"] for reading in response["values"]}
     assert station_id in station_ids
+
+
+@pytest.mark.remote
+def test_cli_values_custom_units():
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--date=2022-01-01",
+        ],
+        station="01048",
+        fmt="json",
+        additional=['--unit_targets={"temperature":"degree_fahrenheit"}'],
+    )
+    data = json.loads(result.output)
+    first = data["values"][0]
+    assert first == {
+        "station_id": "01048",
+        "dataset": "climate_summary",
+        "parameter": "temperature_air_mean_2m",
+        "date": "2022-01-01T00:00:00+00:00",
+        "value": 52.52,
+        "quality": 10.0,
+    }

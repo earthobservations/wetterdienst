@@ -24,10 +24,10 @@
 
 #### parameters
 
-| name              | original name | description       | unit | original unit | constraints |
-|-------------------|---------------|-------------------|------|---------------|-------------|
-| cloud_cover_total | n_ter         | total cloud cover | %    | 1/8           | >=0,<=8     |
-| cloud_density     | cd_ter        | cloud density     | -    | -             |             |
+| name              | original name | description       | unit type     | unit          | constraints |
+|-------------------|---------------|-------------------|---------------|---------------|-------------|
+| cloud_cover_total | n_ter         | total cloud cover | fraction      | 1/8           | >=0,<=8     |
+| cloud_density     | cd_ter        | cloud density     | dimensionless | -             |             |
 
 ### moisture
 
@@ -42,12 +42,12 @@
 
 #### parameters
 
-| name                       | original name | description         | unit | original unit | constraints |
-|----------------------------|---------------|---------------------|------|---------------|-------------|
-| pressure_vapor             | vp_ter        | vapor pressure      | Pa   | hPa           | >=0         |
-| temperature_air_mean_0_05m | e_tf_ter      | 5cm air temperature | K    | °C            |             |
-| temperature_air_mean_2m    | tf_ter        | 2m air temperature  | K    | °C            |             |
-| humidity                   | rf_ter        | humidity            | %    | %             | >=0,<=100   |
+| name                       | original name | description         | unit type   | unit          | constraints |
+|----------------------------|---------------|---------------------|-------------|---------------|-------------|
+| pressure_vapor             | vp_ter        | vapor pressure      | pressure    | hPa           | >=0         |
+| temperature_air_mean_0_05m | e_tf_ter      | 5cm air temperature | temperature | °C            |             |
+| temperature_air_mean_2m    | tf_ter        | 2m air temperature  | temperature | °C            |             |
+| humidity                   | rf_ter        | humidity            | fraction    | %             | >=0,<=100   |
 
 ### pressure
 
@@ -62,9 +62,9 @@
 
 #### parameters
 
-| name              | original name | description          | unit    | original unit | constraints |
-|-------------------|---------------|----------------------|---------|---------------|-------------|
-| pressure_air_site | pp_ter        | air pressure of site | Pa      | hPa           | >=0         |
+| name              | original name | description          | unit type | unit          | constraints |
+|-------------------|---------------|----------------------|-----------|---------------|-------------|
+| pressure_air_site | pp_ter        | air pressure of site | pressure  | hPa           | >=0         |
 
 ### soil
 
@@ -79,9 +79,9 @@
 
 #### parameters
 
-| name                        | original name | description          | unit    | original unit | constraints |
-|-----------------------------|---------------|----------------------|---------|---------------|-------------|
-| temperature_soil_mean_0_05m | ek_ter        | soil temperature 5cm | K       | °C            | -           |
+| name                        | original name | description          | unit type   | unit          | constraints |
+|-----------------------------|---------------|----------------------|-------------|---------------|-------------|
+| temperature_soil_mean_0_05m | ek_ter        | soil temperature 5cm | temperature | °C            | -           |
 
 ### temperature_air
 
@@ -96,10 +96,10 @@
 
 #### parameters
 
-| name                    | original name | description          | unit | original unit | constraints |
-|-------------------------|---------------|----------------------|------|---------------|-------------|
-| temperature_air_mean_2m | tt_ter        | 2m air temperature   | K    | °C            |             |
-| humidity                | rf_ter        | 2m relative humidity | %    | %             | >=0,<=100   |
+| name                    | original name | description          | unit type   | unit          | constraints |
+|-------------------------|---------------|----------------------|-------------|---------------|-------------|
+| temperature_air_mean_2m | tt_ter        | 2m air temperature   | temperature | °C            |             |
+| humidity                | rf_ter        | 2m relative humidity | fraction    | %             | >=0,<=100   |
 
 ### visibility
 
@@ -114,9 +114,9 @@
 
 #### parameters
 
-| name             | original name | description      | unit    | original unit | constraints |
-|------------------|---------------|------------------|---------|---------------|-------------|
-| visibility_range | vk_ter        | visibility range | m       | m             | >=0         |
+| name             | original name | description      | unit type     | unit          | constraints |
+|------------------|---------------|------------------|---------------|---------------|-------------|
+| visibility_range | vk_ter        | visibility range | length_medium | m             | >=0         |
 
 ### wind
 
@@ -131,10 +131,10 @@
 
 #### parameters
 
-| name                | original name | description           | unit | original unit | constraints |
-|---------------------|---------------|-----------------------|------|---------------|-------------|
-| wind_direction      | dk_ter        | wind direction        | °    | °             | >=0,<=360   |
-| wind_force_beaufort | fk_ter        | wind force (beaufort) | Bft  | Bft           | >=0         |
+| name                | original name | description           | unit type  | unit          | constraints |
+|---------------------|---------------|-----------------------|------------|---------------|-------------|
+| wind_direction      | dk_ter        | wind direction        | angle      | °             | >=0,<=360   |
+| wind_force_beaufort | fk_ter        | wind force (beaufort) | wind_scale | Bft           | >=0         |
 
 ### wind_extreme
 
@@ -149,7 +149,7 @@
 
 #### parameters
 
-| name                  | original name | description      | unit | original unit | constraints |
-|-----------------------|---------------|------------------|------|---------------|-------------|
-| wind_gust_max_last_3h | fx_911_3      | wind gust max 3h | m/s  | m/s           | >=0         |
-| wind_gust_max_last_6h | fx_911_6      | wind gust max 6h | m/s  | m/s           | >=0         |
+| name                  | original name | description      | unit type | unit          | constraints |
+|-----------------------|---------------|------------------|-----------|---------------|-------------|
+| wind_gust_max_last_3h | fx_911_3      | wind gust max 3h | speed     | m/s           | >=0         |
+| wind_gust_max_last_6h | fx_911_6      | wind gust max 6h | speed     | m/s           | >=0         |

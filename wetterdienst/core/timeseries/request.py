@@ -164,7 +164,7 @@ class TimeseriesRequest(Core):
         self.humanize = settings.ts_humanize
         self.shape = settings.ts_shape
         self.tidy = 1 if self.shape == "long" else 0
-        self.si_units = settings.ts_si_units
+        self.convert_units = settings.ts_convert_units
 
         self.drop_nulls = self.tidy and settings.ts_drop_nulls
         self.complete = not self.drop_nulls and settings.ts_complete
@@ -247,25 +247,6 @@ class TimeseriesRequest(Core):
 
         return start_date, end_date
 
-    @staticmethod
-    def _format_unit(unit) -> str:
-        """
-        Method to format unit and create a string
-        :param unit: pint Unit
-        :return: unit as string
-        """
-        try:
-            unit = unit.units
-        except AttributeError:
-            pass
-
-        unit_string = format(unit, "~")
-
-        if unit_string == "":
-            return "-"
-
-        return unit_string
-
     @classmethod
     def discover(
         cls,
@@ -315,8 +296,8 @@ class TimeseriesRequest(Core):
                         {
                             "name": parameter.name,
                             "name_original": parameter.name_original,
+                            "unit_type": parameter.unit_type,
                             "unit": parameter.unit,
-                            "unit_original": parameter.unit_original,
                         }
                     )
             if not data[resolution.name]:

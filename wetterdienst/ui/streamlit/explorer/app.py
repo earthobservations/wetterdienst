@@ -11,9 +11,11 @@ import polars as pl
 import streamlit as st
 
 from wetterdienst import Resolution, Settings, Wetterdienst, __version__
+from wetterdienst.core.timeseries.unit import UnitConverter
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.metadata import DatasetModel, MetadataModel, ParameterModel, ResolutionModel
+    from wetterdienst.core.timeseries.request import TimeseriesRequest
 
 # this env is set manually on streamlit.com
 LIVE = os.getenv("LIVE", "false").lower() == "true"
@@ -41,7 +43,7 @@ def get_api(provider: str, network: str):
 
 
 @st.cache_resource
-def get_metadata(api: Wetterdienst):
+def get_metadata(api: TimeseriesRequest):
     return api.metadata
 
 
@@ -55,17 +57,6 @@ def get_station(provider: str, network: str, request_kwargs: dict, station_id: s
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
     return get_api(provider, network)(**request_kwargs).filter_by_station_id(station_id)
-
-
-def get_values(provider: str, network: str, request_kwargs: dict, station_id: str):
-    request_kwargs = request_kwargs.copy()
-    settings = Settings(**request_kwargs["settings"])
-    request_kwargs["settings"] = settings
-    request_station = get_station(provider, network, request_kwargs, station_id)
-    units = request_station.discover("daily", "climate_summary")["daily"]
-    units = {parameter: (unit["si"] if settings.ts_si_units else unit["origin"]) for parameter, unit in units.items()}
-    values = request_station.values.all().df
-    return values.with_columns(pl.col("parameter").replace(units).alias("unit"))
 
 
 def create_plotly_fig(
@@ -119,8 +110,13 @@ with st.sidebar:
 
     st.subheader("General")
     ts_humanize = st.checkbox("humanize", value=True)
-    ts_si_units = st.checkbox("si_units", value=True)
-    settings = {"ts_humanize": ts_humanize, "ts_si_units": ts_si_units}
+    ts_convert_units = st.checkbox("convert_units", value=True)
+    if ts_convert_units:
+        unit_converter = UnitConverter()
+        unit_targets = {k: v.name for k, v in unit_converter.targets.items()}
+        with st.expander("set unit targets"):
+            ts_unit_targets = {k: st.text_input(k, value=v) for k, v in unit_targets.items()}
+    settings = {"ts_humanize": ts_humanize, "ts_convert_units": ts_convert_units, "ts_unit_targets": ts_unit_targets}
 
     st.subheader("Plotting")
 

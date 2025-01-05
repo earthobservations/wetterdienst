@@ -23,12 +23,12 @@
 
 #### parameters
 
-| name                         | original name | description                                                          | unit  | original unit | constraints |
-|------------------------------|---------------|----------------------------------------------------------------------|-------|---------------|-------------|
-| precipitation_height         | rs_05         | precipitation height of last 5min                                    | kg/m² | mm            | >=0         |
-| precipitation_height_droplet | rth_05        | precipitation height of last 5min measured with droplet              | kg/m² | mm            | >=0         |
-| precipitation_height_rocker  | rwh_05        | precipitation height of last 5min measured with rocker               | kg/m² | mm            | >=0         |
-| precipitation_form           | rs_ind_05     | precipitation form of last 5min, codes taken from 10_minutes dataset | -     | -             | ∈ \[0,1,3\] |
+| name                         | original name | description                                                          | unit type     | unit          | constraints |
+|------------------------------|---------------|----------------------------------------------------------------------|---------------|---------------|-------------|
+| precipitation_height         | rs_05         | precipitation height of last 5min                                    | precipitation | mm            | >=0         |
+| precipitation_height_droplet | rth_05        | precipitation height of last 5min measured with droplet              | precipitation | mm            | >=0         |
+| precipitation_height_rocker  | rwh_05        | precipitation height of last 5min measured with rocker               | precipitation | mm            | >=0         |
+| precipitation_form           | rs_ind_05     | precipitation form of last 5min, codes taken from 10_minutes dataset | dimensionless | -             | ∈ \[0,1,3\] |
 
 Codes (precipitation_form):
 

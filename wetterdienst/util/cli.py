@@ -17,10 +17,6 @@ def setup_logging(level=logging.INFO) -> None:
     numexpr_logger = logging.getLogger("numexpr")
     numexpr_logger.setLevel(logging.WARN)
 
-    # Silence WARNING messages from pint.
-    pint_logger = logging.getLogger("pint")
-    pint_logger.setLevel(logging.ERROR)
-
 
 def docstring_format_verbatim(text: str) -> str:
     """

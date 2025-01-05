@@ -4,6 +4,12 @@
 
 ### Feature
 - Add logo for restapi
+- [Breaking] Add dedicated unit converter
+  
+  Attention: Many units are changed to be more consistent with typical meteorological units. We now use `°C` for 
+  temperatures. Also, length units are now separated in `length_short`, `length_medium` and `length_long` to get more
+  reasonable decimals. Fore more information, see the new units chapter (usage/units) in the documentation.
+  
 
 ## 0.99.0 - 2024-12-30
 

@@ -52,7 +52,7 @@ def station_example(start_date="2018-12-25", end_date="2022-12-25", name="Frankf
         parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
         start_date=start_date,
         end_date=end_date,
-        settings=Settings(ts_si_units=False),
+        settings=Settings(ts_convert_units=False),
     )
     return stations.filter_by_name(name=name)
 

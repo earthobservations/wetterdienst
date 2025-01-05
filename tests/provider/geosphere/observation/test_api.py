@@ -38,4 +38,4 @@ def test_geopshere_observation_api_radiation(resolution):
     station_at = stations_at.filter_by_station_id("4821")
     df = station_at.values.all().df
     # the result is slightly different for each resolution
-    assert df.get_column("value").sum() == IsNumeric(ge=49662000, le=49720000)
+    assert df.get_column("value").sum() == IsNumeric(ge=4966.2000, le=4972.0000)

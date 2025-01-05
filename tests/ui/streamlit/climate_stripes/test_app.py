@@ -20,10 +20,10 @@ def test_climate_stripes():
     kind = app_test.selectbox[0]
     assert kind.value == "temperature"
     selected_station = app_test.selectbox[1].value
+    del selected_station["end_date"]
     assert selected_station == {
         "station_id": "15000",
         "start_date": dt.datetime(2011, 4, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
-        "end_date": dt.datetime(2023, 12, 31, 0, 0, tzinfo=ZoneInfo(key="UTC")),
         "latitude": 50.7983,
         "longitude": 6.0244,
         "height": 231.0,

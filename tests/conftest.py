@@ -44,13 +44,13 @@ def settings_humanize_false_drop_nulls_false():
 
 
 @pytest.fixture
-def settings_humanize_si_false():
-    return Settings(ts_humanize=False, ts_si_units=False)
+def settings_humanize_false_convert_units_false():
+    return Settings(ts_humanize=False, ts_convert_units=False)
 
 
 @pytest.fixture
 def settings_humanize_si_false_wide_shape_drop_nulls_complete():
-    return Settings(ts_shape="wide", ts_humanize=False, ts_si_units=False, ts_drop_nulls=False, ts_complete=True)
+    return Settings(ts_shape="wide", ts_humanize=False, ts_convert_units=False, ts_drop_nulls=False, ts_complete=True)
 
 
 @pytest.fixture
@@ -60,17 +60,12 @@ def settings_humanize_false_wide_shape_drop_nulls_complete():
 
 @pytest.fixture
 def settings_si_false():
-    return Settings(ts_si_units=False)
+    return Settings(ts_convert_units=False)
 
 
 @pytest.fixture
 def settings_si_false_wide_shape():
-    return Settings(ts_shape="wide", ts_si_units=False)
-
-
-@pytest.fixture
-def settings_si_true():
-    return Settings(ts_si_units=True)
+    return Settings(ts_shape="wide", ts_convert_units=False)
 
 
 @pytest.fixture
