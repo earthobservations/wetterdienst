@@ -76,7 +76,7 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
                 "station_id": "6754d04d",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
-                "value": 279.52,
+                "value": 6.37,
                 "distance_mean": 16.99,
                 "taken_station_ids": ["00072", "02074", "02638", "04703"],
             },
@@ -84,7 +84,7 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
                 "station_id": "6754d04d",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 281.85,
+                "value": 8.7,
                 "distance_mean": 0.0,
                 "taken_station_ids": ["00071"],
             },
@@ -170,7 +170,7 @@ def test_provider_dwd_mosmix(default_settings):
         settings=default_settings,
     )
     given_df = request.interpolate(latlon=(50.0, 8.9)).df
-    assert given_df.get_column("value").min() >= 233.15  # equals -40.0°C
+    assert given_df.get_column("value").min() >= -40  # equals -40.0°C
 
 
 def test_interpolation_temperature_air_mean_2m_daily_three_floats(default_settings):

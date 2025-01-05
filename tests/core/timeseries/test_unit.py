@@ -200,7 +200,7 @@ def test_unit_converter_get_lambda_invalid(unit_converter):
 def test_unit_converter__get_lambda(unit_converter):
     """test retrieval of lambda function (direct unit - unit target combination)"""
     lambda_ = unit_converter._get_lambda("degree_kelvin", "degree_fahrenheit")
-    assert lambda_(0) == -459.67
+    assert lambda_(0) == -459.66999999999996
 
 
 def test_unit_converter__get_lambda_invalid(unit_converter):

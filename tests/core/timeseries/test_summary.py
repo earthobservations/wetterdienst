@@ -95,7 +95,7 @@ def test_provider_dwd_mosmix(default_settings):
         settings=default_settings,
     )
     given_df = request.summarize(latlon=(50.0, 8.9)).df
-    assert given_df.get_column("value").min() >= 233.15  # equals -40.0°C
+    assert given_df.get_column("value").min() >= -40  # equals -40.0°C
 
 
 def test_summary_error_no_start_date():

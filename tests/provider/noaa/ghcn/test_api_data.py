@@ -33,7 +33,7 @@ def test_api_amsterdam(start_date, end_date, default_settings):
                 "dataset": "data",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")),
-                "value": 276.84999999999997,
+                "value": 3.7,
                 "quality": None,
             }
         ],
