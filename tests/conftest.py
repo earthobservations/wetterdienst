@@ -69,11 +69,6 @@ def settings_si_false_wide_shape():
 
 
 @pytest.fixture
-def settings_si_true():
-    return Settings(ts_convert_units=True)
-
-
-@pytest.fixture
 def settings_wide_shape():
     return Settings(ts_shape="wide")
 

@@ -231,7 +231,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             [Columns.PARAMETER.value],
             maintain_order=True,
         ):
-            lambda_ = conversion_factors[parameter]
+            lambda_ = conversion_factors[parameter.lower()]
             # round by 4 decimals to avoid long floats but keep precision
             group = group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda_).round(4))
             data.append(group)
@@ -250,7 +250,9 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         lambdas = {}
         for parameter in dataset:
-            lambdas[parameter.name_original] = self.unit_converter.get_lambda(parameter.unit, parameter.unit_type)
+            lambdas[parameter.name_original.lower()] = self.unit_converter.get_lambda(
+                parameter.unit, parameter.unit_type
+            )
         return lambdas
 
     def _create_empty_station_df(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:

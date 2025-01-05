@@ -52,7 +52,7 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
                 "station_id": "f674568e",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
-                "value": 277.71,
+                "value": 4.56,
                 "distance_mean": 13.37,
                 "taken_station_ids": ["02480", "04411", "07341", "00917"],
             }

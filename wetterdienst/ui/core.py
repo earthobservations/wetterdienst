@@ -126,7 +126,7 @@ class ValuesRequest(ValuesRequestRaw):
         tuple[confloat(ge=-180, le=180), confloat(ge=-90, le=90), confloat(ge=-180, le=180), confloat(ge=-90, le=90)]
         | None
     ) = None
-    unit_targets: dict[str, str] = Field(default_factory=dict)
+    unit_targets: dict[str, str] | None = None
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -166,7 +166,7 @@ class ValuesRequest(ValuesRequestRaw):
     def validate_unit_targets(cls, v):
         if v:
             return json.loads(v)
-        return {}
+        return None
 
 
 # start from scratch as parameters are different
@@ -203,8 +203,8 @@ class InterpolationRequest(InterpolationRequestRaw):
     # comma separated list parameters
     station: list[str] | None = None
     coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
-    unit_targets: dict[str, str] = Field(default_factory=dict)
-    interpolation_station_distance: dict[str, confloat(ge=0)] = Field(default_factory=dict)
+    unit_targets: dict[str, str] | None = None
+    interpolation_station_distance: dict[str, confloat(ge=0)] | None = None
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -237,14 +237,14 @@ class InterpolationRequest(InterpolationRequestRaw):
     def validate_unit_targets(cls, v):
         if v:
             return json.loads(v)
-        return {}
+        return None
 
     @field_validator("interpolation_station_distance", mode="before")
     @classmethod
     def validate_interpolation_station_distance(cls, v):
         if v:
             return json.loads(v)
-        return {}
+        return None
 
 
 class SummaryRequestRaw(BaseModel):
@@ -278,7 +278,7 @@ class SummaryRequest(SummaryRequestRaw):
     # comma separated list parameters
     station: list[str] | None = None
     coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
-    unit_targets: dict[str, str] = Field(default_factory=dict)
+    unit_targets: dict[str, str] | None = None
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -311,7 +311,7 @@ class SummaryRequest(SummaryRequestRaw):
     def validate_unit_targets(cls, v):
         if v:
             return json.loads(v)
-        return {}
+        return None
 
 
 def unpack_parameters(parameter: str) -> list[str]:

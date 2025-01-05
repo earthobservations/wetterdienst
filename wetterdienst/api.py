@@ -72,8 +72,6 @@ class Wetterdienst:
         :param network: data network e.g. NOAAs observation
         """
         # Both provider and network should be fine (if not an exception is raised)
-        provider = provider.strip().lower()
-        network = network.strip().lower()
         return cls.resolve(provider, network)
 
     @classmethod

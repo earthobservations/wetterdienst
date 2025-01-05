@@ -16,6 +16,8 @@ from wetterdienst.metadata.parameter import Parameter
 
 log = logging.getLogger(__name__)
 
+_UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
+
 
 class Settings(BaseSettings):
     """Wetterdienst general settings"""
@@ -42,13 +44,16 @@ class Settings(BaseSettings):
     )
     ts_interpolation_use_nearby_station_distance: float = 1.0
 
+    @field_validator("ts_unit_targets", mode="before")
+    @classmethod
+    def validate_ts_unit_targets_before(cls, values):
+        return values or {}
+
     @field_validator("ts_unit_targets", mode="after")
     @classmethod
-    def validate_ts_unit_targets(cls, values):
-        if not values.keys() <= UnitConverter.targets.keys():
-            raise ValueError(
-                f"Invalid unit targets: one of {set(values.keys())} not in {set(UnitConverter.targets.keys())}"
-            )
+    def validate_ts_unit_targets_after(cls, values):
+        if not values.keys() <= _UNIT_CONVERTER_TARGETS:
+            raise ValueError(f"Invalid unit targets: one of {set(values.keys())} not in {set(_UNIT_CONVERTER_TARGETS)}")
         return values
 
     # make ts_interpolation_station_distance update but not replace the default values

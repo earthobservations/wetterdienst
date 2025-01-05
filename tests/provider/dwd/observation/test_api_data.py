@@ -374,7 +374,7 @@ def test_dwd_observation_data_result_wide_single_parameter(
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_wide_si(
+def test_dwd_observation_data_result_wide_convert_units(
     settings_humanize_false_wide_shape_drop_nulls_complete,
     dwd_climate_summary_wide_columns,
 ):
