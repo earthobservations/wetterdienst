@@ -12,18 +12,21 @@ import portion as P
 from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
 
-from wetterdienst import Kind, Provider, Resolution
 from wetterdienst.core.timeseries.metadata import DatasetModel, build_metadata_model
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 ImgwMeteorologyMetadata = {
+    **_METADATA,
+    "kind": "observation",
+    "timezone": "Europe/Warsaw",
+    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "daily",
@@ -395,13 +398,12 @@ ImgwMeteorologyMetadata = {
                 },
             ],
         },
-    ]
+    ],
 }
 ImgwMeteorologyMetadata = build_metadata_model(ImgwMeteorologyMetadata, "ImgwMeteorologyMetadata")
 
 
 class ImgwMeteorologyValues(TimeseriesValues):
-    _data_tz = Timezone.UTC
     _endpoint = (
         "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/{resolution}/{dataset}/"
     )
@@ -707,12 +709,8 @@ class ImgwMeteorologyValues(TimeseriesValues):
 
 
 class ImgwMeteorologyRequest(TimeseriesRequest):
-    _provider = Provider.IMGW
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.POLAND
-    _data_range = DataRange.FIXED
-    _values = ImgwMeteorologyValues
     metadata = ImgwMeteorologyMetadata
+    _values = ImgwMeteorologyValues
     _endpoint = "https://dane.imgw.pl/datastore/getfiledown/Arch/Telemetria/Meteo/kody_stacji.csv"
 
     def __init__(

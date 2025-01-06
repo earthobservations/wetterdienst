@@ -7,6 +7,7 @@ import logging
 from collections.abc import Iterable
 from itertools import repeat
 from typing import TYPE_CHECKING, Literal
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import portion as P
@@ -17,12 +18,8 @@ from wetterdienst.core.timeseries.metadata import DatasetModel, ParameterSearch
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data_parallel,
 )
@@ -54,9 +51,6 @@ class DwdObservationValues(TimeseriesValues):
     The DWDObservationData class represents a request for
     observation data as provided by the DWD service.
     """
-
-    _tz = Timezone.GERMANY
-    _data_tz = Timezone.UTC
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -299,10 +293,6 @@ class DwdObservationRequest(TimeseriesRequest):
     """
 
     metadata = DwdObservationMetadata
-    _provider = Provider.DWD
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.GERMANY
-    _data_range = DataRange.FIXED
     _values = DwdObservationValues
     _available_periods = {Period.HISTORICAL, Period.RECENT, Period.NOW}
 
@@ -315,7 +305,10 @@ class DwdObservationRequest(TimeseriesRequest):
         """
         if self.start_date:
             # cut of hours, seconds,...
-            return P.closed(self.start_date.astimezone(self.tz), self.end_date.astimezone(self.tz))
+            return P.closed(
+                self.start_date.astimezone(ZoneInfo(self.metadata.timezone)),
+                self.end_date.astimezone(ZoneInfo(self.metadata.timezone)),
+            )
 
         return None
 
@@ -327,7 +320,8 @@ class DwdObservationRequest(TimeseriesRequest):
 
         :return:
         """
-        historical_end = self._now_local.replace(month=1, day=1)
+        now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
+        historical_end = now_local.replace(month=1, day=1)
         # a year that is way before any data is collected
         historical_begin = dt.datetime(year=1678, month=1, day=1, tzinfo=historical_end.tzinfo)
         return P.closed(historical_begin, historical_end)
@@ -340,7 +334,8 @@ class DwdObservationRequest(TimeseriesRequest):
 
         :return:
         """
-        recent_end = self._now_local.replace(hour=0, minute=0, second=0)
+        now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
+        recent_end = now_local.replace(hour=0, minute=0, second=0)
         recent_begin = recent_end - dt.timedelta(days=500)
         return P.closed(recent_begin, recent_end)
 
@@ -352,7 +347,7 @@ class DwdObservationRequest(TimeseriesRequest):
 
         :return:
         """
-        now_end = self._now_local
+        now_end = dt.datetime.now(ZoneInfo(self.metadata.timezone))
         now_begin = now_end.replace(hour=0, minute=0, second=0) - dt.timedelta(days=1)
         return P.closed(now_begin, now_end)
 

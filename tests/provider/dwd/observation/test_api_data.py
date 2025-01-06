@@ -11,7 +11,6 @@ from polars.testing import assert_frame_equal
 from wetterdienst import Settings
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
@@ -117,7 +116,7 @@ def test_request_period_historical_recent_now(default_settings):
     ]
 
 
-@freeze_time(dt.datetime(2022, 1, 29, 1, 30, tzinfo=ZoneInfo(Timezone.GERMANY.value)))
+@freeze_time(dt.datetime(2022, 1, 29, 1, 30, tzinfo=ZoneInfo("Europe/Berlin")))
 def test_request_period_recent_now(default_settings):
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -127,7 +126,7 @@ def test_request_period_recent_now(default_settings):
     assert request.periods == [Period.RECENT, Period.NOW]
 
 
-@freeze_time(dt.datetime(2022, 1, 29, 2, 30, tzinfo=ZoneInfo(Timezone.GERMANY.value)))
+@freeze_time(dt.datetime(2022, 1, 29, 2, 30, tzinfo=ZoneInfo("Europe/Berlin")))
 def test_request_period_now(default_settings):
     # Now period
     request = DwdObservationRequest(
@@ -138,7 +137,7 @@ def test_request_period_now(default_settings):
     assert request.periods == [Period.NOW]
 
 
-@freeze_time(dt.datetime(2021, 3, 28, 18, 38, tzinfo=ZoneInfo(Timezone.GERMANY.value)))
+@freeze_time(dt.datetime(2021, 3, 28, 18, 38, tzinfo=ZoneInfo("Europe/Berlin")))
 def test_request_period_now_fixed_date(default_settings):
     # Now period
     request = DwdObservationRequest(

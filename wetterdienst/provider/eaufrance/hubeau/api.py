@@ -18,12 +18,8 @@ from wetterdienst.core.timeseries.metadata import (
 )
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -45,6 +41,15 @@ REQUIRED_ENTRIES = [
 
 
 HubeauMetadata = {
+    "name_short": "Eaufrance",
+    "name_english": "Eaufrance",
+    "name_local": "Eaufrance",
+    "country": "France",
+    "copyright": "© Eaufrance",
+    "url": "https://www.eaufrance.fr/",
+    "kind": "observation",
+    "timezone": "Europe/Paris",
+    "timezone_data": "dynamic",
     "resolutions": [
         {
             "name": "dynamic",
@@ -73,13 +78,12 @@ HubeauMetadata = {
                 }
             ],
         }
-    ]
+    ],
 }
 HubeauMetadata = build_metadata_model(HubeauMetadata, "HubeauMetadata")
 
 
 class HubeauValues(TimeseriesValues):
-    _data_tz = Timezone.DYNAMIC
     _endpoint = (
         "https://hubeau.eaufrance.fr/api/v1/hydrometrie/observations_tr?code_entite={station_id}"
         "&grandeur_hydro={grandeur_hydro}&sort=asc&date_debut_obs={start_date}&date_fin_obs={end_date}"
@@ -191,10 +195,6 @@ class HubeauValues(TimeseriesValues):
 
 class HubeauRequest(TimeseriesRequest):
     metadata = HubeauMetadata
-    _provider = Provider.EAUFRANCE
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.FRANCE
-    _data_range = DataRange.FIXED
     _values = HubeauValues
 
     _endpoint = "https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations?format=json&en_service=true"

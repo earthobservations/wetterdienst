@@ -48,16 +48,7 @@ def test_cli_about_parameters():
     assert "precipitation_height" in result.output
 
 
-def test_no_provider():
-    runner = CliRunner()
-    result = runner.invoke(cli, ["stations", "--provider=abc", "--network=abc"])
-    assert (
-        "Error: Invalid value for '--provider': 'abc' is not one of 'DWD', 'EA', 'EAUFRANCE', 'ECCC', 'GEOSPHERE', "
-        "'IMGW', 'NOAA', 'NWS', 'WSV'" in result.output
-    )
-
-
-def test_no_network(caplog):
+def test_no_combination_of_provider_and_network(caplog):
     runner = CliRunner()
     runner.invoke(
         cli,

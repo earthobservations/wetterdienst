@@ -1,8 +1,12 @@
 from wetterdienst.core.timeseries.metadata import build_metadata_model
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.metadata import _METADATA, DatetimeFormat
 
 DwdObservationMetadata = {
+    **_METADATA,
+    "kind": "observation",
+    "timezone": "Europe/Berlin",
+    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "1_minute",

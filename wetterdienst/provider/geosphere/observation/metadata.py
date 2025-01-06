@@ -3,6 +3,15 @@ from __future__ import annotations
 from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
 GeosphereObservationMetadata = {
+    "name_short": "Geosphere",
+    "name_english": "Geosphere Austria",
+    "name_local": "Geosphere Österreich",
+    "country": "Austria",
+    "copyright": "© ZAMG, Observations",
+    "url": "https://www.zamg.ac.at/",
+    "kind": "observation",
+    "timezone": "Europe/Vienna",
+    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "10_minutes",
@@ -628,6 +637,6 @@ GeosphereObservationMetadata = {
                 }
             ],
         },
-    ]
+    ],
 }
 GeosphereObservationMetadata = build_metadata_model(GeosphereObservationMetadata, "GeosphereObservationMetadata")

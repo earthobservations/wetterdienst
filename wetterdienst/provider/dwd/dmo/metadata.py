@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 from wetterdienst.core.timeseries.metadata import build_metadata_model
+from wetterdienst.provider.dwd.metadata import _METADATA
 
 DwdDmoMetadata = {
+    **_METADATA,
+    "kind": "forecast",
+    "timezone": "Europe/Berlin",
+    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",
@@ -998,6 +1003,6 @@ DwdDmoMetadata = {
                 },
             ],
         }
-    ]
+    ],
 }
 DwdDmoMetadata = build_metadata_model(DwdDmoMetadata, "DwdDmoMetadata")

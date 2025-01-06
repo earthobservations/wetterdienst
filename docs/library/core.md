@@ -2,10 +2,6 @@
 
 ## Core
 
-::: wetterdienst.core.core
-    options:
-      heading_level: 3
-
 ::: wetterdienst.core.timeseries
     options:
       heading_level: 3

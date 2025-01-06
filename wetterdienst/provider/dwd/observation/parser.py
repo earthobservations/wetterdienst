@@ -11,7 +11,7 @@ import polars as pl
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.metadata import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )

@@ -10,7 +10,6 @@ import polars as pl
 import pytest
 from surrogate import surrogate
 
-from wetterdienst import Provider
 from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
 from wetterdienst.core.timeseries.result import (
@@ -84,8 +83,15 @@ def df_stations():
 
 @pytest.fixture
 def stations_mock():
+    class MetadataMock:
+        name_local = "Deutscher Wetterdienst"
+        name_english = "German Weather Service"
+        country = "Germany"
+        copyright = "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)"
+        url = "https://opendata.dwd.de/climate_environment/CDC/"
+
     class StationsMock:
-        _provider = Provider.DWD
+        metadata = MetadataMock
 
     return StationsMock
 

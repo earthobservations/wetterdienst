@@ -11,17 +11,22 @@ import polars as pl
 from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, DatasetModel, build_metadata_model
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__name__)
 
 NwsObservationMetadata = {
+    "name_short": "NWS",
+    "name_english": "NOAA National Weather Service",
+    "name_local": "NOAA National Weather Service",
+    "country": "United States Of America",
+    "copyright": "© NOAA NWS (National Weather Service), Observations",
+    "url": "https://api.weather.gov/",
+    "kind": "observation",
+    "timezone": "America/New_York",
+    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",
@@ -128,13 +133,12 @@ NwsObservationMetadata = {
                 }
             ],
         }
-    ]
+    ],
 }
 NwsObservationMetadata = build_metadata_model(NwsObservationMetadata, "NwsObservationMetadata")
 
 
 class NwsObservationValues(TimeseriesValues):
-    _data_tz = Timezone.UTC
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
 
     def _collect_station_parameter_or_dataset(
@@ -242,12 +246,8 @@ class NwsObservationValues(TimeseriesValues):
 
 
 class NwsObservationRequest(TimeseriesRequest):
-    _provider = Provider.NWS
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.USA
-    _data_range = DataRange.FIXED
-    _values = NwsObservationValues
     metadata = NwsObservationMetadata
+    _values = NwsObservationValues
 
     _endpoint = "https://madis-data.ncep.noaa.gov/madisPublic1/data/stations/METARTable.txt"
 

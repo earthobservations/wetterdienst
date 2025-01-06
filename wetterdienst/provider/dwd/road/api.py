@@ -12,7 +12,6 @@ from urllib.parse import urljoin
 
 import polars as pl
 
-from wetterdienst import Kind, Provider
 from wetterdienst.core.timeseries.metadata import (
     DATASET_NAME_DEFAULT,
     DatasetModel,
@@ -21,10 +20,9 @@ from wetterdienst.core.timeseries.metadata import (
 )
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.util.eccodes import check_pdbufr
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
@@ -40,6 +38,10 @@ TIME_COLUMNS = ("year", "month", "day", "hour", "minute")
 
 
 DwdRoadMetadata = {
+    **_METADATA,
+    "kind": "observation",
+    "timezone": "Europe/Berlin",
+    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "15_minutes",
@@ -140,7 +142,7 @@ DwdRoadMetadata = {
                 }
             ],
         }
-    ]
+    ],
 }
 DwdRoadMetadata = build_metadata_model(DwdRoadMetadata, "DwdRoadMetadata")
 
@@ -192,8 +194,6 @@ class DwdRoadValues(TimeseriesValues):
     The DwdRoadValues class represents a request for
     observation data from road weather stations as provided by the DWD service.
     """
-
-    _data_tz = Timezone.UTC
 
     def __init__(self, stations_result: StationsResult) -> None:
         check_pdbufr()
@@ -383,11 +383,7 @@ class DwdRoadValues(TimeseriesValues):
 
 class DwdRoadRequest(TimeseriesRequest):
     metadata = DwdRoadMetadata
-    _provider = Provider.DWD
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.GERMANY
     _values = DwdRoadValues
-    _data_range = DataRange.FIXED
 
     _base_columns = list(TimeseriesRequest._base_columns)
     _base_columns.extend(

@@ -1,8 +1,8 @@
 import pytest
 
 from wetterdienst import Settings
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
 from wetterdienst.util.network import list_remote_files_fsspec
 

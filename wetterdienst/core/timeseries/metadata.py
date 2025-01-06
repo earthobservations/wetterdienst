@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field, SkipValidation, field_validator
+from pydantic_extra_types.timezone_name import (
+    TimeZoneName,  # noqa: TCH002, needs to stay here for pydantic model to work
+)
 
 from wetterdienst.metadata.period import Period  # noqa: TCH001, needs to stay here for pydantic model to work
 from wetterdienst.metadata.resolution import Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
@@ -167,6 +170,15 @@ class ResolutionModel(BaseModel):
 
 
 class MetadataModel(BaseModel):
+    name_short: str
+    name_english: str
+    name_local: str
+    country: str
+    copyright: str
+    url: str
+    kind: Literal["observation", "forecast"]
+    timezone: TimeZoneName
+    timezone_data: TimeZoneName | Literal["dynamic"]
     resolutions: list[ResolutionModel]
 
     def __getitem__(self, item: str | int):
@@ -199,13 +211,7 @@ class MetadataModel(BaseModel):
             ):
                 return resolution
         else:
-            available_resolutions = [
-                f"{resolution.name}/{resolution.name_original}"
-                if resolution.name != resolution.name_original
-                else resolution.name
-                for resolution in self.resolutions
-            ]
-            raise AttributeError(f"'{item}'. Available resolutions: {', '.join(available_resolutions)}")
+            return super().__getattr__(item)
 
     def __iter__(self) -> Iterator[ResolutionModel]:
         return iter(self.resolutions)

@@ -14,15 +14,11 @@ import polars as pl
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.metadata import DatetimeFormat
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
@@ -74,9 +70,6 @@ class DwdMosmixValues(TimeseriesValues):
         - If not None, list of parameters, per MOSMIX definition, see
           https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2
     """  # noqa:B950,E501
-
-    _tz = Timezone.GERMANY
-    _data_tz = Timezone.UTC
 
     def __init__(self, stations_result: StationsResult) -> None:
         """
@@ -225,10 +218,6 @@ class DwdMosmixRequest(TimeseriesRequest):
     """Implementation of sites for MOSMIX mosmix sites"""
 
     metadata = DwdMosmixMetadata
-    _provider = Provider.DWD
-    _kind = Kind.FORECAST
-    _tz = Timezone.GERMANY
-    _data_range = DataRange.FIXED
     _values = DwdMosmixValues
     _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
 

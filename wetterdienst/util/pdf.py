@@ -4,8 +4,8 @@ from io import StringIO
 
 import pypdf
 
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 
