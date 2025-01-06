@@ -12,14 +12,10 @@ import polars as pl
 
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -31,8 +27,6 @@ log = logging.getLogger(__name__)
 
 
 class EcccObservationValues(TimeseriesValues):
-    _data_tz = Timezone.UTC
-
     _base_url = (
         "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
         "format=csv&stationID={0}&timeframe={1}"
@@ -191,10 +185,6 @@ class EcccObservationRequest(TimeseriesRequest):
     """
 
     metadata = EcccObservationMetadata
-    _provider = Provider.ECCC
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.UTC
-    _data_range = DataRange.FIXED
     _values = EcccObservationValues
 
     _columns_mapping: dict = {
@@ -218,7 +208,6 @@ class EcccObservationRequest(TimeseriesRequest):
         """
 
         :param parameters: parameter or list of parameters that are being queried
-        :param resolution: resolution of data
         :param start_date: start date for values filtering
         :param end_date: end date for values filtering
         """

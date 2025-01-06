@@ -11,17 +11,13 @@ import polars as pl
 
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.noaa.ghcn.metadata import (
     DAILY_PARAMETER_MULTIPLICATION_FACTORS,
     NoaaGhcnMetadata,
 )
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
 
@@ -32,8 +28,6 @@ log = logging.getLogger(__name__)
 
 
 class NoaaGhcnValues(TimeseriesValues):
-    _data_tz = Timezone.DYNAMIC
-
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
@@ -391,12 +385,8 @@ class NoaaGhcnValues(TimeseriesValues):
 
 
 class NoaaGhcnRequest(TimeseriesRequest):
-    _provider = Provider.NOAA
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.USA
-    _data_range = DataRange.FIXED
-    _values = NoaaGhcnValues
     metadata = NoaaGhcnMetadata
+    _values = NoaaGhcnValues
 
     def __init__(
         self,

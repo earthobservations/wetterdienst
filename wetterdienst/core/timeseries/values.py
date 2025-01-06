@@ -18,7 +18,6 @@ from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.core.timeseries.unit import UnitConverter
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import DAILY_AT_MOST, Frequency, Resolution
-from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
@@ -105,15 +104,9 @@ class TimeseriesValues(metaclass=ABCMeta):
     # TODO: add data type (mosmix, observation, ...)
 
     @property
-    def data_tz(self) -> str:
+    def timezone_data(self) -> str:
         """Timezone of the published data"""
-        return self._data_tz.value
-
-    @property
-    @abstractmethod
-    def _data_tz(self) -> Timezone:
-        """Timezone enumeration of published data."""
-        pass
+        return self.sr.stations.metadata.timezone_data
 
     def _adjust_start_end_date(
         self,
@@ -263,10 +256,10 @@ class TimeseriesValues(metaclass=ABCMeta):
         if not self.sr.start_date:
             return pl.DataFrame(schema=self._meta_fields)
 
-        if self._data_tz == Timezone.DYNAMIC:
+        if self.timezone_data == "dynamic":
             tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
         else:
-            tzinfo = ZoneInfo(self.data_tz)
+            tzinfo = ZoneInfo(self.timezone_data)
         start_date, end_date = self._adjust_start_end_date(
             self.sr.start_date, self.sr.end_date, tzinfo, dataset.resolution.value
         )
@@ -301,10 +294,10 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         if df.is_empty():
             return df
-        if self._data_tz == Timezone.DYNAMIC:
+        if self.timezone_data == "dynamic":
             tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
         else:
-            tzinfo = ZoneInfo(self.data_tz)
+            tzinfo = ZoneInfo(self.timezone_data)
         start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo, resolution)
         base_df = self._get_base_df(start_date, end_date, resolution)
         data = []

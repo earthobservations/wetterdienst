@@ -15,8 +15,8 @@ from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import iterparse  # noqa: S410
 from tqdm import tqdm
 
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager

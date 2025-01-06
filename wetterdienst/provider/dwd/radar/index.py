@@ -7,10 +7,11 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.metadata import DatetimeFormat
 from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_PARAMETERS_COMPOSITES,
     RADAR_PARAMETERS_RADOLAN,
@@ -26,7 +27,6 @@ from wetterdienst.provider.dwd.radar.util import (
     RADOLAN_DT_PATTERN,
     get_date_from_filename,
 )
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:

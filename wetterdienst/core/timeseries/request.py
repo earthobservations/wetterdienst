@@ -7,7 +7,6 @@ import logging
 from abc import abstractmethod
 from collections.abc import Sequence
 from hashlib import sha256
-from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -17,7 +16,6 @@ from measurement.utils import guess
 from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
 
-from wetterdienst.core.core import Core
 from wetterdienst.core.timeseries.metadata import (
     DatasetModel,
     MetadataModel,
@@ -42,11 +40,6 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
 from wetterdienst.util.python import to_list
 
-if TYPE_CHECKING:
-    from wetterdienst.metadata.datarange import DataRange
-    from wetterdienst.metadata.kind import Kind
-    from wetterdienst.metadata.provider import Provider
-
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
 except ImportError:
@@ -69,32 +62,13 @@ _DATETIME_TYPE = str | dt.datetime | None
 _SETTINGS_TYPE = dict | Settings | None
 
 
-class TimeseriesRequest(Core):
+class TimeseriesRequest:
     """Core for stations_result information of a source"""
-
-    @property
-    @abstractmethod
-    def _provider(self) -> Provider:
-        """Optional enumeration for multiple resolutions"""
-        pass
-
-    @property
-    @abstractmethod
-    def _kind(self) -> Kind:
-        """Optional enumeration for multiple resolutions"""
-        pass
 
     @property
     @abstractmethod
     def metadata(self) -> MetadataModel:
         """metadata model"""
-        pass
-
-    @property
-    @abstractmethod
-    def _data_range(self) -> DataRange:
-        """State whether data from this provider is given in fixed data chunks
-        or has to be defined over start and end date"""
         pass
 
     @property

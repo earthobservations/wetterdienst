@@ -4,6 +4,15 @@ from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, build_me
 
 # translate the above enums to dictionary based model
 NoaaGhcnMetadata = {
+    "name_short": "NOAA",
+    "name_english": "National Oceanic And Atmospheric Administration",
+    "name_local": "National Oceanic And Atmospheric Administration",
+    "country": "United States Of America",
+    "copyright": "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
+    "url": "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
+    "kind": "observation",
+    "timezone": "America/New_York",
+    "timezone_data": "dynamic",
     "resolutions": [
         {
             "name": "hourly",
@@ -1542,7 +1551,7 @@ NoaaGhcnMetadata = {
                 }
             ],
         },
-    ]
+    ],
 }
 NoaaGhcnMetadata = build_metadata_model(NoaaGhcnMetadata, "NoaaGhcnMetadata")
 

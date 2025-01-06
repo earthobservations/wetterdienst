@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from pydantic import ValidationError
 from starlette.responses import RedirectResponse
 
-from wetterdienst import Author, Info, Provider, Settings, Wetterdienst
+from wetterdienst import Author, Info, Settings, Wetterdienst
 from wetterdienst.core.timeseries.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -67,9 +67,16 @@ def index():
 
     title = f"{info.slogan} | {info.name}"
     sources = []
-    for provider in Provider:
-        shortname = provider.name
-        _, name, country, copyright_, url = provider.value
+
+    for provider in Wetterdienst.registry.keys():
+        # take the first network api
+        first_network = list(Wetterdienst.registry[provider].keys())[0]
+        api = Wetterdienst(provider, first_network)
+        shortname = api.metadata.name_short
+        name = api.metadata.name_english
+        country = api.metadata.country
+        copyright_ = api.metadata.copyright
+        url = api.metadata.url
         sources.append(
             f"<li><a href={url} target='_blank' rel='noopener'>{shortname}</a> ({name}, {country}) - {copyright_}</li>",
         )

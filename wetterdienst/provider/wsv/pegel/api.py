@@ -9,12 +9,8 @@ import polars as pl
 from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 FLOAT_9_TIMES = tuple[
@@ -31,6 +27,15 @@ FLOAT_9_TIMES = tuple[
 
 
 WsvPegelMetadata = {
+    "name_short": "WSV",
+    "name_english": "Federal Waterways and Shipping Administration",
+    "name_local": "Wasserstraßen- und Schifffahrtsverwaltung des Bundes",
+    "country": "Germany",
+    "copyright": "© Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), Pegelonline",
+    "url": "https://pegelonline.wsv.de/webservice/ueberblick",
+    "kind": "observation",
+    "timezone": "Europe/Berlin",
+    "timezone_data": "Europe/Berlin",
     "resolutions": [
         {
             "name": "dynamic",
@@ -173,7 +178,7 @@ WsvPegelMetadata = {
                 }
             ],
         }
-    ]
+    ],
 }
 WsvPegelMetadata = build_metadata_model(WsvPegelMetadata, "WsvPegelMetadata")
 
@@ -184,10 +189,6 @@ class WsvPegelValues(TimeseriesValues):
     _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/measurements.json"
     # Used for getting frequency of timeseries
     _station_endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/"
-
-    @property
-    def _data_tz(self) -> Timezone:
-        return Timezone.GERMANY
 
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: ParameterModel
@@ -224,10 +225,6 @@ class WsvPegelRequest(TimeseriesRequest):
     provider of river-based measurements for last 30 days"""
 
     metadata = WsvPegelMetadata
-    _provider = Provider.WSV
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.GERMANY
-    _data_range = DataRange.FIXED
     _values = WsvPegelValues
 
     _endpoint = (

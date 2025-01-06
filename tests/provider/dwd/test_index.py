@@ -3,12 +3,12 @@
 import pytest
 
 from wetterdienst import Period
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.observation.fileindex import _create_file_index_for_dwd_server, build_path_to_parameter
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
 from wetterdienst.settings import Settings
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
 

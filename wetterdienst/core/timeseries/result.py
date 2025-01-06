@@ -126,10 +126,6 @@ class StationsResult(ExportMixin):
         return self.stations.settings
 
     @property
-    def provider(self):
-        return self.stations._provider
-
-    @property
     def station_id(self) -> pl.Series:
         return self.df.get_column(Columns.STATION_ID.value)
 
@@ -185,7 +181,11 @@ class StationsResult(ExportMixin):
         from wetterdienst import Info
 
         info = Info()
-        name_local, name_english, country, copyright_, url = self.stations._provider.value
+        name_local = self.stations.metadata.name_local
+        name_english = self.stations.metadata.name_english
+        country = self.stations.metadata.country
+        copyright_ = self.stations.metadata.copyright
+        url = self.stations.metadata.url
         return {
             "provider": {
                 "name_local": name_local,

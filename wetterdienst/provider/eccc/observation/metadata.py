@@ -3,6 +3,15 @@ from __future__ import annotations
 from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
 EcccObservationMetadata = {
+    "name_short": "ECCC",
+    "name_english": "Environment And Climate Change Canada",
+    "name_local": "Environnement Et Changement Climatique Canada",
+    "country": "Canada",
+    "copyright": "© Environment And Climate Change Canada (ECCC)",
+    "url": "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
+    "kind": "observation",
+    "timezone": "UTC",
+    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",
@@ -496,6 +505,6 @@ EcccObservationMetadata = {
                 }
             ],
         },
-    ]
+    ],
 }
 EcccObservationMetadata = build_metadata_model(EcccObservationMetadata, "EcccObservationMetadata")

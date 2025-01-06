@@ -11,7 +11,7 @@ from zipfile import BadZipFile
 from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.exceptions import ProductFileNotFoundError
-from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:

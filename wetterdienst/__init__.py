@@ -6,10 +6,8 @@ from textwrap import dedent
 
 from wetterdienst import boot
 from wetterdienst.api import Wetterdienst
-from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
 
@@ -65,10 +63,8 @@ __all__ = [
     "__version__",
     "Author",
     "Info",
-    "Kind",
     "Parameter",
     "Period",
-    "Provider",
     "Resolution",
     "Settings",
     "Wetterdienst",

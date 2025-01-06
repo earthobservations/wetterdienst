@@ -13,14 +13,10 @@ import polars as pl
 
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.geosphere.observation.metadata import GeosphereObservationMetadata
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -30,7 +26,6 @@ log = logging.getLogger(__name__)
 
 
 class GeosphereObservationValues(TimeseriesValues):
-    _data_tz = Timezone.UTC
     _endpoint = (
         "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}?"
         "parameters={parameters}&"
@@ -101,10 +96,6 @@ class GeosphereObservationValues(TimeseriesValues):
 
 class GeosphereObservationRequest(TimeseriesRequest):
     metadata = GeosphereObservationMetadata
-    _provider = Provider.GEOSPHERE
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.AUSTRIA
-    _data_range = DataRange.FIXED
     _values = GeosphereObservationValues
 
     _endpoint = "https://dataset.api.hub.zamg.ac.at/v1/station/historical/{dataset}/metadata/stations"

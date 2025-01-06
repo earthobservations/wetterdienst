@@ -18,7 +18,7 @@ from cloup import Section
 from cloup.constraints import If, RequireExactly, accept_none
 from PIL import Image
 
-from wetterdienst import Provider, Settings, Wetterdienst, __appname__, __version__
+from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.ui.core import (
     InterpolationRequest,
     StationsRequest,
@@ -44,7 +44,7 @@ provider_opt = cloup.option_group(
     "Provider",
     click.option(
         "--provider",
-        type=click.Choice([provider.name for provider in Provider], case_sensitive=False),
+        type=click.STRING,
         required=True,
     ),
 )
@@ -661,7 +661,7 @@ def about():
     "Provider",
     click.option(
         "--provider",
-        type=click.Choice([provider.name for provider in Provider], case_sensitive=False),
+        type=click.STRING,
     ),
 )
 @cloup.option_group(
@@ -718,7 +718,7 @@ def coverage(provider, network, resolutions, datasets, debug):
 def fields(provider, network, dataset, resolution, period, language, **kwargs):
     api = get_api(provider, network)
 
-    if not (api.provider == Provider.DWD and network.lower() == "observation") and kwargs.get("fields"):
+    if not (api.metadata.name_short == "DWD" and api.metadata.kind == "observation") and kwargs.get("fields"):
         raise click.BadParameter("'fields' command only available for provider 'DWD'")
 
     metadata = api.describe_fields(

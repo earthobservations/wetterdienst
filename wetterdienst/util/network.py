@@ -12,7 +12,7 @@ import stamina
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
-from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.metadata.cache import CacheExpiry
 
 if TYPE_CHECKING:
     from fsspec import AbstractFileSystem

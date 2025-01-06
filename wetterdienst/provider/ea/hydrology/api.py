@@ -14,18 +14,23 @@ from wetterdienst.core.timeseries.metadata import (
 )
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__file__)
 
 
 EAHydrologyMetadata = {
+    "name_short": "EA",
+    "name_english": "Environment Agency",
+    "name_local": "Environment Agency",
+    "country": "United Kingdom",
+    "copyright": "© Environment Agency of UK",
+    "url": "https://environment.data.gov.uk/",
+    "kind": "observation",
+    "timezone": "Europe/London",
+    "timezone_data": "Europe/London",
     "resolutions": [
         {
             "name": "15_minutes",
@@ -109,14 +114,13 @@ EAHydrologyMetadata = {
                 }
             ],
         },
-    ]
+    ],
 }
 EAHydrologyMetadata = build_metadata_model(EAHydrologyMetadata, "EAHydrologyMetadata")
 
 
 class EAHydrologyValues(TimeseriesValues):
     _url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
-    _data_tz = Timezone.UK
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -153,10 +157,6 @@ class EAHydrologyValues(TimeseriesValues):
 
 class EAHydrologyRequest(TimeseriesRequest):
     metadata = EAHydrologyMetadata
-    _provider = Provider.EA
-    _kind = Kind.OBSERVATION
-    _tz = Timezone.UK
-    _data_range = DataRange.FIXED
     _values = EAHydrologyValues
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations.json"

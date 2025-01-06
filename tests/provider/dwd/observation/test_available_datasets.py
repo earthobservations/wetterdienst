@@ -3,10 +3,10 @@
 import polars as pl
 import pytest
 
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
-from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import HTTPFileSystem
 
 SKIP_DATASETS = (
