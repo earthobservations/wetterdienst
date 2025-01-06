@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.100.0 - 2025-01-06 
+
 ### Feature
 - Add logo for restapi
 - [Breaking] Add dedicated unit converter
