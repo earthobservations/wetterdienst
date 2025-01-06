@@ -10,6 +10,9 @@
   temperatures. Also, length units are now separated in `length_short`, `length_medium` and `length_long` to get more
   reasonable decimals. Fore more information, see the new units chapter (usage/units) in the documentation.
 
+### Refactor
+- Add reasonable upper bounds
+
 ### Fix
 - Filter out invalid underscore prefixed files
 
