@@ -86,7 +86,13 @@ def create_file_index_for_climate_observations(
             settings,
         )
 
-    file_index = file_index.filter(pl.col("filename").str.ends_with(Extension.ZIP.value))
+    # regarding the first filter (_), DWD has published some temporary files in the end of 2024
+    # within https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_wind/now/
+    # which are not valid files
+    file_index = file_index.filter(
+        pl.col("filename").str.split("/").list.last().str.starts_with("_").not_(),
+        pl.col("filename").str.ends_with(Extension.ZIP.value),
+    )
 
     file_index = file_index.with_columns(
         pl.col("filename")
