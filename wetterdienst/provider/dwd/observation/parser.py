@@ -104,6 +104,7 @@ def _parse_climate_observations_data(
             source=file,
             separator=";",
             null_values=["-999"],
+            encoding="latin-1",
         )
         df = df.lazy()
     except pl.exceptions.SchemaError:
@@ -135,7 +136,7 @@ def _parse_climate_observations_data(
             DwdObservationMetadata.minute_5.precipitation.precipitation_height_rocker.name_original,
             DwdObservationMetadata.minute_5.precipitation.precipitation_height_droplet.name_original,
         ]
-        df = df.with_columns(pl.lit(None, dtype=pl.Float64).alias(parameter) for parameter in missing_parameters)
+        df = df.with_columns(pl.lit(None, dtype=pl.String).alias(parameter) for parameter in missing_parameters)
     # Special handling for hourly solar data, as it has more date columns
     elif dataset == DwdObservationMetadata.hourly.solar:
         # Fix real date column by cutting of minutes
