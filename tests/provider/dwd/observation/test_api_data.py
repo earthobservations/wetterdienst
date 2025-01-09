@@ -8,7 +8,7 @@ import pytest
 from freezegun import freeze_time
 from polars.testing import assert_frame_equal
 
-from wetterdienst import Settings
+from wetterdienst import Resolution, Settings
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
@@ -1471,3 +1471,47 @@ def test_dwd_observation_data_daily_climate_summary_custom_units():
         orient="row",
     )
     assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "dataset",
+    [
+        dataset
+        for resolution in DwdObservationMetadata
+        for dataset in resolution
+        if resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10)
+    ],
+)
+def test_dwd_observation_datasets_high_resolution(default_settings, dataset):
+    request = DwdObservationRequest(
+        parameters=dataset,
+        settings=default_settings,
+    ).all()
+    df_stations = request.df
+    assert not df_stations.drop_nulls().is_empty()
+    given_df = next(request.values.query()).df
+    assert not given_df.is_empty()
+    assert given_df.get_column("quality").is_not_null().mean() >= 0.99
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "dataset",
+    [
+        dataset
+        for resolution in DwdObservationMetadata
+        for dataset in resolution
+        if resolution.value not in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10)
+    ],
+)
+def test_dwd_observation_datasets_low_resolution(default_settings, dataset):
+    request = DwdObservationRequest(
+        parameters=dataset,
+        settings=default_settings,
+    ).all()
+    df_stations = request.df
+    assert not df_stations.drop_nulls().is_empty()
+    given_df = next(request.values.query()).df
+    assert not given_df.is_empty()
+    assert given_df.get_column("quality").is_not_null().mean() >= 0.99
