@@ -22,40 +22,22 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-def download_climate_observations_data_parallel(
+def download_climate_observations_data(
     remote_files: pl.Series,
     settings: Settings,
 ) -> list[tuple[str, BytesIO]]:
-    """
-    Wrapper for ``_download_dwd_data`` to provide a multiprocessing feature.
-
-    :param remote_files:    List of requested files
-    :return:                List of downloaded files
-    """
-    with ThreadPoolExecutor() as p:
-        files_in_bytes = p.map(
-            lambda file: _download_climate_observations_data(remote_file=file, settings=settings),
-            remote_files,
-        )
-
+    if len(remote_files) > 1:
+        with ThreadPoolExecutor() as p:
+            files_in_bytes = p.map(
+                lambda file: _download_climate_observations_data(remote_file=file, settings=settings),
+                remote_files,
+            )
+    else:
+        files_in_bytes = [_download_climate_observations_data(remote_file=remote_files[0], settings=settings)]
     return list(zip(remote_files, files_in_bytes))
 
 
 def _download_climate_observations_data(remote_file: str, settings: Settings) -> BytesIO:
-    """
-    This function downloads the station data for which the link is
-    provided by the 'select_dwd' function. It checks the shortened filepath (just
-    the zipfile) for its parameters, creates the full filepath and downloads the
-    file(s) according to the set up folder.
-
-    Args:
-        remote_file: contains path to file that should be downloaded
-            and the path to the folder to store the files
-
-    Returns:
-        stores data on local file system
-
-    """
     return BytesIO(__download_climate_observations_data(remote_file=remote_file, settings=settings))
 
 
