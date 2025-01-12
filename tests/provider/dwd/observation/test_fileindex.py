@@ -59,7 +59,7 @@ def test_create_file_list_for_dwd_server(default_settings):
         station_id="00003",
         dataset=DwdObservationMetadata.minute_10.temperature_air,
         period=Period.HISTORICAL,
-        date_range="19930428_19991231",
+        date_ranges=["19930428_19991231"],
         settings=default_settings,
     ).to_list()
     assert remote_file_path == [

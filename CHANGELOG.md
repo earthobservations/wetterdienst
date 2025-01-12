@@ -6,7 +6,7 @@
 - \[DWD Obs\] Make the download function more flexible using threadpool
 
 ### Fix
-- Reduce unnecessary file index calls during retrieval of data for stations with multiple files
+- \[DWD Obs\] Reduce unnecessary file index calls during retrieval of data for stations with multiple files
 
 ## 0.100.0 - 2025-01-06 
 
