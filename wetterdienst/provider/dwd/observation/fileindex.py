@@ -11,7 +11,6 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
-from wetterdienst.provider.dwd.metadata import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, HIGH_RESOLUTIONS, DwdObservationMetadata
 from wetterdienst.util.network import list_remote_files_fsspec
 
@@ -98,13 +97,13 @@ def create_file_index_for_climate_observations(
             pl.col("date_range")
             .str.split("_")
             .list.first()
-            .str.to_datetime(DatetimeFormat.YMD.value)
+            .str.to_datetime("%Y%m%d")
             .dt.replace_time_zone("Europe/Berlin")
             .alias(Columns.START_DATE.value),
             pl.col("date_range")
             .str.split("_")
             .list.last()
-            .str.to_datetime(DatetimeFormat.YMD.value)
+            .str.to_datetime("%Y%m%d")
             .dt.replace_time_zone("Europe/Berlin")
             .map_batches(lambda dates: dates + dt.timedelta(days=1))
             .alias(Columns.END_DATE.value),

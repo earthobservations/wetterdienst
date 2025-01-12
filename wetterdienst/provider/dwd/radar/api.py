@@ -20,7 +20,6 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata import DatetimeFormat
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
     create_fileindex_radolan_cdc,
@@ -460,7 +459,7 @@ class DwdRadarValues:
                     timestamp=get_date_from_filename(
                         file_name,
                         pattern=RADAR_DT_PATTERN,
-                        formats=[DatetimeFormat.ymdhm.value],
+                        formats=["%y%m%d%H%M"],
                     ),
                     filename=file_name,
                 )
@@ -475,7 +474,7 @@ class DwdRadarValues:
                     timestamp=get_date_from_filename(
                         url,
                         pattern=RADAR_DT_PATTERN,
-                        formats=[DatetimeFormat.ymdhm.value],
+                        formats=["%y%m%d%H%M"],
                     ),
                 )
 
@@ -489,7 +488,7 @@ class DwdRadarValues:
                     timestamp=get_date_from_filename(
                         url,
                         pattern=RADAR_DT_PATTERN,
-                        formats=[DatetimeFormat.ymdhm.value],
+                        formats=["%y%m%d%H%M"],
                     ),
                 )
 
@@ -497,7 +496,7 @@ class DwdRadarValues:
             yield RadarResult(
                 url=url,
                 data=data,
-                timestamp=get_date_from_filename(url, pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]),
+                timestamp=get_date_from_filename(url, pattern=RADAR_DT_PATTERN, formats=["%y%m%d%H%M"]),
             )
 
     def _download_radolan_data(self, url: str, start_date, end_date) -> Iterator[RadarResult]:
