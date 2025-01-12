@@ -4,6 +4,7 @@
 
 ### Refactor
 - \[DWD Obs\] Make the download function more flexible using threadpool
+- \[DWD Obs\] Cleanup parser function 
 
 ### Fix
 - \[DWD Obs\] Reduce unnecessary file index calls during retrieval of data for stations with multiple files
