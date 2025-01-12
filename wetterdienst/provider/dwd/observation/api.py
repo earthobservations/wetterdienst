@@ -21,7 +21,7 @@ from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation.download import (
-    download_climate_observations_data_parallel,
+    download_climate_observations_data,
 )
 from wetterdienst.provider.dwd.observation.fileindex import (
     _create_file_index_for_dwd_server,
@@ -74,30 +74,31 @@ class DwdObservationValues(TimeseriesValues):
                 date_ranges = self._get_historical_date_ranges(
                     station_id, parameter_or_dataset, self.sr.stations.settings
                 )
-                for date_range in date_ranges:
-                    periods_and_date_ranges.append((period, date_range))
+                periods_and_date_ranges.append((period, date_ranges))
             else:
                 periods_and_date_ranges.append((period, None))
 
         parameter_data = []
 
-        for period, date_range in periods_and_date_ranges:
+        for period, date_ranges in periods_and_date_ranges:
             if period not in parameter_or_dataset.periods:
                 log.info(f"Skipping period {period} for {parameter_or_dataset.name}.")
                 continue
-            dataset_identifier = f"{parameter_or_dataset.resolution.value.name}/{parameter_or_dataset.name}/{station_id}/{period.value}/{date_range}"  # noqa: E501
+            dataset_identifier = (
+                f"{parameter_or_dataset.resolution.value.name}/{parameter_or_dataset.name}/{station_id}/{period.value}"  # noqa: E501
+            )
             log.info(f"Acquiring observation data for {dataset_identifier}.")
             remote_files = create_file_list_for_climate_observations(
                 station_id,
                 parameter_or_dataset,
                 period,
                 self.sr.stations.settings,
-                date_range,
+                date_ranges,
             )
             if remote_files.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
-            filenames_and_files = download_climate_observations_data_parallel(remote_files, self.sr.stations.settings)
+            filenames_and_files = download_climate_observations_data(remote_files, self.sr.stations.settings)
             period_df = parse_climate_observations_data(filenames_and_files, parameter_or_dataset, period)
             parameter_data.append(period_df)
 

@@ -28,32 +28,18 @@ def create_file_list_for_climate_observations(
     dataset: DatasetModel,
     period: Period,
     settings: Settings,
-    date_range: str | None = None,
+    date_ranges: list[str] | None = None,
 ) -> pl.Series:
-    """
-    Function for selecting datafiles (links to archives) for given
-    station_ids, parameter, time_resolution and period_type under consideration of a
-    created list of files that are
-    available online.
-    Args:
-        station_id: station id for the weather station to ask for data
-        dataset: observation measure
-        resolution: frequency/granularity of measurement interval
-        period: recent or historical files
-        date_range:
-    Returns:
-        List of path's to file
+    """Create a list of files for a given station id, dataset and period.
+
+    Date ranges are used to reduce the number of files to be downloaded based on the date range of the files.
+    This is useful for hourly or more fine-grained data, where the number of files can be very large.
     """
     file_index = create_file_index_for_climate_observations(dataset, period, settings)
-
-    file_index = file_index.collect()
-
     file_index = file_index.filter(pl.col("station_id").eq(station_id))
-
-    if date_range:
-        file_index = file_index.filter(pl.col("date_range").eq(date_range))
-
-    return file_index.get_column("filename")
+    if date_ranges:
+        file_index = file_index.filter(pl.col("date_range").is_in(date_ranges))
+    return file_index.collect().get_column("filename")
 
 
 def create_file_index_for_climate_observations(
