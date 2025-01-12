@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-import re
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO, StringIO
 from typing import TYPE_CHECKING
@@ -16,9 +15,12 @@ from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
-from wetterdienst.provider.dwd.observation.fileindex import build_path_to_parameter
+from wetterdienst.provider.dwd.observation.fileindex import (
+    _build_url_from_dataset_and_period,
+    _create_file_index_for_dwd_server,
+)
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
-from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.metadata import DatasetModel
@@ -48,8 +50,6 @@ METADATA_COLUMNS = [
     Columns.STATE.value,
 ]
 
-STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
-
 
 def create_meta_index_for_climate_observations(
     dataset: DatasetModel,
@@ -60,14 +60,6 @@ def create_meta_index_for_climate_observations(
     Wrapper function that either calls the regular meta index function for general
     parameters or the special function for 1minute precipitation historical where meta
     index is created in a more complex way.
-
-    Args:
-        dataset: observation measure
-        resolution: frequency/granularity of measurement interval
-        period: current, recent or historical files
-
-    Returns:
-        pandas.DataFrame with meta index for the selected set of arguments
     """
     cond1 = dataset == DwdObservationMetadata["minute_1"]["precipitation"] and period == Period.HISTORICAL
     cond2 = dataset == DwdObservationMetadata["subdaily"]["wind_extreme"]
@@ -80,7 +72,6 @@ def create_meta_index_for_climate_observations(
         meta_index = _create_meta_index_for_climate_observations(dataset, Period.RECENT, settings)
     else:
         meta_index = _create_meta_index_for_climate_observations(dataset, period, settings)
-
     # If no state column available, take state information from daily historical
     # precipitation
     if cond1:
@@ -89,13 +80,11 @@ def create_meta_index_for_climate_observations(
             Period.HISTORICAL,
             settings=settings,
         )
-
         meta_index = meta_index.join(
             other=mdp.select([Columns.STATION_ID.value, Columns.STATE.value]),
             on=[Columns.STATION_ID.value],
             how="left",
         )
-
     meta_index = meta_index.with_columns(
         pl.col(Columns.START_DATE.value).str.to_datetime("%Y%m%d"),
         pl.col(Columns.END_DATE.value).str.to_datetime("%Y%m%d"),
@@ -103,7 +92,6 @@ def create_meta_index_for_climate_observations(
         pl.col(Columns.LATITUDE.value).cast(pl.Float64),
         pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
     )
-
     return meta_index.sort(by=[pl.col(Columns.STATION_ID.value)])
 
 
@@ -114,53 +102,21 @@ def _create_meta_index_for_climate_observations(
 ) -> pl.LazyFrame:
     """Function used to create meta index DataFrame parsed from the text files that are
     located in each data section of the station data directory of the weather service.
-
-    Args:
-        dataset: observation measure
-        resolution: frequency/granularity of measurement interval
-        period: current, recent or historical files
-    Return:
-        DataFrame with parsed columns of the corresponding text file. Columns are
-        translated into English and data is not yet complete as file existence is
-        not checked.
-
     """
-    parameter_path = build_path_to_parameter(dataset, period)
-    if dataset in DWD_URBAN_DATASETS:
-        dwd_cdc_base = "observations_germany/climate_urban/"
-    else:
-        dwd_cdc_base = "observations_germany/climate/"
-    url = f"https://opendata.dwd.de/climate_environment/CDC/{dwd_cdc_base}/{parameter_path}"
-    remote_files = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
+    url = _build_url_from_dataset_and_period(dataset, period)
+    df_files = _create_file_index_for_dwd_server(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     # TODO: remove workaround once station list at https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/historical/2022/ is removed  # noqa: E501
     if dataset == DwdObservationMetadata.minute_5.precipitation and period == Period.HISTORICAL:
-        remote_files = [file for file in remote_files if file.split("/")[-2] != "2022"]
+        df_files = df_files.filter(pl.col("url").str.split("/").list.get(-2) != "2022")
     # Find the one meta file from the files listed on the server
-    meta_file = _find_meta_file(remote_files, url, ["beschreibung", "txt"])
+    df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
+    df_files = df_files.collect()
+    if df_files.is_empty():
+        raise MetaFileNotFoundError(f"No meta file was found amongst the files at {url}.")
+    meta_file = df_files.get_column("url").first()
     log.info(f"Downloading file {meta_file}.")
     payload = download_file(meta_file, settings=settings, ttl=CacheExpiry.METAINDEX)
     return _read_meta_df(payload)
-
-
-def _find_meta_file(files: list[str], url: str, strings: list[str]) -> str:
-    """
-    Function used to find meta file based on predefined strings that are usually found
-    in those files
-    Args:
-        files: list of files found on server path
-        url: the path that was searched for a meta file
-
-    Returns:
-        the matching file
-    Raises:
-        MetaFileNotFoundError - for the case no file was found
-    """
-    for file in files:
-        file_strings = file.split("/")[-1].lower().replace(".", "_").split("_")
-        if set(file_strings).issuperset(strings):
-            return file
-    else:
-        raise MetaFileNotFoundError(f"No meta file was found amongst the files at {url}.")
 
 
 def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
@@ -210,12 +166,22 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     :return: pandas.DataFrame with combined information for both 3hourly (fx3) and 6hourly (fx6) wind extremes
     """
     dataset = DwdObservationMetadata.subdaily.wind_extreme
-    parameter_path = build_path_to_parameter(dataset, period)
-    url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}"
-    remote_files = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
+    url = _build_url_from_dataset_and_period(dataset, period)
+    df_files = _create_file_index_for_dwd_server(url, settings, CacheExpiry.TWELVE_HOURS)
+    df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
     # Find the one meta file from the files listed on the server
-    meta_file_fx3 = _find_meta_file(remote_files, url, ["fx3", "beschreibung", "txt"])
-    meta_file_fx6 = _find_meta_file(remote_files, url, ["fx6", "beschreibung", "txt"])
+    meta_file_fx3 = (
+        df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx3", literal=True))
+        .collect()
+        .get_column("url")
+        .first()
+    )
+    meta_file_fx6 = (
+        df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx6", literal=True))
+        .collect()
+        .get_column("url")
+        .first()
+    )
     log.info(f"Downloading file {meta_file_fx3}.")
     payload_fx3 = download_file(meta_file_fx3, settings=settings, ttl=CacheExpiry.METAINDEX)
     log.info(f"Downloading file {meta_file_fx6}.")
@@ -236,36 +202,38 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     - especially for precipitation/1_minute/historical!
 
     """
-    parameter_path = "1_minute/precipitation/"
-    url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}/meta_data/"
-    metadata_file_paths = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
-    station_ids = [re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths]
-
-    log.info(f"Downloading {len(metadata_file_paths)} files for 1minute precipitation historical metadata.")
+    url = (
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/meta_data/"
+    )
+    df_files = _create_file_index_for_dwd_server(url, settings=settings, ttl=CacheExpiry.METAINDEX)
+    df_files = df_files.with_columns(
+        pl.col("filename").str.split("_").list.last().str.split(".").list.first().alias("station_id")
+    )
+    files_and_station_ids = df_files.select(["url", "station_id"]).collect().to_struct().to_list()
+    log.info(f"Downloading {len(files_and_station_ids)} files for 1minute precipitation historical metadata.")
     with ThreadPoolExecutor() as executor:
         metadata_files = executor.map(
-            lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.NO_CACHE),
-            metadata_file_paths,
+            lambda file_and_station_id: download_file(
+                url=file_and_station_id["url"], settings=settings, ttl=CacheExpiry.NO_CACHE
+            ),
+            files_and_station_ids,
         )
-
-    metadata_dfs = [_parse_geo_metadata((file, station_id)) for file, station_id in zip(metadata_files, station_ids)]
-
-    meta_index_df = pl.concat(list(metadata_dfs))
-
-    meta_index_df = meta_index_df.with_columns(
+    dfs = [
+        _parse_geo_metadata((file, file_and_station_id["station_id"]))
+        for file, file_and_station_id in zip(metadata_files, files_and_station_ids)
+    ]
+    df = pl.concat(dfs)
+    df = df.with_columns(
         pl.when(pl.col(Columns.END_DATE.value).str.strip_chars().eq(""))
         .then(pl.lit((dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")))
         .otherwise(pl.col(Columns.END_DATE.value))
         .alias(Columns.END_DATE.value),
     )
-
     # Drop empty state column again as it will be merged later on
-    meta_index_df = meta_index_df.select(pl.exclude(Columns.STATE.value))
-
-    meta_index_df = meta_index_df.with_columns(pl.all().str.strip_chars())
-
+    df = df.select(pl.exclude(Columns.STATE.value))
+    df = df.with_columns(pl.all().str.strip_chars())
     # Make station id str
-    return meta_index_df.with_columns(pl.col(Columns.STATION_ID.value).cast(str).str.pad_start(5, "0"))
+    return df.with_columns(pl.col(Columns.STATION_ID.value).cast(str).str.pad_start(5, "0"))
 
 
 def _parse_geo_metadata(metadata_file_and_station_id: tuple[BytesIO, str]) -> pl.LazyFrame:
@@ -273,23 +241,11 @@ def _parse_geo_metadata(metadata_file_and_station_id: tuple[BytesIO, str]) -> pl
     1minute metadata zip and catches the relevant information and create a similar file
     to those that can usually be found already prepared for other
     parameter combinations.
-
-    Args:
-        metadata_file_and_station_id (BytesIO, str) - the file that holds the
-        information and the station id of that file.
-
-    Return:
-        A pandas DataFrame with the combined data for one respective station.
-
     """
     metadata_file, station_id = metadata_file_and_station_id
-
     zfs = ZipFileSystem(metadata_file, mode="r")
-
     file = zfs.open(f"Metadaten_Geographie_{station_id}.txt").read()
-
     df = _parse_zipped_data_into_df(file)
-
     df = df.rename(
         mapping={
             "Stations_id": Columns.STATION_ID.value,
@@ -301,11 +257,8 @@ def _parse_geo_metadata(metadata_file_and_station_id: tuple[BytesIO, str]) -> pl
             "Stationsname": Columns.NAME.value,
         },
     )
-
     df = df.with_columns(pl.col(Columns.START_DATE.value).first().cast(str), pl.col(Columns.END_DATE.value).cast(str))
-
     df = df.last()
-
     return df.select([col for col in METADATA_COLUMNS if col != Columns.STATE.value])
 
 
@@ -313,19 +266,11 @@ def _parse_zipped_data_into_df(file: bytes) -> pl.LazyFrame:
     """A wrapper for read_csv of pandas library that has set the typically used
     parameters in the found data of the
     german weather service.
-
-    Args:
-        file - the file that will be read
-
-    Return:
-        A pandas DataFrame with the read data.
-
     """
     try:
         file_decoded = file.decode("utf-8")
     except UnicodeDecodeError:
         file_decoded = file.decode("ISO-8859-1")
-
     return pl.read_csv(
         source=StringIO(file_decoded),
         separator=";",
