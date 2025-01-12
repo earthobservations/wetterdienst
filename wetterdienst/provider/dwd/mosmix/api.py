@@ -16,7 +16,6 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.provider.dwd.metadata import DatetimeFormat
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -201,9 +200,7 @@ class DwdMosmixValues(TimeseriesValues):
         df = df.filter(pl.col("date").ne("LATEST"))
 
         df = df.with_columns(
-            pl.col("date")
-            .map_elements(lambda d: f"{d}00", return_dtype=pl.String)
-            .str.to_datetime(DatetimeFormat.YMDHM.value),
+            pl.col("date").map_elements(lambda d: f"{d}00", return_dtype=pl.String).str.to_datetime("%Y%m%d%H%M"),
         )
 
         df = df.filter(pl.col("date").eq(date))

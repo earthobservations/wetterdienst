@@ -1,6 +1,6 @@
 from wetterdienst.core.timeseries.metadata import build_metadata_model
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata import _METADATA, DatetimeFormat
+from wetterdienst.provider.dwd.metadata import _METADATA
 
 DwdObservationMetadata = {
     **_METADATA,
@@ -1973,13 +1973,3 @@ HIGH_RESOLUTIONS = (
     Resolution.MINUTE_5,
     Resolution.MINUTE_10,
 )
-
-RESOLUTION_TO_DATETIME_FORMAT_MAPPING: dict[Resolution, str] = {
-    Resolution.MINUTE_1: DatetimeFormat.YMDHM.value,
-    Resolution.MINUTE_10: DatetimeFormat.YMDHM.value,
-    Resolution.HOURLY: DatetimeFormat.YMDHM.value,
-    Resolution.SUBDAILY: DatetimeFormat.YMDHM.value,
-    Resolution.DAILY: DatetimeFormat.YMD.value,
-    Resolution.MONTHLY: DatetimeFormat.YMD.value,
-    Resolution.ANNUAL: DatetimeFormat.YMD.value,
-}

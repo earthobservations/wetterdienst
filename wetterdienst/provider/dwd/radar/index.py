@@ -11,7 +11,6 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata import DatetimeFormat
 from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_PARAMETERS_COMPOSITES,
     RADAR_PARAMETERS_RADOLAN,
@@ -105,13 +104,13 @@ def create_fileindex_radar(
         df_fileindex = df_fileindex.filter(~pl.col("filename").str.ends_with(".bz2"))
 
     if parameter in RADAR_PARAMETERS_SWEEPS:
-        formats = [DatetimeFormat.YMDHM.value]
+        formats = ["%Y%m%d%H%M"]
     elif site and parameter is DwdRadarParameter.PX250_REFLECTIVITY:
-        formats = [DatetimeFormat.YMDHM.value]
+        formats = ["%Y%m%d%H%M"]
     elif site and fmt is DwdRadarDataFormat.BUFR:
-        formats = [DatetimeFormat.YMDHM.value]
+        formats = ["%Y%m%d%H%M"]
     else:
-        formats = [DatetimeFormat.ymdhm.value]
+        formats = ["%y%m%d%H%M"]
 
     # Decode datetime of file for filtering.
     if parse_datetime:
@@ -155,9 +154,9 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
     )
 
     if period == Period.HISTORICAL:
-        formats = [DatetimeFormat.YM.value]
+        formats = ["%Y%m"]
     else:
-        formats = [DatetimeFormat.ymdhm.value]
+        formats = ["%y%m%d%H%M"]
 
     df_fileindex = df_fileindex.with_columns(
         pl.col("filename")
