@@ -24,7 +24,7 @@ def test_file_index_creation_success(default_settings):
         settings=default_settings,
     ).collect()
     assert not file_index.is_empty()
-    assert file_index.filter(pl.col("station_id").eq("01048")).get_column("filename").to_list() == [
+    assert file_index.filter(pl.col("station_id").eq("01048")).get_column("url").to_list() == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
         "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip",
     ]
