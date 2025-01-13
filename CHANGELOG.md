@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.101.0 - 2025-01-13
+
 ### Refactor
 - \[DWD Obs\] Make the download function more flexible using threadpool
 - \[DWD Obs\] Cleanup parser function

@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.100.0"
+version = "0.101.0"
 authors = [
   { name = "Benjamin Gutzmann", email = "gutzemann@gmail.com" },
   { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
