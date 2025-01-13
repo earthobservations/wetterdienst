@@ -4,6 +4,9 @@
 
 ## 0.101.0 - 2025-01-13
 
+### Feature
+- Move more details into `MetadataModel`
+
 ### Refactor
 - \[DWD Obs\] Make the download function more flexible using threadpool
 - \[DWD Obs\] Cleanup parser function
@@ -23,7 +26,7 @@
   reasonable decimals. Fore more information, see the new units chapter (usage/units) in the documentation.
 
 ### Refactor
-- Add reasonable upper bounds
+- Add reasonable upper bounds for dependencies
 
 ### Fix
 - Filter out invalid underscore prefixed files
