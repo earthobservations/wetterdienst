@@ -12,16 +12,17 @@ RUN \
     && apt-get update \
     && apt-get install --no-install-recommends --no-install-suggests --yes \
       git build-essential python3-dev python3-pip python3-venv python3-wheel \
-      python3-h5py ca-certificates pkg-config libhdf5-dev
+      python3-h5py ca-certificates pkg-config libhdf5-dev curl libxml2 libxslt1-dev cmake
 
+
+# linux/arm/v7
+# install rust, required to build fastexcel
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
 RUN pip install uv
 
-# Install wradlib.
-RUN uv pip install --system wradlib
-
 # Install Wetterdienst.
-
-# Use `poetry build --format=wheel` to build wheel packages into `dist` folder.
+# Use previously built wheel package.
 COPY dist/wetterdienst-*.whl /tmp/
 
 # Install package.
@@ -29,17 +30,12 @@ COPY dist/wetterdienst-*.whl /tmp/
 RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     true \
     && WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) \
-    && uv pip install --system versioningit \
-    && uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,explorer,influxdb,interpolation,postgresql,radar,radarplus,restapi]
-
-# TODO: for linux/arm64 we currently cant install zarr as it depends on numcodecs which has no wheels
-#   and building it from source takes too long
-#   see also: https://github.com/zarr-developers/numcodecs/issues/288
-RUN WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) && \
-    if [ "$(uname -m)" = "x86_64" ]; then \
-        uv pip install --system ${WHEEL}[export]; \
-    else \
-        uv pip install --system ${WHEEL}[export_without_zarr]; \
+    && if [ "$(uname -m)" = "x86_64" ]; then \
+        uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,postgresql,radar,radarplus,restapi]; \
+    elif [ "$(uname -m)" = "aarch64" ]; then \
+        uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,explorer,export_without_zarr,influxdb,interpolation,postgresql,radar,radarplus,restapi]; \
+    elif [ "$(uname -m)" = "armv7l" ]; then \
+        uv pip install --system ${WHEEL}; \
     fi
 
 

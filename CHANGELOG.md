@@ -2,6 +2,9 @@
 
 ## Development
 
+### Feature
+- Docker: Add platform `linux/arm/v7`
+
 ## 0.102.0 - 2025-01-17
 
 ### Feature
