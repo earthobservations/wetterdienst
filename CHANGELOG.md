@@ -5,6 +5,9 @@
 ### Feature
 - Add cmd to docker image
 
+### Refactor
+- Use `to_list()[0]` instead of `first()`
+
 ## 0.101.0 - 2025-01-13
 
 ### Feature
