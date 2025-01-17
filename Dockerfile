@@ -56,3 +56,6 @@ RUN apt-get update \
 # Copy installed pip packages from build stage
 COPY --from=build /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=build /usr/local/bin /usr/local/bin
+
+# by default start restapi, also need this for sliplane atm
+CMD [ "wetterdienst", "restapi", "--listen=0.0.0.0:10000"]
