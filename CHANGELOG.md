@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.102.0 - 2025-01-17
+
 ### Feature
 - Add cmd to docker image
 
