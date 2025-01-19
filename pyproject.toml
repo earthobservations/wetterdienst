@@ -170,7 +170,10 @@ mysql = [
   "pandas>=2,<3",
 ]
 postgresql = [
-  "psycopg2-binary>=2,<3",
+  "psycopg[binary]>=3.2.4,<4",
+]
+postgresql_python = [
+  "psycopg>=3.2.4,<4",
 ]
 radar = [
   "h5py>=3.1,<4",
