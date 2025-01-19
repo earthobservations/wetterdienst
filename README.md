@@ -100,18 +100,18 @@ There are some extras available for ``wetterdienst``. Use them like:
 pip install wetterdienst[sql]
 ```
 
-- docs: Install the Sphinx documentation generator.
-- ipython: Install iPython stack.
-- export: Install openpyxl for Excel export and pyarrow for writing files in Feather- and Parquet-format.
-- sql: Install DuckDB for querying data using SQL.
-- duckdb: Install support for DuckDB.
-- influxdb: Install support for InfluxDB.
 - cratedb: Install support for CrateDB.
-- mysql: Install support for MySQL.
-- postgresql: Install support for PostgreSQL.
+- docs: Install the Sphinx documentation generator.
+- duckdb: Install support for DuckDB.
+- export: Install openpyxl for Excel export and pyarrow for writing files in Feather- and Parquet-format.
+- influxdb: Install support for InfluxDB.
 - interpolation: Install support for station interpolation.
+- mysql: Install support for MySQL.
+- plotting: Install support for matplotlib.
+- postgresql: Install support for PostgreSQL.
+- sql: Install DuckDB for querying data using SQL.
 
-In order to check the installation, invoke:
+To check the installation, invoke:
 
 ```bash
 wetterdienst --help

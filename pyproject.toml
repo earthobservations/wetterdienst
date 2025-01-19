@@ -158,11 +158,7 @@ interpolation = [
   "shapely>=2,<3",
   "utm>=0.7,<1",
 ]
-ipython = [
-  "ipython>=8.5,<9",
-  "matplotlib>=3.3,<4",
-]
-mpl = [
+plotting = [
   "matplotlib>=3.3,<4",
 ]
 mysql = [
@@ -234,7 +230,7 @@ dev = [
 ]
 
 [tool.poe.tasks]
-install-dev = { cmd = "uv pip install -e .[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,mpl,mysql,ipython,radar,radarplus,restapi,postgresql,sql]" }
+install-dev = { cmd = "uv pip install -e .[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,plotting,mysql,radar,radarplus,restapi,postgresql,sql]" }
 # Formatting and linting
 "format:fmt" = "uv run ruff format"
 "format:lint" = "uv run ruff check --fix"
