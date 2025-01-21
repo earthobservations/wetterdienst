@@ -81,7 +81,6 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
   "backports-datetime-fromisoformat>=2; python_version<'3.11'",
-  "cachetools>=5.2,<6",
   "click>=8,<9",
   "click-params>=0.4.1,<1",
   "cloup>=3.0.1,<4",
