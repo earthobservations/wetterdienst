@@ -254,10 +254,6 @@ Checkout [examples](https://github.com/earthobservations/wetterdienst/tree/main/
 We want to acknowledge all environmental agencies which provide their data open and free of charge first and foremost
 for the sake of endless research possibilities.
 
-We want to acknowledge [Jetbrains](https://www.jetbrains.com/) and the
-[Jetbrains OSS Team](https://github.com/JetBrains) for providing us with licenses for Pycharm Pro, which we are using
-for the development.
-
 We want to acknowledge all contributors for being part of the improvements to this library that make it better and
 better every day.
 
@@ -274,3 +270,12 @@ better every day.
 
 - Examples (runnable scripts): https://github.com/earthobservations/wetterdienst/tree/main/examples
 - Benchmarks: https://github.com/earthobservations/wetterdienst/tree/main/benchmarks
+
+## Supported by
+
+[![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSourceSupport)
+
+Special thanks to the kind people at [JetBrains] s.r.o. for supporting us with
+excellent development tooling.
+
+[JetBrains]: https://www.jetbrains.com/
