@@ -1,2 +1,0 @@
-wetterdienst
-matplotlib

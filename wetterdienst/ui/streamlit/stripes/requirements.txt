@@ -1,0 +1,3 @@
+wetterdienst
+plotly
+kaleido

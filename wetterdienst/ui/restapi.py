@@ -32,7 +32,7 @@ from wetterdienst.ui.core import (
     ValuesRequest,
     ValuesRequestRaw,
     _get_stripes_stations,
-    _thread_safe_plot_stripes,
+    _plot_stripes,
     get_interpolate,
     get_stations,
     get_summarize,
@@ -518,7 +518,7 @@ def stripes_values(
         )
 
     try:
-        buf = _thread_safe_plot_stripes(
+        fig = _plot_stripes(
             kind=kind,
             station_id=station,
             name=name,
@@ -528,14 +528,12 @@ def stripes_values(
             show_title=show_title,
             show_years=show_years,
             show_data_availability=show_data_availability,
-            fmt=fmt,
-            dpi=dpi,
         )
     except Exception as e:
         log.exception(e)
         raise HTTPException(status_code=400, detail=str(e)) from e
     media_type = f"image/{fmt}"
-    return Response(content=buf.getvalue(), media_type=media_type)
+    return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
 
 
 def start_service(listen_address: str | None = None, reload: bool | None = False):  # pragma: no cover
