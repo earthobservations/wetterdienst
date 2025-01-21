@@ -6,6 +6,7 @@
 - Remove unused cachetools dependency
 - Make fastexcel a polars extra
 - Drop click-params dependency
+- Make pyarrow a polars extra
 
 ## 0.102.0 - 2025-01-17
 

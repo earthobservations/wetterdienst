@@ -2416,6 +2416,9 @@ wheels = [
 calamine = [
     { name = "fastexcel" },
 ]
+pyarrow = [
+    { name = "pyarrow" },
+]
 
 [[package]]
 name = "portion"
@@ -3862,9 +3865,8 @@ dependencies = [
     { name = "numpy" },
     { name = "pillow" },
     { name = "platformdirs" },
-    { name = "polars", extra = ["calamine"] },
+    { name = "polars", extra = ["calamine", "pyarrow"] },
     { name = "portion" },
-    { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-extra-types" },
     { name = "pydantic-settings" },
@@ -4014,10 +4016,9 @@ requires-dist = [
     { name = "pillow", specifier = ">=10.3,<12" },
     { name = "platformdirs", specifier = ">=4,<5" },
     { name = "plotly", marker = "extra == 'explorer'", specifier = ">=5.11,<6" },
-    { name = "polars", extras = ["calamine"], specifier = ">=1.0.0,<2" },
+    { name = "polars", extras = ["calamine", "pyarrow"], specifier = ">=1.0.0,<2" },
     { name = "portion", specifier = ">=2.4.2,<3" },
     { name = "psycopg2-binary", marker = "extra == 'postgresql'", specifier = ">=2,<3" },
-    { name = "pyarrow", specifier = ">=13,<19" },
     { name = "pybufrkit", marker = "extra == 'bufr'", specifier = ">=0.2,<1" },
     { name = "pybufrkit", marker = "extra == 'radarplus'", specifier = ">=0.2,<1" },
     { name = "pydantic", specifier = ">=2.7.3,<3" },
