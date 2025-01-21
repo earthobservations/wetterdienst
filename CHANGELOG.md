@@ -5,6 +5,7 @@
 ### Chore
 - Remove unused cachetools dependency
 - Make fastexcel a polars extra
+- Drop click-params dependency
 
 ## 0.102.0 - 2025-01-17
 

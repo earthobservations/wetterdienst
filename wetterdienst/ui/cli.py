@@ -13,7 +13,6 @@ from typing import Literal
 
 import click
 import cloup
-from click_params import StringListParamType
 from cloup import Section
 from cloup.constraints import If, RequireExactly, accept_none
 from PIL import Image
@@ -33,10 +32,9 @@ from wetterdienst.ui.core import (
     set_logging_level,
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
+from wetterdienst.util.ui import read_list
 
 log = logging.getLogger(__name__)
-
-comma_separated_list = StringListParamType(",")
 
 appname = f"{__appname__} {__version__}"
 
@@ -675,14 +673,14 @@ def about():
     "Resolutions",
     click.option(
         "--resolutions",
-        type=comma_separated_list,
+        type=click.STRING,
     ),
 )
 @cloup.option_group(
     "Datasets",
     click.option(
         "--datasets",
-        type=comma_separated_list,
+        type=click.STRING,
     ),
 )
 @debug_opt
@@ -692,6 +690,9 @@ def coverage(provider, network, resolutions, datasets, debug):
     if not provider or not network:
         print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
         return
+
+    resolutions = read_list(resolutions)
+    datasets = read_list(datasets)
 
     api = get_api(provider=provider, network=network)
 
@@ -710,7 +711,7 @@ def coverage(provider, network, resolutions, datasets, debug):
     "(DWD only) information from PDF documents",
     click.option("--dataset", type=click.STRING),
     click.option("--resolution", type=click.STRING),
-    click.option("--period", type=comma_separated_list),
+    click.option("--period", type=click.STRING),
     click.option("--language", type=click.Choice(["en", "de"], case_sensitive=False), default="en"),
     constraint=cloup.constraints.require_all,
 )
