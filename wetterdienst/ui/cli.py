@@ -15,7 +15,6 @@ import click
 import cloup
 from cloup import Section
 from cloup.constraints import If, RequireExactly, accept_none
-from PIL import Image
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.ui.core import (
@@ -1279,12 +1278,10 @@ def stripes_values(
         if not target.name.lower().endswith(fmt):
             raise click.ClickException(f"'target' must have extension '{fmt}'")
 
-    import matplotlib.pyplot as plt
-
     set_logging_level(debug)
 
     try:
-        buf = _plot_stripes(
+        fig = _plot_stripes(
             kind=kind,
             station_id=station,
             name=name,
@@ -1294,21 +1291,16 @@ def stripes_values(
             show_title=show_title,
             show_years=show_years,
             show_data_availability=show_data_availability,
-            fmt=fmt,
-            dpi=dpi,
         )
     except Exception as e:
         log.exception(e)
         raise click.ClickException(str(e)) from e
 
     if target:
-        image = Image.open(buf, formats=["png"])
-        plt.imshow(image)
-        plt.axis("off")
-        plt.savefig(target, dpi=300, bbox_inches="tight")
+        fig.write_image(target, fmt, scale=dpi / 100)
         return
 
-    click.echo(buf.getvalue(), nl=False)
+    click.echo(fig.to_image(fmt, scale=dpi / 100), nl=False)
 
 
 @stripes.command("interactive")
@@ -1318,7 +1310,8 @@ def interactive(debug: bool):
 
     try:
         from wetterdienst.ui.streamlit.stripes import app
-    except ImportError:
+    except ImportError as e:
+        log.exception(e)
         log.error("Please install the stripes extras from stripes/requirements.txt")
         sys.exit(1)
 

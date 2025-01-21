@@ -155,7 +155,9 @@ interpolation = [
   "utm>=0.7,<1",
 ]
 plotting = [
+  "kaleido>=0.2.1",
   "matplotlib>=3.3,<4",
+  "plotly>=5.24.1",
 ]
 mysql = [
   "mysqlclient>=2,<3",

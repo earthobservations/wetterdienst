@@ -6,7 +6,7 @@ import streamlit as st
 from wetterdienst import __version__
 from wetterdienst.ui.core import (
     _get_stripes_stations,
-    _thread_safe_plot_stripes,
+    _plot_stripes,
 )
 
 
@@ -26,9 +26,8 @@ def get_stripes_values(
     show_title: bool,
     show_years: bool,
     show_data_availability: bool,
-    dpi: int,
 ):
-    return _thread_safe_plot_stripes(
+    return _plot_stripes(
         kind=kind,
         station_id=station_id,
         start_year=start_year,
@@ -37,8 +36,6 @@ def get_stripes_values(
         show_title=show_title,
         show_years=show_years,
         show_data_availability=show_data_availability,
-        fmt="png",
-        dpi=dpi,
     )
 
 
@@ -125,7 +122,7 @@ if station:
             latitude="latitude",
             longitude="longitude",
         )
-    buf = get_stripes_values(
+    fig = get_stripes_values(
         kind=kind,
         station_id=station["station_id"],
         start_year=start_year,
@@ -134,11 +131,16 @@ if station:
         show_title=show_title,
         show_years=show_years,
         show_data_availability=show_data_availability,
-        dpi=dpi,
     )
     st.subheader("Climate Stripes")
-    st.image(buf, use_column_width=True)
-    st.download_button("Download", buf, file_name="climate_stripes.png", mime="image/png", use_container_width=True)
+    st.plotly_chart(fig, use_column_width=True)
+    st.download_button(
+        "Download",
+        fig.to_image("png", scale=dpi / 100),
+        file_name="climate_stripes.png",
+        mime="image/png",
+        use_container_width=True,
+    )
     st.link_button(
         "Static URL",
         get_rest_api_url(
