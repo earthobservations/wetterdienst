@@ -2438,6 +2438,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d5/28/3d44ddf56a5c95272b202ce8aa0e9b818a1310e83525c4c29176b538ae7c/polars-1.12.0-cp39-abi3-win_amd64.whl", hash = "sha256:a228a4b320a36d03a9ec9dfe7241b6d80a2f119b2dceb1da953166655e4cf43c", size = 33790337 },
 ]
 
+[package.optional-dependencies]
+calamine = [
+    { name = "fastexcel" },
+]
+
 [[package]]
 name = "portion"
 version = "2.6.0"
@@ -3887,14 +3892,13 @@ dependencies = [
     { name = "click-params" },
     { name = "cloup" },
     { name = "diskcache" },
-    { name = "fastexcel" },
     { name = "fsspec", extra = ["http"] },
     { name = "lxml" },
     { name = "measurement" },
     { name = "numpy" },
     { name = "pillow" },
     { name = "platformdirs" },
-    { name = "polars" },
+    { name = "polars", extra = ["calamine"] },
     { name = "portion" },
     { name = "pyarrow" },
     { name = "pydantic" },
@@ -4022,7 +4026,6 @@ requires-dist = [
     { name = "duckdb", marker = "extra == 'sql'", specifier = ">=0.9,<2" },
     { name = "eccodes", marker = "extra == 'eccodes'", specifier = ">=1.5.2,<3" },
     { name = "fastapi", marker = "extra == 'restapi'", specifier = ">=0.95.1,<1" },
-    { name = "fastexcel", specifier = ">=0.10.4,<1" },
     { name = "fsspec", extras = ["http"], specifier = ">=2023.1,<2025" },
     { name = "h5py", marker = "extra == 'radar'", specifier = ">=3.1,<4" },
     { name = "httpx", marker = "extra == 'restapi'", specifier = ">=0.24,<1" },
@@ -4048,7 +4051,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=10.3,<12" },
     { name = "platformdirs", specifier = ">=4,<5" },
     { name = "plotly", marker = "extra == 'explorer'", specifier = ">=5.11,<6" },
-    { name = "polars", specifier = ">=1.0.0,<2" },
+    { name = "polars", extras = ["calamine"], specifier = ">=1.0.0,<2" },
     { name = "portion", specifier = ">=2.4.2,<3" },
     { name = "psycopg2-binary", marker = "extra == 'postgresql'", specifier = ">=2,<3" },
     { name = "pyarrow", specifier = ">=13,<19" },
