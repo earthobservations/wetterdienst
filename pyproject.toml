@@ -226,7 +226,7 @@ dev = [
 ]
 
 [tool.poe.tasks]
-install-dev = { cmd = "uv pip install -e .[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,plotting,mysql,radar,radarplus,restapi,postgresql,sql]" }
+install-dev = { cmd = "uv pip install --requirements pyproject.toml --all-extras" }
 # Formatting and linting
 "format:fmt" = "uv run ruff format"
 "format:lint" = "uv run ruff check --fix"
