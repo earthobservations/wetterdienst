@@ -1,10 +1,17 @@
 # Docker
 
-Wetterdienst comes in two Docker image flavors. A "standard" variant, including
-all dependency packages from the ``export,restapi`` extras, and a "full" variant,
-including all dependency packages from the ``export,influxdb,cratedb,postgresql,
-radar,bufr,restapi,explorer,radar,radarplus`` extras.
-
+The wetterdienst Docker image comes with several extras installed so you can use most of the features out of the box:
+- bufr
+- cratedb
+- duckdb
+- explorer
+- influxdb
+- interpolation
+- plotting
+- postgresql
+- radar
+- radarplus
+- restapi
 
 ## Acquire image
 

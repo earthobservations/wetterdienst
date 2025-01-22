@@ -30,7 +30,7 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     true \
     && WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) \
     && uv pip install --system versioningit \
-    && uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,explorer,influxdb,interpolation,postgresql,radar,radarplus,restapi]
+    && uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,explorer,influxdb,interpolation,plotting,postgresql,radar,radarplus,restapi]
 
 # TODO: for linux/arm64 we currently cant install zarr as it depends on numcodecs which has no wheels
 #   and building it from source takes too long
