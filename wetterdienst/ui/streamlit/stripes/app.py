@@ -62,7 +62,7 @@ def get_rest_api_url(
     return url
 
 
-title = f"Climate Stripes (v{__version__})"
+title = f"Stripes (v{__version__})"
 st.set_page_config(page_title=title)
 st.title(title)
 

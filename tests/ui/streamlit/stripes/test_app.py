@@ -5,16 +5,16 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from wetterdienst import __version__
-from wetterdienst.ui.streamlit.climate_stripes import app
+from wetterdienst.ui.streamlit.stripes import app
 
 
 @pytest.mark.cflake
 @pytest.mark.remote
-def test_climate_stripes():
+def test_stripes():
     app_test = AppTest.from_file(app.__file__)
     app_test.run()
     assert app_test.error == []
-    assert app_test.title[0].value == f"Climate Stripes (v{__version__})"
+    assert app_test.title[0].value == f"Stripes (v{__version__})"
     subheaders = [subheader.value for subheader in app_test.subheader]
     assert subheaders == ["Introduction", "Station", "Climate Stripes", "Credits", "Data", "Settings"]
     kind = app_test.selectbox[0]
