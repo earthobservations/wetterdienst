@@ -1,4 +1,5 @@
 wetterdienst
 duckdb
 plotly
+kaleido
 statsmodels

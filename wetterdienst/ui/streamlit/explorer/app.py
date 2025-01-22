@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 # this env is set manually on streamlit.com
 LIVE = os.getenv("LIVE", "false").lower() == "true"
 
+DPI = 300
+
 SUBDAILY_AT_MOST = [
     Resolution.MINUTE_1.value,
     Resolution.MINUTE_5.value,
@@ -286,6 +288,13 @@ elif not variable_filter:
 else:
     fig = create_plotly_fig(df, variable_column, variable_filter, column_x, column_y, facet, lm, plotting_settings)
     st.plotly_chart(fig)
+    st.download_button(
+        "Download",
+        fig.to_image("png", scale=DPI / 100),
+        file_name="explorer.png",
+        mime="image/png",
+        use_container_width=True,
+    )
 
 st.subheader("Credits")
 st.markdown(
