@@ -7,6 +7,9 @@
 - Explorer: Add download button for plot
 - Split up plotting extras into `plotting` and `matplotlib`
 
+### Refactor
+- Update docker image extras
+
 ### Chore
 - Remove unused cachetools dependency
 - Make fastexcel a polars extra
