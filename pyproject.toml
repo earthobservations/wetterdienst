@@ -154,14 +154,17 @@ interpolation = [
   "shapely>=2,<3",
   "utm>=0.7,<1",
 ]
-plotting = [
-  "kaleido>=0.2.1",
+# only used in examples for plotting radar data
+matplotlib = [
   "matplotlib>=3.3,<4",
-  "plotly>=5.24.1",
 ]
 mysql = [
   "mysqlclient>=2,<3",
   "pandas>=2,<3",
+]
+plotting = [
+  "kaleido>=0.2.1",
+  "plotly>=5.24.1",
 ]
 postgresql = [
   "psycopg2-binary>=2,<3",

@@ -2,6 +2,11 @@
 
 ## Development
 
+### Feature
+- Stripes: Replace matplotlib by plotly
+- Explorer: Add download button for plot
+- Split up plotting extras into `plotting` and `matplotlib`
+
 ### Chore
 - Remove unused cachetools dependency
 - Make fastexcel a polars extra

@@ -107,7 +107,8 @@ pip install wetterdienst[sql]
 - influxdb: Install support for InfluxDB.
 - interpolation: Install support for station interpolation.
 - mysql: Install support for MySQL.
-- plotting: Install support for matplotlib.
+- matplotlib: Install support for plotting (matplotlib), only used in radar examples.
+- plotting: Install support for plotting (plotly).
 - postgresql: Install support for PostgreSQL.
 - sql: Install DuckDB for querying data using SQL.
 
