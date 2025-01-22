@@ -133,7 +133,7 @@ if station:
         show_data_availability=show_data_availability,
     )
     st.subheader("Climate Stripes")
-    st.plotly_chart(fig, use_column_width=True)
+    st.plotly_chart(fig, use_container_width=True)
     st.download_button(
         "Download",
         fig.to_image("png", scale=dpi / 100),
