@@ -594,7 +594,8 @@ def _plot_stripes(
     try:
         station_dict = stations.to_dict()["stations"][0]
     except IndexError as e:
-        raise ValueError(f"No station with a name similar to '{name}' found") from e
+        parameter = "station_id" if station_id else "name"
+        raise ValueError(f"No station with a {parameter} similar to '{station_id or name}' found") from e
 
     df = stations.values.all().df.sort("date")
     df = df.set_sorted("date")
