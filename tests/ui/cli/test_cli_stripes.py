@@ -100,5 +100,5 @@ def test_stripes_values_target_not_matching_format(tmp_path):
 def test_climate_stripes_target_wrong_dpi():
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--dpi=0"])
-    assert result.exit_code == 1
-    assert "Error: dpi must be more than 0" in result.stdout
+    assert result.exit_code == 2
+    assert "Error: Invalid value for '--dpi': 0 is not in the range x>0.\n" in result.stdout

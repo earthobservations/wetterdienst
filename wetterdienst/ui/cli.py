@@ -1252,7 +1252,7 @@ def stripes_stations(kind: str, active: bool, fmt: str, pretty: bool):
 @cloup.option("--show_years", type=click.BOOL, default=True)
 @cloup.option("--show_data_availability", type=click.BOOL, default=True)
 @cloup.option("--format", "fmt", type=click.Choice(["png", "jpg", "svg", "pdf"], case_sensitive=False), default="png")
-@cloup.option("--dpi", type=click.INT, default=300)
+@cloup.option("--dpi", type=click.IntRange(min=0, min_open=True), default=300)
 @cloup.option("--target", type=click.Path(dir_okay=False, path_type=Path))
 @debug_opt
 @cloup.constraint(
