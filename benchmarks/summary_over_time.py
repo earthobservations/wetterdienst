@@ -1,32 +1,27 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import os
-from datetime import datetime
 
-import matplotlib.pyplot as plt
 import polars as pl
 
-from wetterdienst import Parameter
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 
-def get_summarized_df(start_date: datetime, end_date: datetime, lat, lon) -> pl.DataFrame:
+def get_summarized_df(start_date: dt.datetime, end_date: dt.datetime, lat, lon) -> pl.DataFrame:
     stations = DwdObservationRequest(
-        parameters=Parameter.TEMPERATURE_AIR_MEAN_2M,
-        resolution=DwdObservationResolution.DAILY,
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=start_date,
         end_date=end_date,
     )
     return stations.summarize(latlon=(lat, lon)).df
 
 
-def get_regular_df(start_date: datetime, end_date: datetime, station_id) -> pl.DataFrame:
+def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id) -> pl.DataFrame:
     stations = DwdObservationRequest(
-        parameters=Parameter.TEMPERATURE_AIR_MEAN_2M,
-        resolution=DwdObservationResolution.DAILY,
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=start_date,
         end_date=end_date,
     )
@@ -35,8 +30,8 @@ def get_regular_df(start_date: datetime, end_date: datetime, station_id) -> pl.D
 
 
 def main():
-    start_date = datetime(1934, 1, 1)
-    end_date = datetime(1980, 12, 31)
+    start_date = dt.datetime(1934, 1, 1)
+    end_date = dt.datetime(1980, 12, 31)
     lat = 51.0221
     lon = 13.8470
 
@@ -53,22 +48,82 @@ def main():
     regular_df_01051 = get_regular_df(start_date, end_date, "01051")
     regular_df_05282 = get_regular_df(start_date, end_date, "05282")
 
-    fig, ax = plt.subplots(nrows=5, tight_layout=True, sharex=True, sharey=True)
+    try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+    except ImportError as e:
+        raise ImportError("Please install extra `plotting` with wetterdienst[plotting]") from e
 
-    summarized_df.to_pandas().plot("date", "value", c="color", label="summarized", kind="scatter", ax=ax[0], s=5)
-    regular_df_01050.to_pandas().plot("date", "value", color="yellow", label="01050", ax=ax[1])
-    regular_df_01051.to_pandas().plot("date", "value", color="blue", label="01051", ax=ax[2])
-    regular_df_01048.to_pandas().plot("date", "value", color="green", label="01048", ax=ax[3])
-    regular_df_05282.to_pandas().plot("date", "value", color="pink", label="05282", ax=ax[4])
+    fig = make_subplots(rows=5, shared_xaxes=True, subplot_titles=("Summarized", "01050", "01051", "01048", "05282"))
 
-    ax[0].set_ylabel(None)
+    fig.add_trace(
+        go.Scatter(
+            x=summarized_df.get_column("date"),
+            y=summarized_df.get_column("value"),
+            mode="markers",
+            marker=dict(color=summarized_df.get_column("color")),
+            name="summarized",
+        ),
+        row=1,
+        col=1,
+    )
 
-    title = "Comparison of summarized values and single stations for\ntemperature_air_mean_2m"
-    plt.suptitle(title)
-    plt.legend()
-    plt.tight_layout()
+    fig.add_trace(
+        go.Scatter(
+            x=regular_df_01050.get_column("date"),
+            y=regular_df_01050.get_column("value"),
+            mode="lines",
+            line=dict(color="yellow"),
+            name="01050",
+        ),
+        row=2,
+        col=1,
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=regular_df_01051.get_column("date"),
+            y=regular_df_01051.get_column("value"),
+            mode="lines",
+            line=dict(color="blue"),
+            name="01051",
+        ),
+        row=3,
+        col=1,
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=regular_df_01048.get_column("date"),
+            y=regular_df_01048.get_column("value"),
+            mode="lines",
+            line=dict(color="green"),
+            name="01048",
+        ),
+        row=4,
+        col=1,
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=regular_df_05282.get_column("date"),
+            y=regular_df_05282.get_column("value"),
+            mode="lines",
+            line=dict(color="pink"),
+            name="05282",
+        ),
+        row=5,
+        col=1,
+    )
+
+    fig.update_layout(
+        title="Comparison of summarized values and single stations for temperature_air_mean_2m",
+        legend_title="Stations",
+        showlegend=True,
+    )
+
     if "PYTEST_CURRENT_TEST" not in os.environ:
-        plt.show()
+        fig.show()
 
 
 if __name__ == "__main__":

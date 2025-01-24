@@ -17,6 +17,9 @@
 - Drop click-params dependency
 - Make pyarrow a polars extra
 
+### Fix
+- Fix benchmark code
+
 ## 0.102.0 - 2025-01-17
 
 ### Feature

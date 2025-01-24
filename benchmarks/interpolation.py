@@ -5,7 +5,6 @@ import os
 from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
 
-import matplotlib.pyplot as plt
 import polars as pl
 import utm
 from scipy import interpolate
@@ -47,7 +46,7 @@ class Data:
 
 
 def request_weather_data(
-    parameter: str,
+    parameters: list[tuple[str, str, str]],
     lat: float,
     lon: float,
     distance: float,
@@ -55,8 +54,7 @@ def request_weather_data(
     end_date: dt.datetime,
 ):
     stations = DwdObservationRequest(
-        parameters=parameter,
-        resolution="hourly",
+        parameters=parameters,
         start_date=start_date,
         end_date=end_date,
     )
@@ -109,29 +107,45 @@ def interpolate_data(latitude: float, longitude: float, data: Data):
 
 
 def visualize_points(data: Data):
-    fig, ax = plt.subplots()
-    ax.scatter(data.utm_y, data.utm_x, color=data.colors)
-
-    for i, (station, value) in enumerate(zip(data.station_ids, data.values)):
-        ax.annotate(
-            f"id:{station}\nval:{value : .2f}\n",
-            (data.utm_y[i], data.utm_x[i]),
-            horizontalalignment="center",
-            verticalalignment="bottom",
+    try:
+        import plotly.graph_objects as go
+    except ImportError as e:
+        raise ImportError("Please install extra `plotting` with wetterdienst[plotting]") from e
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=data.utm_y,
+            y=data.utm_x,
+            mode="markers",
+            marker=dict(color=data.colors),
+            text=[f"id:{station}\nval:{value : .2f}\n" for station, value in zip(data.station_ids, data.values)],
         )
+    )
+    for i, (station, value) in enumerate(zip(data.station_ids, data.values)):
+        fig.add_trace(
+            go.Scatter(
+                x=[data.utm_y[i]],
+                y=[data.utm_x[i]],
+                mode="markers+text",
+                marker=dict(color=data.colors[i]),
+                text=f"id:{station}\nval:{value : .2f}\n",
+                textposition="top center",
+            )
+        )
+    fig.update_layout(showlegend=False)
     if "PYTEST_CURRENT_TEST" not in os.environ:
-        plt.show()
+        fig.show()
 
 
 def main():
-    parameter = [("temperature_air_mean_2m", "temperature_air")]
+    parameters = [("hourly", "temperature_air", "temperature_air_mean_2m")]
     latitude = 50.0
     longitude = 8.9
     distance = 21.0
     start_date = dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC"))
     end_date = dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC"))
 
-    data = request_weather_data(parameter, latitude, longitude, distance, start_date, end_date)
+    data = request_weather_data(parameters, latitude, longitude, distance, start_date, end_date)
     interpolate_data(latitude, longitude, data)
     visualize_points(data)
 
