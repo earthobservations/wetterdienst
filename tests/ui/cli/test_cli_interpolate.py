@@ -29,6 +29,7 @@ def test_cli_interpolate():
     assert response["values"] == [
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 6.37,
@@ -37,6 +38,7 @@ def test_cli_interpolate():
         },
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 8.7,
@@ -203,6 +205,7 @@ def test_cli_interpolate_geojson():
                 "values": [
                     {
                         "station_id": "6754d04d",
+                        "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
                         "date": "1986-10-31T00:00:00+00:00",
                         "value": 6.37,
@@ -212,6 +215,7 @@ def test_cli_interpolate_geojson():
                     {
                         "station_id": "6754d04d",
                         "date": "1986-11-01T00:00:00+00:00",
+                        "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
                         "value": 8.7,
                         "distance_mean": 0.0,
@@ -246,6 +250,7 @@ def test_cli_interpolate_interpolation_station_distance():
     assert response["values"] == [
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": None,
@@ -254,6 +259,7 @@ def test_cli_interpolate_interpolation_station_distance():
         },
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 8.7,
@@ -286,6 +292,7 @@ def test_cli_interpolate_dont_use_nearby_station():
     assert response["values"] == [
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 6.37,
@@ -294,6 +301,7 @@ def test_cli_interpolate_dont_use_nearby_station():
         },
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 8.7,
@@ -326,6 +334,7 @@ def test_cli_interpolate_custom_units():
     assert response["values"] == [
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 43.47,
@@ -334,6 +343,7 @@ def test_cli_interpolate_custom_units():
         },
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 47.66,

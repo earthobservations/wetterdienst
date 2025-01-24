@@ -402,6 +402,7 @@ def test_interpolate_dwd(client):
     assert response.json()["values"] == [
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 6.37,
@@ -410,6 +411,7 @@ def test_interpolate_dwd(client):
         },
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 8.7,
@@ -436,6 +438,7 @@ def test_interpolate_dwd_lower_interpolation_distance(client):
     assert response.json()["values"] == [
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": None,
@@ -444,6 +447,7 @@ def test_interpolate_dwd_lower_interpolation_distance(client):
         },
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 8.7,
@@ -470,6 +474,7 @@ def test_interpolate_dwd_dont_use_nearby_station(client):
     assert response.json()["values"] == [
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 6.37,
@@ -478,6 +483,7 @@ def test_interpolate_dwd_dont_use_nearby_station(client):
         },
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 8.7,
@@ -507,6 +513,7 @@ def test_interpolate_dwd_custom_unit(client):
     assert response.json()["values"] == [
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 43.47,
@@ -515,6 +522,7 @@ def test_interpolate_dwd_custom_unit(client):
         },
         {
             "station_id": "6754d04d",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 47.66,
@@ -540,6 +548,7 @@ def test_summarize_dwd(client):
     assert response.json()["values"] == [
         {
             "station_id": "a87291a8",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 6.6,
@@ -548,6 +557,7 @@ def test_summarize_dwd(client):
         },
         {
             "station_id": "a87291a8",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 8.7,
@@ -577,6 +587,7 @@ def test_summarize_dwd_custom_unit(client):
     assert response.json()["values"] == [
         {
             "station_id": "a87291a8",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 43.88,
@@ -585,6 +596,7 @@ def test_summarize_dwd_custom_unit(client):
         },
         {
             "station_id": "a87291a8",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 47.66,
