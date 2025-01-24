@@ -21,8 +21,6 @@ from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
-    from enum import Enum
-
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.result import StationsResult
 
@@ -85,13 +83,17 @@ def apply_station_values_per_parameter(
         ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
-        if parameter.name in param_dict and param_dict[parameter.name].finished:
+        if (parameter.dataset.name, parameter.name) in param_dict and param_dict[
+            (parameter.dataset.name, parameter.name)
+        ].finished:
             continue
         # Filter only for exact parameter
-        result_series_param = result_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter.name))
+        result_series_param = result_df.filter(
+            pl.col(Columns.DATASET.value).eq(parameter.dataset.name), pl.col(Columns.PARAMETER.value).eq(parameter.name)
+        )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        if parameter.name not in param_dict:
+        if (parameter.dataset.name, parameter.name) not in param_dict:
             frequency = Frequency[parameter.dataset.resolution.value.name].value
             df = pl.DataFrame(
                 {
@@ -105,13 +107,17 @@ def apply_station_values_per_parameter(
                 },
                 orient="col",
             )
-            param_dict[parameter.name] = _ParameterData(df)
+            param_dict[(parameter.dataset.name, parameter.name)] = _ParameterData(df)
         result_series_param = (
-            param_dict[parameter.name].values.select("date").join(result_series_param, on="date", how="left")
+            param_dict[(parameter.dataset.name, parameter.name)]
+            .values.select("date")
+            .join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column(Columns.VALUE.value)
         result_series_param = result_series_param.rename(station["station_id"])
-        extract_station_values(param_dict[parameter.name], result_series_param, valid_station_groups_exists)
+        extract_station_values(
+            param_dict[(parameter.dataset.name, parameter.name)], result_series_param, valid_station_groups_exists
+        )
 
 
 def calculate_interpolation(
@@ -125,6 +131,7 @@ def calculate_interpolation(
         pl.DataFrame(
             schema={
                 Columns.DATE.value: pl.Datetime(time_zone="UTC"),
+                Columns.DATASET.value: pl.String,
                 Columns.PARAMETER.value: pl.String,
                 Columns.VALUE.value: pl.Float64,
                 Columns.DISTANCE_MEAN.value: pl.Float64,
@@ -138,16 +145,19 @@ def calculate_interpolation(
         for station_id, (_, _, distance) in stations_dict.items()
         if distance < use_nearby_station_until_km
     ]
-    for parameter, param_data in param_dict.items():
+    for (dataset, parameter), param_data in param_dict.items():
         param_df = pl.DataFrame({Columns.DATE.value: param_data.values.get_column(Columns.DATE.value)})
         results = []
         for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):
             results.append(
-                apply_interpolation(row, stations_dict, valid_station_groups, parameter, utm_x, utm_y, nearby_stations),
+                apply_interpolation(
+                    row, stations_dict, valid_station_groups, dataset, parameter, utm_x, utm_y, nearby_stations
+                ),
             )
         results = pl.DataFrame(
             results,
             schema={
+                Columns.DATASET.value: pl.String,
                 Columns.PARAMETER.value: pl.String,
                 Columns.VALUE.value: pl.Float64,
                 Columns.DISTANCE_MEAN.value: pl.Float64,
@@ -161,6 +171,7 @@ def calculate_interpolation(
     df = df.with_columns(pl.col(Columns.VALUE.value).round(2), pl.col(Columns.DISTANCE_MEAN.value).round(2))
     return df.sort(
         by=[
+            Columns.DATASET.value,
             Columns.PARAMETER.value,
             Columns.DATE.value,
         ],
@@ -188,19 +199,21 @@ def get_station_group_ids(valid_station_groups: Queue, vals_index: frozenset) ->
 
 
 def apply_interpolation(
-    row,
+    row: dict,
     stations_dict: dict,
     valid_station_groups: Queue,
-    parameter: Enum,
+    dataset: str,
+    parameter: str,
     utm_x: float,
     utm_y: float,
     nearby_stations: list[str],
-) -> tuple[Enum, float | None, float | None, list[str]]:
+) -> tuple[str, str, float | None, float | None, list[str]]:
     """
     Interpolation function that is being applied over each row of the accumulated data of different stations.
     :param row: row with values of each station
     :param stations_dict: station dictionary with latlon pairs
     :param valid_station_groups: list of valid station groups
+    :param dataset: dataset of interpolated location
     :param parameter: parameter that is interpolated
     :param utm_x: utm x of interpolated location
     :param utm_y: utm y of interpolated location
@@ -211,7 +224,13 @@ def apply_interpolation(
         valid_values = {s: v for s, v in row.items() if s in nearby_stations and v is not None}
         if valid_values:
             first_station = list(valid_values.keys())[0]
-            return parameter, valid_values[first_station], stations_dict[first_station[1:]][2], [first_station[1:]]
+            return (
+                dataset,
+                parameter,
+                valid_values[first_station],
+                stations_dict[first_station[1:]][2],
+                [first_station[1:]],
+            )
     vals = {s: v for s, v in row.items() if v is not None}
     station_group_ids = get_station_group_ids(valid_station_groups, frozenset([s[1:] for s in vals.keys()]))
     if station_group_ids:
@@ -220,7 +239,7 @@ def apply_interpolation(
     else:
         vals = None
     if not vals or len(vals) < 4:
-        return parameter, None, None, []
+        return dataset, parameter, None, None, []
     xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids]))
     distance_mean = sum(distances) / len(distances)
     f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
@@ -229,4 +248,4 @@ def apply_interpolation(
         f_index = LinearNDInterpolator(points=(xs, ys), values=[float(v > 0) for v in list(vals.values())])
         value_index = f_index(utm_x, utm_y)
         value = value if value_index >= 0.5 else 0
-    return parameter, value, distance_mean, station_group_ids
+    return dataset, parameter, value, distance_mean, station_group_ids

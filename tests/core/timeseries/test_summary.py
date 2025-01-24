@@ -28,6 +28,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings):
         [
             {
                 "station_id": "7ac6c582",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "date": selected_dates[0],
                 "value": 0.5,
@@ -36,6 +37,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings):
             },
             {
                 "station_id": "7ac6c582",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "date": selected_dates[1],
                 "value": -5.5,
@@ -44,6 +46,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings):
             },
             {
                 "station_id": "7ac6c582",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "date": selected_dates[2],
                 "value": -2.7,
@@ -73,6 +76,7 @@ def test_not_summarizable_parameter(default_settings):
     expected_df = pl.DataFrame(
         schema={
             Columns.STATION_ID.value: pl.String,
+            Columns.DATASET.value: pl.String,
             Columns.PARAMETER.value: pl.String,
             Columns.DATE.value: pl.Datetime(time_zone="UTC"),
             Columns.VALUE.value: pl.Float64,

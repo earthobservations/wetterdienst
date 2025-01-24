@@ -28,6 +28,7 @@ def test_cli_summarize():
     assert response["values"] == [
         {
             "station_id": "a87291a8",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 6.6,
@@ -36,6 +37,7 @@ def test_cli_summarize():
         },
         {
             "station_id": "a87291a8",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 8.7,
@@ -96,6 +98,7 @@ def test_cli_summarize_geojson():
                 "values": [
                     {
                         "station_id": "a87291a8",
+                        "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
                         "date": "1986-10-31T00:00:00+00:00",
                         "value": 6.6,
@@ -104,6 +107,7 @@ def test_cli_summarize_geojson():
                     },
                     {
                         "station_id": "a87291a8",
+                        "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
                         "date": "1986-11-01T00:00:00+00:00",
                         "value": 8.7,
@@ -139,6 +143,7 @@ def test_cli_summarize_custom_units():
     assert response["values"] == [
         {
             "station_id": "a87291a8",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 43.88,
@@ -147,6 +152,7 @@ def test_cli_summarize_custom_units():
         },
         {
             "station_id": "a87291a8",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 47.66,
