@@ -17,6 +17,8 @@ from wetterdienst.metadata.columns import Columns
 if TYPE_CHECKING:
     from datetime import datetime
 
+    import plotly.graph_objects as go
+
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.values import TimeseriesValues
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
@@ -286,6 +288,69 @@ class StationsResult(ExportMixin):
         }
         return data
 
+    def to_plot(self, **_kwargs) -> go.Figure:
+        """Create a plotly figure from the stations DataFrame."""
+        try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+        except ImportError as e:
+            raise ImportError(
+                "To use this method, please install the optional dependencies for plotly: "
+                "pip install wetterdienst[plotting]"
+            ) from e
+
+        df = self.df
+        if df.is_empty():
+            return go.Figure()
+        # Calculate bounding box
+        min_lon = self.df["longitude"].min()
+        max_lon = self.df["longitude"].max()
+        min_lat = self.df["latitude"].min()
+        max_lat = self.df["latitude"].max()
+        # Calculate center of the bounding box
+        center_lon = (min_lon + max_lon) / 2
+        center_lat = (min_lat + max_lat) / 2
+        # Calculate zoom level
+        lat_diff = max_lat - min_lat
+        zoom = 12 - lat_diff
+        df = df.with_columns(
+            pl.concat_str(
+                pl.col("name"),
+                pl.lit(" ("),
+                pl.col("station_id"),
+                pl.lit(")"),
+            ).alias("name"),
+        )
+        return px.scatter_map(
+            df,
+            lat="latitude",
+            lon="longitude",
+            text="name",
+            zoom=zoom,
+            center=dict(
+                lat=center_lat,
+                lon=center_lon,
+            ),
+        )
+
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        **kwargs,
+    ) -> bytes | str:
+        """Create an image from the plotly figure"""
+        fig = self.to_plot(**kwargs)
+        if fmt == "html":
+            img = fig.to_html()
+        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+        else:
+            raise KeyError(f"Invalid format: {fmt}")
+        return img
+
 
 class _ValuesItemDict(TypedDict):
     station_id: str
@@ -434,6 +499,87 @@ class ValuesResult(_ValuesResult):
         }
         return data
 
+    def to_plot(self, **_kwargs) -> go.Figure:
+        """Create a plotly figure from the values DataFrame."""
+        try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+        except ImportError as e:
+            raise ImportError(
+                "To use this method, please install the optional dependencies for plotly: "
+                "pip install wetterdienst[plotting]"
+            ) from e
+
+        df = self.df
+        if df.is_empty():
+            return go.Figure()
+        # create unit mapping for title
+        units = {
+            parameter.name: self.values.unit_converter.targets[parameter.unit_type].symbol
+            for parameter in self.values.sr.parameters
+        }
+        # used for subplots
+        n = df.select(["dataset", "parameter"]).n_unique()
+        # used for name
+        n_datasets = df["dataset"].n_unique()
+        df = df.with_columns(
+            # add unit in brackets to parameter
+            pl.concat_str(
+                pl.col("parameter"),
+                pl.lit(" ("),
+                pl.col("parameter").replace(units),
+                pl.lit(")"),
+            ).alias("parameter")
+        )
+        if n_datasets > 1:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("dataset"),
+                    pl.lit("/"),
+                    pl.col("parameter"),
+                ).alias("parameter"),
+            )
+        fig = px.line(
+            df,
+            x="date",
+            y="value",
+            color="station_id",
+            facet_row="parameter",
+            height=300 * n,  # scale height with number of subplots
+        )
+        fig = fig.update_traces(
+            mode="markers+lines",
+        )
+        fig = fig.update_yaxes(matches=None)
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        fig.update_layout(
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.01,
+            },
+            margin=dict(l=10, r=10, t=10, b=10),
+        )
+        return fig
+
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        **kwargs,
+    ) -> bytes | str:
+        """Create an image from the plotly figure"""
+        fig = self.to_plot(**kwargs)
+        if fmt == "html":
+            img = fig.to_html()
+        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+        else:
+            raise KeyError(f"Invalid format: {fmt}")
+        return img
+
 
 class _InterpolatedOrSummarizedOgcFeatureProperties(TypedDict):
     id: str
@@ -525,6 +671,89 @@ class InterpolatedValuesResult(_ValuesResult):
         }
         return data
 
+    def to_plot(self, **_kwargs) -> go.Figure:
+        """Create a plotly figure from the values DataFrame."""
+        try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+        except ImportError as e:
+            raise ImportError(
+                "To use this method, please install the optional dependencies for plotly: "
+                "pip install wetterdienst[plotting]"
+            ) from e
+
+        df = self.df
+        if df.is_empty():
+            return go.Figure()
+        # create unit mapping for title
+        units = {
+            parameter.name: self.stations.values.unit_converter.targets[parameter.unit_type].symbol
+            for parameter in self.stations.parameters
+        }
+        # used for subplots
+        n = df.select(["dataset", "parameter"]).n_unique()
+        # used for name
+        n_datasets = df["dataset"].n_unique()
+        df = df.with_columns(
+            # add unit in brackets to parameter
+            pl.concat_str(
+                pl.col("parameter"),
+                pl.lit(" ("),
+                pl.col("parameter").replace(units),
+                pl.lit(")"),
+            ).alias("parameter"),
+            pl.col("taken_station_ids").list.join(",").alias("taken_station_ids"),
+        )
+        if n_datasets > 1:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("dataset"),
+                    pl.lit("/"),
+                    pl.col("parameter"),
+                ).alias("parameter"),
+            )
+        fig = px.line(
+            df,
+            x="date",
+            y="value",
+            color="station_id",
+            facet_row="parameter",
+            height=300 * n,  # scale height with number of subplots
+            text="taken_station_ids",
+        )
+        fig = fig.update_traces(
+            mode="markers+lines",
+        )
+        fig = fig.update_yaxes(matches=None)
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        fig.update_layout(
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.01,
+            },
+            margin=dict(l=10, r=10, t=10, b=10),
+        )
+        return fig
+
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        **kwargs,
+    ) -> bytes | str:
+        """Create an image from the plotly figure"""
+        fig = self.to_plot(**kwargs)
+        if fmt == "html":
+            img = fig.to_html()
+        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+        else:
+            raise KeyError(f"Invalid format: {fmt}")
+        return img
+
 
 class _SummarizedValuesItemDict(TypedDict):
     station_id: str
@@ -610,3 +839,85 @@ class SummarizedValuesResult(_ValuesResult):
             "features": [feature],
         }
         return data
+
+    def to_plot(self, **_kwargs) -> go.Figure:
+        """Create a plotly figure from the values DataFrame."""
+        try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+        except ImportError as e:
+            raise ImportError(
+                "To use this method, please install the optional dependencies for plotly: "
+                "pip install wetterdienst[plotting]"
+            ) from e
+
+        df = self.df
+        if df.is_empty():
+            return go.Figure()
+        # create unit mapping for title
+        units = {
+            parameter.name: self.stations.values.unit_converter.targets[parameter.unit_type].symbol
+            for parameter in self.stations.parameters
+        }
+        # used for subplots
+        n = df.select(["dataset", "parameter"]).n_unique()
+        # used for name
+        n_datasets = df["dataset"].n_unique()
+        df = df.with_columns(
+            # add unit in brackets to parameter
+            pl.concat_str(
+                pl.col("parameter"),
+                pl.lit(" ("),
+                pl.col("parameter").replace(units),
+                pl.lit(")"),
+            ).alias("parameter"),
+        )
+        if n_datasets > 1:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("dataset"),
+                    pl.lit("/"),
+                    pl.col("parameter"),
+                ).alias("parameter"),
+            )
+        fig = px.line(
+            df,
+            x="date",
+            y="value",
+            color="station_id",
+            facet_row="parameter",
+            height=300 * n,  # scale height with number of subplots
+            text="taken_station_id",
+        )
+        fig = fig.update_traces(
+            mode="markers+lines",
+        )
+        fig = fig.update_yaxes(matches=None)
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        fig.update_layout(
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.01,
+            },
+            margin=dict(l=10, r=10, t=10, b=10),
+        )
+        return fig
+
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        **kwargs,
+    ) -> bytes | str:
+        """Create an image from the plotly figure"""
+        fig = self.to_plot(**kwargs)
+        if fmt == "html":
+            img = fig.to_html()
+        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+        else:
+            raise KeyError(f"Invalid format: {fmt}")
+        return img

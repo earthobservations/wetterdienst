@@ -94,6 +94,7 @@ def invoke_wetterdienst_stations_static(provider, network, setting, station, fmt
             f"--network={network}",
             f"--station={station}",
             f"--format={fmt}",
+            "--with_metadata=false",
         ]
         + setting
         + (additional or []),
@@ -360,3 +361,49 @@ def test_cli_stations_geojson_pretty_true(json_dumps_mock):
         additional=["--pretty=true"],
     )
     assert json_dumps_mock.call_args.kwargs["indent"] == 4
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "fmt",
+    [
+        "png",
+        "jpg",
+        "webp",
+        "svg",
+    ],
+)
+def test_cli_stations_image(fmt):
+    result = invoke_wetterdienst_stations_static(
+        provider="dwd",
+        network="observation",
+        setting=["--parameters=daily/kl", "--periods=recent"],
+        station="01048",
+        fmt=fmt,
+    )
+    assert "ERROR" not in result.output
+    assert result.exit_code == 0
+
+
+def test_cli_stations_image_html():
+    result = invoke_wetterdienst_stations_static(
+        provider="dwd",
+        network="observation",
+        setting=["--parameters=daily/kl", "--periods=recent"],
+        station="01048",
+        fmt="html",
+    )
+    assert "ERROR" not in result.output
+    assert result.exit_code == 0
+
+
+def test_cli_stations_image_pdf():
+    result = invoke_wetterdienst_stations_static(
+        provider="dwd",
+        network="observation",
+        setting=["--parameters=daily/kl", "--periods=recent"],
+        station="01048",
+        fmt="pdf",
+    )
+    assert "ERROR" not in result.output
+    assert result.exit_code == 0

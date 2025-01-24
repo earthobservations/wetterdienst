@@ -292,7 +292,7 @@ def test_cli_values_json_indent_true(json_dumps_mock):
 
 
 @pytest.mark.remote
-def test_cli_values_geojson():
+def test_cli_values_geojson(metadata):
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -304,9 +304,9 @@ def test_cli_values_geojson():
         fmt="geojson",
     )
     response = json.loads(result.output)
-    assert response.keys() == {"data"}
-    data = response["data"]
-    assert data == {
+    assert response.keys() == {"metadata", "data"}
+    assert response["metadata"] == metadata
+    assert response["data"] == {
         "type": "FeatureCollection",
         "features": [
             {
@@ -326,7 +326,7 @@ def test_cli_values_geojson():
 
 
 @pytest.mark.remote
-def test_cli_values_geojson_with_metadata(metadata):
+def test_cli_values_geojson_no_metadata():
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -337,12 +337,11 @@ def test_cli_values_geojson_with_metadata(metadata):
         station="01048",
         fmt="geojson",
         additional=[
-            "--with_metadata=true",
+            "--with_metadata=false",
         ],
     )
     response = json.loads(result.output)
-    assert response.keys() == {"data", "metadata"}
-    assert response["metadata"] == metadata
+    assert response.keys() == {"data"}
 
 
 @pytest.mark.remote
@@ -497,3 +496,60 @@ def test_cli_values_custom_units():
         "value": 52.52,
         "quality": 10.0,
     }
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "fmt",
+    [
+        "png",
+        "jpg",
+        "webp",
+        "svg",
+    ],
+)
+def test_cli_values_image(fmt):
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl",
+            "--date=2020-06-30",
+        ],
+        station="01048",
+        fmt=fmt,
+    )
+    assert "Error" not in result.output
+    assert result.exit_code == 0
+
+
+@pytest.mark.remote
+def test_cli_values_image_html():
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl",
+            "--date=2020-06-30",
+        ],
+        station="01048",
+        fmt="html",
+    )
+    assert "Error" not in result.output
+    assert result.exit_code == 0
+
+
+@pytest.mark.remote
+def test_cli_values_image_pdf():
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl",
+            "--date=2020-06-30",
+        ],
+        station="01048",
+        fmt="pdf",
+    )
+    assert "Error" not in result.output
+    assert result.exit_code == 0

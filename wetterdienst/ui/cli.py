@@ -745,7 +745,7 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
     click.option(
         "--format",
         "fmt",
-        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
+        type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
@@ -754,8 +754,8 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
     If("coordinates", then=RequireExactly(1), else_=accept_none),
     ["rank", "distance"],
 )
+@cloup.option("--with_metadata", type=click.BOOL, default=True)
 @cloup.option("--pretty", type=click.BOOL, default=False)
-@cloup.option("--with_metadata", type=click.BOOL, default=False)
 @debug_opt
 def stations(
     provider: str,
@@ -790,7 +790,7 @@ def stations(
             "distance": distance,
             "bbox": bbox,
             "sql": sql,
-            "fmt": fmt,
+            "format": fmt,
             "target": target,
             "pretty": pretty,
             "with_metadata": with_metadata,
@@ -816,7 +816,19 @@ def stations(
         stations_.to_target(target)
         return
 
-    output = stations_.to_format(fmt, indent=pretty, with_metadata=with_metadata)
+    # build kwargs dynamically
+    kwargs = {
+        "fmt": request.format,
+        "with_metadata": request.with_metadata,
+    }
+    if request.format in ("json", "geojson"):
+        kwargs["indent"] = request.pretty
+    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
+        kwargs["width"] = request.width
+        kwargs["height"] = request.height
+        kwargs["scale"] = request.scale
+
+    output = stations_.to_format(**kwargs)
 
     print(output)  # noqa: T201
 
@@ -836,7 +848,7 @@ def stations(
     cloup.option(
         "--format",
         "fmt",
-        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
+        type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
@@ -847,13 +859,13 @@ def stations(
 @cloup.option("--convert_units", type=click.BOOL, default=True)
 @cloup.option("--unit_targets", type=click.STRING, default=None)
 @cloup.option("--humanize", type=click.BOOL, default=True)
-@cloup.option("--pretty", type=click.BOOL, default=False)
 @cloup.option("--skip_empty", type=click.BOOL, default=False)
 @cloup.option("--skip_criteria", type=click.Choice(["min", "mean", "max"]), default="min")
 @cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
 @cloup.option("--drop_nulls", type=click.BOOL, default=True)
-@cloup.option("--with_metadata", type=click.BOOL, default=False)
-@cloup.option("--with_stations", type=click.BOOL, default=False)
+@cloup.option("--with_metadata", type=click.BOOL, default=True)
+@cloup.option("--with_stations", type=click.BOOL, default=True)
+@cloup.option("--pretty", type=click.BOOL, default=False)
 @debug_opt
 def values(
     provider: str,
@@ -905,7 +917,7 @@ def values(
             "bbox": bbox,
             "sql": sql,
             "sql_values": sql_values,
-            "fmt": fmt,
+            "format": fmt,
             "shape": shape,
             "convert_units": convert_units,
             "unit_targets": unit_targets,
@@ -953,7 +965,20 @@ def values(
         values_.to_target(target)
         return
 
-    output = values_.to_format(fmt, indent=pretty, with_metadata=with_metadata, with_stations=with_stations)
+    # build kwargs dynamically
+    kwargs = {
+        "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
+    }
+    if request.format in ("json", "geojson"):
+        kwargs["indent"] = request.pretty
+    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
+        kwargs["width"] = request.width
+        kwargs["height"] = request.height
+        kwargs["scale"] = request.scale
+
+    output = values_.to_format(**kwargs)
 
     print(output)  # noqa: T201
 
@@ -975,7 +1000,7 @@ def values(
     cloup.option(
         "--format",
         "fmt",
-        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
+        type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
@@ -986,8 +1011,8 @@ def values(
 @cloup.option("--unit_targets", type=click.STRING, default=None)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
-@cloup.option("--with_metadata", type=click.BOOL, default=False)
-@cloup.option("--with_stations", type=click.BOOL, default=False)
+@cloup.option("--with_metadata", type=click.BOOL, default=True)
+@cloup.option("--with_stations", type=click.BOOL, default=True)
 @debug_opt
 def interpolate(
     provider: str,
@@ -1026,11 +1051,13 @@ def interpolate(
             "station": station,
             "coordinates": coordinates,
             "sql_values": sql_values,
-            "fmt": fmt,
+            "format": fmt,
             "target": target,
             "convert_units": convert_units,
             "unit_targets": unit_targets,
             "humanize": humanize,
+            "with_metadata": with_metadata,
+            "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
         }
@@ -1065,8 +1092,20 @@ def interpolate(
     if target:
         values_.to_target(target)
         return
+    # build kwargs dynamically
+    kwargs = {
+        "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
+    }
+    if request.format in ("json", "geojson"):
+        kwargs["indent"] = request.pretty
+    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
+        kwargs["width"] = request.width
+        kwargs["height"] = request.height
+        kwargs["scale"] = request.scale
 
-    output = values_.to_format(fmt, indent=pretty, with_metadata=with_metadata, with_stations=with_stations)
+    output = values_.to_format(**kwargs)
 
     print(output)  # noqa: T201
 
@@ -1086,7 +1125,7 @@ def interpolate(
     cloup.option(
         "--format",
         "fmt",
-        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
+        type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
@@ -1097,8 +1136,8 @@ def interpolate(
 @cloup.option("--unit_targets", type=click.STRING, default=None)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
-@cloup.option("--with_metadata", type=click.BOOL, default=False)
-@cloup.option("--with_stations", type=click.BOOL, default=False)
+@cloup.option("--with_metadata", type=click.BOOL, default=True)
+@cloup.option("--with_stations", type=click.BOOL, default=True)
 @debug_opt
 def summarize(
     provider: str,
@@ -1133,11 +1172,13 @@ def summarize(
             "station": station,
             "coordinates": coordinates,
             "sql_values": sql_values,
-            "fmt": fmt,
+            "format": fmt,
             "target": target,
             "convert_units": convert_units,
             "unit_targets": unit_targets,
             "humanize": humanize,
+            "with_metadata": with_metadata,
+            "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
         }
@@ -1170,7 +1211,20 @@ def summarize(
         values_.to_target(target)
         return
 
-    output = values_.to_format(fmt, indent=pretty, with_metadata=with_metadata, with_stations=with_stations)
+    # build kwargs dynamically
+    kwargs = {
+        "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
+    }
+    if request.format in ("json", "geojson"):
+        kwargs["indent"] = request.pretty
+    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
+        kwargs["width"] = request.width
+        kwargs["height"] = request.height
+        kwargs["scale"] = request.scale
+
+    output = values_.to_format(**kwargs)
 
     print(output)  # noqa: T201
 
