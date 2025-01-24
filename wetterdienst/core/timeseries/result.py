@@ -17,6 +17,8 @@ from wetterdienst.metadata.columns import Columns
 if TYPE_CHECKING:
     from datetime import datetime
 
+    import plotly.graph_objects as go
+
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.values import TimeseriesValues
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
@@ -434,6 +436,70 @@ class ValuesResult(_ValuesResult):
         }
         return data
 
+    def to_plot(self, **_kwargs) -> go.Figure:
+        """Create a plotly figure from the values DataFrame."""
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        # create unit mapping for title
+        units = {
+            parameter.name: self.values.unit_converter.targets[parameter.unit_type].symbol
+            for parameter in self.values.sr.parameters
+        }
+        # used for subplots
+        n = self.df.select(["dataset", "parameter"]).n_unique()
+        # used for name
+        n_datasets = self.df["dataset"].n_unique()
+        fig = make_subplots(rows=n, shared_xaxes=True, vertical_spacing=0.01)
+        titles = []
+        for i, (
+            (
+                dataset,
+                parameter,
+            ),
+            df_group,
+        ) in enumerate(self.df.group_by(["dataset", "parameter"], maintain_order=True)):
+            dataset_prefix = f"{dataset}/<br>" if n_datasets > 1 else ""
+            titles.append(f"{dataset_prefix}{parameter} ({units[parameter]})")
+            fig.add_trace(
+                go.Scatter(
+                    x=df_group["date"],
+                    y=df_group["value"],
+                    mode="markers",
+                    marker=go.scatter.Marker(colorscale="Viridis"),
+                ),
+                row=i + 1,
+                col=1,
+            )
+        # update subplot titles
+        for i, title in enumerate(titles):
+            fig.update_yaxes(title_text=title, row=i + 1, col=1)
+        # remove legend
+        fig.update_layout(showlegend=False)
+        fig.update_layout(
+            margin=dict(l=10, r=10, t=10, b=10),
+            height=300 * n,  # important to scale height with number of subplots
+        )
+        return fig
+
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        **kwargs,
+    ) -> bytes | str:
+        """Create an image from the plotly figure"""
+        fig = self.to_plot(**kwargs)
+        if fmt == "html":
+            img = fig.to_html()
+        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+        else:
+            raise KeyError(f"Invalid format: {fmt}")
+        return img
+
 
 class _InterpolatedOrSummarizedOgcFeatureProperties(TypedDict):
     id: str
@@ -525,6 +591,70 @@ class InterpolatedValuesResult(_ValuesResult):
         }
         return data
 
+    def to_plot(self, **_kwargs) -> go.Figure:
+        """Create a plotly figure from the values DataFrame."""
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        # create unit mapping for title
+        units = {
+            parameter.name: self.stations.values.unit_converter.targets[parameter.unit_type].symbol
+            for parameter in self.stations.parameters
+        }
+        # used for subplots
+        n = self.df.select(["dataset", "parameter"]).n_unique()
+        # used for name
+        n_datasets = self.df["dataset"].n_unique()
+        fig = make_subplots(rows=n, shared_xaxes=True, vertical_spacing=0.01)
+        titles = []
+        for i, (
+            (
+                dataset,
+                parameter,
+            ),
+            df_group,
+        ) in enumerate(self.df.group_by(["dataset", "parameter"], maintain_order=True)):
+            dataset_prefix = f"{dataset}/<br>" if n_datasets > 1 else ""
+            titles.append(f"{dataset_prefix}{parameter} ({units[parameter]})")
+            fig.add_trace(
+                go.Scatter(
+                    x=df_group["date"],
+                    y=df_group["value"],
+                    mode="markers",
+                    marker=go.scatter.Marker(colorscale="Viridis"),
+                ),
+                row=i + 1,
+                col=1,
+            )
+        # update subplot titles
+        for i, title in enumerate(titles):
+            fig.update_yaxes(title_text=title, row=i + 1, col=1)
+        # remove legend
+        fig.update_layout(showlegend=False)
+        fig.update_layout(
+            margin=dict(l=10, r=10, t=10, b=10),
+            height=300 * n,  # important to scale height with number of subplots
+        )
+        return fig
+
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        **kwargs,
+    ) -> bytes | str:
+        """Create an image from the plotly figure"""
+        fig = self.to_plot(**kwargs)
+        if fmt == "html":
+            img = fig.to_html()
+        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+        else:
+            raise KeyError(f"Invalid format: {fmt}")
+        return img
+
 
 class _SummarizedValuesItemDict(TypedDict):
     station_id: str
@@ -610,3 +740,71 @@ class SummarizedValuesResult(_ValuesResult):
             "features": [feature],
         }
         return data
+
+    def to_plot(self, **_kwargs) -> go.Figure:
+        """Create a plotly figure from the values DataFrame."""
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        if self.df.is_empty():
+            return go.Figure()
+
+        # create unit mapping for title
+        units = {
+            parameter.name: self.stations.values.unit_converter.targets[parameter.unit_type].symbol
+            for parameter in self.stations.stations.parameters
+        }
+        # used for subplots
+        n = self.df.select(["parameter"]).n_unique()
+        # used for name
+        n_datasets = self.df["dataset"].n_unique()
+        # used for name
+        fig = make_subplots(rows=n, shared_xaxes=True, vertical_spacing=0.01)
+        titles = []
+        for i, (
+            (
+                dataset,
+                parameter,
+            ),
+            df_group,
+        ) in enumerate(self.df.group_by(["dataset", "parameter"], maintain_order=True)):
+            dataset_prefix = f"{dataset}/<br>" if n_datasets > 1 else ""
+            titles.append(f"{dataset_prefix}{parameter} ({units[parameter]})")
+            fig.add_trace(
+                go.Scatter(
+                    x=df_group["date"],
+                    y=df_group["value"],
+                    mode="markers",
+                    marker=go.scatter.Marker(colorscale="Viridis"),
+                ),
+                row=i + 1,
+                col=1,
+            )
+        # update subplot titles
+        for i, title in enumerate(titles):
+            fig.update_yaxes(title_text=title, row=i + 1, col=1)
+        # remove legend
+        fig.update_layout(showlegend=False)
+        fig.update_layout(
+            margin=dict(l=10, r=10, t=10, b=10),
+            height=300 * n,  # important to scale height with number of subplots
+        )
+        return fig
+
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        **kwargs,
+    ) -> bytes | str:
+        """Create an image from the plotly figure"""
+        fig = self.to_plot(**kwargs)
+        if fmt == "html":
+            img = fig.to_html()
+        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+        else:
+            raise KeyError(f"Invalid format: {fmt}")
+        return img
