@@ -497,3 +497,60 @@ def test_cli_values_custom_units():
         "value": 52.52,
         "quality": 10.0,
     }
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "fmt",
+    [
+        "png",
+        "jpg",
+        "webp",
+        "svg",
+    ],
+)
+def test_cli_values_image(fmt):
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl",
+            "--date=2020-06-30",
+        ],
+        station="01048",
+        fmt=fmt,
+    )
+    assert "Error" not in result.output
+    assert result.exit_code == 0
+
+
+@pytest.mark.remote
+def test_cli_values_image_html():
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl",
+            "--date=2020-06-30",
+        ],
+        station="01048",
+        fmt="html",
+    )
+    assert "Error" not in result.output
+    assert result.exit_code == 0
+
+
+@pytest.mark.remote
+def test_cli_values_image_pdf():
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl",
+            "--date=2020-06-30",
+        ],
+        station="01048",
+        fmt="pdf",
+    )
+    assert "Error" not in result.output
+    assert result.exit_code == 0

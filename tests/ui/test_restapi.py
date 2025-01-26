@@ -258,25 +258,104 @@ def test_stations_dwd_sql(client):
         "state": "Sachsen",
     }
 
+
 @pytest.mark.remote
 @pytest.mark.parametrize(
     "fmt",
     [
-        "png", "jpg", "webp", "svg", "pdf",
+        "png",
+        "jpg",
+        "webp",
+        "svg",
     ],
 )
-def test_stations_dwd_image(client, fmt):
+def test_stations_dwd_obs_image(client, fmt):
     response = client.get(
         "/api/stations",
         params={
             "provider": "dwd",
             "network": "observation",
             "parameters": "daily/kl",
-            "periods": "recent",
+            "all": "true",
             "format": fmt,
         },
     )
     assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == f"image/{fmt}"
+
+
+@pytest.mark.remote
+def test_stations_dwd_obs_image_html(client):
+    response = client.get(
+        "/api/stations",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "all": "true",
+            "format": "html",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == "text/html; charset=utf-8"
+
+
+@pytest.mark.remote
+def test_stations_dwd_obs_image_pdf(client):
+    response = client.get(
+        "/api/stations",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "all": "true",
+            "format": "pdf",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == "application/pdf"
+
+
+@pytest.mark.remote
+def test_stations_dwd_obs_image_png_custom_settings(client):
+    response = client.get(
+        "/api/stations",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "all": "true",
+            "format": "png",
+            "width": 1000,
+            "height": 1000,
+            "dpi": 200,
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == "image/png"
+
+
+@pytest.mark.remote
+def test_stations_dwd_obs_image_png_wrong_settings(client):
+    response = client.get(
+        "/api/stations",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "all": "true",
+            "format": "png",
+            "width": 0,
+            "height": 0,
+            "dpi": 0,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == "Input should be greater than 0"
 
 
 @pytest.mark.remote
@@ -553,6 +632,69 @@ def test_interpolate_dwd_custom_unit(client):
 
 
 @pytest.mark.remote
+@pytest.mark.parametrize(
+    "fmt",
+    [
+        "png",
+        "jpg",
+        "webp",
+        "svg",
+    ],
+)
+def test_interpolate_dwd_image(client, fmt):
+    response = client.get(
+        "/api/interpolate",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "format": fmt,
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == f"image/{fmt}"
+
+
+@pytest.mark.remote
+def test_interpolate_dwd_image_html(client):
+    response = client.get(
+        "/api/interpolate",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "format": "html",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == "text/html; charset=utf-8"
+
+
+@pytest.mark.remote
+def test_interpolate_dwd_image_pdf(client):
+    response = client.get(
+        "/api/interpolate",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "format": "pdf",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == "application/pdf"
+
+
+@pytest.mark.remote
 def test_summarize_dwd(client):
     response = client.get(
         "/api/summarize",
@@ -624,6 +766,69 @@ def test_summarize_dwd_custom_unit(client):
             "taken_station_id": "00071",
         },
     ]
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "fmt",
+    [
+        "png",
+        "jpg",
+        "webp",
+        "svg",
+    ],
+)
+def test_summarize_dwd_image(client, fmt):
+    response = client.get(
+        "/api/summarize",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/climate_summary/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "format": fmt,
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == f"image/{fmt}"
+
+
+@pytest.mark.remote
+def test_summarize_dwd_image_html(client):
+    response = client.get(
+        "/api/summarize",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/climate_summary/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "format": "html",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == "text/html; charset=utf-8"
+
+
+@pytest.mark.remote
+def test_summarize_dwd_image_pdf(client):
+    response = client.get(
+        "/api/summarize",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/climate_summary/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+            "format": "pdf",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == "application/pdf"
 
 
 @pytest.mark.remote
@@ -756,6 +961,69 @@ def test_values_dwd_observation_climate_summary_custom_units(client):
         "value": 52.52,
         "quality": 10.0,
     }
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "fmt",
+    [
+        "png",
+        "jpg",
+        "webp",
+        "svg",
+    ],
+)
+def test_values_dwd_observation_climate_summary_image(client, fmt):
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "1048",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "date": "2022-01-01",
+            "format": fmt,
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == f"image/{fmt}"
+
+
+@pytest.mark.remote
+def test_values_dwd_observation_climate_summary_image_html(client):
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "1048",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "date": "2022-01-01",
+            "format": "html",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == "text/html; charset=utf-8"
+
+
+@pytest.mark.remote
+def test_values_dwd_observation_climate_summary_image_pdf(client):
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "1048",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "date": "2022-01-01",
+            "format": "pdf",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["Content-Type"] == "application/pdf"
 
 
 @pytest.mark.remote

@@ -288,7 +288,7 @@ def stations(request: Annotated[StationsRequestRaw, Query()]) -> Any:
         "fmt": request.format,
     }
     if request.format == "geojson":
-        kwargs["with_metadata"] = True
+        kwargs["with_metadata"] = request.with_metadata
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):
@@ -362,7 +362,7 @@ def values(
         "fmt": request.format,
     }
     if request.format == "geojson":
-        kwargs["with_metadata"] = True
+        kwargs["with_metadata"] = request.with_metadata
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):

@@ -53,6 +53,8 @@ class StationsRequestRaw(BaseModel):
     bbox: str | None = None
     sql: str | None = None
 
+    with_metadata: bool = True
+
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
     pretty: bool = False
     debug: bool = False
@@ -204,6 +206,9 @@ class InterpolationRequestRaw(BaseModel):
     interpolation_station_distance: str | None = None
     use_nearby_station_distance: confloat(ge=0) = 1.0
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
+
+    with_metadata: bool = True
+
     pretty: bool = False
     debug: bool = False
 
@@ -284,6 +289,9 @@ class SummaryRequestRaw(BaseModel):
     convert_units: bool = True
     unit_targets: str | None = None
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
+
+    with_metadata: bool = True
+
     pretty: bool = False
     debug: bool = False
 
