@@ -288,6 +288,71 @@ class StationsResult(ExportMixin):
         }
         return data
 
+    def to_plot(self, **_kwargs) -> go.Figure:
+        """Create a plotly figure from the stations DataFrame."""
+        import plotly.graph_objects as go
+
+        if self.df.is_empty():
+            return go.Figure()
+
+        # Calculate bounding box
+        min_lon = self.df["longitude"].min()
+        max_lon = self.df["longitude"].max()
+        min_lat = self.df["latitude"].min()
+        max_lat = self.df["latitude"].max()
+
+        # Calculate center of the bounding box
+        center_lon = (min_lon + max_lon) / 2
+        center_lat = (min_lat + max_lat) / 2
+
+        # Calculate zoom level
+        lat_diff = max_lat - min_lat
+        zoom = 12 - lat_diff
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scattermap(
+                lon=self.df.get_column("longitude"),
+                lat=self.df.get_column("latitude"),
+                text=self.df.select(pl.concat_str(pl.col("name"), pl.lit(" ("), pl.col("station_id"), pl.lit(")"))),
+                mode="markers",
+                marker=dict(
+                    size=10,
+                    color="rgb(255, 0, 0)",
+                ),
+            )
+        )
+        fig.update_layout(
+            showlegend=False,
+            map=dict(
+                center=dict(
+                    lat=center_lat,
+                    lon=center_lon,
+                ),
+                zoom=zoom,
+            ),
+            margin=dict(l=0, r=0, t=0, b=0),
+        )
+        return fig
+
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        **kwargs,
+    ) -> bytes | str:
+        """Create an image from the plotly figure"""
+        fig = self.to_plot(**kwargs)
+        if fmt == "html":
+            img = fig.to_html()
+        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+        else:
+            raise KeyError(f"Invalid format: {fmt}")
+        return img
+
 
 class _ValuesItemDict(TypedDict):
     station_id: str

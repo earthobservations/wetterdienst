@@ -283,10 +283,29 @@ def stations(request: Annotated[StationsRequestRaw, Query()]) -> Any:
     except (KeyError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    content = stations_.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
+    # build kwargs dynamically
+    kwargs = {
+        "fmt": request.format,
+    }
+    if request.format == "geojson":
+        kwargs["with_metadata"] = True
+    if request.format in ("json", "geojson"):
+        kwargs["indent"] = request.pretty
+    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
+        kwargs["width"] = request.width
+        kwargs["height"] = request.height
+        kwargs["scale"] = request.scale
+
+    content = stations_.to_format(**kwargs)
 
     if request.format == "csv":
         media_type = "text/csv"
+    elif request.format == "html":
+        media_type = "text/html"
+    elif request.format in ("png", "jpg", "webp", "svg"):
+        media_type = f"image/{request.format}"
+    elif request.format == "pdf":
+        media_type = "application/pdf"
     else:
         media_type = "application/json"
 

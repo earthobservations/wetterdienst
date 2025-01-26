@@ -258,6 +258,26 @@ def test_stations_dwd_sql(client):
         "state": "Sachsen",
     }
 
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "fmt",
+    [
+        "png", "jpg", "webp", "svg", "pdf",
+    ],
+)
+def test_stations_dwd_image(client, fmt):
+    response = client.get(
+        "/api/stations",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "periods": "recent",
+            "format": fmt,
+        },
+    )
+    assert response.status_code == 200
+
 
 @pytest.mark.remote
 def test_values_dwd_success(client):
