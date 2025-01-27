@@ -8,7 +8,7 @@ from wetterdienst.ui.cli import cli
 
 
 @pytest.mark.remote
-def test_cli_interpolate():
+def test_cli_interpolate_no_metadata_no_stations():
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -20,6 +20,8 @@ def test_cli_interpolate():
             "--station=00071",
             "--date=1986-10-31/1986-11-01",
             "--format=json",
+            "--with_metadata=false",
+            "--with_stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -61,7 +63,6 @@ def test_cli_interpolate_with_metadata_with_stations(metadata):
             "--station=00071",
             "--date=1986-10-31/1986-11-01",
             "--format=json",
-            "--with_metadata=true",
         ],
     )
     if result.exit_code != 0:
@@ -124,7 +125,7 @@ def test_cli_interpolate_with_metadata_with_stations(metadata):
 
 
 @pytest.mark.remote
-def test_cli_interpolate_geojson():
+def test_cli_interpolate_geojson(metadata):
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -141,7 +142,8 @@ def test_cli_interpolate_geojson():
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"data"}
+    assert response.keys() == {"metadata", "data"}
+    assert response["metadata"] == metadata
     assert response["data"] == {
         "type": "FeatureCollection",
         "features": [
@@ -240,6 +242,8 @@ def test_cli_interpolate_interpolation_station_distance():
             "--date=1986-10-31/1986-11-01",
             "--format=json",
             '--interpolation_station_distance={"temperature_air_mean_2m": 10}',
+            "--with_metadata=false",
+            "--with_stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -282,6 +286,8 @@ def test_cli_interpolate_dont_use_nearby_station():
             "--date=1986-10-31/1986-11-01",
             "--format=json",
             "--use_nearby_station_distance=0",
+            "--with_metadata=false",
+            "--with_stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -324,6 +330,8 @@ def test_cli_interpolate_custom_units():
             "--date=1986-10-31/1986-11-01",
             "--format=json",
             '--unit_targets={"temperature": "degree_fahrenheit"}',
+            "--with_metadata=false",
+            "--with_stations=false",
         ],
     )
     if result.exit_code != 0:

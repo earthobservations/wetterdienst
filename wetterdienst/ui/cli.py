@@ -790,7 +790,7 @@ def stations(
             "distance": distance,
             "bbox": bbox,
             "sql": sql,
-            "fmt": fmt,
+            "format": fmt,
             "target": target,
             "pretty": pretty,
             "with_metadata": with_metadata,
@@ -819,9 +819,8 @@ def stations(
     # build kwargs dynamically
     kwargs = {
         "fmt": request.format,
+        "with_metadata": request.with_metadata,
     }
-    if request.format == "geojson":
-        kwargs["with_metadata"] = request.with_metadata
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):
@@ -918,7 +917,7 @@ def values(
             "bbox": bbox,
             "sql": sql,
             "sql_values": sql_values,
-            "fmt": fmt,
+            "format": fmt,
             "shape": shape,
             "convert_units": convert_units,
             "unit_targets": unit_targets,
@@ -1052,7 +1051,7 @@ def interpolate(
             "station": station,
             "coordinates": coordinates,
             "sql_values": sql_values,
-            "fmt": fmt,
+            "format": fmt,
             "target": target,
             "convert_units": convert_units,
             "unit_targets": unit_targets,
@@ -1093,7 +1092,6 @@ def interpolate(
     if target:
         values_.to_target(target)
         return
-
     # build kwargs dynamically
     kwargs = {
         "fmt": request.format,
@@ -1174,7 +1172,7 @@ def summarize(
             "station": station,
             "coordinates": coordinates,
             "sql_values": sql_values,
-            "fmt": fmt,
+            "format": fmt,
             "target": target,
             "convert_units": convert_units,
             "unit_targets": unit_targets,

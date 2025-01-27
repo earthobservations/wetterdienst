@@ -94,6 +94,7 @@ def invoke_wetterdienst_stations_static(provider, network, setting, station, fmt
             f"--network={network}",
             f"--station={station}",
             f"--format={fmt}",
+            "--with_metadata=false",
         ]
         + setting
         + (additional or []),

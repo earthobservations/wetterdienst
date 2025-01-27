@@ -7,7 +7,7 @@ from wetterdienst.ui.cli import cli
 
 
 @pytest.mark.remote
-def test_cli_summarize():
+def test_cli_summarize_no_metadata_no_stations():
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -19,6 +19,8 @@ def test_cli_summarize():
             "--station=00071",
             "--date=1986-10-31/1986-11-01",
             "--format=json",
+            "--with_metadata=false",
+            "--with_stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -48,7 +50,7 @@ def test_cli_summarize():
 
 
 @pytest.mark.remote
-def test_cli_summarize_geojson():
+def test_cli_summarize_geojson(metadata):
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -65,7 +67,8 @@ def test_cli_summarize_geojson():
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"data"}
+    assert response.keys() == {"metadata", "data"}
+    assert response["metadata"] == metadata
     assert response["data"] == {
         "type": "FeatureCollection",
         "features": [
@@ -134,6 +137,8 @@ def test_cli_summarize_custom_units():
             "--date=1986-10-31/1986-11-01",
             "--format=json",
             '--unit_targets={"temperature": "degree_fahrenheit"}',
+            "--with_metadata=false",
+            "--with_stations=false",
         ],
     )
     if result.exit_code != 0:

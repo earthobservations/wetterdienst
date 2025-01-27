@@ -293,6 +293,7 @@ class SummaryRequestRaw(BaseModel):
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
     with_metadata: bool = True
+    with_stations: bool = True
 
     pretty: bool = False
     debug: bool = False
