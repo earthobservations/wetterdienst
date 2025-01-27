@@ -865,6 +865,7 @@ def stations(
 @cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
 @cloup.option("--drop_nulls", type=click.BOOL, default=True)
 @cloup.option("--with_metadata", type=click.BOOL, default=True)
+@cloup.option("--with_stations", type=click.BOOL, default=True)
 @cloup.option("--pretty", type=click.BOOL, default=False)
 @debug_opt
 def values(
@@ -896,6 +897,7 @@ def values(
     drop_nulls: bool,
     pretty: bool,
     with_metadata: bool,
+    with_stations: bool,
     debug: bool,
 ):
     request = ValuesRequest.model_validate(
@@ -927,6 +929,7 @@ def values(
             "drop_nulls": drop_nulls,
             "pretty": pretty,
             "with_metadata": with_metadata,
+            "with_stations": with_stations,
             "debug": debug,
         }
     )
@@ -966,9 +969,9 @@ def values(
     # build kwargs dynamically
     kwargs = {
         "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
     }
-    if request.format == "geojson":
-        kwargs["with_metadata"] = request.with_metadata
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):
@@ -1010,6 +1013,7 @@ def values(
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
 @cloup.option("--with_metadata", type=click.BOOL, default=True)
+@cloup.option("--with_stations", type=click.BOOL, default=True)
 @debug_opt
 def interpolate(
     provider: str,
@@ -1031,6 +1035,7 @@ def interpolate(
     humanize: bool,
     pretty: bool,
     with_metadata: bool,
+    with_stations: bool,
     debug: bool,
 ):
     request = InterpolationRequest.model_validate(
@@ -1053,6 +1058,7 @@ def interpolate(
             "unit_targets": unit_targets,
             "humanize": humanize,
             "with_metadata": with_metadata,
+            "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
         }
@@ -1091,9 +1097,9 @@ def interpolate(
     # build kwargs dynamically
     kwargs = {
         "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
     }
-    if request.format == "geojson":
-        kwargs["with_metadata"] = request.with_metadata
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):
@@ -1133,6 +1139,7 @@ def interpolate(
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
 @cloup.option("--with_metadata", type=click.BOOL, default=True)
+@cloup.option("--with_stations", type=click.BOOL, default=True)
 @debug_opt
 def summarize(
     provider: str,
@@ -1152,6 +1159,7 @@ def summarize(
     humanize: bool,
     pretty: bool,
     with_metadata: bool,
+    with_stations: bool,
     debug: bool,
 ):
     request = SummaryRequest.model_validate(
@@ -1172,6 +1180,7 @@ def summarize(
             "unit_targets": unit_targets,
             "humanize": humanize,
             "with_metadata": with_metadata,
+            "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
         }
@@ -1207,9 +1216,9 @@ def summarize(
     # build kwargs dynamically
     kwargs = {
         "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
     }
-    if request.format == "geojson":
-        kwargs["with_metadata"] = request.with_metadata
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):

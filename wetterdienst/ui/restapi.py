@@ -286,9 +286,9 @@ def stations(request: Annotated[StationsRequestRaw, Query()]) -> Any:
     # build kwargs dynamically
     kwargs = {
         "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
     }
-    if request.format == "geojson":
-        kwargs["with_metadata"] = request.with_metadata
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):
@@ -360,9 +360,9 @@ def values(
     # build kwargs dynamically
     kwargs = {
         "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
     }
-    if request.format == "geojson":
-        kwargs["with_metadata"] = request.with_metadata
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):
@@ -433,9 +433,9 @@ def interpolate(request: Annotated[InterpolationRequestRaw, Query()]) -> Any:
     # build kwargs dynamically
     kwargs = {
         "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
     }
-    if request.format == "geojson":
-        kwargs["with_metadata"] = True
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):
@@ -503,9 +503,9 @@ def summarize(
     # build kwargs dynamically
     kwargs = {
         "fmt": request.format,
+        "with_metadata": request.with_metadata,
+        "with_stations": request.with_stations,
     }
-    if request.format == "geojson":
-        kwargs["with_metadata"] = True
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):

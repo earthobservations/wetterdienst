@@ -62,7 +62,6 @@ def test_cli_interpolate_with_metadata_with_stations(metadata):
             "--date=1986-10-31/1986-11-01",
             "--format=json",
             "--with_metadata=true",
-            "--with_stations=true",
         ],
     )
     if result.exit_code != 0:
