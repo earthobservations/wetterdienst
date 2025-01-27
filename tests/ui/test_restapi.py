@@ -176,7 +176,10 @@ def test_stations_wrong_format(client):
         },
     )
     assert response.status_code == 422
-    assert response.json()["detail"][0]["msg"] == "Input should be 'json', 'geojson' or 'csv'"
+    assert (
+        response.json()["detail"][0]["msg"]
+        == "Input should be 'json', 'geojson', 'csv', 'html', 'png', 'jpg', 'webp', 'svg' or 'pdf'"
+    )
 
 
 @pytest.mark.remote

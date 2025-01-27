@@ -287,7 +287,6 @@ def stations(request: Annotated[StationsRequestRaw, Query()]) -> Any:
     kwargs = {
         "fmt": request.format,
         "with_metadata": request.with_metadata,
-        "with_stations": request.with_stations,
     }
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
