@@ -8,7 +8,7 @@ import sys
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
-from pydantic import BaseModel, Field, confloat, field_validator
+from pydantic import BaseModel, Field, confloat, conint, field_validator
 
 from wetterdienst.core.timeseries.metadata import parse_parameters
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
@@ -53,9 +53,17 @@ class StationsRequestRaw(BaseModel):
     bbox: str | None = None
     sql: str | None = None
 
-    format: Literal["json", "geojson", "csv"] = "json"
+    with_metadata: bool = True
+    with_stations: bool = True
+
+    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
     pretty: bool = False
     debug: bool = False
+
+    # plot settings
+    width: conint(gt=0) | None = None
+    height: conint(gt=0) | None = None
+    scale: confloat(gt=0) | None = None
 
 
 class StationsRequest(StationsRequestRaw):
@@ -104,6 +112,8 @@ class StationsRequest(StationsRequestRaw):
 
 
 class ValuesRequestRaw(StationsRequestRaw):
+    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
+
     date: str | None = None
     sql_values: str | None = None
     humanize: bool = True
@@ -114,6 +124,10 @@ class ValuesRequestRaw(StationsRequestRaw):
     skip_threshold: confloat(gt=0, le=1) = 0.95
     skip_criteria: Literal["min", "mean", "max"] = "min"
     drop_nulls: bool = True
+    # plot settings
+    width: conint(gt=0) | None = None
+    height: conint(gt=0) | None = None
+    scale: confloat(gt=0) | None = None
 
 
 class ValuesRequest(ValuesRequestRaw):
@@ -192,9 +206,18 @@ class InterpolationRequestRaw(BaseModel):
     unit_targets: str | None = None
     interpolation_station_distance: str | None = None
     use_nearby_station_distance: confloat(ge=0) = 1.0
-    format: Literal["json", "geojson", "csv"] = "json"
+    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
+
+    with_metadata: bool = True
+    with_stations: bool = True
+
     pretty: bool = False
     debug: bool = False
+
+    # plot settings
+    width: conint(gt=0) | None = None
+    height: conint(gt=0) | None = None
+    scale: confloat(gt=0) | None = None
 
 
 class InterpolationRequest(InterpolationRequestRaw):
@@ -267,9 +290,18 @@ class SummaryRequestRaw(BaseModel):
     humanize: bool = True
     convert_units: bool = True
     unit_targets: str | None = None
-    format: Literal["json", "geojson", "csv"] = "json"
+    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
+
+    with_metadata: bool = True
+    with_stations: bool = True
+
     pretty: bool = False
     debug: bool = False
+
+    # plot settings
+    width: conint(gt=0) | None = None
+    height: conint(gt=0) | None = None
+    scale: confloat(gt=0) | None = None
 
 
 class SummaryRequest(SummaryRequestRaw):

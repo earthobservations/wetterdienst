@@ -7,6 +7,7 @@ import logging
 from abc import abstractmethod
 from copy import copy
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from urllib.parse import urlunparse
 
 import polars as pl
@@ -14,6 +15,9 @@ import polars.selectors as cs
 
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.url import ConnectionString
+
+if TYPE_CHECKING:
+    import plotly.graph_objs as go
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +77,25 @@ class ExportMixin:
         )
         return df.write_csv(**kwargs)
 
-    def to_format(self, fmt: str, **kwargs) -> str:
+    @abstractmethod
+    def to_plot(self, **kwargs) -> go.Figure:
+        """Create a plotly figure from the DataFrame"""
+        pass
+
+    @abstractmethod
+    def _to_image(self, **kwargs) -> bytes | str:
+        pass
+
+    def to_image(self, **kwargs) -> bytes | str:
+        """
+        Create an image from the plotly figure
+
+        :param kwargs: Additional arguments passed to `to_image`
+        :return: Image bytes
+        """
+        return self._to_image(**kwargs)
+
+    def to_format(self, fmt: str, **kwargs) -> str | bytes:
         """
         Wrapper to create output based on a format string
 
@@ -88,6 +110,8 @@ class ExportMixin:
             return self.to_csv()
         elif fmt == "geojson":
             return self.to_geojson(**kwargs)
+        elif fmt in ("html", "png", "jpg", "webp", "svg", "pdf"):
+            return self.to_image(fmt=fmt, **kwargs)
         else:
             raise KeyError("Unknown output format")
 
