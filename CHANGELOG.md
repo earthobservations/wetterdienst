@@ -9,6 +9,7 @@
 - Explorer: Add download button for plot
 - Split up plotting extras into `plotting` and `matplotlib`
 - Interpolation/Summary: Add dataset to DataFrame
+- Add plotting capabilities
 
 ### Refactor
 - Update docker image extras
