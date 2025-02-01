@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.103.0 - 2025-02-02
+
 ### Feature
 - Stripes: Replace matplotlib by plotly
 - Explorer: Add download button for plot

@@ -3860,7 +3860,7 @@ wheels = [
 
 [[package]]
 name = "wetterdienst"
-version = "0.102.0"
+version = "0.103.0"
 source = { editable = "." }
 dependencies = [
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'" },
@@ -3944,13 +3944,15 @@ interpolation = [
     { name = "shapely" },
     { name = "utm" },
 ]
+matplotlib = [
+    { name = "matplotlib" },
+]
 mysql = [
     { name = "mysqlclient" },
     { name = "pandas" },
 ]
 plotting = [
     { name = "kaleido" },
-    { name = "matplotlib" },
     { name = "plotly" },
 ]
 postgresql = [
@@ -4012,7 +4014,7 @@ requires-dist = [
     { name = "markdown-exec", extras = ["ansi"], marker = "extra == 'docs'", specifier = ">=1.10.0,<2" },
     { name = "markdown-include", marker = "extra == 'docs'", specifier = ">=0.8.1,<1" },
     { name = "matplotlib", marker = "extra == 'docs'", specifier = ">=3.3,<4" },
-    { name = "matplotlib", marker = "extra == 'plotting'", specifier = ">=3.3,<4" },
+    { name = "matplotlib", marker = "extra == 'matplotlib'", specifier = ">=3.3,<4" },
     { name = "measurement", specifier = ">=3.2,<4" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5.48,<10" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.18,<1" },
