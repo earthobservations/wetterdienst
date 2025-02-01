@@ -290,50 +290,48 @@ class StationsResult(ExportMixin):
 
     def to_plot(self, **_kwargs) -> go.Figure:
         """Create a plotly figure from the stations DataFrame."""
-        import plotly.graph_objects as go
+        try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+        except ImportError as e:
+            raise ImportError(
+                "To use this method, please install the optional dependencies for plotly: "
+                "pip install wetterdienst[plotting]"
+            ) from e
 
-        if self.df.is_empty():
+        df = self.df
+        if df.is_empty():
             return go.Figure()
-
         # Calculate bounding box
         min_lon = self.df["longitude"].min()
         max_lon = self.df["longitude"].max()
         min_lat = self.df["latitude"].min()
         max_lat = self.df["latitude"].max()
-
         # Calculate center of the bounding box
         center_lon = (min_lon + max_lon) / 2
         center_lat = (min_lat + max_lat) / 2
-
         # Calculate zoom level
         lat_diff = max_lat - min_lat
         zoom = 12 - lat_diff
-
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scattermap(
-                lon=self.df.get_column("longitude"),
-                lat=self.df.get_column("latitude"),
-                text=self.df.select(pl.concat_str(pl.col("name"), pl.lit(" ("), pl.col("station_id"), pl.lit(")"))),
-                mode="markers",
-                marker=dict(
-                    size=10,
-                    color="rgb(255, 0, 0)",
-                ),
-            )
+        df = df.with_columns(
+            pl.concat_str(
+                pl.col("name"),
+                pl.lit(" ("),
+                pl.col("station_id"),
+                pl.lit(")"),
+            ).alias("name"),
         )
-        fig.update_layout(
-            showlegend=False,
-            map=dict(
-                center=dict(
-                    lat=center_lat,
-                    lon=center_lon,
-                ),
-                zoom=zoom,
+        return px.scatter_map(
+            df,
+            lat="latitude",
+            lon="longitude",
+            text="name",
+            zoom=zoom,
+            center=dict(
+                lat=center_lat,
+                lon=center_lon,
             ),
-            margin=dict(l=0, r=0, t=0, b=0),
         )
-        return fig
 
     def _to_image(
         self,
@@ -503,47 +501,64 @@ class ValuesResult(_ValuesResult):
 
     def to_plot(self, **_kwargs) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
+        try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+        except ImportError as e:
+            raise ImportError(
+                "To use this method, please install the optional dependencies for plotly: "
+                "pip install wetterdienst[plotting]"
+            ) from e
 
+        df = self.df
+        if df.is_empty():
+            return go.Figure()
         # create unit mapping for title
         units = {
             parameter.name: self.values.unit_converter.targets[parameter.unit_type].symbol
             for parameter in self.values.sr.parameters
         }
         # used for subplots
-        n = self.df.select(["dataset", "parameter"]).n_unique()
+        n = df.select(["dataset", "parameter"]).n_unique()
         # used for name
-        n_datasets = self.df["dataset"].n_unique()
-        fig = make_subplots(rows=n, shared_xaxes=True, vertical_spacing=0.01)
-        titles = []
-        for i, (
-            (
-                dataset,
-                parameter,
-            ),
-            df_group,
-        ) in enumerate(self.df.group_by(["dataset", "parameter"], maintain_order=True)):
-            dataset_prefix = f"{dataset}/<br>" if n_datasets > 1 else ""
-            titles.append(f"{dataset_prefix}{parameter} ({units[parameter]})")
-            fig.add_trace(
-                go.Scatter(
-                    x=df_group["date"],
-                    y=df_group["value"],
-                    mode="markers",
-                    marker=go.scatter.Marker(colorscale="Viridis"),
-                ),
-                row=i + 1,
-                col=1,
+        n_datasets = df["dataset"].n_unique()
+        df = df.with_columns(
+            # add unit in brackets to parameter
+            pl.concat_str(
+                pl.col("parameter"),
+                pl.lit(" ("),
+                pl.col("parameter").replace(units),
+                pl.lit(")"),
+            ).alias("parameter")
+        )
+        if n_datasets > 1:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("dataset"),
+                    pl.lit("/"),
+                    pl.col("parameter"),
+                ).alias("parameter"),
             )
-        # update subplot titles
-        for i, title in enumerate(titles):
-            fig.update_yaxes(title_text=title, row=i + 1, col=1)
-        # remove legend
-        fig.update_layout(showlegend=False)
+        fig = px.line(
+            df,
+            x="date",
+            y="value",
+            color="station_id",
+            facet_row="parameter",
+            height=300 * n,  # scale height with number of subplots
+        )
+        fig = fig.update_traces(
+            mode="markers+lines",
+        )
+        fig = fig.update_yaxes(matches=None)
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
         fig.update_layout(
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.01,
+            },
             margin=dict(l=10, r=10, t=10, b=10),
-            height=300 * n,  # important to scale height with number of subplots
         )
         return fig
 
@@ -658,47 +673,66 @@ class InterpolatedValuesResult(_ValuesResult):
 
     def to_plot(self, **_kwargs) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
+        try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+        except ImportError as e:
+            raise ImportError(
+                "To use this method, please install the optional dependencies for plotly: "
+                "pip install wetterdienst[plotting]"
+            ) from e
 
+        df = self.df
+        if df.is_empty():
+            return go.Figure()
         # create unit mapping for title
         units = {
             parameter.name: self.stations.values.unit_converter.targets[parameter.unit_type].symbol
             for parameter in self.stations.parameters
         }
         # used for subplots
-        n = self.df.select(["dataset", "parameter"]).n_unique()
+        n = df.select(["dataset", "parameter"]).n_unique()
         # used for name
-        n_datasets = self.df["dataset"].n_unique()
-        fig = make_subplots(rows=n, shared_xaxes=True, vertical_spacing=0.01)
-        titles = []
-        for i, (
-            (
-                dataset,
-                parameter,
-            ),
-            df_group,
-        ) in enumerate(self.df.group_by(["dataset", "parameter"], maintain_order=True)):
-            dataset_prefix = f"{dataset}/<br>" if n_datasets > 1 else ""
-            titles.append(f"{dataset_prefix}{parameter} ({units[parameter]})")
-            fig.add_trace(
-                go.Scatter(
-                    x=df_group["date"],
-                    y=df_group["value"],
-                    mode="markers",
-                    marker=go.scatter.Marker(colorscale="Viridis"),
-                ),
-                row=i + 1,
-                col=1,
+        n_datasets = df["dataset"].n_unique()
+        df = df.with_columns(
+            # add unit in brackets to parameter
+            pl.concat_str(
+                pl.col("parameter"),
+                pl.lit(" ("),
+                pl.col("parameter").replace(units),
+                pl.lit(")"),
+            ).alias("parameter"),
+            pl.col("taken_station_ids").list.join(",").alias("taken_station_ids"),
+        )
+        if n_datasets > 1:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("dataset"),
+                    pl.lit("/"),
+                    pl.col("parameter"),
+                ).alias("parameter"),
             )
-        # update subplot titles
-        for i, title in enumerate(titles):
-            fig.update_yaxes(title_text=title, row=i + 1, col=1)
-        # remove legend
-        fig.update_layout(showlegend=False)
+        fig = px.line(
+            df,
+            x="date",
+            y="value",
+            color="station_id",
+            facet_row="parameter",
+            height=300 * n,  # scale height with number of subplots
+            text="taken_station_ids",
+        )
+        fig = fig.update_traces(
+            mode="markers+lines",
+        )
+        fig = fig.update_yaxes(matches=None)
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
         fig.update_layout(
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.01,
+            },
             margin=dict(l=10, r=10, t=10, b=10),
-            height=300 * n,  # important to scale height with number of subplots
         )
         return fig
 
@@ -808,51 +842,65 @@ class SummarizedValuesResult(_ValuesResult):
 
     def to_plot(self, **_kwargs) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
+        try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+        except ImportError as e:
+            raise ImportError(
+                "To use this method, please install the optional dependencies for plotly: "
+                "pip install wetterdienst[plotting]"
+            ) from e
 
-        if self.df.is_empty():
+        df = self.df
+        if df.is_empty():
             return go.Figure()
-
         # create unit mapping for title
         units = {
             parameter.name: self.stations.values.unit_converter.targets[parameter.unit_type].symbol
-            for parameter in self.stations.stations.parameters
+            for parameter in self.stations.parameters
         }
         # used for subplots
-        n = self.df.select(["parameter"]).n_unique()
+        n = df.select(["dataset", "parameter"]).n_unique()
         # used for name
-        n_datasets = self.df["dataset"].n_unique()
-        # used for name
-        fig = make_subplots(rows=n, shared_xaxes=True, vertical_spacing=0.01)
-        titles = []
-        for i, (
-            (
-                dataset,
-                parameter,
-            ),
-            df_group,
-        ) in enumerate(self.df.group_by(["dataset", "parameter"], maintain_order=True)):
-            dataset_prefix = f"{dataset}/<br>" if n_datasets > 1 else ""
-            titles.append(f"{dataset_prefix}{parameter} ({units[parameter]})")
-            fig.add_trace(
-                go.Scatter(
-                    x=df_group["date"],
-                    y=df_group["value"],
-                    mode="markers",
-                    marker=go.scatter.Marker(colorscale="Viridis"),
-                ),
-                row=i + 1,
-                col=1,
+        n_datasets = df["dataset"].n_unique()
+        df = df.with_columns(
+            # add unit in brackets to parameter
+            pl.concat_str(
+                pl.col("parameter"),
+                pl.lit(" ("),
+                pl.col("parameter").replace(units),
+                pl.lit(")"),
+            ).alias("parameter"),
+        )
+        if n_datasets > 1:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("dataset"),
+                    pl.lit("/"),
+                    pl.col("parameter"),
+                ).alias("parameter"),
             )
-        # update subplot titles
-        for i, title in enumerate(titles):
-            fig.update_yaxes(title_text=title, row=i + 1, col=1)
-        # remove legend
-        fig.update_layout(showlegend=False)
+        fig = px.line(
+            df,
+            x="date",
+            y="value",
+            color="station_id",
+            facet_row="parameter",
+            height=300 * n,  # scale height with number of subplots
+            text="taken_station_id",
+        )
+        fig = fig.update_traces(
+            mode="markers+lines",
+        )
+        fig = fig.update_yaxes(matches=None)
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
         fig.update_layout(
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.01,
+            },
             margin=dict(l=10, r=10, t=10, b=10),
-            height=300 * n,  # important to scale height with number of subplots
         )
         return fig
 

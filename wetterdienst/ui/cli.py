@@ -1000,7 +1000,7 @@ def values(
     cloup.option(
         "--format",
         "fmt",
-        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
+        type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
@@ -1125,7 +1125,7 @@ def interpolate(
     cloup.option(
         "--format",
         "fmt",
-        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
+        type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
         default="json",
     ),
     cloup.option("--target", type=click.STRING),

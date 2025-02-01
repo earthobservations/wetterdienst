@@ -165,3 +165,68 @@ def test_cli_summarize_custom_units():
             "taken_station_id": "00071",
         },
     ]
+
+
+@pytest.mark.parametrize(
+    "fmt",
+    [
+        "png",
+        "jpg",
+        "webp",
+        "svg",
+    ],
+)
+def test_cli_summarize_image(fmt):
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "summarize",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31/1986-11-01",
+            "--format=json",
+            f"--format={fmt}",
+        ],
+    )
+    assert "Error" not in result.output
+    assert result.exit_code == 0
+
+
+@pytest.mark.remote
+def test_cli_summarize_image_html():
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "summarize",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary/temperature_air_mean_2m",
+            "--date=2020-06-30",
+            "--station=01048",
+            "--format=html",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "html" in result.output
+
+
+@pytest.mark.remote
+def test_cli_summarize_image_pdf():
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "summarize",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary/temperature_air_mean_2m",
+            "--date=2020-06-30",
+            "--station=01048",
+            "--format=pdf",
+        ],
+    )
+    assert result.exit_code == 0
