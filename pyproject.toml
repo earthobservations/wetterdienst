@@ -102,7 +102,7 @@ dependencies = [
   "stamina>=23,<25",
   "tabulate>=0.8,<1",
   "tqdm>=4,<5",
-  "tzdata>=2024.2,<2025",
+  "tzdata>=2024.2,<2026",
   "tzfpy>=0.15.2,<1",
 ]
 
@@ -134,14 +134,14 @@ explorer = [
 export = [
   "pandas>=2,<3",
   "sqlalchemy>=2,<3",
-  "xarray>=2023.1,<2025",
+  "xarray>=2023.1,<2026",
   "xlsxwriter>=3.0.9,<4",
-  "zarr>=2.13,<3",
+  "zarr>=2.13,<4",
 ]
 export_without_zarr = [
   "pandas>=2,<3",
   "sqlalchemy>=2,<3",
-  "xarray>=2023.1,<2025",
+  "xarray>=2023.1,<2026",
   "xlsxwriter>=3.0.9,<4",
 ]
 influxdb = [
