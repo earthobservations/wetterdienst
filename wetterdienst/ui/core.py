@@ -79,33 +79,33 @@ class StationsRequest(StationsRequestRaw):
 
     @field_validator("parameters", mode="before")
     @classmethod
-    def validate_parameters(cls, v):
+    def validate_parameters(cls, v: str) -> list[str]:
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
-    def validate_periods(cls, v):
+    def validate_periods(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("station", mode="before")
     @classmethod
-    def validate_station(cls, v):
+    def validate_station(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("coordinates", mode="before")
     @classmethod
-    def validate_coordinates(cls, v):
+    def validate_coordinates(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("bbox", mode="before")
     @classmethod
-    def validate_bbox(cls, v):
+    def validate_bbox(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
@@ -144,40 +144,40 @@ class ValuesRequest(ValuesRequestRaw):
 
     @field_validator("parameters", mode="before")
     @classmethod
-    def validate_parameters(cls, v):
+    def validate_parameters(cls, v: str) -> list[str]:
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
-    def validate_periods(cls, v):
+    def validate_periods(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("station", mode="before")
     @classmethod
-    def validate_station(cls, v):
+    def validate_station(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("coordinates", mode="before")
     @classmethod
-    def validate_coordinates(cls, v):
+    def validate_coordinates(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("bbox", mode="before")
     @classmethod
-    def validate_bbox(cls, v):
+    def validate_bbox(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("unit_targets", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v):
+    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
         if v:
             return json.loads(v)
         return None
@@ -231,40 +231,40 @@ class InterpolationRequest(InterpolationRequestRaw):
 
     @field_validator("parameters", mode="before")
     @classmethod
-    def validate_parameters(cls, v):
+    def validate_parameters(cls, v: str) -> list[str]:
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
-    def validate_periods(cls, v):
+    def validate_periods(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("station", mode="before")
     @classmethod
-    def validate_station(cls, v):
+    def validate_station(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("coordinates", mode="before")
     @classmethod
-    def validate_coordinates(cls, v):
+    def validate_coordinates(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("unit_targets", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v):
+    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
         if v:
             return json.loads(v)
         return None
 
     @field_validator("interpolation_station_distance", mode="before")
     @classmethod
-    def validate_interpolation_station_distance(cls, v):
+    def validate_interpolation_station_distance(cls, v: str | None) -> dict[str, float] | None:
         if v:
             return json.loads(v)
         return None
@@ -314,33 +314,33 @@ class SummaryRequest(SummaryRequestRaw):
 
     @field_validator("parameters", mode="before")
     @classmethod
-    def validate_parameters(cls, v):
+    def validate_parameters(cls, v: str) -> list[str]:
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
-    def validate_periods(cls, v):
+    def validate_periods(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("station", mode="before")
     @classmethod
-    def validate_station(cls, v):
+    def validate_station(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("coordinates", mode="before")
     @classmethod
-    def validate_coordinates(cls, v):
+    def validate_coordinates(cls, v: str | None) -> list[str] | None:
         if v:
             return read_list(v)
         return None
 
     @field_validator("unit_targets", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v):
+    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
         if v:
             return json.loads(v)
         return None
@@ -377,11 +377,11 @@ def unpack_parameters(parameter: str) -> list[str]:
 
 
 def _get_stations_request(
-    api,
+    api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
     date: str | None,
     settings: Settings,
-):
+) -> TimeseriesRequest:
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
@@ -423,10 +423,10 @@ def _get_stations_request(
 
 
 def get_stations(
-    api,
+    api: TimeseriesRequest,
     request: StationsRequest | ValuesRequest | InterpolationRequest,
     date: str | None,
-    settings,
+    settings: Settings,
 ) -> StationsResult:
     """Core function for querying stations via cli and restapi"""
     r = _get_stations_request(api=api, request=request, date=date, settings=settings)
@@ -548,7 +548,7 @@ def get_summarize(
     return values_
 
 
-def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL):
+def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
         parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
@@ -556,7 +556,7 @@ def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL):
     )
 
 
-def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL):
+def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
         parameters=[("annual", "precipitation_more", "precipitation_height")],
@@ -576,7 +576,7 @@ CLIMATE_STRIPES_CONFIG = {
 }
 
 
-def _get_stripes_stations(kind: Literal["temperature", "precipitation"], active: bool = True):
+def _get_stripes_stations(kind: Literal["temperature", "precipitation"], active: bool = True) -> StationsResult:
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]
     stations = request(periods=Period.HISTORICAL).all()
     if active:
@@ -721,7 +721,7 @@ def _plot_stripes(
     return fig
 
 
-def set_logging_level(debug: bool):
+def set_logging_level(debug: bool) -> None:
     # Setup logging.
     log_level = logging.INFO
 

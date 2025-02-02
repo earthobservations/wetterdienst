@@ -52,7 +52,7 @@ def request_weather_data(
     distance: float,
     start_date: dt.datetime,
     end_date: dt.datetime,
-):
+) -> Data:
     stations = DwdObservationRequest(
         parameters=parameters,
         start_date=start_date,
@@ -91,7 +91,7 @@ def request_weather_data(
     )
 
 
-def interpolate_data(latitude: float, longitude: float, data: Data):
+def interpolate_data(latitude: float, longitude: float, data: Data) -> None:
     # function for bilinear interpolation
     f = interpolate.LinearNDInterpolator(points=list(zip(data.utm_x, data.utm_y)), values=data.values)
     x, y, _, _ = utm.from_latlon(latitude, longitude)
@@ -106,7 +106,7 @@ def interpolate_data(latitude: float, longitude: float, data: Data):
     data.colors.append("red")
 
 
-def visualize_points(data: Data):
+def visualize_points(data: Data) -> None:
     try:
         import plotly.graph_objects as go
     except ImportError as e:
@@ -137,7 +137,7 @@ def visualize_points(data: Data):
         fig.show()
 
 
-def main():
+def main() -> None:
     parameters = [("hourly", "temperature_air", "temperature_air_mean_2m")]
     latitude = 50.0
     longitude = 8.9

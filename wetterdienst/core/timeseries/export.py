@@ -38,18 +38,18 @@ class ExportMixin:
         return self.df
 
     @abstractmethod
-    def to_dict(self, *args, **kwargs) -> dict:
+    def to_dict(self, *args: tuple, **kwargs: dict) -> dict:
         pass
 
     @abstractmethod
-    def to_json(self, *args, **kwargs) -> str:
+    def to_json(self, *args: tuple, **kwargs: dict) -> str:
         pass
 
     @abstractmethod
-    def to_ogc_feature_collection(self, *args, **kwargs) -> dict:
+    def to_ogc_feature_collection(self, *args: tuple, **kwargs: dict) -> dict:
         pass
 
-    def to_geojson(self, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs) -> str:
+    def to_geojson(self, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs: dict) -> str:
         """
         Convert station information into GeoJSON format
         :param with_metadata: Include metadata in GeoJSON output
@@ -64,7 +64,7 @@ class ExportMixin:
         json_kwargs = {"indent": indent, "ensure_ascii": False}
         return json.dumps(self.to_ogc_feature_collection(with_metadata=with_metadata), **json_kwargs)
 
-    def to_csv(self, **kwargs) -> str:
+    def to_csv(self, **kwargs: dict) -> str:
         """
         :param kwargs: Additional arguments passed to `pl.DataFrame.write_csv`
         :return: CSV string
@@ -78,15 +78,15 @@ class ExportMixin:
         return df.write_csv(**kwargs)
 
     @abstractmethod
-    def to_plot(self, **kwargs) -> go.Figure:
+    def to_plot(self, **kwargs: dict) -> go.Figure:
         """Create a plotly figure from the DataFrame"""
         pass
 
     @abstractmethod
-    def _to_image(self, **kwargs) -> bytes | str:
+    def _to_image(self, **kwargs: dict) -> bytes | str:
         pass
 
-    def to_image(self, **kwargs) -> bytes | str:
+    def to_image(self, **kwargs: dict) -> bytes | str:
         """
         Create an image from the plotly figure
 
@@ -95,7 +95,7 @@ class ExportMixin:
         """
         return self._to_image(**kwargs)
 
-    def to_format(self, fmt: str, **kwargs) -> str | bytes:
+    def to_format(self, fmt: str, **kwargs: dict) -> str | bytes:
         """
         Wrapper to create output based on a format string
 
@@ -134,7 +134,7 @@ class ExportMixin:
         df = duckdb.sql(sql).pl()
         return df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
 
-    def to_target(self, target: str):
+    def to_target(self, target: str) -> None:
         """
         Emit Pandas DataFrame to target. A target
         is identified by a connection string.

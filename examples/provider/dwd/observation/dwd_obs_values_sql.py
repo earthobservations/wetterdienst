@@ -26,7 +26,7 @@ from wetterdienst.provider.dwd.observation import (
 log = logging.getLogger()
 
 
-def values_sql_example():
+def values_sql_example() -> None:
     """Retrieve temperature data by DWD and filter by sql statement."""
     settings = Settings(ts_shape="long", ts_humanize=True, ts_convert_units=False)
 
@@ -51,7 +51,7 @@ def values_sql_example():
     print(results.df)
 
 
-def main():
+def main() -> None:
     """Run example."""
     logging.basicConfig(level=logging.INFO)
     values_sql_example()

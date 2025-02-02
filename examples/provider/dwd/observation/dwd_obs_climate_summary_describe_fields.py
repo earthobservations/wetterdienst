@@ -18,7 +18,7 @@ from wetterdienst.provider.dwd.observation import (
 log = logging.getLogger()
 
 
-def fields_example():
+def fields_example() -> None:
     """Print DWD field examples for one specification."""
     # Output in JSON format.
     # import json; print(json.dumps(metadata.describe_fields(), indent=4))  # noqa: E800, ERA001
@@ -44,7 +44,7 @@ def fields_example():
     )
 
 
-def main():
+def main() -> None:
     """Run example."""
     logging.basicConfig(level=logging.INFO)
     fields_example()

@@ -35,13 +35,13 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: xr.DataArray):
+def plot(data: xr.DataArray) -> None:
     """Plot radar data with prefixed settings."""
     fig = plt.figure(figsize=(10, 8))
     data.wrl.vis.plot(fig=fig, crs="cg")
 
 
-def radar_info(data: dict):
+def radar_info(data: dict) -> None:
     """Display data from radar request."""
     print("Keys:", data.keys())
 
@@ -50,7 +50,7 @@ def radar_info(data: dict):
         print(f"- {key}: {value}")
 
 
-def radar_hdf5_example():
+def radar_hdf5_example() -> None:
     """Retrieve HDF5 data by DWD as example."""
     log.info("Acquiring radar sweep data in HDF5")
     request = DwdRadarValues(
@@ -81,7 +81,7 @@ def radar_hdf5_example():
             plt.show()
 
 
-def main():
+def main() -> None:
     """Run example."""
     radar_hdf5_example()
 

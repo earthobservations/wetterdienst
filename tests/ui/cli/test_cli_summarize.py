@@ -7,7 +7,7 @@ from wetterdienst.ui.cli import cli
 
 
 @pytest.mark.remote
-def test_cli_summarize_no_metadata_no_stations():
+def test_cli_summarize_no_metadata_no_stations() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -50,7 +50,7 @@ def test_cli_summarize_no_metadata_no_stations():
 
 
 @pytest.mark.remote
-def test_cli_summarize_geojson(metadata):
+def test_cli_summarize_geojson(metadata: dict) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -124,7 +124,7 @@ def test_cli_summarize_geojson(metadata):
 
 
 @pytest.mark.remote
-def test_cli_summarize_custom_units():
+def test_cli_summarize_custom_units() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -176,7 +176,7 @@ def test_cli_summarize_custom_units():
         "svg",
     ],
 )
-def test_cli_summarize_image(fmt):
+def test_cli_summarize_image(fmt: str) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -196,7 +196,7 @@ def test_cli_summarize_image(fmt):
 
 
 @pytest.mark.remote
-def test_cli_summarize_image_html():
+def test_cli_summarize_image_html() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -215,7 +215,7 @@ def test_cli_summarize_image_html():
 
 
 @pytest.mark.remote
-def test_cli_summarize_image_pdf():
+def test_cli_summarize_image_pdf() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,

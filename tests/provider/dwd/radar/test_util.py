@@ -15,7 +15,7 @@ HDF5_EXAMPLE = (
 )
 
 
-def test_radar_get_date_from_filename():
+def test_radar_get_date_from_filename() -> None:
     date = get_date_from_filename(
         "sweep_pcp_v_0-20200926143033_10132--buf.bz2",
         pattern=RADAR_DT_PATTERN,
@@ -53,7 +53,7 @@ def test_radar_get_date_from_filename():
 
 
 @pytest.mark.remote
-def test_radar_verify_hdf5_valid():
+def test_radar_verify_hdf5_valid() -> None:
     pytest.importorskip("h5py", reason="h5py not installed")
     httpfs = HTTPFileSystem()
 
@@ -62,7 +62,7 @@ def test_radar_verify_hdf5_valid():
     verify_hdf5(buffer)
 
 
-def test_radar_verify_hdf5_invalid():
+def test_radar_verify_hdf5_invalid() -> None:
     pytest.importorskip("h5py", reason="h5py not installed")
 
     with pytest.raises(Exception) as exec_info:

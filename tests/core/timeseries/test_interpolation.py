@@ -21,7 +21,7 @@ pytestmark = pytest.mark.slow
 
 
 @pytest.fixture
-def df_interpolated_empty():
+def df_interpolated_empty() -> pl.DataFrame:
     return pl.DataFrame(
         schema={
             Columns.STATION_ID.value: pl.String,
@@ -36,7 +36,7 @@ def df_interpolated_empty():
 
 
 @pytest.mark.remote
-def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings):
+def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")],
         start_date=dt.datetime(2020, 1, 1),
@@ -65,7 +65,7 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
 
 
 @pytest.mark.remote
-def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_settings):
+def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=dt.datetime(1986, 10, 31),
@@ -106,7 +106,7 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
 
 
 @pytest.mark.remote
-def test_interpolation_precipitation_height_minute_10(default_settings):
+def test_interpolation_precipitation_height_minute_10(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("minute_10", "precipitation", "precipitation_height")],
         start_date=dt.datetime(2021, 10, 1),
@@ -134,7 +134,7 @@ def test_interpolation_precipitation_height_minute_10(default_settings):
     assert_frame_equal(given_df, expected_df)
 
 
-def test_not_interpolatable_parameter(default_settings, df_interpolated_empty):
+def test_not_interpolatable_parameter(default_settings: Settings, df_interpolated_empty: pl.DataFrame) -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "wind", "wind_direction")],
         start_date=dt.datetime(2020, 1, 1),
@@ -150,7 +150,7 @@ def test_not_interpolatable_parameter(default_settings, df_interpolated_empty):
     )
 
 
-def test_not_interpolatable_dataset(default_settings, df_interpolated_empty):
+def test_not_interpolatable_dataset(default_settings: Settings, df_interpolated_empty: pl.DataFrame) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "precipitation_form")],
         start_date=dt.datetime(2022, 1, 1),
@@ -167,7 +167,7 @@ def test_not_interpolatable_dataset(default_settings, df_interpolated_empty):
 
 
 @pytest.mark.remote
-def test_provider_dwd_mosmix(default_settings):
+def test_provider_dwd_mosmix(default_settings: Settings) -> None:
     request = DwdMosmixRequest(
         parameters=[("hourly", "small", "temperature_air_mean_2m")],
         start_date=dt.datetime.today() + dt.timedelta(days=1),
@@ -178,7 +178,7 @@ def test_provider_dwd_mosmix(default_settings):
     assert given_df.get_column("value").min() >= -40  # equals -40.0°C
 
 
-def test_interpolation_temperature_air_mean_2m_daily_three_floats(default_settings):
+def test_interpolation_temperature_air_mean_2m_daily_three_floats(default_settings: Settings) -> None:
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=dt.datetime(2020, 1, 1),
@@ -190,7 +190,7 @@ def test_interpolation_temperature_air_mean_2m_daily_three_floats(default_settin
     assert exec_info.match("too many values to unpack")
 
 
-def test_interpolation_temperature_air_mean_2m_daily_one_floats(default_settings):
+def test_interpolation_temperature_air_mean_2m_daily_one_floats(default_settings: Settings) -> None:
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=dt.datetime(2020, 1, 1),
@@ -202,7 +202,7 @@ def test_interpolation_temperature_air_mean_2m_daily_one_floats(default_settings
     assert exec_info.match("not enough values to unpack")
 
 
-def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_settings):
+def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_settings: Settings) -> None:
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=dt.datetime(2020, 1, 1),
@@ -214,7 +214,7 @@ def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_se
     assert exec_info.match("no station found for 00000")
 
 
-def test_interpolation_increased_station_distance():
+def test_interpolation_increased_station_distance() -> None:
     settings = Settings(ts_interpolation_station_distance={"precipitation_height": 25})
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_height")],
@@ -226,7 +226,7 @@ def test_interpolation_increased_station_distance():
     assert values.df.get_column("value").sum() == 21.07
 
 
-def test_interpolation_error_no_start_date():
+def test_interpolation_error_no_start_date() -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_height")],
     )

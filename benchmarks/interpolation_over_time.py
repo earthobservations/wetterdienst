@@ -53,7 +53,9 @@ def get_corr(regular_values: pl.Series, interpolated_values: pl.Series) -> float
     ).item()
 
 
-def visualize(parameter: tuple[str, str, str], unit: str, regular_df: pl.DataFrame, interpolated_df: pl.DataFrame):
+def visualize(
+    parameter: tuple[str, str, str], unit: str, regular_df: pl.DataFrame, interpolated_df: pl.DataFrame
+) -> None:
     try:
         import plotly.graph_objects as go
     except ImportError as e:
@@ -95,7 +97,7 @@ def visualize(parameter: tuple[str, str, str], unit: str, regular_df: pl.DataFra
         fig.show()
 
 
-def main():
+def main() -> None:
     parameter = ("hourly", "air_temperature", "temperature_air_mean_2m")
     unit = "K"
     start_date = dt.datetime(2022, 3, 1)

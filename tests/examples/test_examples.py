@@ -1,12 +1,14 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from pathlib import Path
+
 import pytest
 
 from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX
 
 
 @pytest.mark.cflake
-def test_examples():
+def test_examples() -> None:
     from examples.provider.dwd.mosmix import dwd_mosmix_forecasts
     from examples.provider.dwd.observation import (
         dwd_obs_climate_summary_duckdb_dump,
@@ -34,14 +36,14 @@ def test_examples():
 
 @pytest.mark.xfail
 @pytest.mark.cflake
-def test_examples_failing_describe_fields():
+def test_examples_failing_describe_fields() -> None:
     from examples.provider.dwd.observation import dwd_obs_climate_summary_describe_fields
 
     assert dwd_obs_climate_summary_describe_fields.main() is None
 
 
 @pytest.mark.skipif(not ENSURE_ECCODES_PDBUFR, reason="eccodes and pdbufr required")
-def test_pdbufr_examples():
+def test_pdbufr_examples() -> None:
     from examples.provider.dwd.road import dwd_road_validation
 
     assert dwd_road_validation.main() is None
@@ -49,14 +51,14 @@ def test_pdbufr_examples():
 
 @pytest.mark.skipif(IS_CI and IS_LINUX, reason="stalls on Mac/Windows in CI")
 @pytest.mark.cflake
-def test_gaussian_example(tmp_path):
+def test_gaussian_example(tmp_path: Path) -> None:
     from examples.provider.dwd.observation import dwd_obs_gaussian_model
 
     assert dwd_obs_gaussian_model.main(tmp_path) is None
 
 
 @pytest.mark.cflake
-def test_radar_examples():
+def test_radar_examples() -> None:
     pytest.importorskip("wradlib")
 
     from examples.provider.dwd.radar import (

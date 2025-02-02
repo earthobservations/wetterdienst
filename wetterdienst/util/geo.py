@@ -2,6 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import polars as pl
 from sklearn.neighbors import BallTree
@@ -10,7 +12,7 @@ from sklearn.neighbors import BallTree
 class Coordinates:
     """Class for storing and retrieving coordinates"""
 
-    def __init__(self, latitudes: np.array, longitudes: np.array):
+    def __init__(self, latitudes: np.array, longitudes: np.array) -> None:
         """
         Args:
             latitudes: latitudes in degree
@@ -29,7 +31,7 @@ class Coordinates:
         """
         return np.array([self.latitudes, self.longitudes]).T
 
-    def get_coordinates_in_radians(self):
+    def get_coordinates_in_radians(self) -> np.array:
         """
         Returns: coordinates in radians where the first column is the latitudes
          and the second column the longitudes
@@ -37,7 +39,7 @@ class Coordinates:
         """
         return np.radians(self.get_coordinates())
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:  # noqa: ANN401
         return np.array_equal(self.latitudes, other.latitudes) and np.array_equal(self.longitudes, other.longitudes)
 
 

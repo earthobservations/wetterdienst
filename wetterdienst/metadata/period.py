@@ -3,6 +3,7 @@
 
 import functools
 from enum import Enum
+from typing import Any
 
 
 class PeriodType(Enum):
@@ -14,7 +15,7 @@ class PeriodType(Enum):
 @functools.total_ordering
 class OrderedPeriod(Enum):
     @property
-    def _period_type_order_mapping(self):
+    def _period_type_order_mapping(self) -> dict["Period", int]:
         # IMPORTANT: THIS DEPENDS ON THE NAMING CONVENTIONS USED IN THE Period
         # ENUMERATION AS SHOWN BELOW
         return {
@@ -25,22 +26,22 @@ class OrderedPeriod(Enum):
             Period.FUTURE.name: 3,
         }
 
-    def __lt__(self, other):
+    def __lt__(self, other: "OrderedPeriod") -> bool:
         if self.__class__ is other.__class__:
             return self._period_type_order_mapping[self.name] < self._period_type_order_mapping[other.name]
         return NotImplemented
 
-    def __gt__(self, other):
+    def __gt__(self, other: "OrderedPeriod") -> bool:
         if self.__class__ is other.__class__:
             return self._period_type_order_mapping[self.name] > self._period_type_order_mapping[other.name]
         return NotImplemented
 
-    def __ge__(self, other):
+    def __ge__(self, other: Any) -> bool:  # noqa: ANN401
         if self.__class__ is other.__class__:
             return not self.__lt__(other)
         return NotImplemented
 
-    def __le__(self, other):
+    def __le__(self, other: "OrderedPeriod") -> bool:
         if self.__class__ is other.__class__:
             return not self.__gt__(other)
         return NotImplemented

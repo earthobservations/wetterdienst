@@ -3,6 +3,7 @@
 import polars as pl
 import pytest
 
+from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
@@ -25,7 +26,7 @@ SKIP_DATASETS = (
 
 
 @pytest.mark.remote
-def test_compare_available_dwd_datasets(default_settings):
+def test_compare_available_dwd_datasets(default_settings: Settings) -> None:
     """Test to compare the datasets made available with wetterdienst with the ones actually availabel on the DWD CDC
     server instance"""
     # similar to func list_remote_files_fsspec, but we don't want to get full depth

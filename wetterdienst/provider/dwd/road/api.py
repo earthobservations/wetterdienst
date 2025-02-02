@@ -29,6 +29,7 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 if TYPE_CHECKING:
     from io import BytesIO
 
+    from wetterdienst import Settings
     from wetterdienst.core.timeseries.result import StationsResult
 
 log = logging.getLogger(__name__)
@@ -273,7 +274,7 @@ class DwdRoadValues(TimeseriesValues):
         return self._parse_dwd_road_weather_data(filenames_and_files, parameters)
 
     @staticmethod
-    def _download_road_weather_observations(remote_files: list[str], settings) -> list[tuple[str, BytesIO]]:
+    def _download_road_weather_observations(remote_files: list[str], settings: Settings) -> list[tuple[str, BytesIO]]:
         """
         :param remote_files:    List of requested files
         :return:                List of downloaded files
@@ -436,7 +437,7 @@ class DwdRoadRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
         super().__init__(
             parameters=parameters,
             start_date=start_date,

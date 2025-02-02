@@ -3,6 +3,7 @@
 import datetime as dt
 import json
 import sqlite3
+from pathlib import Path
 from unittest import mock
 from zoneinfo import ZoneInfo
 
@@ -10,8 +11,10 @@ import polars as pl
 import pytest
 from surrogate import surrogate
 
+from wetterdienst import Settings
 from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.result import (
     InterpolatedValuesResult,
     StationsFilter,
@@ -26,7 +29,7 @@ from wetterdienst.provider.dwd.observation import (
 
 
 @pytest.fixture
-def dwd_climate_summary_tabular_columns():
+def dwd_climate_summary_tabular_columns() -> list[str]:
     return [
         "station_id",
         "dataset",
@@ -63,7 +66,7 @@ def dwd_climate_summary_tabular_columns():
 
 
 @pytest.fixture
-def df_stations():
+def df_stations() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
@@ -82,7 +85,7 @@ def df_stations():
 
 
 @pytest.fixture
-def stations_mock():
+def stations_mock() -> TimeseriesRequest:
     class MetadataMock:
         name_local = "Deutscher Wetterdienst"
         name_english = "German Weather Service"
@@ -97,7 +100,7 @@ def stations_mock():
 
 
 @pytest.fixture
-def stations_result_mock(df_stations, stations_mock):
+def stations_result_mock(df_stations: pl.DataFrame, stations_mock: TimeseriesRequest) -> StationsResult:
     return StationsResult(
         df=df_stations,
         df_all=df_stations,
@@ -107,7 +110,7 @@ def stations_result_mock(df_stations, stations_mock):
 
 
 @pytest.fixture
-def df_values():
+def df_values() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
@@ -172,7 +175,7 @@ def df_values():
 
 
 @pytest.fixture
-def df_interpolated_values():
+def df_interpolated_values() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
@@ -197,7 +200,7 @@ def df_interpolated_values():
 
 
 @pytest.fixture
-def df_summarized_values():
+def df_summarized_values() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
@@ -221,7 +224,7 @@ def df_summarized_values():
     )
 
 
-def test_stations_to_dict(df_stations):
+def test_stations_to_dict(df_stations: pl.DataFrame) -> None:
     data = StationsResult(
         df=df_stations,
         df_all=df_stations,
@@ -243,7 +246,9 @@ def test_stations_to_dict(df_stations):
     ]
 
 
-def test_stations_to_dict_with_metadata(df_stations, stations_mock, metadata):
+def test_stations_to_dict_with_metadata(
+    df_stations: pl.DataFrame, stations_mock: TimeseriesRequest, metadata: dict
+) -> None:
     data = StationsResult(
         df=df_stations,
         df_all=df_stations,
@@ -254,7 +259,7 @@ def test_stations_to_dict_with_metadata(df_stations, stations_mock, metadata):
     assert data["metadata"] == metadata
 
 
-def test_stations_to_ogc_feature_collection(df_stations):
+def test_stations_to_ogc_feature_collection(df_stations: pl.DataFrame) -> None:
     data = StationsResult(
         df=df_stations,
         df_all=df_stations,
@@ -275,7 +280,9 @@ def test_stations_to_ogc_feature_collection(df_stations):
     }
 
 
-def test_stations_to_ogc_feature_collection_with_metadata(df_stations, stations_mock, metadata):
+def test_stations_to_ogc_feature_collection_with_metadata(
+    df_stations: pl.DataFrame, stations_mock: TimeseriesRequest, metadata: dict
+) -> None:
     data = StationsResult(
         df=df_stations,
         df_all=df_stations,
@@ -286,7 +293,7 @@ def test_stations_to_ogc_feature_collection_with_metadata(df_stations, stations_
     assert data["metadata"] == metadata
 
 
-def test_stations_format_json(df_stations):
+def test_stations_format_json(df_stations: pl.DataFrame) -> None:
     """Test export of DataFrame to json"""
     output = StationsResult(
         df=df_stations,
@@ -300,7 +307,7 @@ def test_stations_format_json(df_stations):
     assert "01048" in station_ids
 
 
-def test_stations_format_geojson(df_stations, stations_mock):
+def test_stations_format_geojson(df_stations: pl.DataFrame, stations_mock: TimeseriesRequest) -> None:
     """Test export of DataFrame to geojson"""
     output = StationsResult(
         df=df_stations,
@@ -314,7 +321,7 @@ def test_stations_format_geojson(df_stations, stations_mock):
     assert "Freyung vorm Wald" in station_names
 
 
-def test_stations_format_csv(df_stations):
+def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
     """Test export of DataFrame to csv"""
     output = (
         StationsResult(
@@ -334,7 +341,7 @@ def test_stations_format_csv(df_stations):
     )
 
 
-def test_values_to_dict(df_values):
+def test_values_to_dict(df_values: pl.DataFrame) -> None:
     data = ValuesResult(stations=None, values=None, df=df_values[0, :]).to_dict()
     assert data.keys() == {"values"}
     assert data["values"] == [
@@ -349,13 +356,15 @@ def test_values_to_dict(df_values):
     ]
 
 
-def test_values_to_dict_with_metadata(df_values, stations_result_mock, metadata):
+def test_values_to_dict_with_metadata(
+    df_values: pl.DataFrame, stations_result_mock: StationsResult, metadata: dict
+) -> None:
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_dict(with_metadata=True)
     assert data.keys() == {"values", "metadata"}
     assert data["metadata"] == metadata
 
 
-def test_values_to_ogc_feature_collection(df_values, stations_result_mock):
+def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_result_mock: StationsResult) -> None:
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection()
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
@@ -380,7 +389,9 @@ def test_values_to_ogc_feature_collection(df_values, stations_result_mock):
     }
 
 
-def test_values_to_ogc_feature_collection_with_metadata(df_values, stations_result_mock, metadata):
+def test_values_to_ogc_feature_collection_with_metadata(
+    df_values: pl.DataFrame, stations_result_mock: StationsResult, metadata: dict
+) -> None:
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection(
         with_metadata=True,
     )
@@ -388,7 +399,7 @@ def test_values_to_ogc_feature_collection_with_metadata(df_values, stations_resu
     assert data["metadata"] == metadata
 
 
-def test_values_format_json(df_values):
+def test_values_format_json(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to json"""
     output = ValuesResult(stations=None, values=None, df=df_values).to_json()
     response = json.loads(output)
@@ -397,7 +408,7 @@ def test_values_format_json(df_values):
     assert "01048" in station_ids
 
 
-def test_values_format_geojson(df_values, stations_result_mock):
+def test_values_format_geojson(df_values: pl.DataFrame, stations_result_mock: StationsResult) -> None:
     """Test export of DataFrame to geojson"""
     output = ValuesResult(df=df_values, stations=stations_result_mock, values=None).to_geojson()
     response = json.loads(output)
@@ -412,7 +423,7 @@ def test_values_format_geojson(df_values, stations_result_mock):
     }
 
 
-def test_values_format_csv(df_values):
+def test_values_format_csv(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to csv"""
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv().strip()
     lines = output.split("\n")
@@ -420,14 +431,14 @@ def test_values_format_csv(df_values):
     assert lines[-1] == "01048,climate_summary,temperature_air_max_2m,2022-01-01T00:00:00+00:00,4.0,"
 
 
-def test_values_format_csv_kwargs(df_values):
+def test_values_format_csv_kwargs(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to csv"""
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv(include_header=False).strip()
     lines = output.split("\n")
     assert lines[0] == "01048,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00+00:00,1.3,"
 
 
-def test_interpolated_values_to_dict(df_interpolated_values):
+def test_interpolated_values_to_dict(df_interpolated_values: pl.DataFrame) -> None:
     data = InterpolatedValuesResult(stations=None, df=df_interpolated_values, latlon=(1, 2)).to_dict()
     assert data.keys() == {"values"}
     assert data["values"] == [
@@ -442,7 +453,9 @@ def test_interpolated_values_to_dict(df_interpolated_values):
     ]
 
 
-def test_interpolated_values_to_dict_with_metadata(df_interpolated_values, stations_result_mock, metadata):
+def test_interpolated_values_to_dict_with_metadata(
+    df_interpolated_values: pl.DataFrame, stations_result_mock: StationsResult, metadata: dict
+) -> None:
     data = InterpolatedValuesResult(stations=stations_result_mock, df=df_interpolated_values, latlon=(1, 2)).to_dict(
         with_metadata=True,
     )
@@ -450,7 +463,9 @@ def test_interpolated_values_to_dict_with_metadata(df_interpolated_values, stati
     assert data["metadata"] == metadata
 
 
-def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, stations_result_mock):
+def test_interpolated_values_to_ogc_feature_collection(
+    df_interpolated_values: pl.DataFrame, stations_result_mock: StationsResult
+) -> None:
     data = InterpolatedValuesResult(
         stations=stations_result_mock,
         df=df_interpolated_values,
@@ -487,10 +502,10 @@ def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, s
 
 
 def test_interpolated_values_to_ogc_feature_collection_with_metadata(
-    df_interpolated_values,
-    stations_result_mock,
-    metadata,
-):
+    df_interpolated_values: pl.DataFrame,
+    stations_result_mock: StationsResult,
+    metadata: dict,
+) -> None:
     data = InterpolatedValuesResult(
         stations=stations_result_mock,
         df=df_interpolated_values,
@@ -500,7 +515,7 @@ def test_interpolated_values_to_ogc_feature_collection_with_metadata(
     assert data["metadata"] == metadata
 
 
-def test_summarized_values_to_dict(df_summarized_values):
+def test_summarized_values_to_dict(df_summarized_values: pl.DataFrame) -> None:
     data = SummarizedValuesResult(stations=None, df=df_summarized_values, latlon=(1.2345, 2.3456)).to_dict()
     assert data.keys() == {"values"}
     assert data["values"] == [
@@ -515,7 +530,9 @@ def test_summarized_values_to_dict(df_summarized_values):
     ]
 
 
-def test_summarized_values_to_dict_with_metadata(df_summarized_values, stations_result_mock, metadata):
+def test_summarized_values_to_dict_with_metadata(
+    df_summarized_values: pl.DataFrame, stations_result_mock: StationsResult, metadata: dict
+) -> None:
     data = SummarizedValuesResult(
         stations=stations_result_mock,
         df=df_summarized_values,
@@ -525,7 +542,9 @@ def test_summarized_values_to_dict_with_metadata(df_summarized_values, stations_
     assert data["metadata"] == metadata
 
 
-def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stations_result_mock):
+def test_summarized_values_to_ogc_feature_collection(
+    df_summarized_values: pl.DataFrame, stations_result_mock: StationsResult
+) -> None:
     data = SummarizedValuesResult(
         stations=stations_result_mock,
         df=df_summarized_values,
@@ -562,10 +581,10 @@ def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stati
 
 
 def test_summarized_values_to_ogc_feature_collection_with_metadata(
-    df_summarized_values,
-    stations_result_mock,
-    metadata,
-):
+    df_summarized_values: pl.DataFrame,
+    stations_result_mock: StationsResult,
+    metadata: dict,
+) -> None:
     data = SummarizedValuesResult(
         stations=stations_result_mock,
         df=df_summarized_values,
@@ -575,7 +594,7 @@ def test_summarized_values_to_ogc_feature_collection_with_metadata(
     assert data["metadata"] == metadata
 
 
-def test_filter_by_date(df_values):
+def test_filter_by_date(df_values: pl.DataFrame) -> None:
     """Test filter by date"""
     df = filter_by_date(df_values, "2019-12-28")
     assert not df.is_empty()
@@ -583,7 +602,7 @@ def test_filter_by_date(df_values):
     assert df.is_empty()
 
 
-def test_filter_by_date_interval(df_values):
+def test_filter_by_date_interval(df_values: pl.DataFrame) -> None:
     """Test filter by date interval"""
     df = filter_by_date(df_values, "2019-12-27/2019-12-29")
     assert not df.is_empty()
@@ -596,7 +615,7 @@ def test_filter_by_date_interval(df_values):
 
 
 @pytest.mark.sql
-def test_filter_by_sql(df_values):
+def test_filter_by_sql(df_values: pl.DataFrame) -> None:
     """Test filter by sql statement"""
     df = ExportMixin(df=df_values).filter_by_sql(
         sql="parameter='temperature_air_max_2m' AND value < 1.5",
@@ -609,7 +628,7 @@ def test_filter_by_sql(df_values):
 
 
 @pytest.mark.remote
-def test_request(default_settings):
+def test_request(default_settings: Settings) -> None:
     """Test general data request"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -621,7 +640,7 @@ def test_request(default_settings):
 
 
 @pytest.mark.remote
-def test_export_unknown(default_settings):
+def test_export_unknown(default_settings: Settings) -> None:
     """Test export of DataFrame to unknown format"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -637,7 +656,7 @@ def test_export_unknown(default_settings):
 
 
 @pytest.mark.remote
-def test_export_excel(tmp_path, settings_si_false_wide_shape):
+def test_export_excel(settings_si_false_wide_shape: Settings, tmp_path: Path) -> None:
     """Test export of DataFrame to spreadsheet"""
     pytest.importorskip("fastexcel")
 
@@ -763,7 +782,9 @@ def test_export_excel(tmp_path, settings_si_false_wide_shape):
 
 
 @pytest.mark.remote
-def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summary_tabular_columns):
+def test_export_parquet(
+    settings_si_false_wide_shape: Settings, dwd_climate_summary_tabular_columns: list[str], tmp_path: Path
+) -> None:
     """Test export of DataFrame to parquet"""
     pq = pytest.importorskip("pyarrow.parquet")
     # Request data.
@@ -795,7 +816,9 @@ def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
 
 
 @pytest.mark.remote
-def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary_tabular_columns):
+def test_export_zarr(
+    settings_si_false_wide_shape: Settings, dwd_climate_summary_tabular_columns: list[str], tmp_path: Path
+) -> None:
     """Test export of DataFrame to zarr"""
     zarr = pytest.importorskip("zarr")
     # Request data.
@@ -831,7 +854,9 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
 
 
 @pytest.mark.remote
-def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summary_tabular_columns):
+def test_export_feather(
+    settings_si_false_wide_shape: Settings, dwd_climate_summary_tabular_columns: list[str], tmp_path: Path
+) -> None:
     """Test export of DataFrame to feather"""
     feather = pytest.importorskip("pyarrow.feather")
     # Request data
@@ -863,7 +888,7 @@ def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
 
 
 @pytest.mark.remote
-def test_export_sqlite(tmp_path, settings_si_false_wide_shape):
+def test_export_sqlite(settings_si_false_wide_shape: Settings, tmp_path: Path) -> None:
     """Test export of DataFrame to sqlite db"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -956,8 +981,8 @@ def test_export_sqlite(tmp_path, settings_si_false_wide_shape):
 
 @pytest.mark.remote
 def test_export_cratedb(
-    settings_si_false,
-):
+    settings_si_false: Settings,
+) -> None:
     """Test export of DataFrame to cratedb"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -982,7 +1007,7 @@ def test_export_cratedb(
 
 
 @pytest.mark.remote
-def test_export_duckdb(settings_si_false, tmp_path):
+def test_export_duckdb(settings_si_false: Settings, tmp_path: Path) -> None:
     """Test export of DataFrame to duckdb"""
     import duckdb
 
@@ -1023,7 +1048,7 @@ def test_export_duckdb(settings_si_false, tmp_path):
 @pytest.mark.xfail
 @surrogate("influxdb.InfluxDBClient")
 @pytest.mark.remote
-def test_export_influxdb1_tabular(settings_si_false_wide_shape):
+def test_export_influxdb1_tabular(settings_si_false_wide_shape: Settings) -> None:
     """Test export of DataFrame to influxdb v1"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -1090,7 +1115,7 @@ def test_export_influxdb1_tabular(settings_si_false_wide_shape):
 
 @surrogate("influxdb.InfluxDBClient")
 @pytest.mark.remote
-def test_export_influxdb1_tidy(settings_si_false):
+def test_export_influxdb1_tidy(settings_si_false: Settings) -> None:
     """Test export of DataFrame to influxdb v1"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -1134,7 +1159,7 @@ def test_export_influxdb1_tidy(settings_si_false):
 @surrogate("influxdb_client.Point")
 @surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
 @pytest.mark.remote
-def test_export_influxdb2_tabular(settings_si_false):
+def test_export_influxdb2_tabular(settings_si_false: Settings) -> None:
     """Test export of DataFrame to influxdb v2"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -1160,7 +1185,7 @@ def test_export_influxdb2_tabular(settings_si_false):
 @surrogate("influxdb_client.Point")
 @surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
 @pytest.mark.remote
-def test_export_influxdb2_tidy(settings_si_false):
+def test_export_influxdb2_tidy(settings_si_false: Settings) -> None:
     """Test export of DataFrame to influxdb v2"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -1188,7 +1213,7 @@ def test_export_influxdb2_tidy(settings_si_false):
 @surrogate("influxdb_client_3.write_client_options")
 @surrogate("influxdb_client_3.write_client.client.write_api.WriteType")
 @pytest.mark.remote
-def test_export_influxdb3_tabular(settings_si_false):
+def test_export_influxdb3_tabular(settings_si_false: Settings) -> None:
     """Test export of DataFrame to influxdb v3"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -1231,7 +1256,7 @@ def test_export_influxdb3_tabular(settings_si_false):
 @surrogate("influxdb_client_3.write_client_options")
 @surrogate("influxdb_client_3.write_client.client.write_api.WriteType")
 @pytest.mark.remote
-def test_export_influxdb3_tidy(settings_si_false):
+def test_export_influxdb3_tidy(settings_si_false: Settings) -> None:
     """Test export of DataFrame to influxdb v3"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],

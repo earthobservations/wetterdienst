@@ -93,7 +93,9 @@ class HubeauValues(TimeseriesValues):
         "grandeur_hydro={grandeur_hydro}&sort=asc&size=2"
     )
 
-    def _get_hubeau_dates(self, station_id, parameter: ParameterModel) -> Iterator[tuple[dt.datetime, dt.datetime]]:
+    def _get_hubeau_dates(
+        self, station_id: str, parameter: ParameterModel
+    ) -> Iterator[tuple[dt.datetime, dt.datetime]]:
         """
         Method to get the Hubeau interval, which is roughly today - 30 days. We'll add another day on
         each end as buffer.
@@ -116,7 +118,7 @@ class HubeauValues(TimeseriesValues):
 
     def _get_dynamic_frequency(
         self,
-        station_id,
+        station_id: str,
         parameter: ParameterModel,
     ) -> tuple[int, Literal["m", "H"]]:
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.name_original)
@@ -205,7 +207,7 @@ class HubeauRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
         super().__init__(
             parameters=parameters,
             start_date=start_date,

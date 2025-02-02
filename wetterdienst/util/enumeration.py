@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from wetterdienst.exceptions import InvalidEnumerationError
-from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
     from enum import Enum
@@ -72,7 +71,3 @@ def parse_enumeration_from_template(
                 raise InvalidEnumerationError(f"{enum_parsed} could not be parsed from {base.__name__}.") from e
 
     return enum_parsed
-
-
-def parse_enumeration(values, intermediate, base=None):
-    return [parse_enumeration_from_template(x, intermediate, base) for x in to_list(values)]

@@ -5,12 +5,13 @@ import datetime as dt
 import polars as pl
 import pytest
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.provider.dwd.dmo.api import add_date_from_filename
 
 
 @pytest.fixture
-def df_files_january():
+def df_files_january() -> pl.DataFrame:
     return pl.DataFrame(
         {
             "date_str": [
@@ -23,7 +24,7 @@ def df_files_january():
 
 
 @pytest.fixture
-def df_files_two_month():
+def df_files_two_month() -> pl.DataFrame:
     return pl.DataFrame(
         {
             "date_str": [
@@ -38,7 +39,7 @@ def df_files_two_month():
 
 
 @pytest.fixture
-def df_files_end_of_month():
+def df_files_end_of_month() -> pl.DataFrame:
     return pl.DataFrame(
         {
             "date_str": [
@@ -51,7 +52,7 @@ def df_files_end_of_month():
 
 
 @pytest.mark.remote
-def test_dwd_dmo_stations(default_settings):
+def test_dwd_dmo_stations(default_settings: Settings) -> None:
     # Acquire data.
     stations = DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings)
     given_df = stations.all().df
@@ -89,7 +90,7 @@ def test_dwd_dmo_stations(default_settings):
     ]
 
 
-def test_add_date_from_filename(df_files_two_month):
+def test_add_date_from_filename(df_files_two_month: pl.DataFrame) -> None:
     df = add_date_from_filename(df_files_two_month, dt.datetime(2021, 11, 15))
     assert df.get_column("date").to_list() == [
         dt.datetime(2021, 10, 31, 12, 0),
@@ -99,7 +100,7 @@ def test_add_date_from_filename(df_files_two_month):
     ]
 
 
-def test_add_date_from_filename_early_in_month(df_files_end_of_month):
+def test_add_date_from_filename_early_in_month(df_files_end_of_month: pl.DataFrame) -> None:
     df = add_date_from_filename(df_files_end_of_month, dt.datetime(2021, 11, 1, 2))
     assert df.get_column("date").to_list() == [
         dt.datetime(2021, 10, 31, 0, 0, 0),
@@ -107,7 +108,7 @@ def test_add_date_from_filename_early_in_month(df_files_end_of_month):
     ]
 
 
-def test_add_date_from_filename_early_in_year(df_files_january):
+def test_add_date_from_filename_early_in_year(df_files_january: pl.DataFrame) -> None:
     df = add_date_from_filename(df_files_january, dt.datetime(2021, 1, 1, 1, 1, 1))
     assert df.get_column("date").to_list() == [
         dt.datetime(2020, 12, 31, 0, 0, 0),
@@ -115,7 +116,7 @@ def test_add_date_from_filename_early_in_year(df_files_january):
     ]
 
 
-def test_add_date_from_filename_too_few_dates():
+def test_add_date_from_filename_too_few_dates() -> None:
     df = pl.DataFrame(
         {
             "date_str": [

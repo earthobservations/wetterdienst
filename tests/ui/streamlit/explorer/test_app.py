@@ -12,7 +12,7 @@ from wetterdienst.ui.streamlit.explorer import app
 
 @pytest.mark.cflake
 @pytest.mark.remote
-def test_explorer():
+def test_explorer() -> None:
     app_test = AppTest.from_file(app.__file__)
     app_test.run()
     assert app_test.error == []

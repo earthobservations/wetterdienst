@@ -16,7 +16,7 @@ else:
     MonkeyPatch.patch_fromisoformat()
 
 
-def test_mktimerange_annual():
+def test_mktimerange_annual() -> None:
     assert mktimerange(Resolution.ANNUAL, dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC"))) == (
         dt.datetime.fromisoformat("2019-01-01 00:00:00+00:00"),
         dt.datetime.fromisoformat("2019-12-31 00:00:00+00:00"),
@@ -31,7 +31,7 @@ def test_mktimerange_annual():
     )
 
 
-def test_mktimerange_monthly():
+def test_mktimerange_monthly() -> None:
     assert mktimerange(Resolution.MONTHLY, dt.datetime(2020, 5, 1, tzinfo=ZoneInfo("UTC"))) == (
         dt.datetime.fromisoformat("2020-05-01 00:00:00+00:00"),
         dt.datetime.fromisoformat("2020-05-31 00:00:00+00:00"),
@@ -46,6 +46,6 @@ def test_mktimerange_monthly():
     )
 
 
-def test_mktimerange_invalid():
+def test_mktimerange_invalid() -> None:
     with pytest.raises(NotImplementedError):
         mktimerange(Resolution.DAILY, dt.datetime.fromisoformat("2020-05-01"))

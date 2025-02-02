@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import DwdRadarParameter, DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataFormat,
@@ -16,7 +17,7 @@ h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
 
 @pytest.mark.remote
-def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings):
+def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
     """
     Example for testing radar sites SWEEP_PCP with timerange.
     """
@@ -60,7 +61,7 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings):
+def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings: Settings) -> None:
     """
     Example for testing radar sites SWEEP_VOL with timerange.
     """

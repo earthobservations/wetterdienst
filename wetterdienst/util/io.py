@@ -1,6 +1,10 @@
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-def read_in_chunks(file_object, chunk_size=1024):
+from collections.abc import Iterator
+from io import BytesIO
+
+
+def read_in_chunks(file_object: BytesIO, chunk_size: int = 1024) -> Iterator[bytes]:
     """
     Lazy function (generator) to read a file piece by piece.
     Default chunk size: 1k.

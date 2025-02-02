@@ -17,64 +17,69 @@ info = Info()
 
 
 @pytest.fixture(scope="function")
-def default_settings():
+def default_settings() -> Settings:
     return Settings()
 
 
 @pytest.fixture
-def settings_drop_nulls_false():
+def settings_drop_nulls_false() -> Settings:
     return Settings(ts_drop_nulls=False)
 
 
 @pytest.fixture
-def settings_drop_nulls_false_complete_true():
+def settings_convert_units_false() -> Settings:
+    return Settings(ts_convert_units=False)
+
+
+@pytest.fixture
+def settings_drop_nulls_false_complete_true() -> Settings:
     return Settings(ts_drop_nulls=False, ts_complete=True)
 
 
 # True settings
 @pytest.fixture
-def settings_drop_nulls_false_complete_true_skip_empty_true():
+def settings_drop_nulls_false_complete_true_skip_empty_true() -> Settings:
     return Settings(ts_drop_nulls=False, ts_complete=True, ts_skip_empty=True)
 
 
 # False settings
 @pytest.fixture
-def settings_humanize_false_drop_nulls_false():
+def settings_humanize_false_drop_nulls_false() -> Settings:
     return Settings(ts_humanize=False, ts_drop_nulls=False)
 
 
 @pytest.fixture
-def settings_humanize_false_convert_units_false():
+def settings_humanize_false_convert_units_false() -> Settings:
     return Settings(ts_humanize=False, ts_convert_units=False)
 
 
 @pytest.fixture
-def settings_humanize_si_false_wide_shape_drop_nulls_complete():
+def settings_humanize_si_false_wide_shape_drop_nulls_complete() -> Settings:
     return Settings(ts_shape="wide", ts_humanize=False, ts_convert_units=False, ts_drop_nulls=False, ts_complete=True)
 
 
 @pytest.fixture
-def settings_humanize_false_wide_shape_drop_nulls_complete():
+def settings_humanize_false_wide_shape_drop_nulls_complete() -> Settings:
     return Settings(ts_shape="wide", ts_humanize=False, ts_drop_nulls=False, ts_complete=True)
 
 
 @pytest.fixture
-def settings_si_false():
+def settings_si_false() -> Settings:
     return Settings(ts_convert_units=False)
 
 
 @pytest.fixture
-def settings_si_false_wide_shape():
+def settings_si_false_wide_shape() -> Settings:
     return Settings(ts_shape="wide", ts_convert_units=False)
 
 
 @pytest.fixture
-def settings_wide_shape():
+def settings_wide_shape() -> Settings:
     return Settings(ts_shape="wide")
 
 
 @pytest.fixture
-def metadata():
+def metadata() -> dict:
     return {
         "producer": {
             "doi": "10.5281/zenodo.3960624",

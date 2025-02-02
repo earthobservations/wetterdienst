@@ -47,14 +47,14 @@ class TimeseriesValues(metaclass=ABCMeta):
         self.unit_converter.update_targets(self.sr.settings.ts_unit_targets)
 
     @classmethod
-    def from_stations(cls, stations: StationsResult):
+    def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
         return cls(stations)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:  # noqa: ANN401
         """Equal method of request object"""
         return self.sr.stations == other.sr.stations and self.sr.station_id == other.sr.station
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Representation of values object"""
         parameters_joined = ",".join(
             f"({parameter.dataset.resolution.name}/{parameter.dataset.name}/{parameter.name})"

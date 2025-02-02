@@ -11,7 +11,7 @@ from wetterdienst.provider.imgw.meteorology.api import ImgwMeteorologyRequest
 
 
 @pytest.mark.xfail
-def test_imgw_meteorology_api_daily():
+def test_imgw_meteorology_api_daily() -> None:
     request = ImgwMeteorologyRequest(
         parameters=[("daily", "klimat")],
         start_date="2010-08-01",
@@ -132,7 +132,7 @@ def test_imgw_meteorology_api_daily():
 
 
 @pytest.mark.xfail
-def test_imgw_meteorology_api_monthly():
+def test_imgw_meteorology_api_monthly() -> None:
     request = ImgwMeteorologyRequest(
         parameters=[("monthly", "synop")],
         start_date="2010-08-01",

@@ -12,13 +12,13 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 ROOT = Path(__file__).parent.parent
 
 
-def create_dwd_climate_summary_zarr_dump(filepath, test):
+def create_dwd_climate_summary_zarr_dump(filepath: Path, test: bool) -> None:
     request = DwdObservationRequest(
         parameters=("daily", "climate_summary"),
         periods="historical",
     ).all()
     meta = request.df
-    store = zarr.DirectoryStore(filepath)
+    store = zarr.DirectoryStore(str(filepath))
     data = []
     for result in tqdm(request.values.query(), total=meta.shape[0]):
         df = result.df.drop("quality").to_pandas()
@@ -32,7 +32,7 @@ def create_dwd_climate_summary_zarr_dump(filepath, test):
     ds.to_zarr(store, mode="w")
 
 
-def main():
+def main() -> None:
     filepath = ROOT / "dwd_obs_climate_summary.zarr"
     test = "PYTEST_CURRENT_TEST" in os.environ
     # this takes something like 15 min and will require roughly 1 gb on disk

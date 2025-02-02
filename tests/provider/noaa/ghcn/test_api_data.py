@@ -5,6 +5,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst import Settings
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 
 
@@ -18,7 +19,7 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
         (dt.datetime(2015, 1, 1, 1, 1, 1), dt.datetime(2022, 1, 1, 1, 1, 1)),
     ],
 )
-def test_api_amsterdam(start_date, end_date, default_settings):
+def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_settings: Settings) -> None:
     request = NoaaGhcnRequest(
         parameters=[NoaaGhcnMetadata.daily.data.temperature_air_mean_2m],
         start_date=start_date,

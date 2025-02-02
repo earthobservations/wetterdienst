@@ -17,7 +17,7 @@ PLOT_PATH = HERE / "temperature_ts.png" if SAVE_PLOT_HERE else ROOT / "docs" / "
 plt.style.use("ggplot")
 
 
-def plot_temperature_timeseries():
+def plot_temperature_timeseries() -> None:
     """Create plot for README sketch"""
     stations = DwdObservationRequest(
         parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
@@ -45,7 +45,7 @@ def plot_temperature_timeseries():
         plt.show()
 
 
-def main():
+def main() -> None:
     plot_temperature_timeseries()
 
 

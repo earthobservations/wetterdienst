@@ -1,4 +1,5 @@
 import collections.abc as collections_abc
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -6,7 +7,7 @@ string_types = (str,)
 binary_types = (bytes,)
 
 
-def to_list(x, default=None):
+def to_list(x: Any, default: Any = None) -> list | Any:  # noqa: ANN401
     """
     Conveniently wrap single items into list, while keeping lists as is.
 

@@ -7,6 +7,7 @@ import logging
 from abc import abstractmethod
 from collections.abc import Sequence
 from hashlib import sha256
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -47,6 +48,8 @@ except ImportError:
 else:
     MonkeyPatch.patch_fromisoformat()
 
+if TYPE_CHECKING:
+    from wetterdienst.core.timeseries.values import TimeseriesValues
 log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
@@ -73,7 +76,7 @@ class TimeseriesRequest:
 
     @property
     @abstractmethod
-    def _values(self):
+    def _values(self) -> TimeseriesValues:
         """Class to get the values for a request"""
         pass
 
@@ -168,7 +171,7 @@ class TimeseriesRequest:
 
         log.info(f"Processing request {self.__repr__()}")
 
-    def __eq__(self, other):
+    def __eq__(self, other: TimeseriesRequest) -> bool:
         if not isinstance(other, TimeseriesRequest):
             return False
 

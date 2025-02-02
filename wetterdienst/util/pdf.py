@@ -9,7 +9,7 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.network import download_file
 
 
-def read_pdf(url):
+def read_pdf(url: str) -> str:
     text = StringIO()
     response = download_file(url, settings=Settings(), ttl=CacheExpiry.NO_CACHE)
     pdf = pypdf.PdfReader(response)

@@ -7,6 +7,7 @@ import datetime as dt
 import polars as pl
 import pytest
 
+from wetterdienst import Settings
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
@@ -17,7 +18,7 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 
 
 @pytest.mark.remote
-def test_meta_index_creation_success(default_settings):
+def test_meta_index_creation_success(default_settings: Settings) -> None:
     # Existing combination of parameters
     meta_index = create_meta_index_for_climate_observations(
         dataset=DwdObservationMetadata.daily.climate_summary,
@@ -28,7 +29,7 @@ def test_meta_index_creation_success(default_settings):
 
 
 @pytest.mark.remote
-def test_meta_index_1mph_creation(default_settings):
+def test_meta_index_1mph_creation(default_settings: Settings) -> None:
     meta_index_1mph = create_meta_index_for_climate_observations(
         dataset=DwdObservationMetadata.minute_1.precipitation,
         period=Period.HISTORICAL,
@@ -48,7 +49,7 @@ def test_meta_index_1mph_creation(default_settings):
     )
 
 
-def test_create_csv_line():
+def test_create_csv_line() -> None:
     assert (
         _create_csv_line("00001 19370101 19860630 478 47.8413 8.8493 Aach Baden-Württemberg".split())
         == "00001,19370101,19860630,478,47.8413,8.8493,Aach,Baden-Württemberg"

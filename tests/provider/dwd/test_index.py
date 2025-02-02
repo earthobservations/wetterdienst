@@ -15,7 +15,7 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.network import list_remote_files_fsspec
 
 
-def test__build_url_from_dataset_and_period():
+def test__build_url_from_dataset_and_period() -> None:
     url = _build_url_from_dataset_and_period(
         dataset=DwdObservationMetadata.daily.climate_summary,
         period=Period.HISTORICAL,
@@ -24,7 +24,7 @@ def test__build_url_from_dataset_and_period():
 
 
 @pytest.mark.remote
-def test_list_files_of_climate_observations():
+def test_list_files_of_climate_observations() -> None:
     files_server = list_remote_files_fsspec(
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/annual/kl/recent",
         settings=Settings(),
@@ -37,7 +37,7 @@ def test_list_files_of_climate_observations():
 
 
 @pytest.mark.remote
-def test_fileindex(default_settings):
+def test_fileindex(default_settings: Settings) -> None:
     file_index = _create_file_index_for_dwd_server(
         url="https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent",
         settings=default_settings,

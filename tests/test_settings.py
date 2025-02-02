@@ -5,13 +5,15 @@ import os
 import re
 from unittest import mock
 
+import pytest
+
 from wetterdienst.settings import Settings
 
 WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
 
 
-def test_default_settings(caplog):
+def test_default_settings(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO)
     default_settings = Settings()
     assert not default_settings.cache_disable
@@ -33,7 +35,7 @@ def test_default_settings(caplog):
 
 
 @mock.patch.dict(os.environ, {})
-def test_settings_envs(caplog):
+def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     """Test default settings but with multiple envs set"""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SHAPE"] = "wide"
@@ -50,7 +52,7 @@ def test_settings_envs(caplog):
 
 
 @mock.patch.dict(os.environ, {})
-def test_settings_mixed(caplog):
+def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     """Check leaking of Settings through threads"""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SKIP_THRESHOLD"] = "0.89"

@@ -5,6 +5,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst import Settings
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
@@ -12,7 +13,7 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
-def test_summary_temperature_air_mean_2m_daily(default_settings):
+def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=dt.datetime(1934, 1, 1),
@@ -62,7 +63,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings):
         assert_frame_equal(given_df, expected_df)
 
 
-def test_not_summarizable_parameter(default_settings):
+def test_not_summarizable_parameter(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "precipitation_form")],
         start_date=dt.datetime(2022, 1, 1),
@@ -91,7 +92,7 @@ def test_not_summarizable_parameter(default_settings):
 
 
 @pytest.mark.remote
-def test_provider_dwd_mosmix(default_settings):
+def test_provider_dwd_mosmix(default_settings: Settings) -> None:
     request = DwdMosmixRequest(
         parameters=[("hourly", "small", "temperature_air_mean_2m")],
         start_date=dt.datetime.today() + dt.timedelta(days=1),
@@ -102,7 +103,7 @@ def test_provider_dwd_mosmix(default_settings):
     assert given_df.get_column("value").min() >= -40  # equals -40.0°C
 
 
-def test_summary_error_no_start_date():
+def test_summary_error_no_start_date() -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_height")],
     )

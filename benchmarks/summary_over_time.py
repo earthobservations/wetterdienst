@@ -10,7 +10,7 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
-def get_summarized_df(start_date: dt.datetime, end_date: dt.datetime, lat, lon) -> pl.DataFrame:
+def get_summarized_df(start_date: dt.datetime, end_date: dt.datetime, lat: float, lon: float) -> pl.DataFrame:
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=start_date,
@@ -19,7 +19,7 @@ def get_summarized_df(start_date: dt.datetime, end_date: dt.datetime, lat, lon) 
     return stations.summarize(latlon=(lat, lon)).df
 
 
-def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id) -> pl.DataFrame:
+def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id: str) -> pl.DataFrame:
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=start_date,
@@ -29,7 +29,7 @@ def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id) -
     return request.values.all().df
 
 
-def main():
+def main() -> None:
     start_date = dt.datetime(1934, 1, 1)
     end_date = dt.datetime(1980, 12, 31)
     lat = 51.0221

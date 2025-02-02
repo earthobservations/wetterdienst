@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path  # noqa: TCH003
-from typing import Any, Literal
+from typing import Literal
 
 import platformdirs
 from pydantic import Field, field_validator, model_validator
@@ -46,12 +46,12 @@ class Settings(BaseSettings):
 
     @field_validator("ts_unit_targets", mode="before")
     @classmethod
-    def validate_ts_unit_targets_before(cls, values):
+    def validate_ts_unit_targets_before(cls, values: dict[str, str] | None) -> dict[str, str]:
         return values or {}
 
     @field_validator("ts_unit_targets", mode="after")
     @classmethod
-    def validate_ts_unit_targets_after(cls, values):
+    def validate_ts_unit_targets_after(cls, values: dict[str, str]) -> dict[str, str]:
         if not values.keys() <= _UNIT_CONVERTER_TARGETS:
             raise ValueError(f"Invalid unit targets: one of {set(values.keys())} not in {set(_UNIT_CONVERTER_TARGETS)}")
         return values
@@ -59,19 +59,19 @@ class Settings(BaseSettings):
     # make ts_interpolation_station_distance update but not replace the default values
     @field_validator("ts_interpolation_station_distance", mode="before")
     @classmethod
-    def validate_ts_interpolation_station_distance(cls, values):
+    def validate_ts_interpolation_station_distance(cls, values: dict[str, float] | None) -> dict[str, float]:
         default = cls.model_fields["ts_interpolation_station_distance"].default_factory()
         if not values:
             return default
         return default | values
 
     @model_validator(mode="after")
-    def validate(self, value: Any) -> Settings:
-        if value.cache_disable:
+    def validate(self) -> Settings:
+        if self.cache_disable:
             log.info("Wetterdienst cache is disabled")
         else:
-            log.info(f"Wetterdienst cache is enabled [CACHE_DIR:{value.cache_dir}]")
-        return value
+            log.info(f"Wetterdienst cache is enabled [CACHE_DIR:{self.cache_dir}]")
+        return self
 
     def __repr__(self) -> str:
         return json.dumps(self.model_dump(mode="json"))

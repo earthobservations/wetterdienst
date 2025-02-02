@@ -8,6 +8,7 @@ import pybufrkit
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -23,7 +24,7 @@ h5py = pytest.importorskip("h5py", reason="h5py not installed")
 wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
 
-def test_radar_request_radolan_cdc_hourly_alignment_1(default_settings):
+def test_radar_request_radolan_cdc_hourly_alignment_1(default_settings: Settings) -> None:
     """
     Verify the alignment of RADOLAN_CDC timestamps
     to designated interval marks of HH:50.
@@ -43,7 +44,7 @@ def test_radar_request_radolan_cdc_hourly_alignment_1(default_settings):
     assert request.start_date == dt.datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0)
 
 
-def test_radar_request_radolan_cdc_hourly_alignment_2(default_settings):
+def test_radar_request_radolan_cdc_hourly_alignment_2(default_settings: Settings) -> None:
     """
     Verify the alignment of RADOLAN_CDC timestamps
     to designated interval marks of HH:50.
@@ -64,7 +65,7 @@ def test_radar_request_radolan_cdc_hourly_alignment_2(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_radolan_cdc_historic_hourly_data(default_settings, radar_locations):
+def test_radar_request_radolan_cdc_historic_hourly_data(default_settings: Settings, radar_locations: list[str]) -> None:
     """
     Verify data acquisition for RADOLAN_CDC/hourly/historical.
     """
@@ -113,7 +114,7 @@ def test_radar_request_radolan_cdc_historic_hourly_data(default_settings, radar_
 
 
 @pytest.mark.remote
-def test_radar_request_radolan_cdc_historic_daily_data(default_settings, radar_locations):
+def test_radar_request_radolan_cdc_historic_daily_data(default_settings: Settings, radar_locations: list[str]) -> None:
     """
     Verify data acquisition for RADOLAN_CDC/daily/historical.
     """
@@ -166,7 +167,9 @@ def test_radar_request_radolan_cdc_historic_daily_data(default_settings, radar_l
 
 
 @pytest.mark.remote
-def test_radar_request_composite_historic_hg_yesterday(prefixed_radar_locations, default_settings):
+def test_radar_request_composite_historic_hg_yesterday(
+    default_settings: Settings, prefixed_radar_locations: list[str]
+) -> None:
     """
     Example for testing radar/composite FX for a specific date.
     """
@@ -220,7 +223,7 @@ def test_radar_request_composite_historic_hg_yesterday(prefixed_radar_locations,
 
 
 @pytest.mark.remote
-def test_radar_request_composite_historic_hg_timerange(default_settings):
+def test_radar_request_composite_historic_hg_timerange(default_settings: Settings) -> None:
     """
     Example for testing radar/composite FX for a timerange.
     """
@@ -249,7 +252,9 @@ def test_radar_request_composite_historic_hg_timerange(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_composite_historic_radolan_rw_yesterday(radar_locations, default_settings):
+def test_radar_request_composite_historic_radolan_rw_yesterday(
+    default_settings: Settings, radar_locations: list[str]
+) -> None:
     """
     Verify acquisition of radar/composite/radolan_rw data works
     when using a specific date.
@@ -298,7 +303,9 @@ def test_radar_request_composite_historic_radolan_rw_yesterday(radar_locations, 
 
 
 @pytest.mark.remote
-def test_radar_request_composite_historic_radolan_rw_timerange(radar_locations, default_settings):
+def test_radar_request_composite_historic_radolan_rw_timerange(
+    default_settings: Settings, radar_locations: list[str]
+) -> None:
     """
     Verify acquisition of radar/composite/radolan_rw data works
     when using a specific date, with timerange.
@@ -347,7 +354,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange(radar_locations, 
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_dx_yesterday(default_settings):
+def test_radar_request_site_historic_dx_yesterday(default_settings: Settings) -> None:
     """
     Verify acquisition of radar/site/DX data works
     when using a specific date.
@@ -392,7 +399,7 @@ def test_radar_request_site_historic_dx_yesterday(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_dx_timerange(default_settings):
+def test_radar_request_site_historic_dx_timerange(default_settings: Settings) -> None:
     """
     Verify acquisition of radar/site/DX data works
     when using a specific date, with timerange.
@@ -441,7 +448,7 @@ def test_radar_request_site_historic_dx_timerange(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_pe_binary_yesterday(default_settings):
+def test_radar_request_site_historic_pe_binary_yesterday(default_settings: Settings) -> None:
     """
     Verify acquisition of radar/site/PE_ECHO_TOP data works
     when using a specific date.
@@ -481,7 +488,7 @@ def test_radar_request_site_historic_pe_binary_yesterday(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_pe_bufr(default_settings):
+def test_radar_request_site_historic_pe_bufr(default_settings: Settings) -> None:
     """
     Verify acquisition of radar/site/PE_ECHO_TOP data works
     when using a specific date.
@@ -526,7 +533,7 @@ def test_radar_request_site_historic_pe_bufr(default_settings):
         DwdRadarDataFormat.BUFR,
     ],
 )
-def test_radar_request_site_historic_pe_timerange(fmt, default_settings):
+def test_radar_request_site_historic_pe_timerange(default_settings: Settings, fmt: DwdRadarDataFormat) -> None:
     """
     Verify acquisition of radar/site/PE_ECHO_TOP data works
     when using date ranges.
@@ -571,7 +578,7 @@ def test_radar_request_site_historic_pe_timerange(fmt, default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_px250_bufr_yesterday(default_settings):
+def test_radar_request_site_historic_px250_bufr_yesterday(default_settings: Settings) -> None:
     """
     Example for testing radar/site PX250 for a specific date.
     """
@@ -614,7 +621,7 @@ def test_radar_request_site_historic_px250_bufr_yesterday(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_px250_bufr_timerange(default_settings):
+def test_radar_request_site_historic_px250_bufr_timerange(default_settings: Settings) -> None:
     """
     Example for testing radar/site PX250 for a specific date, with timerange.
     """
@@ -639,7 +646,7 @@ def test_radar_request_site_historic_px250_bufr_timerange(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday(default_settings):
+def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday(default_settings: Settings) -> None:
     """
     Example for testing radar/site sweep_vol_v for a specific date.
     """
@@ -674,7 +681,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday(default_settings
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings):
+def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings: Settings) -> None:
     """
     Example for testing radar/site sweep-precipitation for a specific date,
     this time in HDF5 format.
@@ -725,7 +732,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings):
+def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings: Settings) -> None:
     """
     Example for testing radar/site sweep-precipitation for a specific date,
     this time in HDF5 format, with timerange.
@@ -762,7 +769,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings
 
 
 @pytest.mark.remote
-def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings):
+def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings: Settings) -> None:
     """
     Example for testing radar/site sweep-precipitation for a specific date,
     this time in HDF5 format, with timerange.
@@ -799,7 +806,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings
 
 
 @pytest.mark.remote
-def test_radar_request_radvor_re_yesterday(prefixed_radar_locations, default_settings):
+def test_radar_request_radvor_re_yesterday(default_settings: Settings, prefixed_radar_locations: list[str]) -> None:
     """
     Verify acquisition of radar/radvor/re data works
     when using a specific date. Querying one point
@@ -857,7 +864,9 @@ def test_radar_request_radvor_re_yesterday(prefixed_radar_locations, default_set
 
 
 @pytest.mark.remote
-def test_radar_request_radvor_re_timerange(default_settings, station_reference_pattern_sorted_prefixed):
+def test_radar_request_radvor_re_timerange(
+    default_settings: Settings, station_reference_pattern_sorted_prefixed: str
+) -> None:
     """
     Verify acquisition of radar/radvor/re data works
     when using a specific date. Querying for 15 minutes
@@ -895,7 +904,7 @@ def test_radar_request_radvor_re_timerange(default_settings, station_reference_p
 
 
 @pytest.mark.remote
-def test_radar_request_radvor_rq_yesterday(radar_locations, default_settings):
+def test_radar_request_radvor_rq_yesterday(default_settings: Settings, radar_locations: list[str]) -> None:
     """
     Verify acquisition of radar/radvor/rq data works
     when using a specific date. Querying one point
@@ -950,7 +959,10 @@ def test_radar_request_radvor_rq_yesterday(radar_locations, default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_radvor_rq_timerange(radar_locations, default_settings):
+def test_radar_request_radvor_rq_timerange(
+    default_settings: Settings,
+    radar_locations: list[str],
+) -> None:
     """
     Verify acquisition of radar/radvor/rq data works
     when using a specific date. Querying for 45 minutes

@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 
+import pytest
 from click.testing import CliRunner
 
 from wetterdienst.ui.cli import cli
@@ -9,7 +10,7 @@ from wetterdienst.ui.cli import cli
 # Individual settings for observation and mosmix
 
 
-def test_cli_help():
+def test_cli_help() -> None:
     """Test cli help"""
     runner = CliRunner()
     result = runner.invoke(cli, [])
@@ -34,7 +35,7 @@ def test_cli_help():
     )
 
 
-def test_cli_about_parameters():
+def test_cli_about_parameters() -> None:
     """Test cli coverage of dwd parameters"""
     runner = CliRunner()
     result = runner.invoke(cli, ["about", "coverage", "--provider=dwd", "--network=observation"])
@@ -48,7 +49,7 @@ def test_cli_about_parameters():
     assert "precipitation_height" in result.output
 
 
-def test_no_combination_of_provider_and_network(caplog):
+def test_no_combination_of_provider_and_network(caplog: pytest.CaptureFixture) -> None:
     runner = CliRunner()
     runner.invoke(
         cli,
@@ -63,7 +64,7 @@ def test_no_combination_of_provider_and_network(caplog):
     assert "No API available for provider dwd and network abc" in caplog.text
 
 
-def test_coverage():
+def test_coverage() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["about", "coverage", "--provider=dwd", "--network=observation"])
     assert result.exit_code == 0
@@ -80,7 +81,7 @@ def test_coverage():
     ]
 
 
-def test_coverage_resolution_1_minute():
+def test_coverage_resolution_1_minute() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli, ["about", "coverage", "--provider=dwd", "--network=observation", "--resolutions=1_minute"]
@@ -90,7 +91,7 @@ def test_coverage_resolution_1_minute():
     assert response.keys() == {"1_minute"}
 
 
-def test_coverage_dataset_climate_summary():
+def test_coverage_dataset_climate_summary() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli, ["about", "coverage", "--provider=dwd", "--network=observation", "--datasets=climate_summary"]
@@ -103,7 +104,7 @@ def test_coverage_dataset_climate_summary():
     assert response["annual"].keys() == {"climate_summary"}
 
 
-def test_cli_radar_stations_opera():
+def test_cli_radar_stations_opera() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--odim-code=ukdea"])
     response = json.loads(result.output)
@@ -111,7 +112,7 @@ def test_cli_radar_stations_opera():
     assert response["location"] == "Dean Hill"
 
 
-def test_cli_radar_stations_dwd():
+def test_cli_radar_stations_dwd() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--dwd"])
     response = json.loads(result.output)

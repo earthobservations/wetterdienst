@@ -23,7 +23,7 @@ class Author:
 
 
 class Info:
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = __appname__
         self.slogan = "open weather data for humans"
         self.version = __version__
@@ -35,7 +35,7 @@ class Info:
         self.documentation = "https://wetterdienst.readthedocs.io"
         self.cache_dir = Settings().cache_dir
 
-    def __str__(self):
+    def __str__(self) -> str:
         return dedent(f"""
         ===========================================
         {self.name} - open weather data for humans
@@ -47,7 +47,7 @@ class Info:
         cache_dir (default):    {self.cache_dir}
         """).strip()
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             "name": self.name,
             "version": self.version,

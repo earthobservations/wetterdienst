@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
     import plotly.graph_objects as go
 
+    from wetterdienst import Settings
+    from wetterdienst.core.timeseries.metadata import ParameterModel
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.values import TimeseriesValues
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
@@ -110,7 +112,7 @@ class StationsResult(ExportMixin):
         df_all: pl.DataFrame,
         stations_filter: StationsFilter,
         rank: int | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> None:
         # TODO: add more attributes from ScalarStations class
         self.stations = stations
@@ -120,11 +122,11 @@ class StationsResult(ExportMixin):
         self.rank = rank
         self._kwargs = kwargs
 
-    def __eq__(self, other):
+    def __eq__(self, other: StationsResult) -> bool:
         return (self.stations == other.stations) and self.df.equals(other.df)
 
     @property
-    def settings(self):
+    def settings(self) -> Settings:
         return self.stations.settings
 
     @property
@@ -132,7 +134,7 @@ class StationsResult(ExportMixin):
         return self.df.get_column(Columns.STATION_ID.value)
 
     @property
-    def parameters(self):
+    def parameters(self) -> list[ParameterModel]:
         return self.stations.parameters
 
     @property
@@ -288,7 +290,7 @@ class StationsResult(ExportMixin):
         }
         return data
 
-    def to_plot(self, **_kwargs) -> go.Figure:
+    def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the stations DataFrame."""
         try:
             import plotly.express as px
@@ -342,7 +344,7 @@ class StationsResult(ExportMixin):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> bytes | str:
         """Create an image from the plotly figure"""
         fig = self.to_plot(**kwargs)
@@ -453,7 +455,7 @@ class ValuesResult(_ValuesResult):
     df: pl.DataFrame
 
     @property
-    def df_stations(self):
+    def df_stations(self) -> pl.DataFrame:
         return self.stations.df.filter(pl.col("station_id").is_in(self.values.stations_collected))
 
     def to_ogc_feature_collection(self, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
@@ -502,7 +504,7 @@ class ValuesResult(_ValuesResult):
         }
         return data
 
-    def to_plot(self, **_kwargs) -> go.Figure:
+    def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         try:
             import plotly.express as px
@@ -571,7 +573,7 @@ class ValuesResult(_ValuesResult):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> bytes | str:
         """Create an image from the plotly figure"""
         fig = self.to_plot(**kwargs)
@@ -674,7 +676,7 @@ class InterpolatedValuesResult(_ValuesResult):
         }
         return data
 
-    def to_plot(self, **_kwargs) -> go.Figure:
+    def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         try:
             import plotly.express as px
@@ -745,7 +747,7 @@ class InterpolatedValuesResult(_ValuesResult):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> bytes | str:
         """Create an image from the plotly figure"""
         fig = self.to_plot(**kwargs)
@@ -843,7 +845,7 @@ class SummarizedValuesResult(_ValuesResult):
         }
         return data
 
-    def to_plot(self, **_kwargs) -> go.Figure:
+    def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         try:
             import plotly.express as px
@@ -913,7 +915,7 @@ class SummarizedValuesResult(_ValuesResult):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> bytes | str:
         """Create an image from the plotly figure"""
         fig = self.to_plot(**kwargs)

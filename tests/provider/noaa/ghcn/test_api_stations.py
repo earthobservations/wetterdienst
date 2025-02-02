@@ -7,11 +7,12 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst import Settings
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 
 
 @pytest.mark.remote
-def test_noaa_ghcn_stations(default_settings):
+def test_noaa_ghcn_stations(default_settings: Settings) -> None:
     df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df.head(5)
     df_expected = pl.DataFrame(
         [

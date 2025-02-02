@@ -6,7 +6,7 @@ import datetime as dt
 import logging
 from collections.abc import Iterable
 from itertools import repeat
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -43,6 +43,7 @@ from wetterdienst.util.python import to_list
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from wetterdienst.core.timeseries.result import StationsResult
 log = logging.getLogger(__name__)
 
 
@@ -398,7 +399,7 @@ class DwdObservationRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
         """
 
         :param parameters: parameter set str/enumeration
@@ -424,13 +425,15 @@ class DwdObservationRequest(TimeseriesRequest):
             else:
                 self.periods = self._available_periods
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:  # noqa: ANN401
         return super().__eq__(other) and self.periods == other.periods
 
-    def filter_by_station_id(self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]):
-        return super().filter_by_station_id(
-            pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)).cast(str).str.pad_start(5, "0"),
-        )
+    def filter_by_station_id(
+        self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]
+    ) -> StationsResult:
+        # ensure station_id is a list of strings with padded zeros to length 5
+        station_id = [str(station_id).zfill(5) for station_id in to_list(station_id)]
+        return super().filter_by_station_id(station_id)
 
     @classmethod
     def describe_fields(

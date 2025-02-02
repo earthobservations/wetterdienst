@@ -50,7 +50,7 @@ def get_date_from_filename(filename: str, pattern: re.Pattern, formats: list[str
     return None
 
 
-def verify_hdf5(buffer: BytesIO):
+def verify_hdf5(buffer: BytesIO) -> None:
     import h5py
 
     buffer.seek(0)

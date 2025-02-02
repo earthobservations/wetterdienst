@@ -4,11 +4,11 @@ from wetterdienst.core.timeseries.unit import UnitConverter
 
 
 @pytest.fixture
-def unit_converter():
+def unit_converter() -> UnitConverter:
     return UnitConverter()
 
 
-def test_unit_converter_targets_defaults(unit_converter):
+def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
     """test that the default targets are as expected"""
     unit_converter_targets_defaults = {k: v.name for k, v in unit_converter.targets.items()}
     assert unit_converter_targets_defaults == {
@@ -37,7 +37,7 @@ def test_unit_converter_targets_defaults(unit_converter):
     }
 
 
-def test_unit_converter_lambdas_combinations(unit_converter):
+def test_unit_converter_lambdas_combinations(unit_converter: UnitConverter) -> None:
     """test that lambdas contain all combinations of each unit"""
     unit_combinations = set()
     for units in unit_converter.units.values():
@@ -51,7 +51,7 @@ def test_unit_converter_lambdas_combinations(unit_converter):
     )
 
 
-def test_unit_converter_update_targets(unit_converter):
+def test_unit_converter_update_targets(unit_converter: UnitConverter) -> None:
     """test that the update_targets method works as expected"""
     unit_converter.update_targets(
         {
@@ -67,7 +67,7 @@ def test_unit_converter_update_targets(unit_converter):
     assert lambda_dimensionless(42) == 42
 
 
-def test_unit_converter_lambda_dimensionless(unit_converter):
+def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> None:
     """test that the lambda function for dimensionless units works as expected"""
     lambda_dimensionless = unit_converter.get_lambda("dimensionless", "dimensionless")
     assert lambda_dimensionless(42) == 42
@@ -171,25 +171,27 @@ def test_unit_converter_lambda_dimensionless(unit_converter):
         ("liter_per_second", "cubic_meter_per_second", 42000, 42),
     ],
 )
-def test_unit_converter_lambdas(unit_converter, unit, target, value, expected):
+def test_unit_converter_lambdas(
+    unit_converter: UnitConverter, unit: str, target: str, value: float, expected: float
+) -> None:
     """test that the lambda functions work as expected"""
     lambda_ = unit_converter._get_lambda(unit, target)
     assert lambda_(value) == expected
 
 
-def test_unit_converter_update_targets_invalid(unit_converter):
+def test_unit_converter_update_targets_invalid(unit_converter: UnitConverter) -> None:
     """test that the update_targets method raises an error for invalid units"""
     with pytest.raises(ValueError):
         unit_converter.update_targets({"fraction": "percent", "dimensionless": "invalid"})
 
 
-def test_unit_converter_get_lambda(unit_converter):
+def test_unit_converter_get_lambda(unit_converter: UnitConverter) -> None:
     """test retrieval of lambda function"""
     lambda_ = unit_converter.get_lambda("degree_kelvin", "temperature")
     assert lambda_(0) == -273.15
 
 
-def test_unit_converter_get_lambda_invalid(unit_converter):
+def test_unit_converter_get_lambda_invalid(unit_converter: UnitConverter) -> None:
     """test retrieval of lambda function for invalid unit"""
     with pytest.raises(ValueError):
         unit_converter.get_lambda("invalid", "temperature")
@@ -197,13 +199,13 @@ def test_unit_converter_get_lambda_invalid(unit_converter):
         unit_converter.get_lambda("degree_kelvin", "invalid")
 
 
-def test_unit_converter__get_lambda(unit_converter):
+def test_unit_converter__get_lambda(unit_converter: UnitConverter) -> None:
     """test retrieval of lambda function (direct unit - unit target combination)"""
     lambda_ = unit_converter._get_lambda("degree_kelvin", "degree_fahrenheit")
     assert lambda_(0) == -459.66999999999996
 
 
-def test_unit_converter__get_lambda_invalid(unit_converter):
+def test_unit_converter__get_lambda_invalid(unit_converter: UnitConverter) -> None:
     """test retrieval of lambda function for invalid unit (direct unit - unit target combination)"""
     with pytest.raises(ValueError):
         unit_converter._get_lambda("invalid", "degree_fahrenheit")

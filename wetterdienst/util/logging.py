@@ -16,13 +16,13 @@ class TqdmToLogger(io.StringIO):
     level = None
     buf = ""
 
-    def __init__(self, logger, level=None):
+    def __init__(self, logger: logging.Logger, level: int | None = None) -> None:
         super().__init__()
         self.logger = logger
         self.level = level or logging.INFO
 
-    def write(self, buf):
+    def write(self, buf: str) -> None:
         self.buf = buf.strip("\r\n\t ")
 
-    def flush(self):
+    def flush(self) -> None:
         self.logger.log(self.level, self.buf)

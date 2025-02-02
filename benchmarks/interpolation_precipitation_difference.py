@@ -41,7 +41,7 @@ def calculate_percentage_difference(df: pl.DataFrame, text: str = "") -> float:
     return percentage
 
 
-def main():
+def main() -> None:
     start_date = dt.datetime(2021, 1, 1)
     end_date = dt.datetime(2022, 1, 1)
     interpolated_df = get_interpolated_df(start_date, end_date)

@@ -24,7 +24,7 @@ from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.util.cli import setup_logging
 
 
-def dwd_road_weather_example():
+def dwd_road_weather_example() -> None:
     end_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
     start_date = end_date - dt.timedelta(days=1)
     drw_request = DwdRoadRequest(
@@ -54,7 +54,7 @@ def dwd_road_weather_example():
         plt.show()
 
 
-def main():
+def main() -> None:
     """Run example."""
     setup_logging()
     dwd_road_weather_example()

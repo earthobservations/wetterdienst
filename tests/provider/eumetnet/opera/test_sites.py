@@ -5,7 +5,7 @@ import pytest
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 
 
-def test_radar_sites_sizes():
+def test_radar_sites_sizes() -> None:
     ors = OperaRadarSites()
 
     assert len(ors.all()) == 205
@@ -13,7 +13,7 @@ def test_radar_sites_sizes():
     assert len(ors.to_dict()) == 197
 
 
-def test_radar_sites_by_odimcode():
+def test_radar_sites_by_odimcode() -> None:
     ors = OperaRadarSites()
 
     assert ors.by_odim_code("ukdea")["location"] == "Dean Hill"
@@ -31,14 +31,14 @@ def test_radar_sites_by_odimcode():
     assert exec_info.match("'Radar site not found'")
 
 
-def test_radar_sites_by_wmocode():
+def test_radar_sites_by_wmocode() -> None:
     ors = OperaRadarSites()
 
     assert ors.by_wmo_code(3859)["location"] == "Dean Hill"
     assert ors.by_wmo_code(10103)["location"] == "Isle of Borkum"
 
 
-def test_radar_sites_by_countryname():
+def test_radar_sites_by_countryname() -> None:
     ors = OperaRadarSites()
 
     sites_uk = ors.by_country_name(country_name="United Kingdom")

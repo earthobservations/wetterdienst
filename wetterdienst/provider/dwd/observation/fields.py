@@ -22,7 +22,7 @@ from tabulate import tabulate
 from wetterdienst.util.pdf import read_pdf
 
 
-def parse_section(text, headline):
+def parse_section(text: str, headline: str) -> str:
     capture = False
     buffer = StringIO()
     for line in text.split("\n"):
@@ -36,7 +36,7 @@ def parse_section(text, headline):
     return buffer.getvalue()
 
 
-def parse_parameters(text):
+def parse_parameters(text: str) -> dict:
     data = {}
     parameter = None
     capture = False
@@ -71,7 +71,7 @@ def parse_parameters(text):
     return data
 
 
-def read_description(url, language: str = "en") -> dict:
+def read_description(url: str, language: str = "en") -> dict:
     if language == "en":
         sections = {
             "parameters": "csv content description",
@@ -100,7 +100,7 @@ def read_description(url, language: str = "en") -> dict:
     return data
 
 
-def process(url) -> None:  # pragma: no cover
+def process(url: str) -> None:  # pragma: no cover
     parameters = read_description(url)
 
     # Output as JSON.

@@ -7,7 +7,7 @@ from tests.conftest import IS_WINDOWS
 from wetterdienst.ui.cli import cli
 
 
-def test_cli_stripes():
+def test_cli_stripes() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "--help"])
     assert result.exit_code == 0
@@ -15,7 +15,7 @@ def test_cli_stripes():
 
 
 @pytest.mark.remote
-def test_stripes_values_default():
+def test_stripes_values_default() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048"])
     assert result.exit_code == 0
@@ -23,7 +23,7 @@ def test_stripes_values_default():
 
 
 @pytest.mark.remote
-def test_stripes_values_name():
+def test_stripes_values_name() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--name=Dresden-Klotzsche"])
     assert result.exit_code == 0
@@ -39,7 +39,7 @@ def test_stripes_values_name():
         {"show_data_availability": "false"},
     ],
 )
-def test_stripes_values_non_defaults(params):
+def test_stripes_values_non_defaults(params: dict) -> None:
     params = {
         "station": "01048",
         "show_title": "true",
@@ -54,7 +54,7 @@ def test_stripes_values_non_defaults(params):
 
 
 @pytest.mark.remote
-def test_stripes_values_start_year_ge_end_year():
+def test_stripes_values_start_year_ge_end_year() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--start_year=2020", "--end_year=2019"]
@@ -64,7 +64,7 @@ def test_stripes_values_start_year_ge_end_year():
 
 
 @pytest.mark.remote
-def test_stripes_values_wrong_name_threshold():
+def test_stripes_values_wrong_name_threshold() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--name_threshold=1.01"]
@@ -74,7 +74,7 @@ def test_stripes_values_wrong_name_threshold():
 
 
 @pytest.mark.remote
-def test_stripes_values_target(tmp_path):
+def test_stripes_values_target(tmp_path: Path) -> None:
     target = Path("foobar.png")
     if not IS_WINDOWS:
         target = tmp_path / "foobar.png"
@@ -88,7 +88,7 @@ def test_stripes_values_target(tmp_path):
 
 
 @pytest.mark.remote
-def test_stripes_values_target_not_matching_format(tmp_path):
+def test_stripes_values_target_not_matching_format(tmp_path: Path) -> None:
     target = tmp_path / "foobar.jpg"
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
@@ -97,7 +97,7 @@ def test_stripes_values_target_not_matching_format(tmp_path):
 
 
 @pytest.mark.remote
-def test_climate_stripes_target_wrong_dpi():
+def test_climate_stripes_target_wrong_dpi() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--dpi=0"])
     assert result.exit_code == 2

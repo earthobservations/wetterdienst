@@ -21,7 +21,7 @@ PLOT_PATH = (
 plt.style.use("ggplot")
 
 
-def plot_hohenpeissenberg_warming_stripes():
+def plot_hohenpeissenberg_warming_stripes() -> None:
     """Create warming stripes for Potsdam
     Source: https://matplotlib.org/matplotblog/posts/warming-stripes/
     """
@@ -41,7 +41,7 @@ def plot_hohenpeissenberg_warming_stripes():
         plt.show()
 
 
-def main():
+def main() -> None:
     plot_hohenpeissenberg_warming_stripes()
 
 

@@ -23,7 +23,7 @@ PLOT_PATH = (
 plt.style.use("ggplot")
 
 
-def plot_german_weather_stations():
+def plot_german_weather_stations() -> None:
     """Create map of DWD weather stations in Germany"""
     stations = DwdObservationRequest(parameters=("daily", "climate_summary"), periods="historical")
     stations_df = stations.all().df
@@ -49,7 +49,7 @@ def plot_german_weather_stations():
         plt.show()
 
 
-def main():
+def main() -> None:
     plot_german_weather_stations()
 
 

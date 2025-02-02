@@ -15,12 +15,13 @@ import pytest
 from dirty_equals import IsInt, IsTuple
 from polars.testing import assert_frame_equal
 
+from wetterdienst import Settings
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
 @pytest.fixture
-def mosmix_stations_schema():
+def mosmix_stations_schema() -> dict:
     return {
         "station_id": str,
         "icao_id": str,
@@ -35,7 +36,7 @@ def mosmix_stations_schema():
 
 
 @pytest.mark.remote
-def test_dwd_mosmix_stations_success(default_settings, mosmix_stations_schema):
+def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations_schema: dict) -> None:
     """
     Verify full MOSMIX station list.
     """
@@ -79,7 +80,7 @@ def test_dwd_mosmix_stations_success(default_settings, mosmix_stations_schema):
 
 @pytest.mark.xfail(reason="polars min currently not working as expected with strings")
 @pytest.mark.remote
-def test_dwd_mosmix_stations_filtered(default_settings, mosmix_stations_schema):
+def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_stations_schema: dict) -> None:
     """
     Verify MOSMIX station list filtering by station identifier.
     """

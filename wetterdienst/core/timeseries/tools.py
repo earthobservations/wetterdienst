@@ -4,7 +4,9 @@ import polars as pl
 
 
 class _ParameterData:
-    def __init__(self, values: pl.DataFrame, station_ids: list[str] | None = None, extra_station_counter: int = 0):
+    def __init__(
+        self, values: pl.DataFrame, station_ids: list[str] | None = None, extra_station_counter: int = 0
+    ) -> None:
         self.station_ids = station_ids or []
         self.extra_station_counter = extra_station_counter
         self.values = values

@@ -151,7 +151,7 @@ class DwdMosmixValues(TimeseriesValues):
         else:
             raise KeyError(f"Dataset {dataset} not supported")
 
-    def read_mosmix_small(self, station_id, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
+    def read_mosmix_small(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Reads single MOSMIX-S file for all stations."""
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_S_PATH)
         file_url = self.get_url_for_date(url, date)

@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 from pprint import pformat
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import click
 import cloup
@@ -32,6 +32,9 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 from wetterdienst.util.ui import read_list
+
+if TYPE_CHECKING:
+    from wetterdienst.core.timeseries.request import TimeseriesRequest
 
 log = logging.getLogger(__name__)
 
@@ -63,14 +66,10 @@ data_section = Section("Data")
 advanced_section = Section("Advanced")
 
 
-def get_api(provider: str, network: str):
+def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     """
     Function to get API for provider and network, if non found click.Abort()
     is casted with the error message
-
-    :param provider:
-    :param network:
-    :return:
     """
     try:
         return Wetterdienst(provider, network)
@@ -79,12 +78,9 @@ def get_api(provider: str, network: str):
         sys.exit(1)
 
 
-def station_options_core(command):
+def station_options_core(command: click.Command) -> click.Command:
     """
     Station options core for cli, which can be used for stations and values endpoint
-
-    :param command:
-    :return:
     """
     arguments = [
         cloup.option("--parameters", type=str, required=True),
@@ -93,12 +89,9 @@ def station_options_core(command):
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
 
-def station_options_extension(command):
+def station_options_extension(command: click.Command) -> click.Command:
     """
     Station options extension for cli, which can be used for stations and values endpoint
-
-    :param command:
-    :return:
     """
     arguments = [
         cloup.option_group("All stations", click.option("--all", "all_", is_flag=True)),
@@ -137,12 +130,9 @@ def station_options_extension(command):
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
 
-def station_options_interpolate_summarize(command):
+def station_options_interpolate_summarize(command: click.Command) -> click.Command:
     """
     Station options for interpolate/summarize for cli, which can be used for stations and values endpoint
-
-    :param command:
-    :return:
     """
     arguments = [
         cloup.option_group(
@@ -569,12 +559,12 @@ Create warming stripes (only DWD Observation data):
     context_settings={"max_content_width": 120},
 )
 @click.version_option(__version__, "-v", "--version", message="%(version)s")
-def cli():
+def cli() -> None:
     setup_logging()
 
 
 @cli.command("cache", section=basic_section)
-def cache():
+def cache() -> None:
     from wetterdienst import Settings
 
     print(Settings().cache_dir)  # noqa: T201
@@ -582,7 +572,7 @@ def cache():
 
 
 @cli.command("info", section=basic_section)
-def info():
+def info() -> None:
     from wetterdienst import Info
 
     print(Info())  # noqa: T201
@@ -593,7 +583,7 @@ def info():
 @cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
 @cloup.option("--reload", is_flag=True, help="Dynamically reload changed files")
 @debug_opt
-def restapi(listen: str, reload: bool, debug: bool):
+def restapi(listen: str, reload: bool, debug: bool) -> None:
     set_logging_level(debug)
 
     # Run HTTP service.
@@ -610,7 +600,7 @@ def restapi(listen: str, reload: bool, debug: bool):
 @cli.command("explorer", section=advanced_section)
 @cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
 @debug_opt
-def explorer(listen: str, debug: bool):
+def explorer(listen: str, debug: bool) -> None:
     set_logging_level(debug)
 
     try:
@@ -649,7 +639,7 @@ def explorer(listen: str, debug: bool):
 
 
 @cli.group(section=data_section)
-def about():
+def about() -> None:
     pass
 
 
@@ -683,7 +673,7 @@ def about():
     ),
 )
 @debug_opt
-def coverage(provider, network, resolutions, datasets, debug):
+def coverage(provider: str, network: str, resolutions: str, datasets: str, debug: bool) -> None:
     set_logging_level(debug)
 
     if not provider or not network:
@@ -715,7 +705,9 @@ def coverage(provider, network, resolutions, datasets, debug):
     constraint=cloup.constraints.require_all,
 )
 @debug_opt
-def fields(provider, network, dataset, resolution, period, language, **kwargs):
+def fields(
+    provider: str, network: str, dataset: str, resolution: str, period: str, language: str, **kwargs: dict
+) -> None:
     api = get_api(provider, network)
 
     if not (api.metadata.name_short == "DWD" and api.metadata.kind == "observation") and kwargs.get("fields"):
@@ -775,7 +767,7 @@ def stations(
     pretty: bool,
     with_metadata: bool,
     debug: bool,
-):
+) -> None:
     request = StationsRequest.model_validate(
         {
             "provider": provider,
@@ -876,14 +868,14 @@ def values(
     date: str,
     issue: str,
     all_: bool,
-    station,
+    station: list[str],
     name: str,
     coordinates: str,
     rank: int,
     distance: float,
     bbox: str,
     sql: str,
-    sql_values,
+    sql_values: str,
     fmt: str,
     target: str,
     shape: Literal["long", "wide"],
@@ -898,7 +890,7 @@ def values(
     with_metadata: bool,
     with_stations: bool,
     debug: bool,
-):
+) -> None:
     request = ValuesRequest.model_validate(
         {
             "provider": provider,
@@ -1026,7 +1018,7 @@ def interpolate(
     issue: str,
     station: str,
     coordinates: str,
-    sql_values,
+    sql_values: str,
     fmt: str,
     target: str,
     convert_units: bool,
@@ -1036,7 +1028,7 @@ def interpolate(
     with_metadata: bool,
     with_stations: bool,
     debug: bool,
-):
+) -> None:
     request = InterpolationRequest.model_validate(
         {
             "provider": provider,
@@ -1149,7 +1141,7 @@ def summarize(
     issue: str,
     station: str,
     coordinates: str,
-    sql_values,
+    sql_values: str,
     fmt: str,
     target: str,
     convert_units: bool,
@@ -1159,7 +1151,7 @@ def summarize(
     with_metadata: bool,
     with_stations: bool,
     debug: bool,
-):
+) -> None:
     request = SummaryRequest.model_validate(
         {
             "provider": provider,
@@ -1249,7 +1241,7 @@ def radar(
     wmo_code: int,
     country_name: str,
     indent: int,
-):
+) -> None:
     from wetterdienst.provider.dwd.radar.api import DwdRadarSites
     from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 
@@ -1275,7 +1267,7 @@ def radar(
 
 
 @cli.group("stripes", section=data_section)
-def stripes():
+def stripes() -> None:
     pass
 
 
@@ -1284,7 +1276,7 @@ def stripes():
 @cloup.option("--active", type=click.BOOL, default=True)
 @cloup.option("--format", "fmt", type=click.Choice(["json", "geojson", "csv"], case_sensitive=False), default="json")
 @cloup.option("--pretty", type=click.BOOL, default=False)
-def stripes_stations(kind: str, active: bool, fmt: str, pretty: bool):
+def stripes_stations(kind: str, active: bool, fmt: str, pretty: bool) -> None:
     if kind not in ["temperature", "precipitation"]:
         raise click.ClickException(f"Invalid kind '{kind}'")
 
@@ -1327,7 +1319,7 @@ def stripes_values(
     dpi: int,
     target: Path,
     debug: bool,
-):
+) -> None:
     if target:
         if not target.name.lower().endswith(fmt):
             raise click.ClickException(f"'target' must have extension '{fmt}'")
@@ -1359,7 +1351,7 @@ def stripes_values(
 
 @stripes.command("interactive")
 @debug_opt
-def interactive(debug: bool):
+def interactive(debug: bool) -> None:
     set_logging_level(debug)
 
     try:

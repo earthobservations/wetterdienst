@@ -8,7 +8,7 @@ from wetterdienst.ui.cli import cli
 
 
 @pytest.mark.remote
-def test_cli_interpolate_no_metadata_no_stations():
+def test_cli_interpolate_no_metadata_no_stations() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -51,7 +51,7 @@ def test_cli_interpolate_no_metadata_no_stations():
 
 
 @pytest.mark.remote
-def test_cli_interpolate_with_metadata_with_stations(metadata):
+def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -125,7 +125,7 @@ def test_cli_interpolate_with_metadata_with_stations(metadata):
 
 
 @pytest.mark.remote
-def test_cli_interpolate_geojson(metadata):
+def test_cli_interpolate_geojson(metadata: dict) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -229,7 +229,7 @@ def test_cli_interpolate_geojson(metadata):
 
 
 @pytest.mark.remote
-def test_cli_interpolate_interpolation_station_distance():
+def test_cli_interpolate_interpolation_station_distance() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -273,7 +273,7 @@ def test_cli_interpolate_interpolation_station_distance():
 
 
 @pytest.mark.remote
-def test_cli_interpolate_dont_use_nearby_station():
+def test_cli_interpolate_dont_use_nearby_station() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -317,7 +317,7 @@ def test_cli_interpolate_dont_use_nearby_station():
 
 
 @pytest.mark.remote
-def test_cli_interpolate_custom_units():
+def test_cli_interpolate_custom_units() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -369,7 +369,7 @@ def test_cli_interpolate_custom_units():
         "svg",
     ],
 )
-def test_cli_interpolate_image(fmt):
+def test_cli_interpolate_image(fmt: str) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -388,7 +388,7 @@ def test_cli_interpolate_image(fmt):
 
 
 @pytest.mark.remote
-def test_cli_interpolate_image_html():
+def test_cli_interpolate_image_html() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -407,7 +407,7 @@ def test_cli_interpolate_image_html():
 
 
 @pytest.mark.remote
-def test_cli_interpolate_image_pdf():
+def test_cli_interpolate_image_pdf() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,

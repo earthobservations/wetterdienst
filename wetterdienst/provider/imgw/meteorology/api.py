@@ -581,7 +581,9 @@ class ImgwMeteorologyValues(TimeseriesValues):
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
-    def _parse_file(self, file_in_bytes: bytes, station_id, resolution, file_schema: dict) -> pl.DataFrame:
+    def _parse_file(
+        self, file_in_bytes: bytes, station_id: str, resolution: Resolution, file_schema: dict
+    ) -> pl.DataFrame:
         """Function to parse meteorological zip file, parses all files and combines
         them
 
@@ -721,7 +723,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
         super().__init__(
             parameters=parameters,
             start_date=start_date,

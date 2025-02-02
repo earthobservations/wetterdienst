@@ -1,6 +1,6 @@
 import pytest
 
-from wetterdienst.core.timeseries.metadata import ParameterSearch, parse_parameters
+from wetterdienst.core.timeseries.metadata import ParameterModel, ParameterSearch, parse_parameters
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 
 
@@ -27,7 +27,7 @@ from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadat
         ("daily:climate_summary", ParameterSearch("daily", "climate_summary")),
     ],
 )
-def test_parameter_search(value, expected):
+def test_parameter_search(value: str | ParameterModel, expected: ParameterModel) -> None:
     parameter_template = ParameterSearch.parse(value)
     assert parameter_template == expected
 
@@ -90,5 +90,5 @@ def test_parameter_search(value, expected):
         ),
     ],
 )
-def test_parse_parameters(value, expected):
+def test_parse_parameters(value: str | ParameterModel, expected: ParameterModel) -> None:
     assert parse_parameters(value, DwdObservationMetadata) == expected

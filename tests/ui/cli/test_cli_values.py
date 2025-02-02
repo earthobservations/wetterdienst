@@ -2,10 +2,11 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import mock
+from unittest.mock import MagicMock
 
 import polars as pl
 import pytest
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 from dirty_equals import IsInstance, IsStr
 
 from tests.conftest import IS_WINDOWS
@@ -47,7 +48,9 @@ SETTINGS_VALUES = (
 )
 
 
-def invoke_wetterdienst_values_static(provider, network, setting: list, station, fmt="json", additional: list = None):
+def invoke_wetterdienst_values_static(
+    provider: str, network: str, setting: list, station: str, fmt: str = "json", additional: list | None = None
+) -> Result:
     runner = CliRunner()
     return runner.invoke(
         cli,
@@ -65,8 +68,8 @@ def invoke_wetterdienst_values_static(provider, network, setting: list, station,
 
 
 def invoke_wetterdienst_values_static_wide(
-    provider, network, setting: list, station, fmt="json", additional: list = None
-):
+    provider: str, network: str, setting: list, station: str, fmt: str = "json", additional: list | None = None
+) -> Result:
     runner = CliRunner()
     return runner.invoke(
         cli,
@@ -83,7 +86,9 @@ def invoke_wetterdienst_values_static_wide(
     )
 
 
-def invoke_wetterdienst_values_export_wide(provider, network, setting: list, station, target):
+def invoke_wetterdienst_values_export_wide(
+    provider: str, network: str, setting: list, station: str, target: str
+) -> Result:
     runner = CliRunner()
     return runner.invoke(
         cli,
@@ -99,7 +104,9 @@ def invoke_wetterdienst_values_export_wide(provider, network, setting: list, sta
     )
 
 
-def invoke_wetterdienst_values_filter_by_rank(provider, network, setting: list, fmt="json", additional: list = None):
+def invoke_wetterdienst_values_filter_by_rank(
+    provider: str, network: str, setting: list, fmt: str = "json", additional: list | None = None
+) -> Result:
     runner = CliRunner()
     return runner.invoke(
         cli,
@@ -122,7 +129,7 @@ def invoke_wetterdienst_values_filter_by_rank(provider, network, setting: list, 
     "setting",
     SETTINGS_VALUES,
 )
-def test_cli_values_json_wide(setting):
+def test_cli_values_json_wide(setting: list) -> None:
     provider, network, setting, station_id, station_name = setting
     result = invoke_wetterdienst_values_static_wide(
         provider=provider,
@@ -140,7 +147,7 @@ def test_cli_values_json_wide(setting):
     assert set(first.keys()) - default_columns
 
 
-def test_cli_values_json_multiple_stations():
+def test_cli_values_json_multiple_stations() -> None:
     result = invoke_wetterdienst_values_static_wide(
         provider="dwd",
         network="observation",
@@ -157,7 +164,7 @@ def test_cli_values_json_multiple_stations():
 
 
 @pytest.mark.remote
-def test_cli_values_json_multiple_datasets():
+def test_cli_values_json_multiple_datasets() -> None:
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -183,12 +190,12 @@ def test_cli_values_json_multiple_datasets():
 @pytest.mark.remote
 @pytest.mark.parametrize("provider,network,setting,station_id,station_name", SETTINGS_VALUES)
 def test_cli_values_json(
-    provider,
-    network,
-    setting,
-    station_id,
-    station_name,  # noqa: ARG001
-):
+    provider: str,
+    network: str,
+    setting: list,
+    station_id: str,
+    station_name: str,  # noqa: ARG001
+) -> None:
     result = invoke_wetterdienst_values_static(
         provider=provider,
         network=network,
@@ -211,7 +218,7 @@ def test_cli_values_json(
 
 
 @pytest.mark.remote
-def test_cli_values_json_with_metadata_with_stations(metadata):
+def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -255,7 +262,7 @@ def test_cli_values_json_with_metadata_with_stations(metadata):
 
 @pytest.mark.remote
 @mock.patch("json.dumps", create=True)
-def test_cli_values_json_indent_false(json_dumps_mock):
+def test_cli_values_json_indent_false(json_dumps_mock: MagicMock) -> None:
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -274,7 +281,7 @@ def test_cli_values_json_indent_false(json_dumps_mock):
 
 @pytest.mark.remote
 @mock.patch("json.dumps", create=True)
-def test_cli_values_json_indent_true(json_dumps_mock):
+def test_cli_values_json_indent_true(json_dumps_mock: MagicMock) -> None:
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -292,7 +299,7 @@ def test_cli_values_json_indent_true(json_dumps_mock):
 
 
 @pytest.mark.remote
-def test_cli_values_geojson(metadata):
+def test_cli_values_geojson(metadata: dict) -> None:
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -326,7 +333,7 @@ def test_cli_values_geojson(metadata):
 
 
 @pytest.mark.remote
-def test_cli_values_geojson_no_metadata():
+def test_cli_values_geojson_no_metadata() -> None:
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -346,7 +353,7 @@ def test_cli_values_geojson_no_metadata():
 
 @pytest.mark.remote
 @mock.patch("json.dumps", create=True)
-def test_cli_values_geojson_pretty_false(json_dumps_mock):
+def test_cli_values_geojson_pretty_false(json_dumps_mock: MagicMock) -> None:
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -365,7 +372,7 @@ def test_cli_values_geojson_pretty_false(json_dumps_mock):
 
 @pytest.mark.remote
 @mock.patch("json.dumps", create=True)
-def test_cli_values_geojson_pretty_true(json_dumps_mock):
+def test_cli_values_geojson_pretty_true(json_dumps_mock: MagicMock) -> None:
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -388,12 +395,12 @@ def test_cli_values_geojson_pretty_true(json_dumps_mock):
     SETTINGS_VALUES,
 )
 def test_cli_values_csv(
-    provider,
-    network,
-    setting,
-    station_id,
-    station_name,  # noqa: ARG001
-):
+    provider: str,
+    network: str,
+    setting: list,
+    station_id: str,
+    station_name: str,  # noqa: ARG001
+) -> None:
     result = invoke_wetterdienst_values_static_wide(
         provider=provider,
         network=network,
@@ -410,13 +417,13 @@ def test_cli_values_csv(
     SETTINGS_VALUES,
 )
 def test_cli_values_excel(
-    provider,
-    network,
-    setting,
-    station_id,
-    station_name,  # noqa: ARG001
-    tmp_path,
-):
+    provider: str,
+    network: str,
+    setting: list,
+    station_id: str,
+    station_name: str,  # noqa: ARG001
+    tmp_path: Path,
+) -> None:
     filename = Path("values.xlsx")
     if not IS_WINDOWS:
         filename = tmp_path.joinpath(filename)
@@ -439,12 +446,12 @@ def test_cli_values_excel(
     SETTINGS_VALUES,
 )
 def test_cli_values_format_unknown(
-    provider,
-    network,
-    setting,
-    station_id,
-    station_name,  # noqa: ARG001
-):
+    provider: str,
+    network: str,
+    setting: list,
+    station_id: str,
+    station_name: str,  # noqa: ARG001
+) -> None:
     result = invoke_wetterdienst_values_static_wide(
         provider=provider,
         network=network,
@@ -461,12 +468,12 @@ def test_cli_values_format_unknown(
     SETTINGS_VALUES,
 )
 def test_cli_values_filter_by_rank(
-    provider,
-    network,
-    setting,
-    station_id,
-    station_name,  # noqa: ARG001
-):
+    provider: str,
+    network: str,
+    setting: list,
+    station_id: str,
+    station_name: str,  # noqa: ARG001
+) -> None:
     result = invoke_wetterdienst_values_filter_by_rank(provider=provider, network=network, setting=setting, fmt="json")
     response = json.loads(result.output)
     station_ids = {reading["station_id"] for reading in response["values"]}
@@ -474,7 +481,7 @@ def test_cli_values_filter_by_rank(
 
 
 @pytest.mark.remote
-def test_cli_values_custom_units():
+def test_cli_values_custom_units() -> None:
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -508,7 +515,7 @@ def test_cli_values_custom_units():
         "svg",
     ],
 )
-def test_cli_values_image(fmt):
+def test_cli_values_image(fmt: str) -> None:
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -524,7 +531,7 @@ def test_cli_values_image(fmt):
 
 
 @pytest.mark.remote
-def test_cli_values_image_html():
+def test_cli_values_image_html() -> None:
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -540,7 +547,7 @@ def test_cli_values_image_html():
 
 
 @pytest.mark.remote
-def test_cli_values_image_pdf():
+def test_cli_values_image_pdf() -> None:
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",

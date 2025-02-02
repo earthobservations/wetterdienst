@@ -7,7 +7,7 @@ from wetterdienst.provider.geosphere.observation import GeosphereObservationRequ
 
 
 @pytest.mark.remote
-def test_geopshere_observation_api():
+def test_geopshere_observation_api() -> None:
     """Test the correct parsing of data, especially the dates -> thanks @mhuber89 for the discovery and fix"""
     stations_at = GeosphereObservationRequest(
         parameters=[("hourly", "data", "wind_speed")],
@@ -28,7 +28,7 @@ def test_geopshere_observation_api():
         "daily",
     ],
 )
-def test_geopshere_observation_api_radiation(resolution):
+def test_geopshere_observation_api_radiation(resolution: str) -> None:
     """Test correct radiation conversion (W / m² -> J / cm²), factor should be 0.06"""
     stations_at = GeosphereObservationRequest(
         parameters=[(resolution, "data", "radiation_global")],

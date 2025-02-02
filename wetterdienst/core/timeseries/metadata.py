@@ -16,6 +16,8 @@ from wetterdienst.metadata.resolution import Resolution  # noqa: TCH001, needs t
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from pydantic_core.core_schema import ValidationInfo
+
     from wetterdienst.core.timeseries.request import _PARAMETER_TYPE
 
 log = logging.getLogger(__name__)
@@ -34,7 +36,7 @@ class ParameterModel(BaseModel):
     description: str | None = None
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)
 
-    def __eq__(self, other):
+    def __eq__(self, other: ParameterModel) -> bool:
         return (
             self.name == other.name
             and self.name_original == other.name_original
@@ -58,12 +60,12 @@ class DatasetModel(BaseModel):
     parameters: list[ParameterModel]
     resolution: SkipValidation[ResolutionModel] = Field(default=None, exclude=True, repr=False)
 
-    def __init__(self, **data):
+    def __init__(self, **data: dict) -> None:
         super().__init__(**data)
         for parameter in self.parameters:
             parameter.dataset = self
 
-    def __eq__(self, other):
+    def __eq__(self, other: DatasetModel) -> bool:
         if not isinstance(other, DatasetModel):
             return False
         return (
@@ -77,7 +79,7 @@ class DatasetModel(BaseModel):
             and self.resolution.name == other.resolution.name
         )
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str | int) -> ParameterModel:
         if isinstance(item, int):
             return self.parameters[item]
         item_search = item.strip().lower()
@@ -93,7 +95,7 @@ class DatasetModel(BaseModel):
             ]
             raise KeyError(f"'{item}'. Available parameters: {', '.join(available_parameters)}")
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> ParameterModel:
         for parameter in self.parameters:
             if parameter.name == item or parameter.name_original == item:
                 return parameter
@@ -121,7 +123,7 @@ class ResolutionModel(BaseModel):
 
     @field_validator("datasets", mode="before")
     @classmethod
-    def validate_datasets(cls, v, validation_info):
+    def validate_datasets(cls, v: list[dict], validation_info: ValidationInfo) -> list[DatasetModel]:
         periods = validation_info.data["periods"]
         date_required = validation_info.data["date_required"]
         if periods:
@@ -134,7 +136,7 @@ class ResolutionModel(BaseModel):
                     dataset["date_required"] = date_required
         return v
 
-    def __init__(self, **data):
+    def __init__(self, **data: dict) -> None:
         super().__init__(**data)
         for dataset in self.datasets:
             dataset.resolution = self
@@ -181,7 +183,7 @@ class MetadataModel(BaseModel):
     timezone_data: TimeZoneName | Literal["dynamic"]
     resolutions: list[ResolutionModel]
 
-    def __getitem__(self, item: str | int):
+    def __getitem__(self, item: str | int) -> ResolutionModel:
         if isinstance(item, int):
             return self.resolutions[item]
         item_search = item.strip().lower()
@@ -201,7 +203,7 @@ class MetadataModel(BaseModel):
             ]
             raise KeyError(f"'{item}'. Available resolutions: {', '.join(available_resolutions)}")
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> ResolutionModel:
         item_search = item.strip().lower()
         for resolution in self.resolutions:
             if (

@@ -298,14 +298,19 @@ select = [
     # flake8-use-pathlib
     "PTH",
     # pep8-naming
-    "N"
+    "N",
+    # flake8-annotations
+    "ANN",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.
     "B905",
     # Unnecessary `elif` after `return` statement
     "RET505",
-    "COM812"
+    "COM812",
+    # flake8-annotations
+    "ANN101",
+    "ANN102",
 ]
 unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 

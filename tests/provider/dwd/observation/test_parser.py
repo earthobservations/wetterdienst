@@ -16,7 +16,7 @@ from wetterdienst.provider.dwd.observation.parser import parse_climate_observati
 
 
 @pytest.mark.remote
-def test_parse_dwd_data():
+def test_parse_dwd_data() -> None:
     url = (
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
         "climate/daily/kl/historical/tageswerte_KL_00001_19370101_19860630_hist.zip"

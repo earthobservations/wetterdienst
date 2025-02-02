@@ -60,8 +60,8 @@ REQUEST_EXAMPLES = {
 
 
 @app.get("/", response_class=HTMLResponse)
-def index():
-    def _create_author_entry(author: Author):
+def index() -> str:
+    def _create_author_entry(author: Author) -> str:
         # create author string Max Mustermann (Github href, Mailto)
         return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"  # noqa:E501
 
@@ -188,7 +188,7 @@ def index():
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
-def robots():
+def robots() -> str:
     return """
 User-agent: *
 Disallow: /api/
@@ -196,12 +196,12 @@ Disallow: /api/
 
 
 @app.get("/health")
-def health():
-    return {"status": "OK"}
+def health() -> Response:
+    return Response(content={"status": "OK"})
 
 
 @app.get("/favicon.ico")
-def favicon():
+def favicon() -> RedirectResponse:
     return RedirectResponse(
         url="https://raw.githubusercontent.com/earthobservations/wetterdienst/refs/heads/main/docs/assets/logo.png"
     )
@@ -215,7 +215,7 @@ def coverage(
     datasets: str = None,
     pretty: bool = False,
     debug: bool = False,
-):
+) -> Response:
     set_logging_level(debug)
 
     if (provider and not network) or (not provider and network):
@@ -255,8 +255,8 @@ def coverage(
 # - _StationsDict for json
 # - _StationsOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/stations", response_model=Union[_StationsDict, _StationsOgcFeatureCollection, str])
-def stations(request: Annotated[StationsRequestRaw, Query()]) -> Any:
+@app.get("/api/stations")
+def stations(request: Annotated[StationsRequestRaw, Query()]) -> _StationsDict | _StationsOgcFeatureCollection | str:
     # parse list-like parameters into lists
     try:
         request = StationsRequest.model_validate(request.model_dump())
@@ -315,10 +315,12 @@ def stations(request: Annotated[StationsRequestRaw, Query()]) -> Any:
 # - _ValuesDict for json
 # - _ValuesOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/values", response_model=Union[_ValuesDict, _ValuesOgcFeatureCollection, str])
+@app.get(
+    "/api/values",
+)
 def values(
     request: Annotated[ValuesRequestRaw, Query()],
-) -> Any:
+) -> _ValuesDict | _ValuesOgcFeatureCollection | str:
     try:
         request = ValuesRequest.model_validate(request.model_dump())
     except ValidationError as e:
@@ -391,9 +393,10 @@ def values(
 # - str for csv
 @app.get(
     "/api/interpolate",
-    response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str],
 )
-def interpolate(request: Annotated[InterpolationRequestRaw, Query()]) -> Any:
+def interpolate(
+    request: Annotated[InterpolationRequestRaw, Query()],
+) -> _InterpolatedValuesDict | _InterpolatedValuesOgcFeatureCollection | str:
     """Wrapper around get_interpolate to provide results via restapi"""
     try:
         request = InterpolationRequest.model_validate(request.model_dump())
@@ -465,7 +468,7 @@ def interpolate(request: Annotated[InterpolationRequestRaw, Query()]) -> Any:
 @app.get("/api/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
 def summarize(
     request: Annotated[SummaryRequestRaw, Query()],
-) -> Any:
+) -> Any:  # noqa: ANN401
     """Wrapper around get_summarize to provide results via restapi"""
     try:
         request = SummaryRequest.model_validate(request.model_dump())
@@ -535,7 +538,7 @@ def stripes_stations(
     fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
     pretty: Annotated[bool, Query()] = False,
     debug: Annotated[bool, Query()] = False,
-) -> Any:
+) -> Response:
     """Wrapper around get_climate_stripes_temperature_request to provide results via restapi"""
     set_logging_level(debug)
 
@@ -566,7 +569,7 @@ def stripes_values(
     fmt: Annotated[Literal["png", "jpg", "svg", "pdf"], Query(alias="format")] = "png",
     dpi: Annotated[int, Query(gt=0)] = 300,
     debug: Annotated[bool, Query()] = False,
-) -> Any:
+) -> Response:
     """Wrapper around get_summarize to provide results via restapi"""
     set_logging_level(debug)
 
@@ -611,7 +614,7 @@ def stripes_values(
     return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
 
 
-def start_service(listen_address: str | None = None, reload: bool | None = False):  # pragma: no cover
+def start_service(listen_address: str | None = None, reload: bool | None = False) -> None:  # pragma: no cover
     from uvicorn.main import run
 
     setup_logging()

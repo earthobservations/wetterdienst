@@ -9,7 +9,7 @@ from wetterdienst.util.network import list_remote_files_fsspec
 
 @pytest.mark.skipif(not ensure_eccodes() or not ensure_pdbufr(), reason="eccodes and/or pdbufr not installed")
 @pytest.mark.remote
-def test_dwd_road_weather():
+def test_dwd_road_weather() -> None:
     request = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")]).filter_by_station_id(
         "A006"
     )
@@ -35,7 +35,7 @@ def test_dwd_road_weather():
 
 
 @pytest.mark.xfail(reason="number of station groups may change")
-def test_dwd_road_weather_station_groups():
+def test_dwd_road_weather_station_groups() -> None:
     url = "https://opendata.dwd.de/weather/weather_reports/road_weather_stations/"
     files = list_remote_files_fsspec(
         url=url,

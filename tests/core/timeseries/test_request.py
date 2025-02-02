@@ -5,7 +5,8 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst import Period
+from wetterdienst import Period, Settings
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
@@ -14,7 +15,7 @@ from wetterdienst.provider.dwd.observation import (
 
 
 @pytest.fixture
-def expected_stations_df():
+def expected_stations_df() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
@@ -63,7 +64,7 @@ def expected_stations_df():
 
 
 @pytest.fixture
-def default_request(default_settings):
+def default_request(default_settings: Settings) -> TimeseriesRequest:
     return DwdObservationRequest(
         parameters=[("hourly", "temperature_air")],
         periods="historical",
@@ -73,7 +74,7 @@ def default_request(default_settings):
     )
 
 
-def test_dwd_observation_data_api_singe_parameter(default_settings):
+def test_dwd_observation_data_api_singe_parameter(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "precipitation_height")],
         periods=["recent", "historical"],
@@ -88,7 +89,7 @@ def test_dwd_observation_data_api_singe_parameter(default_settings):
     )
 
 
-def test_dwd_observation_data_whole_dataset(default_settings):
+def test_dwd_observation_data_whole_dataset(default_settings: Settings) -> None:
     """Test parameters given as parameter - dataset pair"""
     given = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -113,7 +114,7 @@ def test_dwd_observation_data_whole_dataset(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_wrong_start_date_end_date(default_settings):
+def test_dwd_observation_wrong_start_date_end_date(default_settings: Settings) -> None:
     # station id
     with pytest.raises(StartDateEndDateError):
         DwdObservationRequest(
@@ -124,7 +125,7 @@ def test_dwd_observation_wrong_start_date_end_date(default_settings):
         )
 
 
-def test_dwd_observation_data_dates(default_settings):
+def test_dwd_observation_data_dates(default_settings: Settings) -> None:
     # time input
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -137,20 +138,20 @@ def test_dwd_observation_data_dates(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_filter_empty(default_request):
+def test_dwd_observations_stations_filter_empty(default_request: TimeseriesRequest) -> None:
     # Existing combination of parameters
     request = default_request.filter_by_station_id(station_id=("FizzBuzz",))
     assert request.df.is_empty()
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_filter_name_empty(default_request):
+def test_dwd_observations_stations_filter_name_empty(default_request: TimeseriesRequest) -> None:
     # Existing combination of parameters
     request = default_request.filter_by_name(name="FizzBuzz")
     assert request.df.is_empty()
 
 
-def test_dwd_observations_multiple_datasets_tidy(default_settings):
+def test_dwd_observations_multiple_datasets_tidy(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")],
         periods="historical",
@@ -159,7 +160,7 @@ def test_dwd_observations_multiple_datasets_tidy(default_settings):
     assert request.tidy
 
 
-def test_dwd_observations_stations_wrong_types(default_request):
+def test_dwd_observations_stations_wrong_types(default_request: TimeseriesRequest) -> None:
     with pytest.raises(TypeError):
         default_request.filter_by_station_id(name=123)
 
@@ -168,7 +169,9 @@ def test_dwd_observations_stations_wrong_types(default_request):
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_filter_by_rank_single(default_request, expected_stations_df):
+def test_dwd_observation_stations_filter_by_rank_single(
+    default_request: TimeseriesRequest, expected_stations_df: pl.DataFrame
+) -> None:
     # Test for one nearest station
     request = default_request.filter_by_rank(
         latlon=(50.0, 8.9),
@@ -181,7 +184,9 @@ def test_dwd_observation_stations_filter_by_rank_single(default_request, expecte
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_filter_by_rank_multiple(default_request, expected_stations_df):
+def test_dwd_observation_stations_filter_by_rank_multiple(
+    default_request: TimeseriesRequest, expected_stations_df: pl.DataFrame
+) -> None:
     request = default_request.filter_by_rank(
         latlon=(50.0, 8.9),
         rank=3,
@@ -196,7 +201,9 @@ def test_dwd_observation_stations_filter_by_rank_multiple(default_request, expec
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_nearby_distance(default_request, expected_stations_df):
+def test_dwd_observation_stations_nearby_distance(
+    default_request: TimeseriesRequest, expected_stations_df: pl.DataFrame
+) -> None:
     # Kilometers
     nearby_station = default_request.filter_by_distance(latlon=(50.0, 8.9), distance=16.13, unit="km")
     nearby_station = nearby_station.df.drop("end_date")
@@ -208,14 +215,14 @@ def test_dwd_observation_stations_nearby_distance(default_request, expected_stat
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_bbox(default_request, expected_stations_df):
+def test_dwd_observation_stations_bbox(default_request: TimeseriesRequest, expected_stations_df: pl.DataFrame) -> None:
     nearby_station = default_request.filter_by_bbox(left=8.7862, bottom=49.9195, right=8.993, top=50.0900)
     nearby_station = nearby_station.df.drop("end_date")
     assert_frame_equal(nearby_station, expected_stations_df.drop("distance"))
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_bbox_empty(default_request):
+def test_dwd_observation_stations_bbox_empty(default_request: TimeseriesRequest) -> None:
     # Bbox
     assert default_request.filter_by_bbox(
         left=-100,
@@ -226,7 +233,7 @@ def test_dwd_observation_stations_bbox_empty(default_request):
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_fail(default_request):
+def test_dwd_observation_stations_fail(default_request: TimeseriesRequest) -> None:
     # Number
     with pytest.raises(ValueError):
         default_request.filter_by_rank(

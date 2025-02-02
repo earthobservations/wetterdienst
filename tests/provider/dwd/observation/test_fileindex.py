@@ -5,6 +5,7 @@
 import polars as pl
 import pytest
 
+from wetterdienst import Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
@@ -16,7 +17,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
 
 
 @pytest.mark.remote
-def test_file_index_creation_success(default_settings):
+def test_file_index_creation_success(default_settings: Settings) -> None:
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
         dataset=DwdObservationMetadata.daily.climate_summary,
@@ -31,7 +32,7 @@ def test_file_index_creation_success(default_settings):
 
 
 @pytest.mark.remote
-def test_file_index_creation_precipitation_minute_1(default_settings):
+def test_file_index_creation_precipitation_minute_1(default_settings: Settings) -> None:
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
         dataset=DwdObservationMetadata.minute_1.precipitation,
@@ -43,7 +44,7 @@ def test_file_index_creation_precipitation_minute_1(default_settings):
 
 
 @pytest.mark.remote
-def test_create_file_list_for_dwd_server(default_settings):
+def test_create_file_list_for_dwd_server(default_settings: Settings) -> None:
     remote_file_path = create_file_list_for_climate_observations(
         station_id="01048",
         dataset=DwdObservationMetadata.daily.climate_summary,

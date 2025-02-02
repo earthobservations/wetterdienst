@@ -257,7 +257,7 @@ class NwsObservationRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
         super().__init__(
             parameters=parameters,
             start_date=start_date,

@@ -4,9 +4,10 @@ import sys
 from pathlib import Path
 
 import h5py
+from h5netcdf import Group
 
 
-def hdf5dump(thing, compact=False):
+def hdf5dump(thing: str, compact: bool = False) -> None:
     """
     Like "h5dump -n 1", but better.
     """
@@ -24,7 +25,7 @@ def hdf5dump(thing, compact=False):
         "stopelA",
     ]
 
-    def dumpattrs(item, indent=2):
+    def dumpattrs(item: Group, indent: int = 2) -> None:
         for name, value in item.attrs.items():
             if compact:
                 if name in blocklist:
@@ -41,6 +42,6 @@ def hdf5dump(thing, compact=False):
                 dumpattrs(hdf[group][subgroup], indent=4)
 
 
-def wddump():
+def wddump() -> None:
     filename = sys.argv[1]
     hdf5dump(filename, compact=True)

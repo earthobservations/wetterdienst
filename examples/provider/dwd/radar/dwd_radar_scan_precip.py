@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: xr.Dataset):
+def plot(data: xr.Dataset) -> None:
     """Plot radar data with prefixed settings."""
     # Georeference Data.
     swp0 = data.xradar.georeference()
@@ -52,7 +52,7 @@ def plot(data: xr.Dataset):
 
 
 @pytest.mark.remote
-def radar_scan_precip():
+def radar_scan_precip() -> None:
     """Retrieve radar sweep scan of precipitation provided by DWD."""
     request_velocity = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
@@ -91,7 +91,7 @@ def radar_scan_precip():
         plt.show()
 
 
-def main():
+def main() -> None:
     """Run example."""
     radar_scan_precip()
 

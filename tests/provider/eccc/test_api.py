@@ -7,11 +7,12 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst import Settings
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 
 
 @pytest.mark.remote
-def test_eccc_api_stations(settings_si_false):
+def test_eccc_api_stations(settings_si_false: Settings) -> None:
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
         start_date="1990-01-01",
@@ -38,7 +39,7 @@ def test_eccc_api_stations(settings_si_false):
 
 
 @pytest.mark.remote
-def test_eccc_api_values(settings_si_false):
+def test_eccc_api_values(settings_si_false: Settings) -> None:
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
         start_date="1980-01-01",

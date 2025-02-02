@@ -8,6 +8,7 @@ import pytest
 from dirty_equals import IsDatetime, IsDict
 from polars.testing import assert_frame_equal
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
 )
@@ -15,7 +16,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
 
 @pytest.fixture
-def expected_df():
+def expected_df() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
@@ -34,7 +35,7 @@ def expected_df():
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_filter(default_settings, expected_df):
+def test_dwd_observations_stations_filter(default_settings: Settings, expected_df: pl.DataFrame) -> None:
     # Existing combination of parameters
     request = DwdObservationRequest(
         parameters=("daily", "climate_summary"),
@@ -46,7 +47,7 @@ def test_dwd_observations_stations_filter(default_settings, expected_df):
 
 
 @pytest.mark.remote
-def test_dwd_observations_urban_stations(default_settings):
+def test_dwd_observations_urban_stations(default_settings: Settings) -> None:
     """Test DWD Observation urban stations"""
     request = DwdObservationRequest(
         parameters=[("hourly", "urban_air_temperature")],
@@ -57,7 +58,7 @@ def test_dwd_observations_urban_stations(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_filter_name(default_settings, expected_df):
+def test_dwd_observations_stations_filter_name(default_settings: Settings, expected_df: pl.DataFrame) -> None:
     # Existing combination of parameters
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -70,7 +71,7 @@ def test_dwd_observations_stations_filter_name(default_settings, expected_df):
 
 # TODO: move this test to test_io.py
 @pytest.mark.remote
-def test_dwd_observations_stations_geojson(default_settings):
+def test_dwd_observations_stations_geojson(default_settings: Settings) -> None:
     # Existing combination of parameters
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -96,7 +97,7 @@ def test_dwd_observations_stations_geojson(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_minute_1(default_settings):
+def test_dwd_observations_stations_minute_1(default_settings: Settings) -> None:
     # Existing combination of parameters
     request = DwdObservationRequest(
         parameters=[("minute_1", "precipitation")],
@@ -123,7 +124,7 @@ def test_dwd_observations_stations_minute_1(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_name_with_comma():
+def test_dwd_observations_stations_name_with_comma() -> None:
     request = DwdObservationRequest(
         parameters=[("monthly", "kl")],
         periods="recent",
@@ -171,7 +172,7 @@ def test_dwd_observations_stations_name_with_comma():
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations():
+def test_dwd_observation_stations() -> None:
     skip_resolutions = [DwdObservationMetadata.minute_1]
     failed = []
     for resolution in DwdObservationMetadata:

@@ -4,7 +4,7 @@ import pytest
 
 
 @pytest.mark.xfail(reason="zlib.error: Error -3 while decompressing data: invalid literal/length/distance code")
-def test_benchmarks():
+def test_benchmarks() -> None:
     from benchmarks import (
         interpolation,
         interpolation_over_time,

@@ -204,7 +204,7 @@ class EcccObservationRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
         """
 
         :param parameters: parameter or list of parameters that are being queried

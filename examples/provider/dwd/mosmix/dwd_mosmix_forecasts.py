@@ -13,6 +13,8 @@ Other MOSMIX variants are also listed and can be
 enabled on demand.
 """  # Noqa:D205,D400
 
+import polars as pl
+
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.mosmix import (
     DwdForecastDate,
@@ -21,7 +23,7 @@ from wetterdienst.provider.dwd.mosmix import (
 from wetterdienst.util.cli import setup_logging
 
 
-def mosmix_example():
+def mosmix_example() -> None:
     """Retrieve Mosmix mosmix data by DWD."""
     # A. MOSMIX-L -- Specific stations_result - each station with own file
     settings = Settings(ts_shape="wide", ts_humanize=True)
@@ -79,7 +81,7 @@ def mosmix_example():
     output_section("Forecasts", response.df)
 
 
-def output_section(title, data):  # pragma: no cover
+def output_section(title: str, data: pl.DataFrame) -> None:  # pragma: no cover
     print("-" * len(title))
     print(title)
     print("-" * len(title))
@@ -87,7 +89,7 @@ def output_section(title, data):  # pragma: no cover
     print()
 
 
-def main():
+def main() -> None:
     """Run example."""
     setup_logging()
     mosmix_example()

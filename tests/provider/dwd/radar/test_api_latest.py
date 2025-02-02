@@ -7,13 +7,16 @@ from zoneinfo import ZoneInfo
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
 @pytest.mark.remote
-def test_radar_request_composite_latest_rv_reflectivity(default_settings, station_reference_pattern_sorted_prefixed):
+def test_radar_request_composite_latest_rv_reflectivity(
+    default_settings: Settings, station_reference_pattern_sorted_prefixed: str
+) -> None:
     """
     Example for testing radar COMPOSITES latest.
     """
@@ -36,7 +39,7 @@ def test_radar_request_composite_latest_rv_reflectivity(default_settings, statio
 
 
 @pytest.mark.remote
-def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_locations):
+def test_radar_request_composite_latest_rw_reflectivity(default_settings: Settings, radar_locations: list[str]) -> None:
     """
     Example for testing radar COMPOSITES (RADOLAN) latest.
     """
@@ -84,7 +87,7 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_
 
 
 @pytest.mark.remote
-def test_radar_request_site_latest_dx_reflectivity(default_settings):
+def test_radar_request_site_latest_dx_reflectivity(default_settings: Settings) -> None:
     """
     Example for testing radar SITES latest.
     """

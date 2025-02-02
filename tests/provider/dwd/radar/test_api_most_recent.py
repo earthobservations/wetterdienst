@@ -3,6 +3,7 @@
 import pytest
 from dirty_equals import IsDict, IsList, IsStr
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
     DwdRadarPeriod,
@@ -18,7 +19,7 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
 @pytest.mark.remote
-def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings):
+def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
     """
     Example for testing radar sites most recent full SWEEP_PCP,
     this time in OPERA HDF5 (ODIM_H5) format.
@@ -64,7 +65,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings):
+def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings: Settings) -> None:
     """
     Example for testing radar sites most recent full SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
@@ -116,7 +117,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_radolan_cdc_most_recent(default_settings, radar_locations):
+def test_radar_request_radolan_cdc_most_recent(default_settings: Settings, radar_locations: list[str]) -> None:
     """
     Example for testing radar sites most recent RADOLAN_CDC.
     """

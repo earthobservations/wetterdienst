@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(ds: xr.Dataset):
+def plot(ds: xr.Dataset) -> None:
     """Plot RADOLAN data.
 
     Shamelessly stolen from the wradlib RADOLAN Product Showcase documentation.
@@ -43,7 +43,7 @@ def plot(ds: xr.Dataset):
     plt.grid(color="r")
 
 
-def radar_rw_example():
+def radar_rw_example() -> None:
     """Retrieve radar rw reflectivity data by DWD."""
     log.info("Acquiring radar RW composite data")
     radolan = DwdRadarValues(
@@ -68,7 +68,7 @@ def radar_rw_example():
             plt.show()
 
 
-def main():
+def main() -> None:
     """Run example."""
     radar_rw_example()
 

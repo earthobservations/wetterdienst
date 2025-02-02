@@ -48,7 +48,7 @@ class Wetterdienst:
     }
 
     @classmethod
-    def resolve(cls, provider: str, network: str):
+    def resolve(cls, provider: str, network: str) -> type[TimeseriesRequest]:
         provider = provider.strip().lower()
         network = network.strip().lower()
 
@@ -75,14 +75,14 @@ class Wetterdienst:
         return cls.resolve(provider, network)
 
     @classmethod
-    def discover(cls):
+    def discover(cls) -> dict:
         return {provider: list(networks.keys()) for provider, networks in cls.registry.items()}
 
     @classmethod
-    def get_provider_names(cls):
+    def get_provider_names(cls) -> list[str]:
         return list(cls.registry.keys())
 
     @classmethod
-    def get_network_names(cls, provider: str):
+    def get_network_names(cls, provider: str) -> list[str]:
         provider = provider.strip().lower()
         return list(cls.registry[provider].keys())

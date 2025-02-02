@@ -5,10 +5,13 @@ from __future__ import annotations
 import gzip
 import importlib.resources
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from wetterdienst import Settings
 from wetterdienst.util.network import download_file
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class OperaRadarSites:
@@ -18,7 +21,7 @@ class OperaRadarSites:
 
     data_file = importlib.resources.files(__package__) / "sites.json.gz"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.sites = self.load()
 
     def load(self) -> list[dict]:
@@ -117,7 +120,7 @@ class OperaRadarSitesGenerator:
         ]
         boolean_values = ["doppler", "status"]
 
-        def asbool(obj: Any) -> bool:
+        def asbool(obj: Any) -> bool:  # noqa: ANN401
             # from sqlalchemy.util.asbool
             if isinstance(obj, str):
                 obj = obj.strip().lower()
@@ -146,7 +149,7 @@ class OperaRadarSitesGenerator:
                 converted[key] = value
             return converted
 
-        def filter_and_convert(elements):
+        def filter_and_convert(elements: list[dict]) -> Iterator[dict[str, int | float | bool | None]]:
             for element in elements:
                 if element["location"] and element["latitude"] and element["longitude"]:
                     yield convert_types(element)
@@ -160,7 +163,7 @@ class OperaRadarSitesGenerator:
         sites = self.get_opera_radar_sites()
         return json.dumps(sites, indent=indent)
 
-    def export(self, indent: int = 4):
+    def export(self, indent: int = 4) -> None:
         """
         Generate "sites.json.gz".
         """

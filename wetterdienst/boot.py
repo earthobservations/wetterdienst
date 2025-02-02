@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 
 
-def get_version(appname):
+def get_version(appname: str) -> str:
     from importlib.metadata import PackageNotFoundError, version  # noqa
 
     try:

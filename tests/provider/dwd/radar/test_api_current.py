@@ -3,6 +3,7 @@
 import pytest
 from dirty_equals import IsNumeric, IsTuple
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -18,7 +19,7 @@ h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
 
 @pytest.mark.remote
-def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings):
+def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
     """
     Example for testing radar sites full current SWEEP_PCP,
     this time in OPERA HDF5 (ODIM_H5) format.
@@ -62,7 +63,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings):
+def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings: Settings) -> None:
     """
     Example for testing radar sites full current SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
@@ -106,7 +107,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings):
+def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Settings) -> None:
     """
     Example for testing radar sites single current SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
@@ -146,7 +147,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings):
         DwdRadarResolution.HOURLY,
     ],
 )
-def test_radar_request_radolan_cdc_current(resolution, default_settings):
+def test_radar_request_radolan_cdc_current(default_settings: Settings, resolution: DwdRadarResolution) -> None:
     """
     Verify data acquisition for current RADOLAN_CDC/daily+hourly.
 
@@ -171,7 +172,7 @@ def test_radar_request_radolan_cdc_current(resolution, default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_radolan_cdc_current_5min(default_settings):
+def test_radar_request_radolan_cdc_current_5min(default_settings: Settings) -> None:
     """
     Verify failure for RADOLAN_CDC/5 minutes.
 

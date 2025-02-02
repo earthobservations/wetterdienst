@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: xr.Dataset):
+def plot(data: xr.Dataset) -> None:
     """Plot radar data with prefixed settings."""
     # Georeference Data.
     swp0 = data.xradar.georeference()
@@ -51,7 +51,7 @@ def plot(data: xr.Dataset):
     swp0.VRADH.plot(x="x", y="y", ax=ax2)
 
 
-def radar_scan_volume():
+def radar_scan_volume() -> None:
     """Retrieve radar sweep volume velocity h from site ESS in format HDF5 as subset polarimetric."""
 
     ed = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
@@ -133,7 +133,7 @@ def radar_scan_volume():
         plt.show()
 
 
-def main():
+def main() -> None:
     """Run example."""
     radar_scan_volume()
 

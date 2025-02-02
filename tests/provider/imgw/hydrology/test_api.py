@@ -9,7 +9,7 @@ from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyRequest
 
 
 @pytest.fixture
-def df_expected_station():
+def df_expected_station() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
@@ -38,7 +38,7 @@ def df_expected_station():
 
 
 @pytest.mark.xfail
-def test_imgw_hydrology_api_daily(df_expected_station):
+def test_imgw_hydrology_api_daily(df_expected_station: pl.DataFrame) -> None:
     request = ImgwHydrologyRequest(
         parameters=[("daily", "hydrology")],
         start_date="2010-08-01",
@@ -86,7 +86,7 @@ def test_imgw_hydrology_api_daily(df_expected_station):
 
 
 @pytest.mark.xfail
-def test_imgw_hydrology_api_monthly(df_expected_station):
+def test_imgw_hydrology_api_monthly(df_expected_station: pl.DataFrame) -> None:
     request = ImgwHydrologyRequest(
         parameters=[("monthly", "hydrology")],
         start_date="2010-06-01",

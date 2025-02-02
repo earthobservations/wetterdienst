@@ -17,7 +17,7 @@ from wetterdienst.provider.dwd.observation import (
 log = logging.getLogger()
 
 
-def summarize_example():
+def summarize_example() -> None:
     """Retrieve temperature data by DWD and filter by sql statement."""
     request = DwdObservationRequest(
         parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
@@ -31,7 +31,7 @@ def summarize_example():
     print(values.df)
 
 
-def main():
+def main() -> None:
     """Run example."""
     logging.basicConfig(level=logging.INFO)
     summarize_example()

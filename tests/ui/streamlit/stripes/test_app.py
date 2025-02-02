@@ -10,7 +10,7 @@ from wetterdienst.ui.streamlit.stripes import app
 
 @pytest.mark.cflake
 @pytest.mark.remote
-def test_stripes():
+def test_stripes() -> None:
     app_test = AppTest.from_file(app.__file__)
     app_test.run()
     assert app_test.error == []

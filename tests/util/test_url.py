@@ -1,9 +1,11 @@
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from pathlib import Path
+
 from wetterdienst.util.url import ConnectionString
 
 
-def test_connectionstring_database_from_path():
+def test_connectionstring_database_from_path() -> None:
     url = "foobar://host:1234/dbname"
     cs = ConnectionString(url)
     assert cs.protocol == "foobar"
@@ -13,13 +15,13 @@ def test_connectionstring_database_from_path():
     assert cs.table == "weather"
 
 
-def test_connectionstring_database_from_query_param():
+def test_connectionstring_database_from_query_param() -> None:
     url = "foobar://host:1234/?database=dbname"
     cs = ConnectionString(url)
     assert cs.database == "dbname"
 
 
-def test_connectionstring_username_password_host():
+def test_connectionstring_username_password_host() -> None:
     url = "foobar://username:password@host/?database=dbname"
     cs = ConnectionString(url)
     assert cs.username == "username"
@@ -27,13 +29,13 @@ def test_connectionstring_username_password_host():
     assert cs.host == "host"
 
 
-def test_connectionstring_table_from_query_param():
+def test_connectionstring_table_from_query_param() -> None:
     url = "foobar://host:1234/?database=dbname&table=tablename"
     cs = ConnectionString(url)
     assert cs.table == "tablename"
 
 
-def test_connectionstring_temporary_file(tmp_path):
+def test_connectionstring_temporary_file(tmp_path: Path) -> None:
     filepath = tmp_path.joinpath("foobar.txt")
     url = f"file://{filepath}"
     cs = ConnectionString(url)

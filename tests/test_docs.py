@@ -19,7 +19,7 @@ EXCLUDE_PROVIDER_NETWORKS = {
 
 
 @pytest.mark.remote
-def test_readme():
+def test_readme() -> None:
     readme_file = Path(__file__).parent.parent / "README.md"
     failures, _ = doctest.testfile(
         filename=str(readme_file),
@@ -29,10 +29,10 @@ def test_readme():
     assert failures == 0
 
 
-def test_data_coverage():
+def test_data_coverage() -> None:
     """Test to make sure that provider data is correctly covered by the docs."""
 
-    def _check_startswith(name, startswith):
+    def _check_startswith(name: str, startswith: list[str]) -> bool:
         for sw in startswith:
             if name.startswith(sw):
                 return True

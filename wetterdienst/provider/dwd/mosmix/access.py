@@ -22,6 +22,9 @@ from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from xml.etree.ElementTree import Element
+
     from wetterdienst.settings import Settings
 
 try:
@@ -79,7 +82,7 @@ class KMLReader:
 
         return buffer
 
-    def fetch(self, url) -> bytes:
+    def fetch(self, url: str) -> bytes:
         """
         Fetch weather mosmix file (zipped xml).
         """
@@ -87,7 +90,7 @@ class KMLReader:
         zfs = ZipFileSystem(buffer, "r")
         return zfs.open(zfs.glob("*")[0]).read()
 
-    def read(self, url: str):
+    def read(self, url: str) -> None:
         """
         Download and read DWD XML Weather Forecast File of Type KML.
         """
@@ -136,7 +139,7 @@ class KMLReader:
         # save namespace map for later iteration
         self.nsmap = nsmap
 
-    def iter_items(self):
+    def iter_items(self) -> Iterator[Element]:
         clear = True
         placemark_tag = f"{{{self.nsmap['kml']}}}Placemark"
         for event, element in self.iter_elems:
@@ -150,7 +153,7 @@ class KMLReader:
                 if clear:
                     element.clear()
 
-    def get_metadata(self):
+    def get_metadata(self) -> pl.DataFrame:
         """Get metadata as DataFrame."""
         return pl.DataFrame([self.metadata], orient="row")
 

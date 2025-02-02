@@ -10,7 +10,7 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -67,7 +67,7 @@ class RadarResult:
     url: str = None
     filename: str = None
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> dt.datetime | BytesIO:
         """
         Backward compatibility to address this instance as a tuple.
 
@@ -209,7 +209,7 @@ class DwdRadarValues:
 
         self.settings = settings or Settings()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"DWDRadarRequest("
             f"parameter={self.parameter}, "
@@ -219,7 +219,7 @@ class DwdRadarValues:
             f"date={self.start_date}/{self.end_date})"
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:  # noqa: ANN401
         return (
             self.parameter == other.parameters
             and self.site == other.site
@@ -231,7 +231,7 @@ class DwdRadarValues:
             and self.period == other.periods
         )
 
-    def adjust_datetimes(self):
+    def adjust_datetimes(self) -> None:
         """
         Adjust ``start_date`` and ``end_date`` attributes to match
         minute marks for respective RadarParameter.
@@ -499,7 +499,7 @@ class DwdRadarValues:
                 timestamp=get_date_from_filename(url, pattern=RADAR_DT_PATTERN, formats=["%y%m%d%H%M"]),
             )
 
-    def _download_radolan_data(self, url: str, start_date, end_date) -> Iterator[RadarResult]:
+    def _download_radolan_data(self, url: str, start_date: dt.datetime, end_date: dt.datetime) -> Iterator[RadarResult]:
         """
         Function used to download RADOLAN_CDC data for a given datetime. The function calls
         a separate download function that is cached for reuse which is especially used for
@@ -577,7 +577,7 @@ class DwdRadarValues:
 
 
 class DwdRadarSites(OperaRadarSites):
-    def __init__(self):
+    def __init__(self) -> None:
         # Load all OPERA radar sites.
         super().__init__()
 

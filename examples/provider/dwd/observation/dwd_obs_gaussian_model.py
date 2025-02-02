@@ -45,7 +45,9 @@ except ImportError:
     exit(1)
 
 
-def station_example(start_date="2018-12-25", end_date="2022-12-25", name="Frankfurt/Main"):
+def station_example(
+    start_date: str = "2018-12-25", end_date: str = "2022-12-25", name: str = "Frankfurt/Main"
+) -> StationsResult:
     """Retrieve stations_result of DWD that measure temperature."""
 
     stations = DwdObservationRequest(
@@ -68,7 +70,7 @@ class ModelYearlyGaussians:
 
     """
 
-    def __init__(self, station_data: StationsResult, plot_path: Path):
+    def __init__(self, station_data: StationsResult, plot_path: Path) -> None:
         self._station_data = station_data
 
         result_values = station_data.values.all().df.drop_nulls()
@@ -146,7 +148,9 @@ class ModelYearlyGaussians:
 
         return pars
 
-    def plot_data_and_model(self, valid_data: pl.DataFrame, out: ModelResult, savefig_to_file, plot_path: Path) -> None:
+    def plot_data_and_model(
+        self, valid_data: pl.DataFrame, out: ModelResult, savefig_to_file: bool, plot_path: Path
+    ) -> None:
         """plots the data and the model"""
         if savefig_to_file:
             _ = plt.subplots(figsize=(12, 12))
@@ -169,7 +173,7 @@ class ModelYearlyGaussians:
                 plt.show()
 
 
-def main(plot_path=HERE):
+def main(plot_path: Path = HERE) -> None:
     """Run example."""
     logging.basicConfig(level=logging.INFO)
 

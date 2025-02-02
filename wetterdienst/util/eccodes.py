@@ -26,7 +26,7 @@ def ensure_pdbufr() -> bool:
 
 
 @lru_cache
-def check_pdbufr():
+def check_pdbufr() -> None:
     """ensure pdbufr is installed before doing anything else"""
     try:
         import pdbufr  # noqa: F401

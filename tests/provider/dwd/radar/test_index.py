@@ -4,7 +4,7 @@ from pathlib import PurePath
 
 import pytest
 
-from wetterdienst import Period, Resolution
+from wetterdienst import Period, Resolution, Settings
 from wetterdienst.provider.dwd.radar.index import create_fileindex_radar, create_fileindex_radolan_cdc
 from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataFormat,
@@ -15,7 +15,7 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
 @pytest.mark.remote
-def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings):
+def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PG_REFLECTIVITY,
         fmt=DwdRadarDataFormat.BINARY,
@@ -27,7 +27,7 @@ def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_composite_pg_reflectivity_bufr(default_settings):
+def test_radar_fileindex_composite_pg_reflectivity_bufr(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PG_REFLECTIVITY,
         fmt=DwdRadarDataFormat.BUFR,
@@ -39,7 +39,7 @@ def test_radar_fileindex_composite_pg_reflectivity_bufr(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_composite_rv_reflectivity_bin(default_settings):
+def test_radar_fileindex_composite_rv_reflectivity_bin(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(parameter=DwdRadarParameter.RV_REFLECTIVITY, settings=default_settings)
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
@@ -55,7 +55,7 @@ def test_radar_fileindex_composite_rv_reflectivity_bin(default_settings):
         DwdRadarParameter.SF_REFLECTIVITY,
     ],
 )
-def test_radar_fileindex_radolan_reflectivity_bin(parameter, default_settings):
+def test_radar_fileindex_radolan_reflectivity_bin(parameter: DwdRadarParameter, default_settings: Settings) -> None:
     file_index = create_fileindex_radar(parameter=parameter, settings=default_settings)
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
@@ -67,7 +67,7 @@ def test_radar_fileindex_radolan_reflectivity_bin(parameter, default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_sites_px_reflectivity_bin(default_settings):
+def test_radar_fileindex_sites_px_reflectivity_bin(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PX_REFLECTIVITY,
         site=DwdRadarSite.BOO,
@@ -80,7 +80,7 @@ def test_radar_fileindex_sites_px_reflectivity_bin(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_sites_px_reflectivity_bufr(default_settings):
+def test_radar_fileindex_sites_px_reflectivity_bufr(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PX_REFLECTIVITY,
         site=DwdRadarSite.BOO,
@@ -93,7 +93,7 @@ def test_radar_fileindex_sites_px_reflectivity_bufr(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_sites_px250_reflectivity_bufr(default_settings):
+def test_radar_fileindex_sites_px250_reflectivity_bufr(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PX250_REFLECTIVITY,
         site=DwdRadarSite.BOO,
@@ -105,7 +105,7 @@ def test_radar_fileindex_sites_px250_reflectivity_bufr(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_sites_sweep_vol_v_hdf5_simple(default_settings):
+def test_radar_fileindex_sites_sweep_vol_v_hdf5_simple(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         site=DwdRadarSite.BOO,
@@ -119,7 +119,7 @@ def test_radar_fileindex_sites_sweep_vol_v_hdf5_simple(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_sites_sweep_vol_v_hdf5_polarimetric(default_settings):
+def test_radar_fileindex_sites_sweep_vol_v_hdf5_polarimetric(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         site=DwdRadarSite.BOO,
@@ -133,7 +133,7 @@ def test_radar_fileindex_sites_sweep_vol_v_hdf5_polarimetric(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_radolan_cdc_daily_recent(default_settings):
+def test_radar_fileindex_radolan_cdc_daily_recent(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.DAILY,
@@ -150,7 +150,7 @@ def test_radar_fileindex_radolan_cdc_daily_recent(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_radolan_cdc_daily_historical(default_settings):
+def test_radar_fileindex_radolan_cdc_daily_historical(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.DAILY,
@@ -167,7 +167,7 @@ def test_radar_fileindex_radolan_cdc_daily_historical(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_radolan_cdc_hourly_recent(default_settings):
+def test_radar_fileindex_radolan_cdc_hourly_recent(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.HOURLY,
@@ -184,7 +184,7 @@ def test_radar_fileindex_radolan_cdc_hourly_recent(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_radolan_cdc_hourly_historical(default_settings):
+def test_radar_fileindex_radolan_cdc_hourly_historical(default_settings: Settings) -> None:
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.HOURLY,
@@ -201,7 +201,7 @@ def test_radar_fileindex_radolan_cdc_hourly_historical(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_fileindex_radolan_cdc_5minutes(default_settings):
+def test_radar_fileindex_radolan_cdc_5minutes(default_settings: Settings) -> None:
     file_index = create_fileindex_radolan_cdc(
         resolution=Resolution.MINUTE_5,
         period=Period.HISTORICAL,

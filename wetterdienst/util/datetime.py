@@ -81,7 +81,7 @@ def mktimerange(
     return date_from, date_to
 
 
-def parse_date(date_string):
+def parse_date(date_string: str) -> dt.datetime:
     """
     Function to parse date from a range of formats which are
         - iso formats supported by datetime

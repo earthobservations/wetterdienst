@@ -7,12 +7,12 @@ from polars.testing import assert_series_equal
 from wetterdienst.util.geo import Coordinates, convert_dm_to_dd, convert_dms_string_to_dd, derive_nearest_neighbours
 
 
-def test_get_coordinates():
+def test_get_coordinates() -> None:
     coordinates = Coordinates(np.array([1, 2, 3, 4]), np.array([5, 6, 7, 8]))
     np.testing.assert_equal(coordinates.get_coordinates(), np.array([[1, 5], [2, 6], [3, 7], [4, 8]]))
 
 
-def test_get_coordinates_in_radians():
+def test_get_coordinates_in_radians() -> None:
     coordinates = Coordinates(np.array([1, 2, 3, 4]), np.array([5, 6, 7, 8]))
     np.testing.assert_almost_equal(
         coordinates.get_coordinates_in_radians(),
@@ -27,7 +27,7 @@ def test_get_coordinates_in_radians():
     )
 
 
-def test_convert_dm_to_dd():
+def test_convert_dm_to_dd() -> None:
     """Test conversion from degree minute second to decimal degree"""
     data = pl.Series(values=[7.42, 52.08, -7.42, -52.08, 0])
     given = convert_dm_to_dd(data)
@@ -35,7 +35,7 @@ def test_convert_dm_to_dd():
     assert_series_equal(given, expected)
 
 
-def test_convert_dms_string_to_dd():
+def test_convert_dms_string_to_dd() -> None:
     """Test conversion from degree minute second to decimal degree"""
     data = pl.Series(values=["49 18 21"])
     given = convert_dms_string_to_dd(data)
@@ -43,7 +43,7 @@ def test_convert_dms_string_to_dd():
     assert_series_equal(given, expected)
 
 
-def test_derive_nearest_neighbours():
+def test_derive_nearest_neighbours() -> None:
     coords = Coordinates(np.array([50.0, 51.4]), np.array([8.9, 9.3]))
     metadata = pl.DataFrame(
         [

@@ -9,7 +9,7 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
-def test_dwd_observation_metadata_discover_parameters():
+def test_dwd_observation_metadata_discover_parameters() -> None:
     metadata = DwdObservationRequest.discover()
     expected = {
         "1_minute": {
@@ -46,7 +46,7 @@ def test_dwd_observation_metadata_discover_parameters():
 
 @pytest.mark.xfail
 @pytest.mark.remote
-def test_dwd_observation_metadata_describe_fields_kl_daily_english():
+def test_dwd_observation_metadata_describe_fields_kl_daily_english() -> None:
     metadata = DwdObservationRequest.describe_fields(
         dataset=("daily", "climate_summary"),
         period="recent",
@@ -79,7 +79,7 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english():
 
 @pytest.mark.xfail
 @pytest.mark.remote
-def test_dwd_observation_metadata_describe_fields_kl_daily_german():
+def test_dwd_observation_metadata_describe_fields_kl_daily_german() -> None:
     metadata = DwdObservationRequest.describe_fields(
         dataset=("daily", "climate_summary"),
         period="recent",
@@ -113,7 +113,7 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
 
 @pytest.mark.xfail
 @pytest.mark.remote
-def test_dwd_observation_metadata_describe_fields_solar_hourly():
+def test_dwd_observation_metadata_describe_fields_solar_hourly() -> None:
     metadata = DwdObservationRequest.describe_fields(
         dataset=("hourly", "solar"),
         period="recent",
@@ -139,7 +139,7 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
 
 @pytest.mark.xfail
 @pytest.mark.remote
-def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
+def test_dwd_observation_metadata_describe_fields_temperature_10minutes() -> None:
     metadata = DwdObservationRequest.describe_fields(
         dataset=("minute_10", "temperature_air"),
         period="recent",

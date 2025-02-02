@@ -9,6 +9,7 @@ from freezegun import freeze_time
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Resolution, Settings
+from wetterdienst.core.timeseries.metadata import DatasetModel
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
@@ -18,7 +19,7 @@ from wetterdienst.provider.dwd.observation.metadata import (
 
 
 @pytest.fixture
-def dwd_climate_summary_wide_columns():
+def dwd_climate_summary_wide_columns() -> list[str]:
     return [
         "station_id",
         "dataset",
@@ -55,7 +56,7 @@ def dwd_climate_summary_wide_columns():
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_empty(default_settings):
+def test_dwd_observation_data_empty(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[
             ("minute_10", "temperature_air"),
@@ -75,7 +76,7 @@ def test_dwd_observation_data_empty(default_settings):
     )
 
 
-def test_request_period_historical(default_settings):
+def test_request_period_historical(default_settings: Settings) -> None:
     # Historical period expected
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -87,7 +88,7 @@ def test_request_period_historical(default_settings):
     ]
 
 
-def test_request_period_historical_recent(default_settings):
+def test_request_period_historical_recent(default_settings: Settings) -> None:
     # Historical and recent period expected
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -101,7 +102,7 @@ def test_request_period_historical_recent(default_settings):
     ]
 
 
-def test_request_period_historical_recent_now(default_settings):
+def test_request_period_historical_recent_now(default_settings: Settings) -> None:
     # Historical, recent and now period expected
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -117,7 +118,7 @@ def test_request_period_historical_recent_now(default_settings):
 
 
 @freeze_time(dt.datetime(2022, 1, 29, 1, 30, tzinfo=ZoneInfo("Europe/Berlin")))
-def test_request_period_recent_now(default_settings):
+def test_request_period_recent_now(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
@@ -127,7 +128,7 @@ def test_request_period_recent_now(default_settings):
 
 
 @freeze_time(dt.datetime(2022, 1, 29, 2, 30, tzinfo=ZoneInfo("Europe/Berlin")))
-def test_request_period_now(default_settings):
+def test_request_period_now(default_settings: Settings) -> None:
     # Now period
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -138,7 +139,7 @@ def test_request_period_now(default_settings):
 
 
 @freeze_time(dt.datetime(2021, 3, 28, 18, 38, tzinfo=ZoneInfo("Europe/Berlin")))
-def test_request_period_now_fixed_date(default_settings):
+def test_request_period_now_fixed_date(default_settings: Settings) -> None:
     # Now period
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -148,7 +149,7 @@ def test_request_period_now_fixed_date(default_settings):
     assert Period.NOW in request.periods
 
 
-def test_request_period_now_previous_hour(default_settings):
+def test_request_period_now_previous_hour(default_settings: Settings) -> None:
     # Now period
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -158,7 +159,7 @@ def test_request_period_now_previous_hour(default_settings):
     assert Period.NOW in request.periods
 
 
-def test_request_period_empty(default_settings):
+def test_request_period_empty(default_settings: Settings) -> None:
     # No period (for example in future)
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -169,7 +170,7 @@ def test_request_period_empty(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_count_null_values(settings_drop_nulls_false_complete_true):
+def test_dwd_observation_data_count_null_values(settings_drop_nulls_false_complete_true: Settings) -> None:
     """Test for DataFrame having empty values for dates where the station should not
     have values"""
     request = DwdObservationRequest(
@@ -185,7 +186,7 @@ def test_dwd_observation_data_count_null_values(settings_drop_nulls_false_comple
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false_complete_true):
+def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false_complete_true: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")],
         start_date="2020-06-09 12:00:00",  # no data at this time (reason unknown)
@@ -223,7 +224,7 @@ def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false_comp
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_all_missing_data(default_settings):
+def test_dwd_observation_data_result_all_missing_data(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[DwdObservationMetadata.minute_10.precipitation.precipitation_height],
         start_date=dt.datetime(2021, 10, 4),
@@ -236,9 +237,9 @@ def test_dwd_observation_data_result_all_missing_data(default_settings):
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_single_dataset(
-    settings_humanize_si_false_wide_shape_drop_nulls_complete,
-    dwd_climate_summary_wide_columns,
-):
+    settings_humanize_si_false_wide_shape_drop_nulls_complete: Settings,
+    dwd_climate_summary_wide_columns: list[str],
+) -> None:
     """Test for actual values (wide)"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -330,8 +331,8 @@ def test_dwd_observation_data_result_wide_single_dataset(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_single_parameter(
-    settings_humanize_si_false_wide_shape_drop_nulls_complete,
-):
+    settings_humanize_si_false_wide_shape_drop_nulls_complete: Settings,
+) -> None:
     """Test for actual values (wide)"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "precipitation_height")],
@@ -374,9 +375,9 @@ def test_dwd_observation_data_result_wide_single_parameter(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_convert_units(
-    settings_humanize_false_wide_shape_drop_nulls_complete,
-    dwd_climate_summary_wide_columns,
-):
+    settings_humanize_false_wide_shape_drop_nulls_complete: Settings,
+    dwd_climate_summary_wide_columns: list[str],
+) -> None:
     """Test for actual values (wide) in metric units"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -465,8 +466,8 @@ def test_dwd_observation_data_result_wide_convert_units(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_two_datasets(
-    settings_humanize_si_false_wide_shape_drop_nulls_complete,
-):
+    settings_humanize_si_false_wide_shape_drop_nulls_complete: Settings,
+) -> None:
     """Test for actual values (wide)"""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")],
@@ -571,7 +572,7 @@ def test_dwd_observation_data_result_wide_two_datasets(
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_drop_nulls_false):
+def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_drop_nulls_false: Settings) -> None:
     """Test for actual values (format) in metric units"""
     request = DwdObservationRequest(
         parameters=[("daily", "kl")],
@@ -719,7 +720,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
 
 
 @pytest.mark.remote
-def test_dwd_observations_urban_values(default_settings):
+def test_dwd_observations_urban_values(default_settings: Settings) -> None:
     """Test DWD Observation urban stations"""
     request = DwdObservationRequest(
         parameters=[("hourly", "urban_air_temperature")],
@@ -760,7 +761,7 @@ def test_dwd_observations_urban_values(default_settings):
         "urban_wind",
     ],
 )
-def test_dwd_observations_urban_values_basic(dataset, default_settings):
+def test_dwd_observations_urban_values_basic(default_settings: Settings, dataset: str) -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", dataset)],
         start_date="2022-01-01",
@@ -772,7 +773,7 @@ def test_dwd_observations_urban_values_basic(dataset, default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_false_convert_units_false):
+def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_false_convert_units_false: Settings) -> None:
     """Test for actual values (format) in metric units"""
     request = DwdObservationRequest(
         parameters=[("minute_10", "temperature_air", "pressure_air_site")],
@@ -856,7 +857,7 @@ def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_false_con
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_monthly_tidy(default_settings):
+def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
     """Test for actual values (format) in metric units"""
     request = DwdObservationRequest(
         parameters=[DwdObservationMetadata.monthly.climate_summary.precipitation_height],
@@ -977,7 +978,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings):
     assert_frame_equal(given_df, expected_df)
 
 
-def test_create_humanized_column_names_mapping():
+def test_create_humanized_column_names_mapping() -> None:
     """Test for function to create a mapping to humanized column names"""
     kl_daily_hcnm = {
         "fx": "wind_gust_max",
@@ -1010,7 +1011,7 @@ def test_create_humanized_column_names_mapping():
 
 
 @pytest.mark.remote
-def test_tidy_up_data(settings_humanize_false_drop_nulls_false):
+def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> None:
     """Test for function to format data"""
     request = DwdObservationRequest(
         parameters=[("daily", "kl")],
@@ -1166,7 +1167,7 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false):
 
 
 @pytest.mark.remote
-def test_dwd_observation_weather_phenomena(settings_humanize_false_convert_units_false):
+def test_dwd_observation_weather_phenomena(settings_humanize_false_convert_units_false: Settings) -> None:
     """Test for DWD weather phenomena data, thanks saschnet (https://github.com/saschnet) for providing the sample,
     see also https://github.com/earthobservations/wetterdienst/issues/647
     """
@@ -1181,7 +1182,7 @@ def test_dwd_observation_weather_phenomena(settings_humanize_false_convert_units
 
 
 @pytest.mark.remote
-def test_dwd_observation_tidy_empty_df_no_start_end_date(default_settings):
+def test_dwd_observation_tidy_empty_df_no_start_end_date(default_settings: Settings) -> None:
     """Test for DWD observation data with expected empty df for the case that no start and end date is given"""
     request = DwdObservationRequest(
         parameters=[("minute_10", "wind")],
@@ -1192,7 +1193,7 @@ def test_dwd_observation_tidy_empty_df_no_start_end_date(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_not_tidy_empty_df_no_start_end_date(settings_wide_shape):
+def test_dwd_observation_not_tidy_empty_df_no_start_end_date(settings_wide_shape: Settings) -> None:
     """Test for DWD observation data with expected empty df for the case that no start and end date is given"""
     request = DwdObservationRequest(
         parameters=[("minute_10", "wind")],
@@ -1203,7 +1204,7 @@ def test_dwd_observation_not_tidy_empty_df_no_start_end_date(settings_wide_shape
 
 
 @pytest.mark.remote
-def test_dwd_observation_solar_daily(default_settings):
+def test_dwd_observation_solar_daily(default_settings: Settings) -> None:
     """Test DWD observation solar daily data"""
     # Snippet provided by https://github.com/pedroalencar1
     request = DwdObservationRequest(
@@ -1216,31 +1217,23 @@ def test_dwd_observation_solar_daily(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_solar_hourly():
+def test_dwd_observation_solar_hourly(settings_convert_units_false: Settings) -> None:
     """Test DWD observation solar hourly data"""
     # Snippet provided by @lasinludwig
-    settings = Settings(
-        ts_shape="long",
-        ts_convert_units=False,
-        ts_skip_empty=True,
-        ts_skip_threshold=0.90,
-        ts_skip_criteria="min",
-        ts_drop_nulls=True,
-    )
     latlon_bremen = 53.0980433, 8.7747248
     # request for radiation
     request = DwdObservationRequest(
         parameters=[("hourly", "solar", "radiation_global")],
         start_date=dt.datetime(2022, 1, 1, 0, 0),
         end_date=dt.datetime(2022, 12, 31, 23, 59),
-        settings=settings,
+        settings=settings_convert_units_false,
     ).filter_by_distance(latlon_bremen, 500)
     values_df = next(request.values.query()).df
     assert values_df.get_column("value").sum() == 417997.0
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_false_convert_units_false):
+def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_false_convert_units_false: Settings) -> None:
     """Test for actual values with correctly dropped -999 values"""
     request = DwdObservationRequest(
         parameters=[("minute_10", "precipitation", "precipitation_height")],
@@ -1255,7 +1248,7 @@ def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_false_co
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings):
+def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings: Settings) -> None:
     """Test dwd observation subdaily wind extreme values"""
     request = DwdObservationRequest(
         parameters=[("subdaily", "wind_extreme")],
@@ -1287,7 +1280,7 @@ def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_5minute_precipitation_data_tidy(default_settings):
+def test_dwd_observation_data_5minute_precipitation_data_tidy(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("minute_5", "precipitation", "precipitation_height")],
         start_date="2023-08-25 00:00",
@@ -1302,7 +1295,7 @@ def test_dwd_observation_data_5minute_precipitation_data_tidy(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings):
+def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[
             ("minute_5", "precipitation", "precipitation_height_rocker"),
@@ -1319,7 +1312,7 @@ def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings):
+def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("minute_1", "precipitation", "precipitation_height_droplet")],
         start_date="1990-01-01 00:00",
@@ -1331,7 +1324,7 @@ def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_daily_climate_summary_custom_units():
+def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
     """Test for custom unit conversion"""
     unit_targets = {
         "temperature": "degree_fahrenheit",
@@ -1483,7 +1476,7 @@ def test_dwd_observation_data_daily_climate_summary_custom_units():
         if resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10)
     ],
 )
-def test_dwd_observation_datasets_high_resolution(default_settings, dataset):
+def test_dwd_observation_datasets_high_resolution(default_settings: Settings, dataset: DatasetModel) -> None:
     request = DwdObservationRequest(
         parameters=dataset,
         settings=default_settings,
@@ -1505,7 +1498,7 @@ def test_dwd_observation_datasets_high_resolution(default_settings, dataset):
         if resolution.value not in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10)
     ],
 )
-def test_dwd_observation_datasets_low_resolution(default_settings, dataset):
+def test_dwd_observation_datasets_low_resolution(default_settings: Settings, dataset: DatasetModel) -> None:
     request = DwdObservationRequest(
         parameters=dataset,
         settings=default_settings,

@@ -11,7 +11,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 ROOT = Path(__file__).parent.parent
 
 
-def create_dwd_climate_summary_duckdb_dump(path, test):
+def create_dwd_climate_summary_duckdb_dump(path: Path, test: bool) -> None:
     request = DwdObservationRequest(
         parameters=("daily", "climate_summary"),
         periods="historical",
@@ -24,7 +24,7 @@ def create_dwd_climate_summary_duckdb_dump(path, test):
             break
 
 
-def main():
+def main() -> None:
     filepath = ROOT / "dwd_obs_daily_climate_summary.duckdb"
     test = "PYTEST_CURRENT_TEST" in os.environ
     # this takes something like 15 min and will require roughly 1 gb on disk

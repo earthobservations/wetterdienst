@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import MutableMapping
+from collections.abc import Iterator, MutableMapping
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -28,7 +28,7 @@ class FileDirCache(MutableMapping):
         use_listings_cache: bool,
         listings_expiry_time: int | float,
         listings_cache_location: str | None = None,
-    ):
+    ) -> None:
         """
 
         Parameters
@@ -69,34 +69,34 @@ class FileDirCache(MutableMapping):
         self.use_listings_cache = use_listings_cache
         self.listings_expiry_time = listings_expiry_time
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> BytesIO:
         """Draw item as fileobject from cache, retry if timeout occurs"""
         return self._cache.get(key=item, read=True, retry=True)
 
-    def clear(self):
+    def clear(self) -> None:
         self._cache.clear()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(list(self._cache.iterkeys()))
 
-    def __contains__(self, item):
+    def __contains__(self, item: str) -> bool:
         value = self._cache.get(item, retry=True)  # None, if expired
         if value:
             return True
         return False
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: BytesIO) -> None:
         if not self.use_listings_cache:
             return
         self._cache.set(key=key, value=value, expire=self.listings_expiry_time, retry=True)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: str) -> None:
         del self._cache[key]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return (k for k in self._cache.iterkeys() if k in self)
 
-    def __reduce__(self):
+    def __reduce__(self) -> tuple:
         return (
             FileDirCache,
             (self.use_listings_cache, self.listings_expiry_time, self.cache_location),
@@ -109,9 +109,9 @@ class HTTPFileSystem(_HTTPFileSystem):
         use_listings_cache: bool | None = None,
         listings_expiry_time: int | float | None = None,
         listings_cache_location: str | None = None,
-        *args,
-        **kwargs,
-    ):
+        *args: tuple,
+        **kwargs: dict,
+    ) -> None:
         kwargs.update(
             {
                 "use_listings_cache": use_listings_cache,
@@ -148,7 +148,7 @@ class NetworkFilesystemManager:
         return ttl_name, ttl_value
 
     @classmethod
-    def register(cls, settings, ttl: int | CacheExpiry = CacheExpiry.NO_CACHE):
+    def register(cls, settings: Settings, ttl: int | CacheExpiry = CacheExpiry.NO_CACHE) -> None:
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         real_cache_dir = str(Path(settings.cache_dir) / "fsspec" / key)
@@ -163,7 +163,7 @@ class NetworkFilesystemManager:
         cls.filesystems[key] = filesystem_effective
 
     @classmethod
-    def get(cls, settings, ttl: int | CacheExpiry = CacheExpiry.NO_CACHE) -> AbstractFileSystem:
+    def get(cls, settings: Settings, ttl: int | CacheExpiry = CacheExpiry.NO_CACHE) -> AbstractFileSystem:
         ttl_name, _ = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         if key not in cls.filesystems:
