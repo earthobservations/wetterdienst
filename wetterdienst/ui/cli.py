@@ -631,8 +631,6 @@ def explorer(listen: str, debug: bool) -> None:
         process.wait()
     except KeyboardInterrupt:
         log.info("Stopping Explorer web service")
-    except Exception as e:
-        log.error(f"An error occurred: {str(e)}")
     finally:
         if process is not None:
             process.terminate()
@@ -1370,8 +1368,6 @@ def interactive(debug: bool) -> None:
         process.wait()
     except KeyboardInterrupt:
         log.info("Stopping Climate Stripes web service")
-    except Exception as e:
-        log.error(f"An error occurred: {str(e)}")
     finally:
         if process is not None:
             process.terminate()

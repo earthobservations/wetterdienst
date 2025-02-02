@@ -301,6 +301,8 @@ select = [
     "N",
     # flake8-annotations
     "ANN",
+    # flake8-blind-except
+    "BLE",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

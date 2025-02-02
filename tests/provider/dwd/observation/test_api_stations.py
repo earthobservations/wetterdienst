@@ -181,6 +181,6 @@ def test_dwd_observation_stations() -> None:
         for dataset in resolution:
             try:
                 DwdObservationRequest(parameters=dataset).all()
-            except Exception:
+            except Exception:  # noqa: BLE001
                 failed.append(f"{resolution} - {dataset}")
     assert not failed
