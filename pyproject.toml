@@ -296,7 +296,9 @@ select = [
     # flake8-unused-arguments
     "ARG",
     # flake8-use-pathlib
-    "PTH"
+    "PTH",
+    # pep8-naming
+    "N"
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

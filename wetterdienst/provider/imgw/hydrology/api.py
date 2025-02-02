@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 
 import polars as pl
-import portion as P
+import portion
 from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
 
@@ -306,7 +306,7 @@ class ImgwHydrologyValues(TimeseriesValues):
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip") & ~pl.col("file").str.starts_with("zjaw"))
         if self.sr.start_date:
-            interval = P.closed(self.sr.start_date, self.sr.end_date)
+            interval = portion.closed(self.sr.start_date, self.sr.end_date)
             if dataset.resolution.value == Resolution.DAILY:
                 df_files = df_files.with_columns(
                     pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
@@ -353,7 +353,9 @@ class ImgwHydrologyValues(TimeseriesValues):
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
-                .map_elements(lambda dates: P.closed(dates["start_date"], dates["end_date"]), return_dtype=pl.Object)
+                .map_elements(
+                    lambda dates: portion.closed(dates["start_date"], dates["end_date"]), return_dtype=pl.Object
+                )
                 .alias("interval"),
             )
             df_files = df_files.filter(

@@ -66,7 +66,7 @@ class Settings(BaseSettings):
         return default | values
 
     @model_validator(mode="after")
-    def validate(cls, value: Any) -> Settings:
+    def validate(self, value: Any) -> Settings:
         if value.cache_disable:
             log.info("Wetterdienst cache is disabled")
         else:

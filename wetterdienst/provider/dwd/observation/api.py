@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
-import portion as P
+import portion
 from polars.exceptions import ColumnNotFoundError
 from portion import Interval
 
@@ -306,7 +306,7 @@ class DwdObservationRequest(TimeseriesRequest):
         """
         if self.start_date:
             # cut of hours, seconds,...
-            return P.closed(
+            return portion.closed(
                 self.start_date.astimezone(ZoneInfo(self.metadata.timezone)),
                 self.end_date.astimezone(ZoneInfo(self.metadata.timezone)),
             )
@@ -325,7 +325,7 @@ class DwdObservationRequest(TimeseriesRequest):
         historical_end = now_local.replace(month=1, day=1)
         # a year that is way before any data is collected
         historical_begin = dt.datetime(year=1678, month=1, day=1, tzinfo=historical_end.tzinfo)
-        return P.closed(historical_begin, historical_end)
+        return portion.closed(historical_begin, historical_end)
 
     @property
     def _recent_interval(self) -> Interval:
@@ -338,7 +338,7 @@ class DwdObservationRequest(TimeseriesRequest):
         now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
         recent_end = now_local.replace(hour=0, minute=0, second=0)
         recent_begin = recent_end - dt.timedelta(days=500)
-        return P.closed(recent_begin, recent_end)
+        return portion.closed(recent_begin, recent_end)
 
     @property
     def _now_interval(self) -> Interval:
@@ -350,7 +350,7 @@ class DwdObservationRequest(TimeseriesRequest):
         """
         now_end = dt.datetime.now(ZoneInfo(self.metadata.timezone))
         now_begin = now_end.replace(hour=0, minute=0, second=0) - dt.timedelta(days=1)
-        return P.closed(now_begin, now_end)
+        return portion.closed(now_begin, now_end)
 
     def _get_periods(self) -> list[Period]:
         """
