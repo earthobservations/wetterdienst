@@ -117,7 +117,7 @@ def visualize_points(data: Data) -> None:
             x=data.utm_y,
             y=data.utm_x,
             mode="markers",
-            marker=dict(color=data.colors),
+            marker={"color": data.colors},
             text=[f"id:{station}\nval:{value : .2f}\n" for station, value in zip(data.station_ids, data.values)],
         )
     )
@@ -127,7 +127,7 @@ def visualize_points(data: Data) -> None:
                 x=[data.utm_y[i]],
                 y=[data.utm_x[i]],
                 mode="markers+text",
-                marker=dict(color=data.colors[i]),
+                marker={"color": data.colors[i]},
                 text=f"id:{station}\nval:{value : .2f}\n",
                 textposition="top center",
             )

@@ -70,7 +70,7 @@ def visualize(
             y=regular_df.get_column("value"),
             mode="lines",
             name="regular",
-            line=dict(color="red"),
+            line={"color": "red"},
         )
     )
     fig.add_trace(
@@ -79,7 +79,7 @@ def visualize(
             y=interpolated_df.get_column("value"),
             mode="lines",
             name="interpolated",
-            line=dict(color="black"),
+            line={"color": "black"},
         )
     )
 
@@ -90,7 +90,11 @@ def visualize(
     )
 
     fig.update_layout(
-        title=title, xaxis_title="Date", yaxis_title=ylabel, legend=dict(x=0, y=1), margin=dict(l=40, r=40, t=40, b=40)
+        title=title,
+        xaxis_title="Date",
+        yaxis_title=ylabel,
+        legend={"x": 0, "y": 1},
+        margin={"l": 40, "r": 40, "t": 40, "b": 40},
     )
 
     if "PYTEST_CURRENT_TEST" not in os.environ:

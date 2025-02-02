@@ -311,6 +311,8 @@ select = [
     "A",
     # flake8-commas
     "COM",
+    # flake8-comprehensions
+    "C4",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

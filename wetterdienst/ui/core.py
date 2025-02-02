@@ -658,7 +658,7 @@ def _plot_stripes(
         go.Bar(
             x=df_without_nulls.get_column("date").dt.year(),
             y=[1.0] * len(df_without_nulls),
-            marker=dict(color=df_without_nulls.get_column("value_scaled"), colorscale=cmap, cmin=0, cmax=1),
+            marker={"color": df_without_nulls.get_column("value_scaled"), "colorscale": cmap, "cmin": 0, "cmax": 1},
             width=1.0,
         )
     )
@@ -670,8 +670,8 @@ def _plot_stripes(
                 x=df.get_column("date").dt.year(),
                 y=df.get_column("availability"),
                 mode="lines",
-                marker=dict(color="gold", size=5),
-                line=dict(color="gold"),
+                marker={"color": "gold", "size": 5},
+                line={"color": "gold"},
             )
         )
         fig.add_annotation(
@@ -681,7 +681,7 @@ def _plot_stripes(
             text="data availability",
             showarrow=False,
             align="right",
-            font=dict(color="gold"),
+            font={"color": "gold"},
         )
     # Add source text
     fig.add_annotation(
@@ -712,12 +712,12 @@ def _plot_stripes(
         )
     fig.update_layout(
         plot_bgcolor="white",
-        xaxis=dict(
-            showticklabels=False,
-        ),
-        yaxis=dict(range=[None, 1], showticklabels=False),
+        xaxis={
+            "showticklabels": False,
+        },
+        yaxis={"range": [None, 1], "showticklabels": False},
         showlegend=False,
-        margin=dict(l=10, r=10, t=30, b=30),
+        margin={"l": 10, "r": 10, "t": 30, "b": 30},
     )
     return fig
 

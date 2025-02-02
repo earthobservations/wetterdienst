@@ -329,10 +329,10 @@ class StationsResult(ExportMixin):
             lon="longitude",
             text="name",
             zoom=zoom,
-            center=dict(
-                lat=center_lat,
-                lon=center_lon,
-            ),
+            center={
+                "lat": center_lat,
+                "lon": center_lon,
+            },
         )
         return fig.update_layout(
             margin=dict(r=10, t=10, l=10, b=10),
@@ -564,7 +564,7 @@ class ValuesResult(_ValuesResult):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin=dict(l=10, r=10, t=10, b=10),
+            margin={"l": 10, "r": 10, "t": 10, "b": 10},
         )
         return fig
 
@@ -738,7 +738,7 @@ class InterpolatedValuesResult(_ValuesResult):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin=dict(l=10, r=10, t=10, b=10),
+            margin={"l": 10, "r": 10, "t": 10, "b": 10},
         )
         return fig
 
@@ -906,7 +906,7 @@ class SummarizedValuesResult(_ValuesResult):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin=dict(l=10, r=10, t=10, b=10),
+            margin={"l": 10, "r": 10, "t": 10, "b": 10},
         )
         return fig
 

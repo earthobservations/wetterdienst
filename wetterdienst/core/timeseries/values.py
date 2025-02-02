@@ -468,7 +468,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid
         # column name conflicts
-        datasets = set(parameter.dataset.name for parameter in self.sr.parameters)
+        datasets = {parameter.dataset.name for parameter in self.sr.parameters}
         if len(datasets) > 1:
             df = df.with_columns(
                 pl.struct([pl.col(Columns.DATASET.value), pl.col(Columns.PARAMETER.value)])

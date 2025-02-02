@@ -210,7 +210,7 @@ class DwdRoadValues(TimeseriesValues):
             .item()
         )
         station_group = DwdRoadStationGroup(station_group)
-        parameters = [parameter for parameter in parameter_or_dataset]
+        parameters = list(parameter_or_dataset)
         try:
             df = self._collect_data_by_station_group(station_group, parameters)
         except ValueError:
