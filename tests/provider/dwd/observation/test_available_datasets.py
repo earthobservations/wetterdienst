@@ -52,5 +52,5 @@ def test_compare_available_dwd_datasets(default_settings: Settings) -> None:
             continue
         try:
             DwdObservationMetadata[resolution][dataset]
-        except KeyError:
-            assert False, f"Dataset {resolution}/{dataset} not available in DwdObservationMetadata"
+        except KeyError as e:
+            raise AssertionError("Dataset {resolution}/{dataset} not available in DwdObservationMetadata") from e

@@ -273,8 +273,8 @@ class UnitConverter:
             return lambda x: x
         try:
             return self.lambdas[(unit, unit_target)]
-        except KeyError:
-            raise ValueError(f"Conversion from {unit} to {unit_target} not supported")
+        except KeyError as e:
+            raise ValueError(f"Conversion from {unit} to {unit_target} not supported") from e
 
     def get_lambda(self, unit: str, unit_type: str) -> Callable[[Any], Any]:
         if unit_type not in self.targets:

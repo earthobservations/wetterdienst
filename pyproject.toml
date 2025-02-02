@@ -305,6 +305,8 @@ select = [
     "BLE",
     # flake8-boolean-trap
     "FBT",
+    # flake8-bugbear
+    "B",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.
