@@ -228,6 +228,7 @@ dev = [
   # formatting and linting
   "ruff>=0.3.3",
   "poethepoet>=0.27.0",
+  "pyright>=1.1.393",
 ]
 
 [tool.poe.tasks]
@@ -239,6 +240,8 @@ format = [ "format:fmt", "format:lint" ]
 "lint:fmt" = "uv run ruff format --check"
 "lint:lint" = "uv run ruff check"
 lint = [ "lint:fmt", "lint:lint" ]
+# type checking
+typing = "uv run pyright"
 # docs
 docs = "cd docs && make html"
 "test:parallel" = "uv run pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)'"
@@ -316,6 +319,9 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 "tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]
 "wetterdienst/__init__.py" = ["E402"]
 "wetterdienst/ui/restapi.py" = ["B008", "UP007"]
+
+[tool.pyright]
+strict = ["*"]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3"

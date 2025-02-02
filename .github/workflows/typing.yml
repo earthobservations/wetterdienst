@@ -1,0 +1,65 @@
+name: Typing
+
+on:
+  pull_request: ~
+  push:
+    branches: [ main ]
+
+  # Allow job to be triggered manually.
+  workflow_dispatch:
+
+# Cancel in-progress jobs when pushing to the same branch.
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  typing:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ "ubuntu-latest" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
+        include:
+          - os: "windows-latest"
+            python-version: "3.13"
+          - os: "macos-latest" # arm64 (M1)
+            python-version: "3.13"
+          - os: "macos-13" # x86 (Intel)
+            python-version: "3.13"
+
+    continue-on-error: true
+
+    env:
+      OS: ${{ matrix.os }}
+      PYTHON: ${{ matrix.python-version }}
+
+    defaults:
+      run:
+        shell: bash
+
+    name: Python ${{ matrix.python-version }} on OS ${{ matrix.os }}
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      - name: Install project
+        run: uv sync
+
+      - name: Install eccodes (Mac only)
+        if: ${{ startsWith(matrix.os, 'macos-') }}
+        run: |
+          brew install eccodes
+          export WD_ECCODES_DIR=$(brew --prefix eccodes)
+
+      - name: Install extras for testing
+        run: .github/workflows/install.sh testing
+
+      - name: Run type checks
+        run: |
+          uv run poe typing
