@@ -207,7 +207,7 @@ class StationsResult(ExportMixin):
             },
         }
 
-    def to_dict(self, with_metadata: bool = False) -> _StationsDict:
+    def to_dict(self, *, with_metadata: bool = False) -> _StationsDict:
         """
         Format station information as dictionary.
         :param with_metadata: bool whether to include metadata
@@ -234,7 +234,7 @@ class StationsResult(ExportMixin):
         data["stations"] = df.to_dicts()
         return data
 
-    def to_json(self, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
+    def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
         """
         Format station information as JSON.
         :param with_metadata: bool whether to include metadata
@@ -247,7 +247,7 @@ class StationsResult(ExportMixin):
             indent = None
         return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
 
-    def to_ogc_feature_collection(self, with_metadata: bool = False) -> _StationsOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _StationsOgcFeatureCollection:
         """
         Format station information as OGC feature collection.
         Will be used by ``.to_geojson()``.
@@ -392,7 +392,7 @@ class _ValuesResult(ExportMixin):
             )
         return df.to_dicts()
 
-    def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _ValuesDict:
+    def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _ValuesDict:
         """
         Format values as dictionary.
         :param with_metadata: bool whether to include metadata
@@ -409,6 +409,7 @@ class _ValuesResult(ExportMixin):
 
     def to_json(
         self,
+        *,
         with_metadata: bool = False,
         with_stations: bool = False,
         indent: int | bool | None = 4,
@@ -458,7 +459,7 @@ class ValuesResult(_ValuesResult):
     def df_stations(self) -> pl.DataFrame:
         return self.stations.df.filter(pl.col("station_id").is_in(self.values.stations_collected))
 
-    def to_ogc_feature_collection(self, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
         """
         Format values as OGC feature collection.
         :param with_metadata: bool whether to include metadata
@@ -637,9 +638,9 @@ class InterpolatedValuesResult(_ValuesResult):
         # https://github.com/python/typing/discussions/1015
         def _to_dict(self, df: pl.DataFrame) -> list[_InterpolatedValuesItemDict]: ...
 
-        def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict: ...
+        def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict: ...
 
-    def to_ogc_feature_collection(self, with_metadata: bool = False) -> _InterpolatedValuesOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _InterpolatedValuesOgcFeatureCollection:
         """
         Format interpolated values as OGC feature collection.
         :param with_metadata: bool whether to include metadata
@@ -806,9 +807,9 @@ class SummarizedValuesResult(_ValuesResult):
         # https://github.com/python/typing/discussions/1015
         def _to_dict(self, df: pl.DataFrame) -> list[_SummarizedValuesItemDict]: ...
 
-        def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict: ...
+        def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict: ...
 
-    def to_ogc_feature_collection(self, with_metadata: bool = False) -> _SummarizedValuesOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _SummarizedValuesOgcFeatureCollection:
         """
         Format summarized values as OGC feature collection.
         :param with_metadata: bool whether to include metadata

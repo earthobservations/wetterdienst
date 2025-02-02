@@ -70,6 +70,7 @@ def apply_station_values_per_parameter(
     stations_ranked: StationsResult,
     param_dict: dict,
     station: dict,
+    *,
     valid_station_groups_exists: bool,
 ) -> None:
     for parameter in stations_ranked.stations.parameters:

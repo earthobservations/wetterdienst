@@ -576,7 +576,7 @@ CLIMATE_STRIPES_CONFIG = {
 }
 
 
-def _get_stripes_stations(kind: Literal["temperature", "precipitation"], active: bool = True) -> StationsResult:
+def _get_stripes_stations(kind: Literal["temperature", "precipitation"], *, active: bool = True) -> StationsResult:
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]
     stations = request(periods=Period.HISTORICAL).all()
     if active:
@@ -592,6 +592,7 @@ def _plot_stripes(
     start_year: int | None = None,
     end_year: int | None = None,
     name_threshold: float = 0.9,
+    *,
     show_title: bool = True,
     show_years: bool = True,
     show_data_availability: bool = True,
@@ -721,7 +722,7 @@ def _plot_stripes(
     return fig
 
 
-def set_logging_level(debug: bool) -> None:
+def set_logging_level(*, debug: bool) -> None:
     # Setup logging.
     log_level = logging.INFO
 

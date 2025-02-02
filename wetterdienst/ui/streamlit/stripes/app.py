@@ -12,7 +12,7 @@ from wetterdienst.ui.core import (
 
 
 @st.cache_data
-def get_stripes_stations(kind: Literal["temperature", "precipitation"], active: bool = True) -> pl.DataFrame:
+def get_stripes_stations(kind: Literal["temperature", "precipitation"], *, active: bool = True) -> pl.DataFrame:
     stations = _get_stripes_stations(kind=kind, active=active)
     return stations.df
 
@@ -24,6 +24,7 @@ def get_stripes_values(
     start_year: int,
     end_year: int,
     name_threshold: int,
+    *,
     show_title: bool,
     show_years: bool,
     show_data_availability: bool,
@@ -46,10 +47,11 @@ def get_rest_api_url(
     start_year: int,
     end_year: int,
     name_threshold: int,
+    dpi: int,
+    *,
     show_title: bool,
     show_years: bool,
     show_data_availability: bool,
-    dpi: int,
 ) -> str:
     url = f"https://wetterdienst.eobs.org/api/stripes/values?kind={kind}"
     url += f"&station={station_id}"

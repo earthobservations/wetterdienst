@@ -5,9 +5,12 @@ from __future__ import annotations
 import polars as pl
 
 
-def read_fwf_from_df(df: pl.DataFrame, column_specs: tuple[tuple[int, int], ...], header: bool = False) -> pl.DataFrame:
-    """Function to split a column of a polars DataFrame into multiple columns by given column specs
-    :param df: the polars DataFrame of which a column is split
+def read_fwf_from_df(
+    df: pl.DataFrame, column_specs: tuple[tuple[int, int], ...], *, header: bool = False
+) -> pl.DataFrame:
+    """Split a column of a polars DataFrame into multiple columns by given column specs.
+
+    :param df: polars DataFrame of which a column is split
     :param column_specs: definition of column widths in [start, end]
     :param header: boolean if header should be split as well, will only succeed if column header is long enough
     :return: polars DataFrame with split columns

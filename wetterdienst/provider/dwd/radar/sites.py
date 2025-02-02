@@ -103,7 +103,7 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         df = df.shift(-8)
 
         # Drop empty rows.
-        df = df.filter(~pl.fold(True, lambda acc, s: acc & s.is_null(), pl.all()))
+        df = df.filter(~pl.fold(acc=True, function=lambda acc, s: acc & s.is_null(), exprs=pl.all()))
 
         # Select each second row, starting from first one.
         firsts = df[::2, :]

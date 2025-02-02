@@ -95,7 +95,9 @@ def apply_station_values_per_parameter(
             .join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column(Columns.VALUE.value).rename(station["station_id"])
-        extract_station_values(param_dict[(parameter.dataset.name, parameter.name)], result_series_param, True)
+        extract_station_values(
+            param_dict[(parameter.dataset.name, parameter.name)], result_series_param, valid_station_groups_exists=True
+        )
 
 
 def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:

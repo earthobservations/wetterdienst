@@ -213,8 +213,8 @@ def coverage(
     network: str | None = None,
     resolutions: str = None,
     datasets: str = None,
-    pretty: bool = False,
-    debug: bool = False,
+    pretty: bool = False,  # noqa: FBT001, FBT002
+    debug: bool = False,  # noqa: FBT001, FBT002
 ) -> Response:
     set_logging_level(debug)
 
@@ -534,10 +534,10 @@ def summarize(
 @app.get("/api/stripes/stations")
 def stripes_stations(
     kind: Annotated[Literal["temperature", "precipitation"], Query()],
-    active: Annotated[bool, Query()] = True,
+    active: Annotated[bool, Query()] = True,  # noqa: FBT002
     fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = False,
-    debug: Annotated[bool, Query()] = False,
+    pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
+    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
 ) -> Response:
     """Wrapper around get_climate_stripes_temperature_request to provide results via restapi"""
     set_logging_level(debug)
@@ -563,12 +563,12 @@ def stripes_values(
     start_year: Annotated[int | None, Query()] = None,
     end_year: Annotated[int | None, Query()] = None,
     name_threshold: Annotated[float, Query()] = 0.9,
-    show_title: Annotated[bool, Query()] = True,
-    show_years: Annotated[bool, Query()] = True,
-    show_data_availability: Annotated[bool, Query()] = True,
+    show_title: Annotated[bool, Query()] = True,  # noqa: FBT002
+    show_years: Annotated[bool, Query()] = True,  # noqa: FBT002
+    show_data_availability: Annotated[bool, Query()] = True,  # noqa: FBT002
     fmt: Annotated[Literal["png", "jpg", "svg", "pdf"], Query(alias="format")] = "png",
     dpi: Annotated[int, Query(gt=0)] = 300,
-    debug: Annotated[bool, Query()] = False,
+    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
 ) -> Response:
     """Wrapper around get_summarize to provide results via restapi"""
     set_logging_level(debug)
@@ -614,7 +614,7 @@ def stripes_values(
     return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
 
 
-def start_service(listen_address: str | None = None, reload: bool | None = False) -> None:  # pragma: no cover
+def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:  # pragma: no cover
     from uvicorn.main import run
 
     setup_logging()

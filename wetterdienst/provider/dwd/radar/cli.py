@@ -7,7 +7,7 @@ import h5py
 from h5netcdf import Group
 
 
-def hdf5dump(thing: str, compact: bool = False) -> None:
+def hdf5dump(thing: str, *, compact: bool = False) -> None:
     """
     Like "h5dump -n 1", but better.
     """

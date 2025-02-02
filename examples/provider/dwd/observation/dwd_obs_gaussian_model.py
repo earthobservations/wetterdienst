@@ -149,7 +149,7 @@ class ModelYearlyGaussians:
         return pars
 
     def plot_data_and_model(
-        self, valid_data: pl.DataFrame, out: ModelResult, savefig_to_file: bool, plot_path: Path
+        self, valid_data: pl.DataFrame, out: ModelResult, *, savefig_to_file: bool, plot_path: Path
     ) -> None:
         """plots the data and the model"""
         if savefig_to_file:

@@ -70,9 +70,10 @@ def create_plotly_fig(
     variable_filter: list[str],
     x: str,
     y: str,
-    facet: bool,
     lm: str | None,
     settings: dict,
+    *,
+    facet: bool,
 ) -> go.Figure:
     if "unit" in df.columns:
         df = df.with_columns(

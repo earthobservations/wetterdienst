@@ -49,7 +49,7 @@ class ExportMixin:
     def to_ogc_feature_collection(self, *args: tuple, **kwargs: dict) -> dict:
         pass
 
-    def to_geojson(self, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs: dict) -> str:
+    def to_geojson(self, *, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs: dict) -> str:
         """
         Convert station information into GeoJSON format
         :param with_metadata: Include metadata in GeoJSON output

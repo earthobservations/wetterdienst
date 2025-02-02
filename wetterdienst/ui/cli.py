@@ -583,8 +583,12 @@ def info() -> None:
 @cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
 @cloup.option("--reload", is_flag=True, help="Dynamically reload changed files")
 @debug_opt
-def restapi(listen: str, reload: bool, debug: bool) -> None:
-    set_logging_level(debug)
+def restapi(
+    listen: str,
+    reload: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    set_logging_level(debug=debug)
 
     # Run HTTP service.
     log.info(f"Starting {appname}")
@@ -600,8 +604,11 @@ def restapi(listen: str, reload: bool, debug: bool) -> None:
 @cli.command("explorer", section=advanced_section)
 @cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
 @debug_opt
-def explorer(listen: str, debug: bool) -> None:
-    set_logging_level(debug)
+def explorer(
+    listen: str,
+    debug: bool,  # noqa: FBT001
+) -> None:
+    set_logging_level(debug=debug)
 
     try:
         from wetterdienst.ui.streamlit.explorer import app
@@ -671,8 +678,14 @@ def about() -> None:
     ),
 )
 @debug_opt
-def coverage(provider: str, network: str, resolutions: str, datasets: str, debug: bool) -> None:
-    set_logging_level(debug)
+def coverage(
+    provider: str,
+    network: str,
+    resolutions: str,
+    datasets: str,
+    debug: bool,  # noqa: FBT001
+) -> None:
+    set_logging_level(debug=debug)
 
     if not provider or not network:
         print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
@@ -752,7 +765,7 @@ def stations(
     network: str,
     parameters: list[str],
     periods: list[str],
-    all_: bool,
+    all_: bool,  # noqa: FBT001
     station: list[str],
     name: str,
     coordinates: str,
@@ -762,9 +775,9 @@ def stations(
     sql: str,
     fmt: str,
     target: str,
-    pretty: bool,
-    with_metadata: bool,
-    debug: bool,
+    pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
 ) -> None:
     request = StationsRequest.model_validate(
         {
@@ -865,7 +878,7 @@ def values(
     lead_time: Literal["short", "long"],
     date: str,
     issue: str,
-    all_: bool,
+    all_: bool,  # noqa: FBT001
     station: list[str],
     name: str,
     coordinates: str,
@@ -877,17 +890,17 @@ def values(
     fmt: str,
     target: str,
     shape: Literal["long", "wide"],
-    convert_units: bool,
+    convert_units: bool,  # noqa: FBT001
     unit_targets: str,
-    humanize: bool,
-    skip_empty: bool,
+    humanize: bool,  # noqa: FBT001
+    skip_empty: bool,  # noqa: FBT001
     skip_criteria: Literal["min", "mean", "max"],
     skip_threshold: float,
-    drop_nulls: bool,
-    pretty: bool,
-    with_metadata: bool,
-    with_stations: bool,
-    debug: bool,
+    drop_nulls: bool,  # noqa: FBT001
+    pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
+    with_stations: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
 ) -> None:
     request = ValuesRequest.model_validate(
         {
@@ -1019,13 +1032,13 @@ def interpolate(
     sql_values: str,
     fmt: str,
     target: str,
-    convert_units: bool,
+    convert_units: bool,  # noqa: FBT001
     unit_targets: str,
-    humanize: bool,
-    pretty: bool,
-    with_metadata: bool,
-    with_stations: bool,
-    debug: bool,
+    humanize: bool,  # noqa: FBT001
+    pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
+    with_stations: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
 ) -> None:
     request = InterpolationRequest.model_validate(
         {
@@ -1142,13 +1155,13 @@ def summarize(
     sql_values: str,
     fmt: str,
     target: str,
-    convert_units: bool,
+    convert_units: bool,  # noqa: FBT001
     unit_targets: str,
-    humanize: bool,
-    pretty: bool,
-    with_metadata: bool,
-    with_stations: bool,
-    debug: bool,
+    humanize: bool,  # noqa: FBT001
+    pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
+    with_stations: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
 ) -> None:
     request = SummaryRequest.model_validate(
         {
@@ -1233,8 +1246,8 @@ def summarize(
 )
 @cloup.option("--indent", type=click.INT, default=4)
 def radar(
-    dwd: bool,
-    all_: bool,
+    dwd: bool,  # noqa: FBT001
+    all_: bool,  # noqa: FBT001
     odim_code: str,
     wmo_code: int,
     country_name: str,
@@ -1274,7 +1287,12 @@ def stripes() -> None:
 @cloup.option("--active", type=click.BOOL, default=True)
 @cloup.option("--format", "fmt", type=click.Choice(["json", "geojson", "csv"], case_sensitive=False), default="json")
 @cloup.option("--pretty", type=click.BOOL, default=False)
-def stripes_stations(kind: str, active: bool, fmt: str, pretty: bool) -> None:
+def stripes_stations(
+    kind: str,
+    active: bool,  # noqa: FBT001
+    fmt: str,
+    pretty: bool,  # noqa: FBT001
+) -> None:
     if kind not in ["temperature", "precipitation"]:
         raise click.ClickException(f"Invalid kind '{kind}'")
 
@@ -1310,13 +1328,13 @@ def stripes_values(
     start_year: int,
     end_year: int,
     name_threshold: float,
-    show_title: bool,
-    show_years: bool,
-    show_data_availability: bool,
+    show_title: bool,  # noqa: FBT001
+    show_years: bool,  # noqa: FBT001
+    show_data_availability: bool,  # noqa: FBT001
     fmt: str,
     dpi: int,
     target: Path,
-    debug: bool,
+    debug: bool,  # noqa: FBT001
 ) -> None:
     if target:
         if not target.name.lower().endswith(fmt):
@@ -1349,8 +1367,8 @@ def stripes_values(
 
 @stripes.command("interactive")
 @debug_opt
-def interactive(debug: bool) -> None:
-    set_logging_level(debug)
+def interactive(*, debug: bool) -> None:
+    set_logging_level(debug=debug)
 
     try:
         from wetterdienst.ui.streamlit.stripes import app

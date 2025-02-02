@@ -58,6 +58,7 @@ def create_fileindex_radar(
     subset: DwdRadarDataSubset | None = None,
     resolution: Resolution | None = None,
     period: Period | None = None,
+    *,
     parse_datetime: bool = False,
 ) -> pl.DataFrame:
     """

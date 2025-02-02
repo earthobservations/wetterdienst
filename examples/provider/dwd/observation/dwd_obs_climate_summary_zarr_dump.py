@@ -12,7 +12,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 ROOT = Path(__file__).parent.parent
 
 
-def create_dwd_climate_summary_zarr_dump(filepath: Path, test: bool) -> None:
+def create_dwd_climate_summary_zarr_dump(filepath: Path, *, test: bool) -> None:
     request = DwdObservationRequest(
         parameters=("daily", "climate_summary"),
         periods="historical",

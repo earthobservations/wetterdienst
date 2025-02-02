@@ -16,6 +16,7 @@ class _ParameterData:
 def extract_station_values(
     param_data: _ParameterData,
     result_series_param: pl.Series,
+    *,
     valid_station_groups_exists: bool,
 ) -> None:
     # Three rules:
