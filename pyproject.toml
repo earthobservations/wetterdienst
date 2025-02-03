@@ -313,6 +313,8 @@ select = [
     "COM",
     # flake8-comprehensions
     "C4",
+    # flake8-datetimez
+    "DTZ",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

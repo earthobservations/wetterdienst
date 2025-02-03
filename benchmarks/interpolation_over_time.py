@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 import os
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import polars as pl
@@ -104,8 +105,8 @@ def visualize(
 def main() -> None:
     parameter = ("hourly", "air_temperature", "temperature_air_mean_2m")
     unit = "K"
-    start_date = dt.datetime(2022, 3, 1)
-    end_date = dt.datetime(2022, 3, 31)
+    start_date = dt.datetime(2022, 3, 1, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2022, 3, 31, tzinfo=ZoneInfo("UTC"))
     interpolated_df = get_interpolated_df(parameter, start_date, end_date)
     exclude_stations = interpolated_df.get_column("taken_station_ids")[0]
     regular_df = get_regular_df(parameter, start_date, end_date, exclude_stations)

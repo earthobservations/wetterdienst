@@ -41,7 +41,9 @@ def test_radar_request_radolan_cdc_hourly_alignment_1(default_settings: Settings
         settings=default_settings,
     )
 
-    assert request.start_date == dt.datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0)
+    assert request.start_date == dt.datetime(
+        year=2019, month=8, day=8, hour=0, minute=50, second=0, tzinfo=ZoneInfo("UTC")
+    )
 
 
 def test_radar_request_radolan_cdc_hourly_alignment_2(default_settings: Settings) -> None:
@@ -61,7 +63,9 @@ def test_radar_request_radolan_cdc_hourly_alignment_2(default_settings: Settings
         settings=default_settings,
     )
 
-    assert request.start_date == dt.datetime(year=2019, month=8, day=7, hour=23, minute=50, second=0)
+    assert request.start_date == dt.datetime(
+        year=2019, month=8, day=7, hour=23, minute=50, second=0, tzinfo=ZoneInfo("UTC")
+    )
 
 
 @pytest.mark.remote
@@ -69,7 +73,7 @@ def test_radar_request_radolan_cdc_historic_hourly_data(default_settings: Settin
     """
     Verify data acquisition for RADOLAN_CDC/hourly/historical.
     """
-    timestamp = dt.datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0)
+    timestamp = dt.datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0, tzinfo=ZoneInfo("UTC"))
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.HOURLY,
@@ -118,7 +122,7 @@ def test_radar_request_radolan_cdc_historic_daily_data(default_settings: Setting
     """
     Verify data acquisition for RADOLAN_CDC/daily/historical.
     """
-    timestamp = dt.datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0)
+    timestamp = dt.datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0, tzinfo=ZoneInfo("UTC"))
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.DAILY,
@@ -583,7 +587,7 @@ def test_radar_request_site_historic_px250_bufr_yesterday(default_settings: Sett
     Example for testing radar/site PX250 for a specific date.
     """
 
-    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PX250_REFLECTIVITY,
@@ -616,6 +620,7 @@ def test_radar_request_site_historic_px250_bufr_yesterday(default_settings: Sett
         bufr.day.value,
         bufr.hour.value,
         bufr.minute.value,
+        tzinfo=ZoneInfo("UTC"),
     )
     assert timestamp_aligned == bufr_timestamp
 

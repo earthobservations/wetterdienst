@@ -16,8 +16,8 @@ def find_observation_id(string: str) -> str:
     observation_request = DwdObservationRequest(
         parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
         periods="recent",
-        start_date=dt.datetime.now() - dt.timedelta(days=2),
-        end_date=dt.datetime.now(),
+        start_date=dt.datetime.now(tz=ZoneInfo("UTC")) - dt.timedelta(days=2),
+        end_date=dt.datetime.now(ZoneInfo("UTC")),
     ).filter_by_sql(query)
     return input(f"Select the observation id from {observation_request.df.get_column('station_id')}")  # noqa: S608
 
@@ -42,8 +42,8 @@ def main(obs_id: str, for_id: str) -> None:
     """Compare the forecast with the observation by plotting them."""
     forecast_request = DwdMosmixRequest(
         parameters=("hourly", "large", "temperature_air_mean_2m"),
-        start_date=dt.datetime.now() - dt.timedelta(days=2),
-        end_date=dt.datetime.now(),
+        start_date=dt.datetime.now(tz=ZoneInfo("UTC")) - dt.timedelta(days=2),
+        end_date=dt.datetime.now(tz=ZoneInfo("UTC")),
         issue=get_earliest_issue(),
     ).filter_by_station_id(station_id=for_id)
     print(forecast_request.df)
@@ -52,8 +52,8 @@ def main(obs_id: str, for_id: str) -> None:
     observation_request = DwdObservationRequest(
         parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
         periods="recent",
-        start_date=dt.datetime.now() - dt.timedelta(days=2),
-        end_date=dt.datetime.now(),
+        start_date=dt.datetime.now(tz=ZoneInfo("UTC")) - dt.timedelta(days=2),
+        end_date=dt.datetime.now(tz=ZoneInfo("UTC")),
     ).filter_by_station_id(station_id=obs_id)
     print(observation_request.df)
     observation_values = observation_request.values.all()

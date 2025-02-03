@@ -9,21 +9,21 @@ from wetterdienst.util.datetime import parse_date, raster_minutes, round_minutes
 
 
 def test_raster_50min_regular() -> None:
-    tm = dt.datetime(2010, 1, 1, 0, 56, 56)
+    tm = dt.datetime(2010, 1, 1, 0, 56, 56, tzinfo=ZoneInfo("UTC"))
     tm_aligned = raster_minutes(tm, 50)
-    assert tm_aligned == dt.datetime(2010, 1, 1, 0, 50)
+    assert tm_aligned == dt.datetime(2010, 1, 1, 0, 50, tzinfo=ZoneInfo("UTC"))
 
 
 def test_raster_50min_wrap() -> None:
-    tm = dt.datetime(2010, 1, 1, 0, 42, 42)
+    tm = dt.datetime(2010, 1, 1, 0, 42, 42, tzinfo=ZoneInfo("UTC"))
     tm_aligned = raster_minutes(tm, 50)
-    assert tm_aligned == dt.datetime(2009, 12, 31, 23, 50)
+    assert tm_aligned == dt.datetime(2009, 12, 31, 23, 50, tzinfo=ZoneInfo("UTC"))
 
 
 def test_round_5min() -> None:
-    tm = dt.datetime(2010, 1, 1, 0, 4, 42)
+    tm = dt.datetime(2010, 1, 1, 0, 4, 42, tzinfo=ZoneInfo("UTC"))
     tm_aligned = round_minutes(tm, 5)
-    assert tm_aligned == dt.datetime(2010, 1, 1, 0, 0)
+    assert tm_aligned == dt.datetime(2010, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
 
 
 def test_parse_date() -> None:

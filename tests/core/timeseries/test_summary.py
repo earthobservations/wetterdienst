@@ -16,8 +16,8 @@ from wetterdienst.provider.dwd.observation import (
 def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=dt.datetime(1934, 1, 1),
-        end_date=dt.datetime(1965, 12, 31),
+        start_date=dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(1965, 12, 31, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     selected_dates = [
@@ -66,8 +66,8 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
 def test_not_summarizable_parameter(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "precipitation_form")],
-        start_date=dt.datetime(2022, 1, 1),
-        end_date=dt.datetime(2022, 1, 2),
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     result = request.summarize(latlon=(50.0, 8.9))
@@ -95,8 +95,8 @@ def test_not_summarizable_parameter(default_settings: Settings) -> None:
 def test_provider_dwd_mosmix(default_settings: Settings) -> None:
     request = DwdMosmixRequest(
         parameters=[("hourly", "small", "temperature_air_mean_2m")],
-        start_date=dt.datetime.today() + dt.timedelta(days=1),
-        end_date=dt.datetime.today() + dt.timedelta(days=8),
+        start_date=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=1),
+        end_date=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=8),
         settings=default_settings,
     )
     given_df = request.summarize(latlon=(50.0, 8.9)).df

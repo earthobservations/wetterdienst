@@ -10,6 +10,7 @@ Acquire station information from DWD.
 
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -23,8 +24,8 @@ def stations_filter_by_examples() -> None:
     request = DwdObservationRequest(
         parameters=("hourly", "temperature_air"),
         periods="recent",
-        start_date=datetime(2020, 1, 1),
-        end_date=datetime(2020, 1, 20),
+        start_date=datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime(2020, 1, 20, tzinfo=ZoneInfo("UTC")),
     )
 
     print("All stations")

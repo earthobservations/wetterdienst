@@ -7,6 +7,7 @@ import gzip
 import logging
 from io import BytesIO
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -161,8 +162,8 @@ class EcccObservationValues(TimeseriesValues):
         # For hourly data request only necessary data to reduce amount of data being
         # downloaded and parsed
         for date in pl.datetime_range(
-            dt.datetime(start_year, 1, 1),
-            dt.datetime(end_year + 1, 1, 1),
+            dt.datetime(start_year, 1, 1, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(end_year + 1, 1, 1, tzinfo=ZoneInfo("UTC")),
             interval=freq,
             eager=True,
         ):
@@ -245,11 +246,13 @@ class EcccObservationRequest(TimeseriesRequest):
         )
 
         df = df.with_columns(
-            pl.col(Columns.START_DATE.value).str.to_datetime("%Y"),
+            pl.col(Columns.START_DATE.value).str.to_datetime("%Y", time_zone="UTC"),
             pl.col(Columns.END_DATE.value)
             .cast(int)
             .add(1)
-            .map_elements(lambda v: dt.datetime(v, 1, 1) - dt.timedelta(days=1), return_dtype=pl.Datetime),
+            .map_elements(
+                lambda v: dt.datetime(v, 1, 1, tzinfo=ZoneInfo("UTC")) - dt.timedelta(days=1), return_dtype=pl.Datetime
+            ),
         )
 
         return df.filter(pl.col(Columns.LATITUDE.value).ne("") & pl.col(Columns.LONGITUDE.value).ne(""))

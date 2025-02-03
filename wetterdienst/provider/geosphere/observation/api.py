@@ -36,17 +36,17 @@ class GeosphereObservationValues(TimeseriesValues):
     )
     # dates collected from ZAMG website, end date will be set to now if not given
     _default_start_dates = {
-        Resolution.MINUTE_10: dt.datetime(1992, 5, 20),
-        Resolution.HOURLY: dt.datetime(1880, 3, 31),
-        Resolution.DAILY: dt.datetime(1774, 12, 31),
-        Resolution.MONTHLY: dt.datetime(1767, 11, 30),
+        Resolution.MINUTE_10: dt.datetime(1992, 5, 20, tzinfo=ZoneInfo("UTC")),
+        Resolution.HOURLY: dt.datetime(1880, 3, 31, tzinfo=ZoneInfo("UTC")),
+        Resolution.DAILY: dt.datetime(1774, 12, 31, tzinfo=ZoneInfo("UTC")),
+        Resolution.MONTHLY: dt.datetime(1767, 11, 30, tzinfo=ZoneInfo("UTC")),
     }
 
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
         start_date = self.sr.start_date or self._default_start_dates[parameter_or_dataset.resolution.value]
-        end_date = self.sr.end_date or datetime.now()
+        end_date = self.sr.end_date or datetime.now(ZoneInfo("UTC"))
         # add buffers
         start_date = start_date - timedelta(days=1)
         end_date = end_date + timedelta(days=1)

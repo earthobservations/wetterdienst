@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 import os
+from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -30,8 +31,8 @@ def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id: s
 
 
 def main() -> None:
-    start_date = dt.datetime(1934, 1, 1)
-    end_date = dt.datetime(1980, 12, 31)
+    start_date = dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(1980, 12, 31, tzinfo=ZoneInfo("UTC"))
     lat = 51.0221
     lon = 13.8470
 

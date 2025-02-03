@@ -247,7 +247,7 @@ class HubeauRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.col(Columns.START_DATE.value).map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
             pl.when(pl.col(Columns.END_DATE.value).is_null())
-            .then(dt.date.today())
+            .then(dt.datetime.now(ZoneInfo("UTC")).date())
             .alias(Columns.END_DATE.value)
             .cast(pl.Datetime),
         )

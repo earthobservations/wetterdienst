@@ -847,9 +847,13 @@ def test_export_zarr(
     assert columns == set(dwd_climate_summary_tabular_columns)
     # Validate content.
     data = group
-    assert dt.datetime.fromtimestamp(int(data["date"][0]) / 1e9) == dt.datetime(2019, 1, 1, 0, 0)
+    assert dt.datetime.fromtimestamp(int(data["date"][0]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
+        2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")
+    )
     assert data["temperature_air_min_0_05m"][0] == 1.5
-    assert dt.datetime.fromtimestamp(int(data["date"][-1]) / 1e9) == dt.datetime(2020, 1, 1, 0, 0)
+    assert dt.datetime.fromtimestamp(int(data["date"][-1]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
+        2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")
+    )
     assert data["temperature_air_min_0_05m"][-1] == -4.6
 
 
@@ -912,7 +916,7 @@ def test_export_sqlite(settings_si_false_wide_shape: Settings, tmp_path: Path) -
     assert first == [
         "01048",
         "climate_summary",
-        dt.datetime(2019, 1, 1),
+        dt.datetime(2019, 1, 1),  # noqa: DTZ001
         19.9,
         10.0,
         8.5,
@@ -947,7 +951,7 @@ def test_export_sqlite(settings_si_false_wide_shape: Settings, tmp_path: Path) -
     assert last == [
         "01048",
         "climate_summary",
-        dt.datetime(2020, 1, 1),
+        dt.datetime(2020, 1, 1),  # noqa: DTZ001
         6.9,
         10.0,
         3.2,
@@ -1039,7 +1043,7 @@ def test_export_duckdb(settings_si_false: Settings, tmp_path: Path) -> None:
         "01048",
         "climate_summary",
         "temperature_air_min_2m",
-        dt.datetime(1939, 7, 26),
+        dt.datetime(1939, 7, 26),  # noqa: DTZ001
         10.0,
         1.0,
     )

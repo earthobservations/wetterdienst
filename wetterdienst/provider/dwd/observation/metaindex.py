@@ -7,6 +7,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO, StringIO
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
@@ -86,8 +87,8 @@ def create_meta_index_for_climate_observations(
             how="left",
         )
     meta_index = meta_index.with_columns(
-        pl.col(Columns.START_DATE.value).str.to_datetime("%Y%m%d"),
-        pl.col(Columns.END_DATE.value).str.to_datetime("%Y%m%d"),
+        pl.col(Columns.START_DATE.value).str.to_datetime("%Y%m%d", time_zone="UTC"),
+        pl.col(Columns.END_DATE.value).str.to_datetime("%Y%m%d", time_zone="UTC"),
         pl.col(Columns.HEIGHT.value).cast(pl.Float64),
         pl.col(Columns.LATITUDE.value).cast(pl.Float64),
         pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
@@ -225,7 +226,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     df = pl.concat(dfs)
     df = df.with_columns(
         pl.when(pl.col(Columns.END_DATE.value).str.strip_chars().eq(""))
-        .then(pl.lit((dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")))
+        .then(pl.lit((dt.datetime.now(ZoneInfo("UTC")).date() - dt.timedelta(days=1)).strftime("%Y%m%d")))
         .otherwise(pl.col(Columns.END_DATE.value))
         .alias(Columns.END_DATE.value),
     )

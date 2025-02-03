@@ -1,6 +1,7 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -42,8 +43,8 @@ def calculate_percentage_difference(df: pl.DataFrame, text: str = "") -> float:
 
 
 def main() -> None:
-    start_date = dt.datetime(2021, 1, 1)
-    end_date = dt.datetime(2022, 1, 1)
+    start_date = dt.datetime(2021, 1, 1, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC"))
     interpolated_df = get_interpolated_df(start_date, end_date)
     print(interpolated_df)
     exclude_stations = interpolated_df.get_column("taken_station_ids")[0]

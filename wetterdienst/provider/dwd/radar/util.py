@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -44,7 +45,7 @@ def get_date_from_filename(filename: str, pattern: re.Pattern, formats: list[str
 
     for fmt in formats:
         try:
-            return dt.datetime.strptime(date_string, fmt)
+            return dt.datetime.strptime(date_string, fmt).replace(tzinfo=ZoneInfo("UTC"))
         except ValueError:
             pass
     return None

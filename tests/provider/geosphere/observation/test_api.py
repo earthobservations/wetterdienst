@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from dirty_equals import IsNumeric
@@ -11,8 +12,8 @@ def test_geopshere_observation_api() -> None:
     """Test the correct parsing of data, especially the dates -> thanks @mhuber89 for the discovery and fix"""
     stations_at = GeosphereObservationRequest(
         parameters=[("hourly", "data", "wind_speed")],
-        start_date=datetime(2022, 6, 1),
-        end_date=datetime(2022, 6, 2),
+        start_date=datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime(2022, 6, 2, tzinfo=ZoneInfo("UTC")),
     )
     station_at = stations_at.filter_by_station_id("4821")
     df = station_at.values.all().df
@@ -32,8 +33,8 @@ def test_geopshere_observation_api_radiation(resolution: str) -> None:
     """Test correct radiation conversion (W / m² -> J / cm²), factor should be 0.06"""
     stations_at = GeosphereObservationRequest(
         parameters=[(resolution, "data", "radiation_global")],
-        start_date=datetime(2022, 6, 1),
-        end_date=datetime(2022, 6, 2, hour=23, minute=50),
+        start_date=datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime(2022, 6, 2, hour=23, minute=50, tzinfo=ZoneInfo("UTC")),
     )
     station_at = stations_at.filter_by_station_id("4821")
     df = station_at.values.all().df

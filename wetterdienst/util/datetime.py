@@ -95,9 +95,9 @@ def parse_date(date_string: str) -> dt.datetime:
         date_parsed = dt.datetime.fromisoformat(date_string)
     except ValueError:
         try:
-            date_parsed = dt.datetime.strptime(date_string, "%Y-%m")
+            date_parsed = dt.datetime.strptime(date_string, "%Y-%m")  # noqa: DTZ007
         except ValueError:
-            date_parsed = dt.datetime.strptime(date_string, "%Y")
+            date_parsed = dt.datetime.strptime(date_string, "%Y")  # noqa: DTZ007
     finally:
         if not date_parsed:
             raise ValueError(f"date_string {date_string} could not be parsed")

@@ -82,9 +82,10 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
             pl.lit(year).alias("year"),
             pl.col("date_str").str.slice(offset=0, length=2).cast(int).alias("day"),
             pl.col("date_str").str.slice(offset=2, length=2).cast(int).alias("hour"),
+            pl.lit(0).alias("minute"),
         ],
     )
-    days_difference = df.get_column("day").max() - df.get_column("day").min()
+    days_difference = df.get_column("day").cast(pl.Int8).max() - df.get_column("day").cast(pl.Int8).min()
     if days_difference > 20:
         df = df.with_columns(
             pl.when(pl.col("day") > 25).then(month - 1 if month > 1 else 12).otherwise(month).alias("month"),
@@ -96,11 +97,18 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
         df = df.with_columns(pl.when(pl.col("month") > 6).then(year - 1).otherwise(year).alias("year"))
     else:
         df = df.with_columns(pl.lit(year).alias("year"))
+    # format data
+    df = df.with_columns(
+        pl.col("day").cast(pl.String).str.pad_start(2, "0"),
+        pl.col("month").cast(pl.String).str.pad_start(2, "0"),
+        pl.col("minute").cast(pl.String).str.pad_start(2, "0"),
+    )
     return df.select(
         [
             pl.all().exclude(["year", "month", "day", "hour"]),
-            pl.struct(["year", "month", "day", "hour"])
-            .map_elements(lambda s: dt.datetime(s["year"], s["month"], s["day"], s["hour"]), return_dtype=pl.Datetime)
+            pl.concat_str([pl.col("year"), pl.col("month"), pl.col("day"), pl.col("hour"), pl.col("minute")])
+            .str.to_datetime("%Y%m%d%H%M", time_zone=current_date.tzname())
+            .alias("date")
             .alias("date"),
         ],
     )
@@ -299,7 +307,7 @@ class DwdDmoRequest(TimeseriesRequest):
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 issue = dt.datetime.fromisoformat(issue)
-            issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour)
+            issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=ZoneInfo("UTC"))
             # Shift issue date to 0, 12 hour format
             issue = self.adjust_datetime(issue)
 

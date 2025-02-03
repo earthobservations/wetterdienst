@@ -13,10 +13,13 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 @pytest.mark.parametrize(
     "start_date,end_date",
     [
-        (dt.datetime(2015, 1, 1), dt.datetime(2022, 1, 1)),
-        (dt.datetime(2015, 1, 1, 1), dt.datetime(2022, 1, 1, 1)),
-        (dt.datetime(2015, 1, 1, 1, 1), dt.datetime(2022, 1, 1, 1, 1)),
-        (dt.datetime(2015, 1, 1, 1, 1, 1), dt.datetime(2022, 1, 1, 1, 1, 1)),
+        (dt.datetime(2015, 1, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC"))),
+        (dt.datetime(2015, 1, 1, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2022, 1, 1, 1, tzinfo=ZoneInfo("UTC"))),
+        (dt.datetime(2015, 1, 1, 1, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2022, 1, 1, 1, 1, tzinfo=ZoneInfo("UTC"))),
+        (
+            dt.datetime(2015, 1, 1, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2022, 1, 1, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+        ),
     ],
 )
 def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_settings: Settings) -> None:

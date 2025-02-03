@@ -1,8 +1,9 @@
+import datetime as dt
 import json
-from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
@@ -23,14 +24,20 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "mosmix",
-        ["--parameters=hourly/large", f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}"],
+        [
+            "--parameters=hourly/large",
+            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=2), '%Y-%m-%d')}",
+        ],
         "10488",
         "DRESDEN",
     ),
     (
         "dwd",
         "dmo",
-        ["--parameters=hourly/icon", f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}"],
+        [
+            "--parameters=hourly/icon",
+            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=2), '%Y-%m-%d')}",
+        ],
         "10488",
         "DRESDEN",
     ),
@@ -40,7 +47,7 @@ SETTINGS_VALUES = (
         [
             "--parameters=hourly/icon",
             "--lead_time=long",
-            f"--date={datetime.strftime(datetime.today() + timedelta(days=3), '%Y-%m-%d')}",
+            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=3), '%Y-%m-%d')}",
         ],
         "10488",
         "DRESDEN",

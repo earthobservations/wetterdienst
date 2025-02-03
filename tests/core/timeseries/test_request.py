@@ -68,8 +68,8 @@ def default_request(default_settings: Settings) -> TimeseriesRequest:
     return DwdObservationRequest(
         parameters=[("hourly", "temperature_air")],
         periods="historical",
-        start_date=dt.datetime(2020, 1, 1),
-        end_date=dt.datetime(2020, 1, 20),
+        start_date=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2020, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
 

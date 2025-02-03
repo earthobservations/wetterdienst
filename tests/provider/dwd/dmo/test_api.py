@@ -1,6 +1,7 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
@@ -91,28 +92,28 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
 
 
 def test_add_date_from_filename(df_files_two_month: pl.DataFrame) -> None:
-    df = add_date_from_filename(df_files_two_month, dt.datetime(2021, 11, 15))
+    df = add_date_from_filename(df_files_two_month, dt.datetime(2021, 11, 15, tzinfo=ZoneInfo("UTC")))
     assert df.get_column("date").to_list() == [
-        dt.datetime(2021, 10, 31, 12, 0),
-        dt.datetime(2021, 11, 1, 0, 0),
-        dt.datetime(2021, 11, 1, 12, 0),
-        dt.datetime(2021, 11, 2, 0, 0),
+        dt.datetime(2021, 10, 31, 12, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2021, 11, 1, 0, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2021, 11, 1, 12, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2021, 11, 2, 0, tzinfo=ZoneInfo("UTC")),
     ]
 
 
 def test_add_date_from_filename_early_in_month(df_files_end_of_month: pl.DataFrame) -> None:
-    df = add_date_from_filename(df_files_end_of_month, dt.datetime(2021, 11, 1, 2))
+    df = add_date_from_filename(df_files_end_of_month, dt.datetime(2021, 11, 1, 2, tzinfo=ZoneInfo("UTC")))
     assert df.get_column("date").to_list() == [
-        dt.datetime(2021, 10, 31, 0, 0, 0),
-        dt.datetime(2021, 10, 31, 12, 0, 0),
+        dt.datetime(2021, 10, 31, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2021, 10, 31, 12, 0, 0, tzinfo=ZoneInfo("UTC")),
     ]
 
 
 def test_add_date_from_filename_early_in_year(df_files_january: pl.DataFrame) -> None:
-    df = add_date_from_filename(df_files_january, dt.datetime(2021, 1, 1, 1, 1, 1))
+    df = add_date_from_filename(df_files_january, dt.datetime(2021, 1, 1, 1, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert df.get_column("date").to_list() == [
-        dt.datetime(2020, 12, 31, 0, 0, 0),
-        dt.datetime(2020, 12, 31, 12, 0, 0),
+        dt.datetime(2020, 12, 31, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2020, 12, 31, 12, 0, 0, tzinfo=ZoneInfo("UTC")),
     ]
 
 
@@ -126,4 +127,4 @@ def test_add_date_from_filename_too_few_dates() -> None:
         orient="col",
     )
     with pytest.raises(ValueError):
-        add_date_from_filename(df, dt.datetime(2021, 1, 1, 1, 1, 1))
+        add_date_from_filename(df, dt.datetime(2021, 1, 1, 1, 1, 1, tzinfo=ZoneInfo("UTC")))

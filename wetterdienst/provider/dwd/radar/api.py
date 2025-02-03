@@ -518,7 +518,7 @@ class DwdRadarValues:
             if not result.timestamp:
                 # if result has no timestamp, take it from main url instead of files in archive
                 datetime_string = re.findall(r"\d{10}", url)[0]
-                date_time = dt.datetime.strptime("20" + datetime_string, "%Y%m%d%H%M")
+                date_time = dt.datetime.strptime("20" + datetime_string, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
                 result.timestamp = date_time
             if result.timestamp < start_date or result.timestamp > end_date:
                 continue
@@ -558,7 +558,7 @@ class DwdRadarValues:
 
             for file in tfs.glob("*"):
                 datetime_string = re.findall(r"\d{10}", file)[0]
-                date_time = dt.datetime.strptime("20" + datetime_string, "%Y%m%d%H%M")
+                date_time = dt.datetime.strptime("20" + datetime_string, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
                 file_in_bytes = tfs.tar.extractfile(file).read()
 
                 yield RadarResult(

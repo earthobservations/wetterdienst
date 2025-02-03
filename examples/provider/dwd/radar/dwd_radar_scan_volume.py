@@ -55,7 +55,7 @@ def radar_scan_volume() -> None:
     """Retrieve radar sweep volume velocity h from site ESS in format HDF5 as subset polarimetric."""
 
     ed = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
-    end_date = dt.datetime(ed.year, ed.month, ed.day, ed.hour, (ed.minute // 5) * 5)
+    end_date = dt.datetime(ed.year, ed.month, ed.day, ed.hour, (ed.minute // 5) * 5, tzinfo=ZoneInfo("UTC"))
     start_date = end_date - dt.timedelta(minutes=5)
     elevations = range(10)
 

@@ -7,6 +7,7 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import portion
@@ -326,8 +327,10 @@ class ImgwHydrologyValues(TimeseriesValues):
                     pl.struct(["year", "month"])
                     .map_elements(
                         lambda x: [
-                            dt.datetime(x["year"], x["month"], 1),
-                            dt.datetime(x["year"], x["month"], 1) + relativedelta(months=1) - relativedelta(days=1),
+                            dt.datetime(x["year"], x["month"], 1, tzinfo=ZoneInfo("UTC")),
+                            dt.datetime(x["year"], x["month"], 1, tzinfo=ZoneInfo("UTC"))
+                            + relativedelta(months=1)
+                            - relativedelta(days=1),
                         ],
                         return_dtype=pl.Array(pl.Datetime, shape=2),
                     )

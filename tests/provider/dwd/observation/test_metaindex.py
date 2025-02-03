@@ -3,6 +3,7 @@
 """tests for file index creation"""
 
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
@@ -38,8 +39,8 @@ def test_meta_index_1mph_creation(default_settings: Settings) -> None:
     assert meta_index_1mph.filter(pl.col(Columns.STATION_ID.value).eq("00003")).row(0) == (
         (
             "00003",
-            dt.datetime(1891, 1, 1, 0, 0),
-            dt.datetime(2012, 4, 6, 0, 0),
+            dt.datetime(1891, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2012, 4, 6, 0, 0, tzinfo=ZoneInfo("UTC")),
             202.00,
             50.7827,
             6.0941,

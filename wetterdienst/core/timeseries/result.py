@@ -335,7 +335,7 @@ class StationsResult(ExportMixin):
             },
         )
         return fig.update_layout(
-            margin=dict(r=10, t=10, l=10, b=10),
+            margin={"r": 10, "t": 10, "l": 10, "b": 10},
         )
 
     def _to_image(
