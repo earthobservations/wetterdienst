@@ -321,7 +321,7 @@ class StationsResult(ExportMixin):
                 pl.lit(")"),
             ).alias("name"),
         )
-        return px.scatter_map(
+        fig = px.scatter_map(
             df,
             lat="latitude",
             lon="longitude",
@@ -331,6 +331,9 @@ class StationsResult(ExportMixin):
                 lat=center_lat,
                 lon=center_lon,
             ),
+        )
+        return fig.update_layout(
+            margin=dict(r=10, t=10, l=10, b=10),
         )
 
     def _to_image(

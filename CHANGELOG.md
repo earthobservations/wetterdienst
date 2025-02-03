@@ -2,6 +2,9 @@
 
 ## Development
 
+### Refactor
+- Reduce the margin of the stations plot
+
 ## 0.103.0 - 2025-02-02
 
 ### Feature
