@@ -83,7 +83,8 @@ def read_description(url: str, language: str = "en") -> dict:
             "quality_information": "Qualitätsinformation",
         }
     else:
-        raise ValueError("Only language 'en' or 'de' supported")
+        msg = "Only language 'en' or 'de' supported"
+        raise ValueError(msg)
 
     data = OrderedDict()
 

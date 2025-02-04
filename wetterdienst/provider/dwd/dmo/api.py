@@ -63,7 +63,8 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
     :return: Dataframe with date column
     """
     if len(df) < 2:
-        raise ValueError("Dataframe must have at least 2 dates")
+        msg = "Dataframe must have at least 2 dates"
+        raise ValueError(msg)
     # get month and year from current date
     year = current_date.year
     month = current_date.month
@@ -226,7 +227,8 @@ class DwdDmoValues(TimeseriesValues):
             date = df.get_column("date").max()
         df = df.filter(pl.col("date").eq(date))
         if df.is_empty():
-            raise IndexError(f"Unable to find {date} file within {url}")
+            msg = f"Unable to find {date} file within {url}"
+            raise IndexError(msg)
         return df.get_column("url").item()
 
 

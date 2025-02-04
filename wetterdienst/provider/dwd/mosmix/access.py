@@ -173,4 +173,5 @@ class KMLReader:
             station_forecast.clear()
             return pl.DataFrame(data_dict)
         else:
-            raise IndexError(f"Station {station_id} not found in KML file")
+            msg = f"Station {station_id} not found in KML file"
+            raise IndexError(msg)

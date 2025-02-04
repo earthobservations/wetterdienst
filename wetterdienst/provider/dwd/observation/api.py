@@ -453,12 +453,14 @@ class DwdObservationRequest(TimeseriesRequest):
         elif isinstance(dataset, ParameterSearch):
             parameter_template = dataset
         else:
-            raise KeyError("dataset must be a string, ParameterTemplate or DatasetModel")
+            msg = "dataset must be a string, ParameterTemplate or DatasetModel"
+            raise KeyError(msg)
 
         dataset = DwdObservationMetadata.search_parameter(parameter_template)[0].dataset
         period = parse_enumeration_from_template(period, Period)
         if period not in dataset.periods or period not in cls._available_periods:
-            raise ValueError(f"Period {period} not available for dataset {dataset}")
+            msg = f"Period {period} not available for dataset {dataset}"
+            raise ValueError(msg)
 
         file_index = _create_file_index_for_dwd_server(
             dataset=dataset,
@@ -472,7 +474,8 @@ class DwdObservationRequest(TimeseriesRequest):
         elif language == "de":
             file_prefix = "BESCHREIBUNG_"
         else:
-            raise ValueError("Only language 'en' or 'de' supported")
+            msg = "Only language 'en' or 'de' supported"
+            raise ValueError(msg)
 
         file_index = file_index.filter(pl.col("filename").str.contains(file_prefix))
         description_file_url = str(file_index.get_column("filename").item())

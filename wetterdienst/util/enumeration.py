@@ -59,7 +59,8 @@ def parse_enumeration_from_template(
             else:
                 enum_parsed = intermediate(enum_)
         except ValueError as e:
-            raise InvalidEnumerationError(f"{enum_} could not be parsed from {intermediate.__name__}.") from e
+            msg = f"{enum_} could not be parsed from {intermediate.__name__}."
+            raise InvalidEnumerationError(msg) from e
 
     if base:
         try:
@@ -68,6 +69,7 @@ def parse_enumeration_from_template(
             try:
                 enum_parsed = base(enum_parsed)
             except ValueError as e:
-                raise InvalidEnumerationError(f"{enum_parsed} could not be parsed from {base.__name__}.") from e
+                msg = f"{enum_parsed} could not be parsed from {base.__name__}."
+                raise InvalidEnumerationError(msg) from e
 
     return enum_parsed

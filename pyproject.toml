@@ -315,6 +315,8 @@ select = [
     "C4",
     # flake8-datetimez
     "DTZ",
+    # flake8-errmsg
+    "EM",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

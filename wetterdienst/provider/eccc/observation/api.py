@@ -292,6 +292,7 @@ class EcccObservationRequest(TimeseriesRequest):
                 log.exception(f"Unable to access HTTP server at {http_url}")
 
         if not payload:
-            raise FileNotFoundError("Unable to acquire ECCC stations list")
+            msg = "Unable to acquire ECCC stations list"
+            raise FileNotFoundError(msg)
 
         return payload, source

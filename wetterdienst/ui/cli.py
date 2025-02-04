@@ -722,7 +722,8 @@ def fields(
     api = get_api(provider, network)
 
     if not (api.metadata.name_short == "DWD" and api.metadata.kind == "observation") and kwargs.get("fields"):
-        raise click.BadParameter("'fields' command only available for provider 'DWD'")
+        msg = "'fields' command only available for provider 'DWD'"
+        raise click.BadParameter(msg)
 
     metadata = api.describe_fields(
         dataset=dataset,
@@ -1268,7 +1269,8 @@ def radar(
         elif country_name:
             data = OperaRadarSites().by_country_name(country_name)
         else:
-            raise KeyError("No valid option provided")
+            msg = "No valid option provided"
+            raise KeyError(msg)
 
     output = json.dumps(data, indent=indent)
 
@@ -1294,7 +1296,8 @@ def stripes_stations(
     pretty: bool,  # noqa: FBT001
 ) -> None:
     if kind not in ["temperature", "precipitation"]:
-        raise click.ClickException(f"Invalid kind '{kind}'")
+        msg = f"Invalid kind '{kind}'"
+        raise click.ClickException(msg)
 
     stations = _get_stripes_stations(kind=kind, active=active)
 
@@ -1338,7 +1341,8 @@ def stripes_values(
 ) -> None:
     if target:
         if not target.name.lower().endswith(fmt):
-            raise click.ClickException(f"'target' must have extension '{fmt}'")
+            msg = f"'target' must have extension '{fmt}'"
+            raise click.ClickException(msg)
 
     set_logging_level(debug)
 

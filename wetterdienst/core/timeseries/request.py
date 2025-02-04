@@ -136,7 +136,8 @@ class TimeseriesRequest:
         self.parameters = parse_parameters(parameters, self.metadata)
 
         if not self.parameters:
-            raise NoParametersFoundError("no valid parameters could be parsed from given argument")
+            msg = "no valid parameters could be parsed from given argument"
+            raise NoParametersFoundError(msg)
 
         self.humanize = settings.ts_humanize
         self.shape = settings.ts_shape
@@ -220,7 +221,8 @@ class TimeseriesRequest:
 
         # TODO: replace this with a response + logging
         if not start_date <= end_date:
-            raise StartDateEndDateError("Error: 'start_date' must be smaller or equal to 'end_date'.")
+            msg = "Error: 'start_date' must be smaller or equal to 'end_date'."
+            raise StartDateEndDateError(msg)
 
         return start_date, end_date
 
@@ -367,11 +369,13 @@ class TimeseriesRequest:
         """
         rank = int(rank)
         if rank <= 0:
-            raise ValueError("'rank' has to be at least 1.")
+            msg = "'rank' has to be at least 1."
+            raise ValueError(msg)
 
         threshold = float(threshold)
         if threshold < 0 or threshold > 1:
-            raise ValueError("threshold must be between 0.0 and 1.0")
+            msg = "threshold must be between 0.0 and 1.0"
+            raise ValueError(msg)
 
         df = self.all().df
 
@@ -417,7 +421,8 @@ class TimeseriesRequest:
         rank = int(rank)
 
         if rank <= 0:
-            raise ValueError("'rank' has to be at least 1.")
+            msg = "'rank' has to be at least 1."
+            raise ValueError(msg)
 
         lat, lon = latlon
 
@@ -458,7 +463,8 @@ class TimeseriesRequest:
 
         # Theoretically a distance of 0 km is possible
         if distance < 0:
-            raise ValueError("'distance' has to be at least 0")
+            msg = "'distance' has to be at least 0"
+            raise ValueError(msg)
 
         unit = unit.strip()
 
@@ -495,10 +501,12 @@ class TimeseriesRequest:
         left, bottom, right, top = float(left), float(bottom), float(right), float(top)
 
         if left >= right:
-            raise ValueError("bbox left border should be smaller then right")
+            msg = "bbox left border should be smaller then right"
+            raise ValueError(msg)
 
         if bottom >= top:
-            raise ValueError("bbox bottom border should be smaller then top")
+            msg = "bbox bottom border should be smaller then top"
+            raise ValueError(msg)
 
         df = self.all().df
 
@@ -546,7 +554,8 @@ class TimeseriesRequest:
         from wetterdienst.core.timeseries.interpolate import get_interpolated_df
 
         if not self.start_date:
-            raise ValueError("start_date and end_date are required for interpolation")
+            msg = "start_date and end_date are required for interpolation"
+            raise ValueError(msg)
 
         resolutions = {parameter.dataset.resolution.value for parameter in self.parameters}
 
@@ -600,7 +609,8 @@ class TimeseriesRequest:
         from wetterdienst.core.timeseries.summarize import get_summarized_df
 
         if not self.start_date:
-            raise ValueError("start_date and end_date are required for summarization")
+            msg = "start_date and end_date are required for summarization"
+            raise ValueError(msg)
 
         resolutions = {parameter.dataset.resolution.value for parameter in self.parameters}
 
@@ -660,7 +670,8 @@ class TimeseriesRequest:
                 .to_series()
             )
         except NoDataError as e:
-            raise StationNotFoundError(f"no station found for {station_id}") from e
+            msg = f"no station found for {station_id}"
+            raise StationNotFoundError(msg) from e
         return lat, lon
 
     @staticmethod

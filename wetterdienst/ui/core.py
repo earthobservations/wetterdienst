@@ -390,7 +390,8 @@ def _get_stations_request(
     if date:
         if "/" in date:
             if date.count("/") >= 2:
-                raise InvalidTimeIntervalError("Invalid ISO 8601 time interval")
+                msg = "Invalid ISO 8601 time interval"
+                raise InvalidTimeIntervalError(msg)
             start_date, end_date = date.split("/")
             start_date = parse_date(start_date)
             end_date = parse_date(end_date)
@@ -401,7 +402,8 @@ def _get_stations_request(
 
     any_date_required = any(parameter.dataset.date_required for parameter in parameters)
     if any_date_required and (not start_date or not end_date):
-        raise StartDateEndDateError("Start and end date required for single period datasets")
+        msg = "Start and end date required for single period datasets"
+        raise StartDateEndDateError(msg)
 
     any_multiple_period_dataset = any(len(parameter.dataset.periods) > 1 for parameter in parameters)
 
@@ -468,7 +470,8 @@ def get_stations(
             "coordinates (float,float) and distance (float)",
             "bbox (left float, bottom float, right float, top float)",
         ]
-        raise KeyError(f"Give one of the parameters: {', '.join(param_options)}")
+        msg = f"Give one of the parameters: {', '.join(param_options)}"
+        raise KeyError(msg)
 
 
 def get_values(
@@ -517,7 +520,8 @@ def get_interpolate(
     elif request.station:
         values_ = r.interpolate_by_station_id(request.station)
     else:
-        raise ValueError("Either coordinates or station must be provided")
+        msg = "Either coordinates or station must be provided"
+        raise ValueError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
@@ -539,7 +543,8 @@ def get_summarize(
     elif request.station:
         values_ = r.summarize_by_station_id(request.station)
     else:
-        raise ValueError("Either coordinates or station must be provided")
+        msg = "Either coordinates or station must be provided"
+        raise ValueError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
@@ -601,12 +606,15 @@ def _plot_stripes(
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
     if kind not in ["temperature", "precipitation"]:
-        raise ValueError("kind must be either 'temperature' or 'precipitation'")
+        msg = "kind must be either 'temperature' or 'precipitation'"
+        raise ValueError(msg)
     if start_year and end_year:
         if start_year >= end_year:
-            raise ValueError("start_year must be less than end_year")
+            msg = "start_year must be less than end_year"
+            raise ValueError(msg)
     if name_threshold < 0 or name_threshold > 1:
-        raise ValueError("name_threshold must be between 0.0 and 1.0")
+        msg = "name_threshold must be between 0.0 and 1.0"
+        raise ValueError(msg)
 
     import plotly.graph_objects as go
 
@@ -622,13 +630,15 @@ def _plot_stripes(
             "station (string)",
             "name (string)",
         ]
-        raise KeyError(f"Give one of the parameters: {', '.join(param_options)}")
+        msg = f"Give one of the parameters: {', '.join(param_options)}"
+        raise KeyError(msg)
 
     try:
         station_dict = stations.to_dict()["stations"][0]
     except IndexError as e:
         parameter = "station_id" if station_id else "name"
-        raise ValueError(f"No station with a {parameter} similar to '{station_id or name}' found") from e
+        msg = f"No station with a {parameter} similar to '{station_id or name}' found"
+        raise ValueError(msg) from e
 
     df = stations.values.all().df.sort("date")
     df = df.set_sorted("date")
@@ -647,7 +657,8 @@ def _plot_stripes(
         df = df.filter(pl.col("date").dt.year().le(end_year))
 
     if len(df) == 1:
-        raise ValueError("At least two years are required to create warming stripes.")
+        msg = "At least two years are required to create warming stripes."
+        raise ValueError(msg)
 
     df_without_nulls = df.drop_nulls("value")
 

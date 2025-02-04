@@ -113,7 +113,8 @@ def _create_meta_index_for_climate_observations(
     df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
     df_files = df_files.collect()
     if df_files.is_empty():
-        raise MetaFileNotFoundError(f"No meta file was found amongst the files at {url}.")
+        msg = f"No meta file was found amongst the files at {url}."
+        raise MetaFileNotFoundError(msg)
     meta_file = df_files.get_column("url").to_list()[0]
     log.info(f"Downloading file {meta_file}.")
     payload = download_file(meta_file, settings=settings, ttl=CacheExpiry.METAINDEX)

@@ -149,7 +149,8 @@ class DwdMosmixValues(TimeseriesValues):
         elif dataset == DwdMosmixMetadata.hourly.large:
             return self.read_mosmix_large(station_id, date)
         else:
-            raise KeyError(f"Dataset {dataset} not supported")
+            msg = f"Dataset {dataset} not supported"
+            raise KeyError(msg)
 
     def read_mosmix_small(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Reads single MOSMIX-S file for all stations."""
@@ -187,7 +188,8 @@ class DwdMosmixValues(TimeseriesValues):
             try:
                 return list(filter(lambda url_: "LATEST" in url_.upper(), urls))[0]
             except IndexError as e:
-                raise IndexError(f"Unable to find LATEST file within {url}") from e
+                msg = f"Unable to find LATEST file within {url}"
+                raise IndexError(msg) from e
 
         date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
 
@@ -206,7 +208,8 @@ class DwdMosmixValues(TimeseriesValues):
         df = df.filter(pl.col("date").eq(date))
 
         if df.is_empty():
-            raise IndexError(f"Unable to find {date} file within {url}")
+            msg = f"Unable to find {date} file within {url}"
+            raise IndexError(msg)
 
         return df.get_column("url").item()
 

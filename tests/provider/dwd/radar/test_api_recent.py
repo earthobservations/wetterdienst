@@ -34,7 +34,8 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings: Settings) 
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     # Verify number of results.
     assert len(results) >= 12
@@ -78,7 +79,8 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings: Settings) 
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     # Verify number of results.
     assert len(results) >= 20

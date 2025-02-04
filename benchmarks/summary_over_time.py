@@ -53,7 +53,8 @@ def main() -> None:
         import plotly.graph_objects as go
         from plotly.subplots import make_subplots
     except ImportError as e:
-        raise ImportError("Please install extra `plotting` with wetterdienst[plotting]") from e
+        msg = "Please install extra `plotting` with wetterdienst[plotting]"
+        raise ImportError(msg) from e
 
     fig = make_subplots(rows=5, shared_xaxes=True, subplot_titles=("Summarized", "01050", "01051", "01048", "05282"))
 

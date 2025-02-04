@@ -110,7 +110,8 @@ def visualize_points(data: Data) -> None:
     try:
         import plotly.graph_objects as go
     except ImportError as e:
-        raise ImportError("Please install extra `plotting` with wetterdienst[plotting]") from e
+        msg = "Please install extra `plotting` with wetterdienst[plotting]"
+        raise ImportError(msg) from e
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(

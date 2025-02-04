@@ -38,7 +38,8 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Setti
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     # Verify number of results.
     assert len(results) == 1
@@ -84,7 +85,8 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings: Setti
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     # Verify number of results.
     assert 4 <= len(results) <= 10
@@ -135,7 +137,8 @@ def test_radar_request_radolan_cdc_most_recent(default_settings: Settings, radar
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     assert len(results) == 1
 

@@ -55,7 +55,8 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings: Settin
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     buffer = results[0][1]
     requested_header = wrl.io.read_radolan_header(buffer)

@@ -60,7 +60,8 @@ def visualize(
     try:
         import plotly.graph_objects as go
     except ImportError as e:
-        raise ImportError("Please install extra `plotting` with wetterdienst[plotting]") from e
+        msg = "Please install extra `plotting` with wetterdienst[plotting]"
+        raise ImportError(msg) from e
 
     rmse = get_rmse(regular_df.get_column("value"), interpolated_df.get_column("value"))
     corr = get_corr(regular_df.get_column("value"), interpolated_df.get_column("value"))

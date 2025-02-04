@@ -110,7 +110,8 @@ class HubeauValues(TimeseriesValues):
         elif freq_unit == "H":
             data_delta = dt.timedelta(hours=freq)
         else:
-            raise KeyError(f"Unknown frequency unit {freq_unit}")
+            msg = f"Unknown frequency unit {freq_unit}"
+            raise KeyError(msg)
         n_dates = delta / data_delta
         periods = math.ceil(n_dates / 1000)
         request_date_range = pl.datetime_range(start=start, end=end, interval=delta / periods, eager=True)

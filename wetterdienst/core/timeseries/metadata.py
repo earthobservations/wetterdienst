@@ -93,7 +93,8 @@ class DatasetModel(BaseModel):
                 else parameter.name
                 for parameter in self.parameters
             ]
-            raise KeyError(f"'{item}'. Available parameters: {', '.join(available_parameters)}")
+            msg = f"'{item}'. Available parameters: {', '.join(available_parameters)}"
+            raise KeyError(msg)
 
     def __getattr__(self, item: str) -> ParameterModel:
         for parameter in self.parameters:
@@ -106,7 +107,8 @@ class DatasetModel(BaseModel):
                 else parameter.name
                 for parameter in self.parameters
             ]
-            raise AttributeError(f"'{item}'. Available parameters: {', '.join(available_parameters)}")
+            msg = f"'{item}'. Available parameters: {', '.join(available_parameters)}"
+            raise AttributeError(msg)
 
     def __iter__(self) -> Iterator[ParameterModel]:
         return iter(parameter for parameter in self.parameters if not parameter.name.startswith("quality"))
@@ -153,7 +155,8 @@ class ResolutionModel(BaseModel):
                 f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
                 for dataset in self.datasets
             ]
-            raise KeyError(f"'{item}'. Available datasets: {', '.join(available_datasets)}")
+            msg = f"'{item}'. Available datasets: {', '.join(available_datasets)}"
+            raise KeyError(msg)
 
     def __getattr__(self, item: str) -> DatasetModel:
         item_search = item.strip().lower()
@@ -165,7 +168,8 @@ class ResolutionModel(BaseModel):
                 f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
                 for dataset in self.datasets
             ]
-            raise AttributeError(f"'{item}'. Available datasets: {', '.join(available_datasets)}")
+            msg = f"'{item}'. Available datasets: {', '.join(available_datasets)}"
+            raise AttributeError(msg)
 
     def __iter__(self) -> Iterator[DatasetModel]:
         return iter(self.datasets)
@@ -201,7 +205,8 @@ class MetadataModel(BaseModel):
                 else resolution.name
                 for resolution in self.resolutions
             ]
-            raise KeyError(f"'{item}'. Available resolutions: {', '.join(available_resolutions)}")
+            msg = f"'{item}'. Available resolutions: {', '.join(available_resolutions)}"
+            raise KeyError(msg)
 
     def __getattr__(self, item: str) -> ResolutionModel:
         item_search = item.strip().lower()
@@ -267,10 +272,11 @@ class ParameterSearch:
         parameter = None
         if isinstance(value, str):
             if all(value.count(sep) == 0 for sep in POSSIBLE_SEPARATORS):
-                raise ValueError(
+                msg = (
                     f"expected 'resolution/dataset' or 'resolution/dataset/parameter' "
                     f"(separator any of {POSSIBLE_SEPARATORS})"
                 )
+                raise ValueError(msg)
             for sep in POSSIBLE_SEPARATORS:
                 if sep in value:
                     value = value.replace(sep, "/")
@@ -316,5 +322,6 @@ def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> li
     unique_resolutions = {parameter.dataset.resolution.value.value for parameter in parameters_found}
     # TODO: for now we only support one resolution
     if len(unique_resolutions) > 1:
-        raise ValueError(f"All parameters must have the same resolution. Found: {unique_resolutions}")
+        msg = f"All parameters must have the same resolution. Found: {unique_resolutions}"
+        raise ValueError(msg)
     return parameters_found

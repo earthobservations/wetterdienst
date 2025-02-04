@@ -25,7 +25,8 @@ else:
 def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | None, dt.datetime | None]:
     if "/" in date:
         if date.count("/") >= 2:
-            raise InvalidTimeIntervalError("Invalid ISO 8601 time interval")
+            msg = "Invalid ISO 8601 time interval"
+            raise InvalidTimeIntervalError(msg)
 
         date_from, date_to = date.split("/")
         date_from = parse_date(date_from)
@@ -75,7 +76,8 @@ def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
     # Filter by date interval.
     if "/" in date:
         if date.count("/") >= 2:
-            raise InvalidTimeIntervalError("Invalid ISO 8601 time interval")
+            msg = "Invalid ISO 8601 time interval"
+            raise InvalidTimeIntervalError(msg)
 
         date_from, date_to = date.split("/")
         date_from = parse_date(date_from)

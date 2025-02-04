@@ -55,15 +55,18 @@ class Wetterdienst:
         try:
             module_path, class_name = cls.registry[provider][network].rsplit(".", 1)
         except KeyError as e:
-            raise KeyError(f"No API available for provider {provider} and network {network}") from e
+            msg = f"No API available for provider {provider} and network {network}"
+            raise KeyError(msg) from e
 
         try:
             module = importlib.import_module(module_path)
             return getattr(module, class_name)
         except ModuleNotFoundError as e:
-            raise ImportError(f"Module {module_path} not found") from e
+            msg = f"Module {module_path} not found"
+            raise ImportError(msg) from e
         except AttributeError as e:
-            raise AttributeError(f"Class {class_name} not found in module {module_path}") from e
+            msg = f"Class {class_name} not found in module {module_path}"
+            raise AttributeError(msg) from e
 
     def __new__(cls, provider: str, network: str) -> type[TimeseriesRequest]:
         """

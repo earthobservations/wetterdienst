@@ -37,7 +37,8 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings: Settings)
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     buffer = results[0].data
     payload = buffer.getvalue()
@@ -81,7 +82,8 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings: Sett
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     buffer = results[0].data
     payload = buffer.getvalue()
@@ -126,7 +128,8 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Se
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     assert len(results) <= 1
 
@@ -166,7 +169,8 @@ def test_radar_request_radolan_cdc_current(default_settings: Settings, resolutio
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     assert len(results) == 1
 

@@ -27,7 +27,8 @@ def read_fwf_from_df(
         return cols
 
     if len(df.columns) > 1:
-        raise ValueError("reading fwf from a DataFrame only supports one column")
+        msg = "reading fwf from a DataFrame only supports one column"
+        raise ValueError(msg)
     old_column = df.columns[0]
     df = df.select(
         [

@@ -81,7 +81,8 @@ class RadarResult:
         elif index == 1:
             return self.data
         else:  # pragma: no cover
-            raise KeyError(f"Index {index} undefined on RadarResult")
+            msg = f"Index {index} undefined on RadarResult"
+            raise KeyError(msg)
 
 
 # TODO: add core class information
@@ -139,23 +140,27 @@ class DwdRadarValues:
                 Resolution.HOURLY,
                 Resolution.DAILY,
             ):
-                raise ValueError("RADOLAN_CDC only supports daily and hourly resolutions")
+                msg = "RADOLAN_CDC only supports daily and hourly resolutions"
+                raise ValueError(msg)
 
         elevation_parameters = [
             DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
             DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
         ]
         if self.elevation is not None and self.parameter not in elevation_parameters:
-            raise ValueError(f"Argument 'elevation' only valid for parameter={elevation_parameters}")
+            msg = f"Argument 'elevation' only valid for parameter={elevation_parameters}"
+            raise ValueError(msg)
 
         if start_date == DwdRadarDate.LATEST:
             # HDF5 folders do not have "-latest-" files.
             if self.parameter == DwdRadarParameter.RADOLAN_CDC:
-                raise ValueError("RADOLAN_CDC data has no '-latest-' files")
+                msg = "RADOLAN_CDC data has no '-latest-' files"
+                raise ValueError(msg)
 
             # HDF5 folders do not have "-latest-" files.
             if self.format == DwdRadarDataFormat.HDF5:
-                raise ValueError("HDF5 data has no '-latest-' files")
+                msg = "HDF5 data has no '-latest-' files"
+                raise ValueError(msg)
 
         if start_date == DwdRadarDate.CURRENT and not self.period:
             self.period = Period.RECENT

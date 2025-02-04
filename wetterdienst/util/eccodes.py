@@ -31,4 +31,5 @@ def check_pdbufr() -> None:
     try:
         import pdbufr  # noqa: F401
     except ImportError as e:
-        raise ImportError("pdbufr is required for reading DWD Road Observations.") from e
+        msg = "pdbufr is required for reading DWD Road Observations."
+        raise ImportError(msg) from e

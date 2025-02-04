@@ -296,10 +296,11 @@ class StationsResult(ExportMixin):
             import plotly.express as px
             import plotly.graph_objects as go
         except ImportError as e:
-            raise ImportError(
+            msg = (
                 "To use this method, please install the optional dependencies for plotly: "
                 "pip install wetterdienst[plotting]"
-            ) from e
+            )
+            raise ImportError(msg) from e
 
         df = self.df
         if df.is_empty():
@@ -353,7 +354,8 @@ class StationsResult(ExportMixin):
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            raise KeyError(f"Invalid format: {fmt}")
+            msg = f"Invalid format: {fmt}"
+            raise KeyError(msg)
         return img
 
 
@@ -511,10 +513,11 @@ class ValuesResult(_ValuesResult):
             import plotly.express as px
             import plotly.graph_objects as go
         except ImportError as e:
-            raise ImportError(
+            msg = (
                 "To use this method, please install the optional dependencies for plotly: "
                 "pip install wetterdienst[plotting]"
-            ) from e
+            )
+            raise ImportError(msg) from e
 
         df = self.df
         if df.is_empty():
@@ -583,7 +586,8 @@ class ValuesResult(_ValuesResult):
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            raise KeyError(f"Invalid format: {fmt}")
+            msg = f"Invalid format: {fmt}"
+            raise KeyError(msg)
         return img
 
 
@@ -683,10 +687,11 @@ class InterpolatedValuesResult(_ValuesResult):
             import plotly.express as px
             import plotly.graph_objects as go
         except ImportError as e:
-            raise ImportError(
+            msg = (
                 "To use this method, please install the optional dependencies for plotly: "
                 "pip install wetterdienst[plotting]"
-            ) from e
+            )
+            raise ImportError(msg) from e
 
         df = self.df
         if df.is_empty():
@@ -757,7 +762,8 @@ class InterpolatedValuesResult(_ValuesResult):
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            raise KeyError(f"Invalid format: {fmt}")
+            msg = f"Invalid format: {fmt}"
+            raise KeyError(msg)
         return img
 
 
@@ -852,10 +858,11 @@ class SummarizedValuesResult(_ValuesResult):
             import plotly.express as px
             import plotly.graph_objects as go
         except ImportError as e:
-            raise ImportError(
+            msg = (
                 "To use this method, please install the optional dependencies for plotly: "
                 "pip install wetterdienst[plotting]"
-            ) from e
+            )
+            raise ImportError(msg) from e
 
         df = self.df
         if df.is_empty():
@@ -925,5 +932,6 @@ class SummarizedValuesResult(_ValuesResult):
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            raise KeyError(f"Invalid format: {fmt}")
+            msg = f"Invalid format: {fmt}"
+            raise KeyError(msg)
         return img

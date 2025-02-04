@@ -113,7 +113,8 @@ class ExportMixin:
         elif fmt in ("html", "png", "jpg", "webp", "svg", "pdf"):
             return self.to_image(fmt=fmt, **kwargs)
         else:
-            raise KeyError("Unknown output format")
+            msg = "Unknown output format"
+            raise KeyError(msg)
 
     @staticmethod
     def _filter_by_sql(df: pl.DataFrame, sql: str) -> pl.DataFrame:
@@ -241,7 +242,8 @@ class ExportMixin:
                 log.info(f"Zarr Dataset Group info:\n{store.ds.info}")
 
             else:
-                raise KeyError("Unknown export file type")
+                msg = "Unknown export file type"
+                raise KeyError(msg)
 
             return
 
@@ -362,7 +364,8 @@ class ExportMixin:
             elif protocol in ["influxdb3", "influxdb3s"]:
                 version = 3
             else:
-                raise KeyError(f"Unknown protocol variant '{protocol}' for InfluxDB")
+                msg = f"Unknown protocol variant '{protocol}' for InfluxDB"
+                raise KeyError(msg)
 
             log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")
 

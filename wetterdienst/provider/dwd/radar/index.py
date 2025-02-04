@@ -229,7 +229,8 @@ def build_path_to_parameter(
     elif parameter in RADAR_PARAMETERS_SITES:
         # Sanity checks.
         if site is None:
-            raise ValueError("Argument 'site' is missing")
+            msg = "Argument 'site' is missing"
+            raise ValueError(msg)
 
         if fmt is None:
             ambiguous_parameters = [
@@ -246,7 +247,8 @@ def build_path_to_parameter(
                 candidates = [DwdRadarDataFormat.BUFR, DwdRadarDataFormat.HDF5]
 
             if candidates:
-                raise ValueError(f"Argument 'format' is missing, use one of {candidates}")
+                msg = f"Argument 'format' is missing, use one of {candidates}"
+                raise ValueError(msg)
 
         # Compute path to BINARY/BUFR vs. HDF5.
         parameter_path = f"weather/radar/sites/{parameter.value}/{site.value}"
@@ -256,10 +258,12 @@ def build_path_to_parameter(
                     DwdRadarDataSubset.SIMPLE,
                     DwdRadarDataSubset.POLARIMETRIC,
                 ]
-                raise ValueError(f"Argument 'subset' is missing, use one of {candidates}")
+                msg = f"Argument 'subset' is missing, use one of {candidates}"
+                raise ValueError(msg)
             return f"{parameter_path}/{fmt.value}/filter_{subset.value}/"
 
         return parameter_path
 
     else:  # pragma: no cover
-        raise NotImplementedError(f"Acquisition for {parameter} not implemented yet")
+        msg = f"Acquisition for {parameter} not implemented yet"
+        raise NotImplementedError(msg)

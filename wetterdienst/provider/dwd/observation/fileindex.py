@@ -103,7 +103,8 @@ def _create_file_index_for_dwd_server(
 ) -> pl.LazyFrame:
     urls = list_remote_files_fsspec(url, settings=settings, ttl=ttl)
     if not urls:
-        raise FileNotFoundError(f"url {url} does not have a list of files")
+        msg = f"url {url} does not have a list of files"
+        raise FileNotFoundError(msg)
     df = pl.DataFrame({"url": urls}, schema={"url": pl.String}, orient="col")
     df = df.with_columns(
         pl.col("url").str.split("/").list.last().alias("filename"),

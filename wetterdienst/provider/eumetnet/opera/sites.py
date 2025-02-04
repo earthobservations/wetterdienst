@@ -57,12 +57,14 @@ class OperaRadarSites:
         :return:          Single site information.
         """
         if len(odim_code) not in (3, 5):
-            raise ValueError("ODIM code must be three or five letters")
+            msg = "ODIM code must be three or five letters"
+            raise ValueError(msg)
         for site in self.sites:
             if site["odimcode"] and odim_code.lower() in site["odimcode"]:
                 return site
         else:
-            raise KeyError("Radar site not found")
+            msg = "Radar site not found"
+            raise KeyError(msg)
 
     def by_wmo_code(self, wmo_code: int) -> dict:
         """
@@ -75,7 +77,8 @@ class OperaRadarSites:
             if site["wmocode"] == wmo_code:
                 return site
         else:
-            raise KeyError("Radar site not found")
+            msg = "Radar site not found"
+            raise KeyError(msg)
 
     def by_country_name(self, country_name: str) -> list[dict]:
         """
@@ -86,7 +89,8 @@ class OperaRadarSites:
         """
         sites = [site for site in self.sites if site["country"] and site["country"].lower() == country_name.lower()]
         if not sites:
-            raise KeyError("No radar sites for this country")
+            msg = "No radar sites for this country"
+            raise KeyError(msg)
         return sites
 
 
@@ -129,7 +133,8 @@ class OperaRadarSitesGenerator:
                 elif obj in ["false", "no", "off", "n", "f", "0"]:
                     return False
                 else:
-                    raise ValueError(f"String is not true/false: {obj}")
+                    msg = f"String is not true/false: {obj}"
+                    raise ValueError(msg)
             return bool(obj)
 
         def convert_types(element: dict) -> dict[str, int | float | bool | None]:

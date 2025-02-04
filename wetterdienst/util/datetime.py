@@ -76,7 +76,8 @@ def mktimerange(
         date_to = date_to + relativedelta(day=31)
 
     else:
-        raise NotImplementedError("mktimerange only implemented for annual and monthly time ranges")
+        msg = "mktimerange only implemented for annual and monthly time ranges"
+        raise NotImplementedError(msg)
 
     return date_from, date_to
 
@@ -100,7 +101,8 @@ def parse_date(date_string: str) -> dt.datetime:
             date_parsed = dt.datetime.strptime(date_string, "%Y")  # noqa: DTZ007
     finally:
         if not date_parsed:
-            raise ValueError(f"date_string {date_string} could not be parsed")
+            msg = f"date_string {date_string} could not be parsed"
+            raise ValueError(msg)
     if date_parsed and not date_parsed.tzinfo:
         date_parsed = date_parsed.replace(tzinfo=ZoneInfo("UTC"))
     return date_parsed

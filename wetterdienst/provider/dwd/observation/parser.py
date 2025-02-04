@@ -147,7 +147,8 @@ def _parse_climate_observations_data(
         elif "FX6" in filename:
             alias = "qn_8_6"
         else:
-            raise ValueError(f"Unknown dataset for wind extremes, expected FX3 or FX6 in filename {filename}")
+            msg = f"Unknown dataset for wind extremes, expected FX3 or FX6 in filename {filename}"
+            raise ValueError(msg)
         df = df.select(
             pl.all().exclude("qn_8"),
             pl.col("qn_8").alias(alias),
