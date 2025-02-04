@@ -317,6 +317,10 @@ select = [
     "DTZ",
     # flake8-errmsg
     "EM",
+    # flake8-executable
+    "EXE",
+    # flake8-implicit-str-concat
+    "ISC",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

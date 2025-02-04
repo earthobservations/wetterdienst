@@ -71,7 +71,7 @@ def radar_scan_precip() -> None:
         settings=Settings(cache_disable=True),
     )
 
-    log.info(f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at " f"{request_velocity.start_date}")
+    log.info(f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at {request_velocity.start_date}")
 
     # Submit requests.
     results = chain(request_velocity.query(), request_reflectivity.query())
