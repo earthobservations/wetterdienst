@@ -321,6 +321,8 @@ select = [
     "EXE",
     # flake8-implicit-str-concat
     "ISC",
+    # flake8-import-conventions
+    "ICN",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.
