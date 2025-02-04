@@ -323,6 +323,8 @@ select = [
     "ISC",
     # flake8-import-conventions
     "ICN",
+    # flake8-logging
+    "LOG",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

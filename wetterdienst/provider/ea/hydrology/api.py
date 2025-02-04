@@ -18,7 +18,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.network import download_file
 
-log = logging.getLogger(__file__)
+log = logging.getLogger(__name__)
 
 
 EAHydrologyMetadata = {

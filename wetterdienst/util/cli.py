@@ -15,7 +15,7 @@ def setup_logging(level: int = logging.INFO) -> None:
 
     # Silence INFO messages from numexpr.
     numexpr_logger = logging.getLogger("numexpr")
-    numexpr_logger.setLevel(logging.WARN)
+    numexpr_logger.setLevel(logging.WARNING)
 
 
 def docstring_format_verbatim(text: str) -> str:
