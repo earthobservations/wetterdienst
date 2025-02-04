@@ -80,7 +80,6 @@ class ExportMixin:
     @abstractmethod
     def to_plot(self, **kwargs: dict) -> go.Figure:
         """Create a plotly figure from the DataFrame"""
-        pass
 
     @abstractmethod
     def _to_image(self, **kwargs: dict) -> bytes | str:

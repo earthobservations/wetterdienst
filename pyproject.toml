@@ -325,6 +325,8 @@ select = [
     "ICN",
     # flake8-logging
     "LOG",
+    # flake8-pie
+    "PIE",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

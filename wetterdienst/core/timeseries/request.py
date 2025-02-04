@@ -72,13 +72,11 @@ class TimeseriesRequest:
     @abstractmethod
     def metadata(self) -> MetadataModel:
         """metadata model"""
-        pass
 
     @property
     @abstractmethod
     def _values(self) -> TimeseriesValues:
         """Class to get the values for a request"""
-        pass
 
     # Columns that should be contained within any stations_result information
     _base_columns = (
@@ -310,7 +308,6 @@ class TimeseriesRequest:
 
         :return: pandas.DataFrame with the information of different available sites
         """
-        pass
 
     def all(self) -> StationsResult:  # noqa: A003
         """

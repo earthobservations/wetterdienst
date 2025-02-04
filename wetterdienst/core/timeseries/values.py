@@ -442,7 +442,6 @@ class TimeseriesValues(metaclass=ABCMeta):
         it in shape, either tabular with one parameter per column or tidied with a set
         of station id, date, parameter, value and quality in one row.
         """
-        pass
 
     def _widen_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """
