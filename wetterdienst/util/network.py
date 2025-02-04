@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 class FileDirCache(MutableMapping):
     def __init__(
         self,
-        listings_expiry_time: int | float,
+        listings_expiry_time: float,
         *,
         use_listings_cache: bool,
         listings_cache_location: str | None = None,
@@ -108,7 +108,7 @@ class HTTPFileSystem(_HTTPFileSystem):
     def __init__(
         self,
         use_listings_cache: bool | None = None,
-        listings_expiry_time: int | float | None = None,
+        listings_expiry_time: float | None = None,
         listings_cache_location: str | None = None,
         *args: tuple,
         **kwargs: dict,

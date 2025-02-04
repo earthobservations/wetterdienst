@@ -50,7 +50,7 @@ class TimeseriesValues(metaclass=ABCMeta):
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
         return cls(stations)
 
-    def __eq__(self, other: Any) -> bool:  # noqa: ANN401
+    def __eq__(self, other: object) -> bool:  # noqa: ANN401
         """Equal method of request object"""
         return self.sr.stations == other.sr.stations and self.sr.station_id == other.sr.station
 

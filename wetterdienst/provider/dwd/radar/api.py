@@ -10,7 +10,7 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -224,7 +224,7 @@ class DwdRadarValues:
             f"date={self.start_date}/{self.end_date})"
         )
 
-    def __eq__(self, other: Any) -> bool:  # noqa: ANN401
+    def __eq__(self, other: object) -> bool:  # noqa: ANN401
         return (
             self.parameter == other.parameters
             and self.site == other.site

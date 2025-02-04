@@ -6,7 +6,7 @@ import datetime as dt
 import logging
 from collections.abc import Iterable
 from itertools import repeat
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -425,7 +425,7 @@ class DwdObservationRequest(TimeseriesRequest):
             else:
                 self.periods = self._available_periods
 
-    def __eq__(self, other: Any) -> bool:  # noqa: ANN401
+    def __eq__(self, other: object) -> bool:  # noqa: ANN401
         return super().__eq__(other) and self.periods == other.periods
 
     def filter_by_station_id(
