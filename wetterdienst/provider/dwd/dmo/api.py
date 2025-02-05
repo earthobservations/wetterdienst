@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import logging
 from enum import Enum
@@ -301,10 +302,8 @@ class DwdDmoRequest(TimeseriesRequest):
         if not issue:
             issue = DwdForecastDate.LATEST
 
-        try:
+        with contextlib.suppress(InvalidEnumerationError):
             issue = parse_enumeration_from_template(issue, DwdForecastDate)
-        except InvalidEnumerationError:
-            pass
 
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):

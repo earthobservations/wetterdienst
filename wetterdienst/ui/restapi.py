@@ -68,7 +68,7 @@ def index() -> str:
     title = f"{info.slogan} | {info.name}"
     sources = []
 
-    for provider in Wetterdienst.registry.keys():
+    for provider in Wetterdienst.registry:
         # take the first network api
         first_network = list(Wetterdienst.registry[provider].keys())[0]
         api = Wetterdienst(provider, first_network)
@@ -548,10 +548,7 @@ def stripes_stations(
         log.exception(e)
         raise HTTPException(status_code=400, detail=str(e)) from e
     content = stations.to_format(fmt=fmt, with_metadata=True, indent=pretty)
-    if fmt == "csv":
-        media_type = "text/csv"
-    else:
-        media_type = "application/json"
+    media_type = "text/csv" if fmt == "csv" else "application/json"
     return Response(content=content, media_type=media_type)
 
 
@@ -583,12 +580,11 @@ def stripes_values(
             status_code=400,
             detail="Query arguments 'station' and 'name' are mutually exclusive",
         )
-    if start_year and end_year:
-        if start_year >= end_year:
-            raise HTTPException(
-                status_code=400,
-                detail="Query argument 'start_year' must be less than 'end_year'",
-            )
+    if start_year and end_year and start_year >= end_year:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'start_year' must be less than 'end_year'",
+        )
     if name_threshold < 0 or name_threshold > 1:
         raise HTTPException(
             status_code=400,

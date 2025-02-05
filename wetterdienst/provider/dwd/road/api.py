@@ -331,30 +331,30 @@ class DwdRoadValues(TimeseriesValues):
         import pdbufr
 
         _, file = filename_and_file
-        tf = NamedTemporaryFile("w+b")
-        tf.write(file.read())
-        tf.seek(0)
         parameter_names = [parameter.name_original for parameter in parameters]
         first_batch = parameter_names[:10]
         second_batch = parameter_names[10:]
-        df = pdbufr.read_bufr(
-            tf.name,
-            columns=TIME_COLUMNS
-            + (
-                "shortStationName",
-                *first_batch,
-            ),
-        )
-        if second_batch:
-            df2 = pdbufr.read_bufr(
+        with NamedTemporaryFile("w+b") as tf:
+            tf.write(file.read())
+            tf.seek(0)
+            df = pdbufr.read_bufr(
                 tf.name,
                 columns=TIME_COLUMNS
                 + (
                     "shortStationName",
-                    *second_batch,
+                    *first_batch,
                 ),
             )
-            df = df.merge(df2, on=TIME_COLUMNS + ("shortStationName",))
+            if second_batch:
+                df2 = pdbufr.read_bufr(
+                    tf.name,
+                    columns=TIME_COLUMNS
+                    + (
+                        "shortStationName",
+                        *second_batch,
+                    ),
+                )
+                df = df.merge(df2, on=TIME_COLUMNS + ("shortStationName",))
         df = pl.from_pandas(df)
         df = df.select(
             pl.col("shortStationName").alias(Columns.STATION_ID.value),

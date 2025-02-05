@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import logging
 from enum import Enum
@@ -118,9 +119,8 @@ class DwdMosmixValues(TimeseriesValues):
         """
         # Shift issue date to 3, 9, 15, 21 hour format
         issue = self.sr.stations.issue
-        if issue is not DwdForecastDate.LATEST:
-            if parameter_or_dataset == DwdMosmixMetadata.hourly.large:
-                issue = self.adjust_datetime(issue)
+        if issue is not DwdForecastDate.LATEST and parameter_or_dataset == DwdMosmixMetadata.hourly.large:
+            issue = self.adjust_datetime(issue)
         df = self.read_mosmix(station_id=station_id, dataset=parameter_or_dataset, date=issue)
         if df.is_empty():
             return df
@@ -263,10 +263,8 @@ class DwdMosmixRequest(TimeseriesRequest):
         if not issue:
             issue = DwdForecastDate.LATEST
 
-        try:
+        with contextlib.suppress(InvalidEnumerationError):
             issue = parse_enumeration_from_template(issue, DwdForecastDate)
-        except InvalidEnumerationError:
-            pass
 
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):

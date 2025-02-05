@@ -82,9 +82,7 @@ class FileDirCache(MutableMapping):
 
     def __contains__(self, item: str) -> bool:
         value = self._cache.get(item, retry=True)  # None, if expired
-        if value:
-            return True
-        return False
+        return bool(value)
 
     def __setitem__(self, key: str, value: BytesIO) -> None:
         if not self.use_listings_cache:

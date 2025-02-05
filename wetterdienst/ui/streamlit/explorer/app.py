@@ -166,10 +166,9 @@ resolution: ResolutionModel = st.selectbox(
 )
 
 # for hosted app, we disallow higher resolutions as the machine might not be able to handle it
-if LIVE:
-    if resolution.value in SUBDAILY_AT_MOST:
-        st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
-        st.stop()
+if LIVE and resolution.value in SUBDAILY_AT_MOST:
+    st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
+    st.stop()
 
 dataset_options = list(resolution)
 dataset_names = [d.name for d in dataset_options]

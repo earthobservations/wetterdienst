@@ -246,10 +246,7 @@ class TimeseriesRequest:
             datasets = []
         dataset_strings = []
         for dataset in to_list(datasets):
-            if isinstance(dataset, DatasetModel):
-                dataset = dataset.name
-            else:
-                dataset = str(dataset)
+            dataset = dataset.name if isinstance(dataset, DatasetModel) else str(dataset)
             dataset_strings.append(dataset)
         data = {}
         for resolution in cls.metadata:

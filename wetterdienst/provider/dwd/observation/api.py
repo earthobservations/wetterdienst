@@ -444,7 +444,7 @@ class DwdObservationRequest(TimeseriesRequest):
     ) -> dict:
         from wetterdienst.provider.dwd.observation.fields import read_description
 
-        if isinstance(dataset, str) or isinstance(dataset, Iterable):
+        if isinstance(dataset, str | Iterable):
             parameter_template = ParameterSearch.parse(dataset)
         elif isinstance(dataset, DatasetModel):
             parameter_template = ParameterSearch(

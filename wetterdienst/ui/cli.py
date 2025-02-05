@@ -1339,10 +1339,9 @@ def stripes_values(
     target: Path,
     debug: bool,  # noqa: FBT001
 ) -> None:
-    if target:
-        if not target.name.lower().endswith(fmt):
-            msg = f"'target' must have extension '{fmt}'"
-            raise click.ClickException(msg)
+    if target and not target.name.lower().endswith(fmt):
+        msg = f"'target' must have extension '{fmt}'"
+        raise click.ClickException(msg)
 
     set_logging_level(debug)
 

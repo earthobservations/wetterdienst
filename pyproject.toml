@@ -337,6 +337,8 @@ select = [
     "RSE",
     # private-member-access
     "SLF",
+    # flake8-simplify
+    "SIM",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

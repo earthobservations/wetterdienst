@@ -1172,17 +1172,19 @@ def test_export_influxdb2_tabular(settings_si_false: Settings) -> None:
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
     mock_client = mock.MagicMock()
-    with mock.patch(
-        "influxdb_client.InfluxDBClient",
-        side_effect=[mock_client],
-        create=True,
-    ) as mock_connect:
-        with mock.patch(
+    with (
+        mock.patch(
+            "influxdb_client.InfluxDBClient",
+            side_effect=[mock_client],
+            create=True,
+        ) as mock_connect,
+        mock.patch(
             "influxdb_client.Point",
             create=True,
-        ):
-            values.to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
-            mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
+        ),
+    ):
+        values.to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
+        mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
 
 
 @surrogate("influxdb_client.InfluxDBClient")
@@ -1198,17 +1200,19 @@ def test_export_influxdb2_tidy(settings_si_false: Settings) -> None:
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
     mock_client = mock.MagicMock()
-    with mock.patch(
-        "influxdb_client.InfluxDBClient",
-        side_effect=[mock_client],
-        create=True,
-    ) as mock_connect:
-        with mock.patch(
+    with (
+        mock.patch(
+            "influxdb_client.InfluxDBClient",
+            side_effect=[mock_client],
+            create=True,
+        ) as mock_connect,
+        mock.patch(
             "influxdb_client.Point",
             create=True,
-        ):
-            values.to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
-            mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
+        ),
+    ):
+        values.to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
+        mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
 
 
 @surrogate("influxdb_client_3.InfluxDBClient3")

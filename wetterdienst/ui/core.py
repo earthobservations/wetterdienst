@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import sys
@@ -368,10 +369,8 @@ def unpack_parameters(parameter: str) -> list[str]:
         return parameter_, dataset_
 
     # Create list of parameters from string if required
-    try:
+    with contextlib.suppress(AttributeError):
         parameter = parameter.split(",")
-    except AttributeError:
-        pass
 
     return [unpack_parameter(p) for p in parameter]
 
@@ -608,10 +607,9 @@ def _plot_stripes(
     if kind not in ["temperature", "precipitation"]:
         msg = "kind must be either 'temperature' or 'precipitation'"
         raise ValueError(msg)
-    if start_year and end_year:
-        if start_year >= end_year:
-            msg = "start_year must be less than end_year"
-            raise ValueError(msg)
+    if start_year and end_year and start_year >= end_year:
+        msg = "start_year must be less than end_year"
+        raise ValueError(msg)
     if name_threshold < 0 or name_threshold > 1:
         msg = "name_threshold must be between 0.0 and 1.0"
         raise ValueError(msg)

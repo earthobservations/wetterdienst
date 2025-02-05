@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 string_types = (str,)
 binary_types = (bytes,)
+other_types = (BaseModel,)
 
 
 def to_list(x: Any, default: Any = None) -> list | Any:  # noqa: ANN401
@@ -15,11 +16,7 @@ def to_list(x: Any, default: Any = None) -> list | Any:  # noqa: ANN401
     """
     if x is None:
         return default
-    if (
-        not isinstance(x, collections_abc.Iterable)
-        or isinstance(x, string_types + binary_types)
-        or isinstance(x, BaseModel)
-    ):
+    if not isinstance(x, collections_abc.Iterable) or isinstance(x, string_types + binary_types + other_types):
         return [x]
     elif isinstance(x, list):
         return x

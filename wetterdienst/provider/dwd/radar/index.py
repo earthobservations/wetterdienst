@@ -104,11 +104,13 @@ def create_fileindex_radar(
     if not df_fileindex.get_column("filename").str.ends_with(".bz2").all():
         df_fileindex = df_fileindex.filter(~pl.col("filename").str.ends_with(".bz2"))
 
-    if parameter in RADAR_PARAMETERS_SWEEPS:
-        formats = ["%Y%m%d%H%M"]
-    elif site and parameter is DwdRadarParameter.PX250_REFLECTIVITY:
-        formats = ["%Y%m%d%H%M"]
-    elif site and fmt is DwdRadarDataFormat.BUFR:
+    if (
+        parameter in RADAR_PARAMETERS_SWEEPS
+        or site
+        and parameter is DwdRadarParameter.PX250_REFLECTIVITY
+        or site
+        and fmt is DwdRadarDataFormat.BUFR
+    ):
         formats = ["%Y%m%d%H%M"]
     else:
         formats = ["%y%m%d%H%M"]
@@ -154,10 +156,7 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
         ),
     )
 
-    if period == Period.HISTORICAL:
-        formats = ["%Y%m"]
-    else:
-        formats = ["%y%m%d%H%M"]
+    formats = ["%Y%m"] if period == Period.HISTORICAL else ["%Y%m%d%H%M"]
 
     df_fileindex = df_fileindex.with_columns(
         pl.col("filename")

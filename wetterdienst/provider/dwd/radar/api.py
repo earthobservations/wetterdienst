@@ -135,13 +135,12 @@ class DwdRadarValues:
         self.period: Period = parse_enumeration_from_template(period, DwdRadarPeriod, Period)
 
         # Sanity checks.
-        if self.parameter == DwdRadarParameter.RADOLAN_CDC:
-            if self.resolution not in (
-                Resolution.HOURLY,
-                Resolution.DAILY,
-            ):
-                msg = "RADOLAN_CDC only supports daily and hourly resolutions"
-                raise ValueError(msg)
+        if self.parameter == DwdRadarParameter.RADOLAN_CDC and self.resolution not in (
+            Resolution.HOURLY,
+            Resolution.DAILY,
+        ):
+            msg = "RADOLAN_CDC only supports daily and hourly resolutions"
+            raise ValueError(msg)
 
         elevation_parameters = [
             DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
@@ -191,9 +190,8 @@ class DwdRadarValues:
         # Evaluate "RadarDate.CURRENT" for "start_date".
         if start_date == DwdRadarDate.CURRENT:
             start_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
-            if parameter == DwdRadarParameter.RADOLAN_CDC:
-                if start_date.minute < 20:
-                    start_date = start_date - dt.timedelta(hours=1)
+            if parameter == DwdRadarParameter.RADOLAN_CDC and start_date.minute < 20:
+                start_date = start_date - dt.timedelta(hours=1)
             end_date = None
 
         # Evaluate "RadarDate.LATEST" for "start_date".
@@ -205,9 +203,8 @@ class DwdRadarValues:
         else:
             if isinstance(start_date, str):
                 start_date = dt.datetime.fromisoformat(start_date)
-            if end_date:
-                if isinstance(end_date, str):
-                    end_date = dt.datetime.fromisoformat(end_date)
+            if end_date and isinstance(end_date, str):
+                end_date = dt.datetime.fromisoformat(end_date)
             self.start_date = start_date
             self.end_date = end_date
             self.adjust_datetimes()
@@ -334,13 +331,7 @@ class DwdRadarValues:
 
         else:
             if self.parameter == DwdRadarParameter.RADOLAN_CDC:
-                if self.period:
-                    period_types = [self.period]
-                else:
-                    period_types = [
-                        Period.RECENT,
-                        Period.HISTORICAL,
-                    ]
+                period_types = [self.period] if self.period else [Period.RECENT, Period.HISTORICAL]
 
                 results = []
                 for period in period_types:
@@ -431,9 +422,7 @@ class DwdRadarValues:
         :param url: url string which is used to decide if result is cached
         :return: When cache should be dismissed, return False. Otherwise, return True.
         """
-        if "-latest-" in url:
-            return False
-        return True
+        return "-latest-" not in url
 
     def _download_generic_data(self, url: str) -> Iterator[RadarResult]:
         """

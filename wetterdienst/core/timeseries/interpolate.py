@@ -233,7 +233,7 @@ def apply_interpolation(
                 [first_station[1:]],
             )
     vals = {s: v for s, v in row.items() if v is not None}
-    station_group_ids = get_station_group_ids(valid_station_groups, frozenset([s[1:] for s in vals.keys()]))
+    station_group_ids = get_station_group_ids(valid_station_groups, frozenset([s[1:] for s in vals]))
     if station_group_ids:
         station_group_ids_with_s = ["S" + s for s in station_group_ids]
         vals = {s: v for s, v in vals.items() if s in station_group_ids_with_s}

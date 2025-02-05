@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
 from wetterdienst.exceptions import InvalidEnumerationError
@@ -35,10 +36,8 @@ def parse_enumeration_from_template(
     if isinstance(enum_, str):
         enum_name = enum_
     else:
-        try:
+        with contextlib.suppress(AttributeError):
             enum_name = enum_.name
-        except AttributeError:
-            pass
 
     try:
         enum_parsed = intermediate[enum_name.upper()]

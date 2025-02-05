@@ -33,10 +33,7 @@ def test_data_coverage() -> None:
     """Test to make sure that provider data is correctly covered by the docs."""
 
     def _check_startswith(name: str, startswith: list[str]) -> bool:
-        for sw in startswith:
-            if name.startswith(sw):
-                return True
-        return False
+        return any(name.startswith(sw) for sw in startswith)
 
     mkdocs_content = Path(ROOT / "mkdocs.yml").read_text()
 

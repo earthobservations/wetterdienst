@@ -119,12 +119,11 @@ class KMLReader:
                 if nsmap is None:
                     nsmap = element.nsmap
                     prod_definition_tag = f"{{{nsmap['dwd']}}}ProductDefinition"
-            elif event == "end":
-                if element.tag == prod_definition_tag:
-                    prod_definition = element
-                    # stop processing after head
-                    # leave forecast data for iteration
-                    break
+            elif event == "end" and element.tag == prod_definition_tag:
+                prod_definition = element
+                # stop processing after head
+                # leave forecast data for iteration
+                break
 
         self.metadata = {k: prod_definition.find(f"{{{nsmap['dwd']}}}{v}").text for k, v in prod_items.items()}
         self.metadata["issue_time"] = dt.datetime.fromisoformat(self.metadata["issue_time"])

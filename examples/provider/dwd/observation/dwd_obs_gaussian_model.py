@@ -124,10 +124,7 @@ class ModelYearlyGaussians:
             else:
                 pars.update(gmod.make_params())
             pars = self.model_pars_update(year, group, pars, index_per_year, y.max())
-            if composite_model is None:
-                composite_model = gmod
-            else:
-                composite_model = composite_model + gmod
+            composite_model = gmod if composite_model is None else composite_model + gmod
         return composite_model, pars
 
     @staticmethod

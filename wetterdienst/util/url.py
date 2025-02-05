@@ -38,9 +38,8 @@ class ConnectionString:
         database = self.get_query_param("database") or self.get_query_param("bucket")
 
         # Try to get database name from URL path.
-        if not database:
-            if self.url.path.startswith("/"):
-                database = self.url.path[1:]
+        if not database and self.url.path.startswith("/"):
+            database = self.url.path[1:]
 
         return database or "dwd"
 

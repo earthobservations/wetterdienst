@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -284,10 +285,8 @@ class ParameterSearch:
         try:
             resolution, dataset, parameter = value
         except ValueError:
-            try:
+            with contextlib.suppress(ValueError):
                 resolution, dataset = value
-            except ValueError:
-                pass
         resolution = resolution and resolution.strip().lower()
         dataset = dataset and dataset.strip().lower()
         parameter = parameter and parameter.strip().lower()
@@ -304,14 +303,15 @@ def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> li
         parameters = [
             parameters,
         ]
-    elif isinstance(parameters, Iterable):
-        if all(isinstance(p, str) for p in parameters) and all(
-            all(sep not in p for sep in POSSIBLE_SEPARATORS) for p in parameters
-        ):
-            # ("daily", "climate_summary") -> [("daily", "climate_summary")]
-            parameters = [
-                parameters,
-            ]
+    elif (
+        isinstance(parameters, Iterable)
+        and all(isinstance(p, str) for p in parameters)
+        and all(all(sep not in p for sep in POSSIBLE_SEPARATORS) for p in parameters)
+    ):
+        # ("daily", "climate_summary") -> [("daily", "climate_summary")]
+        parameters = [
+            parameters,
+        ]
     parameters_found = []
     for parameter in parameters:
         parameter_search = ParameterSearch.parse(parameter)

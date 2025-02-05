@@ -28,9 +28,8 @@ class OperaRadarSites:
         """
         Load and decode JSON file from filesystem.
         """
-        with importlib.resources.as_file(self.data_file) as rf:
-            with gzip.open(rf, mode="rb") as f:
-                return json.load(f)
+        with importlib.resources.as_file(self.data_file) as rf, gzip.open(rf, mode="rb") as f:
+            return json.load(f)
 
     def all(self) -> list[dict]:  # noqa: A003
         """
@@ -173,9 +172,11 @@ class OperaRadarSitesGenerator:
         Generate "sites.json.gz".
         """
         sites = self.get_opera_radar_sites()
-        with importlib.resources.as_file(OperaRadarSites.data_file) as rf:
-            with gzip.open(rf, mode="wt", compresslevel=9, encoding="utf-8") as f:
-                json.dump(sites, f, indent=indent)
+        with (
+            importlib.resources.as_file(OperaRadarSites.data_file) as rf,
+            gzip.open(rf, mode="wt", compresslevel=9, encoding="utf-8") as f,
+        ):
+            json.dump(sites, f, indent=indent)
 
 
 if __name__ == "__main__":  # pragma: no cover

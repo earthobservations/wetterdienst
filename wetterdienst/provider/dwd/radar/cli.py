@@ -27,17 +27,16 @@ def hdf5dump(thing: str, *, compact: bool = False) -> None:
 
     def dumpattrs(item: Group, indent: int = 2) -> None:
         for name, value in item.attrs.items():
-            if compact:
-                if name in blocklist:
-                    continue
+            if compact and name in blocklist:
+                continue
             print(" " * indent, "-", name, value)  # noqa: T201
 
     with Path(thing).open("rb") as buffer:
         hdf = h5py.File(buffer, "r")
-        for group in hdf.keys():
+        for group in hdf:
             print("name:", hdf[group].name)  # noqa: T201
             dumpattrs(hdf[group])
-            for subgroup in hdf[group].keys():
+            for subgroup in hdf[group]:
                 print("  name:", subgroup)  # noqa: T201
                 dumpattrs(hdf[group][subgroup], indent=4)
 
