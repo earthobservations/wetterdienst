@@ -55,7 +55,7 @@ def parse_enumeration_from_template(
                     except ValueError:
                         pass
                 if not success:
-                    raise ValueError()
+                    raise ValueError
             else:
                 enum_parsed = intermediate(enum_)
         except ValueError as e:

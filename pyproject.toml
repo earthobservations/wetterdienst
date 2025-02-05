@@ -333,6 +333,8 @@ select = [
     "PT",
     # flake8-quotes
     "Q",
+    # flake8-raise
+    "RSE",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.
