@@ -997,7 +997,7 @@ def test_create_humanized_column_names_mapping() -> None:
         "tgk": "temperature_air_min_0_05m",
     }
     hcnm = (
-        DwdObservationRequest(
+        DwdObservationRequest(  # noqa: SLF001
             [("daily", "kl")],
             ["recent"],
         )
@@ -1044,8 +1044,8 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
         ],
         orient="row",
     )
-    given_df = request.values._tidy_up_df(df, DwdObservationMetadata.daily.climate_summary)
-    given_df = request.values._organize_df_columns(given_df, "01048", DwdObservationMetadata.daily.climate_summary)
+    given_df = request.values._tidy_up_df(df, DwdObservationMetadata.daily.climate_summary)  # noqa: SLF001
+    given_df = request.values._organize_df_columns(given_df, "01048", DwdObservationMetadata.daily.climate_summary)  # noqa: SLF001
     expected_df = pl.DataFrame(
         [
             {

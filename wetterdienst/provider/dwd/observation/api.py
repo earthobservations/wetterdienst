@@ -276,7 +276,7 @@ class DwdObservationValues(TimeseriesValues):
         # The request interval may be None, if no start and end date
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
-        interval = self.sr.stations._interval
+        interval = self.sr.stations.interval
         start_date_min, end_date_max = interval and (interval.lower, interval.upper) or (None, None)
         if start_date_min:
             file_index = file_index.filter(
@@ -299,7 +299,7 @@ class DwdObservationRequest(TimeseriesRequest):
     _available_periods = {Period.HISTORICAL, Period.RECENT, Period.NOW}
 
     @property
-    def _interval(self) -> Interval | None:
+    def interval(self) -> Interval | None:
         """
         Interval of the request if date given
 
@@ -365,7 +365,7 @@ class DwdObservationRequest(TimeseriesRequest):
         :return:
         """
         periods = []
-        interval = self._interval
+        interval = self.interval
         if interval.overlaps(self._historical_interval):
             periods.append(Period.HISTORICAL)
         if interval.overlaps(self._recent_interval):

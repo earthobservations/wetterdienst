@@ -386,7 +386,7 @@ class DwdRoadRequest(TimeseriesRequest):
     metadata = DwdRoadMetadata
     _values = DwdRoadValues
 
-    _base_columns = list(TimeseriesRequest._base_columns)
+    _base_columns = list(TimeseriesRequest._base_columns)  # noqa: SLF001
     _base_columns.extend(
         (
             Columns.STATION_GROUP.value,

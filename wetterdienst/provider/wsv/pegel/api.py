@@ -245,7 +245,7 @@ class WsvPegelRequest(TimeseriesRequest):
     }
 
     # extend base columns of core class with those of characteristic values plus gauge zero
-    _base_columns = list(TimeseriesRequest._base_columns)
+    _base_columns = list(TimeseriesRequest._base_columns)  # noqa: SLF001
     _base_columns.extend(["gauge_zero", *characteristic_values.keys()])
 
     def __init__(

@@ -175,7 +175,7 @@ def test_unit_converter_lambdas(
     unit_converter: UnitConverter, unit: str, target: str, value: float, expected: float
 ) -> None:
     """test that the lambda functions work as expected"""
-    lambda_ = unit_converter._get_lambda(unit, target)
+    lambda_ = unit_converter._get_lambda(unit, target)  # noqa: SLF001
     assert lambda_(value) == expected
 
 
@@ -203,13 +203,13 @@ def test_unit_converter_get_lambda_invalid(unit_converter: UnitConverter) -> Non
 
 def test_unit_converter__get_lambda(unit_converter: UnitConverter) -> None:
     """test retrieval of lambda function (direct unit - unit target combination)"""
-    lambda_ = unit_converter._get_lambda("degree_kelvin", "degree_fahrenheit")
+    lambda_ = unit_converter._get_lambda("degree_kelvin", "degree_fahrenheit")  # noqa: SLF001
     assert lambda_(0) == -459.66999999999996
 
 
 def test_unit_converter__get_lambda_invalid(unit_converter: UnitConverter) -> None:
     """test retrieval of lambda function for invalid unit (direct unit - unit target combination)"""
     with pytest.raises(ValueError, match="Conversion from invalid to degree_fahrenheit not supported"):
-        unit_converter._get_lambda("invalid", "degree_fahrenheit")
+        unit_converter._get_lambda("invalid", "degree_fahrenheit")  # noqa: SLF001
     with pytest.raises(ValueError, match="Conversion from degree_kelvin to invalid not supported"):
-        unit_converter._get_lambda("degree_kelvin", "invalid")
+        unit_converter._get_lambda("degree_kelvin", "invalid")  # noqa: SLF001

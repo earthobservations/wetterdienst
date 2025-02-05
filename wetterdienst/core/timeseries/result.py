@@ -139,7 +139,7 @@ class StationsResult(ExportMixin):
 
     @property
     def values(self) -> TimeseriesValues:
-        return self.stations._values.from_stations(self)
+        return self.stations._values.from_stations(self)  # noqa: SLF001
 
     @property
     def start_date(self) -> datetime:
