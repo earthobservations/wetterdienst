@@ -181,7 +181,7 @@ def test_radar_request_radolan_cdc_current_5min(default_settings: Settings) -> N
     Verify failure for RADOLAN_CDC/5 minutes.
 
     """
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="RADOLAN_CDC only supports daily and hourly resolutions"):
         DwdRadarValues(
             parameter=DwdRadarParameter.RADOLAN_CDC,
             resolution=DwdRadarResolution.MINUTE_5,

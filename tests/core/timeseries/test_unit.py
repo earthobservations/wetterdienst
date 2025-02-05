@@ -75,7 +75,7 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
 
 
 @pytest.mark.parametrize(
-    "unit, target, value, expected",
+    ("unit", "target", "value", "expected"),
     [
         # angle
         ("degree", "degree", 42, 42),
@@ -181,7 +181,9 @@ def test_unit_converter_lambdas(
 
 def test_unit_converter_update_targets_invalid(unit_converter: UnitConverter) -> None:
     """test that the update_targets method raises an error for invalid units"""
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Unit invalid not supported for type dimensionless. Supported units are: dimensionless"
+    ):
         unit_converter.update_targets({"fraction": "percent", "dimensionless": "invalid"})
 
 
@@ -193,9 +195,9 @@ def test_unit_converter_get_lambda(unit_converter: UnitConverter) -> None:
 
 def test_unit_converter_get_lambda_invalid(unit_converter: UnitConverter) -> None:
     """test retrieval of lambda function for invalid unit"""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Conversion from invalid to degree_celsius not supported"):
         unit_converter.get_lambda("invalid", "temperature")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Unit type invalid not supported"):
         unit_converter.get_lambda("degree_kelvin", "invalid")
 
 
@@ -207,7 +209,7 @@ def test_unit_converter__get_lambda(unit_converter: UnitConverter) -> None:
 
 def test_unit_converter__get_lambda_invalid(unit_converter: UnitConverter) -> None:
     """test retrieval of lambda function for invalid unit (direct unit - unit target combination)"""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Conversion from invalid to degree_fahrenheit not supported"):
         unit_converter._get_lambda("invalid", "degree_fahrenheit")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Conversion from degree_kelvin to invalid not supported"):
         unit_converter._get_lambda("degree_kelvin", "invalid")

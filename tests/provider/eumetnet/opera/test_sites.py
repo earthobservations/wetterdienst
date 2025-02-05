@@ -22,13 +22,11 @@ def test_radar_sites_by_odimcode() -> None:
     assert ors.by_odim_code("EMD")["location"] == "Emden"
     assert ors.by_odim_code("UMD")["location"] == "Ummendorf"
 
-    with pytest.raises(ValueError) as exec_info:
+    with pytest.raises(ValueError, match="ODIM code must be three or five letters"):
         ors.by_odim_code("foobar")
-    assert exec_info.match("ODIM code must be three or five letters")
 
-    with pytest.raises(KeyError) as exec_info:
+    with pytest.raises(KeyError, match="Radar site not found"):
         ors.by_odim_code("foo")
-    assert exec_info.match("'Radar site not found'")
 
 
 def test_radar_sites_by_wmocode() -> None:

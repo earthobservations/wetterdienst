@@ -195,7 +195,7 @@ def test_cli_values_json_multiple_datasets() -> None:
 
 
 @pytest.mark.remote
-@pytest.mark.parametrize("provider,network,setting,station_id,station_name", SETTINGS_VALUES)
+@pytest.mark.parametrize(("provider", "network", "setting", "station_id", "station_name"), SETTINGS_VALUES)
 def test_cli_values_json(
     provider: str,
     network: str,
@@ -398,7 +398,7 @@ def test_cli_values_geojson_pretty_true(json_dumps_mock: MagicMock) -> None:
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
+    ("provider", "network", "setting", "station_id", "station_name"),
     SETTINGS_VALUES,
 )
 def test_cli_values_csv(
@@ -420,7 +420,7 @@ def test_cli_values_csv(
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
+    ("provider", "network", "setting", "station_id", "station_name"),
     SETTINGS_VALUES,
 )
 def test_cli_values_excel(
@@ -449,7 +449,7 @@ def test_cli_values_excel(
 
 
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
+    ("provider", "network", "setting", "station_id", "station_name"),
     SETTINGS_VALUES,
 )
 def test_cli_values_format_unknown(
@@ -471,7 +471,7 @@ def test_cli_values_format_unknown(
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
+    ("provider", "network", "setting", "station_id", "station_name"),
     SETTINGS_VALUES,
 )
 def test_cli_values_filter_by_rank(

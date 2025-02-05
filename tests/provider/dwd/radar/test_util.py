@@ -66,8 +66,6 @@ def test_radar_verify_hdf5_valid() -> None:
 def test_radar_verify_hdf5_invalid() -> None:
     pytest.importorskip("h5py", reason="h5py not installed")
 
-    with pytest.raises(Exception) as exec_info:
-        buffer = BytesIO()
+    buffer = BytesIO()
+    with pytest.raises(Exception, match=r"Unable to (synchronously )?open file \(file signature not found\)"):
         verify_hdf5(buffer)
-
-    assert exec_info.match(r"Unable to (synchronously )?open file \(file signature not found\)")

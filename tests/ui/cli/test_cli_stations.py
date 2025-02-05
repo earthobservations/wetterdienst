@@ -142,7 +142,7 @@ def invoke_wetterdienst_stations_filter_by_rank(
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,expected_dict,coordinates",
+    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"),
     SETTINGS_STATIONS,
 )
 def test_cli_stations_json(
@@ -184,7 +184,9 @@ def test_cli_stations_json_with_metadata(metadata: dict) -> None:
 
 
 @pytest.mark.remote
-@pytest.mark.parametrize("provider,network,setting,station_id,expected_dict,coordinates", SETTINGS_STATIONS)
+@pytest.mark.parametrize(
+    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"), SETTINGS_STATIONS
+)
 def test_cli_stations_empty(
     provider: str,
     network: str,
@@ -201,7 +203,9 @@ def test_cli_stations_empty(
 
 
 @pytest.mark.remote
-@pytest.mark.parametrize("provider,network,setting,station_id,expected_dict,coordinates", SETTINGS_STATIONS)
+@pytest.mark.parametrize(
+    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"), SETTINGS_STATIONS
+)
 def test_cli_stations_geojson(
     provider: str,
     network: str,
@@ -245,7 +249,7 @@ def test_cli_stations_geojson_with_metadata(metadata: dict) -> None:
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,expected_dict,coordinates",
+    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"),
     SETTINGS_STATIONS,
 )
 def test_cli_stations_csv(
@@ -268,7 +272,7 @@ def test_cli_stations_csv(
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,expected_dict,coordinates",
+    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"),
     SETTINGS_STATIONS,
 )
 def test_cli_stations_excel(
@@ -299,7 +303,7 @@ def test_cli_stations_excel(
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,expected_dict,coordinates",
+    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"),
     SETTINGS_STATIONS,
 )
 def test_cli_stations_geospatial(

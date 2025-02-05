@@ -185,9 +185,8 @@ def test_interpolation_temperature_air_mean_2m_daily_three_floats(default_settin
         end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
-    with pytest.raises(ValueError) as exec_info:
+    with pytest.raises(ValueError, match="too many values to unpack"):
         stations.interpolate(latlon=(0, 1, 2))
-    assert exec_info.match("too many values to unpack")
 
 
 def test_interpolation_temperature_air_mean_2m_daily_one_floats(default_settings: Settings) -> None:
@@ -197,9 +196,8 @@ def test_interpolation_temperature_air_mean_2m_daily_one_floats(default_settings
         end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
-    with pytest.raises(ValueError) as exec_info:
+    with pytest.raises(ValueError, match="not enough values to unpack"):
         stations.interpolate(latlon=(0,))
-    assert exec_info.match("not enough values to unpack")
 
 
 def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_settings: Settings) -> None:
@@ -230,6 +228,5 @@ def test_interpolation_error_no_start_date() -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_height")],
     )
-    with pytest.raises(ValueError) as exec_info:
+    with pytest.raises(ValueError, match="start_date and end_date are required for interpolation"):
         request.interpolate(latlon=(52.8, 12.9))
-    assert exec_info.match("start_date and end_date are required for interpolation")

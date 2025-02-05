@@ -126,5 +126,5 @@ def test_add_date_from_filename_too_few_dates() -> None:
         },
         orient="col",
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Dataframe must have at least 2 dates"):
         add_date_from_filename(df, dt.datetime(2021, 1, 1, 1, 1, 1, tzinfo=ZoneInfo("UTC")))

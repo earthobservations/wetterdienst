@@ -5,7 +5,7 @@ from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadat
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    ("value", "expected"),
     [
         ("daily/climate_summary", ParameterSearch("daily", "climate_summary")),
         (
@@ -33,7 +33,7 @@ def test_parameter_search(value: str | ParameterModel, expected: ParameterModel)
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    ("value", "expected"),
     [
         ("daily/climate_summary", [*DwdObservationMetadata.daily.climate_summary]),
         (

@@ -107,6 +107,5 @@ def test_summary_error_no_start_date() -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_height")],
     )
-    with pytest.raises(ValueError) as exec_info:
+    with pytest.raises(ValueError, match="start_date and end_date are required for summarization"):
         request.summarize(latlon=(52.8, 12.9))
-    assert exec_info.match("start_date and end_date are required for summarization")

@@ -15,7 +15,7 @@ from wetterdienst.provider.dwd.observation import (
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "ts_skip_criteria,expected_stations",
+    ("ts_skip_criteria", "expected_stations"),
     [("min", ["05906", "04928"]), ("mean", ["05426", "04177"]), ("max", ["00377", "05426"])],
 )
 def test_api_skip_empty_stations(

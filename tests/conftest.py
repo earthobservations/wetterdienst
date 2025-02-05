@@ -16,7 +16,7 @@ ENSURE_ECCODES_PDBUFR = ensure_eccodes() and ensure_pdbufr()
 info = Info()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def default_settings() -> Settings:
     return Settings()
 

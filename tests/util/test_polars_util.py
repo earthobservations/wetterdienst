@@ -43,5 +43,5 @@ def test_read_fwf_from_df_column_specs_out_of_bounds(df: pl.DataFrame) -> None:
 
 def test_read_fwf_from_df_multiple_columns_fail() -> None:
     df = pl.DataFrame({"a": ["foo"], "b": ["bar"]}, orient="col")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="reading fwf from a DataFrame only supports one column"):
         read_fwf_from_df(df, ((0, 2), (2, 3)))

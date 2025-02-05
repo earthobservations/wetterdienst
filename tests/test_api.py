@@ -51,7 +51,7 @@ def unit_converter_unit_type_units(unit_converter: UnitConverter) -> dict:
 
 
 @pytest.mark.parametrize(
-    "provider, network",
+    ("provider", "network"),
     [(provider, network) for provider in Wetterdienst.registry for network in Wetterdienst.registry[provider]],
 )
 def test_wetterdienst_api(provider: str, network: str) -> None:

@@ -235,17 +235,17 @@ def test_dwd_observation_stations_bbox_empty(default_request: TimeseriesRequest)
 @pytest.mark.remote
 def test_dwd_observation_stations_fail(default_request: TimeseriesRequest) -> None:
     # Number
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="'rank' has to be at least 1."):
         default_request.filter_by_rank(
             latlon=(51.4, 9.3),
             rank=0,
         )
     # Distance
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="'distance' has to be at least 0"):
         default_request.filter_by_distance(
             latlon=(51.4, 9.3),
             distance=-1,
         )
     # Bbox
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="bbox left border should be smaller then right"):
         default_request.filter_by_bbox(left=10, bottom=10, right=5, top=5)

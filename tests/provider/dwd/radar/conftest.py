@@ -3,7 +3,7 @@
 import pytest
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def radar_locations() -> list[str]:
     return [
         "asb",
@@ -27,16 +27,16 @@ def radar_locations() -> list[str]:
     ]
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def prefixed_radar_locations(radar_locations: list[str]) -> list[str]:
     return [f"de{location}" for location in radar_locations]
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def station_reference_pattern_sorted(radar_locations: list[str]) -> str:
     return "".join([f"({location})?(,)?" for location in radar_locations])
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def station_reference_pattern_sorted_prefixed(prefixed_radar_locations: list[str]) -> str:
     return "".join([f"({location})?(,)?" for location in prefixed_radar_locations])

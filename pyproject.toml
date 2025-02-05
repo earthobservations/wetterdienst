@@ -329,6 +329,8 @@ select = [
     "PIE",
     # flake8-pyi
     "PYI",
+    # flake8-pytest-style
+    "PT",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

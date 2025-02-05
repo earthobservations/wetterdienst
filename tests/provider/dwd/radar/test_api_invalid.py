@@ -22,15 +22,14 @@ def test_radar_request_site_historic_pe_wrong_parameters(default_settings: Setti
     Verify acquisition of radar/site/PE_ECHO_TOP data croaks
     when omitting RadarDataFormat.
     """
-    with pytest.raises(ValueError) as exec_info:
-        request = DwdRadarValues(
-            parameter=DwdRadarParameter.PE_ECHO_TOP,
-            site=DwdRadarSite.BOO,
-            start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
-            settings=default_settings,
-        )
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.PE_ECHO_TOP,
+        site=DwdRadarSite.BOO,
+        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
+        settings=default_settings,
+    )
+    with pytest.raises(ValueError, match="Argument 'format' is missing"):
         next(request.query())
-    assert exec_info.match("Argument 'format' is missing")
 
 
 def test_radar_request_site_historic_pe_future(
@@ -62,62 +61,57 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5(default_settings: Settings) 
     """
     Verify requesting latest HDF5 data croaks.
     """
-    with pytest.raises(ValueError) as exec_info:
-        request = DwdRadarValues(
-            parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-            site=DwdRadarSite.BOO,
-            fmt=DwdRadarDataFormat.HDF5,
-            start_date=DwdRadarDate.LATEST,
-            settings=default_settings,
-        )
-
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.HDF5,
+        start_date=DwdRadarDate.LATEST,
+        settings=default_settings,
+    )
+    with pytest.raises(ValueError, match="HDF5 data has no '-latest-' files"):
         list(request.query())
-    assert exec_info.match("HDF5 data has no '-latest-' files")
 
 
 def test_radar_request_site_latest_sweep_pcp_v_hdf5_wrong_parameters(default_settings: Settings) -> None:
     """
     Verify requesting HDF5 data without RadarDataFormat croaks.
     """
-    with pytest.raises(ValueError) as exec_info:
-        request = DwdRadarValues(
-            parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-            site=DwdRadarSite.BOO,
-            start_date=DwdRadarDate.CURRENT,
-            settings=default_settings,
-        )
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+        site=DwdRadarSite.BOO,
+        start_date=DwdRadarDate.CURRENT,
+        settings=default_settings,
+    )
+    with pytest.raises(ValueError, match="Argument 'format' is missing"):
         list(request.query())
-    assert exec_info.match("Argument 'format' is missing")
 
 
 def test_radar_request_site_without_site(default_settings: Settings) -> None:
     """
     Verify requesting site data without site croaks.
     """
-    with pytest.raises(ValueError) as exec_info:
-        request = DwdRadarValues(
-            parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-            start_date=DwdRadarDate.LATEST,
-            settings=default_settings,
-        )
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+        start_date=DwdRadarDate.LATEST,
+        settings=default_settings,
+    )
+    with pytest.raises(ValueError, match="Argument 'site' is missing"):
         list(request.query())
-    assert exec_info.match("Argument 'site' is missing")
 
 
 def test_radar_request_hdf5_without_subset(default_settings: Settings) -> None:
     """
     Verify requesting HDF5 data without "subset" croaks.
     """
-    with pytest.raises(ValueError) as exec_info:
-        request = DwdRadarValues(
-            parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-            site=DwdRadarSite.BOO,
-            fmt=DwdRadarDataFormat.HDF5,
-            start_date=DwdRadarDate.MOST_RECENT,
-            settings=default_settings,
-        )
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.HDF5,
+        start_date=DwdRadarDate.MOST_RECENT,
+        settings=default_settings,
+    )
+    with pytest.raises(ValueError, match="Argument 'subset' is missing"):
         list(request.query())
-    assert exec_info.match("Argument 'subset' is missing")
 
 
 @pytest.mark.remote
@@ -132,15 +126,13 @@ def test_radar_request_radolan_cdc_latest(time_resolution: DwdRadarResolution, d
     """
     Verify requesting latest RADOLAN_CDC croaks.
     """
-    with pytest.raises(ValueError) as exec_info:
-        request = DwdRadarValues(
+    with pytest.raises(ValueError, match="RADOLAN_CDC data has no '-latest-' files"):
+        DwdRadarValues(
             parameter=DwdRadarParameter.RADOLAN_CDC,
             resolution=time_resolution,
             start_date=DwdRadarDate.LATEST,
             settings=default_settings,
         )
-        list(request.query())
-    assert exec_info.match("RADOLAN_CDC data has no '-latest-' files")
 
 
 def test_radar_request_radolan_cdc_invalid_time_resolution(default_settings: Settings) -> None:
