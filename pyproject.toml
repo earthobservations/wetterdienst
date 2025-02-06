@@ -351,6 +351,8 @@ ignore = [
     # flake8-annotations
     "ANN101",
     "ANN102",
+    # flake8-todos
+    "TD"
 ]
 unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
