@@ -166,7 +166,7 @@ class ModelYearlyGaussians:
             number_of_years = valid_data.get_column("date").dt.year().n_unique()
             filename = f"{self.__class__.__qualname__}_wetter_model_{number_of_years}"
             plt.savefig(plot_path / filename, dpi=300, bbox_inches="tight")
-            log.info("saved fig to file: " + filename)
+            log.info(f"saved fig to file {filename}")
             if "PYTEST_CURRENT_TEST" not in os.environ:
                 plt.show()
 

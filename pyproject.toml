@@ -347,8 +347,10 @@ select = [
     "TRY",
     # flynt
     "FLY",
-    # Ruff-specific rules (RUF)
+    # Ruff-specific rules
     "RUF",
+    # flake8-logging-format
+    "G",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.
@@ -374,6 +376,8 @@ ignore = [
     "PLW2901",
     # Perflint (PERF)
     "PERF",
+    # flake8-logging-format
+    "G004"
 ]
 unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
