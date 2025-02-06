@@ -355,6 +355,8 @@ ignore = [
     "TD",
     # flake8-fixme
     "FIX",
+    # pandas-vet
+    "PD",
 ]
 unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
