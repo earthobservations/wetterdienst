@@ -62,7 +62,7 @@ class FileDirCache(MutableMapping):
             log.info(f"Creating dircache folder at {listings_cache_location}")
             listings_cache_location.mkdir(exist_ok=True, parents=True)
         except OSError:
-            log.error(f"Failed creating dircache folder at {listings_cache_location}")
+            log.exception(f"Failed creating dircache folder at {listings_cache_location}")
 
         self.cache_location = listings_cache_location
 

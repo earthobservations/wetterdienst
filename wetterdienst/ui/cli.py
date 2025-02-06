@@ -73,8 +73,8 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     """
     try:
         return Wetterdienst(provider, network)
-    except KeyError as e:
-        log.error(str(e))
+    except KeyError:
+        log.exception(f"No API available for provider {provider} and network {network}")
         sys.exit(1)
 
 
@@ -609,7 +609,7 @@ def explorer(
     try:
         from wetterdienst.ui.streamlit.explorer import app
     except ImportError:
-        log.error("Please install the explorer extras with 'pip install wetterdienst[explorer]'")
+        log.exception("Please install the explorer extras with 'pip install wetterdienst[explorer]'")
         sys.exit(1)
 
     address = "localhost"
@@ -618,7 +618,7 @@ def explorer(
         try:
             address, port = listen.split(":")
         except ValueError:
-            log.error(
+            log.exception(
                 f"Invalid listen address. Please provide address and port separated by a colon e.g. '{address}:{port}'."
             )
             sys.exit(1)
@@ -951,8 +951,8 @@ def values(
             request=request,
             settings=settings,
         )
-    except ValueError as e:
-        log.exception(e)
+    except ValueError:
+        log.exception("Error during data acquisition")
         sys.exit(1)
     else:
         if values_.df.is_empty():
@@ -1079,8 +1079,8 @@ def interpolate(
             request=request,
             settings=settings,
         )
-    except ValueError as e:
-        log.exception(e)
+    except ValueError:
+        log.exception("Error during interpolation")
         sys.exit(1)
     else:
         if values_.df.is_empty():
@@ -1197,12 +1197,12 @@ def summarize(
             request=request,
             settings=settings,
         )
-    except ValueError as e:
-        log.exception(e)
+    except ValueError:
+        log.exception("Error during summarize")
         sys.exit(1)
     else:
         if values_.df.is_empty():
-            log.error("No data available for given constraints")
+            log.exception("No data available for given constraints")
             sys.exit(1)
 
     if target:
@@ -1349,7 +1349,7 @@ def stripes_values(
             show_data_availability=show_data_availability,
         )
     except Exception as e:
-        log.exception(e)
+        log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e
 
     if target:
@@ -1366,9 +1366,8 @@ def interactive(*, debug: bool) -> None:
 
     try:
         from wetterdienst.ui.streamlit.stripes import app
-    except ImportError as e:
-        log.exception(e)
-        log.error("Please install the stripes extras from stripes/requirements.txt")
+    except ImportError:
+        log.exception("Please install the stripes extras from stripes/requirements.txt")
         sys.exit(1)
 
     log.info(f"Starting {appname}")

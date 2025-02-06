@@ -42,7 +42,7 @@ log = logging.getLogger()
 try:
     from lmfit.models import GaussianModel
 except ImportError:
-    log.error("observations_station_gaussian_model.py: please install lmfit ")
+    log.exception("observations_station_gaussian_model.py: please install lmfit ")
     sys.exit(1)
 
 

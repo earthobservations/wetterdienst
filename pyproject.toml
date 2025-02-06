@@ -343,6 +343,8 @@ select = [
     "TID",
     # Pylint
     "PL",
+    # tryceratops
+    "TRY",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

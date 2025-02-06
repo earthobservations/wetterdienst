@@ -407,8 +407,8 @@ class DwdRadarValues:
                     if self.format == DwdRadarDataFormat.HDF5:
                         try:
                             verify_hdf5(result.data)
-                        except Exception as e:  # pragma: no cover
-                            log.exception(f"Unable to read HDF5 file. {e}")
+                        except Exception:  # pragma: no cover
+                            log.exception("Unable to read HDF5 file.")
                     yield result
 
     @staticmethod

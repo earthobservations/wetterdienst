@@ -276,8 +276,7 @@ class EcccObservationRequest(TimeseriesRequest):
             log.info(f"Downloading file {gdrive_url}.")
             payload = download_file(gdrive_url, self.settings, CacheExpiry.METAINDEX)
             source = 0
-        except Exception as e:
-            log.exception(e)
+        except Exception:
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
 
             # Fall back to different source.
@@ -287,8 +286,7 @@ class EcccObservationRequest(TimeseriesRequest):
                 with gzip.open(response, mode="rb") as f:
                     payload = BytesIO(f.read())
                 source = 1
-            except Exception as e:
-                log.exception(e)
+            except Exception:
                 log.exception(f"Unable to access HTTP server at {http_url}")
 
         if not payload:

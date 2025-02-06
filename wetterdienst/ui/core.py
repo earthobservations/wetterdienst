@@ -491,8 +491,8 @@ def get_values(
     try:
         # TODO: Add stream-based processing here.
         values_ = stations_.values.all()
-    except ValueError as e:
-        log.exception(e)
+    except ValueError:
+        log.exception()
         sys.exit(1)
     else:
         if values_.df.is_empty():

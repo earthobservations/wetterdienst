@@ -54,7 +54,7 @@ def parse_enumeration_from_template(  # noqa: PLR0912
                     except ValueError:
                         pass
                 if not success:
-                    raise ValueError
+                    raise ValueError  # noqa: TRY301
             else:
                 enum_parsed = intermediate(enum_)
         except ValueError as e:
