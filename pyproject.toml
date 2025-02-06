@@ -369,7 +369,9 @@ ignore = [
     "PLR0913",
     "PLR0915",
     "PLR2004",
-    "PLW2901"
+    "PLW2901",
+    # Perflint (PERF)
+    "PERF",
 ]
 unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
