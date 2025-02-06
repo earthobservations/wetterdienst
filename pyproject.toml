@@ -345,6 +345,8 @@ select = [
     "PL",
     # tryceratops
     "TRY",
+    # flynt
+    "FLY",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.
