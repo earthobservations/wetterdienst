@@ -7,6 +7,7 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
+from typing import ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -142,7 +143,7 @@ ImgwHydrologyMetadata = build_metadata_model(ImgwHydrologyMetadata, "ImgwHydrolo
 
 class ImgwHydrologyValues(TimeseriesValues):
     _endpoint = "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/{resolution}/"
-    _file_schema = {
+    _file_schema: ClassVar = {
         Resolution.DAILY: {
             "hydrology": {
                 "codz.*.csv": {

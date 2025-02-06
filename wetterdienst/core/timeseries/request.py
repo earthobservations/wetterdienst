@@ -7,7 +7,7 @@ import logging
 from abc import abstractmethod
 from collections.abc import Sequence
 from hashlib import sha256
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -79,7 +79,7 @@ class TimeseriesRequest:
         """Class to get the values for a request"""
 
     # Columns that should be contained within any stations_result information
-    _base_columns = (
+    _base_columns: ClassVar = (
         Columns.STATION_ID.value,
         Columns.START_DATE.value,
         Columns.END_DATE.value,
@@ -92,7 +92,7 @@ class TimeseriesRequest:
 
     #   - heterogeneous parameters such as precipitation_height
     #   - homogeneous parameters such as temperature_air_2m
-    interpolatable_parameters = [
+    interpolatable_parameters: ClassVar = [
         Parameter.TEMPERATURE_AIR_MEAN_2M.name.lower(),
         Parameter.TEMPERATURE_AIR_MAX_2M.name.lower(),
         Parameter.TEMPERATURE_AIR_MIN_2M.name.lower(),
@@ -246,7 +246,7 @@ class TimeseriesRequest:
             datasets = []
         dataset_strings = []
         for dataset in to_list(datasets):
-            dataset = dataset.name if isinstance(dataset, DatasetModel) else str(dataset)  # noqa: PLW2901
+            dataset = dataset.name if isinstance(dataset, DatasetModel) else str(dataset)
             dataset_strings.append(dataset)
         data = {}
         for resolution in cls.metadata:
@@ -306,7 +306,7 @@ class TimeseriesRequest:
         :return: pandas.DataFrame with the information of different available sites
         """
 
-    def all(self) -> StationsResult:  # noqa: A003
+    def all(self) -> StationsResult:
         """
         Wraps the _all method and applies date filters.
 

@@ -181,7 +181,7 @@ dataset: DatasetModel = st.selectbox(
 )
 
 parameter_options = list(dataset)
-parameter_options = [dataset] + parameter_options
+parameter_options = [dataset, *parameter_options]
 parameter: DatasetModel | ParameterModel = st.selectbox(
     "Select parameter", options=parameter_options, index=0, format_func=lambda p: p.name
 )

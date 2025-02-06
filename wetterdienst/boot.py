@@ -4,7 +4,7 @@
 
 
 def get_version(appname: str) -> str:
-    from importlib.metadata import PackageNotFoundError, version  # noqa
+    from importlib.metadata import PackageNotFoundError, version
 
     try:
         return version(appname)

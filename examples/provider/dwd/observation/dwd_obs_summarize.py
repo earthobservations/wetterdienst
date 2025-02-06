@@ -6,7 +6,7 @@ About
 =====
 Summarize values from nearby stations.
 
-"""  # Noqa:D205,D400
+"""
 
 import logging
 

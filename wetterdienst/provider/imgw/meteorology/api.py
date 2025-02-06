@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 from concurrent.futures import ThreadPoolExecutor
+from typing import ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -407,7 +408,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
     _endpoint = (
         "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/{resolution}/{dataset}/"
     )
-    _file_schema = {
+    _file_schema: ClassVar = {
         Resolution.DAILY: {
             "climate": {
                 "k_d_t.*.csv": {

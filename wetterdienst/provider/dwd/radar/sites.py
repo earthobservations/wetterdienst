@@ -14,7 +14,7 @@ References
 ==========
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_network.html
 - https://github.com/wradlib/wradlib-notebooks/blob/v1.8.0/notebooks/radolan/radolan_network.ipynb
-"""  # noqa:B950,E501
+"""
 
 from __future__ import annotations
 
@@ -53,14 +53,14 @@ class DwdRadarSitesGenerator:  # pragma: no cover
 
     [1] https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile
     [2] https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile
-    """  # noqa:B950,E501
+    """
 
     url = (
         "https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions"
         "/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile"
     )
 
-    def all(self) -> dict:  # pragma: no cover  # noqa: A003
+    def all(self) -> dict:  # pragma: no cover
         """
         Build dictionary from DataFrame containing radar site information.
         """

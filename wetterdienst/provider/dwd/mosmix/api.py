@@ -7,7 +7,7 @@ import datetime as dt
 import logging
 from enum import Enum
 from io import StringIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urljoin
 
 import polars as pl
@@ -69,7 +69,7 @@ class DwdMosmixValues(TimeseriesValues):
         - If None, data for all parameters is returned.
         - If not None, list of parameters, per MOSMIX definition, see
           https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2
-    """  # noqa:B950,E501
+    """
 
     def __init__(self, stations_result: StationsResult) -> None:
         """
@@ -186,7 +186,7 @@ class DwdMosmixValues(TimeseriesValues):
 
         if date == DwdForecastDate.LATEST:
             try:
-                return list(filter(lambda url_: "LATEST" in url_.upper(), urls))[0]
+                return next(filter(lambda url_: "LATEST" in url_.upper(), urls))
             except IndexError as e:
                 msg = f"Unable to find LATEST file within {url}"
                 raise IndexError(msg) from e
@@ -221,7 +221,7 @@ class DwdMosmixRequest(TimeseriesRequest):
     _values = DwdMosmixValues
     _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
 
-    _base_columns = [
+    _base_columns: ClassVar = [
         Columns.STATION_ID.value,
         Columns.ICAO_ID.value,
         Columns.START_DATE.value,

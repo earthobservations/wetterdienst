@@ -6,7 +6,7 @@ About
 =====
 Acquire information about the data fields from DWD.
 
-"""  # Noqa:D205,D400
+"""
 
 import logging
 from pprint import pprint
@@ -21,10 +21,10 @@ log = logging.getLogger()
 def fields_example() -> None:
     """Print DWD field examples for one specification."""
     # Output in JSON format.
-    # import json; print(json.dumps(metadata.describe_fields(), indent=4))  # noqa: E800, ERA001
+    # import json; print(json.dumps(metadata.describe_fields(), indent=4))  # noqa: ERA001
 
     # Output in YAML format.
-    # import yaml; print(yaml.dump(dict(metadata.describe_fields()), default_style="|"))  # noqa: E800, ERA001
+    # import yaml; print(yaml.dump(dict(metadata.describe_fields()), default_style="|"))  # noqa: ERA001
 
     # Output in pretty-print format.
     pprint(

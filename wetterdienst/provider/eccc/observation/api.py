@@ -6,7 +6,7 @@ import datetime as dt
 import gzip
 import logging
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -34,7 +34,7 @@ class EcccObservationValues(TimeseriesValues):
         "&submit= Download+Data"
     )
 
-    _timeframe_mapping = {
+    _timeframe_mapping: ClassVar = {
         Resolution.HOURLY: "1",
         Resolution.DAILY: "2",
         Resolution.MONTHLY: "3",
@@ -188,7 +188,7 @@ class EcccObservationRequest(TimeseriesRequest):
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
 
-    _columns_mapping: dict = {
+    _columns_mapping: ClassVar[dict] = {
         "station id": Columns.STATION_ID.value,
         "name": Columns.NAME.value,
         "province": Columns.STATE.value,

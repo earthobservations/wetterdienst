@@ -14,7 +14,7 @@ See also:
 This program will request the most recent complete SWEEP_VOL data
 for Essen and plot the outcome with matplotlib.
 
-"""  # Noqa:D205,D400
+"""
 
 import datetime as dt
 import logging

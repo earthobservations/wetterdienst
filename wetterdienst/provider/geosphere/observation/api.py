@@ -6,7 +6,7 @@ import datetime as dt
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -35,7 +35,7 @@ class GeosphereObservationValues(TimeseriesValues):
         "output_format=geojson"
     )
     # dates collected from ZAMG website, end date will be set to now if not given
-    _default_start_dates = {
+    _default_start_dates: ClassVar = {
         Resolution.MINUTE_10: dt.datetime(1992, 5, 20, tzinfo=ZoneInfo("UTC")),
         Resolution.HOURLY: dt.datetime(1880, 3, 31, tzinfo=ZoneInfo("UTC")),
         Resolution.DAILY: dt.datetime(1774, 12, 31, tzinfo=ZoneInfo("UTC")),

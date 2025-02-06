@@ -11,7 +11,7 @@ This program will request latest DWD air temperature for
 - interpolated weather station data (54.8892, 8.9087)
 and compare them in a plot.
 
-"""  # Noqa:D205,D400
+"""
 
 import datetime as dt
 import os

@@ -221,7 +221,7 @@ class DwdRadarValues:
             f"date={self.start_date}/{self.end_date})"
         )
 
-    def __eq__(self, other: object) -> bool:  # noqa: ANN401
+    def __eq__(self, other: object) -> bool:
         return (
             self.parameter == other.parameters
             and self.site == other.site
@@ -307,7 +307,7 @@ class DwdRadarValues:
 
         :return: Generator of ``RadarResult`` instances.
         """
-        log.info(f"acquiring radar data for {str(self)}")
+        log.info(f"acquiring radar data for {self!s}")
         # Find latest file.
         if self.start_date == DwdRadarDate.LATEST:
             file_index = create_fileindex_radar(
@@ -457,7 +457,7 @@ class DwdRadarValues:
                     filename=file_name,
                 )
 
-        # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)  # noqa: E800, ERA001
+        # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)  # noqa: ERA001
         elif url.endswith(Extension.BZ2.value):
             with bz2.BZ2File(data, mode="rb") as archive:
                 data = BytesIO(archive.read())

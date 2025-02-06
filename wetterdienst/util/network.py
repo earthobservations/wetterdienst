@@ -6,7 +6,7 @@ import logging
 from collections.abc import Iterator, MutableMapping
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import stamina
 from fsspec.implementations.cached import WholeFileCacheFileSystem
@@ -133,7 +133,7 @@ class NetworkFilesystemManager:
     Manage multiple FSSPEC instances keyed by cache expiration time.
     """
 
-    filesystems: dict[str, AbstractFileSystem] = {}
+    filesystems: ClassVar[dict[str, AbstractFileSystem]] = {}
 
     @staticmethod
     def resolve_ttl(ttl: int | CacheExpiry) -> tuple[str, int]:

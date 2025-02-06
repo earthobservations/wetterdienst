@@ -14,7 +14,7 @@ See also:
 This program will request the most recent complete SWEEP_PCP data
 for Essen and plot the outcome with matplotlib.
 
-"""  # Noqa:D205,D400
+"""
 
 import logging
 import os

@@ -347,6 +347,8 @@ select = [
     "TRY",
     # flynt
     "FLY",
+    # Ruff-specific rules (RUF)
+    "RUF",
 ]
 ignore = [
     # zip() without an explicit strict= parameter.

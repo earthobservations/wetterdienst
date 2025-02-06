@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from functools import reduce
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urljoin
 
 import polars as pl
@@ -339,8 +339,8 @@ class DwdRoadValues(TimeseriesValues):
             tf.seek(0)
             df = pdbufr.read_bufr(
                 tf.name,
-                columns=TIME_COLUMNS
-                + (
+                columns=(
+                    *TIME_COLUMNS,
                     "shortStationName",
                     *first_batch,
                 ),
@@ -348,13 +348,13 @@ class DwdRoadValues(TimeseriesValues):
             if second_batch:
                 df2 = pdbufr.read_bufr(
                     tf.name,
-                    columns=TIME_COLUMNS
-                    + (
+                    columns=(
+                        *TIME_COLUMNS,
                         "shortStationName",
                         *second_batch,
                     ),
                 )
-                df = df.merge(df2, on=TIME_COLUMNS + ("shortStationName",))
+                df = df.merge(df2, on=(*TIME_COLUMNS, "shortStationName"))
         df = pl.from_pandas(df)
         df = df.select(
             pl.col("shortStationName").alias(Columns.STATION_ID.value),
@@ -386,7 +386,7 @@ class DwdRoadRequest(TimeseriesRequest):
     metadata = DwdRoadMetadata
     _values = DwdRoadValues
 
-    _base_columns = list(TimeseriesRequest._base_columns)  # noqa: SLF001
+    _base_columns: ClassVar = list(TimeseriesRequest._base_columns)  # noqa: SLF001
     _base_columns.extend(
         (
             Columns.STATION_GROUP.value,
@@ -400,7 +400,7 @@ class DwdRoadRequest(TimeseriesRequest):
     _endpoint = (
         "https://www.dwd.de/DE/leistungen/opendata/help/stationen/sws_stations_xls.xlsx?__blob=publicationFile&v=11"
     )
-    _column_mapping = {
+    _column_mapping: ClassVar = {
         "Kennung": Columns.STATION_ID.value,
         "GMA-Name": Columns.NAME.value,
         "Bundesland  ": Columns.STATE.value,
@@ -415,7 +415,7 @@ class DwdRoadRequest(TimeseriesRequest):
         "GDS-Verzeichnis": Columns.STATION_GROUP.value,
         "außer Betrieb (gemeldet)": Columns.HAS_FILE.value,
     }
-    _dtypes = {
+    _dtypes: ClassVar = {
         Columns.STATION_ID.value: pl.String,
         Columns.NAME.value: pl.String,
         Columns.STATE.value: pl.String,

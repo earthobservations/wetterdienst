@@ -121,7 +121,7 @@ NoaaGhcnMetadata = {
                         },
                         # the pressure "reduced" to mean sea level using the temperature profile of the "standard"
                         # atmosphere, which is representative of average conditions over the United States at 40
-                        # degrees north latitude (millibars/hPa)  # noqa
+                        # degrees north latitude (millibars/hPa)
                         {
                             "name": "pressure_air_site_reduced",
                             "name_original": "altimeter",

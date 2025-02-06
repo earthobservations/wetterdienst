@@ -81,7 +81,7 @@ def invoke_wetterdienst_stations_empty(provider: str, network: str, setting: lis
     runner = CliRunner()
     return runner.invoke(
         cli,
-        ["stations", f"--provider={provider}", f"--network={network}", "--station=123456", f"--format={fmt}"] + setting,
+        ["stations", f"--provider={provider}", f"--network={network}", "--station=123456", f"--format={fmt}", *setting],
     )
 
 
@@ -116,8 +116,8 @@ def invoke_wetterdienst_stations_export(
             f"--network={network}",
             f"--station={station}",
             f"--target={target}",
-        ]
-        + setting,
+            *setting,
+        ],
     )
 
 
@@ -150,7 +150,7 @@ def test_cli_stations_json(
     network: str,
     setting: list[str],
     station_id: str,
-    expected_dict: dict,  # noqa: ARG001
+    expected_dict: dict,
     coordinates: tuple[float, float, float],  # noqa: ARG001
 ) -> None:
     result = invoke_wetterdienst_stations_static(
@@ -321,7 +321,7 @@ def test_cli_stations_geospatial(
         fmt="json",
     )
     response = json.loads(result.output)
-    station = [item for item in response["stations"] if item["station_id"] == station_id][0]
+    station = next(item for item in response["stations"] if item["station_id"] == station_id)
     assert station == expected_dict
 
 

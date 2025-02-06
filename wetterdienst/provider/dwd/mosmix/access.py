@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
-from lxml.etree import iterparse  # noqa: S410
+from lxml.etree import iterparse
 from tqdm import tqdm
 
 from wetterdienst.metadata.cache import CacheExpiry

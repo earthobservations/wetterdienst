@@ -70,7 +70,7 @@ def index() -> str:
 
     for provider in Wetterdienst.registry:
         # take the first network api
-        first_network = list(Wetterdienst.registry[provider].keys())[0]
+        first_network = next(Wetterdienst.registry[provider].keys())
         api = Wetterdienst(provider, first_network)
         shortname = api.metadata.name_short
         name = api.metadata.name_english
@@ -184,7 +184,7 @@ def index() -> str:
             </div>
         </body>
     </html>
-    """  # noqa:B950,E501
+    """  # noqa: E501
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -211,8 +211,8 @@ def favicon() -> RedirectResponse:
 def coverage(
     provider: str | None = None,
     network: str | None = None,
-    resolutions: str = None,
-    datasets: str = None,
+    resolutions: str | None = None,
+    datasets: str | None = None,
     pretty: bool = False,  # noqa: FBT001, FBT002
     debug: bool = False,  # noqa: FBT001, FBT002
 ) -> Response:

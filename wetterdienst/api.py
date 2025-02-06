@@ -1,6 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import importlib
+from typing import ClassVar
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 
@@ -12,7 +13,7 @@ class Wetterdienst:
     Provide their main API request factories lazily on request.
     """
 
-    registry = {
+    registry: ClassVar = {
         "dwd": {
             "observation": "wetterdienst.provider.dwd.observation.DwdObservationRequest",
             "mosmix": "wetterdienst.provider.dwd.mosmix.DwdMosmixRequest",

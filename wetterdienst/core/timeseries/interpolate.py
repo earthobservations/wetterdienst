@@ -224,7 +224,7 @@ def apply_interpolation(
     if nearby_stations:
         valid_values = {s: v for s, v in row.items() if s in nearby_stations and v is not None}
         if valid_values:
-            first_station = list(valid_values.keys())[0]
+            first_station = next(iter(valid_values.keys()))
             return (
                 dataset,
                 parameter,

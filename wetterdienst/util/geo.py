@@ -37,7 +37,7 @@ class Coordinates:
         """
         return np.radians(self.get_coordinates())
 
-    def __eq__(self, other: object) -> bool:  # noqa: ANN401
+    def __eq__(self, other: object) -> bool:
         return np.array_equal(self.latitudes, other.latitudes) and np.array_equal(self.longitudes, other.longitudes)
 
 

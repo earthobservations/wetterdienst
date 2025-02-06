@@ -35,7 +35,7 @@ real-time for Germany.
 - https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-Composite
 - Hourly: https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-RW-Product
 - Daily: https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-SF-Product
-"""  # noqa:D205,D400,E501
+"""
 
 import logging
 import os
@@ -81,7 +81,7 @@ def radolan_rw_example() -> None:
         log.info("Parsing RADOLAN RW composite data for %s", item.timestamp)
         ds = xr.open_dataset(item.data, engine="radolan")
 
-        product_type = list(ds.data_vars.keys())[0]
+        product_type = next(iter(ds.data_vars.keys()))
 
         # show Dataset
         print(ds)

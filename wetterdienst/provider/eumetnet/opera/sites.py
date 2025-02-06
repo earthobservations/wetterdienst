@@ -31,7 +31,7 @@ class OperaRadarSites:
         with importlib.resources.as_file(self.data_file) as rf, gzip.open(rf, mode="rb") as f:
             return json.load(f)
 
-    def all(self) -> list[dict]:  # noqa: A003
+    def all(self) -> list[dict]:
         """
         The whole list of OPERA radar sites.
         """

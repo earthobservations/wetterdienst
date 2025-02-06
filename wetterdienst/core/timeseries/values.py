@@ -6,7 +6,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from itertools import groupby
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -50,7 +50,7 @@ class TimeseriesValues(metaclass=ABCMeta):
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
         return cls(stations)
 
-    def __eq__(self, other: object) -> bool:  # noqa: ANN401
+    def __eq__(self, other: object) -> bool:
         """Equal method of request object"""
         return self.sr.stations == other.sr.stations and self.sr.station_id == other.sr.station
 
@@ -99,7 +99,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             }
 
     # Fields for date coercion
-    _date_fields = [Columns.DATE.value, Columns.START_DATE.value, Columns.END_DATE.value]
+    _date_fields: ClassVar = [Columns.DATE.value, Columns.START_DATE.value, Columns.END_DATE.value]
 
     # TODO: add data type (mosmix, observation, ...)
 
@@ -498,7 +498,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         return df_wide
 
-    def all(self) -> ValuesResult:  # noqa: A003
+    def all(self) -> ValuesResult:
         """
         Collect all data from self.query
 

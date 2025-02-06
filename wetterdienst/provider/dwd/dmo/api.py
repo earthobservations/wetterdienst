@@ -7,7 +7,7 @@ import datetime as dt
 import logging
 from enum import Enum
 from io import StringIO
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
@@ -130,7 +130,7 @@ class DwdDmoValues(TimeseriesValues):
         - If None, data for all parameters is returned.
         - If not None, list of parameters, per DMO definition, see
           https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2
-    """  # noqa:B950,E501
+    """
 
     def __init__(self, stations_result: StationsResult) -> None:
         """
@@ -244,7 +244,7 @@ class DwdDmoRequest(TimeseriesRequest):
         "dmo_stationsliste_txt.asc?__blob=publicationFile&v=1"
     )
 
-    _base_columns = [
+    _base_columns: ClassVar = [
         Columns.STATION_ID.value,
         Columns.ICAO_ID.value,
         Columns.START_DATE.value,

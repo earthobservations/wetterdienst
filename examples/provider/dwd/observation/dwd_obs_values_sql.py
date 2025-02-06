@@ -14,7 +14,7 @@ Setup
 
     pip install wetterdienst[sql]
 
-"""  # Noqa:D205,D400
+"""
 
 import logging
 

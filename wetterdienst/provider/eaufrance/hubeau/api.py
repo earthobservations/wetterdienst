@@ -6,6 +6,7 @@ import datetime as dt
 import json
 import logging
 import math
+from itertools import pairwise
 from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
@@ -115,7 +116,7 @@ class HubeauValues(TimeseriesValues):
         n_dates = delta / data_delta
         periods = math.ceil(n_dates / 1000)
         request_date_range = pl.datetime_range(start=start, end=end, interval=delta / periods, eager=True)
-        return zip(request_date_range[:-1], request_date_range[1:])
+        return pairwise(request_date_range)
 
     def _get_dynamic_frequency(
         self,

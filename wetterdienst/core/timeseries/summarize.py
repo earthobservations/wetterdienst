@@ -151,7 +151,7 @@ def apply_summary(
     vals = {s: v for s, v in row.items() if v is not None}
     if not vals:
         return dataset, parameter, None, None, None
-    value = list(vals.values())[0]
-    station_id = list(vals.keys())[0][1:]
+    value = next(iter(vals.values()))
+    station_id = next(iter(vals.keys()))[1:]
     distance = stations_dict[station_id][2]
     return dataset, parameter, value, distance, station_id

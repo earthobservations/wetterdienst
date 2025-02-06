@@ -13,7 +13,7 @@ See also:
 This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00
 and plot the outcome with matplotlib.
 
-"""  # Noqa:D205,D400
+"""
 
 import logging
 import os

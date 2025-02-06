@@ -6,7 +6,7 @@ import datetime as dt
 import logging
 from collections.abc import Iterable
 from itertools import repeat
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -86,7 +86,7 @@ class DwdObservationValues(TimeseriesValues):
                 log.info(f"Skipping period {period} for {parameter_or_dataset.name}.")
                 continue
             dataset_identifier = (
-                f"{parameter_or_dataset.resolution.value.name}/{parameter_or_dataset.name}/{station_id}/{period.value}"  # noqa: E501
+                f"{parameter_or_dataset.resolution.value.name}/{parameter_or_dataset.name}/{station_id}/{period.value}"
             )
             log.info(f"Acquiring observation data for {dataset_identifier}.")
             remote_files = create_file_list_for_climate_observations(
@@ -296,7 +296,7 @@ class DwdObservationRequest(TimeseriesRequest):
 
     metadata = DwdObservationMetadata
     _values = DwdObservationValues
-    _available_periods = {Period.HISTORICAL, Period.RECENT, Period.NOW}
+    _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT, Period.NOW}
 
     @property
     def interval(self) -> Interval | None:
@@ -425,7 +425,7 @@ class DwdObservationRequest(TimeseriesRequest):
             else:
                 self.periods = self._available_periods
 
-    def __eq__(self, other: object) -> bool:  # noqa: ANN401
+    def __eq__(self, other: object) -> bool:
         return super().__eq__(other) and self.periods == other.periods
 
     def filter_by_station_id(

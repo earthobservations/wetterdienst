@@ -48,7 +48,7 @@ def test_stripes_values_non_defaults(params: dict) -> None:
     } | params
     params = [f"--{k}={v}" for k, v in params.items()]
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation"] + params)
+    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", *params])
     assert result.exit_code == 0
     assert result.stdout
 

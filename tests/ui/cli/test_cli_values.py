@@ -106,8 +106,8 @@ def invoke_wetterdienst_values_export_wide(
             f"--station={station}",
             "--shape=wide",
             f"--target={target}",
-        ]
-        + setting,
+            *setting,
+        ],
     )
 
 

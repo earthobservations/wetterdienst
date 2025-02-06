@@ -379,7 +379,7 @@ class NoaaGhcnValues(TimeseriesValues):
         for (parameter,), df_group in df.group_by([Columns.PARAMETER.value]):
             factor = DAILY_PARAMETER_MULTIPLICATION_FACTORS.get(parameter)
             if factor:
-                df_group = df_group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))  # noqa: PLW2901
+                df_group = df_group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))
             data.append(df_group)
         return pl.concat(data)
 

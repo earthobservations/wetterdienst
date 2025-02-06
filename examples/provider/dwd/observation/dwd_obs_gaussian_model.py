@@ -11,7 +11,7 @@ Requires:
   - matplotlib
   - lmfit
 
-"""  # Noqa:D205,D400
+"""
 
 from __future__ import annotations
 

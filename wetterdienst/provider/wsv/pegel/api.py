@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import ClassVar
 
 import polars as pl
 
@@ -233,7 +234,7 @@ class WsvPegelRequest(TimeseriesRequest):
     )
 
     # Characteristic/statistical values may be provided for stations_result
-    characteristic_values = {
+    characteristic_values: ClassVar = {
         "m_i": "first flood marking",
         "m_ii": "second flood marking",
         "m_iii": "third flood marking",
@@ -245,7 +246,7 @@ class WsvPegelRequest(TimeseriesRequest):
     }
 
     # extend base columns of core class with those of characteristic values plus gauge zero
-    _base_columns = list(TimeseriesRequest._base_columns)  # noqa: SLF001
+    _base_columns: ClassVar = list(TimeseriesRequest._base_columns)  # noqa: SLF001
     _base_columns.extend(["gauge_zero", *characteristic_values.keys()])
 
     def __init__(
