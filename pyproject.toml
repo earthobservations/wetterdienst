@@ -352,7 +352,9 @@ ignore = [
     "ANN101",
     "ANN102",
     # flake8-todos
-    "TD"
+    "TD",
+    # flake8-fixme
+    "FIX",
 ]
 unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
