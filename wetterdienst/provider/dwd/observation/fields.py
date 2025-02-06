@@ -42,9 +42,9 @@ def parse_parameters(text: str) -> dict:
     capture = False
     buffer = StringIO()
     for line in text.split("\n"):
-        line = line.strip()
-        if line == line.upper() and not line.isnumeric():
-            if line != parameter:
+        line_cleaned = line.strip()
+        if line_cleaned == line_cleaned.upper() and not line_cleaned.isnumeric():
+            if line_cleaned != parameter:
                 more = buffer.getvalue()
                 if more and "eor" not in more:
                     more = more.strip()
@@ -61,13 +61,12 @@ def parse_parameters(text: str) -> dict:
                         data[parameter.lower()] = more
                 buffer.truncate(0)
                 buffer.seek(0)
-            parameter = line
+            parameter = line_cleaned
             capture = True
 
-        else:
-            if capture:
-                buffer.write(line)
-                buffer.write("\n")
+        elif capture:
+            buffer.write(line_cleaned)
+            buffer.write("\n")
     return data
 
 

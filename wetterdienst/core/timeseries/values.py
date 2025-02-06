@@ -220,14 +220,14 @@ class TimeseriesValues(metaclass=ABCMeta):
         conversion_factors = self._create_conversion_lambdas(dataset)
 
         data = []
-        for (parameter,), group in df.group_by(
+        for (parameter,), df_group in df.group_by(
             [Columns.PARAMETER.value],
             maintain_order=True,
         ):
             lambda_ = conversion_factors[parameter.lower()]
             # round by 4 decimals to avoid long floats but keep precision
-            group = group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda_).round(4))
-            data.append(group)
+            df_group = df_group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda_).round(4))
+            data.append(df_group)
 
         return pl.concat(data)
 
@@ -301,20 +301,20 @@ class TimeseriesValues(metaclass=ABCMeta):
         start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo, resolution)
         base_df = self._get_base_df(start_date, end_date, resolution)
         data = []
-        for (station_id, parameter), group in df.group_by(
-            [Columns.STATION_ID.value, Columns.PARAMETER.value],
+        for (parameter,), df_group in df.group_by(
+            [Columns.PARAMETER.value],
             maintain_order=True,
         ):
-            par_df = base_df.join(
-                other=group,
+            df_group = base_df.join(
+                other=df_group,
                 on=[Columns.DATE.value],
                 how="left",
             )
-            par_df = par_df.with_columns(
+            df_group = df_group.with_columns(
                 pl.lit(station_id).alias(Columns.STATION_ID.value),
                 pl.lit(parameter).alias(Columns.PARAMETER.value),
             )
-            data.append(par_df)
+            data.append(df_group)
         return pl.concat(data)
 
     def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
@@ -479,15 +479,14 @@ class TimeseriesValues(metaclass=ABCMeta):
         ).unique()
 
         if not df.is_empty():
-            for (parameter,), parameter_df in df.group_by([Columns.PARAMETER.value], maintain_order=True):
+            for (parameter,), df_parameter in df.group_by([Columns.PARAMETER.value], maintain_order=True):
                 # Build quality column name
                 parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter}"
-                parameter_df = parameter_df.select(
-                    [Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value]
-                ).rename(
+                df_parameter = df_parameter.select([Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value])
+                df_parameter = df_parameter.rename(
                     mapping={Columns.VALUE.value: parameter, Columns.QUALITY.value: parameter_quality},
                 )
-                df_wide = df_wide.join(parameter_df, on=[Columns.DATE.value])
+                df_wide = df_wide.join(df_parameter, on=[Columns.DATE.value])
         else:
             for parameter in self.sr.parameters:
                 parameter_name = parameter.name_original if not self.sr.humanize else parameter.name

@@ -376,11 +376,11 @@ class NoaaGhcnValues(TimeseriesValues):
         :return: DataFrame with applied factors
         """
         data = []
-        for (parameter,), group in df.group_by([Columns.PARAMETER.value]):
+        for (parameter,), df_group in df.group_by([Columns.PARAMETER.value]):
             factor = DAILY_PARAMETER_MULTIPLICATION_FACTORS.get(parameter)
             if factor:
-                group = group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))
-            data.append(group)
+                df_group = df_group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))  # noqa: PLW2901
+            data.append(df_group)
         return pl.concat(data)
 
 

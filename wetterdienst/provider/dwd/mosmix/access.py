@@ -171,6 +171,5 @@ class KMLReader:
                 data_dict[measurement_parameter.lower()] = measurement_values
             station_forecast.clear()
             return pl.DataFrame(data_dict)
-        else:
-            msg = f"Station {station_id} not found in KML file"
-            raise IndexError(msg)
+        msg = f"Station {station_id} not found in KML file"
+        raise IndexError(msg)

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from enum import Enum
 
 
-def parse_enumeration_from_template(
+def parse_enumeration_from_template(  # noqa: PLR0912
     enum_: str | Enum,
     intermediate: type[Enum],
     base: type[Enum] | None = None,

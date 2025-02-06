@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -42,7 +43,7 @@ try:
     from lmfit.models import GaussianModel
 except ImportError:
     log.error("observations_station_gaussian_model.py: please install lmfit ")
-    exit(1)
+    sys.exit(1)
 
 
 def station_example(

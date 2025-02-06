@@ -85,31 +85,29 @@ class DatasetModel(BaseModel):
             return self.parameters[item]
         item_search = item.strip().lower()
         for parameter in self.parameters:
-            if parameter.name == item_search or parameter.name_original == item_search:
+            if item_search in (parameter.name, parameter.name_original):
                 return parameter
-        else:
-            available_parameters = [
-                f"{parameter.name}/{parameter.name_original}"
-                if parameter.name != parameter.name_original
-                else parameter.name
-                for parameter in self.parameters
-            ]
-            msg = f"'{item}'. Available parameters: {', '.join(available_parameters)}"
-            raise KeyError(msg)
+        available_parameters = [
+            f"{parameter.name}/{parameter.name_original}"
+            if parameter.name != parameter.name_original
+            else parameter.name
+            for parameter in self.parameters
+        ]
+        msg = f"'{item}'. Available parameters: {', '.join(available_parameters)}"
+        raise KeyError(msg)
 
     def __getattr__(self, item: str) -> ParameterModel:
         for parameter in self.parameters:
-            if parameter.name == item or parameter.name_original == item:
+            if item in (parameter.name, parameter.name_original):
                 return parameter
-        else:
-            available_parameters = [
-                f"{parameter.name}/{parameter.name_original}"
-                if parameter.name != parameter.name_original
-                else parameter.name
-                for parameter in self.parameters
-            ]
-            msg = f"'{item}'. Available parameters: {', '.join(available_parameters)}"
-            raise AttributeError(msg)
+        available_parameters = [
+            f"{parameter.name}/{parameter.name_original}"
+            if parameter.name != parameter.name_original
+            else parameter.name
+            for parameter in self.parameters
+        ]
+        msg = f"'{item}'. Available parameters: {', '.join(available_parameters)}"
+        raise AttributeError(msg)
 
     def __iter__(self) -> Iterator[ParameterModel]:
         return iter(parameter for parameter in self.parameters if not parameter.name.startswith("quality"))
@@ -149,28 +147,26 @@ class ResolutionModel(BaseModel):
             return self.datasets[item]
         item_search = item.strip().lower()
         for dataset in self.datasets:
-            if dataset.name == item_search or dataset.name_original == item_search:
+            if item_search in (dataset.name, dataset.name_original):
                 return dataset
-        else:
-            available_datasets = [
-                f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
-                for dataset in self.datasets
-            ]
-            msg = f"'{item}'. Available datasets: {', '.join(available_datasets)}"
-            raise KeyError(msg)
+        available_datasets = [
+            f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
+            for dataset in self.datasets
+        ]
+        msg = f"'{item}'. Available datasets: {', '.join(available_datasets)}"
+        raise KeyError(msg)
 
     def __getattr__(self, item: str) -> DatasetModel:
         item_search = item.strip().lower()
         for dataset in self.datasets:
-            if dataset.name == item_search or dataset.name_original == item_search:
+            if item_search in (dataset.name, dataset.name_original):
                 return dataset
-        else:
-            available_datasets = [
-                f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
-                for dataset in self.datasets
-            ]
-            msg = f"'{item}'. Available datasets: {', '.join(available_datasets)}"
-            raise AttributeError(msg)
+        available_datasets = [
+            f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
+            for dataset in self.datasets
+        ]
+        msg = f"'{item}'. Available datasets: {', '.join(available_datasets)}"
+        raise AttributeError(msg)
 
     def __iter__(self) -> Iterator[DatasetModel]:
         return iter(self.datasets)
@@ -193,33 +189,23 @@ class MetadataModel(BaseModel):
             return self.resolutions[item]
         item_search = item.strip().lower()
         for resolution in self.resolutions:
-            if (
-                resolution.name == item_search
-                or resolution.name_original == item_search
-                or resolution.value.name.lower() == item_search
-            ):
+            if item_search in (resolution.name, resolution.name_original, resolution.value.name.lower()):
                 return resolution
-        else:
-            available_resolutions = [
-                f"{resolution.name}/{resolution.name_original}"
-                if resolution.name != resolution.name_original
-                else resolution.name
-                for resolution in self.resolutions
-            ]
-            msg = f"'{item}'. Available resolutions: {', '.join(available_resolutions)}"
-            raise KeyError(msg)
+        available_resolutions = [
+            f"{resolution.name}/{resolution.name_original}"
+            if resolution.name != resolution.name_original
+            else resolution.name
+            for resolution in self.resolutions
+        ]
+        msg = f"'{item}'. Available resolutions: {', '.join(available_resolutions)}"
+        raise KeyError(msg)
 
     def __getattr__(self, item: str) -> ResolutionModel:
         item_search = item.strip().lower()
         for resolution in self.resolutions:
-            if (
-                resolution.name == item_search
-                or resolution.name_original == item_search
-                or resolution.value.name.lower() == item_search
-            ):
+            if item_search in (resolution.name, resolution.name_original, resolution.value.name.lower()):
                 return resolution
-        else:
-            return super().__getattr__(item)
+        return super().__getattr__(item)
 
     def __iter__(self) -> Iterator[ResolutionModel]:
         return iter(self.resolutions)

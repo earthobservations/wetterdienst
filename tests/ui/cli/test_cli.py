@@ -14,7 +14,7 @@ def test_cli_help() -> None:
     """Test cli help"""
     runner = CliRunner()
     result = runner.invoke(cli, [])
-    assert "Options:\n --help  Show this message and exit."
+    assert "--help         Show this message and exit." in result.output
     assert (
         "Basic:\n"
         "  cache\n"

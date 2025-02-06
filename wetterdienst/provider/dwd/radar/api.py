@@ -253,7 +253,7 @@ class DwdRadarValues:
 
         """
 
-        if self.parameter == DwdRadarParameter.RADOLAN_CDC or self.parameter == DwdRadarParameter.SF_REFLECTIVITY:
+        if self.parameter in (DwdRadarParameter.RADOLAN_CDC, DwdRadarParameter.SF_REFLECTIVITY):
             # Align "start_date" to the most recent 50 minute mark available.
             self.start_date = raster_minutes(self.start_date, 50)
 
@@ -329,88 +329,87 @@ class DwdRadarValues:
             result = next(self._download_generic_data(url=latest_file))
             yield result
 
-        else:
-            if self.parameter == DwdRadarParameter.RADOLAN_CDC:
-                period_types = [self.period] if self.period else [Period.RECENT, Period.HISTORICAL]
+        elif self.parameter == DwdRadarParameter.RADOLAN_CDC:
+            period_types = [self.period] if self.period else [Period.RECENT, Period.HISTORICAL]
 
-                results = []
-                for period in period_types:
-                    file_index = create_fileindex_radolan_cdc(
-                        resolution=self.resolution,
-                        period=period,
-                        settings=self.settings,
-                    )
-
-                    # Filter for dates range if start_date and end_date are defined.
-                    if period == Period.RECENT:
-                        file_index = file_index.filter(
-                            pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),
-                        )
-
-                    # This is for matching historical data, e.g. "RW-200509.tar.gz".
-                    else:
-                        file_index = file_index.filter(
-                            pl.col("datetime").dt.year().eq(self.start_date.year)
-                            & pl.col("datetime").dt.month().eq(self.start_date.month),
-                        )
-
-                    results.append(file_index)
-
-                file_index = pl.concat(results)
-
-                if file_index.is_empty():
-                    # TODO: Extend this log message.
-                    log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
-                    return
-
-                # Iterate list of files and yield "RadarResult" items.
-                for row in file_index.iter_rows(named=True):
-                    url = row["filename"]
-                    yield from self._download_radolan_data(url, self.start_date, self.end_date)
-
-            else:
-                file_index = create_fileindex_radar(
-                    parameter=self.parameter,
-                    site=self.site,
-                    fmt=self.format,
-                    subset=self.subset,
-                    parse_datetime=True,
+            results = []
+            for period in period_types:
+                file_index = create_fileindex_radolan_cdc(
+                    resolution=self.resolution,
+                    period=period,
                     settings=self.settings,
                 )
 
                 # Filter for dates range if start_date and end_date are defined.
-                file_index = file_index.filter(
-                    pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),
-                )
-
-                # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
-                if self.elevation is not None:
+                if period == Period.RECENT:
                     file_index = file_index.filter(
-                        pl.col("filename").str.contains(f"vradh_{self.elevation:02d}")
-                        | pl.col("filename").str.contains(f"sweep_vol_v_{self.elevation}")
-                        | pl.col("filename").str.contains(f"dbzh_{self.elevation:02d}")
-                        | pl.col("filename").str.contains(f"sweep_vol_z_{self.elevation}"),
+                        pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),
                     )
 
-                if file_index.is_empty():
-                    log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
-                    return
+                # This is for matching historical data, e.g. "RW-200509.tar.gz".
+                else:
+                    file_index = file_index.filter(
+                        pl.col("datetime").dt.year().eq(self.start_date.year)
+                        & pl.col("datetime").dt.month().eq(self.start_date.month),
+                    )
 
-                # Iterate list of files and yield "RadarResult" items.
-                for row in file_index.iter_rows(named=True):
-                    date_time = row["datetime"]
-                    url = row["filename"]
+                results.append(file_index)
 
-                    for result in self._download_generic_data(url=url):
-                        if not result.timestamp:
-                            result.timestamp = date_time
+            file_index = pl.concat(results)
 
-                        if self.format == DwdRadarDataFormat.HDF5:
-                            try:
-                                verify_hdf5(result.data)
-                            except Exception as e:  # pragma: no cover
-                                log.exception(f"Unable to read HDF5 file. {e}")
-                        yield result
+            if file_index.is_empty():
+                # TODO: Extend this log message.
+                log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
+                return
+
+            # Iterate list of files and yield "RadarResult" items.
+            for row in file_index.iter_rows(named=True):
+                url = row["filename"]
+                yield from self._download_radolan_data(url, self.start_date, self.end_date)
+
+        else:
+            file_index = create_fileindex_radar(
+                parameter=self.parameter,
+                site=self.site,
+                fmt=self.format,
+                subset=self.subset,
+                parse_datetime=True,
+                settings=self.settings,
+            )
+
+            # Filter for dates range if start_date and end_date are defined.
+            file_index = file_index.filter(
+                pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),
+            )
+
+            # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
+            if self.elevation is not None:
+                file_index = file_index.filter(
+                    pl.col("filename").str.contains(f"vradh_{self.elevation:02d}")
+                    | pl.col("filename").str.contains(f"sweep_vol_v_{self.elevation}")
+                    | pl.col("filename").str.contains(f"dbzh_{self.elevation:02d}")
+                    | pl.col("filename").str.contains(f"sweep_vol_z_{self.elevation}"),
+                )
+
+            if file_index.is_empty():
+                log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
+                return
+
+            # Iterate list of files and yield "RadarResult" items.
+            for row in file_index.iter_rows(named=True):
+                date_time = row["datetime"]
+                url = row["filename"]
+
+                for result in self._download_generic_data(url=url):
+                    if not result.timestamp:
+                        result.timestamp = date_time
+
+                    if self.format == DwdRadarDataFormat.HDF5:
+                        try:
+                            verify_hdf5(result.data)
+                        except Exception as e:  # pragma: no cover
+                            log.exception(f"Unable to read HDF5 file. {e}")
+                    yield result
 
     @staticmethod
     def _should_cache_download(url: str) -> bool:  # pragma: no cover

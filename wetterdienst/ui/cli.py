@@ -568,7 +568,6 @@ def cache() -> None:
     from wetterdienst import Settings
 
     print(Settings().cache_dir)  # noqa: T201
-    return
 
 
 @cli.command("info", section=basic_section)
@@ -576,7 +575,6 @@ def info() -> None:
     from wetterdienst import Info
 
     print(Info())  # noqa: T201
-    return
 
 
 @cli.command("restapi", section=advanced_section)
@@ -597,8 +595,6 @@ def restapi(
     from wetterdienst.ui.restapi import start_service
 
     start_service(listen, reload=reload)
-
-    return
 
 
 @cli.command("explorer", section=advanced_section)
@@ -735,8 +731,6 @@ def fields(
     output = pformat(dict(metadata))
 
     print(output)  # noqa: T201
-
-    return
 
 
 @cli.command("stations", section=data_section)
@@ -1259,24 +1253,21 @@ def radar(
 
     if dwd:
         data = DwdRadarSites().all()
+    elif all_:
+        data = OperaRadarSites().all()
+    elif odim_code:
+        data = OperaRadarSites().by_odim_code(odim_code)
+    elif wmo_code:
+        data = OperaRadarSites().by_wmo_code(wmo_code)
+    elif country_name:
+        data = OperaRadarSites().by_country_name(country_name)
     else:
-        if all_:
-            data = OperaRadarSites().all()
-        elif odim_code:
-            data = OperaRadarSites().by_odim_code(odim_code)
-        elif wmo_code:
-            data = OperaRadarSites().by_wmo_code(wmo_code)
-        elif country_name:
-            data = OperaRadarSites().by_country_name(country_name)
-        else:
-            msg = "No valid option provided"
-            raise KeyError(msg)
+        msg = "No valid option provided"
+        raise KeyError(msg)
 
     output = json.dumps(data, indent=indent)
 
     print(output)  # noqa: T201
-
-    return
 
 
 @cli.group("stripes", section=data_section)

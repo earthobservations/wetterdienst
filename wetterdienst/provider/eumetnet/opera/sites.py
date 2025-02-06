@@ -61,9 +61,8 @@ class OperaRadarSites:
         for site in self.sites:
             if site["odimcode"] and odim_code.lower() in site["odimcode"]:
                 return site
-        else:
-            msg = "Radar site not found"
-            raise KeyError(msg)
+        msg = "Radar site not found"
+        raise KeyError(msg)
 
     def by_wmo_code(self, wmo_code: int) -> dict:
         """
@@ -75,9 +74,8 @@ class OperaRadarSites:
         for site in self.sites:
             if site["wmocode"] == wmo_code:
                 return site
-        else:
-            msg = "Radar site not found"
-            raise KeyError(msg)
+        msg = "Radar site not found"
+        raise KeyError(msg)
 
     def by_country_name(self, country_name: str) -> list[dict]:
         """
@@ -141,16 +139,16 @@ class OperaRadarSitesGenerator:
             for key, value in element.items():
                 try:
                     if key in integer_values:
-                        value = int(value)
+                        value_cast = int(value)
                     if key in float_values:
-                        value = float(value)
+                        value_cast = float(value)
                     if key in boolean_values:
-                        value = asbool(value)
+                        value_cast = asbool(value)
                     if value == "":
-                        value = None
+                        value_cast = None
                 except ValueError:
-                    value = None
-                converted[key] = value
+                    value_cast = None
+                converted[key] = value_cast
             return converted
 
         def filter_and_convert(elements: list[dict]) -> Iterator[dict[str, int | float | bool | None]]:
