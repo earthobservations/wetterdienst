@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""ECCC observation data provider."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -28,6 +30,8 @@ log = logging.getLogger(__name__)
 
 
 class EcccObservationValues(TimeseriesValues):
+    """Values class for Environment and Climate Change Canada (ECCC) observation data."""
+
     _base_url = (
         "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
         "format=csv&stationID={0}&timeframe={1}"
@@ -43,8 +47,7 @@ class EcccObservationValues(TimeseriesValues):
 
     @staticmethod
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
-        """
-        Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ...
+        """Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ...
 
         :param df: DataFrame with loaded data
         :return: tidied DataFrame
@@ -69,13 +72,7 @@ class EcccObservationValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
-        """
-
-        :param station_id: station id being queried
-        :param parameter: parameter being queried
-        :param dataset: dataset of query, can be skipped as ECCC has unique dataset
-        :return: pandas.DataFrame with data
-        """
+        """Collect station dataset."""
         meta = self.sr.df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
 
         start_year, end_year = (
@@ -148,12 +145,10 @@ class EcccObservationValues(TimeseriesValues):
     def _create_file_urls(
         self, station_id: str, resolution: Resolution, start_year: int, end_year: int
     ) -> Iterator[str]:
-        """
+        """Create URLs for downloading data files.
 
-        :param station_id:
-        :param start_year:
-        :param end_year:
-        :return:
+        The URLs are created based on the station ID, resolution, and the years
+        for which data is requested.
         """
         freq = "1y"
         if resolution == Resolution.HOURLY:
@@ -175,8 +170,8 @@ class EcccObservationValues(TimeseriesValues):
 
 
 class EcccObservationRequest(TimeseriesRequest):
-    """
-    Download weather data from Environment and Climate Change Canada (ECCC).
+    """Download weather data from Environment and Climate Change Canada (ECCC).
+
     - https://www.canada.ca/en/environment-climate-change.html
     - https://www.canada.ca/en/services/environment/weather.html
 
@@ -206,11 +201,14 @@ class EcccObservationRequest(TimeseriesRequest):
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
-        """
+        """Initialize the EcccObservationRequest class.
 
-        :param parameters: parameter or list of parameters that are being queried
-        :param start_date: start date for values filtering
-        :param end_date: end date for values filtering
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            settings: settings for the request
+
         """
         super().__init__(
             parameters=parameters,
@@ -258,12 +256,10 @@ class EcccObservationRequest(TimeseriesRequest):
         return df.filter(pl.col(Columns.LATITUDE.value).ne("") & pl.col(Columns.LONGITUDE.value).ne(""))
 
     def _download_stations(self) -> tuple[BytesIO, int]:
-        """
-        Download station list from ECCC FTP server.
+        """Download station list from ECCC FTP server.
 
         :return: CSV payload, source identifier
         """
-
         gdrive_url = "https://drive.google.com/uc?id=1HDRnj41YBWpMioLPwAFiLlK4SK8NV72C"
         http_url = (
             "https://github.com/earthobservations/testdata/raw/main/ftp.tor.ec.gc.ca/Pub/"

@@ -1,13 +1,12 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
+"""=====
 About
 =====
 
 Example for DWD radar sites OPERA HDF5 (ODIM_H5) format using wetterdienst and wradlib.
 
-See also:
+See Also:
 - https://docs.wradlib.org/en/stable/notebooks/fileio/legacy/read_odim.html # noqa
 
 This program will request the latest RADAR SWEEP_PCP_VELOCITY_H data

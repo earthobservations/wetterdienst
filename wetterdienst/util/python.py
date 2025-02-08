@@ -1,3 +1,5 @@
+"""Utility functions for Python."""
+
 import collections.abc as collections_abc
 from typing import Any
 
@@ -9,8 +11,7 @@ other_types = (BaseModel,)
 
 
 def to_list(x: Any, default: Any = None) -> list | Any:  # noqa: ANN401
-    """
-    Conveniently wrap single items into list, while keeping lists as is.
+    """Conveniently wrap single items into list, while keeping lists as is.
 
     From `sqlalchemy.util._collection`.
     """

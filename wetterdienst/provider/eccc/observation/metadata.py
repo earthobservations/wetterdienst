@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""ECCC observation metadata."""
+
 from __future__ import annotations
 
 from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, build_metadata_model

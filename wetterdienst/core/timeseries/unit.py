@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Unit converter for different unit types."""
+
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -6,12 +10,17 @@ from typing import Any
 
 @dataclass
 class Unit:
+    """Data class for a unit."""
+
     name: str
     symbol: str
 
 
 class UnitConverter:
+    """Unit converter for different unit types."""
+
     def __init__(self) -> None:
+        """Initialize the unit converter."""
         # we use those multiple times for length_short, length_medium and length_long
         _length = [
             Unit("millimeter", "mm"),
@@ -258,6 +267,7 @@ class UnitConverter:
         }
 
     def update_targets(self, targets: dict[str, str]) -> None:
+        """Update the target units for each unit type."""
         for key, value in targets.items():
             if key not in self.targets:
                 msg = f"Unit type {key} not supported"
@@ -280,6 +290,7 @@ class UnitConverter:
             raise ValueError(msg) from e
 
     def get_lambda(self, unit: str, unit_type: str) -> Callable[[Any], Any]:
+        """Get the lambda function for converting between units."""
         if unit_type not in self.targets:
             msg = f"Unit type {unit_type} not supported"
             raise ValueError(msg)

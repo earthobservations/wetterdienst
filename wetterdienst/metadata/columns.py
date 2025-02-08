@@ -1,10 +1,12 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Enumeration for column names."""
+
 from enum import Enum
 
 
 class Columns(Enum):
-    """Overhauled column names for metadata fields"""
+    """Overhauled column names for metadata fields."""
 
     STATION_ID = "station_id"  # change to local id later
     DATE = "date"

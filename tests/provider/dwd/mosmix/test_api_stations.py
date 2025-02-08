@@ -1,7 +1,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-Verify acquisition of DWD MOSMIX station list.
+"""Verify acquisition of DWD MOSMIX station list.
 
 Please note that in the original data, the values in the `LAT` and `LON`
 columns are in "Degrees Minutes" format (`<degrees>.<degrees minutes>`.),
@@ -37,9 +36,7 @@ def mosmix_stations_schema() -> dict:
 
 @pytest.mark.remote
 def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations_schema: dict) -> None:
-    """
-    Verify full MOSMIX station list.
-    """
+    """Verify full MOSMIX station list."""
     # Acquire data.
     given_df = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings).all().df
     assert not given_df.is_empty()
@@ -81,9 +78,7 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
 @pytest.mark.xfail(reason="polars min currently not working as expected with strings")
 @pytest.mark.remote
 def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_stations_schema: dict) -> None:
-    """
-    Verify MOSMIX station list filtering by station identifier.
-    """
+    """Verify MOSMIX station list filtering by station identifier."""
     # Acquire data.
     stations = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings)
     given_df = stations.all().df

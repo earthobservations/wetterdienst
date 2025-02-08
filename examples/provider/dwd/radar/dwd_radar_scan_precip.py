@@ -1,14 +1,13 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
+"""=====
 About
 =====
 
 Example for DWD radar sites data in OPERA HDF5 (ODIM_H5) format using wetterdienst and xradar. # noqa
 Derived from https://gist.github.com/kmuehlbauer/ac990569e6ad38a49412fc74a2035c37.
 
-See also:
+See Also:
 - https://docs.openradarscience.org/projects/xradar/en/stable/notebooks/ODIM_H5.html # noqa
 
 This program will request the most recent complete SWEEP_PCP data

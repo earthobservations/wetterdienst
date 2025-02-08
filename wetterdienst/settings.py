@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Settings for the wetterdienst package."""
+
 from __future__ import annotations
 
 import json
@@ -20,7 +22,7 @@ _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 
 
 class Settings(BaseSettings):
-    """Wetterdienst general settings"""
+    """Settings for the wetterdienst package."""
 
     model_config = SettingsConfigDict(env_ignore_empty=True, env_prefix="WD_")
 
@@ -47,11 +49,13 @@ class Settings(BaseSettings):
     @field_validator("ts_unit_targets", mode="before")
     @classmethod
     def validate_ts_unit_targets_before(cls, values: dict[str, str] | None) -> dict[str, str]:
+        """Validate the unit targets."""
         return values or {}
 
     @field_validator("ts_unit_targets", mode="after")
     @classmethod
     def validate_ts_unit_targets_after(cls, values: dict[str, str]) -> dict[str, str]:
+        """Validate the unit targets."""
         if not values.keys() <= _UNIT_CONVERTER_TARGETS:
             msg = f"Invalid unit targets: one of {set(values.keys())} not in {set(_UNIT_CONVERTER_TARGETS)}"
             raise ValueError(msg)
@@ -61,6 +65,7 @@ class Settings(BaseSettings):
     @field_validator("ts_interpolation_station_distance", mode="before")
     @classmethod
     def validate_ts_interpolation_station_distance(cls, values: dict[str, float] | None) -> dict[str, float]:
+        """Validate the interpolation station distance settings."""
         default = cls.model_fields["ts_interpolation_station_distance"].default_factory()
         if not values:
             return default
@@ -68,6 +73,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate(self) -> Settings:
+        """Validate the settings."""
         if self.cache_disable:
             log.info("Wetterdienst cache is disabled")
         else:
@@ -75,7 +81,9 @@ class Settings(BaseSettings):
         return self
 
     def __repr__(self) -> str:
+        """Return the settings as a JSON string."""
         return json.dumps(self.model_dump(mode="json"))
 
     def __str__(self) -> str:
+        """Return the settings as a string."""
         return f"""Settings({json.dumps(self.model_dump(mode="json"), indent=4)})"""

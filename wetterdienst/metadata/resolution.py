@@ -1,9 +1,13 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Enumeration for resolution types and values."""
+
 from enum import Enum
 
 
 class ResolutionType(Enum):
+    """Enumeration for resolution type of the weather observation."""
+
     FIXED = "fixed"
     MULTI = "multi"
     DYNAMIC = "dynamic"
@@ -11,10 +15,7 @@ class ResolutionType(Enum):
 
 
 class Resolution(Enum):
-    """
-    enumeration for granularity/resolution of the weather
-    observation
-    """
+    """Enumeration for granularity/resolution of the weather observation."""
 
     MINUTE_1 = "1_minute"  # used by DWD for file server
     MINUTE_5 = "5_minutes"
@@ -46,6 +47,8 @@ DAILY_AT_MOST = [
 
 
 class Frequency(Enum):
+    """Enumeration for frequency of the weather observation."""
+
     MINUTE_1 = "1m"
     MINUTE_2 = "2m"
     MINUTE_5 = "5m"

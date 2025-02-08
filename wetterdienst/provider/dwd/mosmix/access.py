@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Read DWD XML Weather Forecast File of Type KML."""
+
 # Source:
 # https://github.com/jlewis91/dwdbulk/blob/master/dwdbulk/api/forecasts.py
 from __future__ import annotations
@@ -41,6 +43,13 @@ class KMLReader:
     """Read DWD XML Weather Forecast File of Type KML."""
 
     def __init__(self, station_ids: list[str], settings: Settings) -> None:
+        """Initialize KMLReader.
+
+        Args:
+            station_ids: List of station ids.
+            settings: Settings object.
+
+        """
         self.station_ids = station_ids
         self.metadata = {}
         self.timesteps = []
@@ -51,16 +60,9 @@ class KMLReader:
 
     def download(self, url: str) -> BytesIO:
         """Download kml file as bytes.
+
         https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests
-
-        block_size: int or None
-                    Bytes to download in one request; use instance value if None. If
-                    zero, will return a streaming Requests file-like instance.
-
-        :param url: url string to kml file
-        :return: content as bytes
         """
-
         response = self.dwdfs.open(url, block_size=0)
         total = self.dwdfs.size(url)
 
@@ -83,18 +85,13 @@ class KMLReader:
         return buffer
 
     def fetch(self, url: str) -> bytes:
-        """
-        Fetch weather mosmix file (zipped xml).
-        """
+        """Fetch weather mosmix file (zipped xml)."""
         buffer = self.download(url)
         zfs = ZipFileSystem(buffer, "r")
         return zfs.open(zfs.glob("*")[0]).read()
 
     def read(self, url: str) -> None:
-        """
-        Download and read DWD XML Weather Forecast File of Type KML.
-        """
-
+        """Download and read DWD XML Weather Forecast File of Type KML."""
         log.info(f"Downloading KMZ file {Path(url).name}")
         kml = self.fetch(url)
 
@@ -139,6 +136,7 @@ class KMLReader:
         self.nsmap = nsmap
 
     def iter_items(self) -> Iterator[Element]:
+        """Iterate over station forecasts."""
         clear = True
         placemark_tag = f"{{{self.nsmap['kml']}}}Placemark"
         for event, element in self.iter_elems:

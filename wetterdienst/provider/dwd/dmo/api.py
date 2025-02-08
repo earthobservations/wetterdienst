@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""DWD DMO API."""
+
 from __future__ import annotations
 
 import contextlib
@@ -39,30 +41,27 @@ log = logging.getLogger(__name__)
 
 
 class DwdForecastDate(Enum):
-    """
-    Enumeration for pointing to different mosmix dates.
-    """
+    """Enumeration for pointing to different mosmix dates."""
 
     LATEST = "latest"
 
 
 class DwdDmoStationGroup(Enum):
+    """Enumeration for DWD DMO station groups."""
+
     SINGLE_STATIONS = "single_stations"
     ALL_STATIONS = "all_stations"
 
 
 class DwdDmoLeadTime(Enum):
+    """Enumeration for DWD DMO lead times."""
+
     SHORT = 78
     LONG = 168
 
 
 def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.DataFrame:
-    """
-    Add date column to dataframe based on filename
-    :param df: Dataframe with url column
-    :param current_date: Current date without timezone
-    :return: Dataframe with date column
-    """
+    """Add date from filename."""
     if len(df) < 2:
         msg = "Dataframe must have at least 2 dates"
         raise ValueError(msg)
@@ -117,8 +116,7 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
 
 
 class DwdDmoValues(TimeseriesValues):
-    """
-    Fetch DWD DMO data.
+    """Fetch DWD DMO data.
 
     Parameters
     ----------
@@ -130,13 +128,11 @@ class DwdDmoValues(TimeseriesValues):
         - If None, data for all parameters is returned.
         - If not None, list of parameters, per DMO definition, see
           https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2
+
     """
 
     def __init__(self, stations_result: StationsResult) -> None:
-        """
-
-        :param stations_result:
-        """
+        """:param stations_result:"""
         super().__init__(stations_result=stations_result)
 
         self.kml = KMLReader(
@@ -145,6 +141,7 @@ class DwdDmoValues(TimeseriesValues):
         )
 
     def get_dwd_dmo_path(self, dataset: DatasetModel, station_id: str | None = None) -> str:
+        """Get DWD DMO path."""
         path = f"weather/local_forecasts/dmo/{dataset.name_original}/{self.sr.stations.station_group.value}"
         if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
             return f"{path}/kmz"
@@ -152,11 +149,7 @@ class DwdDmoValues(TimeseriesValues):
 
     @property
     def metadata(self) -> pl.DataFrame:
-        """
-        Wrapper for dmo metadata
-
-        :return:
-        """
+        """Get metadata DataFrame for DMO."""
         return self.sr.df
 
     def _collect_station_parameter_or_dataset(
@@ -178,13 +171,14 @@ class DwdDmoValues(TimeseriesValues):
         )
 
     def read_dmo(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
+        """Read DMO data."""
         if dataset == DwdDmoMetadata.hourly.icon_eu:
             return self.read_icon_eu(station_id, date)
         else:
             return self.read_icon(station_id, date)
 
     def read_icon_eu(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
-        """Reads large icon_eu file with all stations."""
+        """Read large icon_eu file with all stations."""
         dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon_eu)
         url = urljoin("https://opendata.dwd.de", dmo_path)
         file_url = self.get_url_for_date(url, date)
@@ -192,7 +186,7 @@ class DwdDmoValues(TimeseriesValues):
         return self.kml.get_station_forecast(station_id)
 
     def read_icon(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
-        """Reads either large icon file with all stations or small single station file."""
+        """Read either large icon file with all stations or small single station file."""
         if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon)
         else:
@@ -203,14 +197,7 @@ class DwdDmoValues(TimeseriesValues):
         return self.kml.get_station_forecast(station_id)
 
     def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str:
-        """
-        Method to get a file url based on the dmo url and the date that is
-        used for filtering.
-
-        :param url: dmo path on the dwd server
-        :param date: date used for filtering of the available files
-        :return: file url based on the filtering
-        """
+        """Get URL for a specific date."""
         urls = list_remote_files_fsspec(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
         df = pl.DataFrame({"url": urls}, orient="col")
         df = df.filter(pl.col("url").str.contains(str(self.sr.stations.lead_time.value)))
@@ -234,7 +221,7 @@ class DwdDmoValues(TimeseriesValues):
 
 
 class DwdDmoRequest(TimeseriesRequest):
-    """Implementation of sites for dmo sites"""
+    """Implementation of sites for dmo sites."""
 
     metadata = DwdDmoMetadata
     _values = DwdDmoValues
@@ -258,12 +245,10 @@ class DwdDmoRequest(TimeseriesRequest):
 
     @staticmethod
     def adjust_datetime(datetime_: dt.datetime) -> dt.datetime:
-        """
-        Adjust datetime to DMO release frequency (9/12 hours). Datetime is floored
-        to closest release time e.g. if hour is 14, it will be rounded to 12
+        """Adjust datetime to DMO release frequency (9/12 hours).
 
-        :param datetime_: datetime that is adjusted
-        :return: adjusted datetime with floored hour
+        Datetime is floored to closest release time e.g. if hour is 14, it will be rounded to 12
+
         """
         adjusted_date = datetime_.replace(minute=0, second=0, microsecond=0)
         delta_hours = adjusted_date.hour % 12
@@ -281,11 +266,17 @@ class DwdDmoRequest(TimeseriesRequest):
         lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
-        """
-        :param parameters: parameter(s) to be collected
-        :param start_date: start date for filtering returned dataframe
-        :param end_date: end date
-        :param issue: issue of dmo which should be caught (DMO run at time XX:YY)
+        """Initialize the DwdDmoRequest class.
+
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            issue: issue date of the forecast
+            station_group: station group to be used
+            lead_time: lead time of the forecast
+            settings: settings for the request
+
         """
         self.station_group = (
             parse_enumeration_from_template(station_group, DwdDmoStationGroup) or DwdDmoStationGroup.SINGLE_STATIONS
@@ -377,11 +368,7 @@ class DwdDmoRequest(TimeseriesRequest):
     )
 
     def _all(self) -> pl.LazyFrame:
-        """
-        Create meta data DataFrame from available station list
-
-        :return:
-        """
+        """Get all stations from DMO."""
         log.info(f"Downloading file {self._url}.")
         payload = download_file(self._url, self.settings, CacheExpiry.METAINDEX)
         text = StringIO(payload.read().decode(encoding="latin-1"))

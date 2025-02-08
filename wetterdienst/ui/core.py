@@ -1,8 +1,9 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Core UI utilities for the wetterdienst package."""
+
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 import sys
@@ -35,6 +36,8 @@ log = logging.getLogger(__name__)
 
 # only used by restapi for raw type hints
 class StationsRequestRaw(BaseModel):
+    """Stations request with raw parameters."""
+
     provider: str
     network: str
     parameters: str
@@ -68,6 +71,8 @@ class StationsRequestRaw(BaseModel):
 
 
 class StationsRequest(StationsRequestRaw):
+    """Stations request with validated parameters."""
+
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
@@ -81,11 +86,13 @@ class StationsRequest(StationsRequestRaw):
     @field_validator("parameters", mode="before")
     @classmethod
     def validate_parameters(cls, v: str) -> list[str]:
+        """Validate parameters."""
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
     def validate_periods(cls, v: str | None) -> list[str] | None:
+        """Validate periods."""
         if v:
             return read_list(v)
         return None
@@ -93,6 +100,7 @@ class StationsRequest(StationsRequestRaw):
     @field_validator("station", mode="before")
     @classmethod
     def validate_station(cls, v: str | None) -> list[str] | None:
+        """Validate station."""
         if v:
             return read_list(v)
         return None
@@ -100,6 +108,7 @@ class StationsRequest(StationsRequestRaw):
     @field_validator("coordinates", mode="before")
     @classmethod
     def validate_coordinates(cls, v: str | None) -> list[str] | None:
+        """Validate coordinates."""
         if v:
             return read_list(v)
         return None
@@ -107,12 +116,15 @@ class StationsRequest(StationsRequestRaw):
     @field_validator("bbox", mode="before")
     @classmethod
     def validate_bbox(cls, v: str | None) -> list[str] | None:
+        """Validate bbox."""
         if v:
             return read_list(v)
         return None
 
 
 class ValuesRequestRaw(StationsRequestRaw):
+    """Values request with raw parameters."""
+
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
     date: str | None = None
@@ -132,6 +144,8 @@ class ValuesRequestRaw(StationsRequestRaw):
 
 
 class ValuesRequest(ValuesRequestRaw):
+    """Values request with validated parameters."""
+
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
@@ -146,11 +160,13 @@ class ValuesRequest(ValuesRequestRaw):
     @field_validator("parameters", mode="before")
     @classmethod
     def validate_parameters(cls, v: str) -> list[str]:
+        """Validate parameters."""
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
     def validate_periods(cls, v: str | None) -> list[str] | None:
+        """Validate periods."""
         if v:
             return read_list(v)
         return None
@@ -158,6 +174,7 @@ class ValuesRequest(ValuesRequestRaw):
     @field_validator("station", mode="before")
     @classmethod
     def validate_station(cls, v: str | None) -> list[str] | None:
+        """Validate station."""
         if v:
             return read_list(v)
         return None
@@ -165,6 +182,7 @@ class ValuesRequest(ValuesRequestRaw):
     @field_validator("coordinates", mode="before")
     @classmethod
     def validate_coordinates(cls, v: str | None) -> list[str] | None:
+        """Validate coordinates."""
         if v:
             return read_list(v)
         return None
@@ -172,6 +190,7 @@ class ValuesRequest(ValuesRequestRaw):
     @field_validator("bbox", mode="before")
     @classmethod
     def validate_bbox(cls, v: str | None) -> list[str] | None:
+        """Validate bbox."""
         if v:
             return read_list(v)
         return None
@@ -179,6 +198,7 @@ class ValuesRequest(ValuesRequestRaw):
     @field_validator("unit_targets", mode="before")
     @classmethod
     def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
+        """Validate unit targets."""
         if v:
             return json.loads(v)
         return None
@@ -186,6 +206,8 @@ class ValuesRequest(ValuesRequestRaw):
 
 # start from scratch as parameters are different
 class InterpolationRequestRaw(BaseModel):
+    """Interpolation request with raw parameters."""
+
     provider: str
     network: str
     parameters: str
@@ -222,6 +244,8 @@ class InterpolationRequestRaw(BaseModel):
 
 
 class InterpolationRequest(InterpolationRequestRaw):
+    """Interpolation request with validated parameters."""
+
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
@@ -233,11 +257,13 @@ class InterpolationRequest(InterpolationRequestRaw):
     @field_validator("parameters", mode="before")
     @classmethod
     def validate_parameters(cls, v: str) -> list[str]:
+        """Validate parameters."""
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
     def validate_periods(cls, v: str | None) -> list[str] | None:
+        """Validate periods."""
         if v:
             return read_list(v)
         return None
@@ -245,6 +271,7 @@ class InterpolationRequest(InterpolationRequestRaw):
     @field_validator("station", mode="before")
     @classmethod
     def validate_station(cls, v: str | None) -> list[str] | None:
+        """Validate station."""
         if v:
             return read_list(v)
         return None
@@ -252,6 +279,7 @@ class InterpolationRequest(InterpolationRequestRaw):
     @field_validator("coordinates", mode="before")
     @classmethod
     def validate_coordinates(cls, v: str | None) -> list[str] | None:
+        """Validate coordinates."""
         if v:
             return read_list(v)
         return None
@@ -259,6 +287,7 @@ class InterpolationRequest(InterpolationRequestRaw):
     @field_validator("unit_targets", mode="before")
     @classmethod
     def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
+        """Validate unit targets."""
         if v:
             return json.loads(v)
         return None
@@ -266,12 +295,15 @@ class InterpolationRequest(InterpolationRequestRaw):
     @field_validator("interpolation_station_distance", mode="before")
     @classmethod
     def validate_interpolation_station_distance(cls, v: str | None) -> dict[str, float] | None:
+        """Validate interpolation station distance."""
         if v:
             return json.loads(v)
         return None
 
 
 class SummaryRequestRaw(BaseModel):
+    """Summary request with raw parameters."""
+
     provider: str
     network: str
     parameters: str
@@ -306,6 +338,8 @@ class SummaryRequestRaw(BaseModel):
 
 
 class SummaryRequest(SummaryRequestRaw):
+    """Summary request with validated parameters."""
+
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
@@ -316,11 +350,13 @@ class SummaryRequest(SummaryRequestRaw):
     @field_validator("parameters", mode="before")
     @classmethod
     def validate_parameters(cls, v: str) -> list[str]:
+        """Validate parameters."""
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
     def validate_periods(cls, v: str | None) -> list[str] | None:
+        """Validate periods."""
         if v:
             return read_list(v)
         return None
@@ -328,6 +364,7 @@ class SummaryRequest(SummaryRequestRaw):
     @field_validator("station", mode="before")
     @classmethod
     def validate_station(cls, v: str | None) -> list[str] | None:
+        """Validate station."""
         if v:
             return read_list(v)
         return None
@@ -335,6 +372,7 @@ class SummaryRequest(SummaryRequestRaw):
     @field_validator("coordinates", mode="before")
     @classmethod
     def validate_coordinates(cls, v: str | None) -> list[str] | None:
+        """Validate coordinates."""
         if v:
             return read_list(v)
         return None
@@ -342,37 +380,10 @@ class SummaryRequest(SummaryRequestRaw):
     @field_validator("unit_targets", mode="before")
     @classmethod
     def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
+        """Validate unit targets."""
         if v:
             return json.loads(v)
         return None
-
-
-def unpack_parameters(parameter: str) -> list[str]:
-    """Parse parameters to either
-    - list of str, each representing a parameter or
-    - list of tuple of str representing a pair of parameter and dataset
-    e.g.
-       "precipitation_height,temperature_air_2m" ->
-           ["precipitation_height", "temperature_air_2m"]
-
-       "precipitation_height/precipitation_more,temperature_air_2m/kl" ->
-           [("precipitation_height", "precipitation_more"), ("temperature_air_2m", "kl")]
-
-    """
-
-    def unpack_parameter(par: str) -> str | tuple[str, str]:
-        try:
-            parameter_, dataset_ = par.split("/")
-        except ValueError:
-            return par
-
-        return parameter_, dataset_
-
-    # Create list of parameters from string if required
-    with contextlib.suppress(AttributeError):
-        parameter = parameter.split(",")
-
-    return [unpack_parameter(p) for p in parameter]
 
 
 def _get_stations_request(
@@ -381,6 +392,7 @@ def _get_stations_request(
     date: str | None,
     settings: Settings,
 ) -> TimeseriesRequest:
+    """Create a request object for stations."""
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
@@ -429,7 +441,7 @@ def get_stations(
     date: str | None,
     settings: Settings,
 ) -> StationsResult:
-    """Core function for querying stations via cli and restapi"""
+    """Get stations based on request."""
     r = _get_stations_request(api=api, request=request, date=date, settings=settings)
 
     if request.all:
@@ -476,11 +488,9 @@ def get_stations(
 def get_values(
     api: TimeseriesRequest,
     request: ValuesRequest,
-    # date: str,
-    # sql_values: str,
     settings: Settings,
 ) -> ValuesResult:
-    """Core function for querying values via cli and restapi"""
+    """Get values based on request."""
     stations_ = get_stations(
         api=api,
         request=request,
@@ -492,7 +502,7 @@ def get_values(
         # TODO: Add stream-based processing here.
         values_ = stations_.values.all()
     except ValueError:
-        log.exception()
+        log.exception("Error while fetching values")
         sys.exit(1)
     else:
         if values_.df.is_empty():
@@ -511,7 +521,7 @@ def get_interpolate(
     request: InterpolationRequest,
     settings: Settings,
 ) -> InterpolatedValuesResult:
-    """Core function for querying values via cli and restapi"""
+    """Get interpolated values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
     if request.coordinates:
@@ -534,7 +544,7 @@ def get_summarize(
     request: SummaryRequest,
     settings: Settings,
 ) -> SummarizedValuesResult:
-    """Core function for querying values via cli and restapi"""
+    """Get summarized values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
     if request.coordinates:
@@ -589,7 +599,7 @@ def _get_stripes_stations(kind: Literal["temperature", "precipitation"], *, acti
     return stations
 
 
-def _plot_stripes(
+def _plot_stripes(  # noqa: C901
     kind: Literal["temperature", "precipitation"],
     station_id: str | None = None,
     name: str | None = None,
@@ -602,6 +612,7 @@ def _plot_stripes(
     show_data_availability: bool = True,
 ) -> Figure:
     """Create warming stripes for station in Germany.
+
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
     if kind not in ["temperature", "precipitation"]:
@@ -732,10 +743,10 @@ def _plot_stripes(
 
 
 def set_logging_level(*, debug: bool) -> None:
-    # Setup logging.
+    """Set logging level for the wetterdienst package."""
     log_level = logging.INFO
 
-    if debug:  # pragma: no cover
+    if debug:
         log_level = logging.DEBUG
 
     log.setLevel(log_level)

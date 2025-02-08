@@ -25,14 +25,12 @@ wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
 
 def test_radar_request_radolan_cdc_hourly_alignment_1(default_settings: Settings) -> None:
-    """
-    Verify the alignment of RADOLAN_CDC timestamps
+    """Verify the alignment of RADOLAN_CDC timestamps
     to designated interval marks of HH:50.
 
     Here, the given timestamp is at 00:53
     and will be floored to 00:50.
     """
-
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.HOURLY,
@@ -47,14 +45,12 @@ def test_radar_request_radolan_cdc_hourly_alignment_1(default_settings: Settings
 
 
 def test_radar_request_radolan_cdc_hourly_alignment_2(default_settings: Settings) -> None:
-    """
-    Verify the alignment of RADOLAN_CDC timestamps
+    """Verify the alignment of RADOLAN_CDC timestamps
     to designated interval marks of HH:50.
 
     Here, the given timestamp is at 00:42
     and will be floored to 23:50 on the previous day.
     """
-
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.HOURLY,
@@ -70,9 +66,7 @@ def test_radar_request_radolan_cdc_hourly_alignment_2(default_settings: Settings
 
 @pytest.mark.remote
 def test_radar_request_radolan_cdc_historic_hourly_data(default_settings: Settings, radar_locations: list[str]) -> None:
-    """
-    Verify data acquisition for RADOLAN_CDC/hourly/historical.
-    """
+    """Verify data acquisition for RADOLAN_CDC/hourly/historical."""
     timestamp = dt.datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0, tzinfo=ZoneInfo("UTC"))
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
@@ -120,9 +114,7 @@ def test_radar_request_radolan_cdc_historic_hourly_data(default_settings: Settin
 
 @pytest.mark.remote
 def test_radar_request_radolan_cdc_historic_daily_data(default_settings: Settings, radar_locations: list[str]) -> None:
-    """
-    Verify data acquisition for RADOLAN_CDC/daily/historical.
-    """
+    """Verify data acquisition for RADOLAN_CDC/daily/historical."""
     timestamp = dt.datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0, tzinfo=ZoneInfo("UTC"))
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
@@ -176,9 +168,7 @@ def test_radar_request_radolan_cdc_historic_daily_data(default_settings: Setting
 def test_radar_request_composite_historic_hg_yesterday(
     default_settings: Settings, prefixed_radar_locations: list[str]
 ) -> None:
-    """
-    Example for testing radar/composite FX for a specific date.
-    """
+    """Example for testing radar/composite FX for a specific date."""
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -231,10 +221,7 @@ def test_radar_request_composite_historic_hg_yesterday(
 
 @pytest.mark.remote
 def test_radar_request_composite_historic_hg_timerange(default_settings: Settings) -> None:
-    """
-    Example for testing radar/composite FX for a timerange.
-    """
-
+    """Example for testing radar/composite FX for a timerange."""
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -263,11 +250,9 @@ def test_radar_request_composite_historic_hg_timerange(default_settings: Setting
 def test_radar_request_composite_historic_radolan_rw_yesterday(
     default_settings: Settings, radar_locations: list[str]
 ) -> None:
-    """
-    Verify acquisition of radar/composite/radolan_rw data works
+    """Verify acquisition of radar/composite/radolan_rw data works
     when using a specific date.
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -315,11 +300,9 @@ def test_radar_request_composite_historic_radolan_rw_yesterday(
 def test_radar_request_composite_historic_radolan_rw_timerange(
     default_settings: Settings, radar_locations: list[str]
 ) -> None:
-    """
-    Verify acquisition of radar/composite/radolan_rw data works
+    """Verify acquisition of radar/composite/radolan_rw data works
     when using a specific date, with timerange.
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -364,11 +347,9 @@ def test_radar_request_composite_historic_radolan_rw_timerange(
 
 @pytest.mark.remote
 def test_radar_request_site_historic_dx_yesterday(default_settings: Settings) -> None:
-    """
-    Verify acquisition of radar/site/DX data works
+    """Verify acquisition of radar/site/DX data works
     when using a specific date.
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -410,11 +391,9 @@ def test_radar_request_site_historic_dx_yesterday(default_settings: Settings) ->
 
 @pytest.mark.remote
 def test_radar_request_site_historic_dx_timerange(default_settings: Settings) -> None:
-    """
-    Verify acquisition of radar/site/DX data works
+    """Verify acquisition of radar/site/DX data works
     when using a specific date, with timerange.
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -460,13 +439,11 @@ def test_radar_request_site_historic_dx_timerange(default_settings: Settings) ->
 
 @pytest.mark.remote
 def test_radar_request_site_historic_pe_binary_yesterday(default_settings: Settings) -> None:
-    """
-    Verify acquisition of radar/site/PE_ECHO_TOP data works
+    """Verify acquisition of radar/site/PE_ECHO_TOP data works
     when using a specific date.
 
     This time, we will use the BINARY data format.
     """
-
     # Acquire data from yesterday at this time.
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
@@ -501,13 +478,11 @@ def test_radar_request_site_historic_pe_binary_yesterday(default_settings: Setti
 
 @pytest.mark.remote
 def test_radar_request_site_historic_pe_bufr(default_settings: Settings) -> None:
-    """
-    Verify acquisition of radar/site/PE_ECHO_TOP data works
+    """Verify acquisition of radar/site/PE_ECHO_TOP data works
     when using a specific date.
 
     This time, we will use the BUFR data format.
     """
-
     # Acquire data from yesterday at this time.
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
@@ -547,15 +522,13 @@ def test_radar_request_site_historic_pe_bufr(default_settings: Settings) -> None
     ],
 )
 def test_radar_request_site_historic_pe_timerange(default_settings: Settings, fmt: DwdRadarDataFormat) -> None:
-    """
-    Verify acquisition of radar/site/PE_ECHO_TOP data works
+    """Verify acquisition of radar/site/PE_ECHO_TOP data works
     when using date ranges.
     The proof will use these parameters to acquire data:
     - start_date: Yesterday at this time
     - end_date:   start_date + 1 hour
     This time, we will test both the BINARY and BUFR data format.
     """
-
     start_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
     end_date = dt.timedelta(hours=1)
 
@@ -593,10 +566,7 @@ def test_radar_request_site_historic_pe_timerange(default_settings: Settings, fm
 
 @pytest.mark.remote
 def test_radar_request_site_historic_px250_bufr_yesterday(default_settings: Settings) -> None:
-    """
-    Example for testing radar/site PX250 for a specific date.
-    """
-
+    """Example for testing radar/site PX250 for a specific date."""
     timestamp = dt.datetime.now(ZoneInfo("UTC")) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -638,10 +608,7 @@ def test_radar_request_site_historic_px250_bufr_yesterday(default_settings: Sett
 
 @pytest.mark.remote
 def test_radar_request_site_historic_px250_bufr_timerange(default_settings: Settings) -> None:
-    """
-    Example for testing radar/site PX250 for a specific date, with timerange.
-    """
-
+    """Example for testing radar/site PX250 for a specific date, with timerange."""
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -664,10 +631,7 @@ def test_radar_request_site_historic_px250_bufr_timerange(default_settings: Sett
 
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday(default_settings: Settings) -> None:
-    """
-    Example for testing radar/site sweep_vol_v for a specific date.
-    """
-
+    """Example for testing radar/site sweep_vol_v for a specific date."""
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -700,11 +664,9 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday(default_settings
 
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings: Settings) -> None:
-    """
-    Example for testing radar/site sweep-precipitation for a specific date,
+    """Example for testing radar/site sweep-precipitation for a specific date,
     this time in HDF5 format.
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -752,11 +714,9 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings
 
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings: Settings) -> None:
-    """
-    Example for testing radar/site sweep-precipitation for a specific date,
+    """Example for testing radar/site sweep-precipitation for a specific date,
     this time in HDF5 format, with timerange.
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -790,11 +750,9 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings
 
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings: Settings) -> None:
-    """
-    Example for testing radar/site sweep-precipitation for a specific date,
+    """Example for testing radar/site sweep-precipitation for a specific date,
     this time in HDF5 format, with timerange.
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -828,15 +786,13 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings
 
 @pytest.mark.remote
 def test_radar_request_radvor_re_yesterday(default_settings: Settings, prefixed_radar_locations: list[str]) -> None:
-    """
-    Verify acquisition of radar/radvor/re data works
+    """Verify acquisition of radar/radvor/re data works
     when using a specific date. Querying one point
     in time should yield 25 results for a single
     5 minute time step.
 
     https://opendata.dwd.de/weather/radar/radvor/re/
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -889,14 +845,12 @@ def test_radar_request_radvor_re_yesterday(default_settings: Settings, prefixed_
 def test_radar_request_radvor_re_timerange(
     default_settings: Settings, station_reference_pattern_sorted_prefixed: str
 ) -> None:
-    """
-    Verify acquisition of radar/radvor/re data works
+    """Verify acquisition of radar/radvor/re data works
     when using a specific date. Querying for 15 minutes
     worth of data should yield 75 results.
 
     https://opendata.dwd.de/weather/radar/radvor/re/
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -928,15 +882,13 @@ def test_radar_request_radvor_re_timerange(
 
 @pytest.mark.remote
 def test_radar_request_radvor_rq_yesterday(default_settings: Settings, radar_locations: list[str]) -> None:
-    """
-    Verify acquisition of radar/radvor/rq data works
+    """Verify acquisition of radar/radvor/rq data works
     when using a specific date. Querying one point
     in time should yield 3 results for a single
     15 minute time step.
 
     https://opendata.dwd.de/weather/radar/radvor/rq/
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -987,14 +939,12 @@ def test_radar_request_radvor_rq_timerange(
     default_settings: Settings,
     radar_locations: list[str],
 ) -> None:
-    """
-    Verify acquisition of radar/radvor/rq data works
+    """Verify acquisition of radar/radvor/rq data works
     when using a specific date. Querying for 45 minutes
     worth of data should yield 9 results.
 
     https://opendata.dwd.de/weather/radar/radvor/rq/
     """
-
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(

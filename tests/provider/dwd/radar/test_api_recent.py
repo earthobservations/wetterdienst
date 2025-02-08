@@ -18,9 +18,7 @@ h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
 @pytest.mark.remote
 def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
-    """
-    Example for testing radar sites SWEEP_PCP with timerange.
-    """
+    """Example for testing radar sites SWEEP_PCP with timerange."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=1),
@@ -63,9 +61,7 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings: Settings) 
 
 @pytest.mark.remote
 def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings: Settings) -> None:
-    """
-    Example for testing radar sites SWEEP_VOL with timerange.
-    """
+    """Example for testing radar sites SWEEP_VOL with timerange."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=20),

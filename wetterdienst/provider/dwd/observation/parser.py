@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Parser for DWD climate observations data."""
+
 from __future__ import annotations
 
 import logging
@@ -67,10 +69,7 @@ def parse_climate_observations_data(
     dataset: DatasetModel,
     period: Period,
 ) -> pl.LazyFrame:
-    """This function parses the climate observations data from the DWD.
-    There's a special case for subdaily wind extremes, as they are stored in two files.
-    Both files are parsed and joined together afterwards.
-    """
+    """Parse the climate observations data from the DWD."""
     if dataset == DwdObservationMetadata.subdaily.wind_extreme:
         data = [
             _parse_climate_observations_data(filename_and_file, dataset, period)
@@ -89,15 +88,12 @@ def parse_climate_observations_data(
         return pl.concat(data)
 
 
-def _parse_climate_observations_data(
+def _parse_climate_observations_data(  # noqa: C901
     filename_and_file: tuple[str, BytesIO],
     dataset: DatasetModel,
     period: Period,
 ) -> pl.LazyFrame:
-    """This function parses the climate observations data from the DWD.
-    There's a special case for 1 minute precipitation data with an early return statement as the function
-    _transform_minute_1_precipitation_historical already parses the data and especially the dates.
-    """
+    """Parse the climate observations data from the DWD."""
     filename, file = filename_and_file
     try:
         df = pl.read_csv(
@@ -163,8 +159,10 @@ def _parse_climate_observations_data(
 
 
 def _transform_minute_1_precipitation_historical(df: pl.LazyFrame) -> pl.LazyFrame:
-    """We need to unfold historical data, as it is encoded in its run length e.g.
-    from time X to time Y precipitation is 0
+    """Transform the 1 minute precipitation historical data.
+
+    The data is stored in a way that the start and end date of the precipitation event is given.
+    This function transforms the data into a format where each minute of the event is represented by a row.
     """
     df = df.with_columns(
         pl.col("date").cast(str).str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),

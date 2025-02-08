@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""OPERA radar sites."""
+
 from __future__ import annotations
 
 import gzip
@@ -15,32 +17,25 @@ if TYPE_CHECKING:
 
 
 class OperaRadarSites:
-    """
-    Provide information about all European OPERA radar sites.
-    """
+    """Provide information about all European OPERA radar sites."""
 
     data_file = importlib.resources.files(__package__) / "sites.json.gz"
 
     def __init__(self) -> None:
+        """Initialize the radar sites."""
         self.sites = self.load()
 
     def load(self) -> list[dict]:
-        """
-        Load and decode JSON file from filesystem.
-        """
+        """Load and decode JSON file from filesystem."""
         with importlib.resources.as_file(self.data_file) as rf, gzip.open(rf, mode="rb") as f:
             return json.load(f)
 
     def all(self) -> list[dict]:
-        """
-        The whole list of OPERA radar sites.
-        """
+        """Return all radar sites."""
         return self.sites
 
     def to_dict(self) -> dict:
-        """
-        Dictionary of sites, keyed by ODIM code.
-        """
+        """Return dictionary with ODIM code as key."""
         result = {}
         for site in self.sites:
             if site["odimcode"] is None:
@@ -49,8 +44,7 @@ class OperaRadarSites:
         return result
 
     def by_odim_code(self, odim_code: str) -> dict:
-        """
-        Return radar site by ODIM code.
+        """Return radar site by ODIM code.
 
         :param odim_code: The ODIM code, e.g. "atrau".
         :return:          Single site information.
@@ -65,8 +59,7 @@ class OperaRadarSites:
         raise KeyError(msg)
 
     def by_wmo_code(self, wmo_code: int) -> dict:
-        """
-        Return radar site by WMO code.
+        """Return radar site by WMO code.
 
         :param wmo_code: The WMO code, e.g. 11038.
         :return:        Single site information.
@@ -78,8 +71,7 @@ class OperaRadarSites:
         raise KeyError(msg)
 
     def by_country_name(self, country_name: str) -> list[dict]:
-        """
-        Filter list of radar sites by country name.
+        """Filter list of radar sites by country name.
 
         :param country_name: The country name, e.g. "Germany", "United Kingdom".
         :return:             List of site information.
@@ -92,8 +84,7 @@ class OperaRadarSites:
 
 
 class OperaRadarSitesGenerator:
-    """
-    Parse list of OPERA sites published by EUMETNET.
+    """Parse list of OPERA sites published by EUMETNET.
 
     https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/current-activities/opera/database/OPERA_Database/OPERA_RADARS_DB.json
     """
@@ -103,7 +94,8 @@ class OperaRadarSitesGenerator:
         "current-activities/opera/database/OPERA_Database/OPERA_RADARS_DB.json"
     )
 
-    def get_opera_radar_sites(self) -> list[dict]:  # pragma: no cover
+    def get_opera_radar_sites(self) -> list[dict]:  # noqa: C901
+        """Get all OPERA radar sites from EUMETNET."""
         payload = download_file(self.url, settings=Settings())
         data = json.load(payload)
 
@@ -159,16 +151,12 @@ class OperaRadarSitesGenerator:
         return list(filter_and_convert(data))
 
     def to_json(self, indent: int = 4) -> str:
-        """
-        Return JSON representation of all sites.
-        """
+        """Return JSON representation of all sites."""
         sites = self.get_opera_radar_sites()
         return json.dumps(sites, indent=indent)
 
     def export(self, indent: int = 4) -> None:
-        """
-        Generate "sites.json.gz".
-        """
+        """Generate "sites.json.gz"."""
         sites = self.get_opera_radar_sites()
         with (
             importlib.resources.as_file(OperaRadarSites.data_file) as rf,

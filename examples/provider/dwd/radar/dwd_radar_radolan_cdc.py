@@ -1,14 +1,13 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
+"""=====
 About
 =====
 
 Example for DWD RADOLAN Composite RW/SF using wetterdienst and wradlib.
 Hourly and gliding 24h sum of radar- and station-based measurements (German).
 
-See also:
+See Also:
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html.
 
 This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00
@@ -35,6 +34,7 @@ real-time for Germany.
 - https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-Composite
 - Hourly: https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-RW-Product
 - Daily: https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-SF-Product
+
 """
 
 import logging

@@ -20,8 +20,7 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 @pytest.mark.remote
 def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
-    """
-    Example for testing radar sites most recent full SWEEP_PCP,
+    """Example for testing radar sites most recent full SWEEP_PCP,
     this time in OPERA HDF5 (ODIM_H5) format.
     """
     h5py = pytest.importorskip("h5py", reason="h5py not installed")
@@ -67,8 +66,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Setti
 
 @pytest.mark.remote
 def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings: Settings) -> None:
-    """
-    Example for testing radar sites most recent full SWEEP_VOL,
+    """Example for testing radar sites most recent full SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
     """
     h5py = pytest.importorskip("h5py", reason="h5py not installed")
@@ -120,10 +118,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings: Setti
 
 @pytest.mark.remote
 def test_radar_request_radolan_cdc_most_recent(default_settings: Settings, radar_locations: list[str]) -> None:
-    """
-    Example for testing radar sites most recent RADOLAN_CDC.
-    """
-
+    """Example for testing radar sites most recent RADOLAN_CDC."""
     wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(

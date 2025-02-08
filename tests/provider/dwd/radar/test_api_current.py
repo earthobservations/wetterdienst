@@ -20,11 +20,9 @@ h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
 @pytest.mark.remote
 def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
-    """
-    Example for testing radar sites full current SWEEP_PCP,
+    """Example for testing radar sites full current SWEEP_PCP,
     this time in OPERA HDF5 (ODIM_H5) format.
     """
-
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=DwdRadarDate.CURRENT,
@@ -65,11 +63,9 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings: Settings)
 
 @pytest.mark.remote
 def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings: Settings) -> None:
-    """
-    Example for testing radar sites full current SWEEP_VOL,
+    """Example for testing radar sites full current SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
     """
-
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=DwdRadarDate.CURRENT,
@@ -110,11 +106,9 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings: Sett
 
 @pytest.mark.remote
 def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Settings) -> None:
-    """
-    Example for testing radar sites single current SWEEP_VOL,
+    """Example for testing radar sites single current SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
     """
-
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=DwdRadarDate.CURRENT,
@@ -151,13 +145,11 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Se
     ],
 )
 def test_radar_request_radolan_cdc_current(default_settings: Settings, resolution: DwdRadarResolution) -> None:
-    """
-    Verify data acquisition for current RADOLAN_CDC/daily+hourly.
+    """Verify data acquisition for current RADOLAN_CDC/daily+hourly.
 
     Remark: More often than not, this data is not
     available when looking at CURRENT.
     """
-
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         start_date=DwdRadarDate.CURRENT,
@@ -177,10 +169,7 @@ def test_radar_request_radolan_cdc_current(default_settings: Settings, resolutio
 
 @pytest.mark.remote
 def test_radar_request_radolan_cdc_current_5min(default_settings: Settings) -> None:
-    """
-    Verify failure for RADOLAN_CDC/5 minutes.
-
-    """
+    """Verify failure for RADOLAN_CDC/5 minutes."""
     with pytest.raises(ValueError, match="RADOLAN_CDC only supports daily and hourly resolutions"):
         DwdRadarValues(
             parameter=DwdRadarParameter.RADOLAN_CDC,

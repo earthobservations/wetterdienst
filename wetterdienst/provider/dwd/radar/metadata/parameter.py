@@ -1,12 +1,12 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Enumeration for radar parameters."""
+
 from enum import Enum
 
 
 class DwdRadarParameter(Enum):
-    """
-    All available radar moments.
-    """
+    """All available radar moments."""
 
     # /composites
     # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-RADOLAN-(quantitative)-composit  # noqa: E501
@@ -91,9 +91,7 @@ RADAR_PARAMETERS_SWEEPS = [
 
 
 class DwdRadarDate(Enum):
-    """
-    Enumeration for pointing to different radar dates.
-    """
+    """Enumeration for pointing to different radar dates."""
 
     LATEST = "latest"
     CURRENT = "current"
@@ -101,9 +99,7 @@ class DwdRadarDate(Enum):
 
 
 class DwdRadarDataFormat(Enum):
-    """
-    Radar data formats.
-    """
+    """Radar data formats."""
 
     BINARY = "binary"
     BUFR = "bufr"
@@ -111,8 +107,7 @@ class DwdRadarDataFormat(Enum):
 
 
 class DwdRadarDataSubset(Enum):
-    """
-    HDF5 subset types for radar sweep data.
+    """HDF5 subset types for radar sweep data.
 
     https://opendata.dwd.de/weather/radar/sites/sweep_pcp_v/boo/hdf5/
     """

@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Utilities for the wetterdienst package."""
+
 from __future__ import annotations
 
 import os
@@ -44,21 +46,25 @@ WHERE value IS NOT NULL
 
 @st.cache_resource
 def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
+    """Get API."""
     return Wetterdienst(provider, network)
 
 
 @st.cache_resource
 def get_metadata(api: TimeseriesRequest) -> MetadataModel:
+    """Get metadata."""
     return api.metadata
 
 
 def get_stations(provider: str, network: str, request_kwargs: dict) -> StationsResult:
+    """Get all stations."""
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
     return get_api(provider, network)(**request_kwargs).all()
 
 
 def get_station(provider: str, network: str, request_kwargs: dict, station_id: str) -> StationsResult:
+    """Get a single station."""
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
     return get_api(provider, network)(**request_kwargs).filter_by_station_id(station_id)
@@ -75,6 +81,7 @@ def create_plotly_fig(
     *,
     facet: bool,
 ) -> go.Figure:
+    """Create a plotly figure."""
     if "unit" in df.columns:
         df = df.with_columns(
             pl.struct(["parameter", "unit"])

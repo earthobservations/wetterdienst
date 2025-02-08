@@ -1,11 +1,13 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Enumeration for cache expiry presets."""
+
 from enum import Enum
 
 
 class CacheExpiry(Enum):
-    """
-    Describe some convenient caching expiry presets.
+    """Describe some convenient caching expiry presets.
+
     This is part of the new network i/o subsystem based on FSSPEC.
     """
 

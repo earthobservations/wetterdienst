@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""IMGW hydrology provider."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -142,6 +144,8 @@ ImgwHydrologyMetadata = build_metadata_model(ImgwHydrologyMetadata, "ImgwHydrolo
 
 
 class ImgwHydrologyValues(TimeseriesValues):
+    """Values class for hydrological data from IMGW."""
+
     _endpoint = "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/{resolution}/"
     _file_schema: ClassVar = {
         Resolution.DAILY: {
@@ -175,13 +179,7 @@ class ImgwHydrologyValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
-        """
-
-        :param station_id:
-        :param parameter:
-        :param dataset:
-        :return:
-        """
+        """Collect hydrological data for a single station and dataset."""
         urls = self._get_urls(parameter_or_dataset)
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
@@ -214,13 +212,7 @@ class ImgwHydrologyValues(TimeseriesValues):
     def _parse_file(
         self, file_in_bytes: bytes, station_id: str, dataset: DatasetModel, file_schema: dict
     ) -> pl.DataFrame:
-        """Function to parse hydrological zip file, parses all files and combines
-        them
-
-        :param file_in_bytes:
-        :param file_schema:
-        :return:
-        """
+        """Parse hydrological data from a single file."""
         zfs = ZipFileSystem(file_in_bytes)
         data = []
         files = zfs.glob("*")
@@ -242,11 +234,7 @@ class ImgwHydrologyValues(TimeseriesValues):
         return df.unique(subset=["parameter", "date"], keep="first")
 
     def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict) -> pl.DataFrame:
-        """Function to parse a single file out of the zip file
-
-        :param file: unzipped file bytes
-        :return: polars.DataFrame with parsed data
-        """
+        """Parse hydrological data from a single file."""
         df = pl.read_csv(
             file,
             encoding="latin-1",
@@ -297,11 +285,7 @@ class ImgwHydrologyValues(TimeseriesValues):
         return df
 
     def _get_urls(self, dataset: DatasetModel) -> pl.Series:
-        """Get file urls from server
-
-        :param dataset: dataset for which the filelist is retrieved
-        :return:
-        """
+        """Get all urls for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         files = list_remote_files_fsspec(url, self.sr.settings)
         df_files = pl.DataFrame({"url": files})
@@ -369,6 +353,8 @@ class ImgwHydrologyValues(TimeseriesValues):
 
 
 class ImgwHydrologyRequest(TimeseriesRequest):
+    """Request class for hydrological data from IMGW."""
+
     metadata = ImgwHydrologyMetadata
     _values = ImgwHydrologyValues
     _endpoint = "https://dane.imgw.pl/datastore/getfiledown/Arch/Telemetria/Hydro/kody_stacji.csv"
@@ -380,6 +366,15 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
+        """Initialize the request for hydrological data from IMGW.
+
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            settings: settings for the request
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,
@@ -388,10 +383,7 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        """
-
-        :return:
-        """
+        """:return:"""
         log.info(f"Downloading file {self._endpoint}.")
         payload = download_file(self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         # skip empty lines in the csv file

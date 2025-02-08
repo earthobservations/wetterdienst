@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Index for DWD radar data."""
+
 from __future__ import annotations
 
 import os
@@ -34,7 +36,8 @@ if TYPE_CHECKING:
 
 
 def use_cache() -> int:  # pragma: no cover
-    """
+    """Decorate a function to use caching.
+
     Only use caching when running the test suite to reduce its duration.
     In production, this won't always give us fresh enough data, especially
     when using the "MOST_RECENT" request option. So, let's skip it for that
@@ -42,7 +45,9 @@ def use_cache() -> int:  # pragma: no cover
 
     https://stackoverflow.com/a/58866220
 
-    :return: Cache TTL in seconds.
+    Returns:
+        Cache TTL in seconds.
+
     """
     if "PYTEST_CURRENT_TEST" in os.environ and "CI" not in os.environ:
         return 2 * 60
@@ -61,23 +66,24 @@ def create_fileindex_radar(
     *,
     parse_datetime: bool = False,
 ) -> pl.DataFrame:
-    """
-    Function to create a file index of the DWD radar data, which is shipped as
-    bin bufr or odim-hdf5 data. The file index is created for a single parameter.
+    """Create a file index of the DWD radar data, which is shipped as bin bufr or odim-hdf5 data.
 
-    :param parameter:       The radar moment to request
-    :param settings:
-    :param site:            Site/station if parameter is one of
-                            RADAR_PARAMETERS_SITES
-    :param fmt:          Data format (BINARY, BUFR, HDF5)
-    :param subset:          The subset (simple or polarimetric) for HDF5 data.
-    :param resolution: Time resolution for RadarParameter.RADOLAN_CDC,
-                            either daily or hourly or 5 minutes.
-    :param period:     Period type for RadarParameter.RADOLAN_CDC
-    :param parse_datetime:  Whether to parse datetimes from file names
+    The file index is created for a single parameter.
 
-    :return:                File index as pandas.DataFrame with FILENAME
-                            and DATETIME columns
+    Args:
+        parameter: The radar moment to request
+        settings: Settings for the request
+        site: Site/station if parameter is one of RADAR_PARAMETERS_SITES
+        fmt: Data format (BINARY, BUFR, HDF5)
+        subset: The subset (simple or polarimetric) for HDF5 data.
+        resolution: Time resolution for RadarParameter.RADOLAN_CDC,
+                    either daily or hourly or 5 minutes.
+        period: Period type for RadarParameter.RADOLAN_CDC
+        parse_datetime: Whether to parse datetimes from file names
+
+    Returns:
+        File index as pandas.DataFrame with FILENAME and DATETIME columns
+
     """
     parameter_path = build_path_to_parameter(
         parameter=parameter,
@@ -130,18 +136,7 @@ def create_fileindex_radar(
 
 
 def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, settings: Settings) -> pl.DataFrame:
-    """
-    Function used to create a file index for the RADOLAN_CDC product. The file index
-    will include both recent as well as historical files. A datetime column is created
-    from the filenames which contain some datetime formats. This datetime column is
-    required for later filtering for the requested file.
-
-    :param resolution: Time resolution for RadarParameter.RADOLAN_CDC,
-                            either daily or hourly or 5 minutes.
-    :param period:     Period type for RadarParameter.RADOLAN_CDC
-
-    :return:                File index as DataFrame
-    """
+    """Create a file index for RADOLAN_CDC data."""
     df_fileindex = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=resolution,
@@ -170,7 +165,7 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
     return df_fileindex.drop_nulls()
 
 
-def build_path_to_parameter(
+def build_path_to_parameter(  # noqa: C901
     parameter: DwdRadarParameter,
     site: DwdRadarSite | None = None,
     fmt: DwdRadarDataFormat | None = None,
@@ -178,8 +173,7 @@ def build_path_to_parameter(
     resolution: Resolution | None = None,
     period: Period | None = None,
 ) -> str:
-    """
-    Compute URL path to data product.
+    """Compute URL path to data product.
 
     Supports composite- and site-based radar data as well as RADOLAN_CDC.
 
@@ -195,17 +189,18 @@ def build_path_to_parameter(
     -----
     - https://opendata.dwd.de/weather/radar/sites/
 
+    Args:
+        parameter: The radar moment to request
+        site: Site/station if parameter is one of RADAR_PARAMETERS_SITES
+        fmt: Data format (BINARY, BUFR, HDF5)
+        subset: The subset (simple or polarimetric) for HDF5 data.
+        resolution: Time resolution for RadarParameter.RADOLAN_CDC,
+                    either daily or hourly or 5 minutes.
+        period: Period type for RadarParameter.RADOLAN_CDC
 
-    :param parameter:       The radar moment to request
-    :param site:            Site/station if parameter is one of
-                            RADAR_PARAMETERS_SITES
-    :param fmt:          Data format (BINARY, BUFR, HDF5)
-    :param subset:          The subset (simple or polarimetric) for HDF5 data.
-    :param resolution: Time resolution for RadarParameter.RADOLAN_CDC,
-                            either daily or hourly or 5 minutes.
-    :param period:     Period type for RadarParameter.RADOLAN_CDC
+    Returns:
+        URL path to data product
 
-    :return:                URL path to data product
     """
     if parameter == DwdRadarParameter.RADOLAN_CDC:
         if resolution == Resolution.MINUTE_5:

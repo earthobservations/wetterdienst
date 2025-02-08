@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Processing utilities."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -23,6 +25,16 @@ else:
 
 
 def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | None, dt.datetime | None]:
+    """Create date range from date string and resolution.
+
+    Args:
+        date: Date string.
+        resolution: Resolution.
+
+    Returns:
+        Tuple of date range.
+
+    """
     if "/" in date:
         if date.count("/") >= 2:
             msg = "Invalid ISO 8601 time interval"
@@ -52,8 +64,7 @@ def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | 
 
 
 def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
-    """
-    Filter Pandas DataFrame by date or date interval.
+    """Filter Pandas DataFrame by date or date interval.
 
     Accepts different kinds of date formats, like:
 
@@ -69,7 +80,6 @@ def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
     :param date:
     :return: Filtered DataFrame
     """
-
     # TODO: datetimes should be aware of tz
     # TODO: resolution is not necessarily available and ideally filtering does not
     #  depend on it

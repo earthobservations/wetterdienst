@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Summarize timeseries data."""
+
 from __future__ import annotations
 
 import logging
@@ -19,11 +23,23 @@ log = logging.getLogger(__name__)
 
 
 def get_summarized_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
+    """Get summarized DataFrame.
+
+    Args:
+        request: TimeseriesRequest
+        latitude: float of the point to summarize
+        longitude: float of the point to summarize
+
+    Returns:
+        Summarized DataFrame
+
+    """
     stations_dict, param_dict = request_stations(request, latitude, longitude)
     return calculate_summary(stations_dict, param_dict)
 
 
 def request_stations(request: TimeseriesRequest, latitude: float, longitude: float) -> tuple[dict, dict]:
+    """Request stations."""
     param_dict = {}
     stations_dict = {}
     distance = max(request.settings.ts_interpolation_station_distance.values())
@@ -53,6 +69,7 @@ def apply_station_values_per_parameter(
     param_dict: dict,
     station: dict,
 ) -> None:
+    """Apply station values per parameter."""
     for parameter in stations_ranked.stations.parameters:
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
@@ -101,6 +118,7 @@ def apply_station_values_per_parameter(
 
 
 def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
+    """Calculate summary of stations and parameters."""
     data = [
         pl.DataFrame(
             schema={
@@ -148,6 +166,10 @@ def apply_summary(
     dataset: str,
     parameter: str,
 ) -> tuple[str, str, float | None, float | None, str | None]:
+    """Apply summary to row.
+
+    This works by taking the first non-null value and its station id.
+    """
     vals = {s: v for s, v in row.items() if v is not None}
     if not vals:
         return dataset, parameter, None, None, None

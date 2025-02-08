@@ -11,9 +11,7 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 @pytest.mark.remote
 def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> None:
-    """
-    Test some details of a typical MOSMIX-L response.
-    """
+    """Test some details of a typical MOSMIX-L response."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "large")],
         settings=settings_humanize_false_drop_nulls_false,
@@ -252,9 +250,7 @@ def test_mosmix_date_filter(settings_drop_nulls_false: Settings) -> None:
 
 @pytest.mark.remote
 def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false: Settings) -> None:
-    """
-    Test some details of a MOSMIX-L response when queried for specific parameters.
-    """
+    """Test some details of a MOSMIX-L response when queried for specific parameters."""
     request = DwdMosmixRequest(
         parameters=[
             ("hourly", "large", "dd"),

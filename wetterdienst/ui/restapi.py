@@ -1,9 +1,12 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Utilities for the wetterdienst package."""
+
 from __future__ import annotations
 
 import json
 import logging
+from textwrap import dedent
 from typing import Annotated, Any, Literal, Union
 
 from fastapi import FastAPI, HTTPException, Query
@@ -61,6 +64,8 @@ REQUEST_EXAMPLES = {
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
+    """Provide index page."""
+
     def _create_author_entry(author: Author) -> str:
         # create author string Max Mustermann (Github href, Mailto)
         return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"  # noqa:E501
@@ -189,19 +194,24 @@ def index() -> str:
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 def robots() -> str:
-    return """
-User-agent: *
-Disallow: /api/
-    """.strip()
+    """Provide robots.txt."""
+    return dedent(
+        """
+        User-agent: *
+        Disallow: /api/
+        """.strip()
+    )
 
 
 @app.get("/health")
 def health() -> Response:
+    """Health check."""
     return Response(content={"status": "OK"})
 
 
 @app.get("/favicon.ico")
 def favicon() -> RedirectResponse:
+    """Redirect to favicon."""
     return RedirectResponse(
         url="https://raw.githubusercontent.com/earthobservations/wetterdienst/refs/heads/main/docs/assets/logo.png"
     )
@@ -213,10 +223,12 @@ def coverage(
     network: str | None = None,
     resolutions: str | None = None,
     datasets: str | None = None,
-    pretty: bool = False,  # noqa: FBT001, FBT002
-    debug: bool = False,  # noqa: FBT001, FBT002
+    *,
+    pretty: bool = False,
+    debug: bool = False,
 ) -> Response:
-    set_logging_level(debug)
+    """Wrap around Wetterdienst.discover to provide results via restapi."""
+    set_logging_level(debug=debug)
 
     if (provider and not network) or (not provider and network):
         raise HTTPException(
@@ -257,13 +269,13 @@ def coverage(
 # - str for csv
 @app.get("/api/stations")
 def stations(request: Annotated[StationsRequestRaw, Query()]) -> _StationsDict | _StationsOgcFeatureCollection | str:
-    # parse list-like parameters into lists
+    """Wrap get_stations to provide results via restapi."""
     try:
         request = StationsRequest.model_validate(request.model_dump())
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    set_logging_level(request.debug)
+    set_logging_level(debug=request.debug)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -321,12 +333,13 @@ def stations(request: Annotated[StationsRequestRaw, Query()]) -> _StationsDict |
 def values(
     request: Annotated[ValuesRequestRaw, Query()],
 ) -> _ValuesDict | _ValuesOgcFeatureCollection | str:
+    """Wrap get_values to provide results via restapi."""
     try:
         request = ValuesRequest.model_validate(request.model_dump())
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    set_logging_level(request.debug)
+    set_logging_level(debug=request.debug)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -397,13 +410,13 @@ def values(
 def interpolate(
     request: Annotated[InterpolationRequestRaw, Query()],
 ) -> _InterpolatedValuesDict | _InterpolatedValuesOgcFeatureCollection | str:
-    """Wrapper around get_interpolate to provide results via restapi"""
+    """Wrap around get_interpolate to provide results via restapi."""
     try:
         request = InterpolationRequest.model_validate(request.model_dump())
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    set_logging_level(request.debug)
+    set_logging_level(debug=request.debug)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -469,13 +482,13 @@ def interpolate(
 def summarize(
     request: Annotated[SummaryRequestRaw, Query()],
 ) -> Any:  # noqa: ANN401
-    """Wrapper around get_summarize to provide results via restapi"""
+    """Wrap around get_summarize to provide results via restapi."""
     try:
         request = SummaryRequest.model_validate(request.model_dump())
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    set_logging_level(request.debug)
+    set_logging_level(debug=request.debug)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -539,8 +552,8 @@ def stripes_stations(
     pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
     debug: Annotated[bool, Query()] = False,  # noqa: FBT002
 ) -> Response:
-    """Wrapper around get_climate_stripes_temperature_request to provide results via restapi"""
-    set_logging_level(debug)
+    """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
+    set_logging_level(debug=debug)
 
     try:
         stations = _get_stripes_stations(kind=kind, active=active)
@@ -567,8 +580,8 @@ def stripes_values(
     dpi: Annotated[int, Query(gt=0)] = 300,
     debug: Annotated[bool, Query()] = False,  # noqa: FBT002
 ) -> Response:
-    """Wrapper around get_summarize to provide results via restapi"""
-    set_logging_level(debug)
+    """Wrap get_summarize to provide results via restapi."""
+    set_logging_level(debug=debug)
 
     if not station and not name:
         raise HTTPException(
@@ -610,7 +623,8 @@ def stripes_values(
     return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
 
 
-def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:  # pragma: no cover
+def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
+    """Start the REST API service."""
     from uvicorn.main import run
 
     setup_logging()

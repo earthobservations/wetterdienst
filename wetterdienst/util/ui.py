@@ -1,7 +1,10 @@
+"""Utility functions for user interface."""
+
 from __future__ import annotations
 
 
 def read_list(data: str | None, separator: str = ",") -> list[str]:
+    """Read a list from a string."""
     if data is None:
         return []
 

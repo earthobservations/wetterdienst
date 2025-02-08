@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""CLI for DWD radar data."""
+
 import sys
 from pathlib import Path
 
@@ -8,10 +10,7 @@ from h5netcdf import Group
 
 
 def hdf5dump(thing: str, *, compact: bool = False) -> None:
-    """
-    Like "h5dump -n 1", but better.
-    """
-
+    """Like "h5dump -n 1", but better."""
     blocklist = [
         "afc_status",
         "bpwr",
@@ -42,5 +41,6 @@ def hdf5dump(thing: str, *, compact: bool = False) -> None:
 
 
 def wddump() -> None:
+    """Dump the contents of a Wetterdienst HDF5 file."""
     filename = sys.argv[1]
     hdf5dump(filename, compact=True)

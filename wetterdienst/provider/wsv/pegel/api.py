@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""WSV Pegelonline provider for water level data in Germany."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -185,7 +187,7 @@ WsvPegelMetadata = build_metadata_model(WsvPegelMetadata, "WsvPegelMetadata")
 
 
 class WsvPegelValues(TimeseriesValues):
-    """Values class for WSV Pegelonline data"""
+    """Values class for WSV Pegelonline."""
 
     _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/measurements.json"
     # Used for getting frequency of timeseries
@@ -194,13 +196,10 @@ class WsvPegelValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: ParameterModel
     ) -> pl.DataFrame:
-        """
-        Method to collect data for station parameter from WSV Pegelonline following its open REST-API at
-        https://pegelonline.wsv.de/webservices/rest-api/v2/stations/
-        :param station_id: station_id string
-        :param parameter: parameter enumeration
-        :param dataset: dataset enumeration
-        :return: pandas DataFrame with data
+        """Collect data for station parameter from WSV Pegelonline.
+
+        REST-API at https://pegelonline.wsv.de/webservices/rest-api/v2/stations/.
+
         """
         url = self._endpoint.format(station_id=station_id, parameter=parameter_or_dataset.name_original)
 
@@ -222,8 +221,11 @@ class WsvPegelValues(TimeseriesValues):
 
 
 class WsvPegelRequest(TimeseriesRequest):
-    """Request class for WSV Pegelonline, a German river management facility and
-    provider of river-based measurements for last 30 days"""
+    """Request class for WSV Pegelonline.
+
+    Pegelonline is a German river management facility and
+    provider of river-based measurements for last 30 days.
+    """
 
     metadata = WsvPegelMetadata
     _values = WsvPegelValues
@@ -256,6 +258,15 @@ class WsvPegelRequest(TimeseriesRequest):
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
+        """Initialize WSV Pegelonline request.
+
+        Args:
+            parameters: parameters
+            start_date: start date
+            end_date: end date
+            settings: settings
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,
@@ -264,21 +275,25 @@ class WsvPegelRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        """
-        Method to get stations_result for WSV Pegelonline. It involves reading the REST API, doing some transformations
+        """Get stations for WSV Pegelonline.
+
+        It involves reading the REST API, doing some transformations
         and adding characteristic values in extra columns if given for each station.
-        :return:
         """
 
         def _extract_ts(
             ts_list: list[dict],
         ) -> FLOAT_9_TIMES:
-            """
-            Function to extract water level related information namely gauge zero and characteristic values
-            from timeseries dict given for each station.
-            :param ts_list: list of dictionaries with each dictionary holding information for one
-                characteristic value / gauge zero
-            :return: tuple with values given in exact order
+            """Extract water level related information.
+
+            Gauge zero and characteristic values are extractred from timeseries dict given for each station.
+
+            Args:
+                ts_list: list of timeseries dicts for each station
+
+            Returns:
+                tuple of gauge zero and characteristic values
+
             """
             ts_water = None
             for ts in ts_list:

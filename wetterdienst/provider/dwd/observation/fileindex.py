@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""File index for DWD climate observations."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -46,9 +48,7 @@ def create_file_index_for_climate_observations(
     period: Period,
     settings: Settings,
 ) -> pl.LazyFrame:
-    """Create a file index for a given dataset and period. The file index contains the url, filename, station id and
-    date range of the files.
-    """
+    """Create a file index for a given dataset and period."""
     url = _build_url_from_dataset_and_period(dataset, period)
     df_files = _create_file_index_for_dwd_server(url, settings, CacheExpiry.TWELVE_HOURS)
     # regarding the first filter (_), DWD has published some temporary files in the end of 2024

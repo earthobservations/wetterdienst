@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Streamlit app for climate stripes."""
+
 from typing import Literal
 
 import polars as pl
@@ -13,6 +17,7 @@ from wetterdienst.ui.core import (
 
 @st.cache_data
 def get_stripes_stations(kind: Literal["temperature", "precipitation"], *, active: bool = True) -> pl.DataFrame:
+    """Get the climate stations."""
     stations = _get_stripes_stations(kind=kind, active=active)
     return stations.df
 
@@ -29,6 +34,7 @@ def get_stripes_values(
     show_years: bool,
     show_data_availability: bool,
 ) -> Figure:
+    """Get the climate stripes."""
     return _plot_stripes(
         kind=kind,
         station_id=station_id,
@@ -53,6 +59,7 @@ def get_rest_api_url(
     show_years: bool,
     show_data_availability: bool,
 ) -> str:
+    """Get the URL for the REST API."""
     url = f"https://wetterdienst.eobs.org/api/stripes/values?kind={kind}"
     url += f"&station={station_id}"
     url += f"&start_year={start_year}" if start_year else ""

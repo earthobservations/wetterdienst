@@ -351,6 +351,9 @@ select = [
     "RUF",
     # flake8-logging-format
     "G",
+    # flake8-copyright
+    "CPY001",
+    "ALL"
 ]
 ignore = [
     # zip() without an explicit strict= parameter.
@@ -382,7 +385,7 @@ ignore = [
 unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/__init__.py" = ["F401"]
+"**/__init__.py" = ["F401", "D104"]
 "benchmarks/*" = ["T20"]
 "docs/conf.py" = ["ERA001"]
 "examples/*" = ["T20"]

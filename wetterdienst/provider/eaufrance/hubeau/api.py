@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Eaufrance Hubeau API."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -85,6 +87,8 @@ HubeauMetadata = build_metadata_model(HubeauMetadata, "HubeauMetadata")
 
 
 class HubeauValues(TimeseriesValues):
+    """Values class for Eaufrance Hubeau data."""
+
     _endpoint = (
         "https://hubeau.eaufrance.fr/api/v1/hydrometrie/observations_tr?code_entite={station_id}"
         "&grandeur_hydro={grandeur_hydro}&sort=asc&date_debut_obs={start_date}&date_fin_obs={end_date}"
@@ -97,11 +101,7 @@ class HubeauValues(TimeseriesValues):
     def _get_hubeau_dates(
         self, station_id: str, parameter: ParameterModel
     ) -> Iterator[tuple[dt.datetime, dt.datetime]]:
-        """
-        Method to get the Hubeau interval, which is roughly today - 30 days. We'll add another day on
-        each end as buffer.
-        :return:
-        """
+        """Get the dates for the Hubeau API request."""
         freq, freq_unit = self._get_dynamic_frequency(station_id, parameter)
         end = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
         start = end - dt.timedelta(days=30)
@@ -139,14 +139,9 @@ class HubeauValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: ParameterModel
     ) -> pl.DataFrame:
-        """
-        Method to collect data from Eaufrance Hubeau service. Requests are limited to 1000 units so eventually
-        multiple requests have to be sent to get all data.
+        """Collect data from Hubeau API.
 
-        :param station_id:
-        :param parameter:
-        :param dataset:
-        :return:
+        Requests are limited to 1000 units so eventually multiple requests have to be sent to get all data.
         """
         data = []
         for start_date, end_date in self._get_hubeau_dates(station_id=station_id, parameter=parameter_or_dataset):
@@ -198,6 +193,8 @@ class HubeauValues(TimeseriesValues):
 
 
 class HubeauRequest(TimeseriesRequest):
+    """Request class for Eaufrance Hubeau data."""
+
     metadata = HubeauMetadata
     _values = HubeauValues
 
@@ -210,6 +207,15 @@ class HubeauRequest(TimeseriesRequest):
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
+        """Initialize the HubeauRequest class.
+
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            settings: settings for the request
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,
@@ -218,10 +224,7 @@ class HubeauRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        """
-
-        :return:
-        """
+        """:return:"""
         log.info(f"Downloading file {self._endpoint}.")
         response = download_file(url=self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         data = json.load(response)["data"]

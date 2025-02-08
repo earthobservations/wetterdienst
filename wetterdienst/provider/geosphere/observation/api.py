@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Geosphere observation data provider."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -26,6 +28,8 @@ log = logging.getLogger(__name__)
 
 
 class GeosphereObservationValues(TimeseriesValues):
+    """Values class for geosphere observation data."""
+
     _endpoint = (
         "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}?"
         "parameters={parameters}&"
@@ -95,6 +99,8 @@ class GeosphereObservationValues(TimeseriesValues):
 
 
 class GeosphereObservationRequest(TimeseriesRequest):
+    """Request class for geosphere observation data."""
+
     metadata = GeosphereObservationMetadata
     _values = GeosphereObservationValues
 
@@ -107,6 +113,15 @@ class GeosphereObservationRequest(TimeseriesRequest):
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
+        """Initialize the GeosphereObservationRequest class.
+
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            settings: settings for the request
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,

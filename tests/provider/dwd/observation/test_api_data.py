@@ -172,7 +172,8 @@ def test_request_period_empty(default_settings: Settings) -> None:
 @pytest.mark.remote
 def test_dwd_observation_data_count_null_values(settings_drop_nulls_false_complete_true: Settings) -> None:
     """Test for DataFrame having empty values for dates where the station should not
-    have values"""
+    have values
+    """
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start_date="1933-12-27",  # few days before official start

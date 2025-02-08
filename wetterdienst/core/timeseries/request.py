@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Core for timeseries information of a source."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -66,17 +68,17 @@ _SETTINGS_TYPE = dict | Settings | None
 
 
 class TimeseriesRequest:
-    """Core for stations_result information of a source"""
+    """Core class for timeseries information of a source."""
 
     @property
     @abstractmethod
     def metadata(self) -> MetadataModel:
-        """metadata model"""
+        """Metadata class."""
 
     @property
     @abstractmethod
     def _values(self) -> TimeseriesValues:
-        """Class to get the values for a request"""
+        """Values class used for retrieving values."""
 
     # Columns that should be contained within any stations_result information
     _base_columns: ClassVar = (
@@ -102,11 +104,14 @@ class TimeseriesRequest:
 
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:
-        """
-        Dedicated method for parsing station ids, by default uses the same method as
-        parse_strings but could be modified by the implementation class
-        :param series:
-        :return:
+        """Parse station_id column to string.
+
+        Args:
+            series: Series containing station ids.
+
+        Returns:
+            pl.Series: Series with station ids as strings.
+
         """
         return series.cast(pl.String)
 
@@ -117,13 +122,14 @@ class TimeseriesRequest:
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
-        """
+        """Initialize a new TimeseriesRequest.
 
-        :param parameters: requested parameter(s)
-        :param resolution: requested resolution
-        :param period: requested period(s)
-        :param start_date: Start date for filtering stations_result for their available data
-        :param end_date:   End date for filtering stations_result for their available data
+        Args:
+            parameters: the parameters to request
+            start_date: the start date of the request
+            end_date: the end date of the request
+            settings: the settings for the request
+
         """
         settings = settings or Settings()
         self.settings = Settings.model_validate(settings)
@@ -171,6 +177,7 @@ class TimeseriesRequest:
         log.info(f"Processing request {self.__repr__()}")
 
     def __eq__(self, other: TimeseriesRequest) -> bool:
+        """Check if two TimeseriesRequest objects are equal."""
         if not isinstance(other, TimeseriesRequest):
             return False
 
@@ -182,19 +189,20 @@ class TimeseriesRequest:
         )
 
     @staticmethod
-    def convert_timestamps(
+    def convert_timestamps(  # noqa: C901
         start_date: _DATETIME_TYPE,
         end_date: _DATETIME_TYPE,
     ) -> tuple[None, None] | tuple[dt.datetime, dt.datetime]:
-        """
-        Sort out start_date vs. end_date, parse strings to datetime
-        objects and finally convert both to pd.Timestamp types.
+        """Convert timestamps to datetime objects.
 
-        :param start_date: Start date for filtering stations_result for their available data
-        :param end_date:   End date for filtering stations_result for their available data
-        :return:           pd.Timestamp objects tuple of (start_date, end_date)
-        """
+        Args:
+            start_date: Start date of the request.
+            end_date: End date of the request.
 
+        Returns:
+            tuple[None, None] | tuple[dt.datetime, dt.datetime]: Start and end date of the request.
+
+        """
         if start_date is None and end_date is None:
             return None, None
 
@@ -225,12 +233,21 @@ class TimeseriesRequest:
         return start_date, end_date
 
     @classmethod
-    def discover(
+    def discover(  # noqa: C901
         cls,
         resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] = None,
         datasets: str | DatasetModel | Sequence[str | DatasetModel] = None,
     ) -> dict:
-        """Function to print/discover available parameters"""
+        """Discover metadata for the given resolutions and datasets.
+
+        Args:
+            resolutions: Resolutions to discover metadata for.
+            datasets: Datasets to discover metadata for.
+
+        Returns:
+            dict: Metadata for the given resolutions and datasets.
+
+        """
         if not resolutions:
             resolutions = []
         resolution_strings = []
@@ -280,12 +297,7 @@ class TimeseriesRequest:
 
     @staticmethod
     def _coerce_meta_fields(df: pl.DataFrame) -> pl.DataFrame:
-        """
-        Method for metadata column coercion.
-
-        :param df: DataFrame with columns as strings
-        :return: DataFrame with columns coerced to date etc.
-        """
+        """Coerce metadata fields to the correct types."""
         return df.with_columns(
             pl.col(Columns.STATION_ID.value).cast(pl.String),
             pl.col(Columns.HEIGHT.value).cast(pl.Float64),
@@ -299,18 +311,19 @@ class TimeseriesRequest:
 
     @abstractmethod
     def _all(self) -> pl.LazyFrame:
-        """
-        Abstract method for gathering of sites information for a given implementation.
-        Information consist of a DataFrame with station ids, location, name, etc
+        """Implement this method to get all stations.
 
-        :return: pandas.DataFrame with the information of different available sites
+        Returns:
+            pl.LazyFrame: All stations.
+
         """
 
     def all(self) -> StationsResult:
-        """
-        Wraps the _all method and applies date filters.
+        """Get all stations.
 
-        :return: pandas.DataFrame with the information of different available stations_result
+        Returns:
+            StationsResult: All stations.
+
         """
         df = self._all()
 
@@ -331,11 +344,14 @@ class TimeseriesRequest:
         )
 
     def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
-        """
-        Method to filter stations_result by station ids
+        """Filter stations by station_id.
 
-        :param station_id: list of stations_result that are requested
-        :return: df with filtered stations_result
+        Args:
+            station_id: Station id or list of station ids.
+
+        Returns:
+            StationsResult: Filtered stations.
+
         """
         df = self.all().df
 
@@ -353,13 +369,16 @@ class TimeseriesRequest:
         )
 
     def filter_by_name(self, name: str, rank: int = 1, threshold: float = 0.9) -> StationsResult:
-        """
-        Method to filter stations_result for station name using string comparison.
+        """Filter stations by name.
 
-        :param name: name of looked up station
-        :param rank: number of stations requested
-        :param threshold: threshold for string match 0.0...1.0
-        :return: df with matched station
+        Args:
+            name: Name of the station.
+            rank: Number of stations requested.
+            threshold: Threshold for the fuzzy search.
+
+        Returns:
+            StationsResult: Filtered stations.
+
         """
         rank = int(rank)
         if rank <= 0:
@@ -402,13 +421,17 @@ class TimeseriesRequest:
         latlon: tuple[float, float],
         rank: int,
     ) -> StationsResult:
-        """
-        Wrapper for get_nearby_stations_by_number using the given parameter set. Returns
-        the nearest stations_result defined by number.
+        """Filter stations by rank.
 
-        :param latlon: tuple of latitude and longitude for queried point
-        :param rank: number of stations_result to be returned, greater 0
-        :return: pandas.DataFrame with station information for the selected stations_result
+        Rank is defined by distance to the requested point.
+
+        Args:
+            latlon: Latitude and longitude for the requested point.
+            rank: Number of stations requested.
+
+        Returns:
+            StationsResult: Filtered stations.
+
         """
         from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
@@ -444,14 +467,16 @@ class TimeseriesRequest:
         )
 
     def filter_by_distance(self, latlon: tuple[float, float], distance: float, unit: str = "km") -> StationsResult:
-        """
-        Wrapper for get_nearby_stations_by_distance using the given parameter set.
-        Returns the nearest stations_result defined by distance (km).
+        """Filter stations by distance.
 
-        :param latlon: tuple of latitude and longitude for queried point
-        :param distance: distance (km) for which stations_result will be selected
-        :param unit: unit string for conversion
-        :return: pandas.DataFrame with station information for the selected stations_result
+        Args:
+            latlon: Latitude and longitude for the requested point.
+            distance: Maximum distance to the requested point.
+            unit: Unit of the distance.
+
+        Returns:
+            StationsResult: Filtered stations.
+
         """
         distance = float(distance)
 
@@ -483,14 +508,17 @@ class TimeseriesRequest:
         )
 
     def filter_by_bbox(self, left: float, bottom: float, right: float, top: float) -> StationsResult:
-        """
-        Method to filter stations_result by bounding box.
+        """Filter stations by bounding box.
 
-        :param bottom: bottom latitude as float
-        :param left: left longitude as float
-        :param top: top latitude as float
-        :param right: right longitude as float
-        :return: df with stations_result in bounding box
+        Args:
+            left: Left border of the bounding box.
+            bottom: Bottom border of the bounding box.
+            right: Right border of the bounding box.
+            top: Top border of the bounding box.
+
+        Returns:
+            StationsResult: Filtered stations.
+
         """
         left, bottom, right, top = float(left), float(bottom), float(right), float(top)
 
@@ -515,10 +543,14 @@ class TimeseriesRequest:
         return StationsResult(stations=self, df=df, df_all=self.all().df, stations_filter=StationsFilter.BY_BBOX)
 
     def filter_by_sql(self, sql: str) -> StationsResult:
-        """
-        Method to filter stations by sql query
-        :param sql: SQL WHERE clause for filtering e.g. "name = 'Berlin'"
-        :return: df with stations filtered by sql
+        """Filter stations by SQL query.
+
+        Args:
+            sql: SQL query to filter stations by.
+
+        Returns:
+            StationsResult: Filtered stations.
+
         """
         import duckdb
 
@@ -538,13 +570,17 @@ class TimeseriesRequest:
         return StationsResult(stations=self, df=df, df_all=self.all().df, stations_filter=StationsFilter.BY_SQL)
 
     def interpolate(self, latlon: tuple[float, float]) -> InterpolatedValuesResult:
-        """
-        Method to interpolate values
+        """Interpolate values across multiple stations.
 
-        :param latlon: tuple of latitude and longitude for queried point
-        :return: interpolated values
-        """
+        Interpolation means we interpolate the values of the closest available stations to the requested point.
 
+        Args:
+            latlon: Latitude and longitude for the requested point.
+
+        Returns:
+            InterpolatedValuesResult: Interpolated values.
+
+        """
         from wetterdienst.core.timeseries.interpolate import get_interpolated_df
 
         if not self.start_date:
@@ -585,20 +621,14 @@ class TimeseriesRequest:
         return InterpolatedValuesResult(df=df_interpolated, stations=stations_result, latlon=latlon)
 
     def interpolate_by_station_id(self, station_id: str) -> InterpolatedValuesResult:
-        """
-        Wrapper around .interpolate that uses station_id instead, for which latlon is determined by station list.
-        :param station_id:
-        :return:
-        """
+        """Use .interpolate with station_id instead of latlon."""
         latlon = self._get_latlon_by_station_id(station_id)
         return self.interpolate(latlon=latlon)
 
     def summarize(self, latlon: tuple[float, float]) -> SummarizedValuesResult:
-        """
-        Method to interpolate values
+        """Summarize values across multiple stations.
 
-        :param latlon: tuple of latitude and longitude for queried point
-        :return:
+        Summarize means we take any available data of the closest station as representative for the timestamp.
         """
         from wetterdienst.core.timeseries.summarize import get_summarized_df
 
@@ -639,20 +669,15 @@ class TimeseriesRequest:
         return SummarizedValuesResult(df=summarized_values, stations=stations_result, latlon=latlon)
 
     def summarize_by_station_id(self, station_id: str) -> SummarizedValuesResult:
-        """
-        Wrapper around .summarize that uses station_id instead, for which latlon is determined by station list.
-        :param station_id: station id
-        :return:
-        """
+        """Use .summarize with station_id instead of latlon."""
         latlon = self._get_latlon_by_station_id(station_id)
         return self.summarize(latlon=latlon)
 
     def _get_latlon_by_station_id(self, station_id: str) -> tuple[float, float]:
-        """
-        Method to parse latlon for methods .summary/.interpolate. Typically, we expect a latlon tuple of floats, but
+        """Get latlon for a station_id.
+
+        Used for .summary/.interpolate. Typically, we expect a latlon tuple of floats, but
         we want users to be able to request for a station id as well.
-        :param latlon: either tuple of two floats or station id
-        :return: tuple of latlon
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         stations = self.all().df
@@ -670,9 +695,8 @@ class TimeseriesRequest:
 
     @staticmethod
     def _create_station_id_from_string(string: str) -> str:
-        """
-        Method to create station id from string, used for interpolation and summarization data
-        :param string: string to create station id from
-        :return: station id
+        """Create station id from string.
+
+        Used for interpolation and summarization data
         """
         return sha256(string.encode("utf-8")).hexdigest()[:8]

@@ -1,5 +1,7 @@
-# Copyright (c) 2018-2022, earthobservations developers.
+# Copyright (c) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""DWD road weather data provider."""
+
 from __future__ import annotations
 
 import logging
@@ -149,9 +151,7 @@ DwdRoadMetadata = build_metadata_model(DwdRoadMetadata, "DwdRoadMetadata")
 
 
 class DwdRoadStationGroup(Enum):
-    """
-    enumeration for road weather subset groups
-    """
+    """Enumeration of DWD road weather station groups."""
 
     DD = "DD"
     DF = "DF"
@@ -191,19 +191,20 @@ TEMPORARILY_UNAVAILABLE_STATION_GROUPS = [
 
 
 class DwdRoadValues(TimeseriesValues):
-    """
-    The DwdRoadValues class represents a request for
-    observation data from road weather stations as provided by the DWD service.
-    """
+    """Values class for DWD road weather data."""
 
     def __init__(self, stations_result: StationsResult) -> None:
+        """Initialize the DwdRoadValues class.
+
+        First, check if the pdbufr library is available. If not, raise an ImportError.
+        """
         check_pdbufr()
         super().__init__(stations_result)
 
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
-        """Takes station_name to download and parse RoadWeather Station data"""
+        """Collect data from DWD Road Weather stations."""
         station_group = (
             self.sr.df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
             .get_column(Columns.STATION_GROUP.value)
@@ -221,9 +222,7 @@ class DwdRoadValues(TimeseriesValues):
         self,
         road_weather_station_group: DwdRoadStationGroup,
     ) -> pl.DataFrame:
-        """
-        Creates a file_index DataFrame from RoadWeather Station directory
-        """
+        """Create a file index for DWD Road Weather stations."""
         files = list_remote_files_fsspec(
             reduce(
                 urljoin,
@@ -253,17 +252,7 @@ class DwdRoadValues(TimeseriesValues):
         road_weather_station_group: DwdRoadStationGroup,
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
-        """
-        Method to collect data for one specified parameter. Manages restoring,
-        collection and storing of data, transformation and combination of different
-        periods.
-
-        Args:
-            road_weather_station_group: subset id for which parameter is collected
-
-        Returns:
-            pandas.DataFrame for given parameter of station
-        """
+        """Collect data from DWD Road Weather stations."""
         remote_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
         if self.sr.start_date:
             remote_files = remote_files.filter(
@@ -275,10 +264,7 @@ class DwdRoadValues(TimeseriesValues):
 
     @staticmethod
     def _download_road_weather_observations(remote_files: list[str], settings: Settings) -> list[tuple[str, BytesIO]]:
-        """
-        :param remote_files:    List of requested files
-        :return:                List of downloaded files
-        """
+        """Download the road weather station data from a given file and returns a DataFrame."""
         log.info(f"Downloading {len(remote_files)} files from DWD Road Weather.")
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
@@ -293,18 +279,7 @@ class DwdRoadValues(TimeseriesValues):
         filenames_and_files: list[tuple[str, BytesIO]],
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
-        """
-        This function is used to read the road weather station data from given bytes object.
-        The filename is required to defined if and where an error happened.
-
-        Args:
-            filenames_and_files: list of tuples of a filename and its local stored file
-            that should be read
-
-        Returns:
-            pandas.DataFrame with requested data, for different station ids the data is
-            still put into one DataFrame
-        """
+        """Parse the road weather station data from a given file and returns a DataFrame."""
         return pl.concat(
             [
                 self.__parse_dwd_road_weather_data(filename_and_file, parameters)
@@ -316,18 +291,7 @@ class DwdRoadValues(TimeseriesValues):
     def __parse_dwd_road_weather_data(
         filename_and_file: tuple[str, BytesIO], parameters: list[ParameterModel]
     ) -> pl.DataFrame:
-        """
-        A wrapping function that only handles data for one station id. The files passed to
-        it are thus related to this id. This is important for storing the data locally as
-        the DataFrame that is stored should obviously only handle one station at a time.
-        Args:
-            filename_and_file: the files belonging to one station
-            resolution: enumeration of time resolution used to correctly parse the
-            date field
-        Returns:
-            pandas.DataFrame with data from that station, acn be empty if no data is
-            provided or local file is not found or has no data in it
-        """
+        """Read the road weather station data from a given file and returns a DataFrame."""
         import pdbufr
 
         _, file = filename_and_file
@@ -383,6 +347,8 @@ class DwdRoadValues(TimeseriesValues):
 
 
 class DwdRoadRequest(TimeseriesRequest):
+    """Request class for DWD road weather data."""
+
     metadata = DwdRoadMetadata
     _values = DwdRoadValues
 
@@ -438,6 +404,15 @@ class DwdRoadRequest(TimeseriesRequest):
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
+        """Initialize the DwdRoadRequest class.
+
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            settings: settings for the request
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,

@@ -1,14 +1,14 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-Parse description PDF files from DWD CDC server.
+"""Parse description PDF files from DWD CDC server.
+
 Derived from https://gist.github.com/amotl/ffc9d4b864660c93bed53d59547a5fce.
 
-Setup::
+Setup:
 
     pip install PyPDF2 tabulate
 
-Synopsis::
+Synopsis:
 
     python dwd_description_pdf.py
 """
@@ -23,6 +23,7 @@ from wetterdienst.util.pdf import read_pdf
 
 
 def parse_section(text: str, headline: str) -> str:
+    """Parse a section from a DWD climate data set description."""
     capture = False
     buffer = StringIO()
     for line in text.split("\n"):
@@ -37,6 +38,7 @@ def parse_section(text: str, headline: str) -> str:
 
 
 def parse_parameters(text: str) -> dict:
+    """Parse the parameters section of a DWD climate data set description."""
     data = {}
     parameter = None
     capture = False
@@ -71,6 +73,7 @@ def parse_parameters(text: str) -> dict:
 
 
 def read_description(url: str, language: str = "en") -> dict:
+    """Read the description of a DWD climate data set from a PDF file."""
     if language == "en":
         sections = {
             "parameters": "csv content description",
@@ -100,7 +103,8 @@ def read_description(url: str, language: str = "en") -> dict:
     return data
 
 
-def process(url: str) -> None:  # pragma: no cover
+def process(url: str) -> None:
+    """Process a DWD climate data set description."""
     parameters = read_description(url)
 
     # Output as JSON.

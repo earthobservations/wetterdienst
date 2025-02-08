@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Helper functions for polars DataFrames."""
+
 from __future__ import annotations
 
 import polars as pl

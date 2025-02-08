@@ -1,5 +1,6 @@
 """This example shows how to compare forecast data of the mosmix model with observation data. The mosmix model is
-a numerical weather prediction model of the DWD. The observation data is provided by the DWD as well."""
+a numerical weather prediction model of the DWD. The observation data is provided by the DWD as well.
+"""
 
 import datetime as dt
 from zoneinfo import ZoneInfo

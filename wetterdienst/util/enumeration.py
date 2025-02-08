@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Enumeration utilities for the wetterdienst package."""
+
 from __future__ import annotations
 
 import contextlib
@@ -11,21 +13,21 @@ if TYPE_CHECKING:
     from enum import Enum
 
 
-def parse_enumeration_from_template(
+def parse_enumeration_from_template(  # noqa: C901
     enum_: str | Enum,
     intermediate: type[Enum],
     base: type[Enum] | None = None,
 ) -> Enum | None:
-    """
-    Function used to parse an enumeration(string) to a enumeration based on a template
+    """Parse an enumeration from a template.
 
-    :param enum_:           Enumeration as string or Enum
-    :param intermediate:    intermediate enumeration from which the enumeration is
-                            parsed
-    :param base:            base enumeration to which the intermediate one is casted
+    Args:
+        enum_: the enumeration to parse
+        intermediate: the intermediate enumeration
+        base: the base enumeration
 
-    :return:                Parsed enumeration from template
-    :raises InvalidEnumerationError: if no matching enumeration found
+    Returns:
+        the parsed enumeration or None
+
     """
     if enum_ is None:
         return None

@@ -17,10 +17,7 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 def test_radar_request_composite_latest_rv_reflectivity(
     default_settings: Settings, station_reference_pattern_sorted_prefixed: str
 ) -> None:
-    """
-    Example for testing radar COMPOSITES latest.
-    """
-
+    """Example for testing radar COMPOSITES latest."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RV_REFLECTIVITY,
         start_date=DwdRadarDate.LATEST,
@@ -40,10 +37,7 @@ def test_radar_request_composite_latest_rv_reflectivity(
 
 @pytest.mark.remote
 def test_radar_request_composite_latest_rw_reflectivity(default_settings: Settings, radar_locations: list[str]) -> None:
-    """
-    Example for testing radar COMPOSITES (RADOLAN) latest.
-    """
-
+    """Example for testing radar COMPOSITES (RADOLAN) latest."""
     wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
@@ -89,10 +83,7 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings: Settin
 
 @pytest.mark.remote
 def test_radar_request_site_latest_dx_reflectivity(default_settings: Settings) -> None:
-    """
-    Example for testing radar SITES latest.
-    """
-
+    """Example for testing radar SITES latest."""
     wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(

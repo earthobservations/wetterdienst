@@ -1,14 +1,13 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
+"""=====
 About
 =====
 
 Example for DWD radar sites data in OPERA HDF5 (ODIM_H5) format using wetterdienst and wradlib. # noqa
 Derived from https://gist.github.com/kmuehlbauer/ac990569e6ad38a49412fc74a2035c37.
 
-See also:
+See Also:
 - https://docs.openradarscience.org/projects/xradar/en/stable/notebooks/ODIM_H5.html # noqa
 
 This program will request the most recent complete SWEEP_VOL data
@@ -53,7 +52,6 @@ def plot(data: xr.Dataset) -> None:
 
 def radar_scan_volume() -> None:
     """Retrieve radar sweep volume velocity h from site ESS in format HDF5 as subset polarimetric."""
-
     ed = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
     end_date = dt.datetime(ed.year, ed.month, ed.day, ed.hour, (ed.minute // 5) * 5, tzinfo=ZoneInfo("UTC"))
     start_date = end_date - dt.timedelta(minutes=5)

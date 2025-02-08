@@ -1,7 +1,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
+"""=====
 About
 =====
 
@@ -10,7 +9,7 @@ Example for DWD radar sites DX using wetterdienst and wradlib.
 The German Weather Service uses the DX file format to encode
 local radar sweeps. DX data are in polar coordinates.
 
-See also:
+See Also:
 - https://docs.wradlib.org/en/stable/notebooks/fileio/legacy/read_dx.html
 
 This program will request the latest RADAR DX data

@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""IMGW meteorology data provider."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -405,6 +407,8 @@ ImgwMeteorologyMetadata = build_metadata_model(ImgwMeteorologyMetadata, "ImgwMet
 
 
 class ImgwMeteorologyValues(TimeseriesValues):
+    """Values for the meteorological data from the Institute of Meteorology and Water Management."""
+
     _endpoint = (
         "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/{resolution}/{dataset}/"
     )
@@ -546,13 +550,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
-        """
-
-        :param station_id:
-        :param parameter:
-        :param dataset:
-        :return:
-        """
+        """Collect data for the given station and dataset."""
         urls = self._get_urls(parameter_or_dataset)
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
@@ -585,13 +583,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
     def _parse_file(
         self, file_in_bytes: bytes, station_id: str, resolution: Resolution, file_schema: dict
     ) -> pl.DataFrame:
-        """Function to parse meteorological zip file, parses all files and combines
-        them
-
-        :param file_in_bytes:
-        :param file_schema:
-        :return:
-        """
+        """Parse the meteorological zip file."""
         zfs = ZipFileSystem(file_in_bytes)
         data = []
         files = zfs.glob("*")
@@ -614,11 +606,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
 
     @staticmethod
     def __parse_file(file: bytes, station_id: str, resolution: Resolution, schema: dict) -> pl.DataFrame:
-        """Function to parse a single file out of the zip file
-
-        :param file:
-        :return:
-        """
+        """Parse a single file from the meteorological zip file."""
         df = pl.read_csv(file, encoding="latin-1", separator=",", has_header=False, infer_schema_length=0)
         df = df.select(list(schema.keys())).rename(schema)
         df = df.with_columns(pl.col("station_id").str.strip_chars())
@@ -636,11 +624,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         return df.with_columns(pl.col("value").cast(pl.Float64))
 
     def _get_urls(self, dataset: DatasetModel) -> pl.Series:
-        """Get file urls from server
-
-        :param dataset: dataset for which the filelist is retrieved
-        :return:
-        """
+        """Get URLs for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         files = list_remote_files_fsspec(url, self.sr.settings)
         df_files = pl.DataFrame({"url": files})
@@ -714,6 +698,8 @@ class ImgwMeteorologyValues(TimeseriesValues):
 
 
 class ImgwMeteorologyRequest(TimeseriesRequest):
+    """Request for meteorological data from the Institute of Meteorology and Water Management."""
+
     metadata = ImgwMeteorologyMetadata
     _values = ImgwMeteorologyValues
     _endpoint = "https://dane.imgw.pl/datastore/getfiledown/Arch/Telemetria/Meteo/kody_stacji.csv"
@@ -725,6 +711,15 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
+        """Initialize the request.
+
+        Args:
+            parameters: requested parameters
+            start_date: start date
+            end_date: end date
+            settings: settings
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,
@@ -733,10 +728,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        """
-
-        :return:
-        """
+        """:return:"""
         payload = download_file(self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         df = pl.read_csv(payload, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
         df = df[:, 1:]

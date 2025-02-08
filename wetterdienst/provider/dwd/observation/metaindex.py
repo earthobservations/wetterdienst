@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Metadata for DWD climate observations."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -57,11 +59,7 @@ def create_meta_index_for_climate_observations(
     period: Period,
     settings: Settings,
 ) -> pl.LazyFrame:
-    """
-    Wrapper function that either calls the regular meta index function for general
-    parameters or the special function for 1minute precipitation historical where meta
-    index is created in a more complex way.
-    """
+    """Create metadata DataFrame for climate observations."""
     cond1 = dataset == DwdObservationMetadata["minute_1"]["precipitation"] and period == Period.HISTORICAL
     cond2 = dataset == DwdObservationMetadata["subdaily"]["wind_extreme"]
     cond3 = dataset in DWD_URBAN_DATASETS
@@ -101,9 +99,7 @@ def _create_meta_index_for_climate_observations(
     period: Period,
     settings: Settings,
 ) -> pl.LazyFrame:
-    """Function used to create meta index DataFrame parsed from the text files that are
-    located in each data section of the station data directory of the weather service.
-    """
+    """Create metadata DataFrame for climate observations."""
     url = _build_url_from_dataset_and_period(dataset, period)
     df_files = _create_file_index_for_dwd_server(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     # TODO: remove workaround once station list at https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/historical/2022/ is removed  # noqa: E501
@@ -122,10 +118,7 @@ def _create_meta_index_for_climate_observations(
 
 
 def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
-    """Read metadata into DataFrame
-    :param file: metadata file loaded in bytes
-    :return: DataFrame with Stations
-    """
+    """Read meta file into DataFrame."""
     lines = file.readlines()[2:]
     first = lines[0].decode("latin-1")
     if first.startswith("SP"):
@@ -143,9 +136,10 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
 
 
 def _create_csv_line(columns: list[str]) -> str:
-    """Each column is typically separated by a whitespace and has 7 columns.
-    If it has more than 7 columns, the columns from second last column and previous columns are joined together so that
-    there's only 7 columns in the line.
+    """Create a CSV line from a list of columns.
+
+    The length of the columns list is checked and if it is greater than 8, the station name is
+    concatenated from the last columns and the columns are adjusted accordingly.
     """
     num_columns = len(columns)
     if num_columns > 8:
@@ -162,11 +156,7 @@ def _create_csv_line(columns: list[str]) -> str:
 
 
 def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Settings) -> pl.LazyFrame:
-    """Create metadata DataFrame for subdaily wind extreme
-
-    :param period: period for which metadata is acquired
-    :return: pandas.DataFrame with combined information for both 3hourly (fx3) and 6hourly (fx6) wind extremes
-    """
+    """Create metadata DataFrame for subdaily wind extreme."""
     dataset = DwdObservationMetadata.subdaily.wind_extreme
     url = _build_url_from_dataset_and_period(dataset, period)
     df_files = _create_file_index_for_dwd_server(url, settings, CacheExpiry.TWELVE_HOURS)
@@ -195,15 +185,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
 
 
 def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) -> pl.LazyFrame:
-    """
-    A helping function to create a raw index of metadata for stations_result of the set of
-    parameters as given. This raw metadata is then used by other functions. This
-    second/alternative function must be used for high resolution data, where the
-    metadata is not available as file but instead saved in external files per each
-    station.
-    - especially for precipitation/1_minute/historical!
-
-    """
+    """Create metadata DataFrame for 1minute precipitation historical."""
     url = (
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/meta_data/"
     )
@@ -239,11 +221,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
 
 
 def _parse_geo_metadata(metadata_file_and_station_id: tuple[BytesIO, str]) -> pl.LazyFrame:
-    """A function that analysis the given file (bytes) and extracts geography of
-    1minute metadata zip and catches the relevant information and create a similar file
-    to those that can usually be found already prepared for other
-    parameter combinations.
-    """
+    """Parse metadata file into DataFrame."""
     metadata_file, station_id = metadata_file_and_station_id
     zfs = ZipFileSystem(metadata_file, mode="r")
     file = zfs.open(f"Metadaten_Geographie_{station_id}.txt").read()
@@ -265,10 +243,7 @@ def _parse_geo_metadata(metadata_file_and_station_id: tuple[BytesIO, str]) -> pl
 
 
 def _parse_zipped_data_into_df(file: bytes) -> pl.LazyFrame:
-    """A wrapper for read_csv of pandas library that has set the typically used
-    parameters in the found data of the
-    german weather service.
-    """
+    """Parse zipped data into DataFrame."""
     try:
         file_decoded = file.decode("utf-8")
     except UnicodeDecodeError:

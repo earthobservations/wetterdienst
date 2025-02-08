@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for the REST API."""
+
 import json
 
 import pytest
@@ -11,6 +13,7 @@ from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 
 @pytest.fixture
 def client() -> TestClient:
+    """Create test client."""
     from fastapi.testclient import TestClient
 
     from wetterdienst.ui.restapi import app
@@ -19,6 +22,7 @@ def client() -> TestClient:
 
 
 def test_index(client: TestClient) -> None:
+    """Test index."""
     response = client.get("/")
     assert response.status_code == 200
     assert "wetterdienst - open weather data for humans" in response.text
@@ -26,16 +30,19 @@ def test_index(client: TestClient) -> None:
 
 @pytest.mark.parametrize("url", REQUEST_EXAMPLES.values())
 def test_index_examples(client: TestClient, url: str) -> None:
+    """Test index examples."""
     response = client.get(url)
     assert response.status_code == 200
 
 
 def test_robots(client: TestClient) -> None:
+    """Test robots.txt."""
     response = client.get("/robots.txt")
     assert response.status_code == 200
 
 
 def test_health(client: TestClient) -> None:
+    """Test health."""
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "OK"}
@@ -43,6 +50,7 @@ def test_health(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_coverage(client: TestClient) -> None:
+    """Test coverage."""
     response = client.get(
         "/api/coverage",
     )
@@ -65,6 +73,7 @@ def test_coverage(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_coverage_dwd_observation(client: TestClient) -> None:
+    """Test DWD observation."""
     response = client.get(
         "/api/coverage",
         params={
@@ -88,6 +97,7 @@ def test_coverage_dwd_observation(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_coverage_dwd_observation_resolution_1_minute(client: TestClient) -> None:
+    """Test resolution 1 minute."""
     response = client.get(
         "/api/coverage",
         params={
@@ -103,6 +113,7 @@ def test_coverage_dwd_observation_resolution_1_minute(client: TestClient) -> Non
 
 @pytest.mark.remote
 def test_coverage_dwd_observation_dataset_climate_summary(client: TestClient) -> None:
+    """Test dataset climate_summary."""
     response = client.get(
         "/api/coverage",
         params={
@@ -121,6 +132,7 @@ def test_coverage_dwd_observation_dataset_climate_summary(client: TestClient) ->
 
 @pytest.mark.remote
 def test_coverage_wrong_only_provider_given(client: TestClient) -> None:
+    """Test wrong request."""
     response = client.get(
         "/api/coverage",
         params={
@@ -135,6 +147,7 @@ def test_coverage_wrong_only_provider_given(client: TestClient) -> None:
 
 
 def test_stations_no_provider(client: TestClient) -> None:
+    """Test no provider given."""
     response = client.get(
         "/api/stations",
         params={
@@ -150,6 +163,7 @@ def test_stations_no_provider(client: TestClient) -> None:
 
 
 def test_stations_no_network(client: TestClient) -> None:
+    """Test no network given."""
     response = client.get(
         "/api/stations",
         params={
@@ -165,6 +179,7 @@ def test_stations_no_network(client: TestClient) -> None:
 
 
 def test_stations_wrong_format(client: TestClient) -> None:
+    """Test wrong format."""
     response = client.get(
         "/api/stations",
         params={
@@ -185,6 +200,7 @@ def test_stations_wrong_format(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stations_dwd_basic(client: TestClient) -> None:
+    """Test basic request."""
     response = client.get(
         "/api/stations",
         params={
@@ -211,6 +227,7 @@ def test_stations_dwd_basic(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stations_dwd_geo(client: TestClient) -> None:
+    """Test geojson format."""
     response = client.get(
         "/api/stations",
         params={
@@ -239,6 +256,7 @@ def test_stations_dwd_geo(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stations_dwd_sql(client: TestClient) -> None:
+    """Test SQL query."""
     response = client.get(
         "/api/stations",
         params={
@@ -274,6 +292,7 @@ def test_stations_dwd_sql(client: TestClient) -> None:
     ],
 )
 def test_stations_dwd_obs_image(client: TestClient, fmt: str) -> None:
+    """Test image formats."""
     response = client.get(
         "/api/stations",
         params={
@@ -291,6 +310,7 @@ def test_stations_dwd_obs_image(client: TestClient, fmt: str) -> None:
 
 @pytest.mark.remote
 def test_stations_dwd_obs_image_html(client: TestClient) -> None:
+    """Test HTML format."""
     response = client.get(
         "/api/stations",
         params={
@@ -308,6 +328,7 @@ def test_stations_dwd_obs_image_html(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stations_dwd_obs_image_pdf(client: TestClient) -> None:
+    """Test PDF format."""
     response = client.get(
         "/api/stations",
         params={
@@ -325,6 +346,7 @@ def test_stations_dwd_obs_image_pdf(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stations_dwd_obs_image_png_custom_settings(client: TestClient) -> None:
+    """Test custom settings."""
     response = client.get(
         "/api/stations",
         params={
@@ -345,6 +367,7 @@ def test_stations_dwd_obs_image_png_custom_settings(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stations_dwd_obs_image_png_wrong_settings(client: TestClient) -> None:
+    """Test wrong settings."""
     response = client.get(
         "/api/stations",
         params={
@@ -364,6 +387,7 @@ def test_stations_dwd_obs_image_png_wrong_settings(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_values_dwd_success(client: TestClient) -> None:
+    """Test values."""
     response = client.get(
         "/api/values",
         params={
@@ -388,6 +412,7 @@ def test_values_dwd_success(client: TestClient) -> None:
 
 
 def test_values_dwd_no_station(client: TestClient) -> None:
+    """Test no station given."""
     response = client.get(
         "/api/values",
         params={
@@ -409,6 +434,7 @@ def test_values_dwd_no_station(client: TestClient) -> None:
 @pytest.mark.remote
 @pytest.mark.sql
 def test_values_dwd_sql_tabular(client: TestClient) -> None:
+    """Test tabular format."""
     response = client.get(
         "/api/values",
         params={
@@ -465,6 +491,7 @@ def test_values_dwd_sql_tabular(client: TestClient) -> None:
 @pytest.mark.remote
 @pytest.mark.sql
 def test_values_dwd_sql_long(client: TestClient) -> None:
+    """Test long format."""
     response = client.get(
         "/api/values",
         params={
@@ -491,6 +518,7 @@ def test_values_dwd_sql_long(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_interpolate_dwd(client: TestClient) -> None:
+    """Test interpolation."""
     response = client.get(
         "/api/interpolate",
         params={
@@ -526,6 +554,7 @@ def test_interpolate_dwd(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_interpolate_dwd_lower_interpolation_distance(client: TestClient) -> None:
+    """Test interpolation with lower distance."""
     response = client.get(
         "/api/interpolate",
         params={
@@ -562,6 +591,7 @@ def test_interpolate_dwd_lower_interpolation_distance(client: TestClient) -> Non
 
 @pytest.mark.remote
 def test_interpolate_dwd_dont_use_nearby_station(client: TestClient) -> None:
+    """Test not using nearby stations."""
     response = client.get(
         "/api/interpolate",
         params={
@@ -598,6 +628,7 @@ def test_interpolate_dwd_dont_use_nearby_station(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
+    """Test custom unit targets."""
     unit_targets = {
         "temperature": "degree_fahrenheit",
     }
@@ -646,6 +677,7 @@ def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
     ],
 )
 def test_interpolate_dwd_image(client: TestClient, fmt: str) -> None:
+    """Test image formats."""
     response = client.get(
         "/api/interpolate",
         params={
@@ -664,6 +696,7 @@ def test_interpolate_dwd_image(client: TestClient, fmt: str) -> None:
 
 @pytest.mark.remote
 def test_interpolate_dwd_image_html(client: TestClient) -> None:
+    """Test HTML format."""
     response = client.get(
         "/api/interpolate",
         params={
@@ -682,6 +715,7 @@ def test_interpolate_dwd_image_html(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_interpolate_dwd_image_pdf(client: TestClient) -> None:
+    """Test PDF format."""
     response = client.get(
         "/api/interpolate",
         params={
@@ -700,6 +734,7 @@ def test_interpolate_dwd_image_pdf(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_summarize_dwd(client: TestClient) -> None:
+    """Test summarize."""
     response = client.get(
         "/api/summarize",
         params={
@@ -735,6 +770,7 @@ def test_summarize_dwd(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_summarize_dwd_custom_unit(client: TestClient) -> None:
+    """Test custom unit."""
     unit_targets = {
         "temperature": "degree_fahrenheit",
     }
@@ -783,6 +819,7 @@ def test_summarize_dwd_custom_unit(client: TestClient) -> None:
     ],
 )
 def test_summarize_dwd_image(client: TestClient, fmt: str) -> None:
+    """Test image formats."""
     response = client.get(
         "/api/summarize",
         params={
@@ -801,6 +838,7 @@ def test_summarize_dwd_image(client: TestClient, fmt: str) -> None:
 
 @pytest.mark.remote
 def test_summarize_dwd_image_html(client: TestClient) -> None:
+    """Test HTML format."""
     response = client.get(
         "/api/summarize",
         params={
@@ -819,6 +857,7 @@ def test_summarize_dwd_image_html(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_summarize_dwd_image_pdf(client: TestClient) -> None:
+    """Test PDF format."""
     response = client.get(
         "/api/summarize",
         params={
@@ -837,6 +876,7 @@ def test_summarize_dwd_image_pdf(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_values_missing_null(client: TestClient) -> None:
+    """Test missing values."""
     response = client.get(
         "/api/values",
         params={
@@ -852,6 +892,7 @@ def test_values_missing_null(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_values_missing_empty(client: TestClient) -> None:
+    """Test missing values."""
     response = client.get(
         "/api/values",
         params={
@@ -868,6 +909,7 @@ def test_values_missing_empty(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stations_missing_null(client: TestClient) -> None:
+    """Test missing values."""
     response = client.get(
         "/api/stations",
         params={
@@ -894,6 +936,7 @@ def test_stations_missing_null(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_values_dwd_mosmix(client: TestClient) -> None:
+    """Test MOSMIX."""
     response = client.get(
         "/api/values",
         params={
@@ -917,6 +960,7 @@ def test_values_dwd_mosmix(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_values_dwd_dmo_lead_time_long(client: TestClient) -> None:
+    """Test lead time long."""
     response = client.get(
         "/api/values",
         params={
@@ -941,6 +985,7 @@ def test_values_dwd_dmo_lead_time_long(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_values_dwd_observation_climate_summary_custom_units(client: TestClient) -> None:
+    """Test custom units."""
     unit_targets = {
         "temperature": "degree_fahrenheit",
     }
@@ -978,6 +1023,7 @@ def test_values_dwd_observation_climate_summary_custom_units(client: TestClient)
     ],
 )
 def test_values_dwd_observation_climate_summary_image(client: TestClient, fmt: str) -> None:
+    """Test image format."""
     response = client.get(
         "/api/values",
         params={
@@ -996,6 +1042,7 @@ def test_values_dwd_observation_climate_summary_image(client: TestClient, fmt: s
 
 @pytest.mark.remote
 def test_values_dwd_observation_climate_summary_image_html(client: TestClient) -> None:
+    """Test HTML format."""
     response = client.get(
         "/api/values",
         params={
@@ -1014,6 +1061,7 @@ def test_values_dwd_observation_climate_summary_image_html(client: TestClient) -
 
 @pytest.mark.remote
 def test_values_dwd_observation_climate_summary_image_pdf(client: TestClient) -> None:
+    """Test PDF format."""
     response = client.get(
         "/api/values",
         params={
@@ -1032,6 +1080,7 @@ def test_values_dwd_observation_climate_summary_image_pdf(client: TestClient) ->
 
 @pytest.mark.remote
 def test_stripes_stations_default(client: TestClient) -> None:
+    """Test default parameters."""
     response = client.get(
         "/api/stripes/stations",
         params={
@@ -1046,6 +1095,7 @@ def test_stripes_stations_default(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stripes_stations_active_false(client: TestClient) -> None:
+    """Test active=False parameter."""
     response = client.get(
         "/api/stripes/stations",
         params={
@@ -1061,6 +1111,7 @@ def test_stripes_stations_active_false(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stripes_values_default(client: TestClient) -> None:
+    """Test default parameters."""
     response = client.get(
         "/api/stripes/values",
         params={
@@ -1074,6 +1125,7 @@ def test_stripes_values_default(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stripes_values_name(client: TestClient) -> None:
+    """Test name parameter."""
     response = client.get(
         "/api/stripes/values",
         params={
@@ -1098,6 +1150,7 @@ def test_stripes_values_name(client: TestClient) -> None:
     ],
 )
 def test_stripes_values_non_defaults(client: TestClient, params: dict) -> None:
+    """Test non-default parameters."""
     response = client.get(
         "/api/stripes/values",
         params=params
@@ -1115,6 +1168,7 @@ def test_stripes_values_non_defaults(client: TestClient, params: dict) -> None:
 
 @pytest.mark.remote
 def test_stripes_values_start_year_ge_end_year(client: TestClient) -> None:
+    """Test start_year greater or equal to end_year."""
     response = client.get(
         "/api/stripes/values",
         params={
@@ -1130,6 +1184,7 @@ def test_stripes_values_start_year_ge_end_year(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stripes_values_wrong_name_threshold(client: TestClient) -> None:
+    """Test wrong name_threshold value."""
     response = client.get(
         "/api/stripes/values",
         params={
@@ -1144,6 +1199,7 @@ def test_stripes_values_wrong_name_threshold(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stripes_values_unknown_name(client: TestClient) -> None:
+    """Test unknown name value."""
     response = client.get(
         "/api/stripes/values",
         params={
@@ -1157,6 +1213,7 @@ def test_stripes_values_unknown_name(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stripes_values_unknown_format(client: TestClient) -> None:
+    """Test wrong format value."""
     response = client.get(
         "/api/stripes/values",
         params={
@@ -1171,6 +1228,7 @@ def test_stripes_values_unknown_format(client: TestClient) -> None:
 
 @pytest.mark.remote
 def test_stripes_values_wrong_dpi(client: TestClient) -> None:
+    """Test wrong dpi value."""
     response = client.get(
         "/api/stripes/values",
         params={
