@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD observation metadata."""
+
 import json
 
 import pytest
@@ -9,7 +11,8 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
-def test_dwd_observation_metadata_discover_parameters():
+def test_dwd_observation_metadata_discover_parameters() -> None:
+    """Test DWD observation discover parameters."""
     metadata = DwdObservationRequest.discover()
     expected = {
         "1_minute": {
@@ -38,7 +41,7 @@ def test_dwd_observation_metadata_discover_parameters():
                     "unit_type": "dimensionless",
                     "unit": "dimensionless",
                 },
-            ]
+            ],
         },
     }
     assert json.dumps(expected)[:-1] in json.dumps(metadata)
@@ -46,7 +49,8 @@ def test_dwd_observation_metadata_discover_parameters():
 
 @pytest.mark.xfail
 @pytest.mark.remote
-def test_dwd_observation_metadata_describe_fields_kl_daily_english():
+def test_dwd_observation_metadata_describe_fields_kl_daily_english() -> None:
+    """Test DWD observation describe fields for daily climate data."""
     metadata = DwdObservationRequest.describe_fields(
         dataset=("daily", "climate_summary"),
         period="recent",
@@ -79,7 +83,8 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english():
 
 @pytest.mark.xfail
 @pytest.mark.remote
-def test_dwd_observation_metadata_describe_fields_kl_daily_german():
+def test_dwd_observation_metadata_describe_fields_kl_daily_german() -> None:
+    """Test metadata for daily climate data."""
     metadata = DwdObservationRequest.describe_fields(
         dataset=("daily", "climate_summary"),
         period="recent",
@@ -113,7 +118,8 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
 
 @pytest.mark.xfail
 @pytest.mark.remote
-def test_dwd_observation_metadata_describe_fields_solar_hourly():
+def test_dwd_observation_metadata_describe_fields_solar_hourly() -> None:
+    """Test metadata for hourly solar data."""
     metadata = DwdObservationRequest.describe_fields(
         dataset=("hourly", "solar"),
         period="recent",
@@ -139,7 +145,8 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
 
 @pytest.mark.xfail
 @pytest.mark.remote
-def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
+def test_dwd_observation_metadata_describe_fields_temperature_10minutes() -> None:
+    """Test metadata for 10 minute temperature data."""
     metadata = DwdObservationRequest.describe_fields(
         dataset=("minute_10", "temperature_air"),
         period="recent",

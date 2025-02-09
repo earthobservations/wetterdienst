@@ -1,4 +1,7 @@
-# Copyright (c) 2018-2023 earthobservations
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Plot temperature timeseries for README."""
+
 import os
 from pathlib import Path
 
@@ -17,8 +20,8 @@ PLOT_PATH = HERE / "temperature_ts.png" if SAVE_PLOT_HERE else ROOT / "docs" / "
 plt.style.use("ggplot")
 
 
-def plot_temperature_timeseries():
-    """Create plot for README sketch"""
+def plot_temperature_timeseries() -> None:
+    """Create plot for README sketch."""
     stations = DwdObservationRequest(
         parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
         periods="historical",
@@ -45,7 +48,8 @@ def plot_temperature_timeseries():
         plt.show()
 
 
-def main():
+def main() -> None:
+    """Run example."""
     plot_temperature_timeseries()
 
 

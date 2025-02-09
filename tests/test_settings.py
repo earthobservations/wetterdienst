@@ -1,9 +1,13 @@
-# Copyright (C) 2018-2022, earthobservations developers.
-# Distributed under the MIT License. See LICENSE for more info.
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.#
+"""Tests for settings."""
+
 import logging
 import os
 import re
 from unittest import mock
+
+import pytest
 
 from wetterdienst.settings import Settings
 
@@ -11,7 +15,8 @@ WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
 
 
-def test_default_settings(caplog):
+def test_default_settings(caplog: pytest.LogCaptureFixture) -> None:
+    """Test default settings."""
     caplog.set_level(logging.INFO)
     default_settings = Settings()
     assert not default_settings.cache_disable
@@ -33,8 +38,8 @@ def test_default_settings(caplog):
 
 
 @mock.patch.dict(os.environ, {})
-def test_settings_envs(caplog):
-    """Test default settings but with multiple envs set"""
+def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
+    """Test default settings but with multiple envs set."""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SHAPE"] = "wide"
     os.environ["WD_TS_INTERPOLATION_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
@@ -50,8 +55,8 @@ def test_settings_envs(caplog):
 
 
 @mock.patch.dict(os.environ, {})
-def test_settings_mixed(caplog):
-    """Check leaking of Settings through threads"""
+def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
+    """Test mixed settings."""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SKIP_THRESHOLD"] = "0.89"
     os.environ["WD_TS_INTERPOLATION_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'

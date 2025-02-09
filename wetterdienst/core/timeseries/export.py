@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Export data to various formats."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +9,7 @@ import logging
 from abc import abstractmethod
 from copy import copy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlunparse
 
 import polars as pl
@@ -24,38 +26,43 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class ExportMixin:
-    """
-    Postprocessing data.
+    """Postprocessing data.
 
-    This aids in collecting, filtering, formatting and emitting data
-    acquired through the core machinery.
+    This aids in collecting, filtering, formatting and emitting data acquired through the core machinery.
     """
 
     df: pl.DataFrame
 
     def filter_by_sql(self, sql: str) -> pl.DataFrame:
+        """Filter df using an SQL query WHERE clause."""
         self.df = self._filter_by_sql(self.df, sql)
         return self.df
 
     @abstractmethod
-    def to_dict(self, *args, **kwargs) -> dict:
-        pass
+    def to_dict(self, *args: tuple, **kwargs: dict) -> dict:
+        """Convert station information into dictionary format."""
 
     @abstractmethod
-    def to_json(self, *args, **kwargs) -> str:
-        pass
+    def to_json(self, *args: tuple, **kwargs: dict) -> str:
+        """Convert station information into JSON format."""
 
     @abstractmethod
-    def to_ogc_feature_collection(self, *args, **kwargs) -> dict:
-        pass
+    def to_ogc_feature_collection(self, *args: tuple, with_metadata: bool, **kwargs: dict) -> dict:
+        """Convert station information into OGC Feature Collection format.
 
-    def to_geojson(self, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs) -> str:
+        Abstract method implementation.
         """
-        Convert station information into GeoJSON format
-        :param with_metadata: Include metadata in GeoJSON output
-        :param indent: Indentation for JSON output
-        :param _kwargs: Additional arguments passed to `to_ogc_feature_collection`
-        :return: JSON string in GeoJSON FeatureCollection format
+
+    def to_geojson(self, *, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs: dict) -> str:
+        """Convert station information into GeoJSON format.
+
+        Args:
+            with_metadata: Include metadata in GeoJSON
+            indent: Indentation level for JSON output
+
+        Returns:
+            GeoJSON string
+
         """
         if indent is True:
             indent = 4
@@ -64,56 +71,74 @@ class ExportMixin:
         json_kwargs = {"indent": indent, "ensure_ascii": False}
         return json.dumps(self.to_ogc_feature_collection(with_metadata=with_metadata), **json_kwargs)
 
-    def to_csv(self, **kwargs) -> str:
-        """
-        :param kwargs: Additional arguments passed to `pl.DataFrame.write_csv`
-        :return: CSV string
+    def to_csv(self, **kwargs: dict) -> str:
+        """Convert DataFrame to CSV format.
+
+        Args:
+            **kwargs: Additional arguments passed to the CSV writer
+
+        Returns:
+            CSV string
+
         """
         df = self.df
         df = df.with_columns(
             pl.col(cs.Datetime(time_zone="*")).map_elements(
-                lambda date: date.isoformat() if date else None, return_dtype=pl.String
-            )
+                lambda date: date.isoformat() if date else None,
+                return_dtype=pl.String,
+            ),
         )
         return df.write_csv(**kwargs)
 
     @abstractmethod
-    def to_plot(self, **kwargs) -> go.Figure:
-        """Create a plotly figure from the DataFrame"""
-        pass
+    def to_plot(self, **kwargs: dict) -> go.Figure:
+        """Create a plotly figure from the DataFrame."""
 
     @abstractmethod
-    def _to_image(self, **kwargs) -> bytes | str:
-        pass
+    def _to_image(self, **kwargs: dict) -> bytes | str:
+        """Create an image from the plotly figure."""
 
-    def to_image(self, **kwargs) -> bytes | str:
-        """
-        Create an image from the plotly figure
+    def to_image(self, **kwargs: dict) -> bytes | str:
+        """Create an image from the plotly figure.
 
-        :param kwargs: Additional arguments passed to `to_image`
-        :return: Image bytes
+        Args:
+            **kwargs: Additional arguments passed to the image creation method
+
+        Returns:
+            Image data as bytes or string
+
         """
         return self._to_image(**kwargs)
 
-    def to_format(self, fmt: str, **kwargs) -> str | bytes:
-        """
-        Wrapper to create output based on a format string
+    def to_format(self, fmt: str, **kwargs: Any) -> str | bytes:  # noqa: ANN401
+        """Format data according to the specified format.
 
-        :param fmt: string defining the output format
-        :return: string of formatted data
+        The formatting is done by one of the following methods:
+        - `to_json`
+        - `to_csv`
+        - `to_geojson`
+        - `to_image`
+
+        Args:
+            fmt: Output format
+            **kwargs: Additional arguments passed to the formatting method
+
+        Returns:
+            Formatted data
+
         """
         fmt = fmt.lower()
 
         if fmt == "json":
             return self.to_json(**kwargs)
-        elif fmt == "csv":
+        if fmt == "csv":
             return self.to_csv()
-        elif fmt == "geojson":
+        if fmt == "geojson":
             return self.to_geojson(**kwargs)
-        elif fmt in ("html", "png", "jpg", "webp", "svg", "pdf"):
+        if fmt in ("html", "png", "jpg", "webp", "svg", "pdf"):
             return self.to_image(fmt=fmt, **kwargs)
-        else:
-            raise KeyError("Unknown output format")
+        msg = "Unknown output format"
+        raise KeyError(msg)
 
     @staticmethod
     def _filter_by_sql(df: pl.DataFrame, sql: str) -> pl.DataFrame:
@@ -124,8 +149,13 @@ class ExportMixin:
 
         - https://duckdb.org/docs/sql/introduction
 
-        :param sql: SQL WHERE clause
-        :return: Filtered DataFrame
+        Args:
+            df: DataFrame to filter
+            sql: SQL WHERE clause
+
+        Returns:
+            Filtered DataFrame
+
         """
         import duckdb
 
@@ -134,13 +164,12 @@ class ExportMixin:
         df = duckdb.sql(sql).pl()
         return df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
 
-    def to_target(self, target: str):
-        """
-        Emit Pandas DataFrame to target. A target
-        is identified by a connection string.
+    def to_target(self, target: str) -> None:  # noqa: C901
+        """Emit data to a target.
+
+        The target is identified by a connection string.
 
         Examples:
-
         - duckdb://dwd.duckdb?table=weather
         - influxdb://localhost/?database=dwd&table=weather
         - crate://localhost/?database=dwd&table=weather
@@ -151,10 +180,16 @@ class ExportMixin:
 
         - https://docs.sqlalchemy.org/en/13/dialects/
 
-        :param target: Target connection string.
-        :return: self
-        """
+        Args:
+            target: Connection string
 
+        Raises:
+            KeyError: Unknown export
+
+        Returns:
+            None (data is emitted to the target)
+
+        """
         log.info(f"Exporting records to {target}\n{self.df.select(pl.len())}")
 
         connspec = ConnectionString(target)
@@ -241,7 +276,8 @@ class ExportMixin:
                 log.info(f"Zarr Dataset Group info:\n{store.ds.info}")
 
             else:
-                raise KeyError("Unknown export file type")
+                msg = "Unknown export file type"
+                raise KeyError(msg)
 
             return
 
@@ -362,7 +398,8 @@ class ExportMixin:
             elif protocol in ["influxdb3", "influxdb3s"]:
                 version = 3
             else:
-                raise KeyError(f"Unknown protocol variant '{protocol}' for InfluxDB")
+                msg = f"Unknown protocol variant '{protocol}' for InfluxDB"
+                raise KeyError(msg)
 
             log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")
 
@@ -385,7 +422,7 @@ class ExportMixin:
                 from influxdb_client.client.write_api import SYNCHRONOUS
 
                 ssl = protocol.endswith("s")
-                url = f"http{ssl and 's' or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
+                url = f"http{(ssl and 's') or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
                 client = InfluxDBClientV2(url=url, org=connspec.username, token=connspec.password)
                 write_api = client.write_api(write_options=SYNCHRONOUS)
             elif version == 3:
@@ -542,12 +579,7 @@ class ExportMixin:
 
 
 def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Convert all datetime columns to ISO format.
-
-    :param df:        df[Columns.START_DATE] = df[Columns.START_DATE].dt.tz_localize(self.tz)
-    :return:
-    """
+    """Convert all datetime columns to ISO format."""
     date_columns = list(df.select(pl.col(pl.Datetime)).columns)
     date_columns.extend([Columns.START_DATE.value, Columns.END_DATE.value, Columns.DATE.value])
     date_columns = set(date_columns)

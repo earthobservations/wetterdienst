@@ -1,15 +1,10 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
-About
-=====
-Acquire station information from DWD.
-
-"""  # Noqa:D205,D400
+"""Acquire station information from DWD."""
 
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -18,13 +13,13 @@ from wetterdienst.provider.dwd.observation import (
 log = logging.getLogger()
 
 
-def stations_filter_by_examples():
+def stations_filter_by_examples() -> None:
     """Retrieve stations_result of DWD that measure temperature."""
     request = DwdObservationRequest(
         parameters=("hourly", "temperature_air"),
         periods="recent",
-        start_date=datetime(2020, 1, 1),
-        end_date=datetime(2020, 1, 20),
+        start_date=datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime(2020, 1, 20, tzinfo=ZoneInfo("UTC")),
     )
 
     print("All stations")
@@ -53,7 +48,7 @@ def stations_filter_by_examples():
     print(request.filter_by_sql(sql).df)
 
 
-def main():
+def main() -> None:
     """Run example."""
     logging.basicConfig(level=logging.INFO)
     stations_filter_by_examples()

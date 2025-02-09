@@ -1,5 +1,7 @@
-# Copyright (c) 2018-2022, earthobservations developers.
+# Copyright (c) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""DWD road weather data provider."""
+
 from __future__ import annotations
 
 import logging
@@ -7,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from functools import reduce
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urljoin
 
 import polars as pl
@@ -29,6 +31,7 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 if TYPE_CHECKING:
     from io import BytesIO
 
+    from wetterdienst import Settings
     from wetterdienst.core.timeseries.result import StationsResult
 
 log = logging.getLogger(__name__)
@@ -139,18 +142,16 @@ DwdRoadMetadata = {
                             "unit": "meter_per_second",
                         },
                     ],
-                }
+                },
             ],
-        }
+        },
     ],
 }
 DwdRoadMetadata = build_metadata_model(DwdRoadMetadata, "DwdRoadMetadata")
 
 
 class DwdRoadStationGroup(Enum):
-    """
-    enumeration for road weather subset groups
-    """
+    """Enumeration of DWD road weather station groups."""
 
     DD = "DD"
     DF = "DF"
@@ -190,26 +191,29 @@ TEMPORARILY_UNAVAILABLE_STATION_GROUPS = [
 
 
 class DwdRoadValues(TimeseriesValues):
-    """
-    The DwdRoadValues class represents a request for
-    observation data from road weather stations as provided by the DWD service.
-    """
+    """Values class for DWD road weather data."""
 
     def __init__(self, stations_result: StationsResult) -> None:
+        """Initialize the DwdRoadValues class.
+
+        First, check if the pdbufr library is available. If not, raise an ImportError.
+        """
         check_pdbufr()
         super().__init__(stations_result)
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
-        """Takes station_name to download and parse RoadWeather Station data"""
+        """Collect data from DWD Road Weather stations."""
         station_group = (
             self.sr.df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
             .get_column(Columns.STATION_GROUP.value)
             .item()
         )
         station_group = DwdRoadStationGroup(station_group)
-        parameters = [parameter for parameter in parameter_or_dataset]
+        parameters = list(parameter_or_dataset)
         try:
             df = self._collect_data_by_station_group(station_group, parameters)
         except ValueError:
@@ -220,9 +224,7 @@ class DwdRoadValues(TimeseriesValues):
         self,
         road_weather_station_group: DwdRoadStationGroup,
     ) -> pl.DataFrame:
-        """
-        Creates a file_index DataFrame from RoadWeather Station directory
-        """
+        """Create a file index for DWD Road Weather stations."""
         files = list_remote_files_fsspec(
             reduce(
                 urljoin,
@@ -252,17 +254,7 @@ class DwdRoadValues(TimeseriesValues):
         road_weather_station_group: DwdRoadStationGroup,
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
-        """
-        Method to collect data for one specified parameter. Manages restoring,
-        collection and storing of data, transformation and combination of different
-        periods.
-
-        Args:
-            road_weather_station_group: subset id for which parameter is collected
-
-        Returns:
-            pandas.DataFrame for given parameter of station
-        """
+        """Collect data from DWD Road Weather stations."""
         remote_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
         if self.sr.start_date:
             remote_files = remote_files.filter(
@@ -273,11 +265,8 @@ class DwdRoadValues(TimeseriesValues):
         return self._parse_dwd_road_weather_data(filenames_and_files, parameters)
 
     @staticmethod
-    def _download_road_weather_observations(remote_files: list[str], settings) -> list[tuple[str, BytesIO]]:
-        """
-        :param remote_files:    List of requested files
-        :return:                List of downloaded files
-        """
+    def _download_road_weather_observations(remote_files: list[str], settings: Settings) -> list[tuple[str, BytesIO]]:
+        """Download the road weather station data from a given file and returns a DataFrame."""
         log.info(f"Downloading {len(remote_files)} files from DWD Road Weather.")
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
@@ -285,25 +274,14 @@ class DwdRoadValues(TimeseriesValues):
                 remote_files,
             )
 
-        return list(zip(remote_files, files_in_bytes))
+        return list(zip(remote_files, files_in_bytes, strict=False))
 
     def _parse_dwd_road_weather_data(
         self,
         filenames_and_files: list[tuple[str, BytesIO]],
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
-        """
-        This function is used to read the road weather station data from given bytes object.
-        The filename is required to defined if and where an error happened.
-
-        Args:
-            filenames_and_files: list of tuples of a filename and its local stored file
-            that should be read
-
-        Returns:
-            pandas.DataFrame with requested data, for different station ids the data is
-            still put into one DataFrame
-        """
+        """Parse the road weather station data from a given file and returns a DataFrame."""
         return pl.concat(
             [
                 self.__parse_dwd_road_weather_data(filename_and_file, parameters)
@@ -313,47 +291,37 @@ class DwdRoadValues(TimeseriesValues):
 
     @staticmethod
     def __parse_dwd_road_weather_data(
-        filename_and_file: tuple[str, BytesIO], parameters: list[ParameterModel]
+        filename_and_file: tuple[str, BytesIO],
+        parameters: list[ParameterModel],
     ) -> pl.DataFrame:
-        """
-        A wrapping function that only handles data for one station id. The files passed to
-        it are thus related to this id. This is important for storing the data locally as
-        the DataFrame that is stored should obviously only handle one station at a time.
-        Args:
-            filename_and_file: the files belonging to one station
-            resolution: enumeration of time resolution used to correctly parse the
-            date field
-        Returns:
-            pandas.DataFrame with data from that station, acn be empty if no data is
-            provided or local file is not found or has no data in it
-        """
+        """Read the road weather station data from a given file and returns a DataFrame."""
         import pdbufr
 
         _, file = filename_and_file
-        tf = NamedTemporaryFile("w+b")
-        tf.write(file.read())
-        tf.seek(0)
         parameter_names = [parameter.name_original for parameter in parameters]
         first_batch = parameter_names[:10]
         second_batch = parameter_names[10:]
-        df = pdbufr.read_bufr(
-            tf.name,
-            columns=TIME_COLUMNS
-            + (
-                "shortStationName",
-                *first_batch,
-            ),
-        )
-        if second_batch:
-            df2 = pdbufr.read_bufr(
+        with NamedTemporaryFile("w+b") as tf:
+            tf.write(file.read())
+            tf.seek(0)
+            df = pdbufr.read_bufr(
                 tf.name,
-                columns=TIME_COLUMNS
-                + (
+                columns=(
+                    *TIME_COLUMNS,
                     "shortStationName",
-                    *second_batch,
+                    *first_batch,
                 ),
             )
-            df = df.merge(df2, on=TIME_COLUMNS + ("shortStationName",))
+            if second_batch:
+                df2 = pdbufr.read_bufr(
+                    tf.name,
+                    columns=(
+                        *TIME_COLUMNS,
+                        "shortStationName",
+                        *second_batch,
+                    ),
+                )
+                df = df.merge(df2, on=(*TIME_COLUMNS, "shortStationName"))
         df = pl.from_pandas(df)
         df = df.select(
             pl.col("shortStationName").alias(Columns.STATION_ID.value),
@@ -382,10 +350,12 @@ class DwdRoadValues(TimeseriesValues):
 
 
 class DwdRoadRequest(TimeseriesRequest):
+    """Request class for DWD road weather data."""
+
     metadata = DwdRoadMetadata
     _values = DwdRoadValues
 
-    _base_columns = list(TimeseriesRequest._base_columns)
+    _base_columns: ClassVar = list(TimeseriesRequest._base_columns)  # noqa: SLF001
     _base_columns.extend(
         (
             Columns.STATION_GROUP.value,
@@ -399,7 +369,7 @@ class DwdRoadRequest(TimeseriesRequest):
     _endpoint = (
         "https://www.dwd.de/DE/leistungen/opendata/help/stationen/sws_stations_xls.xlsx?__blob=publicationFile&v=11"
     )
-    _column_mapping = {
+    _column_mapping: ClassVar = {
         "Kennung": Columns.STATION_ID.value,
         "GMA-Name": Columns.NAME.value,
         "Bundesland  ": Columns.STATE.value,
@@ -414,7 +384,7 @@ class DwdRoadRequest(TimeseriesRequest):
         "GDS-Verzeichnis": Columns.STATION_GROUP.value,
         "außer Betrieb (gemeldet)": Columns.HAS_FILE.value,
     }
-    _dtypes = {
+    _dtypes: ClassVar = {
         Columns.STATION_ID.value: pl.String,
         Columns.NAME.value: pl.String,
         Columns.STATE.value: pl.String,
@@ -436,7 +406,16 @@ class DwdRoadRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
+        """Initialize the DwdRoadRequest class.
+
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            settings: settings for the request
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,

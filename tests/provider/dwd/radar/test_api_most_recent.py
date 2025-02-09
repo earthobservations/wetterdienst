@@ -1,8 +1,11 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for radar API most recent data."""
+
 import pytest
 from dirty_equals import IsDict, IsList, IsStr
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
     DwdRadarPeriod,
@@ -18,10 +21,10 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
 @pytest.mark.remote
-def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings):
-    """
-    Example for testing radar sites most recent full SWEEP_PCP,
-    this time in OPERA HDF5 (ODIM_H5) format.
+def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
+    """Example for testing radar sites most recent full SWEEP_PCP.
+
+    This time in OPERA HDF5 (ODIM_H5) format.
     """
     h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
@@ -37,7 +40,8 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings):
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     # Verify number of results.
     assert len(results) == 1
@@ -64,10 +68,10 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings):
-    """
-    Example for testing radar sites most recent full SWEEP_VOL,
-    this time in OPERA HDF5 (ODIM_H5) format.
+def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings: Settings) -> None:
+    """Example for testing radar sites most recent full SWEEP_VOL.
+
+    This time in OPERA HDF5 (ODIM_H5) format.
     """
     h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
@@ -83,7 +87,8 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings):
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     # Verify number of results.
     assert 4 <= len(results) <= 10
@@ -116,11 +121,8 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_radolan_cdc_most_recent(default_settings, radar_locations):
-    """
-    Example for testing radar sites most recent RADOLAN_CDC.
-    """
-
+def test_radar_request_radolan_cdc_most_recent(default_settings: Settings, radar_locations: list[str]) -> None:
+    """Example for testing radar sites most recent RADOLAN_CDC."""
     wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
@@ -134,7 +136,8 @@ def test_radar_request_radolan_cdc_most_recent(default_settings, radar_locations
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     assert len(results) == 1
 
@@ -146,7 +149,7 @@ def test_radar_request_radolan_cdc_most_recent(default_settings, radar_locations
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": request.start_date,
+            "datetime": request.start_date.replace(tzinfo=None),
             "formatversion": 3,
             "intervalseconds": 86400,
             "maxrange": "150 km",

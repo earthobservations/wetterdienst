@@ -1,10 +1,19 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tools for timeseries."""
+
 from __future__ import annotations
 
 import polars as pl
 
 
 class _ParameterData:
-    def __init__(self, values: pl.DataFrame, station_ids: list[str] | None = None, extra_station_counter: int = 0):
+    def __init__(
+        self,
+        values: pl.DataFrame,
+        station_ids: list[str] | None = None,
+        extra_station_counter: int = 0,
+    ) -> None:
         self.station_ids = station_ids or []
         self.extra_station_counter = extra_station_counter
         self.values = values
@@ -14,8 +23,10 @@ class _ParameterData:
 def extract_station_values(
     param_data: _ParameterData,
     result_series_param: pl.Series,
+    *,
     valid_station_groups_exists: bool,
 ) -> None:
+    """Extract station values."""
     # Three rules:
     # 1. only add further stations if not a minimum of 4 stations is reached OR
     # 2. a gain of 10% of timestamps with at least 4 existing values over all stations is seen OR
@@ -37,6 +48,14 @@ def extract_station_values(
 
 
 def gain_of_value_pairs(old_values: pl.DataFrame, new_values: pl.Series) -> float:
+    """Calculate the gain of value pairs.
+
+    The gain of value pairs is calculated by the following formula:
+
+    number of value pairs with at least 4 values in old_values and new_values /
+    number of value pairs with at least 4 values in old_values - 1
+
+    """
     old_score = (
         old_values.select(pl.fold(acc=0, function=lambda acc, s: acc + s.is_not_null(), exprs=pl.all()) >= 4)
         .sum()

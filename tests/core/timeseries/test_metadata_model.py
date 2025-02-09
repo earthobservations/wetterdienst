@@ -1,11 +1,15 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for metadata models."""
+
 import pytest
 
-from wetterdienst.core.timeseries.metadata import ParameterSearch, parse_parameters
+from wetterdienst.core.timeseries.metadata import ParameterModel, ParameterSearch, parse_parameters
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    ("value", "expected"),
     [
         ("daily/climate_summary", ParameterSearch("daily", "climate_summary")),
         (
@@ -27,13 +31,14 @@ from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadat
         ("daily:climate_summary", ParameterSearch("daily", "climate_summary")),
     ],
 )
-def test_parameter_search(value, expected):
+def test_parameter_search(value: str | ParameterModel, expected: ParameterModel) -> None:
+    """Test parsing of parameters into a search object."""
     parameter_template = ParameterSearch.parse(value)
     assert parameter_template == expected
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    ("value", "expected"),
     [
         ("daily/climate_summary", [*DwdObservationMetadata.daily.climate_summary]),
         (
@@ -90,5 +95,6 @@ def test_parameter_search(value, expected):
         ),
     ],
 )
-def test_parse_parameters(value, expected):
+def test_parse_parameters(value: str | ParameterModel, expected: ParameterModel) -> None:
+    """Test parsing of parameters."""
     assert parse_parameters(value, DwdObservationMetadata) == expected

@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Unit converter for different unit types."""
+
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -6,12 +10,17 @@ from typing import Any
 
 @dataclass
 class Unit:
+    """Data class for a unit."""
+
     name: str
     symbol: str
 
 
 class UnitConverter:
+    """Unit converter for different unit types."""
+
     def __init__(self) -> None:
+        """Initialize the unit converter."""
         # we use those multiple times for length_short, length_medium and length_long
         _length = [
             Unit("millimeter", "mm"),
@@ -258,26 +267,32 @@ class UnitConverter:
         }
 
     def update_targets(self, targets: dict[str, str]) -> None:
+        """Update the target units for each unit type."""
         for key, value in targets.items():
             if key not in self.targets:
-                raise ValueError(f"Unit type {key} not supported")
+                msg = f"Unit type {key} not supported"
+                raise ValueError(msg)
             # find the unit with the given name
             unit = next((unit for unit in self.units[key] if unit.name == value), None)
             if not unit:
                 supported_units = ",".join(unit.name for unit in self.units[key])
-                raise ValueError(f"Unit {value} not supported for type {key}. Supported units are: {supported_units}")
+                msg = f"Unit {value} not supported for type {key}. Supported units are: {supported_units}"
+                raise ValueError(msg)
             self.targets[key] = unit
 
     def _get_lambda(self, unit: str, unit_target: str) -> Callable[[Any], Any]:
         if unit == unit_target:
             return lambda x: x
         try:
-            return self.lambdas[(unit, unit_target)]
-        except KeyError:
-            raise ValueError(f"Conversion from {unit} to {unit_target} not supported")
+            return self.lambdas[unit, unit_target]
+        except KeyError as e:
+            msg = f"Conversion from {unit} to {unit_target} not supported"
+            raise ValueError(msg) from e
 
     def get_lambda(self, unit: str, unit_type: str) -> Callable[[Any], Any]:
+        """Get the lambda function for converting between units."""
         if unit_type not in self.targets:
-            raise ValueError(f"Unit type {unit_type} not supported")
+            msg = f"Unit type {unit_type} not supported"
+            raise ValueError(msg)
         unit_target = self.targets[unit_type]
         return self._get_lambda(unit, unit_target.name)

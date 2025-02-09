@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Summarize timeseries data."""
+
 from __future__ import annotations
 
 import logging
@@ -19,11 +23,23 @@ log = logging.getLogger(__name__)
 
 
 def get_summarized_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
+    """Get summarized DataFrame.
+
+    Args:
+        request: TimeseriesRequest
+        latitude: float of the point to summarize
+        longitude: float of the point to summarize
+
+    Returns:
+        Summarized DataFrame
+
+    """
     stations_dict, param_dict = request_stations(request, latitude, longitude)
     return calculate_summary(stations_dict, param_dict)
 
 
 def request_stations(request: TimeseriesRequest, latitude: float, longitude: float) -> tuple[dict, dict]:
+    """Request stations."""
     param_dict = {}
     stations_dict = {}
     distance = max(request.settings.ts_interpolation_station_distance.values())
@@ -31,7 +47,7 @@ def request_stations(request: TimeseriesRequest, latitude: float, longitude: flo
     df_stations_ranked = stations_ranked.df
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
     for station, result in tqdm(
-        zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query()),
+        zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query(), strict=False),
         total=len(df_stations_ranked),
         desc="querying stations for summary",
         unit="station",
@@ -53,6 +69,7 @@ def apply_station_values_per_parameter(
     param_dict: dict,
     station: dict,
 ) -> None:
+    """Apply station values per parameter."""
     for parameter in stations_ranked.stations.parameters:
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
@@ -65,12 +82,14 @@ def apply_station_values_per_parameter(
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
         if (parameter.dataset.name, parameter.name) in param_dict and param_dict[
-            (parameter.dataset.name, parameter.name)
+            parameter.dataset.name,
+            parameter.name,
         ].finished:
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
-            pl.col(Columns.DATASET.value).eq(parameter.dataset.name), pl.col(Columns.PARAMETER.value).eq(parameter.name)
+            pl.col(Columns.DATASET.value).eq(parameter.dataset.name),
+            pl.col(Columns.PARAMETER.value).eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
@@ -88,17 +107,22 @@ def apply_station_values_per_parameter(
                 },
                 orient="col",
             )
-            param_dict[(parameter.dataset.name, parameter.name)] = _ParameterData(df)
+            param_dict[parameter.dataset.name, parameter.name] = _ParameterData(df)
         result_series_param = (
-            param_dict[(parameter.dataset.name, parameter.name)]
+            param_dict[parameter.dataset.name, parameter.name]
             .values.select("date")
             .join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column(Columns.VALUE.value).rename(station["station_id"])
-        extract_station_values(param_dict[(parameter.dataset.name, parameter.name)], result_series_param, True)
+        extract_station_values(
+            param_dict[parameter.dataset.name, parameter.name],
+            result_series_param,
+            valid_station_groups_exists=True,
+        )
 
 
 def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
+    """Calculate summary of stations and parameters."""
     data = [
         pl.DataFrame(
             schema={
@@ -146,10 +170,14 @@ def apply_summary(
     dataset: str,
     parameter: str,
 ) -> tuple[str, str, float | None, float | None, str | None]:
+    """Apply summary to row.
+
+    This works by taking the first non-null value and its station id.
+    """
     vals = {s: v for s, v in row.items() if v is not None}
     if not vals:
         return dataset, parameter, None, None, None
-    value = list(vals.values())[0]
-    station_id = list(vals.keys())[0][1:]
+    value = next(iter(vals.values()))
+    station_id = next(iter(vals.keys()))[1:]
     distance = stations_dict[station_id][2]
     return dataset, parameter, value, distance, station_id

@@ -1,20 +1,19 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=======================
-List of DWD radar sites
-=======================
+"""DWD radar sites."""
 
-Sources
-=======
-- April, 2018: https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile
-- October, 2020: https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile
-
-References
-==========
-- https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_network.html
-- https://github.com/wradlib/wradlib-notebooks/blob/v1.8.0/notebooks/radolan/radolan_network.ipynb
-"""  # noqa:B950,E501
+# List of DWD radar sites
+# #######################
+#
+# Sources
+# =======
+# - April, 2018: https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile
+# - October, 2020: https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile
+#
+# References
+# ==========
+# - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_network.html
+# - https://github.com/wradlib/wradlib-notebooks/blob/v1.8.0/notebooks/radolan/radolan_network.ipynb
 
 from __future__ import annotations
 
@@ -24,9 +23,7 @@ import polars as pl
 
 
 class DwdRadarSite(Enum):
-    """
-    Enumerate short names of all radar sites.
-    """
+    """Enumerate short names of all radar sites."""
 
     ASB = "asb"
     BOO = "boo"
@@ -48,22 +45,19 @@ class DwdRadarSite(Enum):
 
 
 class DwdRadarSitesGenerator:  # pragma: no cover
-    """
-    Parse list of sites from PDF documents [1,2] and output as Python dictionary.
+    """Parse list of sites from PDF documents [1,2] and output as Python dictionary.
 
     [1] https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile
     [2] https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile
-    """  # noqa:B950,E501
+    """
 
     url = (
         "https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions"
         "/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile"
     )
 
-    def all(self) -> dict:  # pragma: no cover  # noqa: A003
-        """
-        Build dictionary from DataFrame containing radar site information.
-        """
+    def all(self) -> dict:  # pragma: no cover
+        """Build dictionary from DataFrame containing radar site information."""
         df = self.read_pdf()
         result = {}
         for item in df.to_dicts():
@@ -73,10 +67,7 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         return result
 
     def read_pdf(self) -> pl.DataFrame:
-        """
-        Parse PDF file and build DataFrame containing radar site information.
-        """
-
+        """Parse PDF file and build DataFrame containing radar site information."""
         # Read table from PDF.
         import tabula
 
@@ -103,7 +94,7 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         df = df.shift(-8)
 
         # Drop empty rows.
-        df = df.filter(~pl.fold(True, lambda acc, s: acc & s.is_null(), pl.all()))
+        df = df.filter(~pl.fold(acc=True, function=lambda acc, s: acc & s.is_null(), exprs=pl.all()))
 
         # Select each second row, starting from first one.
         firsts = df[::2, :]

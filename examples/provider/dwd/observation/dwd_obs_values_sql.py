@@ -1,20 +1,12 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
-About
-=====
-Acquire measurement information from DWD and filter using SQL.
+"""Acquire measurement information from DWD and filter using SQL.
 
-
-=====
 Setup
-=====
-::
+-----
 
     pip install wetterdienst[sql]
-
-"""  # Noqa:D205,D400
+"""
 
 import logging
 
@@ -26,7 +18,7 @@ from wetterdienst.provider.dwd.observation import (
 log = logging.getLogger()
 
 
-def values_sql_example():
+def values_sql_example() -> None:
     """Retrieve temperature data by DWD and filter by sql statement."""
     settings = Settings(ts_shape="long", ts_humanize=True, ts_convert_units=False)
 
@@ -51,7 +43,7 @@ def values_sql_example():
     print(results.df)
 
 
-def main():
+def main() -> None:
     """Run example."""
     logging.basicConfig(level=logging.INFO)
     values_sql_example()

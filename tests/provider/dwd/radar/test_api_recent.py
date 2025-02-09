@@ -1,10 +1,13 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for radar sites."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
 import pytest
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import DwdRadarParameter, DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataFormat,
@@ -16,10 +19,8 @@ h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
 
 @pytest.mark.remote
-def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings):
-    """
-    Example for testing radar sites SWEEP_PCP with timerange.
-    """
+def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
+    """Example for testing radar sites SWEEP_PCP with timerange."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=1),
@@ -33,7 +34,8 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings):
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     # Verify number of results.
     assert len(results) >= 12
@@ -60,10 +62,8 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings):
 
 
 @pytest.mark.remote
-def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings):
-    """
-    Example for testing radar sites SWEEP_VOL with timerange.
-    """
+def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings: Settings) -> None:
+    """Example for testing radar sites SWEEP_VOL with timerange."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=20),
@@ -77,7 +77,8 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings):
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     # Verify number of results.
     assert len(results) >= 20

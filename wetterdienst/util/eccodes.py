@@ -1,11 +1,13 @@
-# Copyright (c) 2018-2022, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""eccodes utilities for the wetterdienst package."""
+
 from functools import lru_cache
 
 
 @lru_cache
 def ensure_eccodes() -> bool:
-    """Function to ensure that eccodes is loaded"""
+    """Ensure that eccodes is loaded."""
     try:
         import eccodes
 
@@ -17,7 +19,7 @@ def ensure_eccodes() -> bool:
 
 @lru_cache
 def ensure_pdbufr() -> bool:
-    """Function to ensure that pdbufr is loaded"""
+    """Ensure that pdbufr is loaded."""
     try:
         import pdbufr  # noqa: F401
     except ImportError:
@@ -26,9 +28,10 @@ def ensure_pdbufr() -> bool:
 
 
 @lru_cache
-def check_pdbufr():
-    """ensure pdbufr is installed before doing anything else"""
+def check_pdbufr() -> None:
+    """Ensure pdbufr is installed before doing anything else."""
     try:
         import pdbufr  # noqa: F401
     except ImportError as e:
-        raise ImportError("pdbufr is required for reading DWD Road Observations.") from e
+        msg = "pdbufr is required for reading DWD Road Observations."
+        raise ImportError(msg) from e

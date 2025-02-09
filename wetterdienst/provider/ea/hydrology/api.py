@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2022, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Environment Agency hydrology API."""
+
 from __future__ import annotations
 
 import json
@@ -18,7 +20,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.network import download_file
 
-log = logging.getLogger(__file__)
+log = logging.getLogger(__name__)
 
 
 EAHydrologyMetadata = {
@@ -56,7 +58,7 @@ EAHydrologyMetadata = {
                             "unit": "meter",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -83,7 +85,7 @@ EAHydrologyMetadata = {
                             "unit": "meter",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -111,7 +113,7 @@ EAHydrologyMetadata = {
                             "unit": "meter",
                         },
                     ],
-                }
+                },
             ],
         },
     ],
@@ -120,6 +122,8 @@ EAHydrologyMetadata = build_metadata_model(EAHydrologyMetadata, "EAHydrologyMeta
 
 
 class EAHydrologyValues(TimeseriesValues):
+    """Values class for Environment Agency hydrology data."""
+
     _url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
 
     def _collect_station_parameter_or_dataset(
@@ -149,13 +153,17 @@ class EAHydrologyValues(TimeseriesValues):
         data = json.loads(payload.read())["items"]
         df = pl.from_dicts(data)
         df = df.select(
-            pl.lit(parameter_or_dataset.name_original).alias("parameter"), pl.col("dateTime"), pl.col("value")
+            pl.lit(parameter_or_dataset.name_original).alias("parameter"),
+            pl.col("dateTime"),
+            pl.col("value"),
         )
         df = df.rename(mapping={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value})
         return df.with_columns(pl.col(Columns.DATE.value).str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
 
 
 class EAHydrologyRequest(TimeseriesRequest):
+    """Request class for Environment Agency hydrology data."""
+
     metadata = EAHydrologyMetadata
     _values = EAHydrologyValues
 
@@ -167,7 +175,16 @@ class EAHydrologyRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
+        """Initialize the EAHydrologyRequest class.
+
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            settings: settings for the request
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,
@@ -176,10 +193,7 @@ class EAHydrologyRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        """
-        Get stations listing UK environment agency data
-        :return:
-        """
+        """Acquire all stations and filter for stations that have wanted resolution and parameter combinations."""
         log.info(f"Acquiring station listing from {self._url}")
         payload = download_file(self._url, self.settings, CacheExpiry.FIVE_MINUTES)
         data = json.load(payload)["items"]
@@ -194,7 +208,7 @@ class EAHydrologyRequest(TimeseriesRequest):
         )
         df_measures = df_measures.group_by(["notation"]).agg(pl.col("parameter").alias("parameters"))
         df_notations = df_measures.filter(
-            pl.col("parameters").list.set_intersection(["flow", "level"]).len() > 0
+            pl.col("parameters").list.set_intersection(["flow", "level"]).len() > 0,
         ).select("notation")
         df = df.join(df_notations, how="inner", on="notation")
         df = df.rename(mapping=lambda col: col.lower())

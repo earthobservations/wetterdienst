@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""NWS observation provider."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -130,15 +132,17 @@ NwsObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                     ],
-                }
+                },
             ],
-        }
+        },
     ],
 }
 NwsObservationMetadata = build_metadata_model(NwsObservationMetadata, "NwsObservationMetadata")
 
 
 class NwsObservationValues(TimeseriesValues):
+    """Values class for NWS observation."""
+
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
 
     def _collect_station_parameter_or_dataset(
@@ -246,6 +250,8 @@ class NwsObservationValues(TimeseriesValues):
 
 
 class NwsObservationRequest(TimeseriesRequest):
+    """Request class for NWS observation."""
+
     metadata = NwsObservationMetadata
     _values = NwsObservationValues
 
@@ -257,7 +263,16 @@ class NwsObservationRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
+        """Initialize the NWS observation request.
+
+        Args:
+            parameters: parameters to request
+            start_date: start date
+            end_date: end date
+            settings: settings
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,

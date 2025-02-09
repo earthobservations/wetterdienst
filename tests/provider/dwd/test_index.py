@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD observation file index creation."""
+
 import pytest
 
 from wetterdienst import Period
@@ -15,7 +17,8 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.network import list_remote_files_fsspec
 
 
-def test__build_url_from_dataset_and_period():
+def test__build_url_from_dataset_and_period() -> None:
+    """Test building of URL from dataset and period."""
     url = _build_url_from_dataset_and_period(
         dataset=DwdObservationMetadata.daily.climate_summary,
         period=Period.HISTORICAL,
@@ -24,7 +27,8 @@ def test__build_url_from_dataset_and_period():
 
 
 @pytest.mark.remote
-def test_list_files_of_climate_observations():
+def test_list_files_of_climate_observations() -> None:
+    """Test listing of files on DWD server."""
     files_server = list_remote_files_fsspec(
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/annual/kl/recent",
         settings=Settings(),
@@ -37,7 +41,8 @@ def test_list_files_of_climate_observations():
 
 
 @pytest.mark.remote
-def test_fileindex(default_settings):
+def test_fileindex(default_settings: Settings) -> None:
+    """Test file index creation for DWD server."""
     file_index = _create_file_index_for_dwd_server(
         url="https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent",
         settings=default_settings,

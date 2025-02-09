@@ -1,12 +1,15 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""ECCC observation data provider."""
+
 from __future__ import annotations
 
 import datetime as dt
 import gzip
 import logging
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
+from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -27,13 +30,15 @@ log = logging.getLogger(__name__)
 
 
 class EcccObservationValues(TimeseriesValues):
+    """Values class for Environment and Climate Change Canada (ECCC) observation data."""
+
     _base_url = (
         "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
         "format=csv&stationID={0}&timeframe={1}"
         "&submit= Download+Data"
     )
 
-    _timeframe_mapping = {
+    _timeframe_mapping: ClassVar = {
         Resolution.HOURLY: "1",
         Resolution.DAILY: "2",
         Resolution.MONTHLY: "3",
@@ -42,16 +47,11 @@ class EcccObservationValues(TimeseriesValues):
 
     @staticmethod
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
-        """
-        Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ...
-
-        :param df: DataFrame with loaded data
-        :return: tidied DataFrame
-        """
+        """Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ..."""
         data = []
 
         columns = df.columns
-        for parameter_column, quality_column in zip(columns[1::2], columns[2::2]):
+        for parameter_column, quality_column in zip(columns[1::2], columns[2::2], strict=False):
             df_parameter = df.select(
                 pl.col(Columns.DATE.value),
                 pl.lit(parameter_column).alias(Columns.PARAMETER.value),
@@ -66,15 +66,11 @@ class EcccObservationValues(TimeseriesValues):
             return pl.LazyFrame()
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
-        """
-
-        :param station_id: station id being queried
-        :param parameter: parameter being queried
-        :param dataset: dataset of query, can be skipped as ECCC has unique dataset
-        :return: pandas.DataFrame with data
-        """
+        """Collect station dataset."""
         meta = self.sr.df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
 
         start_year, end_year = (
@@ -93,8 +89,8 @@ class EcccObservationValues(TimeseriesValues):
         start_date = self.sr.stations.start_date
         end_date = self.sr.stations.end_date
 
-        start_year = start_year and max(start_year, start_date and start_date.year or start_year)
-        end_year = end_year and min(end_year, end_date and end_date.year or end_year)
+        start_year = start_year and max(start_year, (start_date and start_date.year) or start_year)
+        end_year = end_year and min(end_year, (end_date and end_date.year) or end_year)
 
         # Following lines may partially be based on @Zeitsperre's canada-climate-python
         # code at https://github.com/Zeitsperre/canada-climate-python/blob/
@@ -145,14 +141,16 @@ class EcccObservationValues(TimeseriesValues):
         ).collect()
 
     def _create_file_urls(
-        self, station_id: str, resolution: Resolution, start_year: int, end_year: int
+        self,
+        station_id: str,
+        resolution: Resolution,
+        start_year: int,
+        end_year: int,
     ) -> Iterator[str]:
-        """
+        """Create URLs for downloading data files.
 
-        :param station_id:
-        :param start_year:
-        :param end_year:
-        :return:
+        The URLs are created based on the station ID, resolution, and the years
+        for which data is requested.
         """
         freq = "1y"
         if resolution == Resolution.HOURLY:
@@ -161,8 +159,8 @@ class EcccObservationValues(TimeseriesValues):
         # For hourly data request only necessary data to reduce amount of data being
         # downloaded and parsed
         for date in pl.datetime_range(
-            dt.datetime(start_year, 1, 1),
-            dt.datetime(end_year + 1, 1, 1),
+            dt.datetime(start_year, 1, 1, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(end_year + 1, 1, 1, tzinfo=ZoneInfo("UTC")),
             interval=freq,
             eager=True,
         ):
@@ -174,8 +172,8 @@ class EcccObservationValues(TimeseriesValues):
 
 
 class EcccObservationRequest(TimeseriesRequest):
-    """
-    Download weather data from Environment and Climate Change Canada (ECCC).
+    """Download weather data from Environment and Climate Change Canada (ECCC).
+
     - https://www.canada.ca/en/environment-climate-change.html
     - https://www.canada.ca/en/services/environment/weather.html
 
@@ -187,7 +185,7 @@ class EcccObservationRequest(TimeseriesRequest):
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
 
-    _columns_mapping: dict = {
+    _columns_mapping: ClassVar[dict] = {
         "station id": Columns.STATION_ID.value,
         "name": Columns.NAME.value,
         "province": Columns.STATE.value,
@@ -204,12 +202,15 @@ class EcccObservationRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
-        """
+    ) -> None:
+        """Initialize the EcccObservationRequest class.
 
-        :param parameters: parameter or list of parameters that are being queried
-        :param start_date: start date for values filtering
-        :param end_date: end date for values filtering
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            settings: settings for the request
+
         """
         super().__init__(
             parameters=parameters,
@@ -245,22 +246,23 @@ class EcccObservationRequest(TimeseriesRequest):
         )
 
         df = df.with_columns(
-            pl.col(Columns.START_DATE.value).str.to_datetime("%Y"),
+            pl.col(Columns.START_DATE.value).str.to_datetime("%Y", time_zone="UTC"),
             pl.col(Columns.END_DATE.value)
             .cast(int)
             .add(1)
-            .map_elements(lambda v: dt.datetime(v, 1, 1) - dt.timedelta(days=1), return_dtype=pl.Datetime),
+            .map_elements(
+                lambda v: dt.datetime(v, 1, 1, tzinfo=ZoneInfo("UTC")) - dt.timedelta(days=1),
+                return_dtype=pl.Datetime,
+            ),
         )
 
         return df.filter(pl.col(Columns.LATITUDE.value).ne("") & pl.col(Columns.LONGITUDE.value).ne(""))
 
     def _download_stations(self) -> tuple[BytesIO, int]:
-        """
-        Download station list from ECCC FTP server.
+        """Download station list from ECCC FTP server.
 
         :return: CSV payload, source identifier
         """
-
         gdrive_url = "https://drive.google.com/uc?id=1HDRnj41YBWpMioLPwAFiLlK4SK8NV72C"
         http_url = (
             "https://github.com/earthobservations/testdata/raw/main/ftp.tor.ec.gc.ca/Pub/"
@@ -273,8 +275,7 @@ class EcccObservationRequest(TimeseriesRequest):
             log.info(f"Downloading file {gdrive_url}.")
             payload = download_file(gdrive_url, self.settings, CacheExpiry.METAINDEX)
             source = 0
-        except Exception as e:
-            log.exception(e)
+        except Exception:
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
 
             # Fall back to different source.
@@ -284,11 +285,11 @@ class EcccObservationRequest(TimeseriesRequest):
                 with gzip.open(response, mode="rb") as f:
                     payload = BytesIO(f.read())
                 source = 1
-            except Exception as e:
-                log.exception(e)
+            except Exception:
                 log.exception(f"Unable to access HTTP server at {http_url}")
 
         if not payload:
-            raise FileNotFoundError("Unable to acquire ECCC stations list")
+            msg = "Unable to acquire ECCC stations list"
+            raise FileNotFoundError(msg)
 
         return payload, source

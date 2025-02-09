@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Utilities for the wetterdienst package."""
+
 from __future__ import annotations
 
 import os
@@ -14,8 +16,11 @@ from wetterdienst import Resolution, Settings, Wetterdienst, __version__
 from wetterdienst.core.timeseries.unit import UnitConverter
 
 if TYPE_CHECKING:
+    import plotly.graph_objects as go
+
     from wetterdienst.core.timeseries.metadata import DatasetModel, MetadataModel, ParameterModel, ResolutionModel
     from wetterdienst.core.timeseries.request import TimeseriesRequest
+    from wetterdienst.core.timeseries.result import StationsResult
 
 # this env is set manually on streamlit.com
 LIVE = os.getenv("LIVE", "false").lower() == "true"
@@ -40,22 +45,26 @@ WHERE value IS NOT NULL
 
 
 @st.cache_resource
-def get_api(provider: str, network: str):
+def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
+    """Get API."""
     return Wetterdienst(provider, network)
 
 
 @st.cache_resource
-def get_metadata(api: TimeseriesRequest):
+def get_metadata(api: TimeseriesRequest) -> MetadataModel:
+    """Get metadata."""
     return api.metadata
 
 
-def get_stations(provider: str, network: str, request_kwargs: dict):
+def get_stations(provider: str, network: str, request_kwargs: dict) -> StationsResult:
+    """Get all stations."""
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
     return get_api(provider, network)(**request_kwargs).all()
 
 
-def get_station(provider: str, network: str, request_kwargs: dict, station_id: str):
+def get_station(provider: str, network: str, request_kwargs: dict, station_id: str) -> StationsResult:
+    """Get a single station."""
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
     return get_api(provider, network)(**request_kwargs).filter_by_station_id(station_id)
@@ -67,10 +76,12 @@ def create_plotly_fig(
     variable_filter: list[str],
     x: str,
     y: str,
-    facet: bool,
     lm: str | None,
     settings: dict,
-):
+    *,
+    facet: bool,
+) -> go.Figure:
+    """Create a plotly figure."""
     if "unit" in df.columns:
         df = df.with_columns(
             pl.struct(["parameter", "unit"])
@@ -162,10 +173,9 @@ resolution: ResolutionModel = st.selectbox(
 )
 
 # for hosted app, we disallow higher resolutions as the machine might not be able to handle it
-if LIVE:
-    if resolution.value in SUBDAILY_AT_MOST:
-        st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
-        st.stop()
+if LIVE and resolution.value in SUBDAILY_AT_MOST:
+    st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
+    st.stop()
 
 dataset_options = list(resolution)
 dataset_names = [d.name for d in dataset_options]
@@ -178,9 +188,12 @@ dataset: DatasetModel = st.selectbox(
 )
 
 parameter_options = list(dataset)
-parameter_options = [dataset] + parameter_options
+parameter_options = [dataset, *parameter_options]
 parameter: DatasetModel | ParameterModel = st.selectbox(
-    "Select parameter", options=parameter_options, index=0, format_func=lambda p: p.name
+    "Select parameter",
+    options=parameter_options,
+    index=0,
+    format_func=lambda p: p.name,
 )
 
 parameter = dataset if parameter == dataset else parameter
@@ -249,7 +262,7 @@ if station:
     data_csv = df.write_csv()
     st.download_button("Download CSV", data_csv, "data.csv", "text/csv")
     data_json = df.with_columns(
-        pl.col("date").map_elements(lambda d: d.isoformat(), return_dtype=pl.String)
+        pl.col("date").map_elements(lambda d: d.isoformat(), return_dtype=pl.String),
     ).write_json()
     st.download_button(
         "Download JSON",

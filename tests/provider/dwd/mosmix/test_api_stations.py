@@ -1,7 +1,6 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-Verify acquisition of DWD MOSMIX station list.
+"""Verify acquisition of DWD MOSMIX station list.
 
 Please note that in the original data, the values in the `LAT` and `LON`
 columns are in "Degrees Minutes" format (`<degrees>.<degrees minutes>`.),
@@ -15,12 +14,14 @@ import pytest
 from dirty_equals import IsInt, IsTuple
 from polars.testing import assert_frame_equal
 
+from wetterdienst import Settings
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
 @pytest.fixture
-def mosmix_stations_schema():
+def mosmix_stations_schema() -> dict:
+    """Provide schema for MOSMIX station list."""
     return {
         "station_id": str,
         "icao_id": str,
@@ -35,10 +36,8 @@ def mosmix_stations_schema():
 
 
 @pytest.mark.remote
-def test_dwd_mosmix_stations_success(default_settings, mosmix_stations_schema):
-    """
-    Verify full MOSMIX station list.
-    """
+def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations_schema: dict) -> None:
+    """Verify full MOSMIX station list."""
     # Acquire data.
     given_df = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings).all().df
     assert not given_df.is_empty()
@@ -79,10 +78,8 @@ def test_dwd_mosmix_stations_success(default_settings, mosmix_stations_schema):
 
 @pytest.mark.xfail(reason="polars min currently not working as expected with strings")
 @pytest.mark.remote
-def test_dwd_mosmix_stations_filtered(default_settings, mosmix_stations_schema):
-    """
-    Verify MOSMIX station list filtering by station identifier.
-    """
+def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_stations_schema: dict) -> None:
+    """Verify MOSMIX station list filtering by station identifier."""
     # Acquire data.
     stations = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings)
     given_df = stations.all().df

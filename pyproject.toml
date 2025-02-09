@@ -267,55 +267,36 @@ extend-include = [
   "*.ipynb",
 ]
 [tool.ruff.lint]
-select = [
-    # Bandit
-    "S",
-    # eradicate
-    "ERA",
-    # flake8-2020
-    "YTT",
-    # isort
-    "I",
-    # print
-    "T20",
-    # Pycodestyle
-    "E",
-    "W",
-    # Pyflakes
-    "F",
-    # return
-    "RET",
-    # pyupgrade
-    "UP",
-    # flake8-commas
-    "COM",
-    # future-annotations
-    "FA",
-    # flake8-type-checking
-    "TCH",
-    # flake8-unused-arguments
-    "ARG",
-    # flake8-use-pathlib
-    "PTH"
-]
+select = ["ALL"]
 ignore = [
-    # zip() without an explicit strict= parameter.
-    "B905",
-    # Unnecessary `elif` after `return` statement
-    "RET505",
-    "COM812"
+    # flake8-annotations
+    "ANN101",
+    "ANN102",
+    # flake8-todos
+    "TD",
+    # flake8-fixme
+    "FIX",
+    # pandas-vet
+    "PD",
+    # Pylint
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR2004",
+    "PLW2901",
+    # Perflint (PERF)
+    "PERF",
+    # flake8-logging-format
+    "G004"
 ]
 unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/__init__.py" = ["F401"]
-"benchmarks/*" = ["T20"]
-"docs/conf.py" = ["ERA001"]
-"examples/*" = ["T20"]
+"**/__init__.py" = ["F401", "D104"]
 "tests/*" = ["S101"]
-"tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]
-"wetterdienst/__init__.py" = ["E402"]
-"wetterdienst/ui/restapi.py" = ["B008", "UP007"]
+"benchmarks/*" = ["T20", "INP001"]
+"examples/*" = ["T20", "INP001"]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3"

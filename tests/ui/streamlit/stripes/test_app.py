@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for the Stripes app."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -10,7 +14,8 @@ from wetterdienst.ui.streamlit.stripes import app
 
 @pytest.mark.cflake
 @pytest.mark.remote
-def test_stripes():
+def test_stripes() -> None:
+    """Test the Stripes app."""
     app_test = AppTest.from_file(app.__file__)
     app_test.run()
     assert app_test.error == []

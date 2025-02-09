@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for meteorological data provider."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -11,7 +13,8 @@ from wetterdienst.provider.imgw.meteorology.api import ImgwMeteorologyRequest
 
 
 @pytest.mark.xfail
-def test_imgw_meteorology_api_daily():
+def test_imgw_meteorology_api_daily() -> None:
+    """Test fetching of meteorological data."""
     request = ImgwMeteorologyRequest(
         parameters=[("daily", "klimat")],
         start_date="2010-08-01",
@@ -27,7 +30,7 @@ def test_imgw_meteorology_api_daily():
                 "height": 137.0,
                 "name": "WIERZCHOWO",
                 "state": "Drawa",
-            }
+            },
         ],
         schema={
             "station_id": pl.String,
@@ -132,7 +135,8 @@ def test_imgw_meteorology_api_daily():
 
 
 @pytest.mark.xfail
-def test_imgw_meteorology_api_monthly():
+def test_imgw_meteorology_api_monthly() -> None:
+    """Test fetching of meteorological data."""
     request = ImgwMeteorologyRequest(
         parameters=[("monthly", "synop")],
         start_date="2010-08-01",
@@ -148,7 +152,7 @@ def test_imgw_meteorology_api_monthly():
                 "height": 396.0,
                 "name": "BIELSKO-BIA£A",
                 "state": "Bia³a",
-            }
+            },
         ],
         schema={
             "station_id": pl.String,

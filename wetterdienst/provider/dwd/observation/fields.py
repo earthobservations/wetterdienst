@@ -1,14 +1,14 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-Parse description PDF files from DWD CDC server.
+"""Parse description PDF files from DWD CDC server.
+
 Derived from https://gist.github.com/amotl/ffc9d4b864660c93bed53d59547a5fce.
 
-Setup::
+Setup:
 
     pip install PyPDF2 tabulate
 
-Synopsis::
+Synopsis:
 
     python dwd_description_pdf.py
 """
@@ -22,7 +22,8 @@ from tabulate import tabulate
 from wetterdienst.util.pdf import read_pdf
 
 
-def parse_section(text, headline):
+def parse_section(text: str, headline: str) -> str:
+    """Parse a section from a DWD climate data set description."""
     capture = False
     buffer = StringIO()
     for line in text.split("\n"):
@@ -36,15 +37,16 @@ def parse_section(text, headline):
     return buffer.getvalue()
 
 
-def parse_parameters(text):
+def parse_parameters(text: str) -> dict:
+    """Parse the parameters section of a DWD climate data set description."""
     data = {}
     parameter = None
     capture = False
     buffer = StringIO()
     for line in text.split("\n"):
-        line = line.strip()
-        if line == line.upper() and not line.isnumeric():
-            if line != parameter:
+        line_cleaned = line.strip()
+        if line_cleaned == line_cleaned.upper() and not line_cleaned.isnumeric():
+            if line_cleaned != parameter:
                 more = buffer.getvalue()
                 if more and "eor" not in more:
                     more = more.strip()
@@ -61,17 +63,17 @@ def parse_parameters(text):
                         data[parameter.lower()] = more
                 buffer.truncate(0)
                 buffer.seek(0)
-            parameter = line
+            parameter = line_cleaned
             capture = True
 
-        else:
-            if capture:
-                buffer.write(line)
-                buffer.write("\n")
+        elif capture:
+            buffer.write(line_cleaned)
+            buffer.write("\n")
     return data
 
 
-def read_description(url, language: str = "en") -> dict:
+def read_description(url: str, language: str = "en") -> dict:
+    """Read the description of a DWD climate data set from a PDF file."""
     if language == "en":
         sections = {
             "parameters": "csv content description",
@@ -83,7 +85,8 @@ def read_description(url, language: str = "en") -> dict:
             "quality_information": "Qualitätsinformation",
         }
     else:
-        raise ValueError("Only language 'en' or 'de' supported")
+        msg = "Only language 'en' or 'de' supported"
+        raise ValueError(msg)
 
     data = OrderedDict()
 
@@ -100,11 +103,12 @@ def read_description(url, language: str = "en") -> dict:
     return data
 
 
-def process(url) -> None:  # pragma: no cover
+def process(url: str) -> None:
+    """Process a DWD climate data set description."""
     parameters = read_description(url)
 
     # Output as JSON.
-    # import json; print(json.dumps(parameters, indent=4))  # noqa: E800, ERA001
+    # import json; print(json.dumps(parameters, indent=4))  # noqa: ERA001
 
     # Output as ASCII table.
     print(tabulate(list(parameters.items()), tablefmt="psql"))  # noqa: T201

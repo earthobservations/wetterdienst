@@ -1,23 +1,16 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
-About
-=====
+"""Example for DWD RADOLAN Composite RW/SF using wetterdienst and wradlib.
 
-Example for DWD RADOLAN Composite RW/SF using wetterdienst and wradlib.
 Hourly and gliding 24h sum of radar- and station-based measurements (German).
 
-See also:
+See Also:
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html.
 
-This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00
-and plot the outcome with matplotlib.
+This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00 and plot the outcome with matplotlib.
 
-
-=======
 Details
-=======
+-------
 
 RADOLAN: Radar Online Adjustment
 Radar based quantitative precipitation estimation
@@ -25,9 +18,8 @@ Radar based quantitative precipitation estimation
 RADOLAN Composite RW/SF
 Hourly and gliding 24h sum of radar- and station-based measurements (German)
 
-The routine procedure RADOLAN (Radar-Online-Calibration) provides area-wide,
-spatially and temporally high-resolution quantitative precipitation data in
-real-time for Germany.
+The routine procedure RADOLAN (Radar-Online-Calibration) provides area-wide, spatially and temporally high-resolution
+quantitative precipitation data in real-time for Germany.
 
 - https://www.dwd.de/EN/Home/_functions/aktuelles/2019/20190820_radolan.html
 - https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_poster_201711_en_pdf.pdf?__blob=publicationFile&v=2
@@ -35,7 +27,8 @@ real-time for Germany.
 - https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-Composite
 - Hourly: https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-RW-Product
 - Daily: https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-SF-Product
-"""  # noqa:D205,D400,E501
+
+"""
 
 import logging
 import os
@@ -54,7 +47,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(ds: xr.Dataset, product_type: str):
+def plot(ds: xr.Dataset, product_type: str) -> None:
     """Plot RADOLAN data.
 
     Shamelessly stolen from the wradlib RADOLAN Product Showcase documentation.
@@ -70,7 +63,7 @@ def plot(ds: xr.Dataset, product_type: str):
     plt.grid(color="r")
 
 
-def radolan_grid_example():
+def radolan_grid_example() -> None:
     """Retrieve radolan cdc gridded data by DWD."""
     log.info("Acquiring RADOLAN_CDC data")
     radolan = DwdRadarValues(
@@ -88,7 +81,7 @@ def radolan_grid_example():
 
         # Get the product type
         # We only have one data variable with name == product_type
-        product_type = list(ds.data_vars.keys())[0]
+        product_type = next(iter(ds.data_vars.keys()))
 
         # show Dataset
         print(ds)
@@ -102,7 +95,7 @@ def radolan_grid_example():
             plt.show()
 
 
-def main():
+def main() -> None:
     """Run example."""
     radolan_grid_example()
 

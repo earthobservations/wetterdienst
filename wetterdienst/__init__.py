@@ -1,6 +1,7 @@
-# """Wetterdienst - Open weather data for humans"""
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Package for accessing weather data from various APIs."""
+
 from dataclasses import asdict, dataclass
 from textwrap import dedent
 
@@ -17,13 +18,18 @@ __version__ = boot.get_version(__appname__)
 
 @dataclass
 class Author:
+    """Data class for author information."""
+
     name: str
     email: str
     github_handle: str
 
 
 class Info:
-    def __init__(self):
+    """Class for package information."""
+
+    def __init__(self) -> None:
+        """Initialize Info object."""
         self.name = __appname__
         self.slogan = "open weather data for humans"
         self.version = __version__
@@ -35,7 +41,8 @@ class Info:
         self.documentation = "https://wetterdienst.readthedocs.io"
         self.cache_dir = Settings().cache_dir
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return string representation of Info object."""
         return dedent(f"""
         ===========================================
         {self.name} - open weather data for humans
@@ -47,7 +54,8 @@ class Info:
         cache_dir (default):    {self.cache_dir}
         """).strip()
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """Return dictionary representation of Info object."""
         return {
             "name": self.name,
             "version": self.version,
@@ -59,8 +67,6 @@ class Info:
 
 
 __all__ = [
-    "__appname__",
-    "__version__",
     "Author",
     "Info",
     "Parameter",
@@ -68,4 +74,6 @@ __all__ = [
     "Resolution",
     "Settings",
     "Wetterdienst",
+    "__appname__",
+    "__version__",
 ]

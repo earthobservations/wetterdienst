@@ -1,22 +1,18 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
-About
-=====
-Acquire station information from DWD.
+"""Acquire station information from DWD.
 
 Requires:
   - pandas
   - matplotlib
   - lmfit
-
-"""  # Noqa:D205,D400
+"""
 
 from __future__ import annotations
 
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -41,13 +37,16 @@ log = logging.getLogger()
 try:
     from lmfit.models import GaussianModel
 except ImportError:
-    log.error("observations_station_gaussian_model.py: please install lmfit ")
-    exit(1)
+    log.exception("observations_station_gaussian_model.py: please install lmfit ")
+    sys.exit(1)
 
 
-def station_example(start_date="2018-12-25", end_date="2022-12-25", name="Frankfurt/Main"):
+def station_example(
+    start_date: str = "2018-12-25",
+    end_date: str = "2022-12-25",
+    name: str = "Frankfurt/Main",
+) -> StationsResult:
     """Retrieve stations_result of DWD that measure temperature."""
-
     stations = DwdObservationRequest(
         parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
         start_date=start_date,
@@ -58,9 +57,7 @@ def station_example(start_date="2018-12-25", end_date="2022-12-25", name="Frankf
 
 
 class ModelYearlyGaussians:
-    """
-
-    Accepts station data and validates it for each year.
+    """Accepts station data and validates it for each year.
 
     Makes a composite model with a Gaussian curve per each year.
 
@@ -68,27 +65,21 @@ class ModelYearlyGaussians:
 
     """
 
-    def __init__(self, station_data: StationsResult, plot_path: Path):
+    def __init__(self, station_data: StationsResult, plot_path: Path) -> None:
+        """Initialize the model."""
         self._station_data = station_data
-
         result_values = station_data.values.all().df.drop_nulls()
-
         valid_data = self.get_valid_data(result_values)
-
         valid_data = valid_data.with_row_index("rc")
-
         model, pars = self.make_composite_yearly_model(valid_data)
-
         x = valid_data.get_column("rc").to_numpy()
         y = valid_data.get_column("value").to_numpy()
-
         out = model.fit(y, pars, x=x)
-
         log.info(f"Fit Result message: {out.result.message}")
-
         self.plot_data_and_model(valid_data, out, savefig_to_file=True, plot_path=plot_path)
 
     def get_valid_data(self, result_values: pl.DataFrame) -> pl.DataFrame:
+        """Get valid data for each year."""
         valid_data_lst = []
         for _, group in result_values.group_by([pl.col("date").dt.year()]):
             if self.validate_yearly_data(group):
@@ -98,6 +89,7 @@ class ModelYearlyGaussians:
 
     @staticmethod
     def validate_yearly_data(df: pl.DataFrame) -> bool:
+        """Validate the data for each year."""
         year = df.get_column("date").dt.year().unique()[0]
         if df.is_empty() or not (df.get_column("date").min().month <= 2 and df.get_column("date").max().month > 10):
             log.info(f"skip year {year}")
@@ -105,8 +97,10 @@ class ModelYearlyGaussians:
         return True
 
     def make_composite_yearly_model(self, valid_data: pl.DataFrame) -> tuple[GaussianModel, Parameters]:
-        """makes a composite model
-        https://lmfit.github.io/lmfit-py/model.html#composite-models-adding-or-multiplying-models"""
+        """Make a composite model.
+
+        https://lmfit.github.io/lmfit-py/model.html#composite-models-adding-or-multiplying-models
+        """
         number_of_years = valid_data.get_column("date").dt.year().n_unique()
 
         x = valid_data.get_column("rc").to_numpy()
@@ -122,10 +116,7 @@ class ModelYearlyGaussians:
             else:
                 pars.update(gmod.make_params())
             pars = self.model_pars_update(year, group, pars, index_per_year, y.max())
-            if composite_model is None:
-                composite_model = gmod
-            else:
-                composite_model = composite_model + gmod
+            composite_model = gmod if composite_model is None else composite_model + gmod
         return composite_model, pars
 
     @staticmethod
@@ -136,7 +127,7 @@ class ModelYearlyGaussians:
         index_per_year: float,
         y_max: float,
     ) -> Parameters:
-        """updates the initial values of the model parameters"""
+        """Update the initial values of the model parameters."""
         idx = group.get_column("rc").to_numpy()
         mean_index = idx.mean()
 
@@ -146,8 +137,15 @@ class ModelYearlyGaussians:
 
         return pars
 
-    def plot_data_and_model(self, valid_data: pl.DataFrame, out: ModelResult, savefig_to_file, plot_path: Path) -> None:
-        """plots the data and the model"""
+    def plot_data_and_model(
+        self,
+        valid_data: pl.DataFrame,
+        out: ModelResult,
+        *,
+        savefig_to_file: bool,
+        plot_path: Path,
+    ) -> None:
+        """Plot the data and the model."""
         if savefig_to_file:
             _ = plt.subplots(figsize=(12, 12))
         df = pl.DataFrame(
@@ -164,12 +162,12 @@ class ModelYearlyGaussians:
             number_of_years = valid_data.get_column("date").dt.year().n_unique()
             filename = f"{self.__class__.__qualname__}_wetter_model_{number_of_years}"
             plt.savefig(plot_path / filename, dpi=300, bbox_inches="tight")
-            log.info("saved fig to file: " + filename)
+            log.info(f"saved fig to file {filename}")
             if "PYTEST_CURRENT_TEST" not in os.environ:
                 plt.show()
 
 
-def main(plot_path=HERE):
+def main(plot_path: Path = HERE) -> None:
     """Run example."""
     logging.basicConfig(level=logging.INFO)
 

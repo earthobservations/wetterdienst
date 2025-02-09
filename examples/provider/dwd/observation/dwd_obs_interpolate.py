@@ -1,12 +1,6 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
-About
-=====
-Interpolate values from nearby stations.
-
-"""  # Noqa:D205,D400
+"""Interpolate values from nearby stations."""
 
 import logging
 
@@ -17,7 +11,7 @@ from wetterdienst.provider.dwd.observation import (
 log = logging.getLogger()
 
 
-def interpolate_example():
+def interpolate_example() -> None:
     """Retrieve temperature data by DWD and filter by sql statement."""
     request = DwdObservationRequest(
         parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
@@ -31,7 +25,7 @@ def interpolate_example():
     print(values.df)
 
 
-def main():
+def main() -> None:
     """Run example."""
     logging.basicConfig(level=logging.INFO)
     interpolate_example()

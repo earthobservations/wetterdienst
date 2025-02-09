@@ -1,18 +1,20 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""API request factory."""
+
 import importlib
+from typing import ClassVar
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 
 
 class Wetterdienst:
-    """
-    Manage all weather data providers.
+    """Manage all weather data providers.
 
     Provide their main API request factories lazily on request.
     """
 
-    registry = {
+    registry: ClassVar = {
         "dwd": {
             "observation": "wetterdienst.provider.dwd.observation.DwdObservationRequest",
             "mosmix": "wetterdienst.provider.dwd.mosmix.DwdMosmixRequest",
@@ -48,41 +50,62 @@ class Wetterdienst:
     }
 
     @classmethod
-    def resolve(cls, provider: str, network: str):
+    def resolve(cls, provider: str, network: str) -> type[TimeseriesRequest]:
+        """Resolve provider and network to API request class.
+
+        Args:
+            provider: Provider name
+            network: Network name
+
+        Returns:
+            API request class
+
+        """
         provider = provider.strip().lower()
         network = network.strip().lower()
 
         try:
             module_path, class_name = cls.registry[provider][network].rsplit(".", 1)
         except KeyError as e:
-            raise KeyError(f"No API available for provider {provider} and network {network}") from e
+            msg = f"No API available for provider {provider} and network {network}"
+            raise KeyError(msg) from e
 
         try:
             module = importlib.import_module(module_path)
             return getattr(module, class_name)
         except ModuleNotFoundError as e:
-            raise ImportError(f"Module {module_path} not found") from e
+            msg = f"Module {module_path} not found"
+            raise ImportError(msg) from e
         except AttributeError as e:
-            raise AttributeError(f"Class {class_name} not found in module {module_path}") from e
+            msg = f"Class {class_name} not found in module {module_path}"
+            raise AttributeError(msg) from e
 
     def __new__(cls, provider: str, network: str) -> type[TimeseriesRequest]:
-        """
+        """Resolve provider and network to API request class.
 
-        :param provider: provider of data e.g. DWD
-        :param network: data network e.g. NOAAs observation
+        Args:
+            provider: Provider name
+            network: Network name
+
+        Returns:
+            API request class
+
         """
         # Both provider and network should be fine (if not an exception is raised)
         return cls.resolve(provider, network)
 
     @classmethod
-    def discover(cls):
+    def discover(cls) -> dict:
+        """Discover all available providers and networks."""
         return {provider: list(networks.keys()) for provider, networks in cls.registry.items()}
 
     @classmethod
-    def get_provider_names(cls):
+    def get_provider_names(cls) -> list[str]:
+        """Get all providers."""
         return list(cls.registry.keys())
 
     @classmethod
-    def get_network_names(cls, provider: str):
+    def get_network_names(cls, provider: str) -> list[str]:
+        """Get all networks for a provider."""
         provider = provider.strip().lower()
         return list(cls.registry[provider].keys())

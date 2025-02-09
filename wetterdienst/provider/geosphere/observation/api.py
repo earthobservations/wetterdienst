@@ -1,12 +1,14 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Geosphere observation data provider."""
+
 from __future__ import annotations
 
 import datetime as dt
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -26,6 +28,8 @@ log = logging.getLogger(__name__)
 
 
 class GeosphereObservationValues(TimeseriesValues):
+    """Values class for geosphere observation data."""
+
     _endpoint = (
         "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}?"
         "parameters={parameters}&"
@@ -35,18 +39,20 @@ class GeosphereObservationValues(TimeseriesValues):
         "output_format=geojson"
     )
     # dates collected from ZAMG website, end date will be set to now if not given
-    _default_start_dates = {
-        Resolution.MINUTE_10: dt.datetime(1992, 5, 20),
-        Resolution.HOURLY: dt.datetime(1880, 3, 31),
-        Resolution.DAILY: dt.datetime(1774, 12, 31),
-        Resolution.MONTHLY: dt.datetime(1767, 11, 30),
+    _default_start_dates: ClassVar = {
+        Resolution.MINUTE_10: dt.datetime(1992, 5, 20, tzinfo=ZoneInfo("UTC")),
+        Resolution.HOURLY: dt.datetime(1880, 3, 31, tzinfo=ZoneInfo("UTC")),
+        Resolution.DAILY: dt.datetime(1774, 12, 31, tzinfo=ZoneInfo("UTC")),
+        Resolution.MONTHLY: dt.datetime(1767, 11, 30, tzinfo=ZoneInfo("UTC")),
     }
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         start_date = self.sr.start_date or self._default_start_dates[parameter_or_dataset.resolution.value]
-        end_date = self.sr.end_date or datetime.now()
+        end_date = self.sr.end_date or datetime.now(ZoneInfo("UTC"))
         # add buffers
         start_date = start_date - timedelta(days=1)
         end_date = end_date + timedelta(days=1)
@@ -95,6 +101,8 @@ class GeosphereObservationValues(TimeseriesValues):
 
 
 class GeosphereObservationRequest(TimeseriesRequest):
+    """Request class for geosphere observation data."""
+
     metadata = GeosphereObservationMetadata
     _values = GeosphereObservationValues
 
@@ -106,7 +114,16 @@ class GeosphereObservationRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
+    ) -> None:
+        """Initialize the GeosphereObservationRequest class.
+
+        Args:
+            parameters: requested parameters
+            start_date: start date of the requested data
+            end_date: end date of the requested data
+            settings: settings for the request
+
+        """
         super().__init__(
             parameters=parameters,
             start_date=start_date,

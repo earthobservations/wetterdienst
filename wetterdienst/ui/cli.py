@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Command line interface for the Wetterdienst package."""
+
 from __future__ import annotations
 
 import functools
@@ -9,7 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 from pprint import pformat
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import click
 import cloup
@@ -32,6 +34,9 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 from wetterdienst.util.ui import read_list
+
+if TYPE_CHECKING:
+    from wetterdienst.core.timeseries.request import TimeseriesRequest
 
 log = logging.getLogger(__name__)
 
@@ -63,29 +68,20 @@ data_section = Section("Data")
 advanced_section = Section("Advanced")
 
 
-def get_api(provider: str, network: str):
-    """
-    Function to get API for provider and network, if non found click.Abort()
-    is casted with the error message
+def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
+    """Get API for provider and network.
 
-    :param provider:
-    :param network:
-    :return:
+    If non found click.Abort() is casted with the error message
     """
     try:
         return Wetterdienst(provider, network)
-    except KeyError as e:
-        log.error(str(e))
+    except KeyError:
+        log.exception(f"No API available for provider {provider} and network {network}")
         sys.exit(1)
 
 
-def station_options_core(command):
-    """
-    Station options core for cli, which can be used for stations and values endpoint
-
-    :param command:
-    :return:
-    """
+def station_options_core(command: click.Command) -> click.Command:
+    """Prepare station options core for cli, which can be used for stations and values endpoint."""
     arguments = [
         cloup.option("--parameters", type=str, required=True),
         cloup.option("--periods", type=str),
@@ -93,13 +89,8 @@ def station_options_core(command):
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
 
-def station_options_extension(command):
-    """
-    Station options extension for cli, which can be used for stations and values endpoint
-
-    :param command:
-    :return:
-    """
+def station_options_extension(command: click.Command) -> click.Command:
+    """Prepare station options extension for cli, which can be used for stations and values endpoint."""
     arguments = [
         cloup.option_group("All stations", click.option("--all", "all_", is_flag=True)),
         cloup.option_group(
@@ -137,13 +128,8 @@ def station_options_extension(command):
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
 
-def station_options_interpolate_summarize(command):
-    """
-    Station options for interpolate/summarize for cli, which can be used for stations and values endpoint
-
-    :param command:
-    :return:
-    """
+def station_options_interpolate_summarize(command: click.Command) -> click.Command:
+    """Prepare station options for interpolate/summarize for cli, which can be used for stations and values endpoint."""
     arguments = [
         cloup.option_group(
             "Station id filtering",
@@ -569,32 +555,38 @@ Create warming stripes (only DWD Observation data):
     context_settings={"max_content_width": 120},
 )
 @click.version_option(__version__, "-v", "--version", message="%(version)s")
-def cli():
+def cli() -> None:
+    """Command line interface for the Wetterdienst package."""
     setup_logging()
 
 
 @cli.command("cache", section=basic_section)
-def cache():
+def cache() -> None:
+    """Display cache location."""
     from wetterdienst import Settings
 
     print(Settings().cache_dir)  # noqa: T201
-    return
 
 
 @cli.command("info", section=basic_section)
-def info():
+def info() -> None:
+    """Display project information."""
     from wetterdienst import Info
 
     print(Info())  # noqa: T201
-    return
 
 
 @cli.command("restapi", section=advanced_section)
 @cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
 @cloup.option("--reload", is_flag=True, help="Dynamically reload changed files")
 @debug_opt
-def restapi(listen: str, reload: bool, debug: bool):
-    set_logging_level(debug)
+def restapi(
+    listen: str,
+    reload: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Start the Wetterdienst REST API web service."""
+    set_logging_level(debug=debug)
 
     # Run HTTP service.
     log.info(f"Starting {appname}")
@@ -604,19 +596,22 @@ def restapi(listen: str, reload: bool, debug: bool):
 
     start_service(listen, reload=reload)
 
-    return
-
 
 @cli.command("explorer", section=advanced_section)
 @cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
 @debug_opt
-def explorer(listen: str, debug: bool):
-    set_logging_level(debug)
+def explorer(
+    listen: str,
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Start the Wetterdienst Explorer web service."""
+    set_logging_level(debug=debug)
 
     try:
         from wetterdienst.ui.streamlit.explorer import app
     except ImportError:
-        log.error("Please install the explorer extras with 'pip install wetterdienst[explorer]'")
+        msg = "Please install the explorer extras with 'pip install wetterdienst[explorer]'"
+        log.exception(msg)
         sys.exit(1)
 
     address = "localhost"
@@ -625,8 +620,11 @@ def explorer(listen: str, debug: bool):
         try:
             address, port = listen.split(":")
         except ValueError:
-            log.error(
+            msg = (
                 f"Invalid listen address. Please provide address and port separated by a colon e.g. '{address}:{port}'."
+            )
+            log.exception(
+                msg,
             )
             sys.exit(1)
 
@@ -636,21 +634,19 @@ def explorer(listen: str, debug: bool):
     process = None
     try:
         process = subprocess.Popen(  # noqa: S603
-            ["streamlit", "run", app.__file__, "--server.address", address, "--server.port", port]  # noqa: S603, S607
-        )  # noqa: S603
+            ["streamlit", "run", app.__file__, "--server.address", address, "--server.port", port],  # noqa: S607
+        )
         process.wait()
     except KeyboardInterrupt:
         log.info("Stopping Explorer web service")
-    except Exception as e:
-        log.error(f"An error occurred: {str(e)}")
     finally:
         if process is not None:
             process.terminate()
 
 
 @cli.group(section=data_section)
-def about():
-    pass
+def about() -> None:
+    """Get information about the data."""
 
 
 @about.command()
@@ -683,8 +679,15 @@ def about():
     ),
 )
 @debug_opt
-def coverage(provider, network, resolutions, datasets, debug):
-    set_logging_level(debug)
+def coverage(
+    provider: str,
+    network: str,
+    resolutions: str,
+    datasets: str,
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Get coverage information."""
+    set_logging_level(debug=debug)
 
     if not provider or not network:
         print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
@@ -715,11 +718,21 @@ def coverage(provider, network, resolutions, datasets, debug):
     constraint=cloup.constraints.require_all,
 )
 @debug_opt
-def fields(provider, network, dataset, resolution, period, language, **kwargs):
+def fields(
+    provider: str,
+    network: str,
+    dataset: str,
+    resolution: str,
+    period: str,
+    language: str,
+    **kwargs: dict,
+) -> None:
+    """Get information about fields."""
     api = get_api(provider, network)
 
     if not (api.metadata.name_short == "DWD" and api.metadata.kind == "observation") and kwargs.get("fields"):
-        raise click.BadParameter("'fields' command only available for provider 'DWD'")
+        msg = "'fields' command only available for provider 'DWD'"
+        raise click.BadParameter(msg)
 
     metadata = api.describe_fields(
         dataset=dataset,
@@ -731,8 +744,6 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
     output = pformat(dict(metadata))
 
     print(output)  # noqa: T201
-
-    return
 
 
 @cli.command("stations", section=data_section)
@@ -762,7 +773,7 @@ def stations(
     network: str,
     parameters: list[str],
     periods: list[str],
-    all_: bool,
+    all_: bool,  # noqa: FBT001
     station: list[str],
     name: str,
     coordinates: str,
@@ -772,10 +783,11 @@ def stations(
     sql: str,
     fmt: str,
     target: str,
-    pretty: bool,
-    with_metadata: bool,
-    debug: bool,
-):
+    pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Acquire stations."""
     request = StationsRequest.model_validate(
         {
             "provider": provider,
@@ -795,9 +807,9 @@ def stations(
             "pretty": pretty,
             "with_metadata": with_metadata,
             "debug": debug,
-        }
+        },
     )
-    set_logging_level(debug)
+    set_logging_level(debug=debug)
 
     api = get_api(provider=provider, network=network)
 
@@ -875,30 +887,31 @@ def values(
     lead_time: Literal["short", "long"],
     date: str,
     issue: str,
-    all_: bool,
-    station,
+    all_: bool,  # noqa: FBT001
+    station: list[str],
     name: str,
     coordinates: str,
     rank: int,
     distance: float,
     bbox: str,
     sql: str,
-    sql_values,
+    sql_values: str,
     fmt: str,
     target: str,
     shape: Literal["long", "wide"],
-    convert_units: bool,
+    convert_units: bool,  # noqa: FBT001
     unit_targets: str,
-    humanize: bool,
-    skip_empty: bool,
+    humanize: bool,  # noqa: FBT001
+    skip_empty: bool,  # noqa: FBT001
     skip_criteria: Literal["min", "mean", "max"],
     skip_threshold: float,
-    drop_nulls: bool,
-    pretty: bool,
-    with_metadata: bool,
-    with_stations: bool,
-    debug: bool,
-):
+    drop_nulls: bool,  # noqa: FBT001
+    pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
+    with_stations: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Acquire data."""
     request = ValuesRequest.model_validate(
         {
             "provider": provider,
@@ -930,9 +943,9 @@ def values(
             "with_metadata": with_metadata,
             "with_stations": with_stations,
             "debug": debug,
-        }
+        },
     )
-    set_logging_level(debug)
+    set_logging_level(debug=debug)
 
     api = get_api(request.provider, request.network)
 
@@ -953,8 +966,8 @@ def values(
             request=request,
             settings=settings,
         )
-    except ValueError as e:
-        log.exception(e)
+    except ValueError:
+        log.exception("Error during data acquisition")
         sys.exit(1)
     else:
         if values_.df.is_empty():
@@ -1026,17 +1039,18 @@ def interpolate(
     issue: str,
     station: str,
     coordinates: str,
-    sql_values,
+    sql_values: str,
     fmt: str,
     target: str,
-    convert_units: bool,
+    convert_units: bool,  # noqa: FBT001
     unit_targets: str,
-    humanize: bool,
-    pretty: bool,
-    with_metadata: bool,
-    with_stations: bool,
-    debug: bool,
-):
+    humanize: bool,  # noqa: FBT001
+    pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
+    with_stations: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Interpolate data."""
     request = InterpolationRequest.model_validate(
         {
             "provider": provider,
@@ -1060,10 +1074,10 @@ def interpolate(
             "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
-        }
+        },
     )
 
-    set_logging_level(debug)
+    set_logging_level(debug=debug)
 
     api = get_api(request.provider, request.network)
 
@@ -1081,8 +1095,8 @@ def interpolate(
             request=request,
             settings=settings,
         )
-    except ValueError as e:
-        log.exception(e)
+    except ValueError:
+        log.exception("Error during interpolation")
         sys.exit(1)
     else:
         if values_.df.is_empty():
@@ -1149,17 +1163,18 @@ def summarize(
     issue: str,
     station: str,
     coordinates: str,
-    sql_values,
+    sql_values: str,
     fmt: str,
     target: str,
-    convert_units: bool,
+    convert_units: bool,  # noqa: FBT001
     unit_targets: str,
-    humanize: bool,
-    pretty: bool,
-    with_metadata: bool,
-    with_stations: bool,
-    debug: bool,
-):
+    humanize: bool,  # noqa: FBT001
+    pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
+    with_stations: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Summarize data."""
     request = SummaryRequest.model_validate(
         {
             "provider": provider,
@@ -1181,9 +1196,9 @@ def summarize(
             "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
-        }
+        },
     )
-    set_logging_level(debug)
+    set_logging_level(debug=debug)
 
     api = get_api(request.provider, request.network)
 
@@ -1199,12 +1214,12 @@ def summarize(
             request=request,
             settings=settings,
         )
-    except ValueError as e:
-        log.exception(e)
+    except ValueError:
+        log.exception("Error during summarize")
         sys.exit(1)
     else:
         if values_.df.is_empty():
-            log.error("No data available for given constraints")
+            log.exception("No data available for given constraints")
             sys.exit(1)
 
     if target:
@@ -1243,40 +1258,39 @@ def summarize(
 )
 @cloup.option("--indent", type=click.INT, default=4)
 def radar(
-    dwd: bool,
-    all_: bool,
+    dwd: bool,  # noqa: FBT001
+    all_: bool,  # noqa: FBT001
     odim_code: str,
     wmo_code: int,
     country_name: str,
     indent: int,
-):
+) -> None:
+    """List radar stations."""
     from wetterdienst.provider.dwd.radar.api import DwdRadarSites
     from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 
     if dwd:
         data = DwdRadarSites().all()
+    elif all_:
+        data = OperaRadarSites().all()
+    elif odim_code:
+        data = OperaRadarSites().by_odim_code(odim_code)
+    elif wmo_code:
+        data = OperaRadarSites().by_wmo_code(wmo_code)
+    elif country_name:
+        data = OperaRadarSites().by_country_name(country_name)
     else:
-        if all_:
-            data = OperaRadarSites().all()
-        elif odim_code:
-            data = OperaRadarSites().by_odim_code(odim_code)
-        elif wmo_code:
-            data = OperaRadarSites().by_wmo_code(wmo_code)
-        elif country_name:
-            data = OperaRadarSites().by_country_name(country_name)
-        else:
-            raise KeyError("No valid option provided")
+        msg = "No valid option provided"
+        raise KeyError(msg)
 
     output = json.dumps(data, indent=indent)
 
     print(output)  # noqa: T201
 
-    return
-
 
 @cli.group("stripes", section=data_section)
-def stripes():
-    pass
+def stripes() -> None:
+    """Climate stripes."""
 
 
 @stripes.command("stations")
@@ -1284,9 +1298,16 @@ def stripes():
 @cloup.option("--active", type=click.BOOL, default=True)
 @cloup.option("--format", "fmt", type=click.Choice(["json", "geojson", "csv"], case_sensitive=False), default="json")
 @cloup.option("--pretty", type=click.BOOL, default=False)
-def stripes_stations(kind: str, active: bool, fmt: str, pretty: bool):
+def stripes_stations(
+    kind: str,
+    active: bool,  # noqa: FBT001
+    fmt: str,
+    pretty: bool,  # noqa: FBT001
+) -> None:
+    """List stations for climate stripes."""
     if kind not in ["temperature", "precipitation"]:
-        raise click.ClickException(f"Invalid kind '{kind}'")
+        msg = f"Invalid kind '{kind}'"
+        raise click.ClickException(msg)
 
     stations = _get_stripes_stations(kind=kind, active=active)
 
@@ -1320,19 +1341,20 @@ def stripes_values(
     start_year: int,
     end_year: int,
     name_threshold: float,
-    show_title: bool,
-    show_years: bool,
-    show_data_availability: bool,
+    show_title: bool,  # noqa: FBT001
+    show_years: bool,  # noqa: FBT001
+    show_data_availability: bool,  # noqa: FBT001
     fmt: str,
     dpi: int,
     target: Path,
-    debug: bool,
-):
-    if target:
-        if not target.name.lower().endswith(fmt):
-            raise click.ClickException(f"'target' must have extension '{fmt}'")
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Create climate stripes for a specific station."""
+    if target and not target.name.lower().endswith(fmt):
+        msg = f"'target' must have extension '{fmt}'"
+        raise click.ClickException(msg)
 
-    set_logging_level(debug)
+    set_logging_level(debug=debug)
 
     try:
         fig = _plot_stripes(
@@ -1347,7 +1369,7 @@ def stripes_values(
             show_data_availability=show_data_availability,
         )
     except Exception as e:
-        log.exception(e)
+        log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e
 
     if target:
@@ -1359,14 +1381,14 @@ def stripes_values(
 
 @stripes.command("interactive")
 @debug_opt
-def interactive(debug: bool):
-    set_logging_level(debug)
+def interactive(*, debug: bool) -> None:
+    """Start the Climate Stripes web service."""
+    set_logging_level(debug=debug)
 
     try:
         from wetterdienst.ui.streamlit.stripes import app
-    except ImportError as e:
-        log.exception(e)
-        log.error("Please install the stripes extras from stripes/requirements.txt")
+    except ImportError:
+        log.exception("Please install the stripes extras from stripes/requirements.txt")
         sys.exit(1)
 
     log.info(f"Starting {appname}")
@@ -1378,8 +1400,6 @@ def interactive(debug: bool):
         process.wait()
     except KeyboardInterrupt:
         log.info("Stopping Climate Stripes web service")
-    except Exception as e:
-        log.error(f"An error occurred: {str(e)}")
     finally:
         if process is not None:
             process.terminate()

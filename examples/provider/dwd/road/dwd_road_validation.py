@@ -1,17 +1,12 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
-About
-=====
-Example for DWD Road Weather acquisition and comparison with nearest weather station.
+"""Example for DWD Road Weather acquisition and comparison with nearest weather station.
 
 This program will request latest DWD air temperature for
 - road weather station Boeglum (A006)
 - interpolated weather station data (54.8892, 8.9087)
 and compare them in a plot.
-
-"""  # Noqa:D205,D400
+"""
 
 import datetime as dt
 import os
@@ -24,7 +19,8 @@ from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.util.cli import setup_logging
 
 
-def dwd_road_weather_example():
+def dwd_road_weather_example() -> None:
+    """Request DWD Road Weather and compare with nearest weather station."""
     end_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
     start_date = end_date - dt.timedelta(days=1)
     drw_request = DwdRoadRequest(
@@ -54,7 +50,7 @@ def dwd_road_weather_example():
         plt.show()
 
 
-def main():
+def main() -> None:
     """Run example."""
     setup_logging()
     dwd_road_weather_example()

@@ -1,16 +1,28 @@
-# Copyright (C) 2018-2022, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Helper functions for polars DataFrames."""
+
 from __future__ import annotations
 
 import polars as pl
 
 
-def read_fwf_from_df(df: pl.DataFrame, column_specs: tuple[tuple[int, int], ...], header: bool = False) -> pl.DataFrame:
-    """Function to split a column of a polars DataFrame into multiple columns by given column specs
-    :param df: the polars DataFrame of which a column is split
-    :param column_specs: definition of column widths in [start, end]
-    :param header: boolean if header should be split as well, will only succeed if column header is long enough
-    :return: polars DataFrame with split columns
+def read_fwf_from_df(
+    df: pl.DataFrame,
+    column_specs: tuple[tuple[int, int], ...],
+    *,
+    header: bool = False,
+) -> pl.DataFrame:
+    """Split a column of a polars DataFrame into multiple columns by given column specs.
+
+    Args:
+        df: The DataFrame to split.
+        column_specs: Tuple of tuples with start and end indices of the columns.
+        header: If True, the columns will be named according to the header row.
+
+    Returns:
+        The DataFrame with the split columns.
+
     """
 
     def _get_columns(column: str) -> list[str]:
@@ -24,7 +36,8 @@ def read_fwf_from_df(df: pl.DataFrame, column_specs: tuple[tuple[int, int], ...]
         return cols
 
     if len(df.columns) > 1:
-        raise ValueError("reading fwf from a DataFrame only supports one column")
+        msg = "reading fwf from a DataFrame only supports one column"
+        raise ValueError(msg)
     old_column = df.columns[0]
     df = df.select(
         [

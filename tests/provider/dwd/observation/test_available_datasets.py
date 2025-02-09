@@ -1,8 +1,11 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD observation available datasets."""
+
 import polars as pl
 import pytest
 
+from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
@@ -25,9 +28,8 @@ SKIP_DATASETS = (
 
 
 @pytest.mark.remote
-def test_compare_available_dwd_datasets(default_settings):
-    """Test to compare the datasets made available with wetterdienst with the ones actually availabel on the DWD CDC
-    server instance"""
+def test_compare_available_dwd_datasets(default_settings: Settings) -> None:
+    """Test to compare the datasets made available with wetterdienst with the ones actually available on the DWD CDC."""
     # similar to func list_remote_files_fsspec, but we don't want to get full depth
     fs = HTTPFileSystem(
         use_listings_cache=True,
@@ -51,5 +53,6 @@ def test_compare_available_dwd_datasets(default_settings):
             continue
         try:
             DwdObservationMetadata[resolution][dataset]
-        except KeyError:
-            assert False, f"Dataset {resolution}/{dataset} not available in DwdObservationMetadata"
+        except KeyError as e:
+            msg = "Dataset {resolution}/{dataset} not available in DwdObservationMetadata"
+            raise AssertionError(msg) from e

@@ -1,20 +1,15 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
-About
-=====
+"""Example for DWD radar sites data in OPERA HDF5 (ODIM_H5) format using wetterdienst and xradar.
 
-Example for DWD radar sites data in OPERA HDF5 (ODIM_H5) format using wetterdienst and xradar. # noqa
 Derived from https://gist.github.com/kmuehlbauer/ac990569e6ad38a49412fc74a2035c37.
 
-See also:
-- https://docs.openradarscience.org/projects/xradar/en/stable/notebooks/ODIM_H5.html # noqa
+See Also:
+- https://docs.openradarscience.org/projects/xradar/en/stable/notebooks/ODIM_H5.html
 
-This program will request the most recent complete SWEEP_PCP data
-for Essen and plot the outcome with matplotlib.
+This program will request the most recent complete SWEEP_PCP data for Essen and plot the outcome with matplotlib.
 
-"""  # Noqa:D205,D400
+"""
 
 import logging
 import os
@@ -38,7 +33,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: xr.Dataset):
+def plot(data: xr.Dataset) -> None:
     """Plot radar data with prefixed settings."""
     # Georeference Data.
     swp0 = data.xradar.georeference()
@@ -52,7 +47,7 @@ def plot(data: xr.Dataset):
 
 
 @pytest.mark.remote
-def radar_scan_precip():
+def radar_scan_precip() -> None:
     """Retrieve radar sweep scan of precipitation provided by DWD."""
     request_velocity = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
@@ -71,7 +66,7 @@ def radar_scan_precip():
         settings=Settings(cache_disable=True),
     )
 
-    log.info(f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at " f"{request_velocity.start_date}")
+    log.info(f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at {request_velocity.start_date}")
 
     # Submit requests.
     results = chain(request_velocity.query(), request_reflectivity.query())
@@ -91,7 +86,7 @@ def radar_scan_precip():
         plt.show()
 
 
-def main():
+def main() -> None:
     """Run example."""
     radar_scan_precip()
 

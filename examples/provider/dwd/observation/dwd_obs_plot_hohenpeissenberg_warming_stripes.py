@@ -1,4 +1,7 @@
-# Copyright (c) 2018-2023 earthobservations
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Plot warming stripes for Hohenpeissenberg."""
+
 import os
 from pathlib import Path
 
@@ -21,8 +24,9 @@ PLOT_PATH = (
 plt.style.use("ggplot")
 
 
-def plot_hohenpeissenberg_warming_stripes():
-    """Create warming stripes for Potsdam
+def plot_hohenpeissenberg_warming_stripes() -> None:
+    """Create warming stripes for Potsdam.
+
     Source: https://matplotlib.org/matplotblog/posts/warming-stripes/
     """
     buf = _plot_stripes(
@@ -41,7 +45,8 @@ def plot_hohenpeissenberg_warming_stripes():
         plt.show()
 
 
-def main():
+def main() -> None:
+    """Run example."""
     plot_hohenpeissenberg_warming_stripes()
 
 

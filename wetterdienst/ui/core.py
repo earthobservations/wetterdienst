@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Core UI utilities for the wetterdienst package."""
+
 from __future__ import annotations
 
 import json
@@ -34,6 +36,8 @@ log = logging.getLogger(__name__)
 
 # only used by restapi for raw type hints
 class StationsRequestRaw(BaseModel):
+    """Stations request with raw parameters."""
+
     provider: str
     network: str
     parameters: str
@@ -67,6 +71,8 @@ class StationsRequestRaw(BaseModel):
 
 
 class StationsRequest(StationsRequestRaw):
+    """Stations request with validated parameters."""
+
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
@@ -79,39 +85,46 @@ class StationsRequest(StationsRequestRaw):
 
     @field_validator("parameters", mode="before")
     @classmethod
-    def validate_parameters(cls, v):
+    def validate_parameters(cls, v: str) -> list[str]:
+        """Validate parameters."""
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
-    def validate_periods(cls, v):
+    def validate_periods(cls, v: str | None) -> list[str] | None:
+        """Validate periods."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("station", mode="before")
     @classmethod
-    def validate_station(cls, v):
+    def validate_station(cls, v: str | None) -> list[str] | None:
+        """Validate station."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("coordinates", mode="before")
     @classmethod
-    def validate_coordinates(cls, v):
+    def validate_coordinates(cls, v: str | None) -> list[str] | None:
+        """Validate coordinates."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("bbox", mode="before")
     @classmethod
-    def validate_bbox(cls, v):
+    def validate_bbox(cls, v: str | None) -> list[str] | None:
+        """Validate bbox."""
         if v:
             return read_list(v)
         return None
 
 
 class ValuesRequestRaw(StationsRequestRaw):
+    """Values request with raw parameters."""
+
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
     date: str | None = None
@@ -131,6 +144,8 @@ class ValuesRequestRaw(StationsRequestRaw):
 
 
 class ValuesRequest(ValuesRequestRaw):
+    """Values request with validated parameters."""
+
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
@@ -144,40 +159,46 @@ class ValuesRequest(ValuesRequestRaw):
 
     @field_validator("parameters", mode="before")
     @classmethod
-    def validate_parameters(cls, v):
+    def validate_parameters(cls, v: str) -> list[str]:
+        """Validate parameters."""
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
-    def validate_periods(cls, v):
+    def validate_periods(cls, v: str | None) -> list[str] | None:
+        """Validate periods."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("station", mode="before")
     @classmethod
-    def validate_station(cls, v):
+    def validate_station(cls, v: str | None) -> list[str] | None:
+        """Validate station."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("coordinates", mode="before")
     @classmethod
-    def validate_coordinates(cls, v):
+    def validate_coordinates(cls, v: str | None) -> list[str] | None:
+        """Validate coordinates."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("bbox", mode="before")
     @classmethod
-    def validate_bbox(cls, v):
+    def validate_bbox(cls, v: str | None) -> list[str] | None:
+        """Validate bbox."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("unit_targets", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v):
+    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
+        """Validate unit targets."""
         if v:
             return json.loads(v)
         return None
@@ -185,6 +206,8 @@ class ValuesRequest(ValuesRequestRaw):
 
 # start from scratch as parameters are different
 class InterpolationRequestRaw(BaseModel):
+    """Interpolation request with raw parameters."""
+
     provider: str
     network: str
     parameters: str
@@ -197,7 +220,7 @@ class InterpolationRequestRaw(BaseModel):
     issue: str | None = None
 
     # station filter parameters
-    station: str | None = Field(default=None)
+    station: str | None = None
     coordinates: str | None = None
 
     sql_values: str | None = None
@@ -221,56 +244,58 @@ class InterpolationRequestRaw(BaseModel):
 
 
 class InterpolationRequest(InterpolationRequestRaw):
+    """Interpolation request with validated parameters."""
+
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
-    station: list[str] | None = None
+    station: str | None = None
     coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
     unit_targets: dict[str, str] | None = None
     interpolation_station_distance: dict[str, confloat(ge=0)] | None = None
 
     @field_validator("parameters", mode="before")
     @classmethod
-    def validate_parameters(cls, v):
+    def validate_parameters(cls, v: str) -> list[str]:
+        """Validate parameters."""
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
-    def validate_periods(cls, v):
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("station", mode="before")
-    @classmethod
-    def validate_station(cls, v):
+    def validate_periods(cls, v: str | None) -> list[str] | None:
+        """Validate periods."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("coordinates", mode="before")
     @classmethod
-    def validate_coordinates(cls, v):
+    def validate_coordinates(cls, v: str | None) -> list[str] | None:
+        """Validate coordinates."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("unit_targets", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v):
+    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
+        """Validate unit targets."""
         if v:
             return json.loads(v)
         return None
 
     @field_validator("interpolation_station_distance", mode="before")
     @classmethod
-    def validate_interpolation_station_distance(cls, v):
+    def validate_interpolation_station_distance(cls, v: str | None) -> dict[str, float] | None:
+        """Validate interpolation station distance."""
         if v:
             return json.loads(v)
         return None
 
 
 class SummaryRequestRaw(BaseModel):
+    """Summary request with raw parameters."""
+
     provider: str
     network: str
     parameters: str
@@ -283,7 +308,7 @@ class SummaryRequestRaw(BaseModel):
     issue: str | None = None
 
     # station filter parameters
-    station: str | None = Field(default=None)
+    station: str | None = None
     coordinates: str | None = None
 
     sql_values: str | None = None
@@ -305,83 +330,53 @@ class SummaryRequestRaw(BaseModel):
 
 
 class SummaryRequest(SummaryRequestRaw):
+    """Summary request with validated parameters."""
+
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
-    station: list[str] | None = None
+    station: str | None = None
     coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
     unit_targets: dict[str, str] | None = None
 
     @field_validator("parameters", mode="before")
     @classmethod
-    def validate_parameters(cls, v):
+    def validate_parameters(cls, v: str) -> list[str]:
+        """Validate parameters."""
         return read_list(v)
 
     @field_validator("periods", mode="before")
     @classmethod
-    def validate_periods(cls, v):
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("station", mode="before")
-    @classmethod
-    def validate_station(cls, v):
+    def validate_periods(cls, v: str | None) -> list[str] | None:
+        """Validate periods."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("coordinates", mode="before")
     @classmethod
-    def validate_coordinates(cls, v):
+    def validate_coordinates(cls, v: str | None) -> list[str] | None:
+        """Validate coordinates."""
         if v:
             return read_list(v)
         return None
 
     @field_validator("unit_targets", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v):
+    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
+        """Validate unit targets."""
         if v:
             return json.loads(v)
         return None
 
 
-def unpack_parameters(parameter: str) -> list[str]:
-    """Parse parameters to either
-    - list of str, each representing a parameter or
-    - list of tuple of str representing a pair of parameter and dataset
-    e.g.
-       "precipitation_height,temperature_air_2m" ->
-           ["precipitation_height", "temperature_air_2m"]
-
-       "precipitation_height/precipitation_more,temperature_air_2m/kl" ->
-           [("precipitation_height", "precipitation_more"), ("temperature_air_2m", "kl")]
-
-    """
-
-    def unpack_parameter(par: str) -> str | tuple[str, str]:
-        try:
-            parameter_, dataset_ = par.split("/")
-        except ValueError:
-            return par
-
-        return parameter_, dataset_
-
-    # Create list of parameters from string if required
-    try:
-        parameter = parameter.split(",")
-    except AttributeError:
-        pass
-
-    return [unpack_parameter(p) for p in parameter]
-
-
 def _get_stations_request(
-    api,
+    api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
     date: str | None,
     settings: Settings,
-):
+) -> TimeseriesRequest:
+    """Create a request object for stations."""
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
@@ -390,7 +385,8 @@ def _get_stations_request(
     if date:
         if "/" in date:
             if date.count("/") >= 2:
-                raise InvalidTimeIntervalError("Invalid ISO 8601 time interval")
+                msg = "Invalid ISO 8601 time interval"
+                raise InvalidTimeIntervalError(msg)
             start_date, end_date = date.split("/")
             start_date = parse_date(start_date)
             end_date = parse_date(end_date)
@@ -401,7 +397,8 @@ def _get_stations_request(
 
     any_date_required = any(parameter.dataset.date_required for parameter in parameters)
     if any_date_required and (not start_date or not end_date):
-        raise StartDateEndDateError("Start and end date required for single period datasets")
+        msg = "Start and end date required for single period datasets"
+        raise StartDateEndDateError(msg)
 
     any_multiple_period_dataset = any(len(parameter.dataset.periods) > 1 for parameter in parameters)
 
@@ -423,62 +420,60 @@ def _get_stations_request(
 
 
 def get_stations(
-    api,
+    api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | InterpolationRequest,
     date: str | None,
-    settings,
+    settings: Settings,
 ) -> StationsResult:
-    """Core function for querying stations via cli and restapi"""
+    """Get stations based on request."""
     r = _get_stations_request(api=api, request=request, date=date, settings=settings)
 
     if request.all:
         return r.all()
 
-    elif request.station:
+    if request.station:
         return r.filter_by_station_id(request.station)
 
-    elif request.name:
+    if request.name:
         return r.filter_by_name(request.name)
 
     # Use coordinates twice in main if-elif to get same KeyError
-    elif request.coordinates and request.rank:
+    if request.coordinates and request.rank:
         return r.filter_by_rank(
             latlon=request.coordinates,
             rank=request.rank,
         )
 
-    elif request.coordinates and request.distance:
+    if request.coordinates and request.distance:
         return r.filter_by_distance(
             latlon=request.coordinates,
             distance=request.distance,
         )
 
-    elif request.bbox:
+    if request.bbox:
         return r.filter_by_bbox(*request.bbox)
 
-    elif request.sql:
+    if request.sql:
         return r.filter_by_sql(request.sql)
 
-    else:
-        param_options = [
-            "all (boolean)",
-            "station (string)",
-            "name (string)",
-            "coordinates (float,float) and rank (integer)",
-            "coordinates (float,float) and distance (float)",
-            "bbox (left float, bottom float, right float, top float)",
-        ]
-        raise KeyError(f"Give one of the parameters: {', '.join(param_options)}")
+    param_options = [
+        "all (boolean)",
+        "station (string)",
+        "name (string)",
+        "coordinates (float,float) and rank (integer)",
+        "coordinates (float,float) and distance (float)",
+        "bbox (left float, bottom float, right float, top float)",
+    ]
+    msg = f"Give one of the parameters: {', '.join(param_options)}"
+    raise KeyError(msg)
 
 
 def get_values(
-    api: TimeseriesRequest,
+    api: type[TimeseriesRequest],
     request: ValuesRequest,
-    # date: str,
-    # sql_values: str,
     settings: Settings,
 ) -> ValuesResult:
-    """Core function for querying values via cli and restapi"""
+    """Get values based on request."""
     stations_ = get_stations(
         api=api,
         request=request,
@@ -489,8 +484,8 @@ def get_values(
     try:
         # TODO: Add stream-based processing here.
         values_ = stations_.values.all()
-    except ValueError as e:
-        log.exception(e)
+    except ValueError:
+        log.exception("Error while fetching values")
         sys.exit(1)
     else:
         if values_.df.is_empty():
@@ -505,11 +500,11 @@ def get_values(
 
 
 def get_interpolate(
-    api: TimeseriesRequest,
+    api: type[TimeseriesRequest],
     request: InterpolationRequest,
     settings: Settings,
 ) -> InterpolatedValuesResult:
-    """Core function for querying values via cli and restapi"""
+    """Get interpolated values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
     if request.coordinates:
@@ -517,7 +512,8 @@ def get_interpolate(
     elif request.station:
         values_ = r.interpolate_by_station_id(request.station)
     else:
-        raise ValueError("Either coordinates or station must be provided")
+        msg = "Either coordinates or station must be provided"
+        raise ValueError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
@@ -527,11 +523,11 @@ def get_interpolate(
 
 
 def get_summarize(
-    api: TimeseriesRequest,
+    api: type[TimeseriesRequest],
     request: SummaryRequest,
     settings: Settings,
 ) -> SummarizedValuesResult:
-    """Core function for querying values via cli and restapi"""
+    """Get summarized values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
     if request.coordinates:
@@ -539,7 +535,8 @@ def get_summarize(
     elif request.station:
         values_ = r.summarize_by_station_id(request.station)
     else:
-        raise ValueError("Either coordinates or station must be provided")
+        msg = "Either coordinates or station must be provided"
+        raise ValueError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
@@ -548,7 +545,7 @@ def get_summarize(
     return values_
 
 
-def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL):
+def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
         parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
@@ -556,7 +553,7 @@ def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL):
     )
 
 
-def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL):
+def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
         parameters=[("annual", "precipitation_more", "precipitation_height")],
@@ -576,7 +573,7 @@ CLIMATE_STRIPES_CONFIG = {
 }
 
 
-def _get_stripes_stations(kind: Literal["temperature", "precipitation"], active: bool = True):
+def _get_stripes_stations(kind: Literal["temperature", "precipitation"], *, active: bool = True) -> StationsResult:
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]
     stations = request(periods=Period.HISTORICAL).all()
     if active:
@@ -585,27 +582,31 @@ def _get_stripes_stations(kind: Literal["temperature", "precipitation"], active:
     return stations
 
 
-def _plot_stripes(
+def _plot_stripes(  # noqa: C901
     kind: Literal["temperature", "precipitation"],
     station_id: str | None = None,
     name: str | None = None,
     start_year: int | None = None,
     end_year: int | None = None,
     name_threshold: float = 0.9,
+    *,
     show_title: bool = True,
     show_years: bool = True,
     show_data_availability: bool = True,
 ) -> Figure:
     """Create warming stripes for station in Germany.
+
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
     if kind not in ["temperature", "precipitation"]:
-        raise ValueError("kind must be either 'temperature' or 'precipitation'")
-    if start_year and end_year:
-        if start_year >= end_year:
-            raise ValueError("start_year must be less than end_year")
+        msg = "kind must be either 'temperature' or 'precipitation'"
+        raise ValueError(msg)
+    if start_year and end_year and start_year >= end_year:
+        msg = "start_year must be less than end_year"
+        raise ValueError(msg)
     if name_threshold < 0 or name_threshold > 1:
-        raise ValueError("name_threshold must be between 0.0 and 1.0")
+        msg = "name_threshold must be between 0.0 and 1.0"
+        raise ValueError(msg)
 
     import plotly.graph_objects as go
 
@@ -621,13 +622,15 @@ def _plot_stripes(
             "station (string)",
             "name (string)",
         ]
-        raise KeyError(f"Give one of the parameters: {', '.join(param_options)}")
+        msg = f"Give one of the parameters: {', '.join(param_options)}"
+        raise KeyError(msg)
 
     try:
         station_dict = stations.to_dict()["stations"][0]
     except IndexError as e:
         parameter = "station_id" if station_id else "name"
-        raise ValueError(f"No station with a {parameter} similar to '{station_id or name}' found") from e
+        msg = f"No station with a {parameter} similar to '{station_id or name}' found"
+        raise ValueError(msg) from e
 
     df = stations.values.all().df.sort("date")
     df = df.set_sorted("date")
@@ -635,7 +638,7 @@ def _plot_stripes(
     df = df.upsample("date", every="1y")
     df = df.with_columns(
         (1 - (pl.col("value") - pl.col("value").min()) / (pl.col("value").max() - pl.col("value").min())).alias(
-            "value_scaled"
+            "value_scaled",
         ),
         pl.when(pl.col("value").is_not_null()).then(-0.02).otherwise(None).alias("availability"),
     )
@@ -646,7 +649,8 @@ def _plot_stripes(
         df = df.filter(pl.col("date").dt.year().le(end_year))
 
     if len(df) == 1:
-        raise ValueError("At least two years are required to create warming stripes.")
+        msg = "At least two years are required to create warming stripes."
+        raise ValueError(msg)
 
     df_without_nulls = df.drop_nulls("value")
 
@@ -657,9 +661,9 @@ def _plot_stripes(
         go.Bar(
             x=df_without_nulls.get_column("date").dt.year(),
             y=[1.0] * len(df_without_nulls),
-            marker=dict(color=df_without_nulls.get_column("value_scaled"), colorscale=cmap, cmin=0, cmax=1),
+            marker={"color": df_without_nulls.get_column("value_scaled"), "colorscale": cmap, "cmin": 0, "cmax": 1},
             width=1.0,
-        )
+        ),
     )
 
     # Add scatter trace for data availability
@@ -669,9 +673,9 @@ def _plot_stripes(
                 x=df.get_column("date").dt.year(),
                 y=df.get_column("availability"),
                 mode="lines",
-                marker=dict(color="gold", size=5),
-                line=dict(color="gold"),
-            )
+                marker={"color": "gold", "size": 5},
+                line={"color": "gold"},
+            ),
         )
         fig.add_annotation(
             x=df.get_column("date").dt.year().min(),
@@ -680,15 +684,20 @@ def _plot_stripes(
             text="data availability",
             showarrow=False,
             align="right",
-            font=dict(color="gold"),
+            font={"color": "gold"},
         )
     # Add source text
     fig.add_annotation(
-        x=0.5, y=-0.05, text="Source: Deutscher Wetterdienst", showarrow=False, xref="paper", yref="paper"
+        x=0.5,
+        y=-0.05,
+        text="Source: Deutscher Wetterdienst",
+        showarrow=False,
+        xref="paper",
+        yref="paper",
     )
     if show_title:
         fig.update_layout(
-            title=f"Climate stripes ({kind}) for {station_dict['name']}, Germany ({station_dict['station_id']})"
+            title=f"Climate stripes ({kind}) for {station_dict['name']}, Germany ({station_dict['station_id']})",
         )
     if show_years:
         fig.add_annotation(
@@ -711,21 +720,21 @@ def _plot_stripes(
         )
     fig.update_layout(
         plot_bgcolor="white",
-        xaxis=dict(
-            showticklabels=False,
-        ),
-        yaxis=dict(range=[None, 1], showticklabels=False),
+        xaxis={
+            "showticklabels": False,
+        },
+        yaxis={"range": [None, 1], "showticklabels": False},
         showlegend=False,
-        margin=dict(l=10, r=10, t=30, b=30),
+        margin={"l": 10, "r": 10, "t": 30, "b": 30},
     )
     return fig
 
 
-def set_logging_level(debug: bool):
-    # Setup logging.
+def set_logging_level(*, debug: bool) -> None:
+    """Set logging level for the wetterdienst package."""
     log_level = logging.INFO
 
-    if debug:  # pragma: no cover
+    if debug:
         log_level = logging.DEBUG
 
     log.setLevel(log_level)

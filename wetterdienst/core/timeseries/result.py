@@ -1,10 +1,13 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Result classes for timeseries data."""
+
 from __future__ import annotations
 
 import json
 import typing
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
@@ -19,13 +22,20 @@ if TYPE_CHECKING:
 
     import plotly.graph_objects as go
 
+    from wetterdienst import Settings
+    from wetterdienst.core.timeseries.metadata import ParameterModel
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.values import TimeseriesValues
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
-class StationsFilter:
+class StationsFilter(Enum):
+    """Enumeration for stations filter.
+
+    This should help determine why only a subset of stations was returned.
+    """
+
     ALL = "all"
     BY_STATION_ID = "by_station_id"
     BY_NAME = "by_name"
@@ -37,6 +47,8 @@ class StationsFilter:
 
 # return types of StationsResult output formats
 class _Provider(TypedDict):
+    """Type definition for provider metadata."""
+
     name_local: str
     name_english: str
     country: str
@@ -45,6 +57,8 @@ class _Provider(TypedDict):
 
 
 class _Producer(TypedDict):
+    """Type definition for producer metadata."""
+
     name: str
     version: str
     repository: str
@@ -53,11 +67,15 @@ class _Producer(TypedDict):
 
 
 class _Metadata(TypedDict):
+    """Type definition for metadata."""
+
     provider: _Provider
     producer: _Producer
 
 
 class _Station(TypedDict):
+    """Type definition for station."""
+
     station_id: str
     start_date: str | None
     end_date: str | None
@@ -69,11 +87,15 @@ class _Station(TypedDict):
 
 
 class _StationsDict(TypedDict):
+    """Type definition for dictionary of stations."""
+
     metadata: NotRequired[_Metadata]
     stations: list[_Station]
 
 
 class _OgcFeatureProperties(TypedDict):
+    """Type definition for OGC feature properties."""
+
     id: str
     name: str
     state: str
@@ -82,27 +104,37 @@ class _OgcFeatureProperties(TypedDict):
 
 
 class _OgcFeatureGeometry(TypedDict):
+    """Type definition for OGC feature geometry."""
+
     type: Literal["Point"]
     coordinates: list[float]
 
 
 class _StationsOgcFeature(TypedDict):
+    """Type definition for OGC feature of stations."""
+
     type: Literal["Feature"]
     properties: _OgcFeatureProperties
     geometry: _OgcFeatureGeometry
 
 
 class _StationsOgcFeatureCollectionData(TypedDict):
+    """Type definition for OGC feature collection data of stations."""
+
     type: Literal["FeatureCollection"]
     features: list[_StationsOgcFeature]
 
 
 class _StationsOgcFeatureCollection(TypedDict):
+    """Type definition for OGC feature collection of stations."""
+
     metadata: NotRequired[_Metadata]
     data: _StationsOgcFeatureCollectionData
 
 
 class StationsResult(ExportMixin):
+    """Result class for stations."""
+
     def __init__(
         self,
         stations: TimeseriesRequest | DwdMosmixRequest | DwdDmoRequest,
@@ -110,9 +142,19 @@ class StationsResult(ExportMixin):
         df_all: pl.DataFrame,
         stations_filter: StationsFilter,
         rank: int | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> None:
-        # TODO: add more attributes from ScalarStations class
+        """Initialize stations result.
+
+        Args:
+            stations: the request object
+            df: the DataFrame with stations (filtered)
+            df_all: the DataFrame with all stations
+            stations_filter: the filter used to determine the subset of stations
+            rank: the rank used to determine the subset of stations
+            **kwargs: additional keyword arguments
+
+        """
         self.stations = stations
         self.df = df
         self.df_all = df_all
@@ -120,66 +162,79 @@ class StationsResult(ExportMixin):
         self.rank = rank
         self._kwargs = kwargs
 
-    def __eq__(self, other):
+    def __eq__(self, other: StationsResult) -> bool:
+        """Check if two stations results are equal."""
+        if not isinstance(other, StationsResult):
+            return False
         return (self.stations == other.stations) and self.df.equals(other.df)
 
     @property
-    def settings(self):
+    def settings(self) -> Settings:
+        """Get settings for the request."""
         return self.stations.settings
 
     @property
     def station_id(self) -> pl.Series:
+        """Get station IDs from the DataFrame."""
         return self.df.get_column(Columns.STATION_ID.value)
 
     @property
-    def parameters(self):
+    def parameters(self) -> list[ParameterModel]:
+        """Get parameters from the request."""
         return self.stations.parameters
 
     @property
     def values(self) -> TimeseriesValues:
-        return self.stations._values.from_stations(self)
+        """Get values from the request."""
+        return self.stations._values.from_stations(self)  # noqa: SLF001
 
     @property
     def start_date(self) -> datetime:
+        """Get start date from the request."""
         return self.stations.start_date
 
     @property
     def end_date(self) -> datetime:
+        """Get end date from the request."""
         return self.stations.end_date
 
     @property
     def tidy(self) -> bool:
+        """Get whether the DataFrame is tidy."""
         return self.stations.tidy
 
     @property
     def humanize(self) -> bool:
+        """Get whether the DataFrame is humanized."""
         return self.stations.humanize
 
     @property
     def convert_units(self) -> bool:
+        """Get whether to convert units."""
         return self.stations.convert_units
 
     @property
     def skip_empty(self) -> bool:
+        """Get whether to skip empty stations."""
         return self.stations.skip_empty
 
     @property
     def skip_threshold(self) -> float:
+        """Get the threshold for skipping stations."""
         return self.stations.skip_threshold
 
     @property
     def complete(self) -> bool:
+        """Get whether the data is completed."""
         return self.stations.complete
 
     @property
     def drop_nulls(self) -> float:
+        """Get whether to drop nulls."""
         return self.stations.drop_nulls
 
     def get_metadata(self) -> _Metadata:
-        """
-        Get metadata for stations result.
-        :return: Dictionary with metadata.
-        """
+        """Get metadata for the provider and producer."""
         from wetterdienst import Info
 
         info = Info()
@@ -205,11 +260,15 @@ class StationsResult(ExportMixin):
             },
         }
 
-    def to_dict(self, with_metadata: bool = False) -> _StationsDict:
-        """
-        Format station information as dictionary.
-        :param with_metadata: bool whether to include metadata
-        :return: Dictionary with station information.
+    def to_dict(self, *, with_metadata: bool = False) -> _StationsDict:
+        """Format station information as dictionary.
+
+        Args:
+            with_metadata: bool whether to include metadata
+
+        Returns:
+            Dictionary with station information.
+
         """
         data = {}
         if with_metadata:
@@ -232,12 +291,16 @@ class StationsResult(ExportMixin):
         data["stations"] = df.to_dicts()
         return data
 
-    def to_json(self, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
-        """
-        Format station information as JSON.
-        :param with_metadata: bool whether to include metadata
-        :param indent: int or bool whether to indent JSON, defaults to 4, if True indent is 4
-        :return: JSON string with station information.
+    def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
+        """Format station information as JSON.
+
+        Args:
+            with_metadata: bool whether to include metadata
+            indent: int or bool whether to indent the JSON
+
+        Returns:
+            JSON string with station information.
+
         """
         if indent is True:
             indent = 4
@@ -245,13 +308,17 @@ class StationsResult(ExportMixin):
             indent = None
         return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
 
-    def to_ogc_feature_collection(self, with_metadata: bool = False) -> _StationsOgcFeatureCollection:
-        """
-        Format station information as OGC feature collection.
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _StationsOgcFeatureCollection:
+        """Format station information as OGC feature collection.
+
         Will be used by ``.to_geojson()``.
 
-        :param with_metadata: bool whether to include metadata
-        :return: Dictionary in GeoJSON FeatureCollection format.
+        Args:
+            with_metadata: bool whether to include metadata (information about the provider and producer)
+
+        Returns:
+            Dictionary with station information as OGC feature collection.
+
         """
         data = {}
         if with_metadata:
@@ -288,16 +355,17 @@ class StationsResult(ExportMixin):
         }
         return data
 
-    def to_plot(self, **_kwargs) -> go.Figure:
+    def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the stations DataFrame."""
         try:
             import plotly.express as px
             import plotly.graph_objects as go
         except ImportError as e:
-            raise ImportError(
+            msg = (
                 "To use this method, please install the optional dependencies for plotly: "
                 "pip install wetterdienst[plotting]"
-            ) from e
+            )
+            raise ImportError(msg) from e
 
         df = self.df
         if df.is_empty():
@@ -327,13 +395,13 @@ class StationsResult(ExportMixin):
             lon="longitude",
             text="name",
             zoom=zoom,
-            center=dict(
-                lat=center_lat,
-                lon=center_lon,
-            ),
+            center={
+                "lat": center_lat,
+                "lon": center_lon,
+            },
         )
         return fig.update_layout(
-            margin=dict(r=10, t=10, l=10, b=10),
+            margin={"r": 10, "t": 10, "l": 10, "b": 10},
         )
 
     def _to_image(
@@ -342,20 +410,26 @@ class StationsResult(ExportMixin):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> bytes | str:
-        """Create an image from the plotly figure"""
+        """Create an image from the plotly figure.
+
+        This method is used by ``.to_image()`` to create an image for stations from the plotly figure.
+        """
         fig = self.to_plot(**kwargs)
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            raise KeyError(f"Invalid format: {fmt}")
+            msg = f"Invalid format: {fmt}"
+            raise KeyError(msg)
         return img
 
 
 class _ValuesItemDict(TypedDict):
+    """Type definition for dictionary of values."""
+
     station_id: str
     dataset: str
     parameter: str
@@ -365,6 +439,8 @@ class _ValuesItemDict(TypedDict):
 
 
 class _ValuesDict(TypedDict):
+    """Type definition for dictionary of values."""
+
     metadata: NotRequired[_Metadata]
     stations: NotRequired[list[_Station]]
     values: list[_ValuesItemDict]
@@ -372,17 +448,18 @@ class _ValuesDict(TypedDict):
 
 @dataclass
 class _ValuesResult(ExportMixin):
+    """Result class for values."""
+
     stations: StationsResult
     df: pl.DataFrame
 
     @staticmethod
     def _to_dict(df: pl.DataFrame) -> list[_ValuesItemDict]:
-        """
-        Format values as dictionary. This method is used both by ``to_dict()`` and ``to_ogc_feature_collection()``,
-        however the latter one splits the DataFrame into multiple DataFrames by station and calls this method
-        for each of them.
-        :param df: DataFrame with values
-        :return: Dictionary with values.
+        """Format values as dictionary.
+
+        This method is used both by ``to_dict()``,
+        and ``to_ogc_feature_collection()``, however, the latter one splits
+        the DataFrame into multiple DataFrames by station and calls this method for each of them.
         """
         if not df.is_empty():
             df = df.with_columns(
@@ -390,13 +467,8 @@ class _ValuesResult(ExportMixin):
             )
         return df.to_dicts()
 
-    def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _ValuesDict:
-        """
-        Format values as dictionary.
-        :param with_metadata: bool whether to include metadata
-        :param with_stations: bool whether to include station information
-        :return: Dictionary with values.
-        """
+    def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _ValuesDict:
+        """Format values as dictionary."""
         data = {}
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
@@ -407,17 +479,12 @@ class _ValuesResult(ExportMixin):
 
     def to_json(
         self,
+        *,
         with_metadata: bool = False,
         with_stations: bool = False,
         indent: int | bool | None = 4,
     ) -> str:
-        """
-        Format values as JSON.
-        :param with_metadata: bool whether to include metadata
-        :param with_stations: bool whether to include station information
-        :param indent: int or bool whether to indent JSON, defaults to 4, if True indent is 4
-        :return: JSON string with values.
-        """
+        """Format values as JSON."""
         if indent is True:
             indent = 4
         elif indent is False:
@@ -425,11 +492,14 @@ class _ValuesResult(ExportMixin):
         return json.dumps(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
 
     def filter_by_date(self, date: str) -> pl.DataFrame:
+        """Filter values by date and return a new DataFrame."""
         self.df = filter_by_date(self.df, date=date)
         return self.df
 
 
 class _ValuesOgcFeature(TypedDict):
+    """Type definition for OGC feature of values."""
+
     type: Literal["Feature"]
     properties: _OgcFeatureProperties
     geometry: _OgcFeatureGeometry
@@ -437,31 +507,34 @@ class _ValuesOgcFeature(TypedDict):
 
 
 class _ValuesOgcFeatureCollectionData(TypedDict):
+    """Type definition for OGC feature collection data of values."""
+
     type: Literal["FeatureCollection"]
     features: list[_ValuesOgcFeature]
 
 
 class _ValuesOgcFeatureCollection(TypedDict):
+    """Type definition for OGC feature collection of values."""
+
     metadata: NotRequired[_Metadata]
     data: _ValuesOgcFeatureCollectionData
 
 
 @dataclass
 class ValuesResult(_ValuesResult):
+    """Result class for values."""
+
     stations: StationsResult
     values: TimeseriesValues
     df: pl.DataFrame
 
     @property
-    def df_stations(self):
+    def df_stations(self) -> pl.DataFrame:
+        """Get DataFrame with stations."""
         return self.stations.df.filter(pl.col("station_id").is_in(self.values.stations_collected))
 
-    def to_ogc_feature_collection(self, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
-        """
-        Format values as OGC feature collection.
-        :param with_metadata: bool whether to include metadata
-        :return: Dictionary in GeoJSON FeatureCollection format.
-        """
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
+        """Format values as OGC feature collection."""
         data = {}
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
@@ -502,16 +575,17 @@ class ValuesResult(_ValuesResult):
         }
         return data
 
-    def to_plot(self, **_kwargs) -> go.Figure:
+    def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         try:
             import plotly.express as px
             import plotly.graph_objects as go
         except ImportError as e:
-            raise ImportError(
+            msg = (
                 "To use this method, please install the optional dependencies for plotly: "
                 "pip install wetterdienst[plotting]"
-            ) from e
+            )
+            raise ImportError(msg) from e
 
         df = self.df
         if df.is_empty():
@@ -532,7 +606,7 @@ class ValuesResult(_ValuesResult):
                 pl.lit(" ("),
                 pl.col("parameter").replace(units),
                 pl.lit(")"),
-            ).alias("parameter")
+            ).alias("parameter"),
         )
         if n_datasets > 1:
             df = df.with_columns(
@@ -561,7 +635,7 @@ class ValuesResult(_ValuesResult):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin=dict(l=10, r=10, t=10, b=10),
+            margin={"l": 10, "r": 10, "t": 10, "b": 10},
         )
         return fig
 
@@ -571,25 +645,33 @@ class ValuesResult(_ValuesResult):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> bytes | str:
-        """Create an image from the plotly figure"""
+        """Create an image from the plotly figure.
+
+        This method is used by ``.to_image()`` to create an image for values from the plotly figure.
+        """
         fig = self.to_plot(**kwargs)
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            raise KeyError(f"Invalid format: {fmt}")
+            msg = f"Invalid format: {fmt}"
+            raise KeyError(msg)
         return img
 
 
 class _InterpolatedOrSummarizedOgcFeatureProperties(TypedDict):
+    """Type definition for OGC feature properties of interpolated or summarized values."""
+
     id: str
     name: str
 
 
 class _InterpolatedValuesItemDict(TypedDict):
+    """Type definition for dictionary of interpolated values."""
+
     station_id: str
     parameter: str
     date: str
@@ -599,12 +681,16 @@ class _InterpolatedValuesItemDict(TypedDict):
 
 
 class _InterpolatedValuesDict(TypedDict):
+    """Type definition for dictionary of interpolated values."""
+
     metadata: NotRequired[_Metadata]
     stations: NotRequired[list[_Station]]
     values: list[_InterpolatedValuesItemDict]
 
 
 class _InterpolatedValuesOgcFeature(TypedDict):
+    """Type definition for OGC feature of interpolated values."""
+
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
@@ -613,17 +699,23 @@ class _InterpolatedValuesOgcFeature(TypedDict):
 
 
 class _InterpolatedValuesOgcFeatureCollectionData(TypedDict):
+    """Type definition for OGC feature collection data of interpolated values."""
+
     type: Literal["FeatureCollection"]
     features: list[_InterpolatedValuesOgcFeature]
 
 
 class _InterpolatedValuesOgcFeatureCollection(TypedDict):
+    """Type definition for OGC feature collection of interpolated values."""
+
     metadata: NotRequired[_Metadata]
     data: _InterpolatedValuesOgcFeatureCollectionData
 
 
 @dataclass
 class InterpolatedValuesResult(_ValuesResult):
+    """Result class for interpolated values."""
+
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float] | None
@@ -633,16 +725,14 @@ class InterpolatedValuesResult(_ValuesResult):
         # because we want to return a slightly different type with columns related to interpolation.
         # Those are distance_mean and station_ids.
         # https://github.com/python/typing/discussions/1015
-        def _to_dict(self, df: pl.DataFrame) -> list[_InterpolatedValuesItemDict]: ...
+        def _to_dict(self, df: pl.DataFrame) -> list[_InterpolatedValuesItemDict]:
+            """Format interpolated values as dictionary."""
 
-        def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict: ...
+        def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict:
+            """Format interpolated values as dictionary."""
 
-    def to_ogc_feature_collection(self, with_metadata: bool = False) -> _InterpolatedValuesOgcFeatureCollection:
-        """
-        Format interpolated values as OGC feature collection.
-        :param with_metadata: bool whether to include metadata
-        :return: Dictionary in GeoJSON FeatureCollection format
-        """
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _InterpolatedValuesOgcFeatureCollection:
+        """Format interpolated values as OGC feature collection."""
         data = {}
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
@@ -674,16 +764,17 @@ class InterpolatedValuesResult(_ValuesResult):
         }
         return data
 
-    def to_plot(self, **_kwargs) -> go.Figure:
+    def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         try:
             import plotly.express as px
             import plotly.graph_objects as go
         except ImportError as e:
-            raise ImportError(
+            msg = (
                 "To use this method, please install the optional dependencies for plotly: "
                 "pip install wetterdienst[plotting]"
-            ) from e
+            )
+            raise ImportError(msg) from e
 
         df = self.df
         if df.is_empty():
@@ -735,7 +826,7 @@ class InterpolatedValuesResult(_ValuesResult):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin=dict(l=10, r=10, t=10, b=10),
+            margin={"l": 10, "r": 10, "t": 10, "b": 10},
         )
         return fig
 
@@ -745,20 +836,26 @@ class InterpolatedValuesResult(_ValuesResult):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> bytes | str:
-        """Create an image from the plotly figure"""
+        """Create an image from the plotly figure.
+
+        This method is used by ``.to_image()`` to create an image for interpolated values from the plotly figure.
+        """
         fig = self.to_plot(**kwargs)
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            raise KeyError(f"Invalid format: {fmt}")
+            msg = f"Invalid format: {fmt}"
+            raise KeyError(msg)
         return img
 
 
 class _SummarizedValuesItemDict(TypedDict):
+    """Format summarized values as dictionary."""
+
     station_id: str
     parameter: str
     date: str
@@ -768,12 +865,16 @@ class _SummarizedValuesItemDict(TypedDict):
 
 
 class _SummarizedValuesDict(TypedDict):
+    """Format summarized values as dictionary."""
+
     metadata: NotRequired[_Metadata]
     stations: NotRequired[list[_Station]]
     values: list[_SummarizedValuesItemDict]
 
 
 class _SummarizedValuesOgcFeature(TypedDict):
+    """Format summarized values as OGC feature."""
+
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
@@ -782,17 +883,23 @@ class _SummarizedValuesOgcFeature(TypedDict):
 
 
 class _SummarizedValuesOgcFeatureCollectionData(TypedDict):
+    """Format summarized values as OGC feature collection data."""
+
     type: Literal["FeatureCollection"]
     features: list[_SummarizedValuesOgcFeature]
 
 
 class _SummarizedValuesOgcFeatureCollection(TypedDict):
+    """Format summarized values as OGC feature collection."""
+
     metadata: NotRequired[_Metadata]
     data: _SummarizedValuesOgcFeatureCollectionData
 
 
 @dataclass
 class SummarizedValuesResult(_ValuesResult):
+    """Calculate summary of stations and parameters."""
+
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float]
@@ -802,16 +909,14 @@ class SummarizedValuesResult(_ValuesResult):
         # because we want to return a slightly different type with columns related to interpolation.
         # Those are distance and station_id.
         # https://github.com/python/typing/discussions/1015
-        def _to_dict(self, df: pl.DataFrame) -> list[_SummarizedValuesItemDict]: ...
+        def _to_dict(self, df: pl.DataFrame) -> list[_SummarizedValuesItemDict]:
+            """Format summarized values as dictionary."""
 
-        def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict: ...
+        def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict:
+            """Format summarized values as dictionary."""
 
-    def to_ogc_feature_collection(self, with_metadata: bool = False) -> _SummarizedValuesOgcFeatureCollection:
-        """
-        Format summarized values as OGC feature collection.
-        :param with_metadata: bool whether to include metadata
-        :return: Dictionary in GeoJSON FeatureCollection format
-        """
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _SummarizedValuesOgcFeatureCollection:
+        """Export summarized values as OGC feature collection."""
         data = {}
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
@@ -843,16 +948,17 @@ class SummarizedValuesResult(_ValuesResult):
         }
         return data
 
-    def to_plot(self, **_kwargs) -> go.Figure:
+    def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         try:
             import plotly.express as px
             import plotly.graph_objects as go
         except ImportError as e:
-            raise ImportError(
+            msg = (
                 "To use this method, please install the optional dependencies for plotly: "
                 "pip install wetterdienst[plotting]"
-            ) from e
+            )
+            raise ImportError(msg) from e
 
         df = self.df
         if df.is_empty():
@@ -903,7 +1009,7 @@ class SummarizedValuesResult(_ValuesResult):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin=dict(l=10, r=10, t=10, b=10),
+            margin={"l": 10, "r": 10, "t": 10, "b": 10},
         )
         return fig
 
@@ -913,14 +1019,18 @@ class SummarizedValuesResult(_ValuesResult):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> bytes | str:
-        """Create an image from the plotly figure"""
+        """Create an image from the plotly figure.
+
+        This method is used by ``.to_image()`` to create an image for summarized values from the plotly figure.
+        """
         fig = self.to_plot(**kwargs)
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
-            raise KeyError(f"Invalid format: {fmt}")
+            msg = f"Invalid format: {fmt}"
+            raise KeyError(msg)
         return img

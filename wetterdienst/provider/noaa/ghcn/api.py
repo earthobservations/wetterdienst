@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""NOAA GHCN api."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -28,13 +30,16 @@ log = logging.getLogger(__name__)
 
 
 class NoaaGhcnValues(TimeseriesValues):
+    """Values class for NOAA GHCN data provider."""
+
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         if parameter_or_dataset.resolution.value == Resolution.HOURLY:
             return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
-        else:
-            return self._collect_station_parameter_for_daily(station_id=station_id)
+        return self._collect_station_parameter_for_daily(station_id=station_id)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
@@ -316,15 +321,7 @@ class NoaaGhcnValues(TimeseriesValues):
         self,
         station_id: str,
     ) -> pl.DataFrame:
-        """
-        Collection method for NOAA GHCN data. Parameter and dataset can be ignored as data
-        is provided as a whole.
-
-        :param station_id: station id of the station being queried
-        :param parameter: parameter being queried
-        :param dataset: dataset being queried
-        :return: dataframe with read data
-        """
+        """Collect station parameter for daily resolution."""
         url = "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
         file = url.format(station_id=station_id)
         log.info(f"Downloading file {file}.")
@@ -368,23 +365,22 @@ class NoaaGhcnValues(TimeseriesValues):
 
     @staticmethod
     def _apply_daily_factors(df: pl.DataFrame) -> pl.DataFrame:
-        """
-        Method to apply given factors on parameters that have been
-        converted to integers by making their unit one tenth e.g.
-        2.0 [°C] becomes 20 [1/10 °C]
-        :param df: DataFrame with given values
-        :return: DataFrame with applied factors
+        """Apply given factors on parameters that have been converted to integers.
+
+        Make their unit one tenth e.g. 2.0 [°C] becomes 20 [1/10 °C]
         """
         data = []
-        for (parameter,), group in df.group_by([Columns.PARAMETER.value]):
+        for (parameter,), df_group in df.group_by([Columns.PARAMETER.value]):
             factor = DAILY_PARAMETER_MULTIPLICATION_FACTORS.get(parameter)
             if factor:
-                group = group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))
-            data.append(group)
+                df_group = df_group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))
+            data.append(df_group)
         return pl.concat(data)
 
 
 class NoaaGhcnRequest(TimeseriesRequest):
+    """Request class for NOAA GHCN data provider."""
+
     metadata = NoaaGhcnMetadata
     _values = NoaaGhcnValues
 
@@ -395,11 +391,14 @@ class NoaaGhcnRequest(TimeseriesRequest):
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
-        """
+        """Initialize the request for the NOAA GHCN data provider.
 
-        :param parameters: list of parameter strings or parameter enums being queried
-        :param start_date: start date for request or None if all data is requested
-        :param end_date: end date for request or None if all data is requested
+        Args:
+            parameters: requested parameters
+            start_date: start date
+            end_date: end date
+            settings: settings for the request
+
         """
         super().__init__(
             parameters=parameters,
@@ -412,8 +411,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         resolution = self.parameters[0].dataset.resolution.value
         if resolution == Resolution.HOURLY:
             return self._create_metaindex_for_ghcn_hourly()
-        else:
-            return self._create_metaindex_for_ghcn_daily()
+        return self._create_metaindex_for_ghcn_daily()
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
         file = "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv"
@@ -445,8 +443,9 @@ class NoaaGhcnRequest(TimeseriesRequest):
         return df.lazy()
 
     def _create_metaindex_for_ghcn_daily(self) -> pl.LazyFrame:
-        """
-        Method to acquire station listing for ghcn daily
+        """Acquire station listing for ghcn daily.
+
+        station listing
         | Variable     | Columns | Type      | Example     |
         |--------------|---------|-----------|-------------|
         | ID           | 1-11    | Character | EI000003980 |
@@ -468,7 +467,6 @@ class NoaaGhcnRequest(TimeseriesRequest):
         | ELEMENT   | 32-35   | CHARACTER |
         | FIRSTYEAR | 37-40   | INTEGER   |
         | LASTYEAR  | 42-45   | INTEGER   |
-        :return: DataFrame with all stations_result
         """
         listings_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt"
         log.info(f"Downloading file {listings_url}.")

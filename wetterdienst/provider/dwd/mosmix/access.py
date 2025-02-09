@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Read DWD XML Weather Forecast File of Type KML."""
+
 # Source:
 # https://github.com/jlewis91/dwdbulk/blob/master/dwdbulk/api/forecasts.py
 from __future__ import annotations
@@ -12,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
-from lxml.etree import iterparse  # noqa: S410
+from lxml.etree import iterparse
 from tqdm import tqdm
 
 from wetterdienst.metadata.cache import CacheExpiry
@@ -22,6 +24,9 @@ from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from xml.etree.ElementTree import Element
+
     from wetterdienst.settings import Settings
 
 try:
@@ -38,6 +43,13 @@ class KMLReader:
     """Read DWD XML Weather Forecast File of Type KML."""
 
     def __init__(self, station_ids: list[str], settings: Settings) -> None:
+        """Initialize KMLReader.
+
+        Args:
+            station_ids: List of station ids.
+            settings: Settings object.
+
+        """
         self.station_ids = station_ids
         self.metadata = {}
         self.timesteps = []
@@ -48,16 +60,9 @@ class KMLReader:
 
     def download(self, url: str) -> BytesIO:
         """Download kml file as bytes.
+
         https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests
-
-        block_size: int or None
-                    Bytes to download in one request; use instance value if None. If
-                    zero, will return a streaming Requests file-like instance.
-
-        :param url: url string to kml file
-        :return: content as bytes
         """
-
         response = self.dwdfs.open(url, block_size=0)
         total = self.dwdfs.size(url)
 
@@ -79,19 +84,14 @@ class KMLReader:
 
         return buffer
 
-    def fetch(self, url) -> bytes:
-        """
-        Fetch weather mosmix file (zipped xml).
-        """
+    def fetch(self, url: str) -> bytes:
+        """Fetch weather mosmix file (zipped xml)."""
         buffer = self.download(url)
         zfs = ZipFileSystem(buffer, "r")
         return zfs.open(zfs.glob("*")[0]).read()
 
-    def read(self, url: str):
-        """
-        Download and read DWD XML Weather Forecast File of Type KML.
-        """
-
+    def read(self, url: str) -> None:
+        """Download and read DWD XML Weather Forecast File of Type KML."""
         log.info(f"Downloading KMZ file {Path(url).name}")
         kml = self.fetch(url)
 
@@ -116,12 +116,11 @@ class KMLReader:
                 if nsmap is None:
                     nsmap = element.nsmap
                     prod_definition_tag = f"{{{nsmap['dwd']}}}ProductDefinition"
-            elif event == "end":
-                if element.tag == prod_definition_tag:
-                    prod_definition = element
-                    # stop processing after head
-                    # leave forecast data for iteration
-                    break
+            elif event == "end" and element.tag == prod_definition_tag:
+                prod_definition = element
+                # stop processing after head
+                # leave forecast data for iteration
+                break
 
         self.metadata = {k: prod_definition.find(f"{{{nsmap['dwd']}}}{v}").text for k, v in prod_items.items()}
         self.metadata["issue_time"] = dt.datetime.fromisoformat(self.metadata["issue_time"])
@@ -136,7 +135,8 @@ class KMLReader:
         # save namespace map for later iteration
         self.nsmap = nsmap
 
-    def iter_items(self):
+    def iter_items(self) -> Iterator[Element]:
+        """Iterate over station forecasts."""
         clear = True
         placemark_tag = f"{{{self.nsmap['kml']}}}Placemark"
         for event, element in self.iter_elems:
@@ -150,7 +150,7 @@ class KMLReader:
                 if clear:
                     element.clear()
 
-    def get_metadata(self):
+    def get_metadata(self) -> pl.DataFrame:
         """Get metadata as DataFrame."""
         return pl.DataFrame([self.metadata], orient="row")
 
@@ -169,5 +169,5 @@ class KMLReader:
                 data_dict[measurement_parameter.lower()] = measurement_values
             station_forecast.clear()
             return pl.DataFrame(data_dict)
-        else:
-            raise IndexError(f"Station {station_id} not found in KML file")
+        msg = f"Station {station_id} not found in KML file"
+        raise IndexError(msg)

@@ -1,16 +1,16 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""CLI for DWD radar data."""
+
 import sys
 from pathlib import Path
 
 import h5py
+from h5netcdf import Group
 
 
-def hdf5dump(thing, compact=False):
-    """
-    Like "h5dump -n 1", but better.
-    """
-
+def hdf5dump(thing: str, *, compact: bool = False) -> None:
+    """Like "h5dump -n 1", but better."""
     blocklist = [
         "afc_status",
         "bpwr",
@@ -24,23 +24,23 @@ def hdf5dump(thing, compact=False):
         "stopelA",
     ]
 
-    def dumpattrs(item, indent=2):
+    def dumpattrs(item: Group, indent: int = 2) -> None:
         for name, value in item.attrs.items():
-            if compact:
-                if name in blocklist:
-                    continue
+            if compact and name in blocklist:
+                continue
             print(" " * indent, "-", name, value)  # noqa: T201
 
     with Path(thing).open("rb") as buffer:
         hdf = h5py.File(buffer, "r")
-        for group in hdf.keys():
+        for group in hdf:
             print("name:", hdf[group].name)  # noqa: T201
             dumpattrs(hdf[group])
-            for subgroup in hdf[group].keys():
+            for subgroup in hdf[group]:
                 print("  name:", subgroup)  # noqa: T201
                 dumpattrs(hdf[group][subgroup], indent=4)
 
 
-def wddump():
+def wddump() -> None:
+    """Dump the contents of a Wetterdienst HDF5 file."""
     filename = sys.argv[1]
     hdf5dump(filename, compact=True)

@@ -1,15 +1,18 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Utilities for the wetterdienst package."""
+
 from __future__ import annotations
 
 import json
 import logging
-from typing import Annotated, Any, Literal, Union
+from textwrap import dedent
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from pydantic import ValidationError
-from starlette.responses import RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse
 
 from wetterdienst import Author, Info, Settings, Wetterdienst
 from wetterdienst.core.timeseries.result import (
@@ -59,18 +62,20 @@ REQUEST_EXAMPLES = {
 }
 
 
-@app.get("/", response_class=HTMLResponse)
-def index():
-    def _create_author_entry(author: Author):
+@app.get("/")
+def index() -> HTMLResponse:
+    """Provide index page."""
+
+    def _create_author_entry(author: Author) -> str:
         # create author string Max Mustermann (Github href, Mailto)
         return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"  # noqa:E501
 
     title = f"{info.slogan} | {info.name}"
     sources = []
 
-    for provider in Wetterdienst.registry.keys():
+    for provider in Wetterdienst.registry:
         # take the first network api
-        first_network = list(Wetterdienst.registry[provider].keys())[0]
+        first_network = next(iter(Wetterdienst.registry[provider].keys()))
         api = Wetterdienst(provider, first_network)
         shortname = api.metadata.name_short
         name = api.metadata.name_english
@@ -81,7 +86,8 @@ def index():
             f"<li><a href={url} target='_blank' rel='noopener'>{shortname}</a> ({name}, {country}) - {copyright_}</li>",
         )
     sources = "\n".join(sources)
-    return f"""
+    return HTMLResponse(
+        content=f"""
     <html lang="en">
         <head>
             <title>{title}</title>
@@ -184,26 +190,34 @@ def index():
             </div>
         </body>
     </html>
-    """  # noqa:B950,E501
+    """,  # noqa:E501
+    )
 
 
-@app.get("/robots.txt", response_class=PlainTextResponse)
-def robots():
-    return """
-User-agent: *
-Disallow: /api/
-    """.strip()
+@app.get("/robots.txt")
+def robots() -> PlainTextResponse:
+    """Provide robots.txt."""
+    return PlainTextResponse(
+        content=dedent(
+            """
+            User-agent: *
+            Disallow: /api/
+            """.strip(),
+        ),
+    )
 
 
 @app.get("/health")
-def health():
-    return {"status": "OK"}
+def health() -> JSONResponse:
+    """Health check."""
+    return JSONResponse(content={"status": "OK"})
 
 
 @app.get("/favicon.ico")
-def favicon():
+def favicon() -> RedirectResponse:
+    """Redirect to favicon."""
     return RedirectResponse(
-        url="https://raw.githubusercontent.com/earthobservations/wetterdienst/refs/heads/main/docs/assets/logo.png"
+        url="https://raw.githubusercontent.com/earthobservations/wetterdienst/refs/heads/main/docs/assets/logo.png",
     )
 
 
@@ -211,12 +225,14 @@ def favicon():
 def coverage(
     provider: str | None = None,
     network: str | None = None,
-    resolutions: str = None,
-    datasets: str = None,
+    resolutions: str | None = None,
+    datasets: str | None = None,
+    *,
     pretty: bool = False,
     debug: bool = False,
-):
-    set_logging_level(debug)
+) -> Response:
+    """Wrap around Wetterdienst.discover to provide results via restapi."""
+    set_logging_level(debug=debug)
 
     if (provider and not network) or (not provider and network):
         raise HTTPException(
@@ -255,15 +271,20 @@ def coverage(
 # - _StationsDict for json
 # - _StationsOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/stations", response_model=Union[_StationsDict, _StationsOgcFeatureCollection, str])
-def stations(request: Annotated[StationsRequestRaw, Query()]) -> Any:
-    # parse list-like parameters into lists
+@app.get(
+    "/api/stations",
+    response_model=_StationsDict | _StationsOgcFeatureCollection | str,
+)
+def stations(
+    request: Annotated[StationsRequestRaw, Query()],
+) -> Response:
+    """Wrap get_stations to provide results via restapi."""
     try:
         request = StationsRequest.model_validate(request.model_dump())
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    set_logging_level(request.debug)
+    set_logging_level(debug=request.debug)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -315,16 +336,20 @@ def stations(request: Annotated[StationsRequestRaw, Query()]) -> Any:
 # - _ValuesDict for json
 # - _ValuesOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/values", response_model=Union[_ValuesDict, _ValuesOgcFeatureCollection, str])
+@app.get(
+    "/api/values",
+    response_model=_ValuesDict | _ValuesOgcFeatureCollection | str,
+)
 def values(
     request: Annotated[ValuesRequestRaw, Query()],
-) -> Any:
+) -> Response:
+    """Wrap get_values to provide results via restapi."""
     try:
         request = ValuesRequest.model_validate(request.model_dump())
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    set_logging_level(request.debug)
+    set_logging_level(debug=request.debug)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -353,7 +378,7 @@ def values(
             settings=settings,
         )
     except Exception as e:
-        log.exception(e)
+        log.exception("Failed to get values")
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     # build kwargs dynamically
@@ -391,16 +416,18 @@ def values(
 # - str for csv
 @app.get(
     "/api/interpolate",
-    response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str],
+    response_model=_InterpolatedValuesDict | _InterpolatedValuesOgcFeatureCollection | str,
 )
-def interpolate(request: Annotated[InterpolationRequestRaw, Query()]) -> Any:
-    """Wrapper around get_interpolate to provide results via restapi"""
+def interpolate(
+    request: Annotated[InterpolationRequestRaw, Query()],
+) -> Response:
+    """Wrap around get_interpolate to provide results via restapi."""
     try:
         request = InterpolationRequest.model_validate(request.model_dump())
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    set_logging_level(request.debug)
+    set_logging_level(debug=request.debug)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -426,7 +453,7 @@ def interpolate(request: Annotated[InterpolationRequestRaw, Query()]) -> Any:
             settings=settings,
         )
     except Exception as e:
-        log.exception(e)
+        log.exception("Failed to interpolate")
         raise HTTPException(status_code=404, detail=str(e)) from e
 
     # build kwargs dynamically
@@ -462,17 +489,17 @@ def interpolate(request: Annotated[InterpolationRequestRaw, Query()]) -> Any:
 # - _SummarizedValuesDict for json
 # - _SummarizedValuesOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
+@app.get("/api/summarize", response_model=_SummarizedValuesDict | _SummarizedValuesOgcFeatureCollection | str)
 def summarize(
     request: Annotated[SummaryRequestRaw, Query()],
-) -> Any:
-    """Wrapper around get_summarize to provide results via restapi"""
+) -> Response:
+    """Wrap around get_summarize to provide results via restapi."""
     try:
         request = SummaryRequest.model_validate(request.model_dump())
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    set_logging_level(request.debug)
+    set_logging_level(debug=request.debug)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -496,7 +523,7 @@ def summarize(
             settings=settings,
         )
     except Exception as e:
-        log.exception(e)
+        log.exception("Failed to summarize")
         raise HTTPException(status_code=404, detail=str(e)) from e
 
     # build kwargs dynamically
@@ -531,24 +558,21 @@ def summarize(
 @app.get("/api/stripes/stations")
 def stripes_stations(
     kind: Annotated[Literal["temperature", "precipitation"], Query()],
-    active: Annotated[bool, Query()] = True,
+    active: Annotated[bool, Query()] = True,  # noqa: FBT002
     fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = False,
-    debug: Annotated[bool, Query()] = False,
-) -> Any:
-    """Wrapper around get_climate_stripes_temperature_request to provide results via restapi"""
-    set_logging_level(debug)
+    pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
+    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
+) -> Response:
+    """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
+    set_logging_level(debug=debug)
 
     try:
         stations = _get_stripes_stations(kind=kind, active=active)
     except Exception as e:
-        log.exception(e)
+        log.exception("Failed to get stripes stations")
         raise HTTPException(status_code=400, detail=str(e)) from e
     content = stations.to_format(fmt=fmt, with_metadata=True, indent=pretty)
-    if fmt == "csv":
-        media_type = "text/csv"
-    else:
-        media_type = "application/json"
+    media_type = "text/csv" if fmt == "csv" else "application/json"
     return Response(content=content, media_type=media_type)
 
 
@@ -560,15 +584,15 @@ def stripes_values(
     start_year: Annotated[int | None, Query()] = None,
     end_year: Annotated[int | None, Query()] = None,
     name_threshold: Annotated[float, Query()] = 0.9,
-    show_title: Annotated[bool, Query()] = True,
-    show_years: Annotated[bool, Query()] = True,
-    show_data_availability: Annotated[bool, Query()] = True,
+    show_title: Annotated[bool, Query()] = True,  # noqa: FBT002
+    show_years: Annotated[bool, Query()] = True,  # noqa: FBT002
+    show_data_availability: Annotated[bool, Query()] = True,  # noqa: FBT002
     fmt: Annotated[Literal["png", "jpg", "svg", "pdf"], Query(alias="format")] = "png",
     dpi: Annotated[int, Query(gt=0)] = 300,
-    debug: Annotated[bool, Query()] = False,
-) -> Any:
-    """Wrapper around get_summarize to provide results via restapi"""
-    set_logging_level(debug)
+    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
+) -> Response:
+    """Wrap get_summarize to provide results via restapi."""
+    set_logging_level(debug=debug)
 
     if not station and not name:
         raise HTTPException(
@@ -580,12 +604,11 @@ def stripes_values(
             status_code=400,
             detail="Query arguments 'station' and 'name' are mutually exclusive",
         )
-    if start_year and end_year:
-        if start_year >= end_year:
-            raise HTTPException(
-                status_code=400,
-                detail="Query argument 'start_year' must be less than 'end_year'",
-            )
+    if start_year and end_year and start_year >= end_year:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'start_year' must be less than 'end_year'",
+        )
     if name_threshold < 0 or name_threshold > 1:
         raise HTTPException(
             status_code=400,
@@ -605,13 +628,14 @@ def stripes_values(
             show_data_availability=show_data_availability,
         )
     except Exception as e:
-        log.exception(e)
+        log.exception("Failed to plot stripes")
         raise HTTPException(status_code=400, detail=str(e)) from e
     media_type = f"image/{fmt}"
     return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
 
 
-def start_service(listen_address: str | None = None, reload: bool | None = False):  # pragma: no cover
+def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
+    """Start the REST API service."""
     from uvicorn.main import run
 
     setup_logging()

@@ -1,22 +1,17 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-=====
-About
-=====
-
-Example for DWD radar sites DX using wetterdienst and wradlib.
+"""Example for DWD radar sites DX using wetterdienst and wradlib.
 
 The German Weather Service uses the DX file format to encode
 local radar sweeps. DX data are in polar coordinates.
 
-See also:
+See Also:
 - https://docs.wradlib.org/en/stable/notebooks/fileio/legacy/read_dx.html
 
 This program will request the latest RADAR DX data
 for Boostedt and plot the outcome with matplotlib.
 
-"""  # noqa:D205,D400,E501
+"""
 
 import logging
 import os
@@ -37,13 +32,13 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: xr.DataArray):
+def plot(data: xr.DataArray) -> None:
     """Plot radar data with prefixed settings."""
     fig = plt.figure(figsize=(10, 8))
     data.wrl.vis.plot(fig=fig, crs="cg")
 
 
-def radar_info(data: np.ndarray, metadata: dict):
+def radar_info(data: np.ndarray, metadata: dict) -> None:
     """Display metadata from radar request."""
     log.info("Data shape: %s", data.shape)
 
@@ -52,7 +47,7 @@ def radar_info(data: np.ndarray, metadata: dict):
         print(f"- {key}: {value}")
 
 
-def radar_dx_example():
+def radar_dx_example() -> None:
     """Retrieve radar dx reflectivity data by DWD."""
     log.info("Acquiring radar DX data")
     request = DwdRadarValues(
@@ -77,7 +72,7 @@ def radar_dx_example():
             plt.show()
 
 
-def main():
+def main() -> None:
     """Run example."""
     radar_dx_example()
 

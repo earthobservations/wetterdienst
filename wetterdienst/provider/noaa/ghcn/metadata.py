@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Metadata for NOAA Global Historical Climatology Network (GHCN) dataset."""
+
 from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
 # translate the above enums to dictionary based model
@@ -121,7 +123,7 @@ NoaaGhcnMetadata = {
                         },
                         # the pressure "reduced" to mean sea level using the temperature profile of the "standard"
                         # atmosphere, which is representative of average conditions over the United States at 40
-                        # degrees north latitude (millibars/hPa)  # noqa
+                        # degrees north latitude (millibars/hPa)
                         {
                             "name": "pressure_air_site_reduced",
                             "name_original": "altimeter",
@@ -188,7 +190,7 @@ NoaaGhcnMetadata = {
                             "unit": "meter_per_second",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -1548,7 +1550,7 @@ NoaaGhcnMetadata = {
                             "unit": "dimensionless",
                         },
                     ],
-                }
+                },
             ],
         },
     ],

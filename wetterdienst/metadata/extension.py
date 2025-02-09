@@ -1,9 +1,13 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Enumeration for file extensions."""
+
 from enum import Enum
 
 
 class Extension(Enum):
+    """Enumeration for file extensions."""
+
     CSV = "csv"
     H5 = "h5"
     BIN = "bin"

@@ -1,8 +1,9 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Utilities for the DWD radar provider."""
+
 from __future__ import annotations
 
-import datetime as dt
 import re
 from typing import TYPE_CHECKING
 
@@ -36,21 +37,16 @@ RADAR_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_LONG}|{RADAR_DT_REGEX_MEDIUM}|{R
 RADOLAN_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_SHORT}|{RADAR_DT_REGEX_MEDIUM}")
 
 
-def get_date_from_filename(filename: str, pattern: re.Pattern, formats: list[str]) -> dt.datetime | None:
+def get_date_string_from_filename(filename: str, pattern: re.Pattern) -> str | None:
+    """Extract a datetime object from a filename using a regex pattern and a list of formats."""
     try:
-        date_string = pattern.findall(filename)[0]
+        return pattern.findall(filename)[0]
     except IndexError:
         return None
 
-    for fmt in formats:
-        try:
-            return dt.datetime.strptime(date_string, fmt)
-        except ValueError:
-            pass
-    return None
 
-
-def verify_hdf5(buffer: BytesIO):
+def verify_hdf5(buffer: BytesIO) -> None:
+    """Verify that the buffer is a valid HDF5 file."""
     import h5py
 
     buffer.seek(0)

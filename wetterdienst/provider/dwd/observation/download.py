@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Download climate observations data from DWD server."""
+
 from __future__ import annotations
 
 import logging
@@ -26,6 +28,7 @@ def download_climate_observations_data(
     remote_files: pl.Series,
     settings: Settings,
 ) -> list[tuple[str, BytesIO]]:
+    """Download climate observations data from DWD server."""
     if len(remote_files) > 1:
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
@@ -34,7 +37,7 @@ def download_climate_observations_data(
             )
     else:
         files_in_bytes = [_download_climate_observations_data(remote_file=remote_files[0], settings=settings)]
-    return list(zip(remote_files, files_in_bytes))
+    return list(zip(remote_files, files_in_bytes, strict=False))
 
 
 def _download_climate_observations_data(remote_file: str, settings: Settings) -> BytesIO:
@@ -48,11 +51,13 @@ def __download_climate_observations_data(remote_file: str, settings: Settings) -
     try:
         zfs = ZipFileSystem(file)
     except BadZipFile as e:
-        raise BadZipFile(f"The archive of {remote_file} seems to be corrupted.") from e
+        msg = f"The archive of {remote_file} seems to be corrupted."
+        raise BadZipFile(msg) from e
 
     product_file = zfs.glob("produkt*")
 
     if len(product_file) != 1:
-        raise ProductFileNotFoundError(f"The archive of {remote_file} does not hold a 'produkt' file.")
+        msg = f"The archive of {remote_file} does not hold a 'produkt' file."
+        raise ProductFileNotFoundError(msg)
 
     return zfs.open(product_file[0]).read()

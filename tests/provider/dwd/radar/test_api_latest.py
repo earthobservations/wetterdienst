@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for radar API (latest)."""
+
 import datetime as dt
 import re
 from zoneinfo import ZoneInfo
@@ -7,17 +9,18 @@ from zoneinfo import ZoneInfo
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
 @pytest.mark.remote
-def test_radar_request_composite_latest_rv_reflectivity(default_settings, station_reference_pattern_sorted_prefixed):
-    """
-    Example for testing radar COMPOSITES latest.
-    """
-
+def test_radar_request_composite_latest_rv_reflectivity(
+    default_settings: Settings,
+    station_reference_pattern_sorted_prefixed: str,
+) -> None:
+    """Example for testing radar COMPOSITES latest."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RV_REFLECTIVITY,
         start_date=DwdRadarDate.LATEST,
@@ -36,11 +39,8 @@ def test_radar_request_composite_latest_rv_reflectivity(default_settings, statio
 
 
 @pytest.mark.remote
-def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_locations):
-    """
-    Example for testing radar COMPOSITES (RADOLAN) latest.
-    """
-
+def test_radar_request_composite_latest_rw_reflectivity(default_settings: Settings, radar_locations: list[str]) -> None:
+    """Example for testing radar COMPOSITES (RADOLAN) latest."""
     wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
@@ -52,7 +52,8 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_
     results = list(request.query())
 
     if len(results) == 0:
-        raise pytest.skip("Data currently not available")
+        msg = "Data currently not available"
+        raise pytest.skip(msg)
 
     buffer = results[0][1]
     requested_header = wrl.io.read_radolan_header(buffer)
@@ -84,11 +85,8 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_
 
 
 @pytest.mark.remote
-def test_radar_request_site_latest_dx_reflectivity(default_settings):
-    """
-    Example for testing radar SITES latest.
-    """
-
+def test_radar_request_site_latest_dx_reflectivity(default_settings: Settings) -> None:
+    """Example for testing radar SITES latest."""
     wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(

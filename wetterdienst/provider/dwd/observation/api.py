@@ -1,16 +1,18 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""DWD observation data provider."""
+
 from __future__ import annotations
 
 import datetime as dt
 import logging
 from collections.abc import Iterable
 from itertools import repeat
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
-import portion as P
+import portion
 from polars.exceptions import ColumnNotFoundError
 from portion import Interval
 
@@ -43,36 +45,27 @@ from wetterdienst.util.python import to_list
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from wetterdienst.core.timeseries.result import StationsResult
 log = logging.getLogger(__name__)
 
 
 class DwdObservationValues(TimeseriesValues):
-    """
-    The DWDObservationData class represents a request for
-    observation data as provided by the DWD service.
-    """
+    """Values class for DWD observation data."""
 
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
-        """
-        Method to collect data for one specified parameter. Manages restoring,
-        collection and storing of data, transformation and combination of different
-        periods.
-
-        :param station_id: station id for which parameter is collected
-        :param parameter_or_dataset: parameter or dataset model
-
-        :return: polars.DataFrame for given parameter of station
-        """
+        """Collect station data for a given dataset."""
         periods_and_date_ranges = []
 
         for period in self.sr.stations.periods:
             if parameter_or_dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(
-                    station_id, parameter_or_dataset, self.sr.stations.settings
+                    station_id,
+                    parameter_or_dataset,
+                    self.sr.stations.settings,
                 )
                 periods_and_date_ranges.append((period, date_ranges))
             else:
@@ -85,7 +78,7 @@ class DwdObservationValues(TimeseriesValues):
                 log.info(f"Skipping period {period} for {parameter_or_dataset.name}.")
                 continue
             dataset_identifier = (
-                f"{parameter_or_dataset.resolution.value.name}/{parameter_or_dataset.name}/{station_id}/{period.value}"  # noqa: E501
+                f"{parameter_or_dataset.resolution.value.name}/{parameter_or_dataset.name}/{station_id}/{period.value}"
             )
             log.info(f"Acquiring observation data for {dataset_identifier}.")
             remote_files = create_file_list_for_climate_observations(
@@ -126,14 +119,7 @@ class DwdObservationValues(TimeseriesValues):
 
     @staticmethod
     def _fix_timestamps(df: pl.DataFrame) -> pl.DataFrame:
-        """
-        This method is used to fix timestamps for 10 minute resolution data provided
-        by DWD. The original document states
-        " The time stamp before the year 2000 is given in MEZ, the time stamp after
-        the year 2000 is given in UTC. "
-        :param df: pandas DataFrame with original timestamps
-        :return: pandas DataFrame with fixed timestamps
-        """
+        """Fix timestamps for minute data."""
         return df.with_columns(
             pl.when(pl.col(Columns.DATE.value).dt.year() < 2000)
             .then(pl.col(Columns.DATE.value) - pl.duration(hours=1))
@@ -143,13 +129,7 @@ class DwdObservationValues(TimeseriesValues):
 
     @staticmethod
     def _tidy_up_df(df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
-        """
-        Implementation of _tidy_up_df for DWD Observations
-
-        :param df: untidy DataFrame
-        :param dataset: dataset enumeration
-        :return: tidied DataFrame
-        """
+        """Tidy up the DataFrame by dropping unnecessary columns and renaming columns."""
         droppable_columns = [
             # Hourly
             # Cloud type
@@ -256,14 +236,7 @@ class DwdObservationValues(TimeseriesValues):
         dataset: DatasetModel,
         settings: Settings,
     ) -> list[str]:
-        """
-        Get particular files for historical data which for high resolution is
-        released in data chunks e.g. decades or monthly chunks
-
-        :param station_id:
-        :param dataset:
-        :return:
-        """
+        """Get historical date ranges for a given station id and dataset."""
         file_index = create_file_index_for_climate_observations(
             dataset,
             Period.HISTORICAL,
@@ -275,8 +248,8 @@ class DwdObservationValues(TimeseriesValues):
         # The request interval may be None, if no start and end date
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
-        interval = self.sr.stations._interval
-        start_date_min, end_date_max = interval and (interval.lower, interval.upper) or (None, None)
+        interval = self.sr.stations.interval
+        start_date_min, end_date_max = (interval and (interval.lower, interval.upper)) or (None, None)
         if start_date_min:
             file_index = file_index.filter(
                 pl.col(Columns.STATION_ID.value).eq(station_id)
@@ -288,25 +261,18 @@ class DwdObservationValues(TimeseriesValues):
 
 
 class DwdObservationRequest(TimeseriesRequest):
-    """
-    The DWDObservationStations class represents a request for
-    a station list as provided by the DWD service.
-    """
+    """Request class for DWD observation data."""
 
     metadata = DwdObservationMetadata
     _values = DwdObservationValues
-    _available_periods = {Period.HISTORICAL, Period.RECENT, Period.NOW}
+    _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT, Period.NOW}
 
     @property
-    def _interval(self) -> Interval | None:
-        """
-        Interval of the request if date given
-
-        :return:
-        """
+    def interval(self) -> Interval | None:
+        """Interval of the request."""
         if self.start_date:
             # cut of hours, seconds,...
-            return P.closed(
+            return portion.closed(
                 self.start_date.astimezone(ZoneInfo(self.metadata.timezone)),
                 self.end_date.astimezone(ZoneInfo(self.metadata.timezone)),
             )
@@ -315,56 +281,41 @@ class DwdObservationRequest(TimeseriesRequest):
 
     @property
     def _historical_interval(self) -> Interval:
-        """
-        Interval of historical data release schedule. Historical data is typically
-        release once in a year somewhere in the first few months with updated quality
+        """Interval of historical data release schedule.
 
-        :return:
+        Historical data is typically release once in a year somewhere in the first few months with updated quality
         """
         now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
         historical_end = now_local.replace(month=1, day=1)
         # a year that is way before any data is collected
         historical_begin = dt.datetime(year=1678, month=1, day=1, tzinfo=historical_end.tzinfo)
-        return P.closed(historical_begin, historical_end)
+        return portion.closed(historical_begin, historical_end)
 
     @property
     def _recent_interval(self) -> Interval:
-        """
-        Interval of recent data release schedule. Recent data is released every day
-        somewhere after midnight with data reaching back 500 days.
+        """Interval of recent data release schedule.
 
-        :return:
+        Recent data is released every day somewhere after midnight with data reaching back 500 days.
         """
         now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
         recent_end = now_local.replace(hour=0, minute=0, second=0)
         recent_begin = recent_end - dt.timedelta(days=500)
-        return P.closed(recent_begin, recent_end)
+        return portion.closed(recent_begin, recent_end)
 
     @property
     def _now_interval(self) -> Interval:
-        """
-        Interval of now data release schedule. Now data is released every hour (near
-        real time) reaching back to beginning of the previous day.
+        """Interval of now data release schedule.
 
-        :return:
+        Now data is released every hour (near real time) reaching back to beginning of the previous day.
         """
         now_end = dt.datetime.now(ZoneInfo(self.metadata.timezone))
         now_begin = now_end.replace(hour=0, minute=0, second=0) - dt.timedelta(days=1)
-        return P.closed(now_begin, now_end)
+        return portion.closed(now_begin, now_end)
 
     def _get_periods(self) -> list[Period]:
-        """
-        Set periods automatically depending on the given start date and end date.
-        Overlapping of historical and recent interval will cause both periods to appear
-        if values from last year are queried within the 500 day range of recent. This is
-        okay as we'd prefer historical values with quality checks, but may encounter
-        that in the beginning of a new year historical data is not yet updated and only
-        recent periods cover this data.
-
-        :return:
-        """
+        """Get periods based on the interval of the request."""
         periods = []
-        interval = self._interval
+        interval = self.interval
         if interval.overlaps(self._historical_interval):
             periods.append(Period.HISTORICAL)
         if interval.overlaps(self._recent_interval):
@@ -378,17 +329,11 @@ class DwdObservationRequest(TimeseriesRequest):
         return series.cast(pl.String).str.pad_start(5, "0")
 
     def _parse_period(self, period: Period) -> set[Period] | None:
-        """
-        Method to parse period(s)
-
-        :param period:
-        :return:
-        """
+        """Parse period from string or Period enumeration."""
         if not period:
             return None
         periods_parsed = set()
-        for p in to_list(period):
-            periods_parsed.add(parse_enumeration_from_template(p, Period))
+        periods_parsed.update(parse_enumeration_from_template(p, Period) for p in to_list(period))
         return periods_parsed & self._available_periods or None
 
     def __init__(
@@ -398,14 +343,16 @@ class DwdObservationRequest(TimeseriesRequest):
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
-    ):
-        """
+    ) -> None:
+        """Initialize DwdObservationRequest.
 
-        :param parameters: parameter set str/enumeration
-        :param resolution: resolution str/enumeration
-        :param period: period str/enumeration
-        :param start_date: start date to limit the stations_result
-        :param end_date: end date to limit the stations_result
+        Args:
+            parameters: requested parameters
+            periods: requested periods
+            start_date: start date of the request
+            end_date: end date of the request
+            settings: settings for the request
+
         """
         super().__init__(
             parameters=parameters,
@@ -424,13 +371,20 @@ class DwdObservationRequest(TimeseriesRequest):
             else:
                 self.periods = self._available_periods
 
-    def __eq__(self, other):
+    def __eq__(self, other: DwdObservationRequest) -> bool:
+        """Equality method for DwdObservationRequest."""
+        if not isinstance(other, DwdObservationRequest):
+            return False
         return super().__eq__(other) and self.periods == other.periods
 
-    def filter_by_station_id(self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]):
-        return super().filter_by_station_id(
-            pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)).cast(str).str.pad_start(5, "0"),
-        )
+    def filter_by_station_id(
+        self,
+        station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int],
+    ) -> StationsResult:
+        """Filter by station id."""
+        # ensure station_id is a list of strings with padded zeros to length 5
+        station_id = [str(station_id).zfill(5) for station_id in to_list(station_id)]
+        return super().filter_by_station_id(station_id)
 
     @classmethod
     def describe_fields(
@@ -439,23 +393,27 @@ class DwdObservationRequest(TimeseriesRequest):
         period: str | Period,
         language: Literal["en", "de"] = "en",
     ) -> dict:
+        """Describe fields of a dataset."""
         from wetterdienst.provider.dwd.observation.fields import read_description
 
-        if isinstance(dataset, str) or isinstance(dataset, Iterable):
+        if isinstance(dataset, str | Iterable):
             parameter_template = ParameterSearch.parse(dataset)
         elif isinstance(dataset, DatasetModel):
             parameter_template = ParameterSearch(
-                resolution=dataset.resolution.value.value, dataset=dataset.name_original
+                resolution=dataset.resolution.value.value,
+                dataset=dataset.name_original,
             )
         elif isinstance(dataset, ParameterSearch):
             parameter_template = dataset
         else:
-            raise KeyError("dataset must be a string, ParameterTemplate or DatasetModel")
+            msg = "dataset must be a string, ParameterTemplate or DatasetModel"
+            raise KeyError(msg)
 
         dataset = DwdObservationMetadata.search_parameter(parameter_template)[0].dataset
         period = parse_enumeration_from_template(period, Period)
         if period not in dataset.periods or period not in cls._available_periods:
-            raise ValueError(f"Period {period} not available for dataset {dataset}")
+            msg = f"Period {period} not available for dataset {dataset}"
+            raise ValueError(msg)
 
         file_index = _create_file_index_for_dwd_server(
             dataset=dataset,
@@ -469,7 +427,8 @@ class DwdObservationRequest(TimeseriesRequest):
         elif language == "de":
             file_prefix = "BESCHREIBUNG_"
         else:
-            raise ValueError("Only language 'en' or 'de' supported")
+            msg = "Only language 'en' or 'de' supported"
+            raise ValueError(msg)
 
         file_index = file_index.filter(pl.col("filename").str.contains(file_prefix))
         description_file_url = str(file_index.get_column("filename").item())
@@ -478,10 +437,7 @@ class DwdObservationRequest(TimeseriesRequest):
         return read_description(description_file_url, language=language)
 
     def _all(self) -> pl.LazyFrame:
-        """
-
-        :return:
-        """
+        """:return:"""
         datasets = []
         for parameter in self.parameters:
             if parameter.dataset not in datasets:

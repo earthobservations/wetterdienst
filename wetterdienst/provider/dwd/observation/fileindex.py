@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""File index for DWD climate observations."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -46,9 +48,7 @@ def create_file_index_for_climate_observations(
     period: Period,
     settings: Settings,
 ) -> pl.LazyFrame:
-    """Create a file index for a given dataset and period. The file index contains the url, filename, station id and
-    date range of the files.
-    """
+    """Create a file index for a given dataset and period."""
     url = _build_url_from_dataset_and_period(dataset, period)
     df_files = _create_file_index_for_dwd_server(url, settings, CacheExpiry.TWELVE_HOURS)
     # regarding the first filter (_), DWD has published some temporary files in the end of 2024
@@ -103,7 +103,8 @@ def _create_file_index_for_dwd_server(
 ) -> pl.LazyFrame:
     urls = list_remote_files_fsspec(url, settings=settings, ttl=ttl)
     if not urls:
-        raise FileNotFoundError(f"url {url} does not have a list of files")
+        msg = f"url {url} does not have a list of files"
+        raise FileNotFoundError(msg)
     df = pl.DataFrame({"url": urls}, schema={"url": pl.String}, orient="col")
     df = df.with_columns(
         pl.col("url").str.split("/").list.last().alias("filename"),
@@ -118,10 +119,9 @@ def _build_url_from_dataset_and_period(
     """Build the URL for a given dataset."""
     if dataset in DWD_URBAN_DATASETS:
         return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/{dataset.resolution.value.value}/{dataset.name_original[6:]}/{Period.RECENT.value}/"
-    elif dataset in (
+    if dataset in (
         DwdObservationMetadata.hourly.solar,
         DwdObservationMetadata.daily.solar,
     ):
         return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{dataset.resolution.value.value}/{dataset.name_original}/"
-    else:
-        return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{dataset.resolution.value.value}/{dataset.name_original}/{period.value}/"
+    return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{dataset.resolution.value.value}/{dataset.name_original}/{period.value}/"

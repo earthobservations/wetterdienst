@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for CLI summarize command."""
+
 import json
 
 import pytest
@@ -7,7 +11,8 @@ from wetterdienst.ui.cli import cli
 
 
 @pytest.mark.remote
-def test_cli_summarize_no_metadata_no_stations():
+def test_cli_summarize_no_metadata_no_stations() -> None:
+    """Test the CLI summarize command without metadata and stations."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -50,7 +55,8 @@ def test_cli_summarize_no_metadata_no_stations():
 
 
 @pytest.mark.remote
-def test_cli_summarize_geojson(metadata):
+def test_cli_summarize_geojson(metadata: dict) -> None:
+    """Test CLI summarize with GeoJSON output."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -124,7 +130,8 @@ def test_cli_summarize_geojson(metadata):
 
 
 @pytest.mark.remote
-def test_cli_summarize_custom_units():
+def test_cli_summarize_custom_units() -> None:
+    """Test CLI summarize with custom units."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -176,7 +183,8 @@ def test_cli_summarize_custom_units():
         "svg",
     ],
 )
-def test_cli_summarize_image(fmt):
+def test_cli_summarize_image(fmt: str) -> None:
+    """Test the summarize command with image formats."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -196,7 +204,8 @@ def test_cli_summarize_image(fmt):
 
 
 @pytest.mark.remote
-def test_cli_summarize_image_html():
+def test_cli_summarize_image_html() -> None:
+    """Test the summarize command with HTML format."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -215,7 +224,8 @@ def test_cli_summarize_image_html():
 
 
 @pytest.mark.remote
-def test_cli_summarize_image_pdf():
+def test_cli_summarize_image_pdf() -> None:
+    """Test the summarize command with PDF format."""
     runner = CliRunner()
     result = runner.invoke(
         cli,

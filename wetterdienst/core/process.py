@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Processing utilities."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -23,9 +25,20 @@ else:
 
 
 def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | None, dt.datetime | None]:
+    """Create date range from date string and resolution.
+
+    Args:
+        date: Date string.
+        resolution: Resolution.
+
+    Returns:
+        Tuple of date range.
+
+    """
     if "/" in date:
         if date.count("/") >= 2:
-            raise InvalidTimeIntervalError("Invalid ISO 8601 time interval")
+            msg = "Invalid ISO 8601 time interval"
+            raise InvalidTimeIntervalError(msg)
 
         date_from, date_to = date.split("/")
         date_from = parse_date(date_from)
@@ -51,8 +64,7 @@ def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | 
 
 
 def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
-    """
-    Filter Pandas DataFrame by date or date interval.
+    """Filter DataFrame by date or date interval.
 
     Accepts different kinds of date formats, like:
 
@@ -64,18 +76,22 @@ def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
     - 2017-01/2019-12
     - 2010/2020
 
-    :param df:
-    :param date:
-    :return: Filtered DataFrame
-    """
+    Args:
+        df: DataFrame.
+        date: Date string.
 
+    Returns:
+        Filtered DataFrame.
+
+    """
     # TODO: datetimes should be aware of tz
     # TODO: resolution is not necessarily available and ideally filtering does not
     #  depend on it
     # Filter by date interval.
     if "/" in date:
         if date.count("/") >= 2:
-            raise InvalidTimeIntervalError("Invalid ISO 8601 time interval")
+            msg = "Invalid ISO 8601 time interval"
+            raise InvalidTimeIntervalError(msg)
 
         date_from, date_to = date.split("/")
         date_from = parse_date(date_from)
@@ -86,9 +102,8 @@ def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
         return df.filter(expression)
 
     # Filter by specific date.
-    else:
-        date = parse_date(date)
+    date = parse_date(date)
 
-        expression = pl.col(Columns.DATE.value).eq(date)
+    expression = pl.col(Columns.DATE.value).eq(date)
 
-        return df.filter(expression)
+    return df.filter(expression)

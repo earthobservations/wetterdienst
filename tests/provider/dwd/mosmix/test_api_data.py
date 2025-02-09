@@ -1,18 +1,19 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD MOSMIX."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
 import pytest
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
 @pytest.mark.remote
-def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false):
-    """
-    Test some details of a typical MOSMIX-L response.
-    """
+def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> None:
+    """Test some details of a typical MOSMIX-L response."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "large")],
         settings=settings_humanize_false_drop_nulls_false,
@@ -164,7 +165,7 @@ def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false):
 
 @pytest.mark.remote
 @pytest.mark.slow
-def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false):
+def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> None:
     """Test some details of a typical MOSMIX-S response."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "small")],
@@ -236,7 +237,8 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false):
 
 
 @pytest.mark.remote
-def test_mosmix_date_filter(settings_drop_nulls_false):
+def test_mosmix_date_filter(settings_drop_nulls_false: Settings) -> None:
+    """Test a MOSMIX request with date filter."""
     now = dt.datetime.now(tz=ZoneInfo("UTC"))
     request = DwdMosmixRequest(
         parameters=[("hourly", "small")],
@@ -250,10 +252,8 @@ def test_mosmix_date_filter(settings_drop_nulls_false):
 
 
 @pytest.mark.remote
-def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false):
-    """
-    Test some details of a MOSMIX-L response when queried for specific parameters.
-    """
+def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false: Settings) -> None:
+    """Test some details of a MOSMIX-L response when queried for specific parameters."""
     request = DwdMosmixRequest(
         parameters=[
             ("hourly", "large", "dd"),

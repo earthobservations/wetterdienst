@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for the Streamlit Explorer app."""
+
 import datetime as dt
 import json
 from zoneinfo import ZoneInfo
@@ -12,7 +16,8 @@ from wetterdienst.ui.streamlit.explorer import app
 
 @pytest.mark.cflake
 @pytest.mark.remote
-def test_explorer():
+def test_explorer() -> None:
+    """Test the Explorer app."""
     app_test = AppTest.from_file(app.__file__)
     app_test.run()
     assert app_test.error == []

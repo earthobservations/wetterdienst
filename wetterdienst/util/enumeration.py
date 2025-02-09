@@ -1,31 +1,33 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Enumeration utilities for the wetterdienst package."""
+
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
 from wetterdienst.exceptions import InvalidEnumerationError
-from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
     from enum import Enum
 
 
-def parse_enumeration_from_template(
+def parse_enumeration_from_template(  # noqa: C901
     enum_: str | Enum,
     intermediate: type[Enum],
     base: type[Enum] | None = None,
 ) -> Enum | None:
-    """
-    Function used to parse an enumeration(string) to a enumeration based on a template
+    """Parse an enumeration from a template.
 
-    :param enum_:           Enumeration as string or Enum
-    :param intermediate:    intermediate enumeration from which the enumeration is
-                            parsed
-    :param base:            base enumeration to which the intermediate one is casted
+    Args:
+        enum_: the enumeration to parse
+        intermediate: the intermediate enumeration
+        base: the base enumeration
 
-    :return:                Parsed enumeration from template
-    :raises InvalidEnumerationError: if no matching enumeration found
+    Returns:
+        the parsed enumeration or None
+
     """
     if enum_ is None:
         return None
@@ -36,10 +38,8 @@ def parse_enumeration_from_template(
     if isinstance(enum_, str):
         enum_name = enum_
     else:
-        try:
+        with contextlib.suppress(AttributeError):
             enum_name = enum_.name
-        except AttributeError:
-            pass
 
     try:
         enum_parsed = intermediate[enum_name.upper()]
@@ -56,11 +56,12 @@ def parse_enumeration_from_template(
                     except ValueError:
                         pass
                 if not success:
-                    raise ValueError()
+                    raise ValueError  # noqa: TRY301
             else:
                 enum_parsed = intermediate(enum_)
         except ValueError as e:
-            raise InvalidEnumerationError(f"{enum_} could not be parsed from {intermediate.__name__}.") from e
+            msg = f"{enum_} could not be parsed from {intermediate.__name__}."
+            raise InvalidEnumerationError(msg) from e
 
     if base:
         try:
@@ -69,10 +70,7 @@ def parse_enumeration_from_template(
             try:
                 enum_parsed = base(enum_parsed)
             except ValueError as e:
-                raise InvalidEnumerationError(f"{enum_parsed} could not be parsed from {base.__name__}.") from e
+                msg = f"{enum_parsed} could not be parsed from {base.__name__}."
+                raise InvalidEnumerationError(msg) from e
 
     return enum_parsed
-
-
-def parse_enumeration(values, intermediate, base=None):
-    return [parse_enumeration_from_template(x, intermediate, base) for x in to_list(values)]

@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD observation summary."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -5,6 +9,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst import Settings
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
@@ -12,11 +17,12 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
-def test_summary_temperature_air_mean_2m_daily(default_settings):
+def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> None:
+    """Test summarization of temperature_air_mean_2m."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=dt.datetime(1934, 1, 1),
-        end_date=dt.datetime(1965, 12, 31),
+        start_date=dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(1965, 12, 31, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     selected_dates = [
@@ -62,11 +68,12 @@ def test_summary_temperature_air_mean_2m_daily(default_settings):
         assert_frame_equal(given_df, expected_df)
 
 
-def test_not_summarizable_parameter(default_settings):
+def test_not_summarizable_parameter(default_settings: Settings) -> None:
+    """Test that a parameter that cannot be summarized is handled correctly."""
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "precipitation_form")],
-        start_date=dt.datetime(2022, 1, 1),
-        end_date=dt.datetime(2022, 1, 2),
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     result = request.summarize(latlon=(50.0, 8.9))
@@ -91,21 +98,22 @@ def test_not_summarizable_parameter(default_settings):
 
 
 @pytest.mark.remote
-def test_provider_dwd_mosmix(default_settings):
+def test_provider_dwd_mosmix(default_settings: Settings) -> None:
+    """Test a MOSMIX request with date filter."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "small", "temperature_air_mean_2m")],
-        start_date=dt.datetime.today() + dt.timedelta(days=1),
-        end_date=dt.datetime.today() + dt.timedelta(days=8),
+        start_date=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=1),
+        end_date=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=8),
         settings=default_settings,
     )
     given_df = request.summarize(latlon=(50.0, 8.9)).df
     assert given_df.get_column("value").min() >= -40  # equals -40.0°C
 
 
-def test_summary_error_no_start_date():
+def test_summary_error_no_start_date() -> None:
+    """Test that an error is raised when start_date is missing."""
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_height")],
     )
-    with pytest.raises(ValueError) as exec_info:
+    with pytest.raises(ValueError, match="start_date and end_date are required for summarization"):
         request.summarize(latlon=(52.8, 12.9))
-    assert exec_info.match("start_date and end_date are required for summarization")
