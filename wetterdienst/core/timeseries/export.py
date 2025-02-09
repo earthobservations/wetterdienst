@@ -9,7 +9,7 @@ import logging
 from abc import abstractmethod
 from copy import copy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlunparse
 
 import polars as pl
@@ -110,7 +110,7 @@ class ExportMixin:
         """
         return self._to_image(**kwargs)
 
-    def to_format(self, fmt: str, **kwargs: dict) -> str | bytes:
+    def to_format(self, fmt: str, **kwargs: Any) -> str | bytes:  # noqa: ANN401
         """Format data according to the specified format.
 
         The formatting is done by one of the following methods:

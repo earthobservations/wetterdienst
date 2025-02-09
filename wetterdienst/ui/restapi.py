@@ -368,7 +368,7 @@ def values(
             settings=settings,
         )
     except Exception as e:
-        log.exception()
+        log.exception("Failed to get values")
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     # build kwargs dynamically
@@ -442,7 +442,7 @@ def interpolate(
             settings=settings,
         )
     except Exception as e:
-        log.exception()
+        log.exception("Failed to interpolate")
         raise HTTPException(status_code=404, detail=str(e)) from e
 
     # build kwargs dynamically
@@ -512,7 +512,7 @@ def summarize(
             settings=settings,
         )
     except Exception as e:
-        log.exception()
+        log.exception("Failed to summarize")
         raise HTTPException(status_code=404, detail=str(e)) from e
 
     # build kwargs dynamically
@@ -558,7 +558,7 @@ def stripes_stations(
     try:
         stations = _get_stripes_stations(kind=kind, active=active)
     except Exception as e:
-        log.exception()
+        log.exception("Failed to get stripes stations")
         raise HTTPException(status_code=400, detail=str(e)) from e
     content = stations.to_format(fmt=fmt, with_metadata=True, indent=pretty)
     media_type = "text/csv" if fmt == "csv" else "application/json"
@@ -617,7 +617,7 @@ def stripes_values(
             show_data_availability=show_data_availability,
         )
     except Exception as e:
-        log.exception()
+        log.exception("Failed to plot stripes")
         raise HTTPException(status_code=400, detail=str(e)) from e
     media_type = f"image/{fmt}"
     return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
