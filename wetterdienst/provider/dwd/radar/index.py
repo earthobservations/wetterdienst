@@ -149,7 +149,7 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
         ),
     )
 
-    format_ = "%Y%m" if period == Period.HISTORICAL else "%Y%m%d%H%M"
+    format_ = "%Y%m" if period == Period.HISTORICAL else "%y%m%d%H%M"
 
     df_fileindex = df_fileindex.with_columns(
         pl.col("filename")

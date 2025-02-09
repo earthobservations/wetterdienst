@@ -211,7 +211,7 @@ class DwdRadarValues:
             # set timezone if not set
             if start_date.tzinfo is None:
                 start_date = start_date.replace(tzinfo=ZoneInfo("UTC"))
-            if end_date and end_date.tzinfo is None:
+            if end_date and isinstance(end_date, dt.datetime) and end_date.tzinfo is None:
                 end_date = end_date.replace(tzinfo=ZoneInfo("UTC"))
             self.start_date = start_date
             self.end_date = end_date

@@ -220,7 +220,7 @@ class InterpolationRequestRaw(BaseModel):
     issue: str | None = None
 
     # station filter parameters
-    station: str | None = Field(default=None)
+    station: str | None = None
     coordinates: str | None = None
 
     sql_values: str | None = None
@@ -249,7 +249,7 @@ class InterpolationRequest(InterpolationRequestRaw):
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
-    station: list[str] | None = None
+    station: str | None = None
     coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
     unit_targets: dict[str, str] | None = None
     interpolation_station_distance: dict[str, confloat(ge=0)] | None = None
@@ -264,14 +264,6 @@ class InterpolationRequest(InterpolationRequestRaw):
     @classmethod
     def validate_periods(cls, v: str | None) -> list[str] | None:
         """Validate periods."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("station", mode="before")
-    @classmethod
-    def validate_station(cls, v: str | None) -> list[str] | None:
-        """Validate station."""
         if v:
             return read_list(v)
         return None
@@ -316,7 +308,7 @@ class SummaryRequestRaw(BaseModel):
     issue: str | None = None
 
     # station filter parameters
-    station: str | None = Field(default=None)
+    station: str | None = None
     coordinates: str | None = None
 
     sql_values: str | None = None
@@ -343,7 +335,7 @@ class SummaryRequest(SummaryRequestRaw):
     parameters: list[str]
     periods: list[str] | None = None
     # comma separated list parameters
-    station: list[str] | None = None
+    station: str | None = None
     coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
     unit_targets: dict[str, str] | None = None
 
@@ -357,14 +349,6 @@ class SummaryRequest(SummaryRequestRaw):
     @classmethod
     def validate_periods(cls, v: str | None) -> list[str] | None:
         """Validate periods."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("station", mode="before")
-    @classmethod
-    def validate_station(cls, v: str | None) -> list[str] | None:
-        """Validate station."""
         if v:
             return read_list(v)
         return None
@@ -436,7 +420,7 @@ def _get_stations_request(
 
 
 def get_stations(
-    api: TimeseriesRequest,
+    api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | InterpolationRequest,
     date: str | None,
     settings: Settings,
@@ -485,7 +469,7 @@ def get_stations(
 
 
 def get_values(
-    api: TimeseriesRequest,
+    api: type[TimeseriesRequest],
     request: ValuesRequest,
     settings: Settings,
 ) -> ValuesResult:
@@ -516,7 +500,7 @@ def get_values(
 
 
 def get_interpolate(
-    api: TimeseriesRequest,
+    api: type[TimeseriesRequest],
     request: InterpolationRequest,
     settings: Settings,
 ) -> InterpolatedValuesResult:
@@ -539,7 +523,7 @@ def get_interpolate(
 
 
 def get_summarize(
-    api: TimeseriesRequest,
+    api: type[TimeseriesRequest],
     request: SummaryRequest,
     settings: Settings,
 ) -> SummarizedValuesResult:

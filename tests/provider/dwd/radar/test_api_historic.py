@@ -104,7 +104,7 @@ def test_radar_request_radolan_cdc_historic_hourly_data(default_settings: Settin
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": IsDatetime(approx=timestamp, delta=dt.timedelta(minutes=10)),
+            "datetime": IsDatetime(approx=timestamp.replace(tzinfo=None), delta=dt.timedelta(minutes=10)),
             "formatversion": 3,
             "intervalseconds": 3600,
             "maxrange": "150 km",
@@ -823,7 +823,7 @@ def test_radar_request_radvor_re_yesterday(default_settings: Settings, prefixed_
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": request.start_date,
+            "datetime": request.start_date.replace(tzinfo=None),
             "formatversion": 5,
             "intervalseconds": 3600,
             "maxrange": "100 km",
@@ -857,7 +857,7 @@ def test_radar_request_radvor_re_timerange(
 
     https://opendata.dwd.de/weather/radar/radvor/re/
     """
-    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RE_REFLECTIVITY,
@@ -919,7 +919,7 @@ def test_radar_request_radvor_rq_yesterday(default_settings: Settings, radar_loc
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": request.start_date,
+            "datetime": request.start_date.replace(tzinfo=None),
             "formatversion": 5,
             "intervalseconds": 3600,
             "maxrange": "100 km",
@@ -974,7 +974,7 @@ def test_radar_request_radvor_rq_timerange(
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": request.start_date,
+            "datetime": request.start_date.replace(tzinfo=None),
             "formatversion": 5,
             "intervalseconds": 3600,
             "maxrange": "100 km",

@@ -149,7 +149,7 @@ def test_radar_request_radolan_cdc_most_recent(default_settings: Settings, radar
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": request.start_date,
+            "datetime": request.start_date.replace(tzinfo=None),
             "formatversion": 3,
             "intervalseconds": 86400,
             "maxrange": "150 km",

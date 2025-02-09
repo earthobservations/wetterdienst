@@ -7,12 +7,12 @@ from __future__ import annotations
 import json
 import logging
 from textwrap import dedent
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from pydantic import ValidationError
-from starlette.responses import RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse
 
 from wetterdienst import Author, Info, Settings, Wetterdienst
 from wetterdienst.core.timeseries.result import (
@@ -62,8 +62,8 @@ REQUEST_EXAMPLES = {
 }
 
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> str:
+@app.get("/")
+def index() -> HTMLResponse:
     """Provide index page."""
 
     def _create_author_entry(author: Author) -> str:
@@ -75,7 +75,7 @@ def index() -> str:
 
     for provider in Wetterdienst.registry:
         # take the first network api
-        first_network = next(Wetterdienst.registry[provider].keys())
+        first_network = next(iter(Wetterdienst.registry[provider].keys()))
         api = Wetterdienst(provider, first_network)
         shortname = api.metadata.name_short
         name = api.metadata.name_english
@@ -86,7 +86,8 @@ def index() -> str:
             f"<li><a href={url} target='_blank' rel='noopener'>{shortname}</a> ({name}, {country}) - {copyright_}</li>",
         )
     sources = "\n".join(sources)
-    return f"""
+    return HTMLResponse(
+        content=f"""
     <html lang="en">
         <head>
             <title>{title}</title>
@@ -189,24 +190,27 @@ def index() -> str:
             </div>
         </body>
     </html>
-    """  # noqa: E501
+    """,  # noqa:E501
+    )
 
 
-@app.get("/robots.txt", response_class=PlainTextResponse)
-def robots() -> str:
+@app.get("/robots.txt")
+def robots() -> PlainTextResponse:
     """Provide robots.txt."""
-    return dedent(
-        """
-        User-agent: *
-        Disallow: /api/
-        """.strip(),
+    return PlainTextResponse(
+        content=dedent(
+            """
+            User-agent: *
+            Disallow: /api/
+            """.strip(),
+        ),
     )
 
 
 @app.get("/health")
-def health() -> Response:
+def health() -> JSONResponse:
     """Health check."""
-    return Response(content={"status": "OK"})
+    return JSONResponse(content={"status": "OK"})
 
 
 @app.get("/favicon.ico")
@@ -267,8 +271,13 @@ def coverage(
 # - _StationsDict for json
 # - _StationsOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/stations")
-def stations(request: Annotated[StationsRequestRaw, Query()]) -> _StationsDict | _StationsOgcFeatureCollection | str:
+@app.get(
+    "/api/stations",
+    response_model=_StationsDict | _StationsOgcFeatureCollection | str,
+)
+def stations(
+    request: Annotated[StationsRequestRaw, Query()],
+) -> Response:
     """Wrap get_stations to provide results via restapi."""
     try:
         request = StationsRequest.model_validate(request.model_dump())
@@ -329,10 +338,11 @@ def stations(request: Annotated[StationsRequestRaw, Query()]) -> _StationsDict |
 # - str for csv
 @app.get(
     "/api/values",
+    response_model=_ValuesDict | _ValuesOgcFeatureCollection | str,
 )
 def values(
     request: Annotated[ValuesRequestRaw, Query()],
-) -> _ValuesDict | _ValuesOgcFeatureCollection | str:
+) -> Response:
     """Wrap get_values to provide results via restapi."""
     try:
         request = ValuesRequest.model_validate(request.model_dump())
@@ -406,10 +416,11 @@ def values(
 # - str for csv
 @app.get(
     "/api/interpolate",
+    response_model=_InterpolatedValuesDict | _InterpolatedValuesOgcFeatureCollection | str,
 )
 def interpolate(
     request: Annotated[InterpolationRequestRaw, Query()],
-) -> _InterpolatedValuesDict | _InterpolatedValuesOgcFeatureCollection | str:
+) -> Response:
     """Wrap around get_interpolate to provide results via restapi."""
     try:
         request = InterpolationRequest.model_validate(request.model_dump())
@@ -481,7 +492,7 @@ def interpolate(
 @app.get("/api/summarize", response_model=_SummarizedValuesDict | _SummarizedValuesOgcFeatureCollection | str)
 def summarize(
     request: Annotated[SummaryRequestRaw, Query()],
-) -> Any:  # noqa: ANN401
+) -> Response:
     """Wrap around get_summarize to provide results via restapi."""
     try:
         request = SummaryRequest.model_validate(request.model_dump())

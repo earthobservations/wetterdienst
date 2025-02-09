@@ -1198,7 +1198,7 @@ def summarize(
             "debug": debug,
         },
     )
-    set_logging_level(debg=debug)
+    set_logging_level(debug=debug)
 
     api = get_api(request.provider, request.network)
 
@@ -1354,7 +1354,7 @@ def stripes_values(
         msg = f"'target' must have extension '{fmt}'"
         raise click.ClickException(msg)
 
-    set_logging_level(debug)
+    set_logging_level(debug=debug)
 
     try:
         fig = _plot_stripes(
