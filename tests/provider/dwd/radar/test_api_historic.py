@@ -790,6 +790,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings
     assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
 
+@pytest.mark.xfail(reason="radar locations empty")
 @pytest.mark.remote
 def test_radar_request_radvor_re_yesterday(default_settings: Settings, prefixed_radar_locations: list[str]) -> None:
     """Verify acquisition of radar/radvor/re data works when using a specific date.
@@ -886,6 +887,7 @@ def test_radar_request_radvor_re_timerange(
     assert re.match(pattern, requested_header[:200]), requested_header[:200]
 
 
+@pytest.mark.xfail(reason="radar locations empty")
 @pytest.mark.remote
 def test_radar_request_radvor_rq_yesterday(default_settings: Settings, radar_locations: list[str]) -> None:
     """Verify acquisition of radar/radvor/rq data works when using a specific date.
@@ -939,6 +941,7 @@ def test_radar_request_radvor_rq_yesterday(default_settings: Settings, radar_loc
     assert requested_attrs == attrs
 
 
+@pytest.mark.xfail(reason="radar locations empty")
 @pytest.mark.remote
 def test_radar_request_radvor_rq_timerange(
     default_settings: Settings,

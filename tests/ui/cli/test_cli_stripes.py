@@ -3,6 +3,7 @@
 """Tests for CLI stripes command."""
 
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 from click.testing import CliRunner
@@ -14,9 +15,17 @@ from wetterdienst.ui.cli import cli
 def test_cli_stripes() -> None:
     """Test the CLI stripes command."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "--help"])
+    result = runner.invoke(cli, ["stripes"])
     assert result.exit_code == 0
-    assert "Commands:\n  interactive\n  stations\n  values\n" in result.output
+    commands = dedent(
+        """
+        Commands:
+          interactive  Start the Climate Stripes web service.
+          stations     List stations for climate stripes.
+          values       Create climate stripes for a specific station.
+        """,
+    )
+    assert commands in result.output
 
 
 @pytest.mark.remote
