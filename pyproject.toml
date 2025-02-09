@@ -267,100 +267,8 @@ extend-include = [
   "*.ipynb",
 ]
 [tool.ruff.lint]
-select = [
-    # Bandit
-    "S",
-    # eradicate
-    "ERA",
-    # flake8-2020
-    "YTT",
-    # isort
-    "I",
-    # print
-    "T20",
-    # Pycodestyle
-    "E",
-    "W",
-    # Pyflakes
-    "F",
-    # return
-    "RET",
-    # pyupgrade
-    "UP",
-    # flake8-commas
-    "COM",
-    # future-annotations
-    "FA",
-    # flake8-type-checking
-    "TCH",
-    # flake8-unused-arguments
-    "ARG",
-    # flake8-use-pathlib
-    "PTH",
-    # pep8-naming
-    "N",
-    # flake8-annotations
-    "ANN",
-    # flake8-blind-except
-    "BLE",
-    # flake8-boolean-trap
-    "FBT",
-    # flake8-bugbear
-    "B",
-    # flake8-builtins
-    "A",
-    # flake8-commas
-    "COM",
-    # flake8-comprehensions
-    "C4",
-    # flake8-datetimez
-    "DTZ",
-    # flake8-errmsg
-    "EM",
-    # flake8-executable
-    "EXE",
-    # flake8-implicit-str-concat
-    "ISC",
-    # flake8-import-conventions
-    "ICN",
-    # flake8-logging
-    "LOG",
-    # flake8-pie
-    "PIE",
-    # flake8-pyi
-    "PYI",
-    # flake8-pytest-style
-    "PT",
-    # flake8-quotes
-    "Q",
-    # flake8-raise
-    "RSE",
-    # private-member-access
-    "SLF",
-    # flake8-simplify
-    "SIM",
-    # flake8-tidy-imports
-    "TID",
-    # Pylint
-    "PL",
-    # tryceratops
-    "TRY",
-    # flynt
-    "FLY",
-    # Ruff-specific rules
-    "RUF",
-    # flake8-logging-format
-    "G",
-    # flake8-copyright
-    "CPY001",
-    "ALL"
-]
+select = ["ALL"]
 ignore = [
-    # zip() without an explicit strict= parameter.
-    "B905",
-    # Unnecessary `elif` after `return` statement
-    "RET505",
-    "COM812",
     # flake8-annotations
     "ANN101",
     "ANN102",
@@ -386,13 +294,9 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401", "D104"]
-"benchmarks/*" = ["T20"]
-"docs/conf.py" = ["ERA001"]
-"examples/*" = ["T20"]
 "tests/*" = ["S101"]
-"tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]
-"wetterdienst/__init__.py" = ["E402"]
-"wetterdienst/ui/restapi.py" = ["B008", "UP007"]
+"benchmarks/*" = ["T20", "INP001"]
+"examples/*" = ["T20", "INP001"]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3"

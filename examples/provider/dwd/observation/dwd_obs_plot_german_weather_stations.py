@@ -1,4 +1,7 @@
-# Copyright (c) 2018-2023 earthobservations
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Plot German weather stations."""
+
 import os
 from pathlib import Path
 
@@ -24,7 +27,7 @@ plt.style.use("ggplot")
 
 
 def plot_german_weather_stations() -> None:
-    """Create map of DWD weather stations in Germany"""
+    """Create map of DWD weather stations in Germany."""
     stations = DwdObservationRequest(parameters=("daily", "climate_summary"), periods="historical")
     stations_df = stations.all().df
     fig, ax = plt.subplots()
@@ -50,6 +53,7 @@ def plot_german_weather_stations() -> None:
 
 
 def main() -> None:
+    """Run example."""
     plot_german_weather_stations()
 
 

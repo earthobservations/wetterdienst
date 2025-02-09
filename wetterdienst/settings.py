@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2022, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Settings for the wetterdienst package."""
 
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
         default_factory=lambda: {
             "default": 40.0,
             Parameter.PRECIPITATION_HEIGHT.value.lower(): 20.0,
-        }
+        },
     )
     ts_interpolation_use_nearby_station_distance: float = 1.0
 

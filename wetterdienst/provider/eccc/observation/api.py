@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """ECCC observation data provider."""
 
@@ -47,15 +47,11 @@ class EcccObservationValues(TimeseriesValues):
 
     @staticmethod
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
-        """Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ...
-
-        :param df: DataFrame with loaded data
-        :return: tidied DataFrame
-        """
+        """Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ..."""
         data = []
 
         columns = df.columns
-        for parameter_column, quality_column in zip(columns[1::2], columns[2::2]):
+        for parameter_column, quality_column in zip(columns[1::2], columns[2::2], strict=False):
             df_parameter = df.select(
                 pl.col(Columns.DATE.value),
                 pl.lit(parameter_column).alias(Columns.PARAMETER.value),
@@ -70,7 +66,9 @@ class EcccObservationValues(TimeseriesValues):
             return pl.LazyFrame()
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station dataset."""
         meta = self.sr.df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
@@ -91,8 +89,8 @@ class EcccObservationValues(TimeseriesValues):
         start_date = self.sr.stations.start_date
         end_date = self.sr.stations.end_date
 
-        start_year = start_year and max(start_year, start_date and start_date.year or start_year)
-        end_year = end_year and min(end_year, end_date and end_date.year or end_year)
+        start_year = start_year and max(start_year, (start_date and start_date.year) or start_year)
+        end_year = end_year and min(end_year, (end_date and end_date.year) or end_year)
 
         # Following lines may partially be based on @Zeitsperre's canada-climate-python
         # code at https://github.com/Zeitsperre/canada-climate-python/blob/
@@ -143,7 +141,11 @@ class EcccObservationValues(TimeseriesValues):
         ).collect()
 
     def _create_file_urls(
-        self, station_id: str, resolution: Resolution, start_year: int, end_year: int
+        self,
+        station_id: str,
+        resolution: Resolution,
+        start_year: int,
+        end_year: int,
     ) -> Iterator[str]:
         """Create URLs for downloading data files.
 
@@ -249,7 +251,8 @@ class EcccObservationRequest(TimeseriesRequest):
             .cast(int)
             .add(1)
             .map_elements(
-                lambda v: dt.datetime(v, 1, 1, tzinfo=ZoneInfo("UTC")) - dt.timedelta(days=1), return_dtype=pl.Datetime
+                lambda v: dt.datetime(v, 1, 1, tzinfo=ZoneInfo("UTC")) - dt.timedelta(days=1),
+                return_dtype=pl.Datetime,
             ),
         )
 

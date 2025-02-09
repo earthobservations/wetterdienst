@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2022, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD observation API."""
+
 from typing import Literal
 
 import pytest
@@ -22,6 +24,7 @@ def test_api_skip_empty_stations(
     ts_skip_criteria: Literal["min", "mean", "max"],
     expected_stations: list[str],
 ) -> None:
+    """Test that empty stations are skipped."""
     settings = Settings(
         ts_skip_criteria=ts_skip_criteria,
         ts_skip_threshold=0.6,
@@ -48,7 +51,7 @@ def test_api_skip_empty_stations(
 def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
     settings_drop_nulls_false_complete_true_skip_empty_true: Settings,
 ) -> None:
-    """If there is only one parameter any skip criteria (min, mean, max) should return the same station"""
+    """Test that the same station is returned when only one parameter is requested."""
 
     def _get_values(settings: Settings) -> ValuesResult:
         return (
@@ -83,6 +86,7 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
 
 @pytest.mark.remote
 def test_api_drop_nulls(default_settings: Settings) -> None:
+    """Test that null values are dropped."""
     request = DwdObservationRequest(
         parameters=[
             ("minute_10", "temperature_air"),
@@ -97,6 +101,7 @@ def test_api_drop_nulls(default_settings: Settings) -> None:
 
 
 def test_api_no_valid_parameters(default_settings: Settings) -> None:
+    """Test that an error is raised when no valid parameters are found."""
     with pytest.raises(NoParametersFoundError):
         DwdObservationRequest(
             parameters=[
@@ -107,6 +112,7 @@ def test_api_no_valid_parameters(default_settings: Settings) -> None:
 
 
 def test_api_partly_valid_parameters(default_settings: Settings, caplog: pytest.LogCaptureFixture) -> None:
+    """Test that invalid parameters are ignored."""
     request = DwdObservationRequest(
         parameters=[
             ("daily", "temperature_air"),

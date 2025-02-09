@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Interpolate weather data from DWD weather stations."""
+
 import datetime as dt
 import os
 from dataclasses import dataclass, field
@@ -38,6 +40,8 @@ example:
 
 @dataclass
 class Data:
+    """Data class for weather data."""
+
     station_ids: field(default_factory=list)
     utm_x: field(default_factory=list)
     utm_y: field(default_factory=list)
@@ -53,6 +57,7 @@ def request_weather_data(
     start_date: dt.datetime,
     end_date: dt.datetime,
 ) -> Data:
+    """Request weather data for a location."""
     stations = DwdObservationRequest(
         parameters=parameters,
         start_date=start_date,
@@ -68,7 +73,7 @@ def request_weather_data(
 
     utm_x = []
     utm_y = []
-    for latitude, longitude in zip(latitudes, longitudes):
+    for latitude, longitude in zip(latitudes, longitudes, strict=False):
         x, y, _, _ = utm.from_latlon(latitude, longitude)
         utm_x.append(x)
         utm_y.append(y)
@@ -92,8 +97,9 @@ def request_weather_data(
 
 
 def interpolate_data(latitude: float, longitude: float, data: Data) -> None:
+    """Interpolate the weather data for a given location."""
     # function for bilinear interpolation
-    f = interpolate.LinearNDInterpolator(points=list(zip(data.utm_x, data.utm_y)), values=data.values)
+    f = interpolate.LinearNDInterpolator(points=list(zip(data.utm_x, data.utm_y, strict=False)), values=data.values)
     x, y, _, _ = utm.from_latlon(latitude, longitude)
     interpolated = f(x, y)
     print(f"{interpolated=}")
@@ -107,6 +113,7 @@ def interpolate_data(latitude: float, longitude: float, data: Data) -> None:
 
 
 def visualize_points(data: Data) -> None:
+    """Visualize the weather stations and the interpolated point."""
     try:
         import plotly.graph_objects as go
     except ImportError as e:
@@ -119,19 +126,22 @@ def visualize_points(data: Data) -> None:
             y=data.utm_x,
             mode="markers",
             marker={"color": data.colors},
-            text=[f"id:{station}\nval:{value : .2f}\n" for station, value in zip(data.station_ids, data.values)],
-        )
+            text=[
+                f"id:{station}\nval:{value: .2f}\n"
+                for station, value in zip(data.station_ids, data.values, strict=True)
+            ],
+        ),
     )
-    for i, (station, value) in enumerate(zip(data.station_ids, data.values)):
+    for i, (station, value) in enumerate(zip(data.station_ids, data.values, strict=False)):
         fig.add_trace(
             go.Scatter(
                 x=[data.utm_y[i]],
                 y=[data.utm_x[i]],
                 mode="markers+text",
                 marker={"color": data.colors[i]},
-                text=f"id:{station}\nval:{value : .2f}\n",
+                text=f"id:{station}\nval:{value: .2f}\n",
                 textposition="top center",
-            )
+            ),
         )
     fig.update_layout(showlegend=False)
     if "PYTEST_CURRENT_TEST" not in os.environ:
@@ -139,6 +149,7 @@ def visualize_points(data: Data) -> None:
 
 
 def main() -> None:
+    """Run example."""
     parameters = [("hourly", "temperature_air", "temperature_air_mean_2m")]
     latitude = 50.0
     longitude = 8.9

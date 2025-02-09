@@ -105,7 +105,7 @@ st.markdown(
     precipitation height, with blue/brown stripes representing cooler / dryer years and red / blue-green stripes
     representing warmer / wetter years. The data is being acquired with
     [wetterdienst](https://github.com/earthobservations/wetterdienst).
-    """
+    """,
 )
 
 kind = st.selectbox("Select kind", options=["temperature", "precipitation"])

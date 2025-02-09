@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD observation stations."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -17,6 +19,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
 @pytest.fixture
 def expected_df() -> pl.DataFrame:
+    """Provide expected DataFrame for station."""
     return pl.DataFrame(
         [
             {
@@ -28,7 +31,7 @@ def expected_df() -> pl.DataFrame:
                 "height": 478.0,
                 "name": "Aach",
                 "state": "Baden-Württemberg",
-            }
+            },
         ],
         orient="row",
     )
@@ -36,6 +39,7 @@ def expected_df() -> pl.DataFrame:
 
 @pytest.mark.remote
 def test_dwd_observations_stations_filter(default_settings: Settings, expected_df: pl.DataFrame) -> None:
+    """Test fetching of DWD observation stations with filter by station id."""
     # Existing combination of parameters
     request = DwdObservationRequest(
         parameters=("daily", "climate_summary"),
@@ -48,7 +52,7 @@ def test_dwd_observations_stations_filter(default_settings: Settings, expected_d
 
 @pytest.mark.remote
 def test_dwd_observations_urban_stations(default_settings: Settings) -> None:
-    """Test DWD Observation urban stations"""
+    """Test fetching of DWD observation urban stations."""
     request = DwdObservationRequest(
         parameters=[("hourly", "urban_air_temperature")],
         periods="historical",
@@ -59,6 +63,7 @@ def test_dwd_observations_urban_stations(default_settings: Settings) -> None:
 
 @pytest.mark.remote
 def test_dwd_observations_stations_filter_name(default_settings: Settings, expected_df: pl.DataFrame) -> None:
+    """Test fetching of DWD observation stations with filter by name."""
     # Existing combination of parameters
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -72,6 +77,7 @@ def test_dwd_observations_stations_filter_name(default_settings: Settings, expec
 # TODO: move this test to test_io.py
 @pytest.mark.remote
 def test_dwd_observations_stations_geojson(default_settings: Settings) -> None:
+    """Test fetching of DWD observation stations."""
     # Existing combination of parameters
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -98,6 +104,7 @@ def test_dwd_observations_stations_geojson(default_settings: Settings) -> None:
 
 @pytest.mark.remote
 def test_dwd_observations_stations_minute_1(default_settings: Settings) -> None:
+    """Test fetching of DWD observation stations."""
     # Existing combination of parameters
     request = DwdObservationRequest(
         parameters=[("minute_1", "precipitation")],
@@ -116,7 +123,7 @@ def test_dwd_observations_stations_minute_1(default_settings: Settings) -> None:
                 "height": 202.0,
                 "name": "Aachen",
                 "state": "Nordrhein-Westfalen",
-            }
+            },
         ],
         orient="row",
     )
@@ -125,6 +132,7 @@ def test_dwd_observations_stations_minute_1(default_settings: Settings) -> None:
 
 @pytest.mark.remote
 def test_dwd_observations_stations_name_with_comma() -> None:
+    """Test fetching of DWD observation stations."""
     request = DwdObservationRequest(
         parameters=[("monthly", "kl")],
         periods="recent",
@@ -142,7 +150,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "height": 234.0,
                 "name": "Kubschütz, Kr. Bautzen",
                 "state": "Sachsen",
-            }
+            },
         ),
         IsDict(
             {
@@ -154,7 +162,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "height": 187.0,
                 "name": "Cölbe, Kr. Marburg-Biedenkopf",
                 "state": "Hessen",
-            }
+            },
         ),
         IsDict(
             {
@@ -166,13 +174,14 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "height": 284.0,
                 "name": "Salzungen, Bad-Gräfen-Nitzendorf",
                 "state": "Thüringen",
-            }
+            },
         ),
     ]
 
 
 @pytest.mark.remote
 def test_dwd_observation_stations() -> None:
+    """Test fetching of DWD observation stations."""
     skip_resolutions = [DwdObservationMetadata.minute_1]
     failed = []
     for resolution in DwdObservationMetadata:

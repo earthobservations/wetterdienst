@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """OPERA radar sites."""
 
@@ -46,8 +46,12 @@ class OperaRadarSites:
     def by_odim_code(self, odim_code: str) -> dict:
         """Return radar site by ODIM code.
 
-        :param odim_code: The ODIM code, e.g. "atrau".
-        :return:          Single site information.
+        Args:
+            odim_code: ODIM code, e.g. "atrau"
+
+        Returns:
+            Single site information.
+
         """
         if len(odim_code) not in (3, 5):
             msg = "ODIM code must be three or five letters"
@@ -61,8 +65,12 @@ class OperaRadarSites:
     def by_wmo_code(self, wmo_code: int) -> dict:
         """Return radar site by WMO code.
 
-        :param wmo_code: The WMO code, e.g. 11038.
-        :return:        Single site information.
+        Args:
+            wmo_code: WMO code, e.g. 11038
+
+        Returns:
+            Single site information.
+
         """
         for site in self.sites:
             if site["wmocode"] == wmo_code:
@@ -73,8 +81,15 @@ class OperaRadarSites:
     def by_country_name(self, country_name: str) -> list[dict]:
         """Filter list of radar sites by country name.
 
-        :param country_name: The country name, e.g. "Germany", "United Kingdom".
-        :return:             List of site information.
+        Args:
+            country_name: Country name, e.g. "Germany", "United Kingdom"
+
+        Returns:
+            List of site information.
+
+        Raises:
+            KeyError: If no radar sites are found for the given country.
+
         """
         sites = [site for site in self.sites if site["country"] and site["country"].lower() == country_name.lower()]
         if not sites:
@@ -119,11 +134,10 @@ class OperaRadarSitesGenerator:
                 obj = obj.strip().lower()
                 if obj in ["true", "yes", "on", "y", "t", "1"]:
                     return True
-                elif obj in ["false", "no", "off", "n", "f", "0"]:
+                if obj in ["false", "no", "off", "n", "f", "0"]:
                     return False
-                else:
-                    msg = f"String is not true/false: {obj}"
-                    raise ValueError(msg)
+                msg = f"String is not true/false: {obj}"
+                raise ValueError(msg)
             return bool(obj)
 
         def convert_types(element: dict) -> dict[str, int | float | bool | None]:

@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD observation summary."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -14,6 +18,7 @@ from wetterdienst.provider.dwd.observation import (
 
 
 def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> None:
+    """Test summarization of temperature_air_mean_2m."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -64,6 +69,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
 
 
 def test_not_summarizable_parameter(default_settings: Settings) -> None:
+    """Test that a parameter that cannot be summarized is handled correctly."""
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "precipitation_form")],
         start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -93,6 +99,7 @@ def test_not_summarizable_parameter(default_settings: Settings) -> None:
 
 @pytest.mark.remote
 def test_provider_dwd_mosmix(default_settings: Settings) -> None:
+    """Test a MOSMIX request with date filter."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "small", "temperature_air_mean_2m")],
         start_date=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=1),
@@ -104,6 +111,7 @@ def test_provider_dwd_mosmix(default_settings: Settings) -> None:
 
 
 def test_summary_error_no_start_date() -> None:
+    """Test that an error is raised when start_date is missing."""
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_height")],
     )

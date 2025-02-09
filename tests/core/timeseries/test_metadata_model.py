@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for metadata models."""
+
 import pytest
 
 from wetterdienst.core.timeseries.metadata import ParameterModel, ParameterSearch, parse_parameters
@@ -28,6 +32,7 @@ from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadat
     ],
 )
 def test_parameter_search(value: str | ParameterModel, expected: ParameterModel) -> None:
+    """Test parsing of parameters into a search object."""
     parameter_template = ParameterSearch.parse(value)
     assert parameter_template == expected
 
@@ -91,4 +96,5 @@ def test_parameter_search(value: str | ParameterModel, expected: ParameterModel)
     ],
 )
 def test_parse_parameters(value: str | ParameterModel, expected: ParameterModel) -> None:
+    """Test parsing of parameters."""
     assert parse_parameters(value, DwdObservationMetadata) == expected

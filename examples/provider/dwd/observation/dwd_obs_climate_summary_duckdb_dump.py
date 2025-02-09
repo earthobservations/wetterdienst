@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Create a DuckDB dump of DWD climate summary data."""
+
 import os
 from pathlib import Path
 
@@ -12,6 +14,7 @@ ROOT = Path(__file__).parent.parent
 
 
 def create_dwd_climate_summary_duckdb_dump(path: Path, *, test: bool) -> None:
+    """Create a DuckDB dump of DWD climate summary data."""
     request = DwdObservationRequest(
         parameters=("daily", "climate_summary"),
         periods="historical",
@@ -25,6 +28,7 @@ def create_dwd_climate_summary_duckdb_dump(path: Path, *, test: bool) -> None:
 
 
 def main() -> None:
+    """Create a DuckDB dump of DWD climate summary data."""
     filepath = ROOT / "dwd_obs_daily_climate_summary.duckdb"
     test = "PYTEST_CURRENT_TEST" in os.environ
     # this takes something like 15 min and will require roughly 1 gb on disk

@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Parser for DWD climate observations data."""
 
@@ -121,12 +121,11 @@ def _parse_climate_observations_data(  # noqa: C901
         if period == Period.HISTORICAL:
             # this is a special case, we return as the dates are already parsed and everything is done
             return _transform_minute_1_precipitation_historical(df)
-        else:
-            missing_parameters = (
-                DwdObservationMetadata.minute_1.precipitation.precipitation_height_droplet.name_original,
-                DwdObservationMetadata.minute_1.precipitation.precipitation_height_rocker.name_original,
-            )
-            df = df.with_columns(pl.lit(None, pl.String).alias(parameter) for parameter in missing_parameters)
+        missing_parameters = (
+            DwdObservationMetadata.minute_1.precipitation.precipitation_height_droplet.name_original,
+            DwdObservationMetadata.minute_1.precipitation.precipitation_height_rocker.name_original,
+        )
+        df = df.with_columns(pl.lit(None, pl.String).alias(parameter) for parameter in missing_parameters)
     elif dataset == DwdObservationMetadata.minute_5.precipitation and period != Period.HISTORICAL:
         missing_parameters = [
             DwdObservationMetadata.minute_5.precipitation.precipitation_height_rocker.name_original,

@@ -60,7 +60,12 @@ SETTINGS_VALUES = (
 
 
 def invoke_wetterdienst_values_static(
-    provider: str, network: str, setting: list, station: str, fmt: str = "json", additional: list | None = None
+    provider: str,
+    network: str,
+    setting: list,
+    station: str,
+    fmt: str = "json",
+    additional: list | None = None,
 ) -> Result:
     """Invoke CLI."""
     runner = CliRunner()
@@ -80,7 +85,12 @@ def invoke_wetterdienst_values_static(
 
 
 def invoke_wetterdienst_values_static_wide(
-    provider: str, network: str, setting: list, station: str, fmt: str = "json", additional: list | None = None
+    provider: str,
+    network: str,
+    setting: list,
+    station: str,
+    fmt: str = "json",
+    additional: list | None = None,
 ) -> Result:
     """Invoke CLI with wide format."""
     runner = CliRunner()
@@ -100,7 +110,11 @@ def invoke_wetterdienst_values_static_wide(
 
 
 def invoke_wetterdienst_values_export_wide(
-    provider: str, network: str, setting: list, station: str, target: str
+    provider: str,
+    network: str,
+    setting: list,
+    station: str,
+    target: str,
 ) -> Result:
     """Invoke CLI with wide format."""
     runner = CliRunner()
@@ -119,7 +133,11 @@ def invoke_wetterdienst_values_export_wide(
 
 
 def invoke_wetterdienst_values_filter_by_rank(
-    provider: str, network: str, setting: list, fmt: str = "json", additional: list | None = None
+    provider: str,
+    network: str,
+    setting: list,
+    fmt: str = "json",
+    additional: list | None = None,
 ) -> Result:
     """Invoke CLI with rank filter."""
     runner = CliRunner()

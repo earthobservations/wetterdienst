@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Command line interface for the Wetterdienst package."""
 
@@ -610,7 +610,8 @@ def explorer(
     try:
         from wetterdienst.ui.streamlit.explorer import app
     except ImportError:
-        log.exception("Please install the explorer extras with 'pip install wetterdienst[explorer]'")
+        msg = "Please install the explorer extras with 'pip install wetterdienst[explorer]'"
+        log.exception(msg)
         sys.exit(1)
 
     address = "localhost"
@@ -619,8 +620,11 @@ def explorer(
         try:
             address, port = listen.split(":")
         except ValueError:
-            log.exception(
+            msg = (
                 f"Invalid listen address. Please provide address and port separated by a colon e.g. '{address}:{port}'."
+            )
+            log.exception(
+                msg,
             )
             sys.exit(1)
 
@@ -630,7 +634,7 @@ def explorer(
     process = None
     try:
         process = subprocess.Popen(  # noqa: S603
-            ["streamlit", "run", app.__file__, "--server.address", address, "--server.port", port]  # noqa: S607
+            ["streamlit", "run", app.__file__, "--server.address", address, "--server.port", port],  # noqa: S607
         )
         process.wait()
     except KeyboardInterrupt:
@@ -715,7 +719,13 @@ def coverage(
 )
 @debug_opt
 def fields(
-    provider: str, network: str, dataset: str, resolution: str, period: str, language: str, **kwargs: dict
+    provider: str,
+    network: str,
+    dataset: str,
+    resolution: str,
+    period: str,
+    language: str,
+    **kwargs: dict,
 ) -> None:
     """Get information about fields."""
     api = get_api(provider, network)
@@ -797,7 +807,7 @@ def stations(
             "pretty": pretty,
             "with_metadata": with_metadata,
             "debug": debug,
-        }
+        },
     )
     set_logging_level(debug=debug)
 
@@ -933,7 +943,7 @@ def values(
             "with_metadata": with_metadata,
             "with_stations": with_stations,
             "debug": debug,
-        }
+        },
     )
     set_logging_level(debug=debug)
 
@@ -1064,7 +1074,7 @@ def interpolate(
             "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
-        }
+        },
     )
 
     set_logging_level(debug=debug)
@@ -1186,7 +1196,7 @@ def summarize(
             "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
-        }
+        },
     )
     set_logging_level(debg=debug)
 

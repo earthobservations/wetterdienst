@@ -1,5 +1,9 @@
-"""This example shows how to compare forecast data of the mosmix model with observation data. The mosmix model is
-a numerical weather prediction model of the DWD. The observation data is provided by the DWD as well.
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Show how to compare forecast data of the mosmix model with observation data.
+
+The mosmix model is a numerical weather prediction model of the DWD.
+The observation data is provided by the DWD as well.
 """
 
 import datetime as dt

@@ -67,8 +67,6 @@ class Info:
 
 
 __all__ = [
-    "__appname__",
-    "__version__",
     "Author",
     "Info",
     "Parameter",
@@ -76,4 +74,6 @@ __all__ = [
     "Resolution",
     "Settings",
     "Wetterdienst",
+    "__appname__",
+    "__version__",
 ]

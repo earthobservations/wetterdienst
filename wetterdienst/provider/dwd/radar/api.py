@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """API for DWD radar data requests."""
 
@@ -37,7 +37,7 @@ from wetterdienst.provider.dwd.radar.metadata.parameter import (
     DwdRadarParameter,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
-from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_from_filename, verify_hdf5
+from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_string_from_filename, verify_hdf5
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import raster_minutes, round_minutes
@@ -71,16 +71,20 @@ class RadarResult:
 
         Formerly, this returned a tuple of ``(datetime, BytesIO)``.
 
-        :param index:
-        :return:
+        Args:
+            index: index of the item to return
+
+        Returns:
+            either the timestamp or the data
+
         """
         if index == 0:  # pragma: no cover
             return self.timestamp
-        elif index == 1:
+        if index == 1:
             return self.data
-        else:  # pragma: no cover
-            msg = f"Index {index} undefined on RadarResult"
-            raise KeyError(msg)
+        # pragma: no cover
+        msg = f"Index {index} undefined on RadarResult"
+        raise KeyError(msg)
 
 
 # TODO: add core class information
@@ -204,6 +208,11 @@ class DwdRadarValues:
                 start_date = dt.datetime.fromisoformat(start_date)
             if end_date and isinstance(end_date, str):
                 end_date = dt.datetime.fromisoformat(end_date)
+            # set timezone if not set
+            if start_date.tzinfo is None:
+                start_date = start_date.replace(tzinfo=ZoneInfo("UTC"))
+            if end_date and end_date.tzinfo is None:
+                end_date = end_date.replace(tzinfo=ZoneInfo("UTC"))
             self.start_date = start_date
             self.end_date = end_date
             self.adjust_datetimes()
@@ -413,18 +422,17 @@ class DwdRadarValues:
 
         Here, we don't want to cache any files containing "-latest-" in their filenames.
 
-        :param url: url string which is used to decide if result is cached
-        :return: When cache should be dismissed, return False. Otherwise, return True.
+        Args:
+            url: URL of the file to be downloaded
+
+        Returns:
+            Whether the file should be cached or not
+
         """
         return "-latest-" not in url
 
-    def _download_generic_data(self, url: str) -> Iterator[RadarResult]:
-        """Download radar data.
-
-        :param url:         The URL to the file on the DWD server
-        :return:            The file in binary, either an archive of one file
-                            or an archive of multiple files.
-        """
+    def _download_generic_data(self, url: str) -> Iterator[RadarResult]:  # noqa: C901
+        """Download radar data."""
         ttl = CacheExpiry.FIVE_MINUTES
         if not self._should_cache_download(url):
             ttl = CacheExpiry.NO_CACHE
@@ -439,14 +447,13 @@ class DwdRadarValues:
                     file_name = file.name
                 except AttributeError:
                     file_name = file
-
+                date_string = get_date_string_from_filename(file_name, pattern=RADAR_DT_PATTERN)
+                timestamp = None
+                if date_string:
+                    timestamp = dt.datetime.strptime(date_string, "%y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
                 yield RadarResult(
                     data=BytesIO(tfs.open(file).read()),
-                    timestamp=get_date_from_filename(
-                        file_name,
-                        pattern=RADAR_DT_PATTERN,
-                        formats=["%y%m%d%H%M"],
-                    ),
+                    timestamp=timestamp,
                     filename=file_name,
                 )
 
@@ -454,35 +461,39 @@ class DwdRadarValues:
         elif url.endswith(Extension.BZ2.value):
             with bz2.BZ2File(data, mode="rb") as archive:
                 data = BytesIO(archive.read())
+                date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
+                timestamp = None
+                if date_string:
+                    timestamp = dt.datetime.strptime(date_string, "%y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
                 yield RadarResult(
                     url=url,
                     data=data,
-                    timestamp=get_date_from_filename(
-                        url,
-                        pattern=RADAR_DT_PATTERN,
-                        formats=["%y%m%d%H%M"],
-                    ),
+                    timestamp=timestamp,
                 )
 
         # RADAR_PARAMETERS_RADVOR
         elif url.endswith(Extension.GZ.value):
             with gzip.GzipFile(fileobj=data, mode="rb") as archive:
                 data = BytesIO(archive.read())
+                date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
+                timestamp = None
+                if date_string:
+                    timestamp = dt.datetime.strptime(date_string, "%y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
                 yield RadarResult(
                     url=url,
                     data=data,
-                    timestamp=get_date_from_filename(
-                        url,
-                        pattern=RADAR_DT_PATTERN,
-                        formats=["%y%m%d%H%M"],
-                    ),
+                    timestamp=timestamp,
                 )
 
         else:
+            date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
+            timestamp = None
+            if date_string:
+                timestamp = dt.datetime.strptime(date_string, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
             yield RadarResult(
                 url=url,
                 data=data,
-                timestamp=get_date_from_filename(url, pattern=RADAR_DT_PATTERN, formats=["%y%m%d%H%M"]),
+                timestamp=timestamp,
             )
 
     def _download_radolan_data(self, url: str, start_date: dt.datetime, end_date: dt.datetime) -> Iterator[RadarResult]:

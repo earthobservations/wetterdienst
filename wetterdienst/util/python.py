@@ -19,7 +19,6 @@ def to_list(x: Any, default: Any = None) -> list | Any:  # noqa: ANN401
         return default
     if not isinstance(x, collections_abc.Iterable) or isinstance(x, string_types + binary_types + other_types):
         return [x]
-    elif isinstance(x, list):
+    if isinstance(x, list):
         return x
-    else:
-        return list(x)
+    return list(x)

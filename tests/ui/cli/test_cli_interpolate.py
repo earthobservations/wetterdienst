@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for the CLI command `interpolate`."""
+
 import json
 
 import pytest
@@ -9,6 +13,7 @@ from wetterdienst.ui.cli import cli
 
 @pytest.mark.remote
 def test_cli_interpolate_no_metadata_no_stations() -> None:
+    """Test the CLI interpolate command without metadata and stations."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -52,6 +57,7 @@ def test_cli_interpolate_no_metadata_no_stations() -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
+    """Test the interpolate command with metadata and stations."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -126,6 +132,7 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_geojson(metadata: dict) -> None:
+    """Test the interpolate command with GeoJSON format."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -230,6 +237,7 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_interpolation_station_distance() -> None:
+    """Test the interpolate command with interpolation station distance."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -274,6 +282,7 @@ def test_cli_interpolate_interpolation_station_distance() -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_dont_use_nearby_station() -> None:
+    """Test the interpolate command with don't use nearby station."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -318,6 +327,7 @@ def test_cli_interpolate_dont_use_nearby_station() -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_custom_units() -> None:
+    """Test CLI interpolate with custom units."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -370,6 +380,7 @@ def test_cli_interpolate_custom_units() -> None:
     ],
 )
 def test_cli_interpolate_image(fmt: str) -> None:
+    """Test the interpolate command with image format."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -389,6 +400,7 @@ def test_cli_interpolate_image(fmt: str) -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_image_html() -> None:
+    """Test the interpolate command with HTML format."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -408,6 +420,7 @@ def test_cli_interpolate_image_html() -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_image_pdf() -> None:
+    """Test the interpolate command with PDF format."""
     runner = CliRunner()
     result = runner.invoke(
         cli,

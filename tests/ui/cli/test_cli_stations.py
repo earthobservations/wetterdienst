@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for the CLI command `stations`."""
+
 import json
 from pathlib import Path
 from unittest import mock
@@ -78,6 +82,7 @@ SETTINGS_STATIONS = (
 
 
 def invoke_wetterdienst_stations_empty(provider: str, network: str, setting: list[str], fmt: str = "json") -> Result:
+    """Invoke the CLI command `stations` with empty station."""
     runner = CliRunner()
     return runner.invoke(
         cli,
@@ -86,8 +91,14 @@ def invoke_wetterdienst_stations_empty(provider: str, network: str, setting: lis
 
 
 def invoke_wetterdienst_stations_static(
-    provider: str, network: str, setting: list[str], station: str, fmt: str = "json", additional: list | None = None
+    provider: str,
+    network: str,
+    setting: list[str],
+    station: str,
+    fmt: str = "json",
+    additional: list | None = None,
 ) -> Result:
+    """Invoke the CLI command `stations` with static station."""
     runner = CliRunner()
     return runner.invoke(
         cli,
@@ -105,8 +116,13 @@ def invoke_wetterdienst_stations_static(
 
 
 def invoke_wetterdienst_stations_export(
-    provider: str, network: str, setting: list[str], station: str, target: str
+    provider: str,
+    network: str,
+    setting: list[str],
+    station: str,
+    target: str,
 ) -> Result:
+    """Invoke the CLI command `stations` with export."""
     runner = CliRunner()
     return runner.invoke(
         cli,
@@ -122,8 +138,13 @@ def invoke_wetterdienst_stations_export(
 
 
 def invoke_wetterdienst_stations_filter_by_rank(
-    provider: str, network: str, setting: list[str], fmt: str = "json", additional: list | None = None
+    provider: str,
+    network: str,
+    setting: list[str],
+    fmt: str = "json",
+    additional: list | None = None,
 ) -> Result:
+    """Invoke the CLI command `stations` with filter by rank."""
     runner = CliRunner()
     return runner.invoke(
         cli,
@@ -153,6 +174,7 @@ def test_cli_stations_json(
     expected_dict: dict,
     coordinates: tuple[float, float, float],  # noqa: ARG001
 ) -> None:
+    """Test the CLI command `stations` with JSON format."""
     result = invoke_wetterdienst_stations_static(
         provider=provider,
         network=network,
@@ -170,6 +192,7 @@ def test_cli_stations_json(
 
 @pytest.mark.remote
 def test_cli_stations_json_with_metadata(metadata: dict) -> None:
+    """Test the CLI command `stations` with JSON format and metadata."""
     result = invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
@@ -185,7 +208,8 @@ def test_cli_stations_json_with_metadata(metadata: dict) -> None:
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"), SETTINGS_STATIONS
+    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"),
+    SETTINGS_STATIONS,
 )
 def test_cli_stations_empty(
     provider: str,
@@ -196,6 +220,7 @@ def test_cli_stations_empty(
     coordinates: tuple[float, float, float],  # noqa: ARG001
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """Test the CLI command `stations` with empty station."""
     result = invoke_wetterdienst_stations_empty(provider=provider, network=network, setting=setting, fmt="json")
     assert isinstance(result.exception, SystemExit)
     assert "ERROR" in caplog.text
@@ -204,7 +229,8 @@ def test_cli_stations_empty(
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"), SETTINGS_STATIONS
+    ("provider", "network", "setting", "station_id", "expected_dict", "coordinates"),
+    SETTINGS_STATIONS,
 )
 def test_cli_stations_geojson(
     provider: str,
@@ -214,6 +240,7 @@ def test_cli_stations_geojson(
     expected_dict: dict,
     coordinates: tuple[float, float, float],
 ) -> None:
+    """Test the CLI command `stations` with GeoJSON format."""
     result = invoke_wetterdienst_stations_static(
         provider=provider,
         network=network,
@@ -234,6 +261,7 @@ def test_cli_stations_geojson(
 
 @pytest.mark.remote
 def test_cli_stations_geojson_with_metadata(metadata: dict) -> None:
+    """Test the CLI command `stations` with GeoJSON format and metadata."""
     result = invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
@@ -260,6 +288,7 @@ def test_cli_stations_csv(
     expected_dict: dict,
     coordinates: tuple[float, float],  # noqa: ARG001
 ) -> None:
+    """Test the CLI command `stations` with CSV format."""
     result = invoke_wetterdienst_stations_static(
         provider=provider,
         network=network,
@@ -284,6 +313,7 @@ def test_cli_stations_excel(
     coordinates: tuple[float, float],  # noqa: ARG001
     tmp_path: Path,
 ) -> None:
+    """Test the CLI command `stations` with Excel format."""
     filename = Path("stations.xlsx")
     if not IS_WINDOWS:
         filename = tmp_path.joinpath(filename)
@@ -314,6 +344,7 @@ def test_cli_stations_geospatial(
     expected_dict: dict,
     coordinates: tuple[float, float],  # noqa: ARG001
 ) -> None:
+    """Test the CLI command `stations` with geospatial format."""
     result = invoke_wetterdienst_stations_filter_by_rank(
         provider=provider,
         network=network,
@@ -328,6 +359,7 @@ def test_cli_stations_geospatial(
 @pytest.mark.remote
 @mock.patch("json.dumps", create=True)
 def test_cli_stations_json_pretty_false(json_dumps_mock: MagicMock) -> None:
+    """Test the CLI command `stations` with JSON format and pretty false."""
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
@@ -342,6 +374,7 @@ def test_cli_stations_json_pretty_false(json_dumps_mock: MagicMock) -> None:
 @pytest.mark.remote
 @mock.patch("json.dumps", create=True)
 def test_cli_stations_json_pretty_true(json_dumps_mock: MagicMock) -> None:
+    """Test the CLI command `stations` with JSON format and pretty true."""
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
@@ -356,6 +389,7 @@ def test_cli_stations_json_pretty_true(json_dumps_mock: MagicMock) -> None:
 @pytest.mark.remote
 @mock.patch("json.dumps", create=True)
 def test_cli_stations_geojson_pretty_false(json_dumps_mock: MagicMock) -> None:
+    """Test the CLI command `stations` with GeoJSON format and pretty false."""
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
@@ -370,6 +404,7 @@ def test_cli_stations_geojson_pretty_false(json_dumps_mock: MagicMock) -> None:
 @pytest.mark.remote
 @mock.patch("json.dumps", create=True)
 def test_cli_stations_geojson_pretty_true(json_dumps_mock: MagicMock) -> None:
+    """Test the CLI command `stations` with GeoJSON format and pretty true."""
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
@@ -392,6 +427,7 @@ def test_cli_stations_geojson_pretty_true(json_dumps_mock: MagicMock) -> None:
     ],
 )
 def test_cli_stations_image(fmt: str) -> None:
+    """Test the summarize command with image formats."""
     result = invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
@@ -404,6 +440,7 @@ def test_cli_stations_image(fmt: str) -> None:
 
 
 def test_cli_stations_image_html() -> None:
+    """Test the summarize command with HTML format."""
     result = invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
@@ -416,6 +453,7 @@ def test_cli_stations_image_html() -> None:
 
 
 def test_cli_stations_image_pdf() -> None:
+    """Test the summarize command with PDF format."""
     result = invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",

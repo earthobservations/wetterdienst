@@ -167,7 +167,7 @@ GeosphereObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -296,7 +296,7 @@ GeosphereObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -407,7 +407,7 @@ GeosphereObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -638,7 +638,7 @@ GeosphereObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                     ],
-                }
+                },
             ],
         },
     ],

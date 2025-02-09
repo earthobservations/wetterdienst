@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for unit conversion."""
+
 import pytest
 
 from wetterdienst.core.timeseries.unit import UnitConverter
@@ -5,11 +9,12 @@ from wetterdienst.core.timeseries.unit import UnitConverter
 
 @pytest.fixture
 def unit_converter() -> UnitConverter:
+    """Provide unit converter."""
     return UnitConverter()
 
 
 def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
-    """Test that the default targets are as expected"""
+    """Test that the default targets are as expected."""
     unit_converter_targets_defaults = {k: v.name for k, v in unit_converter.targets.items()}
     assert unit_converter_targets_defaults == {
         "angle": "degree",
@@ -38,7 +43,7 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
 
 
 def test_unit_converter_lambdas_combinations(unit_converter: UnitConverter) -> None:
-    """Test that lambdas contain all combinations of each unit"""
+    """Test that lambdas contain all combinations of each unit."""
     unit_combinations = set()
     for units in unit_converter.units.values():
         unit_names = [unit.name for unit in units]
@@ -47,17 +52,17 @@ def test_unit_converter_lambdas_combinations(unit_converter: UnitConverter) -> N
                 if unit_1 != unit_2:
                     unit_combinations.add((unit_1, unit_2))
     assert unit_converter.lambdas.keys() == unit_combinations, set(unit_converter.lambdas.keys()).symmetric_difference(
-        unit_combinations
+        unit_combinations,
     )
 
 
 def test_unit_converter_update_targets(unit_converter: UnitConverter) -> None:
-    """Test that the update_targets method works as expected"""
+    """Test that the update_targets method works as expected."""
     unit_converter.update_targets(
         {
             "fraction": "percent",
             "dimensionless": "dimensionless",  # possible although nothing changes
-        }
+        },
     )
     assert unit_converter.targets["fraction"].name == "percent"
     assert unit_converter.targets["dimensionless"].name == "dimensionless"
@@ -68,7 +73,7 @@ def test_unit_converter_update_targets(unit_converter: UnitConverter) -> None:
 
 
 def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> None:
-    """Test that the lambda function for dimensionless units works as expected"""
+    """Test that the lambda function for dimensionless units works as expected."""
     lambda_dimensionless = unit_converter.get_lambda("dimensionless", "dimensionless")
     assert lambda_dimensionless(42) == 42
     assert lambda_dimensionless("foo") == "foo"  # this is not a valid use case but should not raise an error
@@ -172,29 +177,34 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
     ],
 )
 def test_unit_converter_lambdas(
-    unit_converter: UnitConverter, unit: str, target: str, value: float, expected: float
+    unit_converter: UnitConverter,
+    unit: str,
+    target: str,
+    value: float,
+    expected: float,
 ) -> None:
-    """Test that the lambda functions work as expected"""
+    """Test that the lambda functions work as expected."""
     lambda_ = unit_converter._get_lambda(unit, target)  # noqa: SLF001
     assert lambda_(value) == expected
 
 
 def test_unit_converter_update_targets_invalid(unit_converter: UnitConverter) -> None:
-    """Test that the update_targets method raises an error for invalid units"""
+    """Test that the update_targets method raises an error for invalid units."""
     with pytest.raises(
-        ValueError, match="Unit invalid not supported for type dimensionless. Supported units are: dimensionless"
+        ValueError,
+        match="Unit invalid not supported for type dimensionless. Supported units are: dimensionless",
     ):
         unit_converter.update_targets({"fraction": "percent", "dimensionless": "invalid"})
 
 
 def test_unit_converter_get_lambda(unit_converter: UnitConverter) -> None:
-    """Test retrieval of lambda function"""
+    """Test retrieval of lambda function."""
     lambda_ = unit_converter.get_lambda("degree_kelvin", "temperature")
     assert lambda_(0) == -273.15
 
 
 def test_unit_converter_get_lambda_invalid(unit_converter: UnitConverter) -> None:
-    """Test retrieval of lambda function for invalid unit"""
+    """Test retrieval of lambda function for invalid unit."""
     with pytest.raises(ValueError, match="Conversion from invalid to degree_celsius not supported"):
         unit_converter.get_lambda("invalid", "temperature")
     with pytest.raises(ValueError, match="Unit type invalid not supported"):
@@ -202,13 +212,13 @@ def test_unit_converter_get_lambda_invalid(unit_converter: UnitConverter) -> Non
 
 
 def test_unit_converter__get_lambda(unit_converter: UnitConverter) -> None:
-    """Test retrieval of lambda function (direct unit - unit target combination)"""
+    """Test retrieval of lambda function (direct unit - unit target combination)."""
     lambda_ = unit_converter._get_lambda("degree_kelvin", "degree_fahrenheit")  # noqa: SLF001
     assert lambda_(0) == -459.66999999999996
 
 
 def test_unit_converter__get_lambda_invalid(unit_converter: UnitConverter) -> None:
-    """Test retrieval of lambda function for invalid unit (direct unit - unit target combination)"""
+    """Test retrieval of lambda function for invalid unit (direct unit - unit target combination)."""
     with pytest.raises(ValueError, match="Conversion from invalid to degree_fahrenheit not supported"):
         unit_converter._get_lambda("invalid", "degree_fahrenheit")  # noqa: SLF001
     with pytest.raises(ValueError, match="Conversion from degree_kelvin to invalid not supported"):

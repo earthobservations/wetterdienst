@@ -1,10 +1,6 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""=====
-About
-=====
-
-Example for DWD radar sites DX using wetterdienst and wradlib.
+"""Example for DWD radar sites DX using wetterdienst and wradlib.
 
 The German Weather Service uses the DX file format to encode
 local radar sweeps. DX data are in polar coordinates.

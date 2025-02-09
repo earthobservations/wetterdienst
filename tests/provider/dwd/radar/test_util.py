@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2022, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for radar utilities."""
+
 import datetime
 from io import BytesIO
 from zoneinfo import ZoneInfo
@@ -17,6 +19,7 @@ HDF5_EXAMPLE = (
 
 
 def test_radar_get_date_from_filename() -> None:
+    """Test date extraction from radar filename."""
     date = get_date_from_filename(
         "sweep_pcp_v_0-20200926143033_10132--buf.bz2",
         pattern=RADAR_DT_PATTERN,
@@ -55,6 +58,7 @@ def test_radar_get_date_from_filename() -> None:
 
 @pytest.mark.remote
 def test_radar_verify_hdf5_valid() -> None:
+    """Test valid HDF5 file."""
     pytest.importorskip("h5py", reason="h5py not installed")
     httpfs = HTTPFileSystem()
 
@@ -64,6 +68,7 @@ def test_radar_verify_hdf5_valid() -> None:
 
 
 def test_radar_verify_hdf5_invalid() -> None:
+    """Test invalid HDF5 file."""
     pytest.importorskip("h5py", reason="h5py not installed")
 
     buffer = BytesIO()

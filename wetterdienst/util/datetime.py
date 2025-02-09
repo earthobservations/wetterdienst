@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Datetime utilities for the wetterdienst package."""
 
@@ -35,9 +35,13 @@ def raster_minutes(timestamp: dt.datetime, value: int) -> dt.datetime:
     - https://stackoverflow.com/a/55013608
     - https://stackoverflow.com/a/60709050
 
-    :param timestamp:
-    :param value:
-    :return:
+    Args:
+        timestamp: timestamp to align
+        value: minute mark to align to
+
+    Returns:
+        aligned timestamp
+
     """
     timestamp = timestamp.replace(second=0, microsecond=0)
 

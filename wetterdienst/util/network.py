@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Network utilities for the wetterdienst package."""
 
@@ -52,7 +52,7 @@ class FileDirCache(MutableMapping):
             listings_cache_location.mkdir(exist_ok=True, parents=True)
         else:
             listings_cache_location = Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec")) / str(
-                listings_expiry_time
+                listings_expiry_time,
             )
 
         try:
@@ -131,7 +131,7 @@ class HTTPFileSystem(_HTTPFileSystem):
             {
                 "use_listings_cache": use_listings_cache,
                 "listings_expiry_time": listings_expiry_time,
-            }
+            },
         )
         super().__init__(*args, **kwargs)
         # Overwrite the dircache with our own file-based cache

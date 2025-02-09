@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Eaufrance Hubeau API."""
 
@@ -78,9 +78,9 @@ HubeauMetadata = {
                             "unit": "millimeter",
                         },
                     ],
-                }
+                },
             ],
-        }
+        },
     ],
 }
 HubeauMetadata = build_metadata_model(HubeauMetadata, "HubeauMetadata")
@@ -99,7 +99,9 @@ class HubeauValues(TimeseriesValues):
     )
 
     def _get_hubeau_dates(
-        self, station_id: str, parameter: ParameterModel
+        self,
+        station_id: str,
+        parameter: ParameterModel,
     ) -> Iterator[tuple[dt.datetime, dt.datetime]]:
         """Get the dates for the Hubeau API request."""
         freq, freq_unit = self._get_dynamic_frequency(station_id, parameter)
@@ -137,7 +139,9 @@ class HubeauValues(TimeseriesValues):
         return minutes, "m"
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: ParameterModel
+        self,
+        station_id: str,
+        parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
         """Collect data from Hubeau API.
 
@@ -260,5 +264,5 @@ class HubeauRequest(TimeseriesRequest):
         return df.filter(
             pl.col(Columns.STATION_ID.value)
             .str.slice(offset=0, length=1)
-            .map_elements(str.isalpha, return_dtype=pl.Boolean)
+            .map_elements(str.isalpha, return_dtype=pl.Boolean),
         )

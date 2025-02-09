@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """NOAA GHCN api."""
 
@@ -33,12 +33,13 @@ class NoaaGhcnValues(TimeseriesValues):
     """Values class for NOAA GHCN data provider."""
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         if parameter_or_dataset.resolution.value == Resolution.HOURLY:
             return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
-        else:
-            return self._collect_station_parameter_for_daily(station_id=station_id)
+        return self._collect_station_parameter_for_daily(station_id=station_id)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
@@ -410,8 +411,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         resolution = self.parameters[0].dataset.resolution.value
         if resolution == Resolution.HOURLY:
             return self._create_metaindex_for_ghcn_hourly()
-        else:
-            return self._create_metaindex_for_ghcn_daily()
+        return self._create_metaindex_for_ghcn_daily()
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
         file = "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv"

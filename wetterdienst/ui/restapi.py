@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Utilities for the wetterdienst package."""
 
@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import logging
 from textwrap import dedent
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
@@ -199,7 +199,7 @@ def robots() -> str:
         """
         User-agent: *
         Disallow: /api/
-        """.strip()
+        """.strip(),
     )
 
 
@@ -213,7 +213,7 @@ def health() -> Response:
 def favicon() -> RedirectResponse:
     """Redirect to favicon."""
     return RedirectResponse(
-        url="https://raw.githubusercontent.com/earthobservations/wetterdienst/refs/heads/main/docs/assets/logo.png"
+        url="https://raw.githubusercontent.com/earthobservations/wetterdienst/refs/heads/main/docs/assets/logo.png",
     )
 
 
@@ -478,7 +478,7 @@ def interpolate(
 # - _SummarizedValuesDict for json
 # - _SummarizedValuesOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
+@app.get("/api/summarize", response_model=_SummarizedValuesDict | _SummarizedValuesOgcFeatureCollection | str)
 def summarize(
     request: Annotated[SummaryRequestRaw, Query()],
 ) -> Any:  # noqa: ANN401

@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for radar file index creation."""
+
 from pathlib import PurePath
 
 import pytest
@@ -16,6 +18,7 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 @pytest.mark.remote
 def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings: Settings) -> None:
+    """Test file index creation for DWD radar PG reflectivity."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PG_REFLECTIVITY,
         fmt=DwdRadarDataFormat.BINARY,
@@ -28,6 +31,7 @@ def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings: Setting
 
 @pytest.mark.remote
 def test_radar_fileindex_composite_pg_reflectivity_bufr(default_settings: Settings) -> None:
+    """Test file index creation for DWD radar PG reflectivity."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PG_REFLECTIVITY,
         fmt=DwdRadarDataFormat.BUFR,
@@ -40,6 +44,7 @@ def test_radar_fileindex_composite_pg_reflectivity_bufr(default_settings: Settin
 
 @pytest.mark.remote
 def test_radar_fileindex_composite_rv_reflectivity_bin(default_settings: Settings) -> None:
+    """Test file index creation for DWD radar RV reflectivity."""
     file_index = create_fileindex_radar(parameter=DwdRadarParameter.RV_REFLECTIVITY, settings=default_settings)
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
@@ -56,6 +61,7 @@ def test_radar_fileindex_composite_rv_reflectivity_bin(default_settings: Setting
     ],
 )
 def test_radar_fileindex_radolan_reflectivity_bin(parameter: DwdRadarParameter, default_settings: Settings) -> None:
+    """Test file index creation for DWD radar reflectivity."""
     file_index = create_fileindex_radar(parameter=parameter, settings=default_settings)
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
@@ -68,6 +74,7 @@ def test_radar_fileindex_radolan_reflectivity_bin(parameter: DwdRadarParameter, 
 
 @pytest.mark.remote
 def test_radar_fileindex_sites_px_reflectivity_bin(default_settings: Settings) -> None:
+    """Test file index creation for DWD radar PX reflectivity."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PX_REFLECTIVITY,
         site=DwdRadarSite.BOO,
@@ -81,6 +88,7 @@ def test_radar_fileindex_sites_px_reflectivity_bin(default_settings: Settings) -
 
 @pytest.mark.remote
 def test_radar_fileindex_sites_px_reflectivity_bufr(default_settings: Settings) -> None:
+    """Test file index creation for DWD radar PX reflectivity."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PX_REFLECTIVITY,
         site=DwdRadarSite.BOO,
@@ -94,6 +102,7 @@ def test_radar_fileindex_sites_px_reflectivity_bufr(default_settings: Settings) 
 
 @pytest.mark.remote
 def test_radar_fileindex_sites_px250_reflectivity_bufr(default_settings: Settings) -> None:
+    """Test file index creation for DWD radar PX250 reflectivity."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PX250_REFLECTIVITY,
         site=DwdRadarSite.BOO,
@@ -106,6 +115,7 @@ def test_radar_fileindex_sites_px250_reflectivity_bufr(default_settings: Setting
 
 @pytest.mark.remote
 def test_radar_fileindex_sites_sweep_vol_v_hdf5_simple(default_settings: Settings) -> None:
+    """Test file index creation for DWD radar sweep vol velocity."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         site=DwdRadarSite.BOO,
@@ -120,6 +130,7 @@ def test_radar_fileindex_sites_sweep_vol_v_hdf5_simple(default_settings: Setting
 
 @pytest.mark.remote
 def test_radar_fileindex_sites_sweep_vol_v_hdf5_polarimetric(default_settings: Settings) -> None:
+    """Test file index creation for polarimetric sweep volume velocity."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         site=DwdRadarSite.BOO,
@@ -134,6 +145,7 @@ def test_radar_fileindex_sites_sweep_vol_v_hdf5_polarimetric(default_settings: S
 
 @pytest.mark.remote
 def test_radar_fileindex_radolan_cdc_daily_recent(default_settings: Settings) -> None:
+    """Test file index creation for RADOLAN CDC daily recent."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.DAILY,
@@ -151,6 +163,7 @@ def test_radar_fileindex_radolan_cdc_daily_recent(default_settings: Settings) ->
 
 @pytest.mark.remote
 def test_radar_fileindex_radolan_cdc_daily_historical(default_settings: Settings) -> None:
+    """Test file index creation for RADOLAN CDC daily historical."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.DAILY,
@@ -168,6 +181,7 @@ def test_radar_fileindex_radolan_cdc_daily_historical(default_settings: Settings
 
 @pytest.mark.remote
 def test_radar_fileindex_radolan_cdc_hourly_recent(default_settings: Settings) -> None:
+    """Test file index creation for RADOLAN CDC hourly recent."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.HOURLY,
@@ -185,6 +199,7 @@ def test_radar_fileindex_radolan_cdc_hourly_recent(default_settings: Settings) -
 
 @pytest.mark.remote
 def test_radar_fileindex_radolan_cdc_hourly_historical(default_settings: Settings) -> None:
+    """Test file index creation for RADOLAN CDC hourly historical."""
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.HOURLY,
@@ -202,6 +217,7 @@ def test_radar_fileindex_radolan_cdc_hourly_historical(default_settings: Setting
 
 @pytest.mark.remote
 def test_radar_fileindex_radolan_cdc_5minutes(default_settings: Settings) -> None:
+    """Test file index creation for RADOLAN CDC 5 minutes."""
     file_index = create_fileindex_radolan_cdc(
         resolution=Resolution.MINUTE_5,
         period=Period.HISTORICAL,

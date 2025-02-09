@@ -1,11 +1,6 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""=====
-About
-=====
-Acquire station information from DWD.
-
-"""
+"""Acquire station information from DWD."""
 
 import logging
 from datetime import datetime

@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for the API."""
+
 import zoneinfo
 
 import pytest
@@ -37,16 +39,19 @@ DF_VALUES_MINIMUM_COLUMNS = {"station_id", "parameter", "date", "value", "qualit
 
 @pytest.fixture
 def parameter_names() -> set[str]:
+    """Provide parameter names."""
     return {parameter.name.lower() for parameter in Parameter}
 
 
 @pytest.fixture
 def unit_converter() -> UnitConverter:
+    """Provide unit converter."""
     return UnitConverter()
 
 
 @pytest.fixture
 def unit_converter_unit_type_units(unit_converter: UnitConverter) -> dict:
+    """Provide dictionary of unit types and their units."""
     return {unit_type: [unit.name for unit in units] for unit_type, units in unit_converter.units.items()}
 
 
@@ -55,6 +60,7 @@ def unit_converter_unit_type_units(unit_converter: UnitConverter) -> dict:
     [(provider, network) for provider in Wetterdienst.registry for network in Wetterdienst.registry[provider]],
 )
 def test_wetterdienst_api(provider: str, network: str) -> None:
+    """Test wetterdienst API."""
     request = Wetterdienst.resolve(provider, network)
     assert request
 
@@ -78,6 +84,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
     ],
 )
 def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) -> None:
+    """Test metadata parameter names."""
     for resolution in metadata:
         for dataset in resolution:
             for parameter in dataset:
@@ -103,6 +110,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
     ],
 )
 def test_metadata_units(unit_converter: UnitConverter, unit_converter_unit_type_units: dict, metadata: dict) -> None:
+    """Test metadata units."""
     for resolution in metadata:
         for dataset in resolution:
             for parameter in dataset:
@@ -111,6 +119,7 @@ def test_metadata_units(unit_converter: UnitConverter, unit_converter_unit_type_
 
 
 def test_api_dwd_observation(default_settings: Settings) -> None:
+    """Test dwd observation API."""
     request = DwdObservationRequest(parameters=[("daily", "kl")], periods="recent", settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -125,6 +134,7 @@ def test_api_dwd_observation(default_settings: Settings) -> None:
 
 
 def test_api_dwd_mosmix(default_settings: Settings) -> None:
+    """Test dwd mosmix API."""
     request = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -139,6 +149,7 @@ def test_api_dwd_mosmix(default_settings: Settings) -> None:
 
 
 def test_api_dwd_dmo(default_settings: Settings) -> None:
+    """Test dwd dmo API."""
     request = DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -154,8 +165,10 @@ def test_api_dwd_dmo(default_settings: Settings) -> None:
 
 @pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed")
 def test_api_dwd_road(default_settings: Settings) -> None:
+    """Test dwd road API."""
     request = DwdRoadRequest(
-        parameters=[("15_minutes", "data", "temperature_air_mean_2m")], settings=default_settings
+        parameters=[("15_minutes", "data", "temperature_air_mean_2m")],
+        settings=default_settings,
     ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -171,6 +184,7 @@ def test_api_dwd_road(default_settings: Settings) -> None:
 
 @pytest.mark.xfail
 def test_api_eccc_observation(default_settings: Settings) -> None:
+    """Test eccc observation API."""
     request = EcccObservationRequest(parameters=[("daily", "data")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -187,6 +201,7 @@ def test_api_eccc_observation(default_settings: Settings) -> None:
 @pytest.mark.xfail
 @pytest.mark.remote
 def test_api_imgw_hydrology(default_settings: Settings) -> None:
+    """Test imgw hydrology API."""
     request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -203,8 +218,9 @@ def test_api_imgw_hydrology(default_settings: Settings) -> None:
 @pytest.mark.xfail
 @pytest.mark.remote
 def test_api_imgw_meteorology(default_settings: Settings) -> None:
+    """Test imgw meteorology API."""
     request = ImgwMeteorologyRequest(parameters=[("daily", "climate")], settings=default_settings).filter_by_station_id(
-        "249200180"
+        "249200180",
     )
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -219,8 +235,10 @@ def test_api_imgw_meteorology(default_settings: Settings) -> None:
 
 
 def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
+    """Test noaa ghcn hourly API."""
     request = NoaaGhcnRequest(
-        parameters=[("hourly", "data", "precipitation_height")], settings=default_settings
+        parameters=[("hourly", "data", "precipitation_height")],
+        settings=default_settings,
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -235,8 +253,10 @@ def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
 
 
 def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
+    """Test noaa ghcn daily API."""
     request = NoaaGhcnRequest(
-        parameters=[("daily", "data", "precipitation_height")], settings=default_settings
+        parameters=[("daily", "data", "precipitation_height")],
+        settings=default_settings,
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -252,6 +272,7 @@ def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
 
 @pytest.mark.xfail
 def test_api_wsv_pegel(default_settings: Settings) -> None:
+    """Test wsv pegel API."""
     request = WsvPegelRequest(parameters=[("dynamic", "data", "stage")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -266,6 +287,7 @@ def test_api_wsv_pegel(default_settings: Settings) -> None:
 
 
 def test_api_ea_hydrology(default_settings: Settings) -> None:
+    """Test ea hydrology API."""
     request = EAHydrologyRequest(parameters=[("daily", "data", "discharge")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -280,8 +302,10 @@ def test_api_ea_hydrology(default_settings: Settings) -> None:
 
 
 def test_api_nws_observation(default_settings: Settings) -> None:
+    """Test nws observation API."""
     request = NwsObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_mean_2m")], settings=default_settings
+        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        settings=default_settings,
     ).filter_by_station_id("KBHM")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -296,6 +320,7 @@ def test_api_nws_observation(default_settings: Settings) -> None:
 
 
 def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
+    """Test eaufrance hubeau API."""
     request = HubeauRequest(parameters=[("dynamic", "data", "discharge")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -310,8 +335,10 @@ def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
 
 
 def test_api_geosphere_observation(default_settings: Settings) -> None:
+    """Test geosphere observation API."""
     request = GeosphereObservationRequest(
-        parameters=[("daily", "data", "precipitation_height")], settings=default_settings
+        parameters=[("daily", "data", "precipitation_height")],
+        settings=default_settings,
     ).filter_by_station_id("5882")
 
     assert not request.df.is_empty()

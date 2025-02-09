@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2022, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for NOAA GHCN stations."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -13,6 +15,7 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 
 @pytest.mark.remote
 def test_noaa_ghcn_stations(default_settings: Settings) -> None:
+    """Test fetching of NOAA GHCN stations."""
     df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df.head(5)
     df_expected = pl.DataFrame(
         [

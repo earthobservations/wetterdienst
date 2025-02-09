@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for radar API (latest)."""
+
 import datetime as dt
 import re
 from zoneinfo import ZoneInfo
@@ -15,7 +17,8 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 @pytest.mark.remote
 def test_radar_request_composite_latest_rv_reflectivity(
-    default_settings: Settings, station_reference_pattern_sorted_prefixed: str
+    default_settings: Settings,
+    station_reference_pattern_sorted_prefixed: str,
 ) -> None:
     """Example for testing radar COMPOSITES latest."""
     request = DwdRadarValues(

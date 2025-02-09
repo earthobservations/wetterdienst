@@ -58,23 +58,10 @@ class DwdForecastDate(Enum):
 
 
 class DwdMosmixValues(TimeseriesValues):
-    """Fetch weather mosmix data (KML/MOSMIX_S dataset).
-
-    Parameters
-    ----------
-    station_id : List
-        - If None, data for all stations_result is returned.
-        - If not None, station_ids are a list of station ids for which data is desired.
-
-    parameter: List
-        - If None, data for all parameters is returned.
-        - If not None, list of parameters, per MOSMIX definition, see
-          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2
-
-    """
+    """Fetch weather mosmix data (KML/MOSMIX_S dataset)."""
 
     def __init__(self, stations_result: StationsResult) -> None:
-        """:param stations_result:"""
+        """Initialize the MOSMIX values."""
         super().__init__(stations_result=stations_result)
 
         self.kml = KMLReader(
@@ -102,7 +89,9 @@ class DwdMosmixValues(TimeseriesValues):
         return datetime_ - dt.timedelta(hours=delta_hours)
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect MOSMIX data for a given station and parameter or dataset."""
         # Shift issue date to 3, 9, 15, 21 hour format
@@ -128,11 +117,10 @@ class DwdMosmixValues(TimeseriesValues):
         """Read MOSMIX data from the DWD server."""
         if dataset == DwdMosmixMetadata.hourly.small:
             return self.read_mosmix_small(station_id, date)
-        elif dataset == DwdMosmixMetadata.hourly.large:
+        if dataset == DwdMosmixMetadata.hourly.large:
             return self.read_mosmix_large(station_id, date)
-        else:
-            msg = f"Dataset {dataset} not supported"
-            raise KeyError(msg)
+        msg = f"Dataset {dataset} not supported"
+        raise KeyError(msg)
 
     def read_mosmix_small(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Read single MOSMIX-S file for all stations or multiple files for single stations."""

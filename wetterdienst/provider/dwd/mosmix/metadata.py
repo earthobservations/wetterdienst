@@ -1006,7 +1006,7 @@ DwdMosmixMetadata = {
                     ],
                 },
             ],
-        }
+        },
     ],
 }
 DwdMosmixMetadata = build_metadata_model(DwdMosmixMetadata, "DwdMosmixMetadata")

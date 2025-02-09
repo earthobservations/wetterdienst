@@ -1,16 +1,11 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""=====
-About
-=====
-
-Example for DWD RADOLAN Composite RW using wetterdienst and wradlib.
+"""Example for DWD RADOLAN Composite RW using wetterdienst and wradlib.
 
 See Also:
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html.
 
-This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00
-and plot the outcome with matplotlib.
+This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00 and plot the outcome with matplotlib.
 
 """
 

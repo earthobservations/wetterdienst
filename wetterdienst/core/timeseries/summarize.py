@@ -47,7 +47,7 @@ def request_stations(request: TimeseriesRequest, latitude: float, longitude: flo
     df_stations_ranked = stations_ranked.df
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
     for station, result in tqdm(
-        zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query()),
+        zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query(), strict=False),
         total=len(df_stations_ranked),
         desc="querying stations for summary",
         unit="station",
@@ -82,12 +82,14 @@ def apply_station_values_per_parameter(
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
         if (parameter.dataset.name, parameter.name) in param_dict and param_dict[
-            (parameter.dataset.name, parameter.name)
+            parameter.dataset.name,
+            parameter.name,
         ].finished:
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
-            pl.col(Columns.DATASET.value).eq(parameter.dataset.name), pl.col(Columns.PARAMETER.value).eq(parameter.name)
+            pl.col(Columns.DATASET.value).eq(parameter.dataset.name),
+            pl.col(Columns.PARAMETER.value).eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
@@ -105,15 +107,17 @@ def apply_station_values_per_parameter(
                 },
                 orient="col",
             )
-            param_dict[(parameter.dataset.name, parameter.name)] = _ParameterData(df)
+            param_dict[parameter.dataset.name, parameter.name] = _ParameterData(df)
         result_series_param = (
-            param_dict[(parameter.dataset.name, parameter.name)]
+            param_dict[parameter.dataset.name, parameter.name]
             .values.select("date")
             .join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column(Columns.VALUE.value).rename(station["station_id"])
         extract_station_values(
-            param_dict[(parameter.dataset.name, parameter.name)], result_series_param, valid_station_groups_exists=True
+            param_dict[parameter.dataset.name, parameter.name],
+            result_series_param,
+            valid_station_groups_exists=True,
         )
 
 

@@ -142,7 +142,7 @@ def test_coverage_wrong_only_provider_given(client: TestClient) -> None:
     assert response.status_code == 400
     assert response.json() == {
         "detail": "Either both or none of 'provider' and 'network' must be given. If none are given, all providers and "
-        "networks are returned."
+        "networks are returned.",
     }
 
 

@@ -289,7 +289,7 @@ class TimeseriesRequest:
                             "name_original": parameter.name_original,
                             "unit_type": parameter.unit_type,
                             "unit": parameter.unit,
-                        }
+                        },
                     )
             if not data[resolution.name]:
                 del data[resolution.name]
@@ -332,7 +332,7 @@ class TimeseriesRequest:
         if not df.is_empty():
             df = df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns)
         else:
-            df = pl.DataFrame(schema={col: pl.String for col in self._base_columns}, orient="col")
+            df = pl.DataFrame(schema=dict.fromkeys(self._base_columns, pl.String), orient="col")
 
         df = self._coerce_meta_fields(df)
 

@@ -1,11 +1,14 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for EUMETNET OPERA radar sites."""
+
 import pytest
 
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 
 
 def test_radar_sites_sizes() -> None:
+    """Test radar sites number."""
     ors = OperaRadarSites()
 
     assert len(ors.all()) == 205
@@ -14,6 +17,7 @@ def test_radar_sites_sizes() -> None:
 
 
 def test_radar_sites_by_odimcode() -> None:
+    """Test radar sites by ODIM code."""
     ors = OperaRadarSites()
 
     assert ors.by_odim_code("ukdea")["location"] == "Dean Hill"
@@ -30,6 +34,7 @@ def test_radar_sites_by_odimcode() -> None:
 
 
 def test_radar_sites_by_wmocode() -> None:
+    """Test radar sites by WMO code."""
     ors = OperaRadarSites()
 
     assert ors.by_wmo_code(3859)["location"] == "Dean Hill"
@@ -37,6 +42,7 @@ def test_radar_sites_by_wmocode() -> None:
 
 
 def test_radar_sites_by_countryname() -> None:
+    """Test radar sites by country name."""
     ors = OperaRadarSites()
 
     sites_uk = ors.by_country_name(country_name="United Kingdom")

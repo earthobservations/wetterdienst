@@ -1,6 +1,6 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""tests for file index creation"""
+"""Tests for DWD observation file index creation."""
 
 import polars as pl
 import pytest
@@ -18,6 +18,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
 
 @pytest.mark.remote
 def test_file_index_creation_success(default_settings: Settings) -> None:
+    """Test the creation of a file index for historical climate data."""
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
         dataset=DwdObservationMetadata.daily.climate_summary,
@@ -33,6 +34,7 @@ def test_file_index_creation_success(default_settings: Settings) -> None:
 
 @pytest.mark.remote
 def test_file_index_creation_precipitation_minute_1(default_settings: Settings) -> None:
+    """Test the creation of a file index for 1-minute precipitation historical data."""
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
         dataset=DwdObservationMetadata.minute_1.precipitation,
@@ -45,6 +47,7 @@ def test_file_index_creation_precipitation_minute_1(default_settings: Settings) 
 
 @pytest.mark.remote
 def test_create_file_list_for_dwd_server(default_settings: Settings) -> None:
+    """Test the creation of a file list for DWD server."""
     remote_file_path = create_file_list_for_climate_observations(
         station_id="01048",
         dataset=DwdObservationMetadata.daily.climate_summary,

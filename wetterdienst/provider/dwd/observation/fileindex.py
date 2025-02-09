@@ -119,10 +119,9 @@ def _build_url_from_dataset_and_period(
     """Build the URL for a given dataset."""
     if dataset in DWD_URBAN_DATASETS:
         return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/{dataset.resolution.value.value}/{dataset.name_original[6:]}/{Period.RECENT.value}/"
-    elif dataset in (
+    if dataset in (
         DwdObservationMetadata.hourly.solar,
         DwdObservationMetadata.daily.solar,
     ):
         return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{dataset.resolution.value.value}/{dataset.name_original}/"
-    else:
-        return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{dataset.resolution.value.value}/{dataset.name_original}/{period.value}/"
+    return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{dataset.resolution.value.value}/{dataset.name_original}/{period.value}/"

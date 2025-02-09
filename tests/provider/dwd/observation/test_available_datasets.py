@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD observation available datasets."""
+
 import polars as pl
 import pytest
 
@@ -27,9 +29,7 @@ SKIP_DATASETS = (
 
 @pytest.mark.remote
 def test_compare_available_dwd_datasets(default_settings: Settings) -> None:
-    """Test to compare the datasets made available with wetterdienst with the ones actually availabel on the DWD CDC
-    server instance
-    """
+    """Test to compare the datasets made available with wetterdienst with the ones actually available on the DWD CDC."""
     # similar to func list_remote_files_fsspec, but we don't want to get full depth
     fs = HTTPFileSystem(
         use_listings_cache=True,

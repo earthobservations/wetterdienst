@@ -54,7 +54,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -99,7 +99,7 @@ DwdObservationMetadata = {
                             "unit": "millimeter",
                         },
                     ],
-                }
+                },
             ],
         },
         {

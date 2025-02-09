@@ -1006,7 +1006,7 @@ DwdDmoMetadata = {
                     ],
                 },
             ],
-        }
+        },
     ],
 }
 DwdDmoMetadata = build_metadata_model(DwdDmoMetadata, "DwdDmoMetadata")

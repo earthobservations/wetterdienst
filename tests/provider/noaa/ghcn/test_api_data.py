@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for the NOAA Global Historical Climatology Network (GHCN) API."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -23,6 +27,7 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
     ],
 )
 def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_settings: Settings) -> None:
+    """Test fetching of Amsterdam weather data."""
     request = NoaaGhcnRequest(
         parameters=[NoaaGhcnMetadata.daily.data.temperature_air_mean_2m],
         start_date=start_date,
@@ -39,7 +44,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
                 "date": dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 3.7,
                 "quality": None,
-            }
+            },
         ],
         schema={
             "station_id": pl.String,

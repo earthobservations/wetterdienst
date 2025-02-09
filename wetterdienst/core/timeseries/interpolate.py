@@ -63,7 +63,7 @@ def request_stations(
     df_stations_ranked = stations_ranked.df
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
     for station, result in tqdm(
-        zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query()),
+        zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query(), strict=False),
         total=len(df_stations_ranked),
         desc="querying stations for interpolation",
         unit="station",
@@ -78,7 +78,11 @@ def request_stations(
         utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
         stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
         apply_station_values_per_parameter(
-            result.df, stations_ranked, param_dict, station, valid_station_groups_exists=valid_station_groups_exists
+            result.df,
+            stations_ranked,
+            param_dict,
+            station,
+            valid_station_groups_exists=valid_station_groups_exists,
         )
     return stations_dict, param_dict
 
@@ -116,12 +120,14 @@ def apply_station_values_per_parameter(
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
         if (parameter.dataset.name, parameter.name) in param_dict and param_dict[
-            (parameter.dataset.name, parameter.name)
+            parameter.dataset.name,
+            parameter.name,
         ].finished:
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
-            pl.col(Columns.DATASET.value).eq(parameter.dataset.name), pl.col(Columns.PARAMETER.value).eq(parameter.name)
+            pl.col(Columns.DATASET.value).eq(parameter.dataset.name),
+            pl.col(Columns.PARAMETER.value).eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
@@ -139,16 +145,16 @@ def apply_station_values_per_parameter(
                 },
                 orient="col",
             )
-            param_dict[(parameter.dataset.name, parameter.name)] = _ParameterData(df)
+            param_dict[parameter.dataset.name, parameter.name] = _ParameterData(df)
         result_series_param = (
-            param_dict[(parameter.dataset.name, parameter.name)]
+            param_dict[parameter.dataset.name, parameter.name]
             .values.select("date")
             .join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column(Columns.VALUE.value)
         result_series_param = result_series_param.rename(station["station_id"])
         extract_station_values(
-            param_dict[(parameter.dataset.name, parameter.name)],
+            param_dict[parameter.dataset.name, parameter.name],
             result_series_param,
             valid_station_groups_exists=valid_station_groups_exists,
         )
@@ -198,7 +204,14 @@ def calculate_interpolation(
         for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):
             results.append(
                 apply_interpolation(
-                    row, stations_dict, valid_station_groups, dataset, parameter, utm_x, utm_y, nearby_stations
+                    row,
+                    stations_dict,
+                    valid_station_groups,
+                    dataset,
+                    parameter,
+                    utm_x,
+                    utm_y,
+                    nearby_stations,
                 ),
             )
         results = pl.DataFrame(
@@ -304,7 +317,7 @@ def apply_interpolation(
         vals = None
     if not vals or len(vals) < 4:
         return dataset, parameter, None, None, []
-    xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids]))
+    xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids], strict=False))
     distance_mean = sum(distances) / len(distances)
     f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
     value = f(utm_x, utm_y)

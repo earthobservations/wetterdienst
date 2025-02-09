@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD MOSMIX."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -236,6 +238,7 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> Non
 
 @pytest.mark.remote
 def test_mosmix_date_filter(settings_drop_nulls_false: Settings) -> None:
+    """Test a MOSMIX request with date filter."""
     now = dt.datetime.now(tz=ZoneInfo("UTC"))
     request = DwdMosmixRequest(
         parameters=[("hourly", "small")],

@@ -63,7 +63,9 @@ class DwdObservationValues(TimeseriesValues):
         for period in self.sr.stations.periods:
             if parameter_or_dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(
-                    station_id, parameter_or_dataset, self.sr.stations.settings
+                    station_id,
+                    parameter_or_dataset,
+                    self.sr.stations.settings,
                 )
                 periods_and_date_ranges.append((period, date_ranges))
             else:
@@ -247,7 +249,7 @@ class DwdObservationValues(TimeseriesValues):
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
         interval = self.sr.stations.interval
-        start_date_min, end_date_max = interval and (interval.lower, interval.upper) or (None, None)
+        start_date_min, end_date_max = (interval and (interval.lower, interval.upper)) or (None, None)
         if start_date_min:
             file_index = file_index.filter(
                 pl.col(Columns.STATION_ID.value).eq(station_id)
@@ -331,8 +333,7 @@ class DwdObservationRequest(TimeseriesRequest):
         if not period:
             return None
         periods_parsed = set()
-        for p in to_list(period):
-            periods_parsed.add(parse_enumeration_from_template(p, Period))
+        periods_parsed.update(parse_enumeration_from_template(p, Period) for p in to_list(period))
         return periods_parsed & self._available_periods or None
 
     def __init__(
@@ -377,7 +378,8 @@ class DwdObservationRequest(TimeseriesRequest):
         return super().__eq__(other) and self.periods == other.periods
 
     def filter_by_station_id(
-        self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]
+        self,
+        station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int],
     ) -> StationsResult:
         """Filter by station id."""
         # ensure station_id is a list of strings with padded zeros to length 5
@@ -398,7 +400,8 @@ class DwdObservationRequest(TimeseriesRequest):
             parameter_template = ParameterSearch.parse(dataset)
         elif isinstance(dataset, DatasetModel):
             parameter_template = ParameterSearch(
-                resolution=dataset.resolution.value.value, dataset=dataset.name_original
+                resolution=dataset.resolution.value.value,
+                dataset=dataset.name_original,
             )
         elif isinstance(dataset, ParameterSearch):
             parameter_template = dataset

@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Summarize data over time."""
+
 import datetime as dt
 import os
 from zoneinfo import ZoneInfo
@@ -12,6 +14,7 @@ from wetterdienst.provider.dwd.observation import (
 
 
 def get_summarized_df(start_date: dt.datetime, end_date: dt.datetime, lat: float, lon: float) -> pl.DataFrame:
+    """Get summarized data for a location."""
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=start_date,
@@ -21,6 +24,7 @@ def get_summarized_df(start_date: dt.datetime, end_date: dt.datetime, lat: float
 
 
 def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id: str) -> pl.DataFrame:
+    """Get regular data for a station."""
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=start_date,
@@ -31,6 +35,7 @@ def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id: s
 
 
 def main() -> None:
+    """Run example."""
     start_date = dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC"))
     end_date = dt.datetime(1980, 12, 31, tzinfo=ZoneInfo("UTC"))
     lat = 51.0221

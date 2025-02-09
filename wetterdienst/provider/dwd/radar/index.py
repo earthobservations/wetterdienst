@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Index for DWD radar data."""
 
@@ -26,7 +26,7 @@ from wetterdienst.provider.dwd.radar.metadata import (
 from wetterdienst.provider.dwd.radar.util import (
     RADAR_DT_PATTERN,
     RADOLAN_DT_PATTERN,
-    get_date_from_filename,
+    get_date_string_from_filename,
 )
 from wetterdienst.util.network import list_remote_files_fsspec
 
@@ -51,8 +51,7 @@ def use_cache() -> int:  # pragma: no cover
     """
     if "PYTEST_CURRENT_TEST" in os.environ and "CI" not in os.environ:
         return 2 * 60
-    else:
-        return 0
+    return 0
 
 
 def create_fileindex_radar(
@@ -82,7 +81,7 @@ def create_fileindex_radar(
         parse_datetime: Whether to parse datetimes from file names
 
     Returns:
-        File index as pandas.DataFrame with FILENAME and DATETIME columns
+        File index as DataFrame with FILENAME and DATETIME columns
 
     """
     parameter_path = build_path_to_parameter(
@@ -112,23 +111,22 @@ def create_fileindex_radar(
 
     if (
         parameter in RADAR_PARAMETERS_SWEEPS
-        or site
-        and parameter is DwdRadarParameter.PX250_REFLECTIVITY
-        or site
-        and fmt is DwdRadarDataFormat.BUFR
+        or (site and parameter is DwdRadarParameter.PX250_REFLECTIVITY)
+        or (site and fmt is DwdRadarDataFormat.BUFR)
     ):
-        formats = ["%Y%m%d%H%M"]
+        format_ = "%Y%m%d%H%M"
     else:
-        formats = ["%y%m%d%H%M"]
+        format_ = "%y%m%d%H%M"
 
     # Decode datetime of file for filtering.
     if parse_datetime:
         df_fileindex = df_fileindex.with_columns(
             pl.col("filename")
             .map_elements(
-                lambda fn: get_date_from_filename(filename=fn, pattern=RADAR_DT_PATTERN, formats=formats),
-                return_dtype=pl.Datetime,
+                lambda filename: get_date_string_from_filename(filename=filename, pattern=RADAR_DT_PATTERN),
+                return_dtype=pl.String,
             )
+            .str.to_datetime(format_, time_zone="UTC")
             .alias("datetime"),
         )
 
@@ -151,14 +149,15 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
         ),
     )
 
-    formats = ["%Y%m"] if period == Period.HISTORICAL else ["%Y%m%d%H%M"]
+    format_ = "%Y%m" if period == Period.HISTORICAL else "%Y%m%d%H%M"
 
     df_fileindex = df_fileindex.with_columns(
         pl.col("filename")
         .map_elements(
-            lambda fn: get_date_from_filename(filename=fn, pattern=RADOLAN_DT_PATTERN, formats=formats),
-            return_dtype=pl.Datetime,
+            lambda filename: get_date_string_from_filename(filename=filename, pattern=RADOLAN_DT_PATTERN),
+            return_dtype=pl.String,
         )
+        .str.to_datetime(format_, time_zone="UTC")
         .alias("datetime"),
     )
 
@@ -208,19 +207,18 @@ def build_path_to_parameter(  # noqa: C901
             # https://opendata.dwd.de/climate_environment/CDC/help/RADOLAN/Unterstuetzungsdokumente/
             # Unterstuetzungsdokumente-Verwendung_von_RADOLAN-Produkten_im_ASCII-GIS-Rasterformat_in_GIS.pdf
             return f"climate_environment/CDC/grids_germany/{resolution.value}/radolan/reproc/2017_002/bin"
-        else:
-            return f"climate_environment/CDC/grids_germany/{resolution.value}/radolan/{period.value}/bin"
+        return f"climate_environment/CDC/grids_germany/{resolution.value}/radolan/{period.value}/bin"
 
-    elif parameter in RADAR_PARAMETERS_COMPOSITES:
+    if parameter in RADAR_PARAMETERS_COMPOSITES:
         return f"weather/radar/composite/{parameter.value}"
 
-    elif parameter in RADAR_PARAMETERS_RADOLAN:
+    if parameter in RADAR_PARAMETERS_RADOLAN:
         return f"weather/radar/radolan/{parameter.value}"
 
-    elif parameter in RADAR_PARAMETERS_RADVOR:
+    if parameter in RADAR_PARAMETERS_RADVOR:
         return f"weather/radar/radvor/{parameter.value}"
 
-    elif parameter in RADAR_PARAMETERS_SITES:
+    if parameter in RADAR_PARAMETERS_SITES:
         # Sanity checks.
         if site is None:
             msg = "Argument 'site' is missing"
@@ -258,6 +256,6 @@ def build_path_to_parameter(  # noqa: C901
 
         return parameter_path
 
-    else:  # pragma: no cover
-        msg = f"Acquisition for {parameter} not implemented yet"
-        raise NotImplementedError(msg)
+    # pragma: no cover
+    msg = f"Acquisition for {parameter} not implemented yet"
+    raise NotImplementedError(msg)

@@ -132,7 +132,7 @@ class DwdDmoValues(TimeseriesValues):
     """
 
     def __init__(self, stations_result: StationsResult) -> None:
-        """:param stations_result:"""
+        """Initialize DwdDmoValues."""
         super().__init__(stations_result=stations_result)
 
         self.kml = KMLReader(
@@ -153,7 +153,9 @@ class DwdDmoValues(TimeseriesValues):
         return self.sr.df
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         df = self.read_dmo(station_id=station_id, dataset=parameter_or_dataset, date=self.sr.stations.issue)
         if df.is_empty():
@@ -174,8 +176,7 @@ class DwdDmoValues(TimeseriesValues):
         """Read DMO data."""
         if dataset == DwdDmoMetadata.hourly.icon_eu:
             return self.read_icon_eu(station_id, date)
-        else:
-            return self.read_icon(station_id, date)
+        return self.read_icon(station_id, date)
 
     def read_icon_eu(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Read large icon_eu file with all stations."""

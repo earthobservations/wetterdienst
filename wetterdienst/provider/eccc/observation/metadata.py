@@ -143,7 +143,7 @@ EcccObservationMetadata = {
                             "unit": "dimensionless",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -290,7 +290,7 @@ EcccObservationMetadata = {
                             "unit": "dimensionless",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -437,7 +437,7 @@ EcccObservationMetadata = {
                             "unit": "dimensionless",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -506,7 +506,7 @@ EcccObservationMetadata = {
                             "unit": "centimeter",
                         },
                     ],
-                }
+                },
             ],
         },
     ],

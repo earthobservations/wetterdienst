@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Benchmark interpolation over time."""
+
 import datetime as dt
 import os
 from zoneinfo import ZoneInfo
@@ -15,8 +17,11 @@ from wetterdienst.provider.dwd.observation import (
 
 
 def get_interpolated_df(
-    parameters: tuple[str, str, str], start_date: dt.datetime, end_date: dt.datetime
+    parameters: tuple[str, str, str],
+    start_date: dt.datetime,
+    end_date: dt.datetime,
 ) -> pl.DataFrame:
+    """Get interpolated data for a location."""
     stations = DwdObservationRequest(
         parameters=parameters,
         start_date=start_date,
@@ -26,8 +31,12 @@ def get_interpolated_df(
 
 
 def get_regular_df(
-    parameters: tuple[str, str, str], start_date: dt.datetime, end_date: dt.datetime, exclude_stations: list
+    parameters: tuple[str, str, str],
+    start_date: dt.datetime,
+    end_date: dt.datetime,
+    exclude_stations: list,
 ) -> pl.DataFrame:
+    """Get regular data for a station."""
     stations = DwdObservationRequest(
         parameters=parameters,
         start_date=start_date,
@@ -41,6 +50,7 @@ def get_regular_df(
 
 
 def get_rmse(regular_values: pl.Series, interpolated_values: pl.Series) -> float:
+    """Calculate root mean squared error between regular and interpolated values."""
     return root_mean_squared_error(
         regular_values.reshape((-1, 1)).to_list(),
         interpolated_values.reshape((-1, 1)).to_list(),
@@ -48,6 +58,7 @@ def get_rmse(regular_values: pl.Series, interpolated_values: pl.Series) -> float
 
 
 def get_corr(regular_values: pl.Series, interpolated_values: pl.Series) -> float:
+    """Calculate correlation between regular and interpolated values."""
     return r_regression(
         regular_values.reshape((-1, 1)).to_list(),
         interpolated_values.reshape((-1, 1)).to_list(),
@@ -55,8 +66,12 @@ def get_corr(regular_values: pl.Series, interpolated_values: pl.Series) -> float
 
 
 def visualize(
-    parameter: tuple[str, str, str], unit: str, regular_df: pl.DataFrame, interpolated_df: pl.DataFrame
+    parameter: tuple[str, str, str],
+    unit: str,
+    regular_df: pl.DataFrame,
+    interpolated_df: pl.DataFrame,
 ) -> None:
+    """Visualize regular and interpolated data."""
     try:
         import plotly.graph_objects as go
     except ImportError as e:
@@ -73,7 +88,7 @@ def visualize(
             mode="lines",
             name="regular",
             line={"color": "red"},
-        )
+        ),
     )
     fig.add_trace(
         go.Scatter(
@@ -82,7 +97,7 @@ def visualize(
             mode="lines",
             name="interpolated",
             line={"color": "black"},
-        )
+        ),
     )
 
     ylabel = f"{parameter[-1].lower()} [{unit}]"
@@ -104,6 +119,7 @@ def visualize(
 
 
 def main() -> None:
+    """Run example."""
     parameter = ("hourly", "air_temperature", "temperature_air_mean_2m")
     unit = "K"
     start_date = dt.datetime(2022, 3, 1, tzinfo=ZoneInfo("UTC"))

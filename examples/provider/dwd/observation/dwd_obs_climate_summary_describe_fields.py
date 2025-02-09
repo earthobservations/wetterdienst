@@ -1,11 +1,6 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""=====
-About
-=====
-Acquire information about the data fields from DWD.
-
-"""
+"""Acquire information about the data fields from DWD."""
 
 import logging
 from pprint import pprint

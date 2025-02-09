@@ -284,7 +284,7 @@ class UnitConverter:
         if unit == unit_target:
             return lambda x: x
         try:
-            return self.lambdas[(unit, unit_target)]
+            return self.lambdas[unit, unit_target]
         except KeyError as e:
             msg = f"Conversion from {unit} to {unit_target} not supported"
             raise ValueError(msg) from e

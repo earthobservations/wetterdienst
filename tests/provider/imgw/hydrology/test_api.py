@@ -1,3 +1,7 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for the IMGW hydrology API."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -10,6 +14,7 @@ from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyRequest
 
 @pytest.fixture
 def df_expected_station() -> pl.DataFrame:
+    """Provide expected DataFrame for station."""
     return pl.DataFrame(
         [
             {
@@ -21,7 +26,7 @@ def df_expected_station() -> pl.DataFrame:
                 "height": None,
                 "name": "£AGISZA",
                 "state": None,
-            }
+            },
         ],
         schema={
             "station_id": pl.String,
@@ -39,6 +44,7 @@ def df_expected_station() -> pl.DataFrame:
 
 @pytest.mark.xfail
 def test_imgw_hydrology_api_daily(df_expected_station: pl.DataFrame) -> None:
+    """Test fetching of daily hydrology data."""
     request = ImgwHydrologyRequest(
         parameters=[("daily", "hydrology")],
         start_date="2010-08-01",
@@ -87,6 +93,7 @@ def test_imgw_hydrology_api_daily(df_expected_station: pl.DataFrame) -> None:
 
 @pytest.mark.xfail
 def test_imgw_hydrology_api_monthly(df_expected_station: pl.DataFrame) -> None:
+    """Test fetching of monthly hydrology data."""
     request = ImgwHydrologyRequest(
         parameters=[("monthly", "hydrology")],
         start_date="2010-06-01",

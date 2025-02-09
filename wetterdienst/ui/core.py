@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Core UI utilities for the wetterdienst package."""
 
@@ -447,42 +447,41 @@ def get_stations(
     if request.all:
         return r.all()
 
-    elif request.station:
+    if request.station:
         return r.filter_by_station_id(request.station)
 
-    elif request.name:
+    if request.name:
         return r.filter_by_name(request.name)
 
     # Use coordinates twice in main if-elif to get same KeyError
-    elif request.coordinates and request.rank:
+    if request.coordinates and request.rank:
         return r.filter_by_rank(
             latlon=request.coordinates,
             rank=request.rank,
         )
 
-    elif request.coordinates and request.distance:
+    if request.coordinates and request.distance:
         return r.filter_by_distance(
             latlon=request.coordinates,
             distance=request.distance,
         )
 
-    elif request.bbox:
+    if request.bbox:
         return r.filter_by_bbox(*request.bbox)
 
-    elif request.sql:
+    if request.sql:
         return r.filter_by_sql(request.sql)
 
-    else:
-        param_options = [
-            "all (boolean)",
-            "station (string)",
-            "name (string)",
-            "coordinates (float,float) and rank (integer)",
-            "coordinates (float,float) and distance (float)",
-            "bbox (left float, bottom float, right float, top float)",
-        ]
-        msg = f"Give one of the parameters: {', '.join(param_options)}"
-        raise KeyError(msg)
+    param_options = [
+        "all (boolean)",
+        "station (string)",
+        "name (string)",
+        "coordinates (float,float) and rank (integer)",
+        "coordinates (float,float) and distance (float)",
+        "bbox (left float, bottom float, right float, top float)",
+    ]
+    msg = f"Give one of the parameters: {', '.join(param_options)}"
+    raise KeyError(msg)
 
 
 def get_values(
@@ -655,7 +654,7 @@ def _plot_stripes(  # noqa: C901
     df = df.upsample("date", every="1y")
     df = df.with_columns(
         (1 - (pl.col("value") - pl.col("value").min()) / (pl.col("value").max() - pl.col("value").min())).alias(
-            "value_scaled"
+            "value_scaled",
         ),
         pl.when(pl.col("value").is_not_null()).then(-0.02).otherwise(None).alias("availability"),
     )
@@ -680,7 +679,7 @@ def _plot_stripes(  # noqa: C901
             y=[1.0] * len(df_without_nulls),
             marker={"color": df_without_nulls.get_column("value_scaled"), "colorscale": cmap, "cmin": 0, "cmax": 1},
             width=1.0,
-        )
+        ),
     )
 
     # Add scatter trace for data availability
@@ -692,7 +691,7 @@ def _plot_stripes(  # noqa: C901
                 mode="lines",
                 marker={"color": "gold", "size": 5},
                 line={"color": "gold"},
-            )
+            ),
         )
         fig.add_annotation(
             x=df.get_column("date").dt.year().min(),
@@ -705,11 +704,16 @@ def _plot_stripes(  # noqa: C901
         )
     # Add source text
     fig.add_annotation(
-        x=0.5, y=-0.05, text="Source: Deutscher Wetterdienst", showarrow=False, xref="paper", yref="paper"
+        x=0.5,
+        y=-0.05,
+        text="Source: Deutscher Wetterdienst",
+        showarrow=False,
+        xref="paper",
+        yref="paper",
     )
     if show_title:
         fig.update_layout(
-            title=f"Climate stripes ({kind}) for {station_dict['name']}, Germany ({station_dict['station_id']})"
+            title=f"Climate stripes ({kind}) for {station_dict['name']}, Germany ({station_dict['station_id']})",
         )
     if show_years:
         fig.add_annotation(

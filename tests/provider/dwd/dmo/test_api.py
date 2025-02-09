@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD DMO API."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -13,6 +15,7 @@ from wetterdienst.provider.dwd.dmo.api import add_date_from_filename
 
 @pytest.fixture
 def df_files_january() -> pl.DataFrame:
+    """Provide DataFrame with two dates."""
     return pl.DataFrame(
         {
             "date_str": [
@@ -26,6 +29,7 @@ def df_files_january() -> pl.DataFrame:
 
 @pytest.fixture
 def df_files_two_month() -> pl.DataFrame:
+    """Provide DataFrame with two dates."""
     return pl.DataFrame(
         {
             "date_str": [
@@ -41,6 +45,7 @@ def df_files_two_month() -> pl.DataFrame:
 
 @pytest.fixture
 def df_files_end_of_month() -> pl.DataFrame:
+    """Provide DataFrame with two dates."""
     return pl.DataFrame(
         {
             "date_str": [
@@ -54,6 +59,7 @@ def df_files_end_of_month() -> pl.DataFrame:
 
 @pytest.mark.remote
 def test_dwd_dmo_stations(default_settings: Settings) -> None:
+    """Test fetching of DWD DMO stations."""
     # Acquire data.
     stations = DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings)
     given_df = stations.all().df
@@ -92,6 +98,7 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
 
 
 def test_add_date_from_filename(df_files_two_month: pl.DataFrame) -> None:
+    """Test that the date is correctly set."""
     df = add_date_from_filename(df_files_two_month, dt.datetime(2021, 11, 15, tzinfo=ZoneInfo("UTC")))
     assert df.get_column("date").to_list() == [
         dt.datetime(2021, 10, 31, 12, tzinfo=ZoneInfo("UTC")),
@@ -102,6 +109,7 @@ def test_add_date_from_filename(df_files_two_month: pl.DataFrame) -> None:
 
 
 def test_add_date_from_filename_early_in_month(df_files_end_of_month: pl.DataFrame) -> None:
+    """Test that the date is correctly set when the date is early in the month."""
     df = add_date_from_filename(df_files_end_of_month, dt.datetime(2021, 11, 1, 2, tzinfo=ZoneInfo("UTC")))
     assert df.get_column("date").to_list() == [
         dt.datetime(2021, 10, 31, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
@@ -110,6 +118,7 @@ def test_add_date_from_filename_early_in_month(df_files_end_of_month: pl.DataFra
 
 
 def test_add_date_from_filename_early_in_year(df_files_january: pl.DataFrame) -> None:
+    """Test that the date is correctly set when the date is early in the year."""
     df = add_date_from_filename(df_files_january, dt.datetime(2021, 1, 1, 1, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert df.get_column("date").to_list() == [
         dt.datetime(2020, 12, 31, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
@@ -118,6 +127,7 @@ def test_add_date_from_filename_early_in_year(df_files_january: pl.DataFrame) ->
 
 
 def test_add_date_from_filename_too_few_dates() -> None:
+    """Test that an error is raised if the dataframe has too few dates."""
     df = pl.DataFrame(
         {
             "date_str": [

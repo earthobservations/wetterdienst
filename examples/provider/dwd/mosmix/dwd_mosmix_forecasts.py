@@ -1,15 +1,9 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""=====
-About
-=====
-Example for DWD MOSMIX acquisition.
+"""Example for DWD MOSMIX acquisition.
 
-This program will request latest MOSMIX-L data for
-stations_result 01001 and 01008 and parameters DD and ww.
-
-Other MOSMIX variants are also listed and can be
-enabled on demand.
+This program will request latest MOSMIX-L data for stations 01001 and 01008 and parameters DD and ww.
+Other MOSMIX variants are also listed and can be enabled on demand.
 """
 
 import polars as pl
@@ -81,6 +75,7 @@ def mosmix_example() -> None:
 
 
 def output_section(title: str, data: pl.DataFrame) -> None:  # pragma: no cover
+    """Output section."""
     print("-" * len(title))
     print(title)
     print("-" * len(title))

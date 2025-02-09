@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for ECCC API."""
+
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -12,12 +14,13 @@ from wetterdienst.provider.eccc.observation import EcccObservationRequest
 
 
 @pytest.mark.remote
-def test_eccc_api_stations(settings_si_false: Settings) -> None:
+def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
+    """Test fetching of ECCC stations."""
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
         start_date="1990-01-01",
         end_date="1990-01-02",
-        settings=settings_si_false,
+        settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=(14,))
     given_df = request.df
     expected_df = pl.DataFrame(
@@ -31,7 +34,7 @@ def test_eccc_api_stations(settings_si_false: Settings) -> None:
                 "height": 4.0,
                 "name": "ACTIVE PASS",
                 "state": "BRITISH COLUMBIA",
-            }
+            },
         ],
         orient="row",
     )
@@ -39,12 +42,13 @@ def test_eccc_api_stations(settings_si_false: Settings) -> None:
 
 
 @pytest.mark.remote
-def test_eccc_api_values(settings_si_false: Settings) -> None:
+def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
+    """Test fetching of ECCC data."""
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
         start_date="1980-01-01",
         end_date="1980-01-02",
-        settings=settings_si_false,
+        settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=(1652,))
     given_df = request.values.all().df
     expected_df = pl.DataFrame(

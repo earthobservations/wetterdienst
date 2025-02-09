@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """IMGW hydrology provider."""
 
@@ -66,7 +66,7 @@ ImgwHydrologyMetadata = {
                             "unit": "centimeter",
                         },
                     ],
-                }
+                },
             ],
         },
         {
@@ -135,7 +135,7 @@ ImgwHydrologyMetadata = {
                             "unit": "centimeter",
                         },
                     ],
-                }
+                },
             ],
         },
     ],
@@ -177,7 +177,9 @@ class ImgwHydrologyValues(TimeseriesValues):
     }
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect hydrological data for a single station and dataset."""
         urls = self._get_urls(parameter_or_dataset)
@@ -210,7 +212,11 @@ class ImgwHydrologyValues(TimeseriesValues):
         )
 
     def _parse_file(
-        self, file_in_bytes: bytes, station_id: str, dataset: DatasetModel, file_schema: dict
+        self,
+        file_in_bytes: bytes,
+        station_id: str,
+        dataset: DatasetModel,
+        file_schema: dict,
     ) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
         zfs = ZipFileSystem(file_in_bytes)
@@ -342,12 +348,13 @@ class ImgwHydrologyValues(TimeseriesValues):
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
                 .map_elements(
-                    lambda dates: portion.closed(dates["start_date"], dates["end_date"]), return_dtype=pl.Object
+                    lambda dates: portion.closed(dates["start_date"], dates["end_date"]),
+                    return_dtype=pl.Object,
                 )
                 .alias("interval"),
             )
             df_files = df_files.filter(
-                pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean)
+                pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean),
             )
         return df_files.get_column("url")
 

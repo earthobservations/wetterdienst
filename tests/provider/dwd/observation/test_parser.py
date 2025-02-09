@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DWD historical climate data parsing."""
+
 import datetime as dt
 from io import BytesIO
 from zoneinfo import ZoneInfo
@@ -17,6 +19,7 @@ from wetterdienst.provider.dwd.observation.parser import parse_climate_observati
 
 @pytest.mark.remote
 def test_parse_dwd_data() -> None:
+    """Test parsing of DWD historical climate data."""
     url = (
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
         "climate/daily/kl/historical/tageswerte_KL_00001_19370101_19860630_hist.zip"

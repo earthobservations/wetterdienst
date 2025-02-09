@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """WSV Pegelonline provider for water level data in Germany."""
 
@@ -178,9 +178,9 @@ WsvPegelMetadata = {
                             "unit": "milligram_per_liter",
                         },
                     ],
-                }
+                },
             ],
-        }
+        },
     ],
 }
 WsvPegelMetadata = build_metadata_model(WsvPegelMetadata, "WsvPegelMetadata")
@@ -194,7 +194,9 @@ class WsvPegelValues(TimeseriesValues):
     _station_endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/"
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: ParameterModel
+        self,
+        station_id: str,
+        parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
         """Collect data for station parameter from WSV Pegelonline.
 
@@ -211,7 +213,7 @@ class WsvPegelValues(TimeseriesValues):
         df = pl.read_json(response)
         df = df.rename(mapping={"timestamp": Columns.DATE.value, "value": Columns.VALUE.value})
         df = df.with_columns(
-            pl.col(Columns.DATE.value).map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime)
+            pl.col(Columns.DATE.value).map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
         )
         return df.with_columns(
             pl.col(Columns.DATE.value).dt.replace_time_zone(time_zone="UTC"),

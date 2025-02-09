@@ -4,10 +4,8 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -39,19 +37,12 @@ RADAR_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_LONG}|{RADAR_DT_REGEX_MEDIUM}|{R
 RADOLAN_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_SHORT}|{RADAR_DT_REGEX_MEDIUM}")
 
 
-def get_date_from_filename(filename: str, pattern: re.Pattern, formats: list[str]) -> dt.datetime | None:
+def get_date_string_from_filename(filename: str, pattern: re.Pattern) -> str | None:
     """Extract a datetime object from a filename using a regex pattern and a list of formats."""
     try:
-        date_string = pattern.findall(filename)[0]
+        return pattern.findall(filename)[0]
     except IndexError:
         return None
-
-    for fmt in formats:
-        try:
-            return dt.datetime.strptime(date_string, fmt).replace(tzinfo=ZoneInfo("UTC"))
-        except ValueError:
-            pass
-    return None
 
 
 def verify_hdf5(buffer: BytesIO) -> None:

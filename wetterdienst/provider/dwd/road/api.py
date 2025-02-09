@@ -142,9 +142,9 @@ DwdRoadMetadata = {
                             "unit": "meter_per_second",
                         },
                     ],
-                }
+                },
             ],
-        }
+        },
     ],
 }
 DwdRoadMetadata = build_metadata_model(DwdRoadMetadata, "DwdRoadMetadata")
@@ -202,7 +202,9 @@ class DwdRoadValues(TimeseriesValues):
         super().__init__(stations_result)
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect data from DWD Road Weather stations."""
         station_group = (
@@ -272,7 +274,7 @@ class DwdRoadValues(TimeseriesValues):
                 remote_files,
             )
 
-        return list(zip(remote_files, files_in_bytes))
+        return list(zip(remote_files, files_in_bytes, strict=False))
 
     def _parse_dwd_road_weather_data(
         self,
@@ -289,7 +291,8 @@ class DwdRoadValues(TimeseriesValues):
 
     @staticmethod
     def __parse_dwd_road_weather_data(
-        filename_and_file: tuple[str, BytesIO], parameters: list[ParameterModel]
+        filename_and_file: tuple[str, BytesIO],
+        parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """Read the road weather station data from a given file and returns a DataFrame."""
         import pdbufr

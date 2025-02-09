@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2023, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Geosphere observation data provider."""
 
@@ -47,7 +47,9 @@ class GeosphereObservationValues(TimeseriesValues):
     }
 
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         start_date = self.sr.start_date or self._default_start_dates[parameter_or_dataset.resolution.value]
         end_date = self.sr.end_date or datetime.now(ZoneInfo("UTC"))

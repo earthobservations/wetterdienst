@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Metadata for DWD climate observations."""
 
@@ -191,20 +191,22 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     )
     df_files = _create_file_index_for_dwd_server(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     df_files = df_files.with_columns(
-        pl.col("filename").str.split("_").list.last().str.split(".").list.first().alias("station_id")
+        pl.col("filename").str.split("_").list.last().str.split(".").list.first().alias("station_id"),
     )
     files_and_station_ids = df_files.select(["url", "station_id"]).collect().to_struct().to_list()
     log.info(f"Downloading {len(files_and_station_ids)} files for 1minute precipitation historical metadata.")
     with ThreadPoolExecutor() as executor:
         metadata_files = executor.map(
             lambda file_and_station_id: download_file(
-                url=file_and_station_id["url"], settings=settings, ttl=CacheExpiry.NO_CACHE
+                url=file_and_station_id["url"],
+                settings=settings,
+                ttl=CacheExpiry.NO_CACHE,
             ),
             files_and_station_ids,
         )
     dfs = [
         _parse_geo_metadata((file, file_and_station_id["station_id"]))
-        for file, file_and_station_id in zip(metadata_files, files_and_station_ids)
+        for file, file_and_station_id in zip(metadata_files, files_and_station_ids, strict=False)
     ]
     df = pl.concat(dfs)
     df = df.with_columns(

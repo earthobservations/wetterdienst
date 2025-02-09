@@ -190,7 +190,10 @@ dataset: DatasetModel = st.selectbox(
 parameter_options = list(dataset)
 parameter_options = [dataset, *parameter_options]
 parameter: DatasetModel | ParameterModel = st.selectbox(
-    "Select parameter", options=parameter_options, index=0, format_func=lambda p: p.name
+    "Select parameter",
+    options=parameter_options,
+    index=0,
+    format_func=lambda p: p.name,
 )
 
 parameter = dataset if parameter == dataset else parameter
@@ -259,7 +262,7 @@ if station:
     data_csv = df.write_csv()
     st.download_button("Download CSV", data_csv, "data.csv", "text/csv")
     data_json = df.with_columns(
-        pl.col("date").map_elements(lambda d: d.isoformat(), return_dtype=pl.String)
+        pl.col("date").map_elements(lambda d: d.isoformat(), return_dtype=pl.String),
     ).write_json()
     st.download_button(
         "Download JSON",

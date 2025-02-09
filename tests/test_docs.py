@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for the documentation."""
+
 import doctest
 from pathlib import Path
 
@@ -20,6 +22,7 @@ EXCLUDE_PROVIDER_NETWORKS = {
 
 @pytest.mark.remote
 def test_readme() -> None:
+    """Test to make sure that the wetterdienst example code in the README works."""
     readme_file = Path(__file__).parent.parent / "README.md"
     failures, _ = doctest.testfile(
         filename=str(readme_file),
@@ -30,7 +33,7 @@ def test_readme() -> None:
 
 
 def test_data_coverage() -> None:
-    """Test to make sure that provider data is correctly covered by the docs."""
+    """Test to make sure that the docs correctly cover provider data."""
 
     def _check_startswith(name: str, startswith: list[str]) -> bool:
         return any(name.startswith(sw) for sw in startswith)

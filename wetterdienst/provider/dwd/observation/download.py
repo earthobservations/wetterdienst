@@ -37,7 +37,7 @@ def download_climate_observations_data(
             )
     else:
         files_in_bytes = [_download_climate_observations_data(remote_file=remote_files[0], settings=settings)]
-    return list(zip(remote_files, files_in_bytes))
+    return list(zip(remote_files, files_in_bytes, strict=False))
 
 
 def _download_climate_observations_data(remote_file: str, settings: Settings) -> BytesIO:

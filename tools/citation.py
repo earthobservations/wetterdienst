@@ -1,6 +1,6 @@
 # """Wetterdienst - Open weather data for humans"""
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 from pathlib import Path

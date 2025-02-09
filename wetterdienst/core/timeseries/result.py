@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import typing
 from dataclasses import dataclass
-from enum import StrEnum, auto
+from enum import Enum
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
@@ -30,19 +30,19 @@ if TYPE_CHECKING:
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
-class StationsFilter(StrEnum):
+class StationsFilter(Enum):
     """Enumeration for stations filter.
 
     This should help determine why only a subset of stations was returned.
     """
 
-    ALL = auto()
-    BY_STATION_ID = auto()
-    BY_NAME = auto()
-    BY_RANK = auto()
-    BY_DISTANCE = auto()
-    BY_BBOX = auto()
-    BY_SQL = auto()
+    ALL = "all"
+    BY_STATION_ID = "by_station_id"
+    BY_NAME = "by_name"
+    BY_RANK = "by_rank"
+    BY_DISTANCE = "by_distance"
+    BY_BBOX = "by_bbox"
+    BY_SQL = "by_sql"
 
 
 # return types of StationsResult output formats
@@ -606,7 +606,7 @@ class ValuesResult(_ValuesResult):
                 pl.lit(" ("),
                 pl.col("parameter").replace(units),
                 pl.lit(")"),
-            ).alias("parameter")
+            ).alias("parameter"),
         )
         if n_datasets > 1:
             df = df.with_columns(

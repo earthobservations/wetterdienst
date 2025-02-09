@@ -1,5 +1,7 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+"""Tests for radar API most recent data."""
+
 import pytest
 from dirty_equals import IsDict, IsList, IsStr
 
@@ -20,8 +22,9 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 @pytest.mark.remote
 def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
-    """Example for testing radar sites most recent full SWEEP_PCP,
-    this time in OPERA HDF5 (ODIM_H5) format.
+    """Example for testing radar sites most recent full SWEEP_PCP.
+
+    This time in OPERA HDF5 (ODIM_H5) format.
     """
     h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
@@ -66,8 +69,9 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Setti
 
 @pytest.mark.remote
 def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings: Settings) -> None:
-    """Example for testing radar sites most recent full SWEEP_VOL,
-    this time in OPERA HDF5 (ODIM_H5) format.
+    """Example for testing radar sites most recent full SWEEP_VOL.
+
+    This time in OPERA HDF5 (ODIM_H5) format.
     """
     h5py = pytest.importorskip("h5py", reason="h5py not installed")
 

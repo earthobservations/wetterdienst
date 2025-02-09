@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """Verify acquisition of DWD MOSMIX station list.
 
@@ -21,6 +21,7 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 @pytest.fixture
 def mosmix_stations_schema() -> dict:
+    """Provide schema for MOSMIX station list."""
     return {
         "station_id": str,
         "icao_id": str,

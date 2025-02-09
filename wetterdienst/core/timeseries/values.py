@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from itertools import groupby
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -38,7 +38,7 @@ else:
 log = logging.getLogger(__name__)
 
 
-class TimeseriesValues(metaclass=ABCMeta):
+class TimeseriesValues(ABC):
     """Core for sources of timeseries where data is related to a station."""
 
     def __init__(self, stations_result: StationsResult) -> None:
@@ -78,7 +78,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 end_date={self.sr.end_date and self.sr.end_date.isoformat()},
                 station_ids=[{station_ids_joined}],
             )
-            """.strip()
+            """.strip(),
         )
 
     # Fields for type coercion, needed for separation from fields with actual data
@@ -92,15 +92,14 @@ class TimeseriesValues(metaclass=ABCMeta):
                 Columns.DATASET.value: str,
                 Columns.DATE.value: pl.Datetime(time_zone="UTC"),
             }
-        else:
-            return {
-                Columns.STATION_ID.value: str,
-                Columns.DATASET.value: str,
-                Columns.PARAMETER.value: str,
-                Columns.DATE.value: pl.Datetime(time_zone="UTC"),
-                Columns.VALUE.value: pl.Float64,
-                Columns.QUALITY.value: pl.Float64,
-            }
+        return {
+            Columns.STATION_ID.value: str,
+            Columns.DATASET.value: str,
+            Columns.PARAMETER.value: str,
+            Columns.DATE.value: pl.Datetime(time_zone="UTC"),
+            Columns.VALUE.value: pl.Float64,
+            Columns.QUALITY.value: pl.Float64,
+        }
 
     # Fields for date coercion
     _date_fields: ClassVar = [Columns.DATE.value, Columns.START_DATE.value, Columns.END_DATE.value]
@@ -191,7 +190,8 @@ class TimeseriesValues(metaclass=ABCMeta):
     def _get_base_df(self, start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> pl.DataFrame:
         """Create a base DataFrame with all dates for a given station."""
         return pl.DataFrame(
-            {Columns.DATE.value: self._get_complete_dates(start_date, end_date, resolution)}, orient="col"
+            {Columns.DATE.value: self._get_complete_dates(start_date, end_date, resolution)},
+            orient="col",
         )
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
@@ -224,7 +224,8 @@ class TimeseriesValues(metaclass=ABCMeta):
         lambdas = {}
         for parameter in dataset:
             lambdas[parameter.name_original.lower()] = self.unit_converter.get_lambda(
-                parameter.unit, parameter.unit_type
+                parameter.unit,
+                parameter.unit_type,
             )
         return lambdas
 
@@ -238,7 +239,10 @@ class TimeseriesValues(metaclass=ABCMeta):
         else:
             tzinfo = ZoneInfo(self.timezone_data)
         start_date, end_date = self._adjust_start_end_date(
-            self.sr.start_date, self.sr.end_date, tzinfo, dataset.resolution.value
+            self.sr.start_date,
+            self.sr.end_date,
+            tzinfo,
+            dataset.resolution.value,
         )
 
         base_df = self._get_base_df(start_date, end_date, dataset.resolution.value)
@@ -391,7 +395,9 @@ class TimeseriesValues(metaclass=ABCMeta):
 
     @abstractmethod
     def _collect_station_parameter_or_dataset(
-        self, station_id: str, parameter_or_dataset: ParameterModel | DatasetModel
+        self,
+        station_id: str,
+        parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
         """Collect data for a station and a single parameter or dataset."""
 
@@ -410,9 +416,11 @@ class TimeseriesValues(metaclass=ABCMeta):
             temperature_air_mean_2m    ...
             10                          ...
 
-        :param df: DataFrame with ts_shape data
-        :returns DataFrame with widened data e.g. pairwise columns of values
-        and quality flags
+        Args:
+            df: DataFrame with columns date, parameter, value and quality.
+
+        Returns:
+            DataFrame with columns date, parameter, value and quality as columns.
 
         """
         # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid
@@ -493,10 +501,9 @@ class TimeseriesValues(metaclass=ABCMeta):
         percentage = pl.concat([percentage, missing])
         if self.sr.settings.ts_skip_criteria == "min":
             return percentage.get_column("perc").min()
-        elif self.sr.settings.ts_skip_criteria == "mean":
+        if self.sr.settings.ts_skip_criteria == "mean":
             return percentage.get_column("perc").mean()
-        elif self.sr.settings.ts_skip_criteria == "max":
+        if self.sr.settings.ts_skip_criteria == "max":
             return percentage.get_column("perc").max()
-        else:
-            msg = "ts_skip_criteria must be one of min, mean, max"
-            raise KeyError(msg)
+        msg = "ts_skip_criteria must be one of min, mean, max"
+        raise KeyError(msg)

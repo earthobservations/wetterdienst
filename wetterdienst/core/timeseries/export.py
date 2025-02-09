@@ -28,8 +28,7 @@ log = logging.getLogger(__name__)
 class ExportMixin:
     """Postprocessing data.
 
-    This aids in collecting, filtering, formatting and emitting data
-    acquired through the core machinery.
+    This aids in collecting, filtering, formatting and emitting data acquired through the core machinery.
     """
 
     df: pl.DataFrame
@@ -85,8 +84,9 @@ class ExportMixin:
         df = self.df
         df = df.with_columns(
             pl.col(cs.Datetime(time_zone="*")).map_elements(
-                lambda date: date.isoformat() if date else None, return_dtype=pl.String
-            )
+                lambda date: date.isoformat() if date else None,
+                return_dtype=pl.String,
+            ),
         )
         return df.write_csv(**kwargs)
 
@@ -131,15 +131,14 @@ class ExportMixin:
 
         if fmt == "json":
             return self.to_json(**kwargs)
-        elif fmt == "csv":
+        if fmt == "csv":
             return self.to_csv()
-        elif fmt == "geojson":
+        if fmt == "geojson":
             return self.to_geojson(**kwargs)
-        elif fmt in ("html", "png", "jpg", "webp", "svg", "pdf"):
+        if fmt in ("html", "png", "jpg", "webp", "svg", "pdf"):
             return self.to_image(fmt=fmt, **kwargs)
-        else:
-            msg = "Unknown output format"
-            raise KeyError(msg)
+        msg = "Unknown output format"
+        raise KeyError(msg)
 
     @staticmethod
     def _filter_by_sql(df: pl.DataFrame, sql: str) -> pl.DataFrame:
@@ -423,7 +422,7 @@ class ExportMixin:
                 from influxdb_client.client.write_api import SYNCHRONOUS
 
                 ssl = protocol.endswith("s")
-                url = f"http{ssl and 's' or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
+                url = f"http{(ssl and 's') or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
                 client = InfluxDBClientV2(url=url, org=connspec.username, token=connspec.password)
                 write_api = client.write_api(write_options=SYNCHRONOUS)
             elif version == 3:
@@ -580,11 +579,7 @@ class ExportMixin:
 
 
 def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
-    """Convert all datetime columns to ISO format.
-
-    :param df:        df[Columns.START_DATE] = df[Columns.START_DATE].dt.tz_localize(self.tz)
-    :return:
-    """
+    """Convert all datetime columns to ISO format."""
     date_columns = list(df.select(pl.col(pl.Datetime)).columns)
     date_columns.extend([Columns.START_DATE.value, Columns.END_DATE.value, Columns.DATE.value])
     date_columns = set(date_columns)
