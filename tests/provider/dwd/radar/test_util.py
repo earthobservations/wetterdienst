@@ -2,14 +2,12 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for radar utilities."""
 
-import datetime
 from io import BytesIO
-from zoneinfo import ZoneInfo
 
 import pytest
 from fsspec.implementations.http import HTTPFileSystem
 
-from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_from_filename, verify_hdf5
+from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_string_from_filename, verify_hdf5
 
 HDF5_EXAMPLE = (
     "https://github.com/earthobservations/testdata/raw/main/opendata.dwd.de"
@@ -20,40 +18,35 @@ HDF5_EXAMPLE = (
 
 def test_radar_get_date_from_filename() -> None:
     """Test date extraction from radar filename."""
-    date = get_date_from_filename(
+    date = get_date_string_from_filename(
         "sweep_pcp_v_0-20200926143033_10132--buf.bz2",
         pattern=RADAR_DT_PATTERN,
-        formats=["%Y%m%d%H%M"],
     )
-    assert date == datetime.datetime(2020, 9, 26, 14, 30, tzinfo=ZoneInfo("UTC"))
+    assert date == "202009261430"
 
-    date = get_date_from_filename(
+    date = get_date_string_from_filename(
         "ras07-stqual-vol5minng01_sweeph5onem_vradh_00-2020092614305700-boo-10132-hd5",
         pattern=RADAR_DT_PATTERN,
-        formats=["%Y%m%d%H%M"],
     )
-    assert date == datetime.datetime(2020, 9, 26, 14, 30, tzinfo=ZoneInfo("UTC"))
+    assert date == "202009261430"
 
-    date = get_date_from_filename(
+    date = get_date_string_from_filename(
         "ras07-vol5minng01_sweeph5onem_vradh_00-2020092614305700-boo-10132-hd5",
         pattern=RADAR_DT_PATTERN,
-        formats=["%Y%m%d%H%M"],
     )
-    assert date == datetime.datetime(2020, 9, 26, 14, 30, tzinfo=ZoneInfo("UTC"))
+    assert date == "202009261430"
 
-    date = get_date_from_filename(
+    date = get_date_string_from_filename(
         "rab02-tt_10132-20200926161533-boo---buf",
         pattern=RADAR_DT_PATTERN,
-        formats=["%Y%m%d%H%M"],
     )
-    assert date == datetime.datetime(2020, 9, 26, 16, 15, tzinfo=ZoneInfo("UTC"))
+    assert date == "202009261615"
 
-    date = get_date_from_filename(
+    date = get_date_string_from_filename(
         "rab02-tt_10132-2301010000-boo---buf",
         pattern=RADAR_DT_PATTERN,
-        formats=["%y%m%d%H%M"],
     )
-    assert date == datetime.datetime(2023, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert date == "2301010000"
 
 
 @pytest.mark.remote
