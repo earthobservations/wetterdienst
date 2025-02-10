@@ -415,7 +415,7 @@ def test_cli_interpolate_image_html() -> None:
         ],
     )
     assert result.exit_code == 0
-    assert "html" in result.output
+    assert result.output.startswith("<html>")
 
 
 @pytest.mark.remote

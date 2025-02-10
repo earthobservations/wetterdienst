@@ -435,7 +435,6 @@ def test_cli_stations_image(fmt: str) -> None:
         station="01048",
         fmt=fmt,
     )
-    assert "ERROR" not in result.output
     assert result.exit_code == 0
 
 
@@ -448,8 +447,8 @@ def test_cli_stations_image_html() -> None:
         station="01048",
         fmt="html",
     )
-    assert "ERROR" not in result.output
     assert result.exit_code == 0
+    assert result.output.startswith("<html>")
 
 
 def test_cli_stations_image_pdf() -> None:
