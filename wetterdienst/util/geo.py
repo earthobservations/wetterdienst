@@ -2,69 +2,50 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Geo utilities for the wetterdienst package."""
 
-from __future__ import annotations
+import math
 
-import numpy as np
 import polars as pl
-from sklearn.neighbors import BallTree
+import pyarrow as pa
+import pyarrow.compute as pc
 
-
-class Coordinates:
-    """Coordinates class to store latitudes and longitudes."""
-
-    def __init__(self, latitudes: np.array, longitudes: np.array) -> None:
-        """Initialize the coordinates.
-
-        Args:
-        latitudes: latitudes in degree
-        longitudes: longitudes in degree
-
-        """
-        self.latitudes = latitudes
-        self.longitudes = longitudes
-
-    def get_coordinates(self) -> np.array:
-        """Return coordinates in degree.
-
-        The first column is the latitudes and the second column the longitudes
-
-        """
-        return np.array([self.latitudes, self.longitudes]).T
-
-    def get_coordinates_in_radians(self) -> np.array:
-        """Return coordinates in radians.
-
-        The first column is the latitudes and the second column the longitudes.
-        """
-        return np.radians(self.get_coordinates())
-
-    def __eq__(self, other: object) -> bool:
-        """Check if two coordinates are equal."""
-        return np.array_equal(self.latitudes, other.latitudes) and np.array_equal(self.longitudes, other.longitudes)
+EARTH_RADIUS_IN_KM = 6371
 
 
 def derive_nearest_neighbours(
-    latitudes: np.array,
-    longitudes: np.array,
-    coordinates: Coordinates,
-    number_nearby: int = 1,
-) -> tuple[float | np.ndarray, np.ndarray]:
-    """Obtain the nearest neighbours to coordinate using a k-d tree algorithm.
+    latitudes: pa.Array,
+    longitudes: pa.Array,
+    q_lat: float,
+    q_lon: float,
+) -> list[float]:
+    """Obtain the nearest neighbours using a simple distance computation.
 
     Args:
         latitudes: latitudes in degree
         longitudes: longitudes in degree
-        coordinates: coordinates to find nearest neighbours to
-        number_nearby: number of nearest neighbours to find
-
+        q_lat: latitude of the query point
+        q_lon: longitude of the query point
 
     Returns:
         Tuple of distances and ranks of nearest to most distant station
 
     """
-    points = np.c_[np.radians(latitudes), np.radians(longitudes)]
-    distance_tree = BallTree(points, metric="haversine")
-    return distance_tree.query(coordinates.get_coordinates_in_radians().reshape(-1, 2), k=number_nearby)
+    lat_radians = pc.multiply(latitudes, math.pi / 180)
+    lon_radians = pc.multiply(longitudes, math.pi / 180)
+    q_lat_radians = q_lat * math.pi / 180
+    q_lon_radians = q_lon * math.pi / 180
+    # Haversine formula approximation using PyArrow compute
+    dlat = pc.subtract(lat_radians, q_lat_radians)
+    dlon = pc.subtract(lon_radians, q_lon_radians)
+    a = pc.add(
+        pc.multiply(pc.sin(pc.divide(dlat, 2)), pc.sin(pc.divide(dlat, 2))),
+        pc.multiply(
+            pc.cos(q_lat_radians),
+            pc.multiply(pc.cos(lat_radians), pc.multiply(pc.sin(pc.divide(dlon, 2)), pc.sin(pc.divide(dlon, 2)))),
+        ),
+    )
+    c = pc.multiply(2, pc.atan2(pc.sqrt(a), pc.sqrt(pc.subtract(1, a))))
+    distance = pc.multiply(EARTH_RADIUS_IN_KM, c)  # Earth radius in km
+    return pc.round(distance, 4).to_pylist()
 
 
 def convert_dm_to_dd(dm: pl.Series) -> pl.Series:
