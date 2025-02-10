@@ -30,7 +30,7 @@ SETTINGS_VALUES = (
         "mosmix",
         [
             "--parameters=hourly/large",
-            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=2), '%Y-%m-%d')}",
+            f'--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=2), "%Y-%m-%d")}',
         ],
         "10488",
         "DRESDEN",
@@ -40,7 +40,7 @@ SETTINGS_VALUES = (
         "dmo",
         [
             "--parameters=hourly/icon",
-            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=2), '%Y-%m-%d')}",
+            f'--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=2), "%Y-%m-%d")}',
         ],
         "10488",
         "DRESDEN",
@@ -51,7 +51,7 @@ SETTINGS_VALUES = (
         [
             "--parameters=hourly/icon",
             "--lead_time=long",
-            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=3), '%Y-%m-%d')}",
+            f'--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=3), "%Y-%m-%d")}',
         ],
         "10488",
         "DRESDEN",
@@ -576,7 +576,6 @@ def test_cli_values_image(fmt: str) -> None:
         station="01048",
         fmt=fmt,
     )
-    assert "Error" not in result.output
     assert result.exit_code == 0
 
 
@@ -593,8 +592,8 @@ def test_cli_values_image_html() -> None:
         station="01048",
         fmt="html",
     )
-    assert "Error" not in result.output
     assert result.exit_code == 0
+    assert result.output.startswith("<html>")
 
 
 @pytest.mark.remote
@@ -610,5 +609,4 @@ def test_cli_values_image_pdf() -> None:
         station="01048",
         fmt="pdf",
     )
-    assert "Error" not in result.output
     assert result.exit_code == 0

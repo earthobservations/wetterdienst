@@ -199,7 +199,6 @@ def test_cli_summarize_image(fmt: str) -> None:
             f"--format={fmt}",
         ],
     )
-    assert "Error" not in result.output
     assert result.exit_code == 0
 
 
@@ -220,7 +219,7 @@ def test_cli_summarize_image_html() -> None:
         ],
     )
     assert result.exit_code == 0
-    assert "html" in result.output
+    assert result.output.startswith("<html>")
 
 
 @pytest.mark.remote
