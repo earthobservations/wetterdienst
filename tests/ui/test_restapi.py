@@ -250,7 +250,7 @@ def test_stations_dwd_geo(client: TestClient) -> None:
         "height": 806.0,
         "name": "Oberstdorf",
         "state": "Bayern",
-        "distance": 207.0831200352328,
+        "distance": 207.0831,
     }
 
 

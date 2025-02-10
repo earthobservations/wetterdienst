@@ -5,6 +5,7 @@
 ### Refactor
 - Reduce the margin of the stations plot
 - Make pydantic models for uis simpler
+- Migrate from `sklearn+numpy` to `pyarrow` for location querying
 
 ## 0.103.0 - 2025-02-02
 

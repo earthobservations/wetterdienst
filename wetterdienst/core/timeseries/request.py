@@ -12,7 +12,6 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
-import numpy as np
 import polars as pl
 from measurement.measures import Distance
 from measurement.utils import guess
@@ -433,31 +432,26 @@ class TimeseriesRequest:
             StationsResult: Filtered stations.
 
         """
-        from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
+        from wetterdienst.util.geo import derive_nearest_neighbours
 
         rank = int(rank)
-
         if rank <= 0:
             msg = "'rank' has to be at least 1."
             raise ValueError(msg)
-
-        lat, lon = latlon
-
-        coords = Coordinates(np.array(lat), np.array(lon))
-
+        # setup spatial parameters
+        q_lat, q_lon = latlon
         df = self.all().df
-
-        distances, indices_nearest_neighbours = derive_nearest_neighbours(
-            latitudes=df.get_column(Columns.LATITUDE.value),
-            longitudes=df.get_column(Columns.LONGITUDE.value),
-            coordinates=coords,
-            number_nearby=df.shape[0],
+        latitudes = df.get_column(Columns.LATITUDE.value).to_arrow()
+        longitudes = df.get_column(Columns.LONGITUDE.value).to_arrow()
+        distances = derive_nearest_neighbours(
+            latitudes=latitudes,
+            longitudes=longitudes,
+            q_lat=q_lat,
+            q_lon=q_lon,
         )
-        distances = distances.flatten() * EARTH_RADIUS_KM
-
-        df = df[indices_nearest_neighbours.flatten(), :]
-        df = df.with_columns(pl.lit(distances).alias(Columns.DISTANCE.value))
-
+        # add distances and sort by distance
+        df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias(Columns.DISTANCE.value))
+        df = df.sort(by=[Columns.DISTANCE.value])
         return StationsResult(
             stations=self,
             df=df,
