@@ -20,7 +20,7 @@ from wetterdienst.util.datetime import parse_date
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
-    from plotly.graph_objs import Figure
+    import plotly.graph_objs as go
 
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.result import (
@@ -593,7 +593,7 @@ def _plot_stripes(  # noqa: C901
     show_title: bool = True,
     show_years: bool = True,
     show_data_availability: bool = True,
-) -> Figure:
+) -> go.Figure:
     """Create warming stripes for station in Germany.
 
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
