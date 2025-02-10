@@ -4,6 +4,7 @@
 
 ### Refactor
 - Reduce the margin of the stations plot
+- Migrate from `sklearn+numpy` to `pyarrow` for location querying
 
 ## 0.103.0 - 2025-02-02
 

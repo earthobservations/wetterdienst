@@ -2,33 +2,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for geo utilities."""
 
-import numpy as np
 import polars as pl
 from polars.testing import assert_series_equal
 
-from wetterdienst.util.geo import Coordinates, convert_dm_to_dd, convert_dms_string_to_dd, derive_nearest_neighbours
-
-
-def test_get_coordinates() -> None:
-    """Test retrieval of coordinates."""
-    coordinates = Coordinates(np.array([1, 2, 3, 4]), np.array([5, 6, 7, 8]))
-    np.testing.assert_equal(coordinates.get_coordinates(), np.array([[1, 5], [2, 6], [3, 7], [4, 8]]))
-
-
-def test_get_coordinates_in_radians() -> None:
-    """Test conversion of coordinates to radians."""
-    coordinates = Coordinates(np.array([1, 2, 3, 4]), np.array([5, 6, 7, 8]))
-    np.testing.assert_almost_equal(
-        coordinates.get_coordinates_in_radians(),
-        np.array(
-            [
-                [0.0174533, 0.0872665],
-                [0.0349066, 0.1047198],
-                [0.0523599, 0.122173],
-                [0.0698132, 0.1396263],
-            ],
-        ),
-    )
+from wetterdienst.util.geo import convert_dm_to_dd, convert_dms_string_to_dd, derive_nearest_neighbours
 
 
 def test_convert_dm_to_dd() -> None:
@@ -49,7 +26,6 @@ def test_convert_dms_string_to_dd() -> None:
 
 def test_derive_nearest_neighbours() -> None:
     """Test derivation of nearest neighbours."""
-    coords = Coordinates(np.array([50.0, 51.4]), np.array([8.9, 9.3]))
     metadata = pl.DataFrame(
         [
             {
@@ -85,11 +61,11 @@ def test_derive_nearest_neighbours() -> None:
         ],
         orient="row",
     )
-    distances, indices_nearest_neighbours = derive_nearest_neighbours(
-        latitudes=metadata.get_column("latitude"),
-        longitudes=metadata.get_column("longitude"),
-        coordinates=coords,
-        number_nearby=1,
+    distances = derive_nearest_neighbours(
+        latitudes=metadata.get_column("latitude").to_arrow(),
+        longitudes=metadata.get_column("longitude").to_arrow(),
+        q_lat=50.0,
+        q_lon=8.9,
     )
-    np.testing.assert_array_almost_equal(distances, np.array([[0.001594], [0.002133]]))
-    np.testing.assert_array_almost_equal(indices_nearest_neighbours, np.array([[2], [5]]))
+    # distance in km
+    assert distances == [234.2045, 353.3014, 10.1569, 582.3868, 193.1483, 146.3421]
