@@ -219,9 +219,8 @@ def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_se
         end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
-    with pytest.raises(StationNotFoundError) as exec_info:
+    with pytest.raises(StationNotFoundError, match="no station found for 00000"):
         stations.interpolate_by_station_id(station_id="00")
-    assert exec_info.match("no station found for 00000")
 
 
 def test_interpolation_increased_station_distance() -> None:
