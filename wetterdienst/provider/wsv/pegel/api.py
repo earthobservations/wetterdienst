@@ -215,10 +215,13 @@ class WsvPegelValues(TimeseriesValues):
         df = df.with_columns(
             pl.col(Columns.DATE.value).map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
         )
-        return df.with_columns(
-            pl.col(Columns.DATE.value).dt.replace_time_zone(time_zone="UTC"),
-            pl.lit(parameter_or_dataset.name_original.lower()).alias(Columns.PARAMETER.value),
-            pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+        return df.select(
+            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
+            pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
+            pl.col("date").dt.replace_time_zone(time_zone="UTC"),
+            pl.col("value"),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
 

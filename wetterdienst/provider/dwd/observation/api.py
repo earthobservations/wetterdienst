@@ -110,9 +110,12 @@ class DwdObservationValues(TimeseriesValues):
 
         df = self._tidy_up_df(parameter_df, parameter_or_dataset)
 
-        return df.with_columns(
-            pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"),
+        return df.select(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
             pl.col(Columns.STATION_ID.value).str.pad_start(5, "0"),
+            pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"),
             pl.col(Columns.VALUE.value).cast(pl.Float64),
             pl.col(Columns.QUALITY.value).cast(pl.Float64),
         )

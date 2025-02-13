@@ -84,21 +84,23 @@ class TimeseriesValues(ABC):
     # Fields for type coercion, needed for separation from fields with actual data
     # that have to be parsed differently when having data in tabular form
     @property
-    def _meta_fields(self) -> dict[str, str]:
+    def _meta_fields(self) -> dict[str, pl.DataType]:
         """Get metadata fields for the DataFrame."""
         if not self.sr.tidy:
             return {
-                Columns.STATION_ID.value: str,
-                Columns.DATASET.value: str,
-                Columns.DATE.value: pl.Datetime(time_zone="UTC"),
+                "resolution": pl.String,
+                "dataset": pl.String,
+                "station_id": pl.String,
+                "date": pl.Datetime(time_zone="UTC"),
             }
         return {
-            Columns.STATION_ID.value: str,
-            Columns.DATASET.value: str,
-            Columns.PARAMETER.value: str,
-            Columns.DATE.value: pl.Datetime(time_zone="UTC"),
-            Columns.VALUE.value: pl.Float64,
-            Columns.QUALITY.value: pl.Float64,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "station_id": pl.String,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
         }
 
     # Fields for date coercion

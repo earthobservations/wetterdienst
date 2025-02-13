@@ -39,7 +39,7 @@ class NoaaGhcnValues(TimeseriesValues):
     ) -> pl.DataFrame:
         if parameter_or_dataset.resolution.value == Resolution.HOURLY:
             return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
-        return self._collect_station_parameter_for_daily(station_id=station_id)
+        return self._collect_station_parameter_for_daily(station_id=station_id, dataset=parameter_or_dataset)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
@@ -311,15 +311,20 @@ class NoaaGhcnValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
-        return df.with_columns(
+        return df.select(
+            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
+            pl.col("station_id"),
+            pl.col("date"),
             pl.col("value").cast(pl.Float64),
-            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
     def _collect_station_parameter_for_daily(
         self,
         station_id: str,
+        dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
         url = "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
@@ -356,11 +361,13 @@ class NoaaGhcnValues(TimeseriesValues):
         df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
         df = self._apply_daily_factors(df)
         return df.select(
-            pl.col(Columns.STATION_ID.value),
-            pl.col(Columns.DATE.value),
-            pl.col(Columns.PARAMETER.value),
-            pl.col(Columns.VALUE.value),
-            pl.col(Columns.QUALITY.value),
+            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
+            pl.col("station_id"),
+            pl.col("date"),
+            pl.col("value"),
+            pl.col("quality"),
         )
 
     @staticmethod

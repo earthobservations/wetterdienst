@@ -108,9 +108,14 @@ class DwdMosmixValues(TimeseriesValues):
             variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
-        return df.with_columns(
-            pl.lit(station_id, dtype=pl.String).alias(Columns.STATION_ID.value),
-            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+        return df.select(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            pl.col("date"),
+            pl.col("value"),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
     def read_mosmix(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
