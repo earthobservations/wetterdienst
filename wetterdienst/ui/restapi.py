@@ -11,7 +11,6 @@ from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
-from pydantic import ValidationError
 from starlette.responses import JSONResponse, RedirectResponse
 
 from wetterdienst import Author, Info, Settings, Wetterdienst
@@ -27,13 +26,9 @@ from wetterdienst.core.timeseries.result import (
 )
 from wetterdienst.ui.core import (
     InterpolationRequest,
-    InterpolationRequestRaw,
     StationsRequest,
-    StationsRequestRaw,
     SummaryRequest,
-    SummaryRequestRaw,
     ValuesRequest,
-    ValuesRequestRaw,
     _get_stripes_stations,
     _plot_stripes,
     get_interpolate,
@@ -276,14 +271,9 @@ def coverage(
     response_model=_StationsDict | _StationsOgcFeatureCollection | str,
 )
 def stations(
-    request: Annotated[StationsRequestRaw, Query()],
+    request: Annotated[StationsRequest, Query()],
 ) -> Response:
     """Wrap get_stations to provide results via restapi."""
-    try:
-        request = StationsRequest.model_validate(request.model_dump())
-    except ValidationError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-
     set_logging_level(debug=request.debug)
 
     try:
@@ -341,14 +331,9 @@ def stations(
     response_model=_ValuesDict | _ValuesOgcFeatureCollection | str,
 )
 def values(
-    request: Annotated[ValuesRequestRaw, Query()],
+    request: Annotated[ValuesRequest, Query()],
 ) -> Response:
     """Wrap get_values to provide results via restapi."""
-    try:
-        request = ValuesRequest.model_validate(request.model_dump())
-    except ValidationError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-
     set_logging_level(debug=request.debug)
 
     try:
@@ -419,14 +404,9 @@ def values(
     response_model=_InterpolatedValuesDict | _InterpolatedValuesOgcFeatureCollection | str,
 )
 def interpolate(
-    request: Annotated[InterpolationRequestRaw, Query()],
+    request: Annotated[InterpolationRequest, Query()],
 ) -> Response:
     """Wrap around get_interpolate to provide results via restapi."""
-    try:
-        request = InterpolationRequest.model_validate(request.model_dump())
-    except ValidationError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-
     set_logging_level(debug=request.debug)
 
     try:
@@ -491,14 +471,9 @@ def interpolate(
 # - str for csv
 @app.get("/api/summarize", response_model=_SummarizedValuesDict | _SummarizedValuesOgcFeatureCollection | str)
 def summarize(
-    request: Annotated[SummaryRequestRaw, Query()],
+    request: Annotated[SummaryRequest, Query()],
 ) -> Response:
     """Wrap around get_summarize to provide results via restapi."""
-    try:
-        request = SummaryRequest.model_validate(request.model_dump())
-    except ValidationError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-
     set_logging_level(debug=request.debug)
 
     try:

@@ -34,14 +34,44 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-# only used by restapi for raw type hints
-class StationsRequestRaw(BaseModel):
-    """Stations request with raw parameters."""
+class StationsRequest(BaseModel):
+    """Stations request with validated parameters."""
 
     provider: str
     network: str
-    parameters: str
-    periods: str | None = None
+    parameters: list[str]
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v: str | list) -> list[str]:
+        """Validate parameters."""
+        if isinstance(v, str):
+            return read_list(v)
+        parameters = []
+        for item in v:
+            if "," in item:
+                parameters.extend(read_list(item, separator=","))
+            else:
+                parameters.append(item)
+        return parameters
+
+    periods: list[str] | None = None
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v: str | list | None) -> list[str] | None:
+        """Validate periods."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v, separator=",")
+        periods = []
+        for item in v:
+            if "," in item:
+                periods.extend(read_list(item, separator=","))
+            else:
+                periods.append(item)
+        return periods
 
     # Mosmix/DMO
     lead_time: Literal["short", "long"] | None = None
@@ -49,12 +79,64 @@ class StationsRequestRaw(BaseModel):
 
     # station filter parameters
     all: bool | None = False
-    station: str | None = Field(default=None)
+    station: list[str] | None = None
+
+    @field_validator("station", mode="before")
+    @classmethod
+    def validate_station(cls, v: str | list | None) -> list[str] | None:
+        """Validate station."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v)
+        stations = []
+        for item in v:
+            if "," in item:
+                stations.extend(read_list(item, separator=","))
+            else:
+                stations.append(item)
+        return stations
+
     name: str | None = None
-    coordinates: str | None = None
+    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+
+    @field_validator("coordinates", mode="before")
+    @classmethod
+    def validate_coordinates(cls, v: str | list | None) -> tuple[str, ...] | None:
+        """Validate coordinates."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return tuple(read_list(v, separator=","))
+        if isinstance(v, list):
+            if len(v) == 2:
+                return tuple(v)
+            return tuple(read_list(v[0], separator=","))
+        msg = "Coordinates must be a string or list"
+        raise KeyError(msg)
+
     rank: int | None = Field(default=None, ge=1)
     distance: float | None = Field(default=None, ge=0)
-    bbox: str | None = None
+    bbox: (
+        tuple[confloat(ge=-180, le=180), confloat(ge=-90, le=90), confloat(ge=-180, le=180), confloat(ge=-90, le=90)]
+        | None
+    ) = None
+
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def validate_bbox(cls, v: str | None) -> list[str] | None:
+        """Validate bbox."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v, separator=",")
+        if isinstance(v, list):
+            if len(v) == 4:
+                return v
+            return read_list(v[0], separator=",")
+        msg = "Bbox must be a string or list"
+        raise KeyError(msg)
+
     sql: str | None = None
 
     with_metadata: bool = True
@@ -70,148 +152,185 @@ class StationsRequestRaw(BaseModel):
     scale: confloat(gt=0) | None = None
 
 
-class StationsRequest(StationsRequestRaw):
-    """Stations request with validated parameters."""
+class ValuesRequest(BaseModel):
+    """Values request with validated parameters."""
 
+    # from stations
+    provider: str
+    network: str
     parameters: list[str]
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v: str | list) -> list[str]:
+        """Validate parameters."""
+        if isinstance(v, str):
+            return read_list(v)
+        parameters = []
+        for item in v:
+            if "," in item:
+                parameters.extend(read_list(item, separator=","))
+            else:
+                parameters.append(item)
+        return parameters
+
     periods: list[str] | None = None
-    # comma separated list parameters
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v: str | list | None) -> list[str] | None:
+        """Validate periods."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v, separator=",")
+        periods = []
+        for item in v:
+            if "," in item:
+                periods.extend(read_list(item, separator=","))
+            else:
+                periods.append(item)
+        return periods
+
+    # Mosmix/DMO
+    lead_time: Literal["short", "long"] | None = None
+    issue: str | None = None
+
+    # station filter parameters
+    all: bool | None = False
     station: list[str] | None = None
+
+    @field_validator("station", mode="before")
+    @classmethod
+    def validate_station(cls, v: str | list | None) -> list[str] | None:
+        """Validate station."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v)
+        stations = []
+        for item in v:
+            if "," in item:
+                stations.extend(read_list(item, separator=","))
+            else:
+                stations.append(item)
+        return stations
+
+    name: str | None = None
     coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+
+    @field_validator("coordinates", mode="before")
+    @classmethod
+    def validate_coordinates(cls, v: str | list | None) -> tuple[str, ...] | None:
+        """Validate coordinates."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return tuple(read_list(v, separator=","))
+        if isinstance(v, list):
+            if len(v) == 2:
+                return tuple(v)
+            return tuple(read_list(v[0], separator=","))
+        msg = "Coordinates must be a string or list"
+        raise KeyError(msg)
+
+    rank: int | None = Field(default=None, ge=1)
+    distance: float | None = Field(default=None, ge=0)
     bbox: (
         tuple[confloat(ge=-180, le=180), confloat(ge=-90, le=90), confloat(ge=-180, le=180), confloat(ge=-90, le=90)]
         | None
     ) = None
 
-    @field_validator("parameters", mode="before")
-    @classmethod
-    def validate_parameters(cls, v: str) -> list[str]:
-        """Validate parameters."""
-        return read_list(v)
-
-    @field_validator("periods", mode="before")
-    @classmethod
-    def validate_periods(cls, v: str | None) -> list[str] | None:
-        """Validate periods."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("station", mode="before")
-    @classmethod
-    def validate_station(cls, v: str | None) -> list[str] | None:
-        """Validate station."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("coordinates", mode="before")
-    @classmethod
-    def validate_coordinates(cls, v: str | None) -> list[str] | None:
-        """Validate coordinates."""
-        if v:
-            return read_list(v)
-        return None
-
     @field_validator("bbox", mode="before")
     @classmethod
     def validate_bbox(cls, v: str | None) -> list[str] | None:
         """Validate bbox."""
-        if v:
-            return read_list(v)
-        return None
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v, separator=",")
+        if isinstance(v, list):
+            if len(v) == 4:
+                return v
+            return read_list(v[0], separator=",")
+        msg = "Bbox must be a string or list"
+        raise KeyError(msg)
 
+    sql: str | None = None
 
-class ValuesRequestRaw(StationsRequestRaw):
-    """Values request with raw parameters."""
+    with_metadata: bool = True
+    with_stations: bool = True
 
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
+    pretty: bool = False
+    debug: bool = False
 
-    date: str | None = None
-    sql_values: str | None = None
-    humanize: bool = True
-    shape: Literal["long", "wide"] = "long"
-    convert_units: bool = True
-    unit_targets: str | None = None
-    skip_empty: bool = False
-    skip_threshold: confloat(gt=0, le=1) = 0.95
-    skip_criteria: Literal["min", "mean", "max"] = "min"
-    drop_nulls: bool = True
     # plot settings
     width: conint(gt=0) | None = None
     height: conint(gt=0) | None = None
     scale: confloat(gt=0) | None = None
 
-
-class ValuesRequest(ValuesRequestRaw):
-    """Values request with validated parameters."""
-
-    parameters: list[str]
-    periods: list[str] | None = None
-    # comma separated list parameters
-    station: list[str] | None = None
-    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
-    bbox: (
-        tuple[confloat(ge=-180, le=180), confloat(ge=-90, le=90), confloat(ge=-180, le=180), confloat(ge=-90, le=90)]
-        | None
-    ) = None
+    # values
+    date: str | None = None
+    sql_values: str | None = None
+    humanize: bool = True
+    shape: Literal["long", "wide"] = "long"
+    convert_units: bool = True
     unit_targets: dict[str, str] | None = None
-
-    @field_validator("parameters", mode="before")
-    @classmethod
-    def validate_parameters(cls, v: str) -> list[str]:
-        """Validate parameters."""
-        return read_list(v)
-
-    @field_validator("periods", mode="before")
-    @classmethod
-    def validate_periods(cls, v: str | None) -> list[str] | None:
-        """Validate periods."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("station", mode="before")
-    @classmethod
-    def validate_station(cls, v: str | None) -> list[str] | None:
-        """Validate station."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("coordinates", mode="before")
-    @classmethod
-    def validate_coordinates(cls, v: str | None) -> list[str] | None:
-        """Validate coordinates."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("bbox", mode="before")
-    @classmethod
-    def validate_bbox(cls, v: str | None) -> list[str] | None:
-        """Validate bbox."""
-        if v:
-            return read_list(v)
-        return None
+    skip_empty: bool = False
+    skip_threshold: confloat(gt=0, le=1) = 0.95
+    skip_criteria: Literal["min", "mean", "max"] = "min"
+    drop_nulls: bool = True
 
     @field_validator("unit_targets", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
+    def validate_unit_targets(cls, v: str | dict | None) -> dict[str, str] | None:
         """Validate unit targets."""
-        if v:
-            return json.loads(v)
-        return None
+        if not v:
+            return None
+        if isinstance(v, dict):
+            return v
+        return json.loads(v)
 
 
-# start from scratch as parameters are different
-class InterpolationRequestRaw(BaseModel):
-    """Interpolation request with raw parameters."""
+class InterpolationRequest(BaseModel):
+    """Interpolation request with validated parameters."""
 
     provider: str
     network: str
-    parameters: str
-    periods: str | None = None
+    parameters: list[str]
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v: str | list) -> list[str]:
+        """Validate parameters."""
+        if isinstance(v, str):
+            return read_list(v)
+        parameters = []
+        for item in v:
+            if "," in item:
+                parameters.extend(read_list(item, separator=","))
+            else:
+                parameters.append(item)
+        return parameters
+
+    periods: list[str] | None = None
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v: str | list | None) -> list[str] | None:
+        """Validate periods."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v, separator=",")
+        periods = []
+        for item in v:
+            if "," in item:
+                periods.extend(read_list(item, separator=","))
+            else:
+                periods.append(item)
+        return periods
 
     date: str
 
@@ -221,13 +340,50 @@ class InterpolationRequestRaw(BaseModel):
 
     # station filter parameters
     station: str | None = None
-    coordinates: str | None = None
+    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+
+    @field_validator("coordinates", mode="before")
+    @classmethod
+    def validate_coordinates(cls, v: str | list | None) -> tuple[str, ...] | None:
+        """Validate coordinates."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return tuple(read_list(v, separator=","))
+        if isinstance(v, list):
+            if len(v) == 2:
+                return tuple(v)
+            return tuple(read_list(v[0], separator=","))
+        msg = "Coordinates must be a string or list"
+        raise KeyError(msg)
 
     sql_values: str | None = None
     humanize: bool = True
     convert_units: bool = True
-    unit_targets: str | None = None
-    interpolation_station_distance: str | None = None
+    unit_targets: dict[str, str] | None = None
+
+    @field_validator("unit_targets", mode="before")
+    @classmethod
+    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
+        """Validate unit targets."""
+        if not v:
+            return None
+        if isinstance(v, dict):
+            return v
+        return json.loads(v)
+
+    interpolation_station_distance: dict[str, confloat(ge=0)] | None = None
+
+    @field_validator("interpolation_station_distance", mode="before")
+    @classmethod
+    def validate_interpolation_station_distance(cls, v: str | None) -> dict[str, float] | None:
+        """Validate interpolation station distance."""
+        if not v:
+            return None
+        if isinstance(v, dict):
+            return v
+        return json.loads(v)
+
     use_nearby_station_distance: confloat(ge=0) = 1.0
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
@@ -243,63 +399,44 @@ class InterpolationRequestRaw(BaseModel):
     scale: confloat(gt=0) | None = None
 
 
-class InterpolationRequest(InterpolationRequestRaw):
-    """Interpolation request with validated parameters."""
-
-    parameters: list[str]
-    periods: list[str] | None = None
-    # comma separated list parameters
-    station: str | None = None
-    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
-    unit_targets: dict[str, str] | None = None
-    interpolation_station_distance: dict[str, confloat(ge=0)] | None = None
-
-    @field_validator("parameters", mode="before")
-    @classmethod
-    def validate_parameters(cls, v: str) -> list[str]:
-        """Validate parameters."""
-        return read_list(v)
-
-    @field_validator("periods", mode="before")
-    @classmethod
-    def validate_periods(cls, v: str | None) -> list[str] | None:
-        """Validate periods."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("coordinates", mode="before")
-    @classmethod
-    def validate_coordinates(cls, v: str | None) -> list[str] | None:
-        """Validate coordinates."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("unit_targets", mode="before")
-    @classmethod
-    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
-        """Validate unit targets."""
-        if v:
-            return json.loads(v)
-        return None
-
-    @field_validator("interpolation_station_distance", mode="before")
-    @classmethod
-    def validate_interpolation_station_distance(cls, v: str | None) -> dict[str, float] | None:
-        """Validate interpolation station distance."""
-        if v:
-            return json.loads(v)
-        return None
-
-
-class SummaryRequestRaw(BaseModel):
-    """Summary request with raw parameters."""
+class SummaryRequest(BaseModel):
+    """Summary request with validated parameters."""
 
     provider: str
     network: str
-    parameters: str
-    periods: str | None = None
+    parameters: list[str]
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v: str | list) -> list[str]:
+        """Validate parameters."""
+        if isinstance(v, str):
+            return read_list(v)
+        parameters = []
+        for item in v:
+            if "," in item:
+                parameters.extend(read_list(item, separator=","))
+            else:
+                parameters.append(item)
+        return parameters
+
+    periods: list[str] | None = None
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v: str | list | None) -> list[str] | None:
+        """Validate periods."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v, separator=",")
+        periods = []
+        for item in v:
+            if "," in item:
+                periods.extend(read_list(item, separator=","))
+            else:
+                periods.append(item)
+        return periods
 
     date: str
 
@@ -309,12 +446,36 @@ class SummaryRequestRaw(BaseModel):
 
     # station filter parameters
     station: str | None = None
-    coordinates: str | None = None
+    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
+
+    @field_validator("coordinates", mode="before")
+    @classmethod
+    def validate_coordinates(cls, v: str | list | None) -> tuple[str, ...] | None:
+        """Validate coordinates."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return tuple(read_list(v, separator=","))
+        if isinstance(v, list):
+            if len(v) == 2:
+                return tuple(v)
+            return tuple(read_list(v[0], separator=","))
+        msg = "Coordinates must be a string or list"
+        raise KeyError(msg)
 
     sql_values: str | None = None
     humanize: bool = True
     convert_units: bool = True
-    unit_targets: str | None = None
+    unit_targets: dict[str, str] | None = None
+
+    @field_validator("unit_targets", mode="before")
+    @classmethod
+    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
+        """Validate unit targets."""
+        if not v:
+            return None
+        return json.loads(v)
+
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
     with_metadata: bool = True
@@ -327,47 +488,6 @@ class SummaryRequestRaw(BaseModel):
     width: conint(gt=0) | None = None
     height: conint(gt=0) | None = None
     scale: confloat(gt=0) | None = None
-
-
-class SummaryRequest(SummaryRequestRaw):
-    """Summary request with validated parameters."""
-
-    parameters: list[str]
-    periods: list[str] | None = None
-    # comma separated list parameters
-    station: str | None = None
-    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
-    unit_targets: dict[str, str] | None = None
-
-    @field_validator("parameters", mode="before")
-    @classmethod
-    def validate_parameters(cls, v: str) -> list[str]:
-        """Validate parameters."""
-        return read_list(v)
-
-    @field_validator("periods", mode="before")
-    @classmethod
-    def validate_periods(cls, v: str | None) -> list[str] | None:
-        """Validate periods."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("coordinates", mode="before")
-    @classmethod
-    def validate_coordinates(cls, v: str | None) -> list[str] | None:
-        """Validate coordinates."""
-        if v:
-            return read_list(v)
-        return None
-
-    @field_validator("unit_targets", mode="before")
-    @classmethod
-    def validate_unit_targets(cls, v: str | None) -> dict[str, str] | None:
-        """Validate unit targets."""
-        if v:
-            return json.loads(v)
-        return None
 
 
 def _get_stations_request(
