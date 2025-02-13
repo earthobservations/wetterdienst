@@ -38,7 +38,7 @@ class NoaaGhcnValues(TimeseriesValues):
     ) -> pl.DataFrame:
         if parameter_or_dataset.resolution.value == Resolution.HOURLY:
             return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
-        return self._collect_station_parameter_for_daily(station_id=station_id)
+        return self._collect_station_parameter_for_daily(station_id=station_id, dataset=parameter_or_dataset)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
@@ -76,6 +76,8 @@ class NoaaGhcnValues(TimeseriesValues):
             value_name="value",
         )
         return df.with_columns(
+            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
             pl.col("date").str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
             pl.col("value").replace("-None", None).cast(pl.Float64),
@@ -85,6 +87,7 @@ class NoaaGhcnValues(TimeseriesValues):
     def _collect_station_parameter_for_daily(
         self,
         station_id: str,
+        dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
         url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
@@ -137,9 +140,11 @@ class NoaaGhcnValues(TimeseriesValues):
         df = df.with_columns(pl.col("date").sub(pl.col("utc_offset")).cast(pl.Datetime(time_zone="UTC")))
         df = self._apply_daily_factors(df)
         return df.select(
+            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
             pl.col("station_id"),
             pl.col("date"),
-            pl.col("parameter"),
             pl.col("value"),
             pl.col("quality"),
         )

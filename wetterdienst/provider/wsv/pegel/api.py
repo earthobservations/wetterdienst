@@ -211,8 +211,11 @@ class WsvPegelValues(TimeseriesValues):
         df = pl.read_json(response)
         df = df.rename(mapping={"timestamp": "date", "value": "value"})
         return df.with_columns(
-            pl.col("date").str.to_datetime(),
+            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
+            pl.col("date").str.to_datetime(),
+            pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 

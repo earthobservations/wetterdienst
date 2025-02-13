@@ -109,11 +109,14 @@ class DwdObservationValues(TimeseriesValues):
 
         df = self._tidy_up_df(parameter_df, parameter_or_dataset)
 
-        return df.with_columns(
-            pl.col("date").dt.replace_time_zone("UTC"),
-            pl.col("station_id").str.pad_start(5, "0"),
-            pl.col("value").cast(pl.Float64),
-            pl.col("quality").cast(pl.Float64),
+        return df.select(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
+            pl.col(Columns.STATION_ID.value).str.pad_start(5, "0"),
+            pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"),
+            pl.col(Columns.VALUE.value).cast(pl.Float64),
+            pl.col(Columns.QUALITY.value).cast(pl.Float64),
         )
 
     @staticmethod
@@ -461,6 +464,6 @@ class DwdObservationRequest(TimeseriesRequest):
         except ValueError:
             return pl.LazyFrame()
 
-        stations_df = stations_df.unique(subset=["station_id"], keep="first")
+        stations_df = stations_df.unique(subset=["resolution", "dataset", "station_id"], keep="first")
 
         return stations_df.sort(by=[pl.col("station_id").cast(int)])

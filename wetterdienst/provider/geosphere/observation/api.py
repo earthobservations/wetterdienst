@@ -91,10 +91,13 @@ class GeosphereObservationValues(TimeseriesValues):
                 .otherwise(pl.col("value"))
                 .alias("value"),
             )
-        return df.with_columns(
-            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+        return df.select(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            pl.lit(station_id).alias("station_id"),
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+            pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )
 

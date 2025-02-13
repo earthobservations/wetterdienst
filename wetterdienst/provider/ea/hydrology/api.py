@@ -151,13 +151,15 @@ class EAHydrologyValues(TimeseriesValues):
         payload = download_file(url=readings_url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         data = json.loads(payload.read())["items"]
         df = pl.from_dicts(data)
-        df = df.select(
+        return df.select(
+            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
-            pl.col("dateTime"),
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC").alias("date"),
             pl.col("value"),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
-        df = df.rename(mapping={"dateTime": "date", "value": "value"})
-        return df.with_columns(pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
 
 
 class EAHydrologyRequest(TimeseriesRequest):

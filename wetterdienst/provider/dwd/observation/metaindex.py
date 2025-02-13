@@ -72,14 +72,19 @@ def create_meta_index_for_climate_observations(
             on=["station_id"],
             how="left",
         )
-    meta_index = meta_index.with_columns(
+    meta_index = meta_index.sort(by=[pl.col(Columns.STATION_ID.value)])
+    return meta_index.select(
+        pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+        pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
+        pl.col("station_id"),
         pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
         pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
         pl.col("height").cast(pl.Float64),
         pl.col("latitude").cast(pl.Float64),
         pl.col("longitude").cast(pl.Float64),
+        pl.col("name"),
+        pl.col("state"),
     )
-    return meta_index.sort(by=["station_id"])
 
 
 def _create_meta_index_for_climate_observations(

@@ -213,7 +213,16 @@ class DwdRoadValues(TimeseriesValues):
             df = self._collect_data_by_station_group(station_group, parameters)
         except ValueError:
             return pl.DataFrame()
-        return df.filter(pl.col("station_id").eq(station_id))
+        df = df.filter(pl.col("station_id").eq(station_id))
+        return df.select(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
+            pl.col("station_id"),
+            pl.col("date"),
+            pl.col("value"),
+            pl.col("quality"),
+        )
 
     def _create_file_index_for_dwd_road_weather_station(
         self,

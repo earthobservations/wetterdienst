@@ -128,15 +128,18 @@ class EcccObservationValues(TimeseriesValues):
 
         df = self._tidy_up_df(df)
 
-        return df.with_columns(
+        return df.select(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("date").str.to_datetime("%Y-%m-%d", time_zone="UTC"),
-            pl.lit(station_id).alias("station_id"),
             pl.when(pl.col("value").str.starts_with("<"))
             .then(pl.col("value").str.slice(1))
             .otherwise(pl.col("value"))
             .alias("value")
             .cast(pl.Float64),
-            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         ).collect()
 
     def _create_file_urls(

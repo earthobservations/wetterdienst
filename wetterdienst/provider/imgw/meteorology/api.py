@@ -575,7 +575,11 @@ class ImgwMeteorologyValues(TimeseriesValues):
             return pl.DataFrame()
         if df.is_empty():
             return pl.DataFrame()
-        return df.with_columns(
+        return df.select(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
+            pl.col("station_id"),
             pl.col("date").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias("quality"),

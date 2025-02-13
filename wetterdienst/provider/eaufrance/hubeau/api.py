@@ -187,8 +187,10 @@ class HubeauValues(TimeseriesValues):
         )
 
         return df.select(
-            pl.col("station_id"),
+            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
+            pl.col("station_id"),
             pl.col("date"),
             pl.col("value"),
             pl.col("quality"),

@@ -8,7 +8,7 @@ import logging
 from abc import ABC, abstractmethod
 from itertools import groupby
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -83,18 +83,20 @@ class TimeseriesValues(ABC):
     # Fields for type coercion, needed for separation from fields with actual data
     # that have to be parsed differently when having data in tabular form
     @property
-    def _meta_fields(self) -> dict[str, str]:
+    def _meta_fields(self) -> dict[str, pl.DataType]:
         """Get metadata fields for the DataFrame."""
         if not self.sr.tidy:
             return {
-                "station_id": str,
-                "dataset": str,
+                "resolution": pl.String,
+                "dataset": pl.String,
+                "station_id": pl.String,
                 "date": pl.Datetime(time_zone="UTC"),
             }
         return {
-            "station_id": str,
-            "dataset": str,
-            "parameter": str,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "station_id": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
@@ -308,7 +310,11 @@ class TimeseriesValues(ABC):
         if self.sr.humanize:
             hpm = self._create_humanized_parameters_mapping()
 
-        for station_id in self.sr.station_id:
+        for (station_id, ), df_station_meta in self.sr.df_all.group_by(["station_id"]):
+            station_id = cast(str, station_id)
+            parsed_parameters = (
+                
+            )
             if self.stations_counter == self.sr.rank:
                 break
 

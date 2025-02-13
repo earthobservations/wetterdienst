@@ -80,6 +80,8 @@ class TimeseriesRequest:
 
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = (
+        "resolution",
+        "dataset",
         "station_id",
         "start_date",
         "end_date",

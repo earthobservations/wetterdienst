@@ -154,9 +154,13 @@ class DwdDmoValues(TimeseriesValues):
             value_name="value",
         )
         return df.with_columns(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("date").str.to_datetime(),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
+            pl.col("date"),
+            pl.col("value"),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
     def read_dmo(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
