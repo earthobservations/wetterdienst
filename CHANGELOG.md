@@ -4,6 +4,7 @@
 
 ### Refactor
 - Reduce the margin of the stations plot
+- Make pydantic models for uis simpler
 
 ## 0.103.0 - 2025-02-02
 
