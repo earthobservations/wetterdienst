@@ -7,6 +7,7 @@
 - Make pydantic models for uis simpler
 - Migrate from `sklearn+numpy` to `pyarrow` for location querying
 - Remove command from Docker file
+- Improve workflow for Docker
 
 ## 0.103.0 - 2025-02-02
 
