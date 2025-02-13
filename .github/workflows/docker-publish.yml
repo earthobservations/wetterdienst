@@ -38,9 +38,6 @@ jobs:
         with:
           python-version: ${{ env.PYTHON }}
 
-      - name: Install project
-        run: uv sync
-
       - name: Build wheel package
         run: uv build
 
