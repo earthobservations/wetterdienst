@@ -10,7 +10,6 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -82,13 +81,13 @@ def test_not_summarizable_parameter(default_settings: Settings) -> None:
     assert given_df.drop_nulls().shape[0] == 0
     expected_df = pl.DataFrame(
         schema={
-            Columns.STATION_ID.value: pl.String,
-            Columns.DATASET.value: pl.String,
-            Columns.PARAMETER.value: pl.String,
-            Columns.DATE.value: pl.Datetime(time_zone="UTC"),
-            Columns.VALUE.value: pl.Float64,
-            Columns.DISTANCE.value: pl.Float64,
-            Columns.TAKEN_STATION_ID.value: pl.String,
+            "station_id": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "distance": pl.Float64,
+            "taken_station_id": pl.String,
         },
     )
     assert_frame_equal(

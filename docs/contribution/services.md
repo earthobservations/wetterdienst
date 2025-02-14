@@ -162,8 +162,6 @@ stations for the requested datasets/parameters. The listing includes:
 - latitude
 - longitude
 
-The names can be mapped using the `Columns` enumeration.
-
 ## Step 3: Values class
 
 The values class is based on `TimeseriesValues` and manages the acquisition of actual data. The

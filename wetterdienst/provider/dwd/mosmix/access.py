@@ -18,7 +18,6 @@ from lxml.etree import iterparse
 from tqdm import tqdm
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
@@ -160,7 +159,7 @@ class KMLReader:
             if station_forecast.find("kml:name", self.nsmap).text != station_id:
                 continue
             measurement_list = station_forecast.findall("kml:ExtendedData/dwd:Forecast", self.nsmap)
-            data_dict = {Columns.DATE.value: self.timesteps}
+            data_dict = {"date": self.timesteps}
             for measurement_item in measurement_list:
                 measurement_parameter = measurement_item.get(f"{{{self.nsmap['dwd']}}}elementName")
                 measurement_string = measurement_item.getchildren()[0].text

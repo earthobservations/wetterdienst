@@ -19,7 +19,6 @@ from portion import Interval
 from wetterdienst.core.timeseries.metadata import DatasetModel, ParameterSearch
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation.download import (
@@ -101,7 +100,7 @@ class DwdObservationValues(TimeseriesValues):
             return pl.DataFrame()
 
         # Filter out values which already are in the DataFrame
-        parameter_df = parameter_df.unique(subset=Columns.DATE.value)
+        parameter_df = parameter_df.unique(subset=["date"])
 
         parameter_df = parameter_df.collect()
 
@@ -111,20 +110,20 @@ class DwdObservationValues(TimeseriesValues):
         df = self._tidy_up_df(parameter_df, parameter_or_dataset)
 
         return df.with_columns(
-            pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"),
-            pl.col(Columns.STATION_ID.value).str.pad_start(5, "0"),
-            pl.col(Columns.VALUE.value).cast(pl.Float64),
-            pl.col(Columns.QUALITY.value).cast(pl.Float64),
+            pl.col("date").dt.replace_time_zone("UTC"),
+            pl.col("station_id").str.pad_start(5, "0"),
+            pl.col("value").cast(pl.Float64),
+            pl.col("quality").cast(pl.Float64),
         )
 
     @staticmethod
     def _fix_timestamps(df: pl.DataFrame) -> pl.DataFrame:
         """Fix timestamps for minute data."""
         return df.with_columns(
-            pl.when(pl.col(Columns.DATE.value).dt.year() < 2000)
-            .then(pl.col(Columns.DATE.value) - pl.duration(hours=1))
-            .otherwise(pl.col(Columns.DATE.value))
-            .alias(Columns.DATE.value),
+            pl.when(pl.col("date").dt.year() < 2000)
+            .then(pl.col("date") - pl.duration(hours=1))
+            .otherwise(pl.col("date"))
+            .alias("date"),
         )
 
     @staticmethod
@@ -152,9 +151,9 @@ class DwdObservationValues(TimeseriesValues):
         df = df.drop(*droppable_columns, strict=False)
 
         df = df.select(
-            pl.col(Columns.STATION_ID.value),
-            pl.col(Columns.DATE.value),
-            pl.all().exclude([Columns.STATION_ID.value, Columns.DATE.value]),
+            pl.col("station_id"),
+            pl.col("date"),
+            pl.all().exclude(["station_id", "date"]),
         )
 
         if dataset == DwdObservationMetadata.daily.climate_summary:
@@ -212,23 +211,23 @@ class DwdObservationValues(TimeseriesValues):
             df = df.drop(df.columns[2])
 
         possible_index_variables = (
-            Columns.STATION_ID.value,
-            Columns.DATE.value,
-            Columns.START_DATE.value,
-            Columns.END_DATE.value,
+            "station_id",
+            "date",
+            "start_date",
+            "end_date",
         )
 
         index = list(set(df.columns).intersection(possible_index_variables))
 
         df = df.unpivot(
             index=index,
-            variable_name=Columns.PARAMETER.value,
-            value_name=Columns.VALUE.value,
+            variable_name="parameter",
+            value_name="value",
         )
 
-        df = df.with_columns(quality.alias(Columns.QUALITY.value))
+        df = df.with_columns(quality.alias("quality"))
 
-        return df.with_columns(pl.when(pl.col(Columns.VALUE.value).is_not_null()).then(pl.col(Columns.QUALITY.value)))
+        return df.with_columns(pl.when(pl.col("value").is_not_null()).then(pl.col("quality")))
 
     def _get_historical_date_ranges(
         self,
@@ -243,7 +242,7 @@ class DwdObservationValues(TimeseriesValues):
             settings,
         )
 
-        file_index = file_index.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
+        file_index = file_index.filter(pl.col("station_id").eq(station_id))
 
         # The request interval may be None, if no start and end date
         # is given but rather the entire available data is queried.
@@ -252,12 +251,12 @@ class DwdObservationValues(TimeseriesValues):
         start_date_min, end_date_max = (interval and (interval.lower, interval.upper)) or (None, None)
         if start_date_min:
             file_index = file_index.filter(
-                pl.col(Columns.STATION_ID.value).eq(station_id)
-                & pl.col(Columns.START_DATE.value).ge(end_date_max).not_()
-                & pl.col(Columns.END_DATE.value).le(start_date_min).not_(),
+                pl.col("station_id").eq(station_id)
+                & pl.col("start_date").ge(end_date_max).not_()
+                & pl.col("end_date").le(start_date_min).not_(),
             )
 
-        return file_index.collect().get_column(Columns.DATE_RANGE.value).to_list()
+        return file_index.collect().get_column("date_range").to_list()
 
 
 class DwdObservationRequest(TimeseriesRequest):
@@ -451,8 +450,8 @@ class DwdObservationRequest(TimeseriesRequest):
                 df = create_meta_index_for_climate_observations(dataset, period, self.settings)
                 file_index = create_file_index_for_climate_observations(dataset, period, self.settings)
                 df = df.join(
-                    other=file_index.select(pl.col(Columns.STATION_ID.value)),
-                    on=[pl.col(Columns.STATION_ID.value)],
+                    other=file_index.select(pl.col("station_id")),
+                    on=["station_id"],
                     how="inner",
                 )
                 stations.append(df)
@@ -462,6 +461,6 @@ class DwdObservationRequest(TimeseriesRequest):
         except ValueError:
             return pl.LazyFrame()
 
-        stations_df = stations_df.unique(subset=[Columns.STATION_ID.value], keep="first")
+        stations_df = stations_df.unique(subset=["station_id"], keep="first")
 
-        return stations_df.sort(by=[pl.col(Columns.STATION_ID.value).cast(int)])
+        return stations_df.sort(by=[pl.col("station_id").cast(int)])

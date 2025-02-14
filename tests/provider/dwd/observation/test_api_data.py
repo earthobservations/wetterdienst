@@ -12,7 +12,6 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Resolution, Settings
 from wetterdienst.core.timeseries.metadata import DatasetModel
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata import (
@@ -777,7 +776,7 @@ def test_dwd_observations_urban_values_basic(default_settings: Settings, dataset
         settings=default_settings,
     ).filter_by_name(name="Berlin-Alexanderplatz")
     given_df = request.values.all().df
-    assert not given_df.drop_nulls(Columns.VALUE.value).is_empty()
+    assert not given_df.drop_nulls(subset=["value"]).is_empty()
 
 
 @pytest.mark.remote

@@ -36,7 +36,6 @@ from wetterdienst.exceptions import (
     StartDateEndDateError,
     StationNotFoundError,
 )
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
@@ -79,16 +78,16 @@ class TimeseriesRequest:
     def _values(self) -> TimeseriesValues:
         """Values class used for retrieving values."""
 
-    # Columns that should be contained within any stations_result information
+    # Columns that should be contained within any stations information
     _base_columns: ClassVar = (
-        Columns.STATION_ID.value,
-        Columns.START_DATE.value,
-        Columns.END_DATE.value,
-        Columns.LATITUDE.value,
-        Columns.LONGITUDE.value,
-        Columns.HEIGHT.value,
-        Columns.NAME.value,
-        Columns.STATE.value,
+        "station_id",
+        "start_date",
+        "end_date",
+        "latitude",
+        "longitude",
+        "height",
+        "name",
+        "state",
     )
 
     #   - heterogeneous parameters such as precipitation_height
@@ -298,14 +297,14 @@ class TimeseriesRequest:
     def _coerce_meta_fields(df: pl.DataFrame) -> pl.DataFrame:
         """Coerce metadata fields to the correct types."""
         return df.with_columns(
-            pl.col(Columns.STATION_ID.value).cast(pl.String),
-            pl.col(Columns.HEIGHT.value).cast(pl.Float64),
-            pl.col(Columns.LATITUDE.value).cast(pl.Float64),
-            pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
-            pl.col(Columns.NAME.value).cast(pl.String),
-            pl.col(Columns.STATE.value).cast(pl.String),
-            pl.col(Columns.START_DATE.value).cast(pl.Datetime(time_zone="UTC")),
-            pl.col(Columns.END_DATE.value).cast(pl.Datetime(time_zone="UTC")),
+            pl.col("station_id").cast(pl.String),
+            pl.col("height").cast(pl.Float64),
+            pl.col("latitude").cast(pl.Float64),
+            pl.col("longitude").cast(pl.Float64),
+            pl.col("name").cast(pl.String),
+            pl.col("state").cast(pl.String),
+            pl.col("start_date").cast(pl.Datetime(time_zone="UTC")),
+            pl.col("end_date").cast(pl.Datetime(time_zone="UTC")),
         )
 
     @abstractmethod
@@ -354,11 +353,11 @@ class TimeseriesRequest:
         """
         df = self.all().df
 
-        station_id = self._parse_station_id(pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)))
+        station_id = self._parse_station_id(pl.Series(name="station_id", values=to_list(station_id)))
 
         log.info(f"Filtering for station_id={list(station_id)}")
 
-        df_station_id = df.join(other=station_id.to_frame(), on=Columns.STATION_ID.value, how="inner")
+        df_station_id = df.join(other=station_id.to_frame(), on="station_id", how="inner")
 
         return StationsResult(
             stations=self,
@@ -393,14 +392,14 @@ class TimeseriesRequest:
 
         station_match = process.extract(
             query=name,
-            choices=df[Columns.NAME.value],
+            choices=df.get_column("name"),
             scorer=fuzz.token_set_ratio,
             score_cutoff=threshold * 100,
         )
 
         if station_match:
             station_name = [station[0] for station in station_match]
-            df = df.filter(pl.col(Columns.NAME.value).is_in(station_name))
+            df = df.filter(pl.col("name").is_in(station_name))
         else:
             df = pl.DataFrame(schema=df.schema)
 
@@ -441,8 +440,8 @@ class TimeseriesRequest:
         # setup spatial parameters
         q_lat, q_lon = latlon
         df = self.all().df
-        latitudes = df.get_column(Columns.LATITUDE.value).to_arrow()
-        longitudes = df.get_column(Columns.LONGITUDE.value).to_arrow()
+        latitudes = df.get_column("latitude").to_arrow()
+        longitudes = df.get_column("longitude").to_arrow()
         distances = derive_nearest_neighbours(
             latitudes=latitudes,
             longitudes=longitudes,
@@ -450,8 +449,8 @@ class TimeseriesRequest:
             q_lon=q_lon,
         )
         # add distances and sort by distance
-        df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias(Columns.DISTANCE.value))
-        df = df.sort(by=[Columns.DISTANCE.value])
+        df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
+        df = df.sort(by=["distance"])
         return StationsResult(
             stations=self,
             df=df,
@@ -485,7 +484,7 @@ class TimeseriesRequest:
 
         all_nearby_stations = self.filter_by_rank(latlon, self.all().df.shape[0]).df
 
-        df = all_nearby_stations.filter(pl.col(Columns.DISTANCE.value).le(distance_in_km))
+        df = all_nearby_stations.filter(pl.col("distance").le(distance_in_km))
 
         if df.is_empty():
             lat, lon = latlon
@@ -527,8 +526,8 @@ class TimeseriesRequest:
         df = self.all().df
 
         df = df.filter(
-            pl.col(Columns.LATITUDE.value).is_between(bottom, top, closed="both")
-            & pl.col(Columns.LONGITUDE.value).is_between(left, right, closed="both"),
+            pl.col("latitude").is_between(bottom, top, closed="both")
+            & pl.col("longitude").is_between(left, right, closed="both"),
         )
 
         if df.is_empty():
@@ -550,14 +549,14 @@ class TimeseriesRequest:
 
         df = self.all().df
         df = df.with_columns(
-            pl.col(Columns.START_DATE.value).dt.replace_time_zone(None),
-            pl.col(Columns.END_DATE.value).dt.replace_time_zone(None),
+            pl.col("start_date").dt.replace_time_zone(None),
+            pl.col("end_date").dt.replace_time_zone(None),
         )
         sql = f"FROM df WHERE {sql}"
         df = duckdb.sql(sql).pl()  # uses "df" from local scope
         df = df.with_columns(
-            pl.col(Columns.START_DATE.value).dt.replace_time_zone(time_zone="UTC"),
-            pl.col(Columns.END_DATE.value).dt.replace_time_zone(time_zone="UTC"),
+            pl.col("start_date").dt.replace_time_zone(time_zone="UTC"),
+            pl.col("end_date").dt.replace_time_zone(time_zone="UTC"),
         )
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
@@ -591,20 +590,20 @@ class TimeseriesRequest:
         df_interpolated = get_interpolated_df(self, lat, lon)
         station_id = self._create_station_id_from_string(f"interpolation({lat:.4f},{lon:.4f})")
         df_interpolated = df_interpolated.select(
-            pl.lit(station_id).alias(Columns.STATION_ID.value),
-            pl.col(Columns.DATASET.value),
-            pl.col(Columns.PARAMETER.value),
-            pl.col(Columns.DATE.value),
-            pl.col(Columns.VALUE.value),
-            pl.col(Columns.DISTANCE_MEAN.value),
-            pl.col(Columns.TAKEN_STATION_IDS.value),
+            pl.lit(station_id).alias("station_id"),
+            pl.col("dataset"),
+            pl.col("parameter"),
+            pl.col("date"),
+            pl.col("value"),
+            pl.col("distance_mean"),
+            pl.col("taken_station_ids"),
         )
         df_stations_all = self.all().df
         df_stations = df_stations_all.join(
-            other=df_interpolated.select(pl.col(Columns.TAKEN_STATION_IDS.value).alias(Columns.STATION_ID.value))
-            .explode(pl.col(Columns.STATION_ID.value))
+            other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
+            .explode(pl.col("station_id"))
             .unique(),
-            on=Columns.STATION_ID.value,
+            on="station_id",
         )
         stations_result = StationsResult(
             stations=self,
@@ -640,19 +639,19 @@ class TimeseriesRequest:
         summarized_values = get_summarized_df(self, lat, lon)
         station_id = self._create_station_id_from_string(f"summary({lat:.4f},{lon:.4f})")
         summarized_values = summarized_values.select(
-            pl.lit(station_id).alias(Columns.STATION_ID.value),
-            pl.col(Columns.DATASET.value),
-            pl.col(Columns.PARAMETER.value),
-            pl.col(Columns.DATE.value),
-            pl.col(Columns.VALUE.value),
-            pl.col(Columns.DISTANCE.value),
-            pl.col(Columns.TAKEN_STATION_ID.value),
+            pl.lit(station_id).alias("station_id"),
+            pl.col("dataset"),
+            pl.col("parameter"),
+            pl.col("date"),
+            pl.col("value"),
+            pl.col("distance"),
+            pl.col("taken_station_id"),
         )
         df_stations_all = self.all().df
         df_stations = df_stations_all.join(
-            other=summarized_values.select(pl.col(Columns.TAKEN_STATION_ID.value)).unique(),
-            left_on=Columns.STATION_ID.value,
-            right_on=Columns.TAKEN_STATION_ID.value,
+            other=summarized_values.select(pl.col("taken_station_id")).unique(),
+            left_on="station_id",
+            right_on="taken_station_id",
         )
         stations_result = StationsResult(
             stations=self,
@@ -677,8 +676,8 @@ class TimeseriesRequest:
         stations = self.all().df
         try:
             lat, lon = (
-                stations.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
-                .select(pl.col(Columns.LATITUDE.value), pl.col(Columns.LONGITUDE.value))
+                stations.filter(pl.col("station_id").eq(station_id))
+                .select(pl.col("latitude"), pl.col("longitude"))
                 .transpose()
                 .to_series()
             )

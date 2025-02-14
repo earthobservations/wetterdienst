@@ -17,7 +17,6 @@ from shapely.geometry import Point, Polygon
 from tqdm import tqdm
 
 from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.util.logging import TqdmToLogger
@@ -126,8 +125,8 @@ def apply_station_values_per_parameter(
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
-            pl.col(Columns.DATASET.value).eq(parameter.dataset.name),
-            pl.col(Columns.PARAMETER.value).eq(parameter.name),
+            pl.col("dataset").eq(parameter.dataset.name),
+            pl.col("parameter").eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
@@ -135,7 +134,7 @@ def apply_station_values_per_parameter(
             frequency = Frequency[parameter.dataset.resolution.value.name].value
             df = pl.DataFrame(
                 {
-                    Columns.DATE.value: pl.datetime_range(
+                    "date": pl.datetime_range(
                         start=stations_ranked.stations.start_date,
                         end=stations_ranked.stations.end_date,
                         interval=frequency,
@@ -151,7 +150,7 @@ def apply_station_values_per_parameter(
             .values.select("date")
             .join(result_series_param, on="date", how="left")
         )
-        result_series_param = result_series_param.get_column(Columns.VALUE.value)
+        result_series_param = result_series_param.get_column("value")
         result_series_param = result_series_param.rename(station["station_id"])
         extract_station_values(
             param_dict[parameter.dataset.name, parameter.name],
@@ -183,12 +182,12 @@ def calculate_interpolation(
     data = [
         pl.DataFrame(
             schema={
-                Columns.DATE.value: pl.Datetime(time_zone="UTC"),
-                Columns.DATASET.value: pl.String,
-                Columns.PARAMETER.value: pl.String,
-                Columns.VALUE.value: pl.Float64,
-                Columns.DISTANCE_MEAN.value: pl.Float64,
-                Columns.TAKEN_STATION_IDS.value: pl.List(inner=pl.String),
+                "date": pl.Datetime(time_zone="UTC"),
+                "dataset": pl.String,
+                "parameter": pl.String,
+                "value": pl.Float64,
+                "distance_mean": pl.Float64,
+                "taken_station_ids": pl.List(inner=pl.String),
             },
         ),
     ]
@@ -199,7 +198,7 @@ def calculate_interpolation(
         if distance < use_nearby_station_until_km
     ]
     for (dataset, parameter), param_data in param_dict.items():
-        param_df = pl.DataFrame({Columns.DATE.value: param_data.values.get_column(Columns.DATE.value)})
+        param_df = pl.DataFrame({"date": param_data.values.get_column("date")})
         results = []
         for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):
             results.append(
@@ -217,23 +216,23 @@ def calculate_interpolation(
         results = pl.DataFrame(
             results,
             schema={
-                Columns.DATASET.value: pl.String,
-                Columns.PARAMETER.value: pl.String,
-                Columns.VALUE.value: pl.Float64,
-                Columns.DISTANCE_MEAN.value: pl.Float64,
-                Columns.TAKEN_STATION_IDS.value: pl.List(inner=pl.String),
+                "dataset": pl.String,
+                "parameter": pl.String,
+                "value": pl.Float64,
+                "distance_mean": pl.Float64,
+                "taken_station_ids": pl.List(inner=pl.String),
             },
             orient="row",
         )
         param_df = pl.concat([param_df, results], how="horizontal")
         data.append(param_df)
     df = pl.concat(data)
-    df = df.with_columns(pl.col(Columns.VALUE.value).round(2), pl.col(Columns.DISTANCE_MEAN.value).round(2))
+    df = df.with_columns(pl.col("value").round(2), pl.col("distance_mean").round(2))
     return df.sort(
         by=[
-            Columns.DATASET.value,
-            Columns.PARAMETER.value,
-            Columns.DATE.value,
+            "dataset",
+            "parameter",
+            "date",
         ],
     )
 

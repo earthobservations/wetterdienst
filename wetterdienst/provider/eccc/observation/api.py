@@ -16,7 +16,6 @@ import polars as pl
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
 from wetterdienst.util.network import download_file
@@ -53,10 +52,10 @@ class EcccObservationValues(TimeseriesValues):
         columns = df.columns
         for parameter_column, quality_column in zip(columns[1::2], columns[2::2], strict=False):
             df_parameter = df.select(
-                pl.col(Columns.DATE.value),
-                pl.lit(parameter_column).alias(Columns.PARAMETER.value),
-                pl.col(parameter_column).replace("", None).alias(Columns.VALUE.value),
-                pl.col(quality_column).replace("", None).alias(Columns.QUALITY.value),
+                pl.col("date"),
+                pl.lit(parameter_column).alias("parameter"),
+                pl.col(parameter_column).replace("", None).alias("value"),
+                pl.col(quality_column).replace("", None).alias("quality"),
             )
             data.append(df_parameter)
 
@@ -71,13 +70,13 @@ class EcccObservationValues(TimeseriesValues):
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station dataset."""
-        meta = self.sr.df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
+        meta = self.sr.df.filter(pl.col("station_id").eq(station_id))
 
         start_year, end_year = (
             meta.select(
                 [
-                    pl.col(Columns.START_DATE.value).dt.year(),
-                    pl.col(Columns.END_DATE.value).dt.year(),
+                    pl.col("start_date").dt.year(),
+                    pl.col("end_date").dt.year(),
                 ],
             )
             .transpose()
@@ -122,7 +121,7 @@ class EcccObservationValues(TimeseriesValues):
             df = pl.concat(data)
         except ValueError:
             df = pl.LazyFrame()
-        mapping = {"date/time (lst)": Columns.DATE.value, "date/time": Columns.DATE.value}
+        mapping = {"date/time (lst)": "date", "date/time": "date"}
         df = df.rename(
             mapping=lambda col: mapping.get(col, col),
         )
@@ -130,14 +129,14 @@ class EcccObservationValues(TimeseriesValues):
         df = self._tidy_up_df(df)
 
         return df.with_columns(
-            pl.col(Columns.DATE.value).str.to_datetime("%Y-%m-%d", time_zone="UTC"),
-            pl.lit(station_id).alias(Columns.STATION_ID.value),
-            pl.when(pl.col(Columns.VALUE.value).str.starts_with("<"))
-            .then(pl.col(Columns.VALUE.value).str.slice(1))
-            .otherwise(pl.col(Columns.VALUE.value))
-            .alias(Columns.VALUE.value)
+            pl.col("date").str.to_datetime("%Y-%m-%d", time_zone="UTC"),
+            pl.lit(station_id).alias("station_id"),
+            pl.when(pl.col("value").str.starts_with("<"))
+            .then(pl.col("value").str.slice(1))
+            .otherwise(pl.col("value"))
+            .alias("value")
             .cast(pl.Float64),
-            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         ).collect()
 
     def _create_file_urls(
@@ -186,14 +185,14 @@ class EcccObservationRequest(TimeseriesRequest):
     _values = EcccObservationValues
 
     _columns_mapping: ClassVar[dict] = {
-        "station id": Columns.STATION_ID.value,
-        "name": Columns.NAME.value,
-        "province": Columns.STATE.value,
-        "latitude (decimal degrees)": Columns.LATITUDE.value,
-        "longitude (decimal degrees)": Columns.LONGITUDE.value,
-        "elevation (m)": Columns.HEIGHT.value,
-        "first year": Columns.START_DATE.value,
-        "last year": Columns.END_DATE.value,
+        "station id": "station_id",
+        "name": "name",
+        "province": "state",
+        "latitude (decimal degrees)": "latitude",
+        "longitude (decimal degrees)": "longitude",
+        "elevation (m)": "height",
+        "first year": "start_date",
+        "last year": "end_date",
     }
 
     def __init__(
@@ -235,19 +234,19 @@ class EcccObservationRequest(TimeseriesRequest):
         df = df.rename(mapping=self._columns_mapping)
 
         df = df.with_columns(
-            pl.when(pl.col(Columns.START_DATE.value).ne("")).then(pl.col(Columns.START_DATE.value)),
-            pl.when(pl.col(Columns.END_DATE.value).ne("")).then(pl.col(Columns.END_DATE.value)),
-            pl.when(pl.col(Columns.HEIGHT.value).ne("")).then(pl.col(Columns.HEIGHT.value)),
+            pl.when(pl.col("start_date").ne("")).then(pl.col("start_date")),
+            pl.when(pl.col("end_date").ne("")).then(pl.col("end_date")),
+            pl.when(pl.col("height").ne("")).then(pl.col("height")),
         )
 
         df = df.with_columns(
-            pl.col(Columns.START_DATE.value).fill_null(pl.col(Columns.START_DATE.value).cast(int).min()),
-            pl.col(Columns.END_DATE.value).fill_null(pl.col(Columns.END_DATE.value).cast(int).max()),
+            pl.col("start_date").fill_null(pl.col("start_date").cast(int).min()),
+            pl.col("end_date").fill_null(pl.col("end_date").cast(int).max()),
         )
 
         df = df.with_columns(
-            pl.col(Columns.START_DATE.value).str.to_datetime("%Y", time_zone="UTC"),
-            pl.col(Columns.END_DATE.value)
+            pl.col("start_date").str.to_datetime("%Y", time_zone="UTC"),
+            pl.col("end_date")
             .cast(int)
             .add(1)
             .map_elements(
@@ -256,7 +255,7 @@ class EcccObservationRequest(TimeseriesRequest):
             ),
         )
 
-        return df.filter(pl.col(Columns.LATITUDE.value).ne("") & pl.col(Columns.LONGITUDE.value).ne(""))
+        return df.filter(pl.col("latitude").ne("") & pl.col("longitude").ne(""))
 
     def _download_stations(self) -> tuple[BytesIO, int]:
         """Download station list from ECCC FTP server.

@@ -11,7 +11,6 @@ import polars as pl
 from tqdm import tqdm
 
 from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.util.logging import TqdmToLogger
 
@@ -88,8 +87,8 @@ def apply_station_values_per_parameter(
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
-            pl.col(Columns.DATASET.value).eq(parameter.dataset.name),
-            pl.col(Columns.PARAMETER.value).eq(parameter.name),
+            pl.col("dataset").eq(parameter.dataset.name),
+            pl.col("parameter").eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
@@ -97,7 +96,7 @@ def apply_station_values_per_parameter(
             frequency = Frequency[parameter.dataset.resolution.value.name].value
             df = pl.DataFrame(
                 {
-                    Columns.DATE.value: pl.datetime_range(
+                    "date": pl.datetime_range(
                         start=stations_ranked.stations.start_date,
                         end=stations_ranked.stations.end_date,
                         interval=frequency,
@@ -113,7 +112,7 @@ def apply_station_values_per_parameter(
             .values.select("date")
             .join(result_series_param, on="date", how="left")
         )
-        result_series_param = result_series_param.get_column(Columns.VALUE.value).rename(station["station_id"])
+        result_series_param = result_series_param.get_column("value").rename(station["station_id"])
         extract_station_values(
             param_dict[parameter.dataset.name, parameter.name],
             result_series_param,
@@ -126,40 +125,40 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
     data = [
         pl.DataFrame(
             schema={
-                Columns.DATE.value: pl.Datetime(time_zone="UTC"),
-                Columns.DATASET.value: pl.String,
-                Columns.PARAMETER.value: pl.String,
-                Columns.VALUE.value: pl.Float64,
-                Columns.DISTANCE.value: pl.Float64,
-                Columns.TAKEN_STATION_ID.value: pl.String,
+                "date": pl.Datetime(time_zone="UTC"),
+                "dataset": pl.String,
+                "parameter": pl.String,
+                "value": pl.Float64,
+                "distance": pl.Float64,
+                "taken_station_id": pl.String,
             },
         ),
     ]
     for (dataset, parameter), param_data in param_dict.items():
-        param_df = pl.DataFrame({Columns.DATE.value: param_data.values.get_column(Columns.DATE.value)})
+        param_df = pl.DataFrame({"date": param_data.values.get_column("date")})
         results = []
         for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):
             results.append(apply_summary(row, stations_dict, dataset, parameter))
         results = pl.DataFrame(
             results,
             schema={
-                Columns.DATASET.value: pl.String,
-                Columns.PARAMETER.value: pl.String,
-                Columns.VALUE.value: pl.Float64,
-                Columns.DISTANCE.value: pl.Float64,
-                Columns.TAKEN_STATION_ID.value: pl.String,
+                "dataset": pl.String,
+                "parameter": pl.String,
+                "value": pl.Float64,
+                "distance": pl.Float64,
+                "taken_station_id": pl.String,
             },
             orient="row",
         )
         param_df = pl.concat([param_df, results], how="horizontal")
         data.append(param_df)
     df = pl.concat(data)
-    df = df.with_columns(pl.col(Columns.VALUE.value).round(2), pl.col(Columns.DISTANCE.value).round(2))
+    df = df.with_columns(pl.col("value").round(2), pl.col("distance").round(2))
     return df.sort(
         by=[
-            Columns.DATASET.value,
-            Columns.PARAMETER.value,
-            Columns.DATE.value,
+            "dataset",
+            "parameter",
+            "date",
         ],
     )
 

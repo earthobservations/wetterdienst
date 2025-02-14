@@ -21,7 +21,6 @@ from wetterdienst.core.timeseries.metadata import DatasetModel, build_metadata_m
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
@@ -263,10 +262,10 @@ class ImgwHydrologyValues(TimeseriesValues):
         if dataset.resolution.value == Resolution.DAILY:
             df = df.with_columns(pl.col("day").cast(pl.Int64))
             exp1 = pl.all().exclude(["year", "month", "day"])
-            exp2 = pl.datetime("year", "month", "day").alias(Columns.DATE.value)
+            exp2 = pl.datetime("year", "month", "day").alias("date")
         else:
             exp1 = pl.all().exclude(["year", "month"])
-            exp2 = pl.datetime("year", "month", 1).alias(Columns.DATE.value)
+            exp2 = pl.datetime("year", "month", 1).alias("date")
         df = df.select(exp1, exp2)
         if dataset.resolution.value == Resolution.DAILY:
             index = ["station_id", "date"]
@@ -408,10 +407,10 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         )
         df = df[:, [1, 2, 4, 5]]
         df.columns = [
-            Columns.STATION_ID.value,
-            Columns.NAME.value,
-            Columns.LATITUDE.value,
-            Columns.LONGITUDE.value,
+            "station_id",
+            "name",
+            "latitude",
+            "longitude",
         ]
         # TODO: remove the following workaround once the data is fixed upstream
         # since somewhere in 2024-02 one station of the station list is bugged
@@ -419,15 +418,15 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         # 604;150190410;CZ�STOCHOWA 3;Warta;50 48 50	19;07 58  <-- this is the bugged line
         # 605;152140100;DOLSK;My�la;52 48 10;14 50 35
         df = df.with_columns(
-            pl.when(pl.col(Columns.STATION_ID.value) == "150190410")
-            .then(pl.lit("50 48 50").alias(Columns.LATITUDE.value))
-            .otherwise(pl.col(Columns.LATITUDE.value)),
-            pl.when(pl.col(Columns.STATION_ID.value) == "150190410")
-            .then(pl.lit("19 07 58").alias(Columns.LONGITUDE.value))
-            .otherwise(pl.col(Columns.LONGITUDE.value)),
+            pl.when(pl.col("station_id") == "150190410")
+            .then(pl.lit("50 48 50").alias("latitude"))
+            .otherwise(pl.col("latitude")),
+            pl.when(pl.col("station_id") == "150190410")
+            .then(pl.lit("19 07 58").alias("longitude"))
+            .otherwise(pl.col("longitude")),
         )
         df = df.lazy()
         return df.with_columns(
-            pl.col(Columns.LATITUDE.value).map_batches(convert_dms_string_to_dd),
-            pl.col(Columns.LONGITUDE.value).map_batches(convert_dms_string_to_dd),
+            pl.col("latitude").map_batches(convert_dms_string_to_dd),
+            pl.col("longitude").map_batches(convert_dms_string_to_dd),
         )

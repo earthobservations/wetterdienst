@@ -17,7 +17,6 @@ from wetterdienst.core.timeseries.metadata import (
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__name__)
@@ -157,8 +156,8 @@ class EAHydrologyValues(TimeseriesValues):
             pl.col("dateTime"),
             pl.col("value"),
         )
-        df = df.rename(mapping={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value})
-        return df.with_columns(pl.col(Columns.DATE.value).str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
+        df = df.rename(mapping={"dateTime": "date", "value": "value"})
+        return df.with_columns(pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
 
 
 class EAHydrologyRequest(TimeseriesRequest):
@@ -214,12 +213,12 @@ class EAHydrologyRequest(TimeseriesRequest):
         df = df.rename(mapping=lambda col: col.lower())
         df = df.rename(
             mapping={
-                "label": Columns.NAME.value,
-                "lat": Columns.LATITUDE.value,
-                "long": Columns.LONGITUDE.value,
-                "notation": Columns.STATION_ID.value,
-                "dateopened": Columns.START_DATE.value,
-                "dateclosed": Columns.END_DATE.value,
+                "label": "name",
+                "lat": "latitude",
+                "long": "longitude",
+                "notation": "station_id",
+                "dateopened": "start_date",
+                "dateclosed": "end_date",
             },
         )
         df = df.with_columns(

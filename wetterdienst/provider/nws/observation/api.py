@@ -14,7 +14,6 @@ from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, DatasetM
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__name__)
@@ -233,11 +232,11 @@ class NwsObservationValues(TimeseriesValues):
             },
         )
         df = df.rename(mapping=lambda col: col.lower())
-        df = df.rename(mapping={"station": Columns.STATION_ID.value, "timestamp": Columns.DATE.value})
+        df = df.rename(mapping={"station": "station_id", "timestamp": "date"})
         df = df.unpivot(
-            index=[Columns.STATION_ID.value, Columns.DATE.value],
-            variable_name=Columns.PARAMETER.value,
-            value_name=Columns.VALUE.value,
+            index=["station_id", "date"],
+            variable_name="parameter",
+            value_name="value",
         )
         df = df.filter(pl.col("parameter").ne("cloudlayers"))
         return df.with_columns(
@@ -245,7 +244,7 @@ class NwsObservationValues(TimeseriesValues):
             .map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime)
             .cast(pl.Datetime(time_zone="UTC")),
             pl.col("value").struct.field("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
 
@@ -302,17 +301,17 @@ class NwsObservationRequest(TimeseriesRequest):
         )
         df = df.rename(
             mapping={
-                "column_2": Columns.STATION_ID.value,
-                "column_3": Columns.LATITUDE.value,
-                "column_4": Columns.LONGITUDE.value,
-                "column_5": Columns.HEIGHT.value,
-                "column_6": Columns.NAME.value,
+                "column_2": "station_id",
+                "column_3": "latitude",
+                "column_4": "longitude",
+                "column_5": "height",
+                "column_6": "name",
             },
         )
         df = df.with_columns(pl.all().str.strip_chars())
         df = df.with_columns(
-            pl.col(Columns.LATITUDE.value).cast(pl.Float64),
-            pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
-            pl.col(Columns.HEIGHT.value).cast(pl.Float64),
+            pl.col("latitude").cast(pl.Float64),
+            pl.col("longitude").cast(pl.Float64),
+            pl.col("height").cast(pl.Float64),
         )
         return df.filter(pl.col("longitude").lt(0) & pl.col("latitude").gt(0))

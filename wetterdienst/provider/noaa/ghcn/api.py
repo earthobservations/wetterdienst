@@ -14,7 +14,6 @@ import polars as pl
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.noaa.ghcn.metadata import (
     DAILY_PARAMETER_MULTIPLICATION_FACTORS,
@@ -304,7 +303,7 @@ class NoaaGhcnValues(TimeseriesValues):
             .alias("date"),
             *parameters,
         )
-        df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
+        df = df.with_columns(pl.col("date").dt.replace_time_zone("UTC"))
         df = df.unpivot(
             index=["station_id", "date"],
             on=parameters,
@@ -335,32 +334,32 @@ class NoaaGhcnValues(TimeseriesValues):
         )
         df = df.rename(
             mapping={
-                "column_1": Columns.STATION_ID.value,
-                "column_2": Columns.DATE.value,
-                "column_3": Columns.PARAMETER.value,
-                "column_4": Columns.VALUE.value,
+                "column_1": "station_id",
+                "column_2": "date",
+                "column_3": "parameter",
+                "column_4": "value",
             },
         )
         time_zone = self._get_timezone_from_station(station_id)
         df = df.with_columns(
-            pl.col(Columns.DATE.value).map_elements(
+            pl.col("date").map_elements(
                 lambda date: dt.datetime.strptime(date, "%Y%m%d")
                 .replace(tzinfo=ZoneInfo(time_zone))
                 .astimezone(ZoneInfo("UTC")),
                 return_dtype=pl.Datetime,
             ),
-            pl.col(Columns.PARAMETER.value).str.to_lowercase(),
-            pl.col(Columns.VALUE.value).cast(float),
-            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+            pl.col("parameter").str.to_lowercase(),
+            pl.col("value").cast(float),
+            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
-        df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
+        df = df.with_columns(pl.col("date").dt.replace_time_zone("UTC"))
         df = self._apply_daily_factors(df)
         return df.select(
-            pl.col(Columns.STATION_ID.value),
-            pl.col(Columns.DATE.value),
-            pl.col(Columns.PARAMETER.value),
-            pl.col(Columns.VALUE.value),
-            pl.col(Columns.QUALITY.value),
+            pl.col("station_id"),
+            pl.col("date"),
+            pl.col("parameter"),
+            pl.col("value"),
+            pl.col("quality"),
         )
 
     @staticmethod
@@ -370,10 +369,10 @@ class NoaaGhcnValues(TimeseriesValues):
         Make their unit one tenth e.g. 2.0 [°C] becomes 20 [1/10 °C]
         """
         data = []
-        for (parameter,), df_group in df.group_by([Columns.PARAMETER.value]):
+        for (parameter,), df_group in df.group_by(["parameter"]):
             factor = DAILY_PARAMETER_MULTIPLICATION_FACTORS.get(parameter)
             if factor:
-                df_group = df_group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))
+                df_group = df_group.with_columns(pl.col("value").cast(float).mul(factor))
             data.append(df_group)
         return pl.concat(data)
 
@@ -475,13 +474,13 @@ class NoaaGhcnRequest(TimeseriesRequest):
         column_specs = ((0, 10), (12, 19), (21, 29), (31, 36), (38, 39), (41, 70), (80, 84))
         df = read_fwf_from_df(df, column_specs)
         df.columns = [
-            Columns.STATION_ID.value,
-            Columns.LATITUDE.value,
-            Columns.LONGITUDE.value,
-            Columns.HEIGHT.value,
-            Columns.STATE.value,
-            Columns.NAME.value,
-            Columns.WMO_ID.value,
+            "station_id",
+            "latitude",
+            "longitude",
+            "height",
+            "state",
+            "name",
+            "wmo_id",
         ]
 
         inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
@@ -490,21 +489,21 @@ class NoaaGhcnRequest(TimeseriesRequest):
         inventory_df = pl.read_csv(inventory_file, has_header=False, truncate_ragged_lines=True)
         column_specs = ((0, 10), (36, 39), (41, 44))
         inventory_df = read_fwf_from_df(inventory_df, column_specs)
-        inventory_df.columns = [Columns.STATION_ID.value, Columns.START_DATE.value, Columns.END_DATE.value]
+        inventory_df.columns = ["station_id", "start_date", "end_date"]
         inventory_df = inventory_df.with_columns(
-            pl.col(Columns.START_DATE.value).cast(int),
-            pl.col(Columns.END_DATE.value).cast(int),
+            pl.col("start_date").cast(int),
+            pl.col("end_date").cast(int),
         )
-        inventory_df = inventory_df.group_by([Columns.STATION_ID.value]).agg(
-            pl.col(Columns.START_DATE.value).min(),
-            pl.col(Columns.END_DATE.value).max(),
+        inventory_df = inventory_df.group_by(["station_id"]).agg(
+            pl.col("start_date").min(),
+            pl.col("end_date").max(),
         )
         inventory_df = inventory_df.with_columns(
-            pl.col(Columns.START_DATE.value).cast(str).str.to_datetime("%Y"),
-            pl.col(Columns.END_DATE.value)
+            pl.col("start_date").cast(str).str.to_datetime("%Y"),
+            pl.col("end_date")
             .map_batches(lambda s: s + 1)
             .cast(str)
             .str.to_datetime("%Y")
             .map_batches(lambda s: s - dt.timedelta(days=1)),
         )
-        return df.join(other=inventory_df, how="left", on=[Columns.STATION_ID.value]).lazy()
+        return df.join(other=inventory_df, how="left", on=["station_id"]).lazy()

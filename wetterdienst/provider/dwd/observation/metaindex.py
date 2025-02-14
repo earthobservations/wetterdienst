@@ -16,7 +16,6 @@ from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.fileindex import (
     _build_url_from_dataset_and_period,
@@ -32,26 +31,15 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 DWD_COLUMN_NAMES_MAPPING = {
-    "column_1": Columns.STATION_ID.value,
-    "column_2": Columns.START_DATE.value,
-    "column_3": Columns.END_DATE.value,
-    "column_4": Columns.HEIGHT.value,
-    "column_5": Columns.LATITUDE.value,
-    "column_6": Columns.LONGITUDE.value,
-    "column_7": Columns.NAME.value,
-    "column_8": Columns.STATE.value,
+    "column_1": "station_id",
+    "column_2": "start_date",
+    "column_3": "end_date",
+    "column_4": "height",
+    "column_5": "latitude",
+    "column_6": "longitude",
+    "column_7": "name",
+    "column_8": "state",
 }
-
-METADATA_COLUMNS = [
-    Columns.STATION_ID.value,
-    Columns.START_DATE.value,
-    Columns.END_DATE.value,
-    Columns.HEIGHT.value,
-    Columns.LATITUDE.value,
-    Columns.LONGITUDE.value,
-    Columns.NAME.value,
-    Columns.STATE.value,
-]
 
 
 def create_meta_index_for_climate_observations(
@@ -80,18 +68,18 @@ def create_meta_index_for_climate_observations(
             settings=settings,
         )
         meta_index = meta_index.join(
-            other=mdp.select([Columns.STATION_ID.value, Columns.STATE.value]),
-            on=[Columns.STATION_ID.value],
+            other=mdp.select(["station_id", "state"]),
+            on=["station_id"],
             how="left",
         )
     meta_index = meta_index.with_columns(
-        pl.col(Columns.START_DATE.value).str.to_datetime("%Y%m%d", time_zone="UTC"),
-        pl.col(Columns.END_DATE.value).str.to_datetime("%Y%m%d", time_zone="UTC"),
-        pl.col(Columns.HEIGHT.value).cast(pl.Float64),
-        pl.col(Columns.LATITUDE.value).cast(pl.Float64),
-        pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
+        pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
+        pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
+        pl.col("height").cast(pl.Float64),
+        pl.col("latitude").cast(pl.Float64),
+        pl.col("longitude").cast(pl.Float64),
     )
-    return meta_index.sort(by=[pl.col(Columns.STATION_ID.value)])
+    return meta_index.sort(by=["station_id"])
 
 
 def _create_meta_index_for_climate_observations(
@@ -180,7 +168,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     payload_fx6 = download_file(meta_file_fx6, settings=settings, ttl=CacheExpiry.METAINDEX)
     df_fx3 = _read_meta_df(payload_fx3)
     df_fx6 = _read_meta_df(payload_fx6)
-    df_fx6 = df_fx6.join(df_fx3.select(Columns.STATION_ID.value), on=[Columns.STATION_ID.value], how="inner")
+    df_fx6 = df_fx6.join(df_fx3.select("station_id"), on=["station_id"], how="inner")
     return pl.concat([df_fx3, df_fx6])
 
 
@@ -210,16 +198,16 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     ]
     df = pl.concat(dfs)
     df = df.with_columns(
-        pl.when(pl.col(Columns.END_DATE.value).str.strip_chars().eq(""))
+        pl.when(pl.col("end_date").str.strip_chars().eq(""))
         .then(pl.lit((dt.datetime.now(ZoneInfo("UTC")).date() - dt.timedelta(days=1)).strftime("%Y%m%d")))
-        .otherwise(pl.col(Columns.END_DATE.value))
-        .alias(Columns.END_DATE.value),
+        .otherwise(pl.col("end_date"))
+        .alias("end_date"),
     )
     # Drop empty state column again as it will be merged later on
-    df = df.select(pl.exclude(Columns.STATE.value))
+    df = df.select(pl.exclude("state"))
     df = df.with_columns(pl.all().str.strip_chars())
     # Make station id str
-    return df.with_columns(pl.col(Columns.STATION_ID.value).cast(str).str.pad_start(5, "0"))
+    return df.with_columns(pl.col("station_id").cast(str).str.pad_start(5, "0"))
 
 
 def _parse_geo_metadata(metadata_file_and_station_id: tuple[BytesIO, str]) -> pl.LazyFrame:
@@ -230,18 +218,26 @@ def _parse_geo_metadata(metadata_file_and_station_id: tuple[BytesIO, str]) -> pl
     df = _parse_zipped_data_into_df(file)
     df = df.rename(
         mapping={
-            "Stations_id": Columns.STATION_ID.value,
-            "Stationshoehe": Columns.HEIGHT.value,
-            "Geogr.Breite": Columns.LATITUDE.value,
-            "Geogr.Laenge": Columns.LONGITUDE.value,
-            "von_datum": Columns.START_DATE.value,
-            "bis_datum": Columns.END_DATE.value,
-            "Stationsname": Columns.NAME.value,
+            "Stations_id": "station_id",
+            "Stationshoehe": "height",
+            "Geogr.Breite": "latitude",
+            "Geogr.Laenge": "longitude",
+            "von_datum": "start_date",
+            "bis_datum": "end_date",
+            "Stationsname": "name",
         },
     )
-    df = df.with_columns(pl.col(Columns.START_DATE.value).first().cast(str), pl.col(Columns.END_DATE.value).cast(str))
+    df = df.with_columns(pl.col("start_date").first().cast(str), pl.col("end_date").cast(str))
     df = df.last()
-    return df.select([col for col in METADATA_COLUMNS if col != Columns.STATE.value])
+    return df.select(
+        pl.col("station_id"),
+        pl.col("start_date"),
+        pl.col("end_date"),
+        pl.col("height"),
+        pl.col("latitude"),
+        pl.col("longitude"),
+        pl.col("name"),
+    )
 
 
 def _parse_zipped_data_into_df(file: bytes) -> pl.LazyFrame:

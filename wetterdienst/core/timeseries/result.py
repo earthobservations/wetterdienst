@@ -15,7 +15,6 @@ from typing_extensions import NotRequired, TypedDict
 
 from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
-from wetterdienst.metadata.columns import Columns
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -176,7 +175,7 @@ class StationsResult(ExportMixin):
     @property
     def station_id(self) -> pl.Series:
         """Get station IDs from the DataFrame."""
-        return self.df.get_column(Columns.STATION_ID.value)
+        return self.df.get_column("station_id")
 
     @property
     def parameters(self) -> list[ParameterModel]:
@@ -741,7 +740,7 @@ class InterpolatedValuesResult(_ValuesResult):
         feature = {
             "type": "Feature",
             "properties": {
-                "id": self.df.get_column(Columns.STATION_ID.value).gather(0).item(),
+                "id": self.df.get_column("station_id").gather(0).item(),
                 "name": name,
             },
             "geometry": {
@@ -925,7 +924,7 @@ class SummarizedValuesResult(_ValuesResult):
         feature = {
             "type": "Feature",
             "properties": {
-                "id": self.df.get_column(Columns.STATION_ID.value).gather(0).item(),
+                "id": self.df.get_column("station_id").gather(0).item(),
                 "name": name,
             },
             "geometry": {

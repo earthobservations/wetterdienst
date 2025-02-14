@@ -16,7 +16,6 @@ import polars as pl
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.geosphere.observation.metadata import GeosphereObservationMetadata
 from wetterdienst.util.network import download_file
@@ -68,35 +67,35 @@ class GeosphereObservationValues(TimeseriesValues):
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         data_raw = json.loads(response.read())
         timestamps = data_raw.pop("timestamps")
-        data = {Columns.DATE.value: timestamps}
+        data = {"date": timestamps}
         for par, par_dict in data_raw["features"][0]["properties"]["parameters"].items():
             data[par] = par_dict["data"]
         df = pl.DataFrame(data, orient="col")
         df = df.unpivot(
-            index=[Columns.DATE.value],
-            variable_name=Columns.PARAMETER.value,
-            value_name=Columns.VALUE.value,
+            index=["date"],
+            variable_name="parameter",
+            value_name="value",
         )
         # adjust units for radiation parameters of 10 minute/hourly resolution from W / m² to J / cm²
         if parameter_or_dataset.resolution.value == Resolution.MINUTE_10:
             df = df.with_columns(
-                pl.when(pl.col(Columns.PARAMETER.value).is_in(["cglo", "chim"]))
-                .then(pl.col(Columns.VALUE.value) * 600 / 10000)
-                .otherwise(pl.col(Columns.VALUE.value))
-                .alias(Columns.VALUE.value),
+                pl.when(pl.col("parameter").is_in(["cglo", "chim"]))
+                .then(pl.col("value") * 600 / 10000)
+                .otherwise(pl.col("value"))
+                .alias("value"),
             )
         elif parameter_or_dataset.resolution.value == Resolution.HOURLY:
             df = df.with_columns(
-                pl.when(pl.col(Columns.PARAMETER.value).eq("cglo"))
-                .then(pl.col(Columns.VALUE.value) * 3600 / 10000)
-                .otherwise(pl.col(Columns.VALUE.value))
-                .alias(Columns.VALUE.value),
+                pl.when(pl.col("parameter").eq("cglo"))
+                .then(pl.col("value") * 3600 / 10000)
+                .otherwise(pl.col("value"))
+                .alias("value"),
             )
         return df.with_columns(
-            pl.col(Columns.DATE.value).str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
-            pl.col(Columns.PARAMETER.value).str.to_lowercase(),
-            pl.lit(station_id).alias(Columns.STATION_ID.value),
-            pl.lit(None, pl.Float64).alias(Columns.QUALITY.value),
+            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+            pl.col("parameter").str.to_lowercase(),
+            pl.lit(station_id).alias("station_id"),
+            pl.lit(None, pl.Float64).alias("quality"),
         )
 
 
@@ -140,17 +139,17 @@ class GeosphereObservationRequest(TimeseriesRequest):
         df = df.drop("Sonnenschein", "Globalstrahlung")
         df = df.rename(
             mapping={
-                "id": Columns.STATION_ID.value,
-                "Stationsname": Columns.NAME.value,
-                "Länge [°E]": Columns.LONGITUDE.value,
-                "Breite [°N]": Columns.LATITUDE.value,
-                "Höhe [m]": Columns.HEIGHT.value,
-                "Startdatum": Columns.START_DATE.value,
-                "Enddatum": Columns.END_DATE.value,
-                "Bundesland": Columns.STATE.value,
+                "id": "station_id",
+                "Stationsname": "name",
+                "Länge [°E]": "longitude",
+                "Breite [°N]": "latitude",
+                "Höhe [m]": "height",
+                "Startdatum": "start_date",
+                "Enddatum": "end_date",
+                "Bundesland": "state",
             },
         )
         return df.with_columns(
-            pl.col(Columns.START_DATE.value).str.to_datetime(),
-            pl.col(Columns.END_DATE.value).str.to_datetime(),
+            pl.col("start_date").str.to_datetime(),
+            pl.col("end_date").str.to_datetime(),
         )

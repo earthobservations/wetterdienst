@@ -19,7 +19,6 @@ from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -116,20 +115,7 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
 
 
 class DwdDmoValues(TimeseriesValues):
-    """Fetch DWD DMO data.
-
-    Parameters
-    ----------
-    station_id : List
-        - If None, data for all stations_result is returned.
-        - If not None, station_ids are a list of station ids for which data is desired.
-
-    parameter: List
-        - If None, data for all parameters is returned.
-        - If not None, list of parameters, per DMO definition, see
-          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2
-
-    """
+    """Fetch DWD DMO data."""
 
     def __init__(self, stations_result: StationsResult) -> None:
         """Initialize DwdDmoValues."""
@@ -162,14 +148,14 @@ class DwdDmoValues(TimeseriesValues):
             return df
         df = df.unpivot(
             index=[
-                Columns.DATE.value,
+                "date",
             ],
-            variable_name=Columns.PARAMETER.value,
-            value_name=Columns.VALUE.value,
+            variable_name="parameter",
+            value_name="value",
         )
         return df.with_columns(
-            pl.lit(station_id, dtype=pl.String).alias(Columns.STATION_ID.value),
-            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
 
     def read_dmo(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
@@ -233,15 +219,15 @@ class DwdDmoRequest(TimeseriesRequest):
     )
 
     _base_columns: ClassVar = [
-        Columns.STATION_ID.value,
-        Columns.ICAO_ID.value,
-        Columns.START_DATE.value,
-        Columns.END_DATE.value,
-        Columns.LATITUDE.value,
-        Columns.LONGITUDE.value,
-        Columns.HEIGHT.value,
-        Columns.NAME.value,
-        Columns.STATE.value,
+        "station_id",
+        "icao_id",
+        "start_date",
+        "end_date",
+        "latitude",
+        "longitude",
+        "height",
+        "name",
+        "state",
     ]
 
     @staticmethod
@@ -380,21 +366,21 @@ class DwdDmoRequest(TimeseriesRequest):
         column_specs = ((0, 4), (5, 9), (10, 30), (31, 38), (39, 46), (48, 56))
         df = read_fwf_from_df(df, column_specs)
         df.columns = [
-            Columns.STATION_ID.value,
-            Columns.ICAO_ID.value,
-            Columns.NAME.value,
-            Columns.LATITUDE.value,
-            Columns.LONGITUDE.value,
-            Columns.HEIGHT.value,
+            "station_id",
+            "icao_id",
+            "name",
+            "latitude",
+            "longitude",
+            "height",
         ]
         df = df.filter(pl.col("station_id").is_in(self._station_patches.get_column("station_id")).not_())
         df = pl.concat([df, self._station_patches])
         df = df.lazy()
         return df.with_columns(
-            pl.col(Columns.ICAO_ID.value).replace("----", None),
-            pl.col(Columns.LATITUDE.value).str.replace(" ", "").cast(pl.Float64),
-            pl.col(Columns.LONGITUDE.value).str.replace(" ", "").cast(pl.Float64),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.START_DATE.value),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.END_DATE.value),
-            pl.lit(None, pl.String).alias(Columns.STATE.value),
+            pl.col("icao_id").replace("----", None),
+            pl.col("latitude").str.replace(" ", "").cast(pl.Float64),
+            pl.col("longitude").str.replace(" ", "").cast(pl.Float64),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
+            pl.lit(None, pl.String).alias("state"),
         )

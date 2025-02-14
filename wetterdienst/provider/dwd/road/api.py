@@ -23,7 +23,6 @@ from wetterdienst.core.timeseries.metadata import (
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.util.eccodes import check_pdbufr
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
@@ -207,18 +206,14 @@ class DwdRoadValues(TimeseriesValues):
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect data from DWD Road Weather stations."""
-        station_group = (
-            self.sr.df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
-            .get_column(Columns.STATION_GROUP.value)
-            .item()
-        )
+        station_group = self.sr.df.filter(pl.col("station_id").eq(station_id)).get_column("station_group").item()
         station_group = DwdRoadStationGroup(station_group)
         parameters = list(parameter_or_dataset)
         try:
             df = self._collect_data_by_station_group(station_group, parameters)
         except ValueError:
             return pl.DataFrame()
-        return df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
+        return df.filter(pl.col("station_id").eq(station_id))
 
     def _create_file_index_for_dwd_road_weather_station(
         self,
@@ -239,9 +234,9 @@ class DwdRoadValues(TimeseriesValues):
             log.info(f"No files found for {road_weather_station_group.value}.")
             if road_weather_station_group in TEMPORARILY_UNAVAILABLE_STATION_GROUPS:
                 log.info(f"Station group {road_weather_station_group.value} may be temporarily unavailable.")
-        df = pl.DataFrame({Columns.FILENAME.value: files}, schema={Columns.FILENAME.value: pl.String})
+        df = pl.DataFrame({"filename": files}, schema={"filename": pl.String})
         return df.with_columns(
-            pl.col(Columns.FILENAME.value)
+            pl.col("filename")
             .str.split("/")
             .list.last()
             .str.extract(DATE_REGEX, 1)
@@ -258,9 +253,9 @@ class DwdRoadValues(TimeseriesValues):
         remote_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
         if self.sr.start_date:
             remote_files = remote_files.filter(
-                pl.col(Columns.DATE.value).is_between(self.sr.start_date, self.sr.end_date),
+                pl.col("date").is_between(self.sr.start_date, self.sr.end_date),
             )
-        remote_files = remote_files.get_column(Columns.FILENAME.value).to_list()
+        remote_files = remote_files.get_column("filename").to_list()
         filenames_and_files = self._download_road_weather_observations(remote_files, self.sr.settings)
         return self._parse_dwd_road_weather_data(filenames_and_files, parameters)
 
@@ -324,7 +319,7 @@ class DwdRoadValues(TimeseriesValues):
                 df = df.merge(df2, on=(*TIME_COLUMNS, "shortStationName"))
         df = pl.from_pandas(df)
         df = df.select(
-            pl.col("shortStationName").alias(Columns.STATION_ID.value),
+            pl.col("shortStationName").alias("station_id"),
             pl.concat_str(
                 exprs=[
                     pl.col("year").cast(pl.String),
@@ -335,17 +330,17 @@ class DwdRoadValues(TimeseriesValues):
                 ],
             )
             .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
-            .alias(Columns.DATE.value),
+            .alias("date"),
             *parameter_names,
         )
         df = df.unpivot(
-            index=[Columns.STATION_ID.value, Columns.DATE.value],
-            variable_name=Columns.PARAMETER.value,
-            value_name=Columns.VALUE.value,
+            index=["station_id", "date"],
+            variable_name="parameter",
+            value_name="value",
         )
         return df.with_columns(
             pl.col("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
 
@@ -358,46 +353,46 @@ class DwdRoadRequest(TimeseriesRequest):
     _base_columns: ClassVar = list(TimeseriesRequest._base_columns)  # noqa: SLF001
     _base_columns.extend(
         (
-            Columns.STATION_GROUP.value,
-            Columns.ROAD_NAME.value,
-            Columns.ROAD_SECTOR.value,
-            Columns.ROAD_TYPE.value,
-            Columns.ROAD_SURFACE_TYPE.value,
-            Columns.ROAD_SURROUNDINGS_TYPE.value,
+            "station_group",
+            "road_name",
+            "road_sector",
+            "road_type",
+            "road_surface_type",
+            "road_surroundings_type",
         ),
     )
     _endpoint = (
         "https://www.dwd.de/DE/leistungen/opendata/help/stationen/sws_stations_xls.xlsx?__blob=publicationFile&v=11"
     )
     _column_mapping: ClassVar = {
-        "Kennung": Columns.STATION_ID.value,
-        "GMA-Name": Columns.NAME.value,
-        "Bundesland  ": Columns.STATE.value,
-        "Straße / Fahrtrichtung": Columns.ROAD_NAME.value,
-        "Strecken-kilometer 100 m": Columns.ROAD_SECTOR.value,
-        """Streckentyp (Register "Typen")""": Columns.ROAD_TYPE.value,
-        """Streckenlage (Register "Typen")""": Columns.ROAD_SURROUNDINGS_TYPE.value,
-        """Streckenbelag (Register "Typen")""": Columns.ROAD_SURFACE_TYPE.value,
-        "Breite (Dezimalangabe)": Columns.LATITUDE.value,
-        "Länge (Dezimalangabe)": Columns.LONGITUDE.value,
-        "Höhe in m über NN": Columns.HEIGHT.value,
-        "GDS-Verzeichnis": Columns.STATION_GROUP.value,
-        "außer Betrieb (gemeldet)": Columns.HAS_FILE.value,
+        "Kennung": "station_id",
+        "GMA-Name": "name",
+        "Bundesland  ": "state",
+        "Straße / Fahrtrichtung": "road_name",
+        "Strecken-kilometer 100 m": "road_sector",
+        """Streckentyp (Register "Typen")""": "road_type",
+        """Streckenlage (Register "Typen")""": "road_surroundings_type",
+        """Streckenbelag (Register "Typen")""": "road_surface_type",
+        "Breite (Dezimalangabe)": "latitude",
+        "Länge (Dezimalangabe)": "longitude",
+        "Höhe in m über NN": "height",
+        "GDS-Verzeichnis": "station_group",
+        "außer Betrieb (gemeldet)": "has_file",
     }
     _dtypes: ClassVar = {
-        Columns.STATION_ID.value: pl.String,
-        Columns.NAME.value: pl.String,
-        Columns.STATE.value: pl.String,
-        Columns.ROAD_NAME.value: pl.String,
-        Columns.ROAD_SECTOR.value: pl.Utf8,
-        Columns.ROAD_TYPE.value: pl.Int64,
-        Columns.ROAD_SURROUNDINGS_TYPE.value: pl.Int64,
-        Columns.ROAD_SURFACE_TYPE.value: pl.Int64,
-        Columns.LATITUDE.value: pl.Float64,
-        Columns.LONGITUDE.value: pl.Float64,
-        Columns.HEIGHT.value: pl.Float64,
-        Columns.STATION_GROUP.value: pl.Utf8,
-        Columns.HAS_FILE.value: pl.Utf8,
+        "station_id": pl.String,
+        "name": pl.String,
+        "state": pl.String,
+        "road_name": pl.String,
+        "road_sector": pl.Utf8,
+        "road_type": pl.Int64,
+        "road_surroundings_type": pl.Int64,
+        "road_surface_type": pl.Int64,
+        "latitude": pl.Float64,
+        "longitude": pl.Float64,
+        "height": pl.Float64,
+        "station_group": pl.Utf8,
+        "has_file": pl.Utf8,
     }
 
     def __init__(
@@ -430,19 +425,17 @@ class DwdRoadRequest(TimeseriesRequest):
         df = df.rename(mapping=self._column_mapping)
         df = df.select(pl.col(col) for col in self._column_mapping.values())
         df = df.filter(
-            pl.col(Columns.HAS_FILE.value).ne("x")
-            & pl.col(Columns.STATION_GROUP.value).ne("0")
-            & pl.col(Columns.STATION_ID.value).is_not_null(),
+            pl.col("has_file").ne("x") & pl.col("station_group").ne("0") & pl.col("station_id").is_not_null(),
         )
         df = df.with_columns(
-            pl.col(Columns.LONGITUDE.value).str.replace(",", "."),
-            pl.col(Columns.LATITUDE.value).str.replace(",", "."),
-            pl.when(~pl.col(Columns.ROAD_TYPE.value).str.contains("x")).then(pl.col(Columns.ROAD_TYPE.value)),
-            pl.when(~pl.col(Columns.ROAD_SURROUNDINGS_TYPE.value).str.contains("x")).then(
-                pl.col(Columns.ROAD_SURROUNDINGS_TYPE.value),
+            pl.col("longitude").str.replace(",", "."),
+            pl.col("latitude").str.replace(",", "."),
+            pl.when(~pl.col("road_type").str.contains("x")).then(pl.col("road_type")),
+            pl.when(~pl.col("road_surroundings_type").str.contains("x")).then(
+                pl.col("road_surroundings_type"),
             ),
-            pl.when(~pl.col(Columns.ROAD_SURFACE_TYPE.value).str.contains("x")).then(
-                pl.col(Columns.ROAD_SURFACE_TYPE.value),
+            pl.when(~pl.col("road_surface_type").str.contains("x")).then(
+                pl.col("road_surface_type"),
             ),
         )
         df = df.with_columns(pl.col(col).cast(dtype) for col, dtype in self._dtypes.items())

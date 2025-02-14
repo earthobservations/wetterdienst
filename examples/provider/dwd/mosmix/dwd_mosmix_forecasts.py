@@ -18,7 +18,7 @@ from wetterdienst.util.cli import setup_logging
 
 def mosmix_example() -> None:
     """Retrieve Mosmix mosmix data by DWD."""
-    # A. MOSMIX-L -- Specific stations_result - each station with own file
+    # A. MOSMIX-L -- Specific stations - each station with own file
     settings = Settings(ts_shape="wide", ts_humanize=True)
 
     request = DwdMosmixRequest(
@@ -37,7 +37,7 @@ def mosmix_example() -> None:
     output_section("Metadata", response.stations.df)
     output_section("Forecasts", response.df)
 
-    # B. MOSMIX-L -- All stations_result - specified stations_result are extracted.
+    # B. MOSMIX-L -- All stations - specified stations are extracted.
     Settings.tidy = True
     Settings.humanize = True
 
@@ -57,7 +57,7 @@ def mosmix_example() -> None:
     output_section("Metadata", response.stations.df)
     output_section("Forecasts", response.df)
 
-    # C. MOSMIX-S -- All stations_result - specified stations_result are extracted.
+    # C. MOSMIX-S -- All stations - specified stations are extracted.
 
     request = DwdMosmixRequest(
         parameters=[("hourly", "small", "DD"), ("hourly", "small", "ww")],
