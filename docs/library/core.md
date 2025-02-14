@@ -23,9 +23,3 @@
 ::: wetterdienst.util.network
     options:
       heading_level: 3
-
-## Enumerations
-
-::: wetterdienst.metadata.columns
-    options:
-      heading_level: 3

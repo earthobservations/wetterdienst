@@ -46,7 +46,7 @@ def station_example(
     end_date: str = "2022-12-25",
     name: str = "Frankfurt/Main",
 ) -> StationsResult:
-    """Retrieve stations_result of DWD that measure temperature."""
+    """Retrieve stations of DWD that measure temperature."""
     stations = DwdObservationRequest(
         parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
         start_date=start_date,

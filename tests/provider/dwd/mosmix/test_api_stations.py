@@ -15,7 +15,6 @@ from dirty_equals import IsInt, IsTuple
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
@@ -116,7 +115,7 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
         "ACHENKIRCH/OESTERREI",
     ]
     # Filter dataframe.
-    given_df = given_df.filter(pl.col(Columns.STATION_ID.value).is_in(["01001", "72306", "83891", "94767"]))
+    given_df = given_df.filter(pl.col("station_id").is_in(["01001", "72306", "83891", "94767"]))
     # Verify content of filtered dataframe.
     expected_df = pl.DataFrame(
         [

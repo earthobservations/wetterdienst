@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from wetterdienst.exceptions import InvalidTimeIntervalError
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.datetime import mktimerange, parse_date
 
@@ -97,13 +96,13 @@ def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
         date_from = parse_date(date_from)
         date_to = parse_date(date_to)
 
-        expression = pl.col(Columns.DATE.value).is_between(date_from, date_to, closed="both")
+        expression = pl.col("date").is_between(date_from, date_to, closed="both")
 
         return df.filter(expression)
 
     # Filter by specific date.
     date = parse_date(date)
 
-    expression = pl.col(Columns.DATE.value).eq(date)
+    expression = pl.col("date").eq(date)
 
     return df.filter(expression)

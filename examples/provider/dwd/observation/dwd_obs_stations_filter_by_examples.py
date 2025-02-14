@@ -14,7 +14,7 @@ log = logging.getLogger()
 
 
 def stations_filter_by_examples() -> None:
-    """Retrieve stations_result of DWD that measure temperature."""
+    """Retrieve stations of DWD that measure temperature."""
     request = DwdObservationRequest(
         parameters=("hourly", "temperature_air"),
         periods="recent",

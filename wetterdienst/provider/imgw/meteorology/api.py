@@ -19,7 +19,6 @@ from wetterdienst.core.timeseries.metadata import DatasetModel, build_metadata_m
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
@@ -621,10 +620,10 @@ class ImgwMeteorologyValues(TimeseriesValues):
             return df
         if resolution == Resolution.DAILY:
             exp1 = pl.all().exclude(["year", "month", "day"])
-            exp2 = pl.datetime("year", "month", "day").alias(Columns.DATE.value)
+            exp2 = pl.datetime("year", "month", "day").alias("date")
         else:
             exp1 = pl.all().exclude(["year", "month"])
-            exp2 = pl.datetime("year", "month", 1).alias(Columns.DATE.value)
+            exp2 = pl.datetime("year", "month", 1).alias("date")
         df = df.select(exp1, exp2)
         df = df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name="value")
         return df.with_columns(pl.col("value").cast(pl.Float64))
@@ -740,16 +739,16 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         df = pl.read_csv(payload, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
         df = df[:, 1:]
         df.columns = [
-            Columns.STATION_ID.value,
-            Columns.NAME.value,
-            Columns.STATE.value,
-            Columns.LATITUDE.value,
-            Columns.LONGITUDE.value,
-            Columns.HEIGHT.value,
+            "station_id",
+            "name",
+            "state",
+            "latitude",
+            "longitude",
+            "height",
         ]
         df = df.lazy()
         return df.with_columns(
-            pl.col(Columns.LATITUDE.value).map_batches(convert_dms_string_to_dd),
-            pl.col(Columns.LONGITUDE.value).map_batches(convert_dms_string_to_dd),
-            pl.col(Columns.HEIGHT.value).str.replace(" ", "").cast(pl.Float64, strict=False),
+            pl.col("latitude").map_batches(convert_dms_string_to_dd),
+            pl.col("longitude").map_batches(convert_dms_string_to_dd),
+            pl.col("height").str.replace(" ", "").cast(pl.Float64, strict=False),
         )

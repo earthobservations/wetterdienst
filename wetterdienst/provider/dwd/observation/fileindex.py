@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, HIGH_RESOLUTIONS, DwdObservationMetadata
@@ -76,22 +75,22 @@ def create_file_index_for_climate_observations(
             .list.first()
             .str.to_datetime("%Y%m%d")
             .dt.replace_time_zone("Europe/Berlin")
-            .alias(Columns.START_DATE.value),
+            .alias("start_date"),
             pl.col("date_range")
             .str.split("_")
             .list.last()
             .str.to_datetime("%Y%m%d")
             .dt.replace_time_zone("Europe/Berlin")
             .map_batches(lambda dates: dates + dt.timedelta(days=1))
-            .alias(Columns.END_DATE.value),
+            .alias("end_date"),
         )
         df_files = df_files.with_columns(
-            pl.when(pl.col(Columns.START_DATE.value) > pl.col(Columns.END_DATE.value))
-            .then(pl.col(Columns.START_DATE.value).min())
-            .otherwise(pl.col(Columns.START_DATE.value)),
-            pl.when(pl.col(Columns.START_DATE.value) > pl.col(Columns.END_DATE.value))
-            .then(pl.col(Columns.END_DATE.value).min())
-            .otherwise(pl.col(Columns.END_DATE.value)),
+            pl.when(pl.col("start_date") > pl.col("end_date"))
+            .then(pl.col("start_date").min())
+            .otherwise(pl.col("start_date")),
+            pl.when(pl.col("start_date") > pl.col("end_date"))
+            .then(pl.col("end_date").min())
+            .otherwise(pl.col("end_date")),
         )
     return df_files.sort(by=[pl.col("station_id"), pl.col("filename")])
 

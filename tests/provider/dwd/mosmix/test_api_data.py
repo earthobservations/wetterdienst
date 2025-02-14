@@ -22,7 +22,7 @@ def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> Non
     )
     response = next(request.values.query())
 
-    # Verify list of stations_result.
+    # Verify list of stations.
     station_names = response.stations.df.get_column("name").unique().to_list()
     assert station_names == ["JAN MAYEN"]
 
@@ -174,7 +174,7 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> Non
         station_id=["01028"],
     )
     response = next(request.values.query())
-    # Verify list of stations_result.
+    # Verify list of stations.
     station_names = response.stations.df.get_column("name").unique().to_list()
     assert station_names == ["BJORNOYA"]
     # Verify mosmix data.

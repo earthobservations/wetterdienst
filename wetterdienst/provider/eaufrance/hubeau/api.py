@@ -22,7 +22,6 @@ from wetterdienst.core.timeseries.metadata import (
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -166,33 +165,33 @@ class HubeauValues(TimeseriesValues):
         except ValueError:
             df = pl.DataFrame(
                 schema={
-                    Columns.STATION_ID.value: pl.String,
-                    Columns.DATE.value: pl.Datetime(time_zone="UTC"),
-                    Columns.VALUE.value: pl.Float64,
-                    Columns.QUALITY.value: pl.Float64,
+                    "station_id": pl.String,
+                    "date": pl.Datetime(time_zone="UTC"),
+                    "value": pl.Float64,
+                    "quality": pl.Float64,
                 },
             )
         else:
             df = df.with_columns(pl.col("date_obs").map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime))
             df = df.with_columns(pl.col("date_obs").dt.replace_time_zone("UTC"))
 
-        df = df.with_columns(pl.lit(parameter_or_dataset.name_original.lower()).alias(Columns.PARAMETER.value))
+        df = df.with_columns(pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"))
 
         df = df.rename(
             mapping={
-                "code_station": Columns.STATION_ID.value,
-                "date_obs": Columns.DATE.value,
-                "resultat_obs": Columns.VALUE.value,
-                "code_qualification_obs": Columns.QUALITY.value,
+                "code_station": "station_id",
+                "date_obs": "date",
+                "resultat_obs": "value",
+                "code_qualification_obs": "quality",
             },
         )
 
         return df.select(
-            pl.col(Columns.STATION_ID.value),
-            pl.col(Columns.PARAMETER.value),
-            pl.col(Columns.DATE.value),
-            pl.col(Columns.VALUE.value),
-            pl.col(Columns.QUALITY.value),
+            pl.col("station_id"),
+            pl.col("parameter"),
+            pl.col("date"),
+            pl.col("value"),
+            pl.col("quality"),
         )
 
 
@@ -242,27 +241,25 @@ class HubeauRequest(TimeseriesRequest):
 
         df = df.rename(
             mapping={
-                "code_station": Columns.STATION_ID.value,
-                "libelle_station": Columns.NAME.value,
-                "longitude_station": Columns.LONGITUDE.value,
-                "latitude_station": Columns.LATITUDE.value,
-                "altitude_ref_alti_station": Columns.HEIGHT.value,
-                "libelle_departement": Columns.STATE.value,
-                "date_ouverture_station": Columns.START_DATE.value,
-                "date_fermeture_station": Columns.END_DATE.value,
+                "code_station": "station_id",
+                "libelle_station": "name",
+                "longitude_station": "longitude",
+                "latitude_station": "latitude",
+                "altitude_ref_alti_station": "height",
+                "libelle_departement": "state",
+                "date_ouverture_station": "start_date",
+                "date_fermeture_station": "end_date",
             },
         )
 
         df = df.with_columns(
-            pl.col(Columns.START_DATE.value).map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
-            pl.when(pl.col(Columns.END_DATE.value).is_null())
+            pl.col("start_date").map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
+            pl.when(pl.col("end_date").is_null())
             .then(dt.datetime.now(ZoneInfo("UTC")).date())
-            .alias(Columns.END_DATE.value)
+            .alias("end_date")
             .cast(pl.Datetime),
         )
 
         return df.filter(
-            pl.col(Columns.STATION_ID.value)
-            .str.slice(offset=0, length=1)
-            .map_elements(str.isalpha, return_dtype=pl.Boolean),
+            pl.col("station_id").str.slice(offset=0, length=1).map_elements(str.isalpha, return_dtype=pl.Boolean),
         )

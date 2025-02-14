@@ -9,7 +9,6 @@ import polars as pl
 import pytest
 
 from wetterdienst import Settings
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.metaindex import (
@@ -38,7 +37,7 @@ def test_meta_index_1mph_creation(default_settings: Settings) -> None:
         period=Period.HISTORICAL,
         settings=default_settings,
     ).collect()
-    assert meta_index_1mph.filter(pl.col(Columns.STATION_ID.value).eq("00003")).row(0) == (
+    assert meta_index_1mph.filter(pl.col("station_id").eq("00003")).row(0) == (
         (
             "00003",
             dt.datetime(1891, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),

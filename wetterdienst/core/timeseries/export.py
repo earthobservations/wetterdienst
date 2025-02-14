@@ -15,7 +15,6 @@ from urllib.parse import urlunparse
 import polars as pl
 import polars.selectors as cs
 
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.url import ConnectionString
 
 if TYPE_CHECKING:
@@ -159,10 +158,10 @@ class ExportMixin:
         """
         import duckdb
 
-        df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone(None))  # uses df from local scope
+        df = df.with_columns(pl.col("date").dt.replace_time_zone(None))  # uses df from local scope
         sql = f"FROM df WHERE {sql}"
         df = duckdb.sql(sql).pl()
-        return df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
+        return df.with_columns(pl.col("date").dt.replace_time_zone("UTC"))
 
     def to_target(self, target: str) -> None:  # noqa: C901
         """Emit data to a target.
@@ -306,7 +305,7 @@ class ExportMixin:
 
             df = copy(self.df)
 
-            for column in (Columns.START_DATE.value, Columns.END_DATE.value, Columns.DATE.value):
+            for column in ("start_date", "end_date", "date"):
                 if column in df.columns:
                     df = df.with_columns(pl.col(column).dt.replace_time_zone(None))
 
@@ -581,7 +580,7 @@ class ExportMixin:
 def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
     """Convert all datetime columns to ISO format."""
     date_columns = list(df.select(pl.col(pl.Datetime)).columns)
-    date_columns.extend([Columns.START_DATE.value, Columns.END_DATE.value, Columns.DATE.value])
+    date_columns.extend(["start_date", "end_date", "date"])
     date_columns = set(date_columns)
     for date_column in date_columns:
         if date_column in df:

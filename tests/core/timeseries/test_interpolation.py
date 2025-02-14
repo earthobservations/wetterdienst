@@ -11,7 +11,6 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
 from wetterdienst.exceptions import StationNotFoundError
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -27,13 +26,13 @@ def df_interpolated_empty() -> pl.DataFrame:
     """Provide empty DataFrame for interpolated values."""
     return pl.DataFrame(
         schema={
-            Columns.STATION_ID.value: pl.String,
-            Columns.DATASET.value: pl.String,
-            Columns.PARAMETER.value: pl.String,
-            Columns.DATE.value: pl.Datetime(time_zone="UTC"),
-            Columns.VALUE.value: pl.Float64,
-            Columns.DISTANCE_MEAN.value: pl.Float64,
-            Columns.TAKEN_STATION_IDS.value: pl.List(pl.String),
+            "station_id": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "distance_mean": pl.Float64,
+            "taken_station_ids": pl.List(pl.String),
         },
     )
 

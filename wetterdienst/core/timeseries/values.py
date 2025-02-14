@@ -18,7 +18,6 @@ from tzfpy import get_tz
 
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.core.timeseries.unit import UnitConverter
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import DAILY_AT_MOST, Frequency, Resolution
 from wetterdienst.util.logging import TqdmToLogger
 
@@ -88,21 +87,21 @@ class TimeseriesValues(ABC):
         """Get metadata fields for the DataFrame."""
         if not self.sr.tidy:
             return {
-                Columns.STATION_ID.value: str,
-                Columns.DATASET.value: str,
-                Columns.DATE.value: pl.Datetime(time_zone="UTC"),
+                "station_id": str,
+                "dataset": str,
+                "date": pl.Datetime(time_zone="UTC"),
             }
         return {
-            Columns.STATION_ID.value: str,
-            Columns.DATASET.value: str,
-            Columns.PARAMETER.value: str,
-            Columns.DATE.value: pl.Datetime(time_zone="UTC"),
-            Columns.VALUE.value: pl.Float64,
-            Columns.QUALITY.value: pl.Float64,
+            "station_id": str,
+            "dataset": str,
+            "parameter": str,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
         }
 
     # Fields for date coercion
-    _date_fields: ClassVar = [Columns.DATE.value, Columns.START_DATE.value, Columns.END_DATE.value]
+    _date_fields: ClassVar = ["date", "start_date", "end_date"]
 
     # TODO: add data type (mosmix, observation, ...)
 
@@ -179,8 +178,8 @@ class TimeseriesValues(ABC):
         """
         stations = self.sr.df
         longitude, latitude = (
-            stations.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
-            .select([pl.col(Columns.LONGITUDE.value), pl.col(Columns.LATITUDE.value)])
+            stations.filter(pl.col("station_id").eq(station_id))
+            .select([pl.col("longitude"), pl.col("latitude")])
             .transpose()
             .to_series()
             .to_list()
@@ -190,7 +189,7 @@ class TimeseriesValues(ABC):
     def _get_base_df(self, start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> pl.DataFrame:
         """Create a base DataFrame with all dates for a given station."""
         return pl.DataFrame(
-            {Columns.DATE.value: self._get_complete_dates(start_date, end_date, resolution)},
+            {"date": self._get_complete_dates(start_date, end_date, resolution)},
             orient="col",
         )
 
@@ -206,12 +205,12 @@ class TimeseriesValues(ABC):
 
         data = []
         for (parameter,), df_group in df.group_by(
-            [Columns.PARAMETER.value],
+            ["parameter"],
             maintain_order=True,
         ):
             lambda_ = conversion_factors[parameter.lower()]
             # round by 4 decimals to avoid long floats but keep precision
-            df_group = df_group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda_).round(4))
+            df_group = df_group.with_columns(pl.col("value").map_batches(lambda_).round(4))
             data.append(df_group)
 
         return pl.concat(data)
@@ -251,15 +250,15 @@ class TimeseriesValues(ABC):
         for parameter in dataset.parameters:
             if parameter.name.startswith("quality"):
                 continue
-            par_df = base_df.with_columns(pl.lit(parameter.name_original).alias(Columns.PARAMETER.value))
+            par_df = base_df.with_columns(pl.lit(parameter.name_original).alias("parameter"))
             data.append(par_df)
 
         df = pl.concat(data)
 
         return df.with_columns(
-            pl.lit(value=station_id, dtype=pl.String).alias(Columns.STATION_ID.value),
-            pl.lit(value=None, dtype=pl.Float64).alias(Columns.VALUE.value),
-            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+            pl.lit(value=station_id, dtype=pl.String).alias("station_id"),
+            pl.lit(value=None, dtype=pl.Float64).alias("value"),
+            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
 
     def _build_complete_df(self, df: pl.DataFrame, station_id: str, resolution: Resolution) -> pl.DataFrame:
@@ -274,17 +273,17 @@ class TimeseriesValues(ABC):
         base_df = self._get_base_df(start_date, end_date, resolution)
         data = []
         for (parameter,), df_group in df.group_by(
-            [Columns.PARAMETER.value],
+            ["parameter"],
             maintain_order=True,
         ):
             df_group = base_df.join(
                 other=df_group,
-                on=[Columns.DATE.value],
+                on=["date"],
                 how="left",
             )
             df_group = df_group.with_columns(
-                pl.lit(station_id).alias(Columns.STATION_ID.value),
-                pl.lit(parameter).alias(Columns.PARAMETER.value),
+                pl.lit(station_id).alias("station_id"),
+                pl.lit(parameter).alias("parameter"),
             )
             data.append(df_group)
         return pl.concat(data)
@@ -294,8 +293,8 @@ class TimeseriesValues(ABC):
         columns = list(self._meta_fields.keys())
         columns.extend(set(df.columns).difference(columns))
         df = df.with_columns(
-            pl.lit(station_id).alias(Columns.STATION_ID.value),
-            pl.lit(dataset.name.lower()).alias(Columns.DATASET.value),
+            pl.lit(station_id).alias("station_id"),
+            pl.lit(dataset.name.lower()).alias("dataset"),
         )
         return df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in columns)
 
@@ -323,7 +322,7 @@ class TimeseriesValues(ABC):
                     )
                     if not df.is_empty():
                         parameter_names = {parameter.name_original for parameter in parameters}
-                        df = df.filter(pl.col(Columns.PARAMETER.value).is_in(parameter_names))
+                        df = df.filter(pl.col("parameter").is_in(parameter_names))
                 else:
                     dataset_data = []
                     for parameter in parameters:
@@ -341,10 +340,10 @@ class TimeseriesValues(ABC):
                 if self.sr.convert_units:
                     df = self._convert_units(df, dataset)
 
-                df = df.unique(subset=[Columns.DATE.value, Columns.PARAMETER.value], maintain_order=True)
+                df = df.unique(subset=["date", "parameter"], maintain_order=True)
 
                 if self.sr.drop_nulls:
-                    df = df.drop_nulls(subset=[Columns.VALUE.value])
+                    df = df.drop_nulls(subset=["value"])
                 elif self.sr.complete and self.sr.start_date and dataset.resolution.value != Resolution.DYNAMIC:
                     df = self._build_complete_df(df, station_id, dataset.resolution.value)
 
@@ -359,7 +358,7 @@ class TimeseriesValues(ABC):
 
             if self.sr.start_date:
                 df = df.filter(
-                    pl.col(Columns.DATE.value).is_between(
+                    pl.col("date").is_between(
                         self.sr.start_date,
                         self.sr.end_date,
                         closed="both",
@@ -382,10 +381,8 @@ class TimeseriesValues(ABC):
             if not self.sr.tidy:
                 df = self._widen_df(df=df)
 
-            if self.sr.tidy:
-                sort_columns = [Columns.DATASET.value, Columns.PARAMETER.value, Columns.DATE.value]
-            else:
-                sort_columns = [Columns.DATASET.value, Columns.DATE.value]
+            sort_columns = ["dataset", "parameter", "date"] if self.sr.tidy else ["dataset", "date"]
+
             df = df.sort(sort_columns)
 
             self.stations_counter += 1
@@ -428,27 +425,27 @@ class TimeseriesValues(ABC):
         datasets = {parameter.dataset.name for parameter in self.sr.parameters}
         if len(datasets) > 1:
             df = df.with_columns(
-                pl.struct([pl.col(Columns.DATASET.value), pl.col(Columns.PARAMETER.value)])
+                pl.struct([pl.col("dataset"), pl.col("parameter")])
                 .map_elements(lambda x: f"""{x["dataset"]}_{x["parameter"]}""", return_dtype=pl.String)
-                .alias(Columns.PARAMETER.value),
+                .alias("parameter"),
             )
         df_wide = df.select(
-            [pl.col(Columns.STATION_ID.value), pl.col(Columns.DATASET.value), pl.col(Columns.DATE.value)],
+            [pl.col("station_id"), pl.col("dataset"), pl.col("date")],
         ).unique()
 
         if not df.is_empty():
-            for (parameter,), df_parameter in df.group_by([Columns.PARAMETER.value], maintain_order=True):
+            for (parameter,), df_parameter in df.group_by(["parameter"], maintain_order=True):
                 # Build quality column name
-                parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter}"
-                df_parameter = df_parameter.select([Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value])
+                parameter_quality = f"qn_{parameter}"
+                df_parameter = df_parameter.select(["date", "value", "quality"])
                 df_parameter = df_parameter.rename(
-                    mapping={Columns.VALUE.value: parameter, Columns.QUALITY.value: parameter_quality},
+                    mapping={"value": parameter, "quality": parameter_quality},
                 )
-                df_wide = df_wide.join(df_parameter, on=[Columns.DATE.value])
+                df_wide = df_wide.join(df_parameter, on=["date"])
         else:
             for parameter in self.sr.parameters:
                 parameter_name = parameter.name_original if not self.sr.humanize else parameter.name
-                parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter_name}"
+                parameter_quality = f"qn_{parameter_name}"
                 df_wide = df_wide.with_columns(
                     pl.lit(None, pl.Float64).alias(parameter_name),
                     pl.lit(None, pl.Float64).alias(parameter_quality),
@@ -476,7 +473,7 @@ class TimeseriesValues(ABC):
     @staticmethod
     def _humanize(df: pl.DataFrame, humanized_parameters_mapping: dict[str, str]) -> pl.DataFrame:
         """Humanize parameter names in a DataFrame."""
-        return df.with_columns(pl.col(Columns.PARAMETER.value).replace(humanized_parameters_mapping))
+        return df.with_columns(pl.col("parameter").replace(humanized_parameters_mapping))
 
     def _create_humanized_parameters_mapping(self) -> dict[str, str]:
         """Create mapping of original to humanized parameter names."""

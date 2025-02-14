@@ -18,7 +18,6 @@ from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -103,14 +102,14 @@ class DwdMosmixValues(TimeseriesValues):
             return df
         df = df.unpivot(
             index=[
-                Columns.DATE.value,
+                "date",
             ],
-            variable_name=Columns.PARAMETER.value,
-            value_name=Columns.VALUE.value,
+            variable_name="parameter",
+            value_name="value",
         )
         return df.with_columns(
-            pl.lit(station_id, dtype=pl.String).alias(Columns.STATION_ID.value),
-            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
 
     def read_mosmix(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
@@ -185,15 +184,15 @@ class DwdMosmixRequest(TimeseriesRequest):
     _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
 
     _base_columns: ClassVar = [
-        Columns.STATION_ID.value,
-        Columns.ICAO_ID.value,
-        Columns.START_DATE.value,
-        Columns.END_DATE.value,
-        Columns.LATITUDE.value,
-        Columns.LONGITUDE.value,
-        Columns.HEIGHT.value,
-        Columns.NAME.value,
-        Columns.STATE.value,
+        "station_id",
+        "icao_id",
+        "start_date",
+        "end_date",
+        "latitude",
+        "longitude",
+        "height",
+        "name",
+        "state",
     ]
 
     def __init__(
@@ -253,22 +252,22 @@ class DwdMosmixRequest(TimeseriesRequest):
         column_specs = ((0, 5), (6, 9), (11, 30), (32, 38), (39, 46), (48, 56))
         df = read_fwf_from_df(df, column_specs)
         df.columns = [
-            Columns.STATION_ID.value,
-            Columns.ICAO_ID.value,
-            Columns.NAME.value,
-            Columns.LATITUDE.value,
-            Columns.LONGITUDE.value,
-            Columns.HEIGHT.value,
+            "station_id",
+            "icao_id",
+            "name",
+            "latitude",
+            "longitude",
+            "height",
         ]
         df = df.select(
-            pl.col(Columns.STATION_ID.value),
-            pl.col(Columns.ICAO_ID.value).replace("----", None),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.START_DATE.value),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.END_DATE.value),
-            pl.col(Columns.LATITUDE.value).cast(float).map_batches(convert_dm_to_dd),
-            pl.col(Columns.LONGITUDE.value).cast(float).map_batches(convert_dm_to_dd),
-            pl.col(Columns.HEIGHT.value).cast(int),
-            pl.col(Columns.NAME.value),
-            pl.lit(None, pl.String).alias(Columns.STATE.value),
+            pl.col("station_id"),
+            pl.col("icao_id").replace("----", None),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
+            pl.col("latitude").cast(float).map_batches(convert_dm_to_dd),
+            pl.col("longitude").cast(float).map_batches(convert_dm_to_dd),
+            pl.col("height").cast(int),
+            pl.col("name"),
+            pl.lit(None, pl.String).alias("state"),
         )
         return df.lazy()

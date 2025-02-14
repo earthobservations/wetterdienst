@@ -13,7 +13,6 @@ from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, Paramete
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.network import download_file
 
 FLOAT_9_TIMES = tuple[
@@ -211,14 +210,14 @@ class WsvPegelValues(TimeseriesValues):
             return pl.DataFrame()
 
         df = pl.read_json(response)
-        df = df.rename(mapping={"timestamp": Columns.DATE.value, "value": Columns.VALUE.value})
+        df = df.rename(mapping={"timestamp": "date", "value": "value"})
         df = df.with_columns(
-            pl.col(Columns.DATE.value).map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
+            pl.col("date").map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
         )
         return df.with_columns(
-            pl.col(Columns.DATE.value).dt.replace_time_zone(time_zone="UTC"),
-            pl.lit(parameter_or_dataset.name_original.lower()).alias(Columns.PARAMETER.value),
-            pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+            pl.col("date").dt.replace_time_zone(time_zone="UTC"),
+            pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
 
