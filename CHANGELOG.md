@@ -4,6 +4,7 @@
 
 ### Feature
 - Add user agent to default `fsspec_client_kwargs`
+- Add docker core image
 
 ### Refactor
 - Improve date parsing across multiple apis
