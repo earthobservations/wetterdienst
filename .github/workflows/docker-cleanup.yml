@@ -1,0 +1,28 @@
+# snippet close to examples from https://github.com/snok/container-retention-policy
+name: Docker Cleanup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *' # everyday at midnight
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete untagged images
+        uses: snok/container-retention-policy@v3.0.0
+        with:
+          account: earthobservations
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: "wetterdienst"
+          tag-selection: untagged
+          cut-off: 0d
+      - name: Delete pr tagged images
+        uses: snok/container-retention-policy@v3.0.0
+        with:
+          account: earthobservations
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: "wetterdienst"
+          image-tags: "pr-*"
+          cut-off: 0d
