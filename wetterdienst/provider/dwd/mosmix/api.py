@@ -108,6 +108,7 @@ class DwdMosmixValues(TimeseriesValues):
             value_name="value",
         )
         return df.with_columns(
+            pl.col("date").str.to_datetime(),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )

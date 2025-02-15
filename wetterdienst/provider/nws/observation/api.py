@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import json
 import logging
 
@@ -240,9 +239,7 @@ class NwsObservationValues(TimeseriesValues):
         )
         df = df.filter(pl.col("parameter").ne("cloudlayers"))
         return df.with_columns(
-            pl.col("date")
-            .map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime)
-            .cast(pl.Datetime(time_zone="UTC")),
+            pl.col("date").str.to_datetime(),
             pl.col("value").struct.field("value").cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
