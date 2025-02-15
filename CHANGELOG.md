@@ -9,6 +9,7 @@
 - Remove command from Docker file
 - Improve workflow for Docker
 - Get rid of columns enumeration
+- \[NOAA GHCN\] Improve date parsing and other fixes
 
 ## 0.103.0 - 2025-02-02
 
