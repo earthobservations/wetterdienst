@@ -2,6 +2,9 @@
 
 ## Development
 
+### Fix
+- \[WSV Pegel\] Fix characteristic values and improve date parsing
+
 ## 0.104.0 - 2025-02-15
 
 ### Refactor

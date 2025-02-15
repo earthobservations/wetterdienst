@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import ClassVar
 
 import polars as pl
@@ -211,11 +210,8 @@ class WsvPegelValues(TimeseriesValues):
 
         df = pl.read_json(response)
         df = df.rename(mapping={"timestamp": "date", "value": "value"})
-        df = df.with_columns(
-            pl.col("date").map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
-        )
         return df.with_columns(
-            pl.col("date").dt.replace_time_zone(time_zone="UTC"),
+            pl.col("date").str.to_datetime(),
             pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
@@ -303,16 +299,13 @@ class WsvPegelRequest(TimeseriesRequest):
                     break
 
             if not ts_water:
-                return (None, None, None, None, None, None, None, None, None)
+                return None, None, None, None, None, None, None, None, None
 
             gauge_datum = ts_water.get("gaugeZero", {}).get("value", None)
 
-            # can be empty list or list with Nones -> ensure dict
-            characteristic_values = ts_water.get("characteristicValues")
-            characteristic_values = characteristic_values if isinstance(characteristic_values, dict) else {}
-
-            if characteristic_values:
-                characteristic_values = pl.DataFrame(characteristic_values).select(["shortname", "value"]).to_dict()
+            # can be empty list or list with Nones -> ensure that we have a dict with shortname and value
+            characteristic_values = ts_water.get("characteristicValues", [{"shortname": None, "value": None}])
+            characteristic_values = {cv["shortname"]: cv["value"] for cv in characteristic_values}
 
             m_i = characteristic_values.get("M_I", None)
             m_ii = characteristic_values.get("M_II", None)
@@ -326,8 +319,40 @@ class WsvPegelRequest(TimeseriesRequest):
             return (gauge_datum, m_i, m_ii, m_iii, mnw, mw, mhw, hhw, hsw)
 
         response = download_file(self._endpoint, self.settings, CacheExpiry.ONE_HOUR)
-
-        df = pl.read_json(response).lazy()
+        df = pl.read_json(
+            response,
+            schema={
+                "number": pl.String,
+                "shortname": pl.String,
+                "km": pl.Float64,
+                "water": pl.Struct(
+                    {
+                        "shortname": pl.String,
+                    },
+                ),
+                "timeseries": pl.List(
+                    pl.Struct(
+                        {
+                            "shortname": pl.String,
+                            "gaugeZero": pl.Struct(
+                                {
+                                    "value": pl.Float64,
+                                },
+                            ),
+                            "characteristicValues": pl.List(
+                                pl.Struct(
+                                    {
+                                        "shortname": pl.String,
+                                        "value": pl.Float64,
+                                    },
+                                ),
+                            ),
+                        },
+                    ),
+                ),
+            },
+        )
+        df = df.lazy()
         df = df.rename(mapping={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
         df = df.with_columns(
             pl.col("water").struct.field("shortname"),

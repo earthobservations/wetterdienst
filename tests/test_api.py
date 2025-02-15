@@ -270,7 +270,6 @@ def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail
 def test_api_wsv_pegel(default_settings: Settings) -> None:
     """Test wsv pegel API."""
     request = WsvPegelRequest(parameters=[("dynamic", "data", "stage")], settings=default_settings).all()
