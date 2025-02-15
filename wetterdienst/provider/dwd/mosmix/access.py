@@ -129,7 +129,7 @@ class KMLReader:
             "dwd:ForecastTimeSteps",
             nsmap,
         )[0]
-        self.timesteps = [dt.datetime.fromisoformat(i.text) for i in timesteps.getchildren()]
+        self.timesteps = [i.text for i in timesteps.getchildren()]
 
         # save namespace map for later iteration
         self.nsmap = nsmap

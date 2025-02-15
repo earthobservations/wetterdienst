@@ -2,6 +2,9 @@
 
 ## Development
 
+### Refactor
+- Improve date parsing across multiple apis
+
 ### Fix
 - \[WSV Pegel\] Fix characteristic values and improve date parsing
 
