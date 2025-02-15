@@ -9,6 +9,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import polars as pl
+import polars.selectors as cs
 
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -37,7 +38,7 @@ class NoaaGhcnValues(TimeseriesValues):
     ) -> pl.DataFrame:
         if parameter_or_dataset.resolution.value == Resolution.HOURLY:
             return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
-        return self._collect_station_parameter_for_daily(station_id=station_id)
+        return self._collect_station_parameter_for_daily(station_id=station_id, dataset=parameter_or_dataset)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
@@ -84,19 +85,30 @@ class NoaaGhcnValues(TimeseriesValues):
     def _collect_station_parameter_for_daily(
         self,
         station_id: str,
+        dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
-        url = "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
+        url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
         file = url.format(station_id=station_id)
         log.info(f"Downloading file {file}.")
         payload = download_file(file, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         df = pl.read_csv(
             source=payload,
             separator=",",
-            has_header=False,
-            infer_schema_length=0,
-            storage_options={"compression": "gzip"},
+            has_header=True,
+            # infer_schema_length=0,
+            # storage_options={"compression": "gzip"},
         )
+        df = df.rename(str.lower)
+        print(df.columns)
+        print(df)
+
+        df = df.select(
+            # pl.col("station").alias("station_id"),
+            # pl.col("date"),
+            cs.ends_with("_attributes") #.not_()
+        )
+        print(df.columns)
         df = df.rename(
             mapping={
                 "column_1": "station_id",
