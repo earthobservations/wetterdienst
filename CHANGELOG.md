@@ -9,7 +9,8 @@
 - Remove command from Docker file
 - Improve workflow for Docker
 - Get rid of columns enumeration
-- NOAA GHCN: Improve date parsing and minor fixes
+- \[NOAA GHCN\] Improve date parsing and minor fixes
+- \[NOAA GHCN Daily\] Switch to NCEI as source
 
 ## 0.103.0 - 2025-02-02
 

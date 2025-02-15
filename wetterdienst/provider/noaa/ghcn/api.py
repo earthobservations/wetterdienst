@@ -38,7 +38,7 @@ class NoaaGhcnValues(TimeseriesValues):
     ) -> pl.DataFrame:
         if parameter_or_dataset.resolution.value == Resolution.HOURLY:
             return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
-        return self._collect_station_parameter_for_daily(station_id=station_id, dataset=parameter_or_dataset)
+        return self._collect_station_parameter_for_daily(station_id=station_id)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
@@ -85,7 +85,6 @@ class NoaaGhcnValues(TimeseriesValues):
     def _collect_station_parameter_for_daily(
         self,
         station_id: str,
-        dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
         url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
@@ -96,31 +95,30 @@ class NoaaGhcnValues(TimeseriesValues):
             source=payload,
             separator=",",
             has_header=True,
-            # infer_schema_length=0,
-            # storage_options={"compression": "gzip"},
         )
         df = df.rename(str.lower)
-        print(df.columns)
-        print(df)
-
         df = df.select(
-            # pl.col("station").alias("station_id"),
-            # pl.col("date"),
-            cs.ends_with("_attributes") #.not_()
+            cs.exclude(
+                [
+                    pl.col("latitude"),
+                    pl.col("longitude"),
+                    pl.col("elevation"),
+                    pl.col("name"),
+                    cs.ends_with("_attributes"),
+                ],
+            ),
         )
-        print(df.columns)
-        df = df.rename(
-            mapping={
-                "column_1": "station_id",
-                "column_2": "date",
-                "column_3": "parameter",
-                "column_4": "value",
-            },
+        df = df.unpivot(
+            index=["station", "date"],
+            on=cs.exclude(["station", "date"]),
+            variable_name="parameter",
+            value_name="value",
         )
-        df = df.with_columns(
-            pl.col("date").str.to_date("%Y%m%d"),
+        df = df.select(
+            pl.col("station").alias("station_id"),
+            pl.col("date").str.to_date("%Y-%m-%d"),
             pl.col("parameter").str.to_lowercase(),
-            pl.col("value").cast(float),
+            pl.col("value").str.strip_chars().cast(float),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
         # Here comes a bit of magic ;)
