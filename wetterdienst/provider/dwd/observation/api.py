@@ -450,6 +450,7 @@ class DwdObservationRequest(TimeseriesRequest):
         for dataset in datasets:
             periods = set(dataset.periods) & set(self.periods) if self.periods else dataset.periods
             for period in reversed(list(periods)):
+                print(dataset)
                 df = create_meta_index_for_climate_observations(dataset, period, self.settings)
                 file_index = create_file_index_for_climate_observations(dataset, period, self.settings)
                 df = df.join(

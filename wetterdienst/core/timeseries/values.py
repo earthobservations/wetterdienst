@@ -310,11 +310,9 @@ class TimeseriesValues(ABC):
         if self.sr.humanize:
             hpm = self._create_humanized_parameters_mapping()
 
-        for (station_id, ), df_station_meta in self.sr.df_all.group_by(["station_id"]):
+        for (station_id,), df_station_meta in self.sr.df_all.group_by(["station_id"]):
             station_id = cast(str, station_id)
-            parsed_parameters = (
-                
-            )
+            parsed_parameters = ()
             if self.stations_counter == self.sr.rank:
                 break
 

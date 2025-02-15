@@ -72,7 +72,7 @@ def create_meta_index_for_climate_observations(
             on=["station_id"],
             how="left",
         )
-    meta_index = meta_index.sort(by=[pl.col(Columns.STATION_ID.value)])
+    meta_index = meta_index.sort(by=["station_id"])
     return meta_index.select(
         pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
         pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
