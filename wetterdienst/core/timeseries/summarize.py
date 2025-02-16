@@ -80,19 +80,21 @@ def apply_station_values_per_parameter(
         ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
-        if (parameter.dataset.name, parameter.name) in param_dict and param_dict[
+        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) in param_dict and param_dict[
+            parameter.dataset.resolution.name,
             parameter.dataset.name,
             parameter.name,
         ].finished:
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
+            pl.col("resolution").eq(parameter.dataset.resolution.name),
             pl.col("dataset").eq(parameter.dataset.name),
             pl.col("parameter").eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        if (parameter.dataset.name, parameter.name) not in param_dict:
+        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) not in param_dict:
             frequency = Frequency[parameter.dataset.resolution.value.name].value
             df = pl.DataFrame(
                 {

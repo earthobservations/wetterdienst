@@ -107,9 +107,10 @@ class DwdMosmixValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
-        return df.with_columns(
+        return df.select(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("date").str.to_datetime(),
             pl.col("value"),
@@ -188,6 +189,8 @@ class DwdMosmixRequest(TimeseriesRequest):
     _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
 
     _base_columns: ClassVar = [
+        "resolution",
+        "dataset",
         "station_id",
         "icao_id",
         "start_date",
@@ -251,11 +254,11 @@ class DwdMosmixRequest(TimeseriesRequest):
         text = StringIO(payload.read().decode(encoding="latin-1"))
         lines = text.readlines()
         header = lines.pop(0)
-        df = pl.DataFrame({"column_0": lines[1:]})
-        df.columns = [header]
+        df_raw = pl.DataFrame({"column_0": lines[1:]})
+        df_raw.columns = [header]
         column_specs = ((0, 5), (6, 9), (11, 30), (32, 38), (39, 46), (48, 56))
-        df = read_fwf_from_df(df, column_specs)
-        df.columns = [
+        df_raw = read_fwf_from_df(df_raw, column_specs)
+        df_raw.columns = [
             "station_id",
             "icao_id",
             "name",
@@ -263,15 +266,28 @@ class DwdMosmixRequest(TimeseriesRequest):
             "longitude",
             "height",
         ]
-        df = df.select(
-            pl.col("station_id"),
+        df_raw = df_raw.with_columns(
             pl.col("icao_id").replace("----", None),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
             pl.col("latitude").cast(float).map_batches(convert_dm_to_dd),
             pl.col("longitude").cast(float).map_batches(convert_dm_to_dd),
             pl.col("height").cast(int),
-            pl.col("name"),
             pl.lit(None, pl.String).alias("state"),
         )
+        # combinations of resolution and dataset
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+        }
+        data = []
+        # for each combination of resolution and dataset create a new DataFrame with the columns
+        for resolution, dataset in resolutions_and_datasets:
+            data.append(
+                df_raw.with_columns(
+                    pl.lit(resolution, pl.String).alias("resolution"),
+                    pl.lit(dataset, pl.String).alias("dataset"),
+                ),
+            )
+        df = pl.concat(data)
+        df = df.select(self._base_columns)
         return df.lazy()

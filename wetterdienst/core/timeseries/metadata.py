@@ -339,9 +339,4 @@ def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> li
             parameters_found.extend(metadata.search_parameter(parameter_search))
         except KeyError:
             log.info(f"{parameter_search.concat()} not found in {metadata.__name__}")
-    unique_resolutions = {parameter.dataset.resolution.value.value for parameter in parameters_found}
-    # # TODO: for now we only support one resolution
-    # if len(unique_resolutions) > 1:
-    #     msg = f"All parameters must have the same resolution. Found: {unique_resolutions}"
-    #     raise ValueError(msg)
     return parameters_found

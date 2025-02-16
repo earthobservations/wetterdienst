@@ -118,19 +118,21 @@ def apply_station_values_per_parameter(
         ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
-        if (parameter.dataset.name, parameter.name) in param_dict and param_dict[
+        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) in param_dict and param_dict[
+            parameter.dataset.resolution.name,
             parameter.dataset.name,
             parameter.name,
         ].finished:
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
+            pl.col("resolution").eq(parameter.dataset.resolution.name),
             pl.col("dataset").eq(parameter.dataset.name),
             pl.col("parameter").eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        if (parameter.dataset.name, parameter.name) not in param_dict:
+        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) not in param_dict:
             frequency = Frequency[parameter.dataset.resolution.value.name].value
             df = pl.DataFrame(
                 {
@@ -144,16 +146,16 @@ def apply_station_values_per_parameter(
                 },
                 orient="col",
             )
-            param_dict[parameter.dataset.name, parameter.name] = _ParameterData(df)
+            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name] = _ParameterData(df)
         result_series_param = (
-            param_dict[parameter.dataset.name, parameter.name]
+            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name]
             .values.select("date")
             .join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value")
         result_series_param = result_series_param.rename(station["station_id"])
         extract_station_values(
-            param_dict[parameter.dataset.name, parameter.name],
+            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name],
             result_series_param,
             valid_station_groups_exists=valid_station_groups_exists,
         )
@@ -183,6 +185,7 @@ def calculate_interpolation(
         pl.DataFrame(
             schema={
                 "date": pl.Datetime(time_zone="UTC"),
+                "resolution": pl.String,
                 "dataset": pl.String,
                 "parameter": pl.String,
                 "value": pl.Float64,
@@ -197,7 +200,7 @@ def calculate_interpolation(
         for station_id, (_, _, distance) in stations_dict.items()
         if distance < use_nearby_station_until_km
     ]
-    for (dataset, parameter), param_data in param_dict.items():
+    for (resolution, dataset, parameter), param_data in param_dict.items():
         param_df = pl.DataFrame({"date": param_data.values.get_column("date")})
         results = []
         for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):
@@ -206,6 +209,7 @@ def calculate_interpolation(
                     row,
                     stations_dict,
                     valid_station_groups,
+                    resolution,
                     dataset,
                     parameter,
                     utm_x,
@@ -216,6 +220,7 @@ def calculate_interpolation(
         results = pl.DataFrame(
             results,
             schema={
+                "resolution": pl.String,
                 "dataset": pl.String,
                 "parameter": pl.String,
                 "value": pl.Float64,
@@ -230,6 +235,7 @@ def calculate_interpolation(
     df = df.with_columns(pl.col("value").round(2), pl.col("distance_mean").round(2))
     return df.sort(
         by=[
+            "resolution",
             "dataset",
             "parameter",
             "date",
@@ -273,18 +279,20 @@ def apply_interpolation(
     row: dict,
     stations_dict: dict,
     valid_station_groups: Queue,
+    resolution: str,
     dataset: str,
     parameter: str,
     utm_x: float,
     utm_y: float,
     nearby_stations: list[str],
-) -> tuple[str, str, float | None, float | None, list[str]]:
+) -> tuple[str, str, str, float | None, float | None, list[str]]:
     """Apply interpolation to a row of data.
 
     Args:
         row: dict containing the data across collected stations for a specific date
         stations_dict: dict containing the station data including the location
         valid_station_groups: Queue containing the valid station groups to use for interpolation
+        resolution: resolution name
         dataset: dataset name
         parameter: parameter name
         utm_x: longitude in UTM
@@ -292,8 +300,8 @@ def apply_interpolation(
         nearby_stations: list of nearby stations
 
     Returns:
-        tuple containing the dataset name, parameter name, interpolated value, mean distance of the stations used for
-        interpolation and the station ids used for interpolation
+        tuple containing the resolution name, dataset name, parameter name, interpolated value, mean distance of the
+        stations used for interpolation and the station ids used for interpolation
 
     """
     if nearby_stations:
@@ -301,6 +309,7 @@ def apply_interpolation(
         if valid_values:
             first_station = next(iter(valid_values.keys()))
             return (
+                resolution,
                 dataset,
                 parameter,
                 valid_values[first_station],
@@ -315,7 +324,7 @@ def apply_interpolation(
     else:
         vals = None
     if not vals or len(vals) < 4:
-        return dataset, parameter, None, None, []
+        return resolution, dataset, parameter, None, None, []
     xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids], strict=False))
     distance_mean = sum(distances) / len(distances)
     f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
@@ -324,4 +333,4 @@ def apply_interpolation(
         f_index = LinearNDInterpolator(points=(xs, ys), values=[float(v > 0) for v in list(vals.values())])
         value_index = f_index(utm_x, utm_y)
         value = value if value_index >= 0.5 else 0
-    return dataset, parameter, value, distance_mean, station_group_ids
+    return resolution, dataset, parameter, value, distance_mean, station_group_ids

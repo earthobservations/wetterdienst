@@ -113,10 +113,10 @@ class DwdObservationValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
-            pl.col(Columns.STATION_ID.value).str.pad_start(5, "0"),
-            pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"),
-            pl.col(Columns.VALUE.value).cast(pl.Float64),
-            pl.col(Columns.QUALITY.value).cast(pl.Float64),
+            pl.col("station_id").str.pad_start(5, "0"),
+            pl.col("date").dt.replace_time_zone("UTC"),
+            pl.col("value").cast(pl.Float64),
+            pl.col("quality").cast(pl.Float64),
         )
 
     @staticmethod
@@ -450,7 +450,6 @@ class DwdObservationRequest(TimeseriesRequest):
         for dataset in datasets:
             periods = set(dataset.periods) & set(self.periods) if self.periods else dataset.periods
             for period in reversed(list(periods)):
-                print(dataset)
                 df = create_meta_index_for_climate_observations(dataset, period, self.settings)
                 file_index = create_file_index_for_climate_observations(dataset, period, self.settings)
                 df = df.join(

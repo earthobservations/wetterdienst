@@ -153,12 +153,12 @@ class DwdDmoValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
-        return df.with_columns(
+        return df.select(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("date").str.to_datetime(),
+            pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("date"),
+            pl.col("date").str.to_datetime(),
             pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
@@ -224,6 +224,8 @@ class DwdDmoRequest(TimeseriesRequest):
     )
 
     _base_columns: ClassVar = [
+        "resolution",
+        "dataset",
         "station_id",
         "icao_id",
         "start_date",
@@ -366,11 +368,11 @@ class DwdDmoRequest(TimeseriesRequest):
         text = StringIO(payload.read().decode(encoding="latin-1"))
         lines = text.readlines()
         header = lines.pop(0)
-        df = pl.DataFrame({"column_0": lines[1:]})
-        df.columns = [header]
+        df_raw = pl.DataFrame({"column_0": lines[1:]})
+        df_raw.columns = [header]
         column_specs = ((0, 4), (5, 9), (10, 30), (31, 38), (39, 46), (48, 56))
-        df = read_fwf_from_df(df, column_specs)
-        df.columns = [
+        df_raw = read_fwf_from_df(df_raw, column_specs)
+        df_raw.columns = [
             "station_id",
             "icao_id",
             "name",
@@ -378,10 +380,9 @@ class DwdDmoRequest(TimeseriesRequest):
             "longitude",
             "height",
         ]
-        df = df.filter(pl.col("station_id").is_in(self._station_patches.get_column("station_id")).not_())
-        df = pl.concat([df, self._station_patches])
-        df = df.lazy()
-        return df.with_columns(
+        df_raw = df_raw.filter(pl.col("station_id").is_in(self._station_patches.get_column("station_id")).not_())
+        df_raw = pl.concat([df_raw, self._station_patches])
+        df_raw = df_raw.with_columns(
             pl.col("icao_id").replace("----", None),
             pl.col("latitude").str.replace(" ", "").cast(pl.Float64),
             pl.col("longitude").str.replace(" ", "").cast(pl.Float64),
@@ -389,3 +390,19 @@ class DwdDmoRequest(TimeseriesRequest):
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
             pl.lit(None, pl.String).alias("state"),
         )
+        # combinations of resolution and dataset
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+        }
+        data = []
+        # for each combination of resolution and dataset create a new DataFrame with the columns
+        for resolution, dataset in resolutions_and_datasets:
+            data.append(
+                df_raw.with_columns(
+                    pl.lit(resolution, pl.String).alias("resolution"),
+                    pl.lit(dataset, pl.String).alias("dataset"),
+                ),
+            )
+        df = pl.concat(data)
+        df = df.select(self._base_columns)
+        return df.lazy()
