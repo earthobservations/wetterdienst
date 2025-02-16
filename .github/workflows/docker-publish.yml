@@ -94,6 +94,8 @@ jobs:
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+        with:
+          platforms: amd64,arm64  # TODO: add linux/arm/v7
 
       - name: Set up Docker Buildx
         id: buildx
