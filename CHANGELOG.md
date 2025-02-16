@@ -2,6 +2,9 @@
 
 ## Development
 
+### Feature
+- Add user agent to default `fsspec_client_kwargs`
+
 ### Refactor
 - Improve date parsing across multiple apis
 

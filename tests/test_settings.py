@@ -21,7 +21,9 @@ def test_default_settings(caplog: pytest.LogCaptureFixture) -> None:
     default_settings = Settings()
     assert not default_settings.cache_disable
     assert re.match(WD_CACHE_DIR_PATTERN, str(default_settings.cache_dir))
-    assert default_settings.fsspec_client_kwargs == {}
+    assert "headers" in default_settings.fsspec_client_kwargs
+    assert "User-Agent" in default_settings.fsspec_client_kwargs["headers"]
+    assert default_settings.fsspec_client_kwargs["headers"]["User-Agent"].startswith("wetterdienst/")
     assert default_settings.ts_humanize
     assert default_settings.ts_shape == "long"
     assert default_settings.ts_convert_units

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import platform
 from pathlib import Path  # noqa: TCH003
 from typing import Literal
 
@@ -28,7 +29,11 @@ class Settings(BaseSettings):
 
     cache_disable: bool = Field(default=False)
     cache_dir: Path = Field(default_factory=lambda: platformdirs.user_cache_dir(appname="wetterdienst"))
-    fsspec_client_kwargs: dict = Field(default_factory=dict)
+    fsspec_client_kwargs: dict = Field(
+        default_factory=lambda: {
+            "headers": {"User-Agent": f"wetterdienst/{__import__('wetterdienst').__version__} ({platform.system()})"},
+        },
+    )
     ts_humanize: bool = True
     ts_shape: Literal["wide", "long"] = "long"
     ts_convert_units: bool = True
