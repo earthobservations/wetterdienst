@@ -7,6 +7,7 @@
 
 ### Refactor
 - Improve date parsing across multiple apis
+- Cleanup docker image
 
 ### Fix
 - \[WSV Pegel\] Fix characteristic values and improve date parsing
