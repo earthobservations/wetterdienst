@@ -309,6 +309,8 @@ class NwsObservationRequest(TimeseriesRequest):
         )
         df = df.with_columns(pl.all().str.strip_chars())
         df = df.with_columns(
+            pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
+            pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
             pl.col("latitude").cast(pl.Float64),
             pl.col("longitude").cast(pl.Float64),
             pl.col("height").cast(pl.Float64),

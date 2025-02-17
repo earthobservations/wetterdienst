@@ -328,6 +328,8 @@ class WsvPegelRequest(TimeseriesRequest):
                 "number": pl.String,
                 "shortname": pl.String,
                 "km": pl.Float64,
+                "latitude": pl.Float64,
+                "longitude": pl.Float64,
                 "water": pl.Struct(
                     {
                         "shortname": pl.String,
@@ -367,6 +369,8 @@ class WsvPegelRequest(TimeseriesRequest):
         df = df.filter(pl.col("ts").list.set_intersection(list(parameters)).list.len() > 0)
         df = df.with_columns(pl.col("timeseries").map_elements(_extract_ts, return_dtype=pl.List(pl.Float64)))
         return df.select(
+            pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
+            pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
             pl.all().exclude(["timeseries", "ts"]),
             pl.col("timeseries").list.get(0).alias("gauge_datum"),
             pl.col("timeseries").list.get(1).alias("m_i"),
