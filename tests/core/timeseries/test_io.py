@@ -1096,9 +1096,10 @@ def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -
     cursor.close()
     connection.close()
     assert results[0] == (
-        "01048",
+        "daily",
         "climate_summary",
         "temperature_air_min_2m",
+        "01048",
         dt.datetime(1939, 7, 26),  # noqa: DTZ001
         10.0,
         1.0,
@@ -1207,9 +1208,10 @@ def test_export_influxdb1_tidy(settings_convert_units_false: Settings) -> None:
         points = mock_client.write_points.call_args.kwargs["points"]
         assert points[0]["measurement"] == "weather"
         assert list(points[0]["fields"].keys()) == [
-            "station_id",
+            "resolution",
             "dataset",
             "parameter",
+            "station_id",
             "value",
             "quality",
         ]

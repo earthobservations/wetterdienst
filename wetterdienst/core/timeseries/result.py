@@ -328,6 +328,8 @@ class StationsResult(ExportMixin):
                 {
                     "type": "Feature",
                     "properties": {
+                        "resolution": station["resolution"],
+                        "dataset": station["dataset"],
                         "id": station["station_id"],
                         "name": station["name"],
                         "state": station["state"],

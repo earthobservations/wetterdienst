@@ -44,7 +44,7 @@ def test_api_skip_empty_stations(
         != request.df.get_column("station_id").gather(0).to_list()
     )  # not supposed to be the first station of the list
     assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_stations
-    assert values.df_stations.get_column("station_id").to_list() == expected_stations
+    assert values.df_stations.get_column("station_id").unique(maintain_order=True).to_list() == expected_stations
 
 
 @pytest.mark.remote

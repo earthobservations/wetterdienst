@@ -87,16 +87,16 @@ class TimeseriesValues(ABC):
         """Get metadata fields for the DataFrame."""
         if not self.sr.tidy:
             return {
+                "station_id": pl.String,
                 "resolution": pl.String,
                 "dataset": pl.String,
-                "station_id": pl.String,
                 "date": pl.Datetime(time_zone="UTC"),
             }
         return {
+            "station_id": pl.String,
             "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
-            "station_id": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,

@@ -32,27 +32,30 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
     expected_df = pl.DataFrame(
         [
             {
-                "station_id": "7ac6c582",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
+                "station_id": "7ac6c582",
                 "date": selected_dates[0],
                 "value": 0.5,
                 "distance": 13.42,
                 "taken_station_id": "01048",
             },
             {
-                "station_id": "7ac6c582",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
+                "station_id": "7ac6c582",
                 "date": selected_dates[1],
                 "value": -5.5,
                 "distance": 5.05,
                 "taken_station_id": "01051",
             },
             {
-                "station_id": "7ac6c582",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
+                "station_id": "7ac6c582",
                 "date": selected_dates[2],
                 "value": -2.7,
                 "distance": 0.0,

@@ -320,7 +320,8 @@ def test_api_wsv_pegel(default_settings: Settings) -> None:
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(
-        request.df, exclude_columns={"start_date", "end_date", "latitude", "longitude", "height", "state"},
+        request.df,
+        exclude_columns={"start_date", "end_date", "latitude", "longitude", "height", "state"},
     )
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
