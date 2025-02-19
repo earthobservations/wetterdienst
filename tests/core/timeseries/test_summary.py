@@ -85,6 +85,7 @@ def test_not_summarizable_parameter(default_settings: Settings) -> None:
     expected_df = pl.DataFrame(
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),

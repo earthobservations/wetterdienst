@@ -592,10 +592,10 @@ class TimeseriesRequest:
         df_interpolated = get_interpolated_df(self, lat, lon)
         station_id = self._create_station_id_from_string(f"interpolation({lat:.4f},{lon:.4f})")
         df_interpolated = df_interpolated.select(
+            pl.lit(station_id).alias("station_id"),
             pl.col("resolution"),
             pl.col("dataset"),
             pl.col("parameter"),
-            pl.lit(station_id).alias("station_id"),
             pl.col("date"),
             pl.col("value"),
             pl.col("distance_mean"),
@@ -642,10 +642,10 @@ class TimeseriesRequest:
         summarized_values = get_summarized_df(self, lat, lon)
         station_id = self._create_station_id_from_string(f"summary({lat:.4f},{lon:.4f})")
         summarized_values = summarized_values.select(
+            pl.lit(station_id).alias("station_id"),
             pl.col("resolution"),
             pl.col("dataset"),
             pl.col("parameter"),
-            pl.lit(station_id).alias("station_id"),
             pl.col("date"),
             pl.col("value"),
             pl.col("distance"),

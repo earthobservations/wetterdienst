@@ -228,26 +228,20 @@ class EcccObservationRequest(TimeseriesRequest):
         header = 2 if source else 3
 
         # Read into Pandas data frame.
-        df = pl.read_csv(csv_payload, has_header=True, skip_rows=header, infer_schema_length=0).lazy()
-
-        df = df.rename(mapping=lambda col: col.lower())
-
-        df = df.drop("latitude", "longitude")
-
-        df = df.rename(mapping=self._columns_mapping)
-
-        df = df.with_columns(
+        df_raw = pl.read_csv(csv_payload, has_header=True, skip_rows=header, infer_schema_length=0).lazy()
+        df_raw = df_raw.rename(str.lower)
+        df_raw = df_raw.drop("latitude", "longitude")
+        df_raw = df_raw.rename(self._columns_mapping)
+        df_raw = df_raw.with_columns(
             pl.when(pl.col("start_date").ne("")).then(pl.col("start_date")),
             pl.when(pl.col("end_date").ne("")).then(pl.col("end_date")),
             pl.when(pl.col("height").ne("")).then(pl.col("height")),
         )
-
-        df = df.with_columns(
+        df_raw = df_raw.with_columns(
             pl.col("start_date").fill_null(pl.col("start_date").cast(int).min()),
             pl.col("end_date").fill_null(pl.col("end_date").cast(int).max()),
         )
-
-        df = df.with_columns(
+        df_raw = df_raw.with_columns(
             pl.col("start_date").str.to_datetime("%Y", time_zone="UTC"),
             pl.col("end_date")
             .cast(int)
@@ -257,7 +251,20 @@ class EcccObservationRequest(TimeseriesRequest):
                 return_dtype=pl.Datetime,
             ),
         )
-
+        # combinations of resolution and dataset
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+        }
+        data = []
+        # for each combination of resolution and dataset create a new DataFrame with the columns
+        for resolution, dataset in resolutions_and_datasets:
+            data.append(
+                df_raw.with_columns(
+                    pl.lit(resolution, pl.String).alias("resolution"),
+                    pl.lit(dataset, pl.String).alias("dataset"),
+                ),
+            )
+        df = pl.concat(data)
         return df.filter(pl.col("latitude").ne("") & pl.col("longitude").ne(""))
 
     def _download_stations(self) -> tuple[BytesIO, int]:

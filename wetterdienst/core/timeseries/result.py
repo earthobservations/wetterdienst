@@ -75,6 +75,8 @@ class _Metadata(TypedDict):
 class _Station(TypedDict):
     """Type definition for station."""
 
+    resolution: str
+    dataset: str
     station_id: str
     start_date: str | None
     end_date: str | None
@@ -95,6 +97,8 @@ class _StationsDict(TypedDict):
 class _OgcFeatureProperties(TypedDict):
     """Type definition for OGC feature properties."""
 
+    resolution: str
+    dataset: str
     id: str
     name: str
     state: str
@@ -460,6 +464,7 @@ class _ValuesItemDict(TypedDict):
     """Type definition for dictionary of values."""
 
     station_id: str
+    resolution: str
     dataset: str
     parameter: str
     date: str
@@ -577,6 +582,8 @@ class ValuesResult(_ValuesResult):
                 {
                     "type": "Feature",
                     "properties": {
+                        "resolution": station["resolution"],
+                        "dataset": station["dataset"],
                         "id": station["station_id"],
                         "name": station["name"],
                         "state": station["state"],

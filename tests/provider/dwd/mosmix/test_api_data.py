@@ -35,10 +35,10 @@ def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> Non
 
     assert len(response.df.columns) == 7
     assert list(response.df.columns) == [
+        "station_id",
         "resolution",
         "dataset",
         "parameter",
-        "station_id",
         "date",
         "value",
         "quality",
@@ -184,10 +184,10 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> Non
     assert len(response.df) > 200
     assert len(response.df.columns) == 7
     assert list(response.df.columns) == [
+        "station_id",
         "resolution",
         "dataset",
         "parameter",
-        "station_id",
         "date",
         "value",
         "quality",
@@ -272,10 +272,10 @@ def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false: Settings)
     assert len(response.df) > 200
     assert len(response.df.columns) == 7
     assert list(response.df.columns) == [
+        "station_id",
         "resolution",
         "dataset",
         "parameter",
-        "station_id",
         "date",
         "value",
         "quality",

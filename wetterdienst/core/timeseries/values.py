@@ -298,6 +298,7 @@ class TimeseriesValues(ABC):
         columns.extend(set(df.columns).difference(columns))
         df = df.with_columns(
             pl.lit(station_id).alias("station_id"),
+            pl.lit(dataset.resolution.name).alias("resolution"),
             pl.lit(dataset.name.lower()).alias("dataset"),
         )
         return df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in columns)

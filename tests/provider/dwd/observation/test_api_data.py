@@ -205,6 +205,7 @@ def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false_comp
         [
             {
                 "station_id": "03348",
+                "resolution": "hourly",
                 "dataset": "temperature_air",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(2020, 6, 9, 12, 0, 0, tzinfo=ZoneInfo("UTC")),
@@ -214,6 +215,7 @@ def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false_comp
         ],
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
@@ -591,6 +593,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
     given_df = request.values.all().df
     assert given_df.columns == [
         "station_id",
+        "resolution",
         "dataset",
         "parameter",
         "date",
@@ -601,6 +604,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
         [
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "fm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -609,6 +613,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "fx",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -617,6 +622,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "nm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -625,6 +631,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "pm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -633,6 +640,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "rsk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -641,6 +649,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "rskf",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -649,6 +658,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "sdk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -657,6 +667,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "shk_tag",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -665,6 +676,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "tgk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -673,6 +685,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "tmk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -681,6 +694,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "tnk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -689,6 +703,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "txk",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -697,6 +712,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "upm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -705,6 +721,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "vpm",
                 "date": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -714,6 +731,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
         ],
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.Utf8,
             "date": pl.Datetime(time_zone="UTC"),
@@ -736,21 +754,26 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
     ).filter_by_station_id("00399")
     given_df = request.values.all().df
     expected_df = pl.DataFrame(
-        {
-            "resolution": ["hourly"] * 2,
-            "dataset": ["urban_temperature_air"] * 2,
-            "parameter": [
-                "humidity",
-                "temperature_air_mean_2m",
-            ],
-            "station_id": ["00399"] * 2,
-            "date": [dt.datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC"))] * 2,
-            "value": [
-                0.83,
-                13.4,
-            ],
-            "quality": [3.0, 3.0],
-        },
+        [
+            {
+                "station_id": "00399",
+                "resolution": "hourly",
+                "dataset": "urban_temperature_air",
+                "parameter": "humidity",
+                "date": dt.datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 0.83,
+                "quality": 3.0,
+            },
+            {
+                "station_id": "00399",
+                "resolution": "hourly",
+                "dataset": "urban_temperature_air",
+                "parameter": "temperature_air_mean_2m",
+                "date": dt.datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 13.4,
+                "quality": 3.0,
+            },
+        ],
         orient="col",
     )
     assert_frame_equal(given_df, expected_df)
@@ -1074,12 +1097,19 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
         orient="row",
     )
     given_df = request.values._tidy_up_df(df, DwdObservationMetadata.daily.climate_summary)  # noqa: SLF001
-    given_df = request.values._organize_df_columns(given_df, "01048", DwdObservationMetadata.daily.climate_summary)  # noqa: SLF001
+    given_df = given_df.select(
+        [
+            "station_id",
+            "parameter",
+            "date",
+            "value",
+            "quality",
+        ],
+    )
     expected_df = pl.DataFrame(
         [
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "fx",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 11.8,
@@ -1087,7 +1117,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "fm",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 5.8,
@@ -1095,7 +1124,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "rsk",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
@@ -1103,7 +1131,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "rskf",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
@@ -1111,7 +1138,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "sdk",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 7.1,
@@ -1119,7 +1145,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "shk_tag",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
@@ -1127,7 +1152,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "nm",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 2.3,
@@ -1135,7 +1159,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "vpm",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 3.2,
@@ -1143,7 +1166,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "pm",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 975.4,
@@ -1151,7 +1173,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "tmk",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": -5.5,
@@ -1159,7 +1180,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "upm",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 79.17,
@@ -1167,7 +1187,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "txk",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": -1.7,
@@ -1175,7 +1194,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "tnk",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": -7.9,
@@ -1183,7 +1201,6 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
             },
             {
                 "station_id": "01048",
-                "dataset": "climate_summary",
                 "parameter": "tgk",
                 "date": dt.datetime(2019, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": -11.4,
