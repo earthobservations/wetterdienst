@@ -214,6 +214,8 @@ def test_stations_dwd_basic(client: TestClient) -> None:
     assert response.status_code == 200
     item = response.json()["stations"][0]
     assert item == {
+        "resolution": "daily",
+        "dataset": "climate_summary",
         "station_id": "00011",
         "start_date": "1980-09-01T00:00:00+00:00",
         "end_date": IsStr,

@@ -129,7 +129,7 @@ def test_interpolation_precipitation_height_minute_10(default_settings: Settings
         [
             {
                 "station_id": "f674568e",
-                "resolution": "minute_10",
+                "resolution": "10_minutes",
                 "dataset": "precipitation",
                 "parameter": "precipitation_height",
                 "date": dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),

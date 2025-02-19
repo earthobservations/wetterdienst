@@ -36,6 +36,7 @@ def test_cli_interpolate_no_metadata_no_stations() -> None:
     assert response["values"] == [
         {
             "station_id": "6754d04d",
+            "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
@@ -45,6 +46,7 @@ def test_cli_interpolate_no_metadata_no_stations() -> None:
         },
         {
             "station_id": "6754d04d",
+            "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
@@ -78,6 +80,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
     assert response["metadata"] == metadata
     assert response["stations"] == [
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "00071",
             "start_date": "1986-11-01T00:00:00+00:00",
             "end_date": "2019-12-31T00:00:00+00:00",
@@ -88,6 +92,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "state": "Baden-Württemberg",
         },
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "00072",
             "start_date": "1978-09-01T00:00:00+00:00",
             "end_date": "1995-05-31T00:00:00+00:00",
@@ -98,6 +104,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "state": "Baden-Württemberg",
         },
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "02074",
             "start_date": "1947-01-01T00:00:00+00:00",
             "end_date": IsStr,
@@ -108,6 +116,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "state": "Baden-Württemberg",
         },
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "02638",
             "start_date": "1947-01-01T00:00:00+00:00",
             "end_date": IsStr,
@@ -118,6 +128,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "state": "Baden-Württemberg",
         },
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "04703",
             "start_date": "1951-01-01T00:00:00+00:00",
             "end_date": IsStr,

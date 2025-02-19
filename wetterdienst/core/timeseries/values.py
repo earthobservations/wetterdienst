@@ -317,7 +317,9 @@ class TimeseriesValues(ABC):
             station_id = cast(str, station_id)
             available_datasets = [
                 self.sr.stations.metadata[res][ds]
-                for (res, ds), _ in df_station_meta.group_by(["resolution", "dataset"], maintain_order=True)
+                for (res, ds), _ in df_station_meta.select(["resolution", "dataset"]).group_by(
+                    ["resolution", "dataset"],
+                )
             ]
             if self.stations_counter == self.sr.rank:
                 break

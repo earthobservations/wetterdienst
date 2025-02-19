@@ -282,6 +282,8 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "temperature_air_mean_2m"), ("hourly", "precipitation", "precipitation_height")],
         settings=default_settings,
+        start_date=dt.datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(("02315", "01050", "19140"))
     assert request.parameters == [
         DwdObservationMetadata.daily.kl.temperature_air_mean_2m,
@@ -363,8 +365,8 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
         .sort(["resolution", "dataset", "station_id"])
     )
     assert df_stats.to_dicts() == [
-        {"count": 26284, "dataset": "climate_summary", "resolution": "daily", "station_id": "01050"},
-        {"count": 9023, "dataset": "climate_summary", "resolution": "daily", "station_id": "02315"},
-        {"count": 161678, "dataset": "precipitation", "resolution": "hourly", "station_id": "01050"},
-        {"count": 37502, "dataset": "precipitation", "resolution": "hourly", "station_id": "19140"},
+        {"count": 25871, "dataset": "climate_summary", "resolution": "daily", "station_id": "01050"},
+        {"count": 8610, "dataset": "climate_summary", "resolution": "daily", "station_id": "02315"},
+        {"count": 151743, "dataset": "precipitation", "resolution": "hourly", "station_id": "01050"},
+        {"count": 27568, "dataset": "precipitation", "resolution": "hourly", "station_id": "19140"},
     ]

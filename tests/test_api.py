@@ -282,7 +282,7 @@ def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df)
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")

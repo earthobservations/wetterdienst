@@ -197,10 +197,13 @@ class NoaaGhcnRequest(TimeseriesRequest):
     def _all(self) -> pl.LazyFrame:
         data = []
         for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
-            if dataset.resolution == Resolution.HOURLY:
+            if dataset.resolution.value == Resolution.HOURLY:
                 data.append(self._create_metaindex_for_ghcn_hourly())
-            else:
+            elif dataset.resolution.value == Resolution.DAILY:
                 data.append(self._create_metaindex_for_ghcn_daily())
+            else:
+                msg = f"Resolution {dataset.resolution.value} is not supported."
+                raise ValueError(msg)
         df = pl.concat(data)
         return df.lazy()
 
@@ -224,14 +227,14 @@ class NoaaGhcnRequest(TimeseriesRequest):
             "station_id",
             "latitude",
             "longitude",
-            "elevation",
+            "height",
             "state",
             "name",
         ]
         df = df.with_columns(
             pl.lit("hourly").alias("resolution"),
             pl.lit("data").alias("dataset"),
-            pl.all().str.strip_chars(),
+            pl.all().str.strip_chars().replace("", None),
         )
         return df.lazy()
 
