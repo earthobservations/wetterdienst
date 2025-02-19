@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from itertools import groupby
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -194,10 +195,14 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        resolution = self.parameters[0].dataset.resolution.value
-        if resolution == Resolution.HOURLY:
-            return self._create_metaindex_for_ghcn_hourly()
-        return self._create_metaindex_for_ghcn_daily()
+        data = []
+        for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
+            if dataset.resolution == Resolution.HOURLY:
+                data.append(self._create_metaindex_for_ghcn_hourly())
+            else:
+                data.append(self._create_metaindex_for_ghcn_daily())
+        df = pl.concat(data)
+        return df.lazy()
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
         file = "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv"
@@ -224,6 +229,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
             "name",
         ]
         df = df.with_columns(
+            pl.lit("hourly").alias("resolution"),
+            pl.lit("data").alias("dataset"),
             pl.all().str.strip_chars(),
         )
         return df.lazy()
@@ -293,4 +300,9 @@ class NoaaGhcnRequest(TimeseriesRequest):
             .str.to_datetime("%Y")
             .map_batches(lambda s: s - dt.timedelta(days=1)),
         )
-        return df.join(other=inventory_df, how="left", on=["station_id"]).lazy()
+        df = df.join(other=inventory_df, how="left", on=["station_id"]).lazy()
+        df = df.with_columns(
+            pl.lit("daily").alias("resolution"),
+            pl.lit("data").alias("dataset"),
+        )
+        return df.lazy()
