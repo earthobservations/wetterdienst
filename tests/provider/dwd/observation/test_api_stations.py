@@ -23,6 +23,8 @@ def expected_df() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "station_id": "00001",
                 "start_date": dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "end_date": dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC")),
@@ -90,6 +92,8 @@ def test_dwd_observations_stations_geojson(default_settings: Settings) -> None:
     properties = geojson["data"]["features"][0]["properties"]
     geometry = geojson["data"]["features"][0]["geometry"]
     assert properties == {
+        "resolution": "daily",
+        "dataset": "climate_summary",
         "id": "00001",
         "start_date": "1937-01-01T00:00:00+00:00",
         "end_date": "1986-06-30T00:00:00+00:00",
@@ -115,6 +119,8 @@ def test_dwd_observations_stations_minute_1(default_settings: Settings) -> None:
     expected_df = pl.DataFrame(
         [
             {
+                "resolution": "1_minute",
+                "dataset": "precipitation",
                 "station_id": "00003",
                 "start_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "end_date": dt.datetime(2012, 4, 6, tzinfo=ZoneInfo("UTC")),
@@ -142,6 +148,8 @@ def test_dwd_observations_stations_name_with_comma() -> None:
     assert stations.to_dicts() == [
         IsDict(
             {
+                "resolution": "monthly",
+                "dataset": "climate_summary",
                 "station_id": "00314",
                 "start_date": dt.datetime(1881, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
                 "end_date": IsDatetime,
@@ -154,6 +162,8 @@ def test_dwd_observations_stations_name_with_comma() -> None:
         ),
         IsDict(
             {
+                "resolution": "monthly",
+                "dataset": "climate_summary",
                 "station_id": "03164",
                 "start_date": dt.datetime(1881, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
                 "end_date": IsDatetime,
@@ -166,6 +176,8 @@ def test_dwd_observations_stations_name_with_comma() -> None:
         ),
         IsDict(
             {
+                "resolution": "monthly",
+                "dataset": "climate_summary",
                 "station_id": "06272",
                 "start_date": dt.datetime(2004, 10, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
                 "end_date": IsDatetime,

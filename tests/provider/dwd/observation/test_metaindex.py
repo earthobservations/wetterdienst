@@ -39,6 +39,8 @@ def test_meta_index_1mph_creation(default_settings: Settings) -> None:
     ).collect()
     assert meta_index_1mph.filter(pl.col("station_id").eq("00003")).row(0) == (
         (
+            "1_minute",
+            "precipitation",
             "00003",
             dt.datetime(1891, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
             dt.datetime(2012, 4, 6, 0, 0, tzinfo=ZoneInfo("UTC")),

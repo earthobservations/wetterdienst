@@ -65,6 +65,8 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
     given_df = stations.all().df
     assert not given_df.is_empty()
     assert given_df.select(pl.all().max()).to_dicts()[0] == {
+        "resolution": "hourly",
+        "dataset": "icon",
         "station_id": "Z949",
         "icao_id": "ZYTX",
         "start_date": None,
@@ -76,6 +78,8 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
         "state": None,
     }
     assert given_df.select(pl.all().min()).to_dicts()[0] == {
+        "resolution": "hourly",
+        "dataset": "icon",
         "station_id": "01001",
         "icao_id": "AFDU",
         "start_date": None,

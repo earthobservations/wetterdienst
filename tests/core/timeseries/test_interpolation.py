@@ -27,6 +27,7 @@ def df_interpolated_empty() -> pl.DataFrame:
     return pl.DataFrame(
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
@@ -54,6 +55,7 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
         [
             {
                 "station_id": "f674568e",
+                "resolution": "hourly",
                 "dataset": "temperature_air",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -80,6 +82,7 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
         [
             {
                 "station_id": "6754d04d",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
@@ -89,6 +92,7 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
             },
             {
                 "station_id": "6754d04d",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
@@ -126,6 +130,7 @@ def test_interpolation_precipitation_height_minute_10(default_settings: Settings
         [
             {
                 "station_id": "f674568e",
+                "resolution": "10_minutes",
                 "dataset": "precipitation",
                 "parameter": "precipitation_height",
                 "date": dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),

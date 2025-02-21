@@ -24,6 +24,8 @@ def expected_stations_df() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
+                "resolution": "hourly",
+                "dataset": "temperature_air",
                 "station_id": "02480",
                 "start_date": dt.datetime(2004, 9, 1, tzinfo=ZoneInfo("UTC")),
                 "latitude": 50.0643,
@@ -34,6 +36,8 @@ def expected_stations_df() -> pl.DataFrame:
                 "distance": 9.759384982994229,
             },
             {
+                "resolution": "hourly",
+                "dataset": "temperature_air",
                 "station_id": "04411",
                 "start_date": dt.datetime(2002, 1, 24, tzinfo=ZoneInfo("UTC")),
                 "latitude": 49.9195,
@@ -44,6 +48,8 @@ def expected_stations_df() -> pl.DataFrame:
                 "distance": 10.160326,
             },
             {
+                "resolution": "hourly",
+                "dataset": "temperature_air",
                 "station_id": "07341",
                 "start_date": dt.datetime(2005, 7, 16, tzinfo=ZoneInfo("UTC")),
                 "latitude": 50.0900,
@@ -55,6 +61,8 @@ def expected_stations_df() -> pl.DataFrame:
             },
         ],
         schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
             "station_id": pl.String,
             "start_date": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
@@ -266,3 +274,99 @@ def test_dwd_observation_stations_fail(default_request: TimeseriesRequest) -> No
     # Bbox
     with pytest.raises(ValueError, match="bbox left border should be smaller then right"):
         default_request.filter_by_bbox(left=10, bottom=10, right=5, top=5)
+
+
+@pytest.mark.remote
+def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
+    """Test for multiple parameters."""
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl", "temperature_air_mean_2m"), ("hourly", "precipitation", "precipitation_height")],
+        settings=default_settings,
+        start_date=dt.datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+    ).filter_by_station_id(("02315", "01050", "19140"))
+    assert request.parameters == [
+        DwdObservationMetadata.daily.kl.temperature_air_mean_2m,
+        DwdObservationMetadata.hourly.precipitation.precipitation_height,
+    ]
+    df_stations = request.df
+    assert df_stations.get_column("resolution").unique(maintain_order=True).sort().to_list() == ["daily", "hourly"]
+    assert df_stations.get_column("dataset").unique(maintain_order=True).sort().to_list() == [
+        "climate_summary",
+        "precipitation",
+    ]
+    # station in climate_summary
+    assert df_stations.filter(pl.col("station_id") == "02315").select(pl.all().exclude("end_date")).to_dicts()[0] == {
+        "resolution": "daily",
+        "dataset": "climate_summary",
+        "station_id": "02315",
+        "start_date": dt.datetime(2000, 6, 1, tzinfo=ZoneInfo("UTC")),
+        "latitude": 51.7657,
+        "longitude": 13.1666,
+        "height": 78.0,
+        "name": "Holzdorf-Bernsdorf",
+        "state": "Brandenburg",
+    }
+    # station in climate_summary and temperature_air
+    assert df_stations.filter(pl.col("station_id") == "01050").sort(["resolution"]).select(
+        pl.all().exclude("end_date"),
+    ).to_dicts() == [
+        {
+            "resolution": "daily",
+            "dataset": "climate_summary",
+            "station_id": "01050",
+            "start_date": dt.datetime(1949, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "latitude": 51.0221,
+            "longitude": 13.847,
+            "height": 112.0,
+            "name": "Dresden-Hosterwitz",
+            "state": "Sachsen",
+        },
+        {
+            "resolution": "hourly",
+            "dataset": "precipitation",
+            "station_id": "01050",
+            "start_date": dt.datetime(2006, 4, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "latitude": 51.0221,
+            "longitude": 13.847,
+            "height": 112.0,
+            "name": "Dresden-Hosterwitz",
+            "state": "Sachsen",
+        },
+    ]
+    # station in temperature_air
+    assert df_stations.filter(pl.col("station_id") == "19140").select(pl.all().exclude("end_date")).to_dicts() == [
+        {
+            "resolution": "hourly",
+            "dataset": "precipitation",
+            "station_id": "19140",
+            "start_date": dt.datetime(2020, 11, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "latitude": 50.9657,
+            "longitude": 10.6988,
+            "height": 278.0,
+            "name": "Gotha",
+            "state": "Thüringen",
+        },
+    ]
+    df_values = request.values.all().df
+    assert df_values.get_column("resolution").unique().sort().to_list() == ["daily", "hourly"]
+    assert df_values.get_column("dataset").unique().sort().to_list() == [
+        "climate_summary",
+        "precipitation",
+    ]
+    assert df_values.get_column("parameter").unique().sort().to_list() == [
+        "precipitation_height",
+        "temperature_air_mean_2m",
+    ]
+    # station in climate_summary
+    df_stats = (
+        df_values.group_by(["resolution", "dataset", "station_id"], maintain_order=True)
+        .count()
+        .sort(["resolution", "dataset", "station_id"])
+    )
+    assert df_stats.to_dicts() == [
+        {"count": 25871, "dataset": "climate_summary", "resolution": "daily", "station_id": "01050"},
+        {"count": 8610, "dataset": "climate_summary", "resolution": "daily", "station_id": "02315"},
+        {"count": 151743, "dataset": "precipitation", "resolution": "hourly", "station_id": "01050"},
+        {"count": 27568, "dataset": "precipitation", "resolution": "hourly", "station_id": "19140"},
+    ]

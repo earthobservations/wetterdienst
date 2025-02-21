@@ -4,6 +4,7 @@
 
 import zoneinfo
 
+import polars as pl
 import pytest
 
 from wetterdienst import Parameter, Settings
@@ -25,6 +26,8 @@ from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
 from wetterdienst.util.eccodes import ensure_eccodes
 
 DF_STATIONS_MINIMUM_COLUMNS = {
+    "resolution",
+    "dataset",
     "station_id",
     "start_date",
     "end_date",
@@ -34,7 +37,24 @@ DF_STATIONS_MINIMUM_COLUMNS = {
     "name",
     "state",
 }
-DF_VALUES_MINIMUM_COLUMNS = {"station_id", "parameter", "date", "value", "quality"}
+DF_VALUES_MINIMUM_COLUMNS = {"resolution", "dataset", "station_id", "parameter", "date", "value", "quality"}
+
+
+def _is_complete_stations_df(
+    df: pl.DataFrame,
+    exclude_columns: set[str] | None = None,
+) -> bool:
+    columns = DF_STATIONS_MINIMUM_COLUMNS
+    exclude_columns = exclude_columns or set()
+    columns = columns - exclude_columns
+    return df.select(columns).select(pl.all_horizontal(pl.all().is_not_null().all())).to_series().all()
+
+
+def _is_complete_values_df(
+    df: pl.DataFrame,
+) -> bool:
+    columns = DF_VALUES_MINIMUM_COLUMNS - {"value", "quality"}
+    return df.select(columns).select(pl.all_horizontal(pl.all().is_not_null().all())).to_series().all()
 
 
 @pytest.fixture
@@ -123,13 +143,15 @@ def test_api_dwd_observation(default_settings: Settings) -> None:
     request = DwdObservationRequest(parameters=[("daily", "kl")], periods="recent", settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_start_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df)
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -138,13 +160,15 @@ def test_api_dwd_mosmix(default_settings: Settings) -> None:
     request = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_start_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -153,13 +177,15 @@ def test_api_dwd_dmo(default_settings: Settings) -> None:
     request = DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_start_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -172,13 +198,21 @@ def test_api_dwd_road(default_settings: Settings) -> None:
     ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_start_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(
+        request.df,
+        exclude_columns={
+            "start_date",
+            "end_date",
+        },
+    )
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -188,13 +222,15 @@ def test_api_eccc_observation(default_settings: Settings) -> None:
     request = EcccObservationRequest(parameters=[("daily", "data")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_start_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df)
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -205,13 +241,15 @@ def test_api_imgw_hydrology(default_settings: Settings) -> None:
     request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_start_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df)
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -224,13 +262,15 @@ def test_api_imgw_meteorology(default_settings: Settings) -> None:
     )
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_start_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df)
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -242,13 +282,15 @@ def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_start_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -260,13 +302,15 @@ def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_start_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df)
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -275,13 +319,18 @@ def test_api_wsv_pegel(default_settings: Settings) -> None:
     request = WsvPegelRequest(parameters=[("dynamic", "data", "stage")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(
+        request.df,
+        exclude_columns={"start_date", "end_date", "latitude", "longitude", "height", "state"},
+    )
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -290,13 +339,15 @@ def test_api_ea_hydrology(default_settings: Settings) -> None:
     request = EAHydrologyRequest(parameters=[("daily", "data", "discharge")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state", "height"})
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -308,13 +359,15 @@ def test_api_nws_observation(default_settings: Settings) -> None:
     ).filter_by_station_id("KBHM")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_date = request.df.get_column("start_date").to_list()[0]
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
-    assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -324,11 +377,11 @@ def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     request = HubeauRequest(parameters=[("dynamic", "data", "discharge")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_date = request.df.get_column("start_date").to_list()[0]
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
+    first_date = values.get_column("date").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert not values.drop_nulls(subset="value").is_empty()
@@ -340,14 +393,13 @@ def test_api_geosphere_observation(default_settings: Settings) -> None:
         parameters=[("daily", "data", "precipitation_height")],
         settings=default_settings,
     ).filter_by_station_id("5882")
-
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    first_date = request.df.get_column("start_date").to_list()[0]
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
-    first_date = values.get_column("date").to_list()[0]
+    first_date = values.get_column("date").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert not values.drop_nulls(subset="value").is_empty()

@@ -22,15 +22,17 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 def mosmix_stations_schema() -> dict:
     """Provide schema for MOSMIX station list."""
     return {
-        "station_id": str,
-        "icao_id": str,
+        "resolution": pl.String,
+        "dataset": pl.String,
+        "station_id": pl.String,
+        "icao_id": pl.String,
         "start_date": pl.Datetime(time_zone="UTC"),
         "end_date": pl.Datetime(time_zone="UTC"),
-        "latitude": float,
-        "longitude": float,
-        "height": float,
-        "name": str,
-        "state": str,
+        "latitude": pl.Float64,
+        "longitude": pl.Float64,
+        "height": pl.Float64,
+        "name": pl.String,
+        "state": pl.String,
     }
 
 
@@ -41,12 +43,14 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
     given_df = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings).all().df
     assert not given_df.is_empty()
     # Verify size of dataframe with all records.
-    assert given_df.shape == IsTuple(IsInt(ge=5500), 9)
+    assert given_df.shape == IsTuple(IsInt(ge=5500), 11)
     # Verify content of dataframe. For reference purposes,
     # we use the first and the last record of the list.
     expected_df = pl.DataFrame(
         [
             {
+                "resolution": "hourly",
+                "dataset": "large",
                 "station_id": "01001",
                 "icao_id": "ENJA",
                 "start_date": None,
@@ -58,6 +62,8 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
                 "state": None,
             },
             {
+                "resolution": "hourly",
+                "dataset": "large",
                 "station_id": "Z949",
                 "icao_id": None,
                 "start_date": None,

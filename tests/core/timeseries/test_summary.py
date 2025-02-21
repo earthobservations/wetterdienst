@@ -33,6 +33,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
         [
             {
                 "station_id": "7ac6c582",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "date": selected_dates[0],
@@ -42,6 +43,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
             },
             {
                 "station_id": "7ac6c582",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "date": selected_dates[1],
@@ -51,6 +53,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
             },
             {
                 "station_id": "7ac6c582",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "date": selected_dates[2],
@@ -82,6 +85,7 @@ def test_not_summarizable_parameter(default_settings: Settings) -> None:
     expected_df = pl.DataFrame(
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),

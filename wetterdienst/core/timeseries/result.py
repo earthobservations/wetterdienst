@@ -75,6 +75,8 @@ class _Metadata(TypedDict):
 class _Station(TypedDict):
     """Type definition for station."""
 
+    resolution: str
+    dataset: str
     station_id: str
     start_date: str | None
     end_date: str | None
@@ -95,6 +97,8 @@ class _StationsDict(TypedDict):
 class _OgcFeatureProperties(TypedDict):
     """Type definition for OGC feature properties."""
 
+    resolution: str
+    dataset: str
     id: str
     name: str
     state: str
@@ -328,6 +332,8 @@ class StationsResult(ExportMixin):
                 {
                     "type": "Feature",
                     "properties": {
+                        "resolution": station["resolution"],
+                        "dataset": station["dataset"],
                         "id": station["station_id"],
                         "name": station["name"],
                         "state": station["state"],
@@ -380,7 +386,13 @@ class StationsResult(ExportMixin):
         # Calculate zoom level
         lat_diff = max_lat - min_lat
         zoom = 12 - lat_diff
+        # for coloring of resolutions/datasets
+        n_resolutions = df["resolution"].n_unique()
+        n_datasets = df["dataset"].n_unique()
+        # rename resolution and dataset to keep "dataset" name free
+        df = df.rename({"resolution": "resolution_", "dataset": "dataset_"})
         df = df.with_columns(
+            pl.lit(None, dtype=pl.String).alias("dataset"),
             pl.concat_str(
                 pl.col("name"),
                 pl.lit(" ("),
@@ -388,11 +400,28 @@ class StationsResult(ExportMixin):
                 pl.lit(")"),
             ).alias("name"),
         )
+        if n_datasets and n_resolutions:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("resolution_"),
+                    pl.lit("/"),
+                    pl.col("dataset_"),
+                ).alias("dataset"),
+            )
+        elif n_datasets:
+            df = df.with_columns(
+                pl.col("dataset_").alias("dataset"),
+            )
+        elif n_resolutions:
+            df = df.with_columns(
+                pl.col("resolution_").alias("dataset"),
+            )
         fig = px.scatter_map(
             df,
             lat="latitude",
             lon="longitude",
             text="name",
+            color="dataset",
             zoom=zoom,
             center={
                 "lat": center_lat,
@@ -400,6 +429,11 @@ class StationsResult(ExportMixin):
             },
         )
         return fig.update_layout(
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.01,
+            },
             margin={"r": 10, "t": 10, "l": 10, "b": 10},
         )
 
@@ -430,6 +464,7 @@ class _ValuesItemDict(TypedDict):
     """Type definition for dictionary of values."""
 
     station_id: str
+    resolution: str
     dataset: str
     parameter: str
     date: str
@@ -547,6 +582,8 @@ class ValuesResult(_ValuesResult):
                 {
                     "type": "Feature",
                     "properties": {
+                        "resolution": station["resolution"],
+                        "dataset": station["dataset"],
                         "id": station["station_id"],
                         "name": station["name"],
                         "state": station["state"],
@@ -595,8 +632,9 @@ class ValuesResult(_ValuesResult):
             for parameter in self.values.sr.parameters
         }
         # used for subplots
-        n = df.select(["dataset", "parameter"]).n_unique()
+        n = df.select(["resolution", "dataset", "parameter"]).n_unique()
         # used for name
+        n_resolutions = df["resolution"].n_unique()
         n_datasets = df["dataset"].n_unique()
         df = df.with_columns(
             # add unit in brackets to parameter
@@ -611,7 +649,15 @@ class ValuesResult(_ValuesResult):
             df = df.with_columns(
                 pl.concat_str(
                     pl.col("dataset"),
-                    pl.lit("/"),
+                    pl.lit("<br>"),
+                    pl.col("parameter"),
+                ).alias("parameter"),
+            )
+        if n_resolutions > 1:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("resolution"),
+                    pl.lit("<br>"),
                     pl.col("parameter"),
                 ).alias("parameter"),
             )
@@ -634,7 +680,7 @@ class ValuesResult(_ValuesResult):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin={"l": 10, "r": 10, "t": 10, "b": 10},
+            margin={"l": 10, "r": 10 + (n_resolutions + n_datasets) * 10, "t": 10, "b": 10},
         )
         return fig
 
@@ -786,6 +832,7 @@ class InterpolatedValuesResult(_ValuesResult):
         # used for subplots
         n = df.select(["dataset", "parameter"]).n_unique()
         # used for name
+        n_resolutions = df["resolution"].n_unique()
         n_datasets = df["dataset"].n_unique()
         df = df.with_columns(
             # add unit in brackets to parameter
@@ -801,7 +848,15 @@ class InterpolatedValuesResult(_ValuesResult):
             df = df.with_columns(
                 pl.concat_str(
                     pl.col("dataset"),
-                    pl.lit("/"),
+                    pl.lit("<br>"),
+                    pl.col("parameter"),
+                ).alias("parameter"),
+            )
+        if n_resolutions > 1:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("resolution"),
+                    pl.lit("<br>"),
                     pl.col("parameter"),
                 ).alias("parameter"),
             )
@@ -825,7 +880,7 @@ class InterpolatedValuesResult(_ValuesResult):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin={"l": 10, "r": 10, "t": 10, "b": 10},
+            margin={"l": 10, "r": 10 + (n_resolutions + n_datasets) * 10, "t": 10, "b": 10},
         )
         return fig
 
@@ -970,6 +1025,7 @@ class SummarizedValuesResult(_ValuesResult):
         # used for subplots
         n = df.select(["dataset", "parameter"]).n_unique()
         # used for name
+        n_resolutions = df["resolution"].n_unique()
         n_datasets = df["dataset"].n_unique()
         df = df.with_columns(
             # add unit in brackets to parameter
@@ -984,7 +1040,15 @@ class SummarizedValuesResult(_ValuesResult):
             df = df.with_columns(
                 pl.concat_str(
                     pl.col("dataset"),
-                    pl.lit("/"),
+                    pl.lit("<br>"),
+                    pl.col("parameter"),
+                ).alias("parameter"),
+            )
+        if n_resolutions > 1:
+            df = df.with_columns(
+                pl.concat_str(
+                    pl.col("resolution"),
+                    pl.lit("<br>"),
                     pl.col("parameter"),
                 ).alias("parameter"),
             )
@@ -1008,7 +1072,7 @@ class SummarizedValuesResult(_ValuesResult):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin={"l": 10, "r": 10, "t": 10, "b": 10},
+            margin={"l": 10, "r": 10 + (n_resolutions + n_datasets) * 10, "t": 10, "b": 10},
         )
         return fig
 

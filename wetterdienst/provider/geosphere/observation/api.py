@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import logging
 from datetime import datetime, timedelta
+from itertools import groupby
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
@@ -91,10 +92,13 @@ class GeosphereObservationValues(TimeseriesValues):
                 .otherwise(pl.col("value"))
                 .alias("value"),
             )
-        return df.with_columns(
-            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+        return df.select(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            pl.lit(station_id).alias("station_id"),
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+            pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )
 
@@ -131,24 +135,31 @@ class GeosphereObservationRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        dataset = self.parameters[0].dataset
-        url = self._endpoint.format(dataset=dataset.name_original)
-        log.info(f"Downloading file {url}.")
-        response = download_file(url=url, settings=self.settings, ttl=CacheExpiry.METAINDEX)
-        df = pl.read_csv(response).lazy()
-        df = df.drop("Sonnenschein", "Globalstrahlung")
-        df = df.rename(
-            mapping={
-                "id": "station_id",
-                "Stationsname": "name",
-                "Länge [°E]": "longitude",
-                "Breite [°N]": "latitude",
-                "Höhe [m]": "height",
-                "Startdatum": "start_date",
-                "Enddatum": "end_date",
-                "Bundesland": "state",
-            },
-        )
+        data = []
+        for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
+            url = self._endpoint.format(dataset=dataset.name_original)
+            log.info(f"Downloading file {url}.")
+            response = download_file(url=url, settings=self.settings, ttl=CacheExpiry.METAINDEX)
+            df = pl.read_csv(response).lazy()
+            df = df.drop("Sonnenschein", "Globalstrahlung")
+            df = df.rename(
+                mapping={
+                    "id": "station_id",
+                    "Stationsname": "name",
+                    "Länge [°E]": "longitude",
+                    "Breite [°N]": "latitude",
+                    "Höhe [m]": "height",
+                    "Startdatum": "start_date",
+                    "Enddatum": "end_date",
+                    "Bundesland": "state",
+                },
+            )
+            df = df.with_columns(
+                pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
+            )
+            data.append(df)
+        df = pl.concat(data)
         return df.with_columns(
             pl.col("start_date").str.to_datetime(),
             pl.col("end_date").str.to_datetime(),

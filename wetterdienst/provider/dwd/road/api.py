@@ -213,7 +213,16 @@ class DwdRoadValues(TimeseriesValues):
             df = self._collect_data_by_station_group(station_group, parameters)
         except ValueError:
             return pl.DataFrame()
-        return df.filter(pl.col("station_id").eq(station_id))
+        df = df.filter(pl.col("station_id").eq(station_id))
+        return df.select(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("parameter"),
+            pl.col("station_id"),
+            pl.col("date"),
+            pl.col("value"),
+            pl.col("quality"),
+        )
 
     def _create_file_index_for_dwd_road_weather_station(
         self,
@@ -350,16 +359,23 @@ class DwdRoadRequest(TimeseriesRequest):
     metadata = DwdRoadMetadata
     _values = DwdRoadValues
 
-    _base_columns: ClassVar = list(TimeseriesRequest._base_columns)  # noqa: SLF001
-    _base_columns.extend(
-        (
-            "station_group",
-            "road_name",
-            "road_sector",
-            "road_type",
-            "road_surface_type",
-            "road_surroundings_type",
-        ),
+    _base_columns: ClassVar = (
+        "resolution",
+        "dataset",
+        "station_id",
+        "start_date",
+        "end_date",
+        "latitude",
+        "longitude",
+        "height",
+        "name",
+        "state",
+        "station_group",
+        "road_name",
+        "road_sector",
+        "road_type",
+        "road_surface_type",
+        "road_surroundings_type",
     )
     _endpoint = (
         "https://www.dwd.de/DE/leistungen/opendata/help/stationen/sws_stations_xls.xlsx?__blob=publicationFile&v=11"
@@ -428,6 +444,8 @@ class DwdRoadRequest(TimeseriesRequest):
             pl.col("has_file").ne("x") & pl.col("station_group").ne("0") & pl.col("station_id").is_not_null(),
         )
         df = df.with_columns(
+            pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
+            pl.lit(self.metadata[0].datasets[0].name, dtype=pl.String).alias("dataset"),
             pl.col("longitude").str.replace(",", "."),
             pl.col("latitude").str.replace(",", "."),
             pl.when(~pl.col("road_type").str.contains("x")).then(pl.col("road_type")),

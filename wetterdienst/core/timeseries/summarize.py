@@ -80,19 +80,21 @@ def apply_station_values_per_parameter(
         ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
-        if (parameter.dataset.name, parameter.name) in param_dict and param_dict[
+        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) in param_dict and param_dict[
+            parameter.dataset.resolution.name,
             parameter.dataset.name,
             parameter.name,
         ].finished:
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
+            pl.col("resolution").eq(parameter.dataset.resolution.name),
             pl.col("dataset").eq(parameter.dataset.name),
             pl.col("parameter").eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        if (parameter.dataset.name, parameter.name) not in param_dict:
+        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) not in param_dict:
             frequency = Frequency[parameter.dataset.resolution.value.name].value
             df = pl.DataFrame(
                 {
@@ -106,15 +108,15 @@ def apply_station_values_per_parameter(
                 },
                 orient="col",
             )
-            param_dict[parameter.dataset.name, parameter.name] = _ParameterData(df)
+            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name] = _ParameterData(df)
         result_series_param = (
-            param_dict[parameter.dataset.name, parameter.name]
+            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name]
             .values.select("date")
             .join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value").rename(station["station_id"])
         extract_station_values(
-            param_dict[parameter.dataset.name, parameter.name],
+            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name],
             result_series_param,
             valid_station_groups_exists=True,
         )
@@ -126,6 +128,7 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
         pl.DataFrame(
             schema={
                 "date": pl.Datetime(time_zone="UTC"),
+                "resolution": pl.String,
                 "dataset": pl.String,
                 "parameter": pl.String,
                 "value": pl.Float64,
@@ -134,14 +137,15 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
             },
         ),
     ]
-    for (dataset, parameter), param_data in param_dict.items():
+    for (resolution, dataset, parameter), param_data in param_dict.items():
         param_df = pl.DataFrame({"date": param_data.values.get_column("date")})
         results = []
         for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):
-            results.append(apply_summary(row, stations_dict, dataset, parameter))
+            results.append(apply_summary(row, stations_dict, resolution, dataset, parameter))
         results = pl.DataFrame(
             results,
             schema={
+                "resolution": pl.String,
                 "dataset": pl.String,
                 "parameter": pl.String,
                 "value": pl.Float64,
@@ -156,6 +160,7 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
     df = df.with_columns(pl.col("value").round(2), pl.col("distance").round(2))
     return df.sort(
         by=[
+            "resolution",
             "dataset",
             "parameter",
             "date",
@@ -166,17 +171,18 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
 def apply_summary(
     row: dict,
     stations_dict: dict,
+    resolution: str,
     dataset: str,
     parameter: str,
-) -> tuple[str, str, float | None, float | None, str | None]:
+) -> tuple[str, str, str, float | None, float | None, str | None]:
     """Apply summary to row.
 
     This works by taking the first non-null value and its station id.
     """
     vals = {s: v for s, v in row.items() if v is not None}
     if not vals:
-        return dataset, parameter, None, None, None
+        return resolution, dataset, parameter, None, None, None
     value = next(iter(vals.values()))
     station_id = next(iter(vals.keys()))[1:]
     distance = stations_dict[station_id][2]
-    return dataset, parameter, value, distance, station_id
+    return resolution, dataset, parameter, value, distance, station_id
