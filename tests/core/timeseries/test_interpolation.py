@@ -27,6 +27,7 @@ def df_interpolated_empty() -> pl.DataFrame:
     return pl.DataFrame(
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),

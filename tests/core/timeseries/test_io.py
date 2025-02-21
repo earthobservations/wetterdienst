@@ -258,6 +258,8 @@ def test_stations_to_dict(df_stations: pl.DataFrame) -> None:
     assert data.keys() == {"stations"}
     assert data["stations"] == [
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "01048",
             "start_date": "1957-05-01T00:00:00+00:00",
             "end_date": "1995-11-30T00:00:00+00:00",
@@ -367,10 +369,10 @@ def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
         .strip()
     )
     lines = output.split("\n")
-    assert lines[0] == "station_id,start_date,end_date,height,latitude,longitude,name,state"
+    assert lines[0] == "resolution,dataset,station_id,start_date,end_date,height,latitude,longitude,name,state"
     assert (
-        lines[1]
-        == "01048,1957-05-01T00:00:00+00:00,1995-11-30T00:00:00+00:00,645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
+        lines[1] == "daily,climate_summary,01048,1957-05-01T00:00:00+00:00,1995-11-30T00:00:00+00:00,"
+        "645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
     )
 
 
@@ -531,6 +533,8 @@ def test_interpolated_values_to_ogc_feature_collection(
         "properties": {"id": "abc", "name": "interpolation(1.2345,2.3456)"},
         "stations": [
             {
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "station_id": "01048",
                 "start_date": "1957-05-01T00:00:00+00:00",
                 "end_date": "1995-11-30T00:00:00+00:00",
@@ -545,6 +549,8 @@ def test_interpolated_values_to_ogc_feature_collection(
         "values": [
             {
                 "station_id": "abc",
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,

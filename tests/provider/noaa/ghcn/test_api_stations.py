@@ -20,6 +20,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
     df_expected = pl.DataFrame(
         [
             {
+                "resolution": "daily",
+                "dataset": "data",
                 "station_id": "ACW00011604",
                 "start_date": dt.datetime(1949, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 10.1,
@@ -29,6 +31,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "state": None,
             },
             {
+                "resolution": "daily",
+                "dataset": "data",
                 "station_id": "ACW00011647",
                 "start_date": dt.datetime(1957, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 19.2,
@@ -38,6 +42,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "state": None,
             },
             {
+                "resolution": "daily",
+                "dataset": "data",
                 "station_id": "AE000041196",
                 "start_date": dt.datetime(1944, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 34.0,
@@ -47,6 +53,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "state": None,
             },
             {
+                "resolution": "daily",
+                "dataset": "data",
                 "station_id": "AEM00041194",
                 "start_date": dt.datetime(1983, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 10.4,
@@ -56,6 +64,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "state": None,
             },
             {
+                "resolution": "daily",
+                "dataset": "data",
                 "station_id": "AEM00041217",
                 "start_date": dt.datetime(1983, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 26.8,
@@ -66,13 +76,15 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
             },
         ],
         schema={
-            "station_id": str,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
             "start_date": pl.Datetime(time_zone="UTC"),
-            "latitude": float,
-            "longitude": float,
-            "height": float,
-            "name": str,
-            "state": str,
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "height": pl.Float64,
+            "name": pl.String,
+            "state": pl.String,
         },
         orient="row",
     )
