@@ -228,6 +228,8 @@ def df_summarized_values() -> pl.DataFrame:
         [
             {
                 "station_id": "abc",
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
@@ -237,6 +239,8 @@ def df_summarized_values() -> pl.DataFrame:
         ],
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
@@ -583,6 +587,8 @@ def test_summarized_values_to_dict(df_summarized_values: pl.DataFrame) -> None:
     assert data["values"] == [
         {
             "station_id": "abc",
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_max_2m",
             "date": "2019-01-01T00:00:00+00:00",
             "value": 1.3,
@@ -623,6 +629,8 @@ def test_summarized_values_to_ogc_feature_collection(
         "properties": {"id": "abc", "name": "summary(1.2345,2.3456)"},
         "stations": [
             {
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "station_id": "01048",
                 "start_date": "1957-05-01T00:00:00+00:00",
                 "end_date": "1995-11-30T00:00:00+00:00",
@@ -637,6 +645,8 @@ def test_summarized_values_to_ogc_feature_collection(
         "values": [
             {
                 "station_id": "abc",
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,

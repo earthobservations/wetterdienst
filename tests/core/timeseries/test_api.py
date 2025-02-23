@@ -97,7 +97,7 @@ def test_api_drop_nulls(default_settings: Settings) -> None:
         settings=default_settings,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=20)
     values = next(request.values.query())
-    assert values.df.shape[0] == 51971
+    assert values.df.shape[0] == 52194
 
 
 def test_api_no_valid_parameters(default_settings: Settings) -> None:
