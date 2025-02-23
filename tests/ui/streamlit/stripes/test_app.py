@@ -27,6 +27,8 @@ def test_stripes() -> None:
     selected_station = app_test.selectbox[1].value
     del selected_station["end_date"]
     assert selected_station == {
+        "resolution": "annual",
+        "dataset": "climate_summary",
         "station_id": "15000",
         "start_date": dt.datetime(2011, 4, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
         "latitude": 50.7983,
