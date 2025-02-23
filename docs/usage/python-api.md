@@ -326,18 +326,18 @@ The red point represents the position of the interpolation and includes the inte
 
 Values represented as a table:
 
-| station_id | parameter               | date                      | value  |
-|------------|-------------------------|---------------------------|--------|
-| 02480      | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 278.15 |
-| 04411      | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 277.15 |
-| 07341      | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 278.35 |
-| 00917      | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 276.25 |
+| station_id | resolution | dataset         | parameter               | date                      | value  |
+|------------|------------|-----------------|-------------------------|---------------------------|--------|
+| 02480      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 278.15 |
+| 04411      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 277.15 |
+| 07341      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 278.35 |
+| 00917      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 276.25 |
 
 The interpolated value looks like this:
 
-| parameter               | date                      | value  |
-|-------------------------|---------------------------|--------|
-| temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 277.65 |
+| resolution | dataset         | parameter               | date                      | value  |
+|------------|-----------------|-------------------------|---------------------------|--------|
+| daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 277.65 |
 
 ```python exec="on" source="above"
 import datetime as dt

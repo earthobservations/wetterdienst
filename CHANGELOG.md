@@ -4,6 +4,8 @@
 
 ### Feature
 - Add user agent to default `fsspec_client_kwargs`
+- Adjust apis to track resolution and dataset
+  This also allows querying data for diffrent resolutions and datasets in one request
 
 ### Refactor
 - Improve date parsing across multiple apis
