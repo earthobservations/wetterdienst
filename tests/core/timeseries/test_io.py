@@ -74,6 +74,8 @@ def df_stations() -> pl.DataFrame:
     return pl.DataFrame(
         [
             {
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "station_id": "01048",
                 "start_date": dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC")),
                 "end_date": dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC")),
@@ -123,6 +125,7 @@ def df_values() -> pl.DataFrame:
         [
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -131,6 +134,7 @@ def df_values() -> pl.DataFrame:
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
@@ -139,6 +143,7 @@ def df_values() -> pl.DataFrame:
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 12, 28, tzinfo=ZoneInfo("UTC")),
@@ -147,6 +152,7 @@ def df_values() -> pl.DataFrame:
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -155,6 +161,7 @@ def df_values() -> pl.DataFrame:
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2021, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -163,6 +170,7 @@ def df_values() -> pl.DataFrame:
             },
             {
                 "station_id": "01048",
+                "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -172,6 +180,7 @@ def df_values() -> pl.DataFrame:
         ],
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
@@ -189,6 +198,8 @@ def df_interpolated_values() -> pl.DataFrame:
         [
             {
                 "station_id": "abc",
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
@@ -198,6 +209,8 @@ def df_interpolated_values() -> pl.DataFrame:
         ],
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
@@ -215,6 +228,8 @@ def df_summarized_values() -> pl.DataFrame:
         [
             {
                 "station_id": "abc",
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
@@ -224,6 +239,8 @@ def df_summarized_values() -> pl.DataFrame:
         ],
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
@@ -245,6 +262,8 @@ def test_stations_to_dict(df_stations: pl.DataFrame) -> None:
     assert data.keys() == {"stations"}
     assert data["stations"] == [
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "01048",
             "start_date": "1957-05-01T00:00:00+00:00",
             "end_date": "1995-11-30T00:00:00+00:00",
@@ -285,6 +304,8 @@ def test_stations_to_ogc_feature_collection(df_stations: pl.DataFrame) -> None:
     assert data["data"]["features"][0] == {
         "geometry": {"coordinates": [13.5528, 48.8049, 645.0], "type": "Point"},
         "properties": {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "id": "01048",
             "start_date": "1957-05-01T00:00:00+00:00",
             "end_date": "1995-11-30T00:00:00+00:00",
@@ -352,10 +373,10 @@ def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
         .strip()
     )
     lines = output.split("\n")
-    assert lines[0] == "station_id,start_date,end_date,height,latitude,longitude,name,state"
+    assert lines[0] == "resolution,dataset,station_id,start_date,end_date,height,latitude,longitude,name,state"
     assert (
-        lines[1]
-        == "01048,1957-05-01T00:00:00+00:00,1995-11-30T00:00:00+00:00,645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
+        lines[1] == "daily,climate_summary,01048,1957-05-01T00:00:00+00:00,1995-11-30T00:00:00+00:00,"
+        "645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
     )
 
 
@@ -365,12 +386,13 @@ def test_values_to_dict(df_values: pl.DataFrame) -> None:
     assert data.keys() == {"values"}
     assert data["values"] == [
         {
-            "dataset": "climate_summary",
-            "date": "2019-01-01T00:00:00+00:00",
-            "parameter": "temperature_air_max_2m",
-            "quality": None,
             "station_id": "01048",
+            "resolution": "daily",
+            "dataset": "climate_summary",
+            "parameter": "temperature_air_max_2m",
+            "date": "2019-01-01T00:00:00+00:00",
             "value": 1.3,
+            "quality": None,
         },
     ]
 
@@ -393,6 +415,8 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
     assert data["data"]["features"][0] == {
         "geometry": {"coordinates": [13.5528, 48.8049, 645.0], "type": "Point"},
         "properties": {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "id": "01048",
             "name": "Freyung vorm Wald",
             "state": "Bayern",
@@ -402,11 +426,12 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
         "type": "Feature",
         "values": [
             {
+                "resolution": "daily",
                 "dataset": "climate_summary",
-                "date": "2019-01-01T00:00:00+00:00",
                 "parameter": "temperature_air_max_2m",
-                "quality": None,
+                "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,
+                "quality": None,
             },
         ],
     }
@@ -441,6 +466,7 @@ def test_values_format_geojson(df_values: pl.DataFrame, stations_result_mock: St
     assert response.keys() == {"data"}
     item = response["data"]["features"][0]["values"][0]
     assert item == {
+        "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "temperature_air_max_2m",
         "date": "2019-01-01T00:00:00+00:00",
@@ -453,15 +479,15 @@ def test_values_format_csv(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to csv."""
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv().strip()
     lines = output.split("\n")
-    assert lines[0] == "station_id,dataset,parameter,date,value,quality"
-    assert lines[-1] == "01048,climate_summary,temperature_air_max_2m,2022-01-01T00:00:00+00:00,4.0,"
+    assert lines[0] == "station_id,resolution,dataset,parameter,date,value,quality"
+    assert lines[-1] == "01048,daily,climate_summary,temperature_air_max_2m,2022-01-01T00:00:00+00:00,4.0,"
 
 
 def test_values_format_csv_kwargs(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to csv."""
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv(include_header=False).strip()
     lines = output.split("\n")
-    assert lines[0] == "01048,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00+00:00,1.3,"
+    assert lines[0] == "01048,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00+00:00,1.3,"
 
 
 def test_interpolated_values_to_dict(df_interpolated_values: pl.DataFrame) -> None:
@@ -471,6 +497,8 @@ def test_interpolated_values_to_dict(df_interpolated_values: pl.DataFrame) -> No
     assert data["values"] == [
         {
             "station_id": "abc",
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_max_2m",
             "date": "2019-01-01T00:00:00+00:00",
             "value": 1.3,
@@ -509,6 +537,8 @@ def test_interpolated_values_to_ogc_feature_collection(
         "properties": {"id": "abc", "name": "interpolation(1.2345,2.3456)"},
         "stations": [
             {
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "station_id": "01048",
                 "start_date": "1957-05-01T00:00:00+00:00",
                 "end_date": "1995-11-30T00:00:00+00:00",
@@ -523,6 +553,8 @@ def test_interpolated_values_to_ogc_feature_collection(
         "values": [
             {
                 "station_id": "abc",
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,
@@ -555,6 +587,8 @@ def test_summarized_values_to_dict(df_summarized_values: pl.DataFrame) -> None:
     assert data["values"] == [
         {
             "station_id": "abc",
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_max_2m",
             "date": "2019-01-01T00:00:00+00:00",
             "value": 1.3,
@@ -595,6 +629,8 @@ def test_summarized_values_to_ogc_feature_collection(
         "properties": {"id": "abc", "name": "summary(1.2345,2.3456)"},
         "stations": [
             {
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "station_id": "01048",
                 "start_date": "1957-05-01T00:00:00+00:00",
                 "end_date": "1995-11-30T00:00:00+00:00",
@@ -609,6 +645,8 @@ def test_summarized_values_to_ogc_feature_collection(
         "values": [
             {
                 "station_id": "abc",
+                "resolution": "daily",
+                "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
                 "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,
@@ -1097,6 +1135,7 @@ def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -
     connection.close()
     assert results[0] == (
         "01048",
+        "daily",
         "climate_summary",
         "temperature_air_min_2m",
         dt.datetime(1939, 7, 26),  # noqa: DTZ001
@@ -1208,6 +1247,7 @@ def test_export_influxdb1_tidy(settings_convert_units_false: Settings) -> None:
         assert points[0]["measurement"] == "weather"
         assert list(points[0]["fields"].keys()) == [
             "station_id",
+            "resolution",
             "dataset",
             "parameter",
             "value",

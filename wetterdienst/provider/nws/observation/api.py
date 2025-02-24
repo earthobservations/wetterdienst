@@ -146,7 +146,7 @@ class NwsObservationValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: DatasetModel,  # noqa: ARG002
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         url = self._endpoint.format(station_id=station_id)
         log.info(f"acquiring data from {url}")
@@ -239,6 +239,8 @@ class NwsObservationValues(TimeseriesValues):
         )
         df = df.filter(pl.col("parameter").ne("cloudlayers"))
         return df.with_columns(
+            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("date").str.to_datetime(),
             pl.col("value").struct.field("value").cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
@@ -307,6 +309,8 @@ class NwsObservationRequest(TimeseriesRequest):
         )
         df = df.with_columns(pl.all().str.strip_chars())
         df = df.with_columns(
+            pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
+            pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
             pl.col("latitude").cast(pl.Float64),
             pl.col("longitude").cast(pl.Float64),
             pl.col("height").cast(pl.Float64),

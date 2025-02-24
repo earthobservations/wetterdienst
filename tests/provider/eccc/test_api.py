@@ -26,6 +26,8 @@ def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
     expected_df = pl.DataFrame(
         [
             {
+                "resolution": "daily",
+                "dataset": "data",
                 "station_id": "14",
                 "start_date": dt.datetime(1984, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "end_date": dt.datetime(1996, 12, 31, tzinfo=ZoneInfo("UTC")),
@@ -55,6 +57,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
         [
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "count_days_cooling_degree",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -63,6 +66,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "count_days_cooling_degree",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -71,6 +75,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "count_days_heating_degree",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -79,6 +84,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "count_days_heating_degree",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -87,6 +93,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "precipitation_height",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -95,6 +102,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "precipitation_height",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -103,6 +111,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "precipitation_height_liquid",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -111,6 +120,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "precipitation_height_liquid",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -119,6 +129,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "snow_depth",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -127,6 +138,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "snow_depth",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -135,6 +147,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "snow_depth_new",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -143,6 +156,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "snow_depth_new",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -151,6 +165,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -159,6 +174,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -167,6 +183,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -175,6 +192,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -183,6 +201,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_min_2m",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -191,6 +210,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_min_2m",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -199,6 +219,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "wind_gust_max",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -207,6 +228,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
             {
                 "station_id": "1652",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "wind_gust_max",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -215,12 +237,13 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
         ],
         schema={
-            "station_id": str,
-            "dataset": str,
-            "parameter": str,
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": float,
-            "quality": float,
+            "value": pl.Float64,
+            "quality": pl.Float64,
         },
         orient="row",
     )

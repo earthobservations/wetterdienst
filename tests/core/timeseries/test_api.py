@@ -44,7 +44,7 @@ def test_api_skip_empty_stations(
         != request.df.get_column("station_id").gather(0).to_list()
     )  # not supposed to be the first station of the list
     assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_stations
-    assert values.df_stations.get_column("station_id").to_list() == expected_stations
+    assert values.df_stations.get_column("station_id").unique(maintain_order=True).to_list() == expected_stations
 
 
 @pytest.mark.remote
@@ -97,7 +97,7 @@ def test_api_drop_nulls(default_settings: Settings) -> None:
         settings=default_settings,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=20)
     values = next(request.values.query())
-    assert values.df.shape[0] == 51971
+    assert values.df.shape[0] == 52194
 
 
 def test_api_no_valid_parameters(default_settings: Settings) -> None:

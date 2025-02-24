@@ -151,13 +151,15 @@ class EAHydrologyValues(TimeseriesValues):
         payload = download_file(url=readings_url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         data = json.loads(payload.read())["items"]
         df = pl.from_dicts(data)
-        df = df.select(
+        return df.select(
+            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
-            pl.col("dateTime"),
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC").alias("date"),
             pl.col("value"),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
-        df = df.rename(mapping={"dateTime": "date", "value": "value"})
-        return df.with_columns(pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
 
 
 class EAHydrologyRequest(TimeseriesRequest):
@@ -198,10 +200,10 @@ class EAHydrologyRequest(TimeseriesRequest):
         data = json.load(payload)["items"]
         for station in data:
             self._transform_station(station)
-        df = pl.from_dicts(data)
+        df_raw = pl.from_dicts(data)
         # filter for stations that have wanted resolution and parameter combinations
         df_measures = (
-            df.select(pl.col("notation"), pl.col("measures"))
+            df_raw.select(pl.col("notation"), pl.col("measures"))
             .explode("measures")
             .with_columns(pl.col("measures").struct.field("parameter"))
         )
@@ -209,9 +211,9 @@ class EAHydrologyRequest(TimeseriesRequest):
         df_notations = df_measures.filter(
             pl.col("parameters").list.set_intersection(["flow", "level"]).len() > 0,
         ).select("notation")
-        df = df.join(df_notations, how="inner", on="notation")
-        df = df.rename(mapping=lambda col: col.lower())
-        df = df.rename(
+        df_raw = df_raw.join(df_notations, how="inner", on="notation")
+        df_raw = df_raw.rename(mapping=lambda col: col.lower())
+        df_raw = df_raw.rename(
             mapping={
                 "label": "name",
                 "lat": "latitude",
@@ -221,10 +223,27 @@ class EAHydrologyRequest(TimeseriesRequest):
                 "dateclosed": "end_date",
             },
         )
-        df = df.with_columns(
+        df_raw = df_raw.with_columns(
             pl.col("start_date").str.to_datetime(format="%Y-%m-%d"),
             pl.col("end_date").str.to_datetime(format="%Y-%m-%d"),
+            pl.lit(None, pl.Float64).alias("height"),
+            pl.lit(None, pl.String).alias("state"),
         )
+        # combinations of resolution and dataset
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+        }
+        data = []
+        # for each combination of resolution and dataset create a new DataFrame with the columns
+        for resolution, dataset in resolutions_and_datasets:
+            data.append(
+                df_raw.with_columns(
+                    pl.lit(resolution, pl.String).alias("resolution"),
+                    pl.lit(dataset, pl.String).alias("dataset"),
+                ),
+            )
+        df = pl.concat(data)
+        df = df.select(self._base_columns)
         return df.lazy()
 
     @staticmethod

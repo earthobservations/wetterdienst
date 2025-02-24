@@ -23,6 +23,8 @@ SETTINGS_STATIONS = (
         "01048",
         # expected dict
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "01048",
             "start_date": "1934-01-01T00:00:00+00:00",
             "end_date": IsStr,
@@ -44,6 +46,8 @@ SETTINGS_STATIONS = (
         ],
         "10488",
         {
+            "resolution": "hourly",
+            "dataset": "large",
             "station_id": "10488",
             "icao_id": "EDDC",
             "start_date": None,
@@ -65,6 +69,8 @@ SETTINGS_STATIONS = (
         ],
         "10488",
         {
+            "resolution": "hourly",
+            "dataset": "icon",
             "station_id": "10488",
             "icao_id": "EDDC",
             "start_date": None,

@@ -20,6 +20,8 @@ def test_dwd_road_weather() -> None:
     )
     item = request.to_dict()["stations"][0]
     assert item == {
+        "resolution": "15_minutes",
+        "dataset": "data",
         "station_id": "A006",
         "start_date": None,
         "end_date": None,

@@ -31,6 +31,8 @@ def test_explorer() -> None:
     assert app_test.selectbox[4].value == DwdObservationMetadata.daily.climate_summary
     selected_station = app_test.selectbox[5].value
     assert selected_station == {
+        "resolution": "daily",
+        "dataset": "climate_summary",
         "station_id": "00001",
         "start_date": dt.datetime(1937, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
         "end_date": dt.datetime(1986, 6, 30, 0, 0, tzinfo=ZoneInfo(key="UTC")),

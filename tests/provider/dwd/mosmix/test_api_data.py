@@ -33,9 +33,10 @@ def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> Non
 
     assert response.df_stations.get_column("station_id").to_list() == ["01001"]
 
-    assert len(response.df.columns) == 6
+    assert len(response.df.columns) == 7
     assert list(response.df.columns) == [
         "station_id",
+        "resolution",
         "dataset",
         "parameter",
         "date",
@@ -181,9 +182,10 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> Non
     station_ids = response.df.get_column("station_id").unique().to_list()
     assert station_ids == ["01028"]
     assert len(response.df) > 200
-    assert len(response.df.columns) == 6
+    assert len(response.df.columns) == 7
     assert list(response.df.columns) == [
         "station_id",
+        "resolution",
         "dataset",
         "parameter",
         "date",
@@ -268,9 +270,10 @@ def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false: Settings)
     station_ids = response.stations.df.get_column("station_id").unique().to_list()
     assert station_ids == ["01001"]
     assert len(response.df) > 200
-    assert len(response.df.columns) == 6
+    assert len(response.df.columns) == 7
     assert list(response.df.columns) == [
         "station_id",
+        "resolution",
         "dataset",
         "parameter",
         "date",

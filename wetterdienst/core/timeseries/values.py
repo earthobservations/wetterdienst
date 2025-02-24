@@ -8,7 +8,7 @@ import logging
 from abc import ABC, abstractmethod
 from itertools import groupby
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -83,18 +83,20 @@ class TimeseriesValues(ABC):
     # Fields for type coercion, needed for separation from fields with actual data
     # that have to be parsed differently when having data in tabular form
     @property
-    def _meta_fields(self) -> dict[str, str]:
+    def _meta_fields(self) -> dict[str, pl.DataType]:
         """Get metadata fields for the DataFrame."""
         if not self.sr.tidy:
             return {
-                "station_id": str,
-                "dataset": str,
+                "station_id": pl.String,
+                "resolution": pl.String,
+                "dataset": pl.String,
                 "date": pl.Datetime(time_zone="UTC"),
             }
         return {
-            "station_id": str,
-            "dataset": str,
-            "parameter": str,
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
@@ -256,6 +258,8 @@ class TimeseriesValues(ABC):
         df = pl.concat(data)
 
         return df.with_columns(
+            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(dataset.name.lower(), dtype=pl.String).alias("dataset"),
             pl.lit(value=station_id, dtype=pl.String).alias("station_id"),
             pl.lit(value=None, dtype=pl.Float64).alias("value"),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
@@ -294,6 +298,7 @@ class TimeseriesValues(ABC):
         columns.extend(set(df.columns).difference(columns))
         df = df.with_columns(
             pl.lit(station_id).alias("station_id"),
+            pl.lit(dataset.resolution.name).alias("resolution"),
             pl.lit(dataset.name.lower()).alias("dataset"),
         )
         return df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in columns)
@@ -308,13 +313,22 @@ class TimeseriesValues(ABC):
         if self.sr.humanize:
             hpm = self._create_humanized_parameters_mapping()
 
-        for station_id in self.sr.station_id:
+        for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
+            station_id = cast(str, station_id)
+            available_datasets = [
+                self.sr.stations.metadata[res][ds]
+                for (res, ds), _ in df_station_meta.select(["resolution", "dataset"]).group_by(
+                    ["resolution", "dataset"],
+                )
+            ]
             if self.stations_counter == self.sr.rank:
                 break
 
             data = []
 
             for dataset, parameters in groupby(self.sr.stations.parameters, key=lambda x: x.dataset):
+                if self.sr.settings.ts_drop_nulls and dataset not in available_datasets:
+                    continue
                 if dataset.grouped:
                     df = self._collect_station_parameter_or_dataset(
                         station_id=station_id,
@@ -340,7 +354,7 @@ class TimeseriesValues(ABC):
                 if self.sr.convert_units:
                     df = self._convert_units(df, dataset)
 
-                df = df.unique(subset=["date", "parameter"], maintain_order=True)
+                df = df.unique(subset=["resolution", "dataset", "parameter", "date"], maintain_order=True)
 
                 if self.sr.drop_nulls:
                     df = df.drop_nulls(subset=["value"])

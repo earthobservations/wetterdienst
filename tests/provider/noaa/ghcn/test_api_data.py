@@ -39,6 +39,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
         [
             {
                 "station_id": "NLM00006260",
+                "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")),
@@ -48,6 +49,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
         ],
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),

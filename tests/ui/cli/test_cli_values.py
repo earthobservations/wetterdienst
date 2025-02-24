@@ -215,6 +215,7 @@ def test_cli_values_json_multiple_datasets() -> None:
     item = response["values"][12]
     assert item == {
         "station_id": "01048",
+        "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "wind_gust_max",
         "date": "2020-06-30T00:00:00+00:00",
@@ -276,6 +277,8 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
     assert response["metadata"] == metadata
     assert response["stations"] == [
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "01047",
             "start_date": "1828-01-01T00:00:00+00:00",
             "end_date": "1915-12-31T00:00:00+00:00",
@@ -286,6 +289,8 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
             "state": "Sachsen",
         },
         {
+            "resolution": "daily",
+            "dataset": "climate_summary",
             "station_id": "01048",
             "start_date": "1934-01-01T00:00:00+00:00",
             "end_date": IsStr,
@@ -360,6 +365,8 @@ def test_cli_values_geojson(metadata: dict) -> None:
             {
                 "type": "Feature",
                 "properties": {
+                    "resolution": "daily",
+                    "dataset": "climate_summary",
                     "id": "01048",
                     "name": "Dresden-Klotzsche",
                     "state": "Sachsen",
@@ -546,6 +553,7 @@ def test_cli_values_custom_units() -> None:
     first = data["values"][0]
     assert first == {
         "station_id": "01048",
+        "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "temperature_air_mean_2m",
         "date": "2022-01-01T00:00:00+00:00",
