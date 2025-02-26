@@ -230,41 +230,6 @@ class TimeseriesValues(ABC):
             )
         return lambdas
 
-    def _create_empty_station_df(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
-        """Create an empty DataFrame for a station with all parameters."""
-        if not self.sr.start_date:
-            return pl.DataFrame(schema=self._meta_fields)
-
-        if self.timezone_data == "dynamic":
-            tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
-        else:
-            tzinfo = ZoneInfo(self.timezone_data)
-        start_date, end_date = self._adjust_start_end_date(
-            self.sr.start_date,
-            self.sr.end_date,
-            tzinfo,
-            dataset.resolution.value,
-        )
-
-        base_df = self._get_base_df(start_date, end_date, dataset.resolution.value)
-
-        data = []
-        for parameter in dataset.parameters:
-            if parameter.name.startswith("quality"):
-                continue
-            par_df = base_df.with_columns(pl.lit(parameter.name_original).alias("parameter"))
-            data.append(par_df)
-
-        df = pl.concat(data)
-
-        return df.with_columns(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name.lower(), dtype=pl.String).alias("dataset"),
-            pl.lit(value=station_id, dtype=pl.String).alias("station_id"),
-            pl.lit(value=None, dtype=pl.Float64).alias("value"),
-            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
-        )
-
     def _build_complete_df(self, df: pl.DataFrame, station_id: str, resolution: Resolution) -> pl.DataFrame:
         """Build a complete DataFrame with all dates for a given station."""
         if df.is_empty():
@@ -327,7 +292,7 @@ class TimeseriesValues(ABC):
             data = []
 
             for dataset, parameters in groupby(self.sr.stations.parameters, key=lambda x: x.dataset):
-                if self.sr.settings.ts_drop_nulls and dataset not in available_datasets:
+                if dataset not in available_datasets:
                     continue
                 if dataset.grouped:
                     df = self._collect_station_parameter_or_dataset(
@@ -347,9 +312,6 @@ class TimeseriesValues(ABC):
                         dataset_data.append(df)
                     df = pl.concat(dataset_data)
                     del dataset_data
-
-                if df.is_empty():
-                    df = self._create_empty_station_df(station_id=station_id, dataset=dataset)
 
                 if self.sr.convert_units:
                     df = self._convert_units(df, dataset)

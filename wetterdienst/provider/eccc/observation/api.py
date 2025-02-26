@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import gzip
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
@@ -45,10 +46,9 @@ class EcccObservationValues(TimeseriesValues):
     }
 
     @staticmethod
-    def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
+    def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:
         """Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ..."""
         data = []
-
         columns = df.columns
         for parameter_column, quality_column in zip(columns[1::2], columns[2::2], strict=False):
             df_parameter = df.select(
@@ -58,11 +58,10 @@ class EcccObservationValues(TimeseriesValues):
                 pl.col(quality_column).replace("", None).alias("quality"),
             )
             data.append(df_parameter)
-
         try:
             return pl.concat(data)
         except ValueError:
-            return pl.LazyFrame()
+            return pl.DataFrame()
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -71,7 +70,6 @@ class EcccObservationValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Collect station dataset."""
         meta = self.sr.df.filter(pl.col("station_id").eq(station_id))
-
         start_year, end_year = (
             meta.select(
                 [
@@ -83,55 +81,64 @@ class EcccObservationValues(TimeseriesValues):
             .to_series()
             .to_list()
         )
-
         # start_date and end_date from request
         start_date = self.sr.stations.start_date
         end_date = self.sr.stations.end_date
-
         start_year = start_year and max(start_year, (start_date and start_date.year) or start_year)
         end_year = end_year and min(end_year, (end_date and end_date.year) or end_year)
-
         # Following lines may partially be based on @Zeitsperre's canada-climate-python
         # code at https://github.com/Zeitsperre/canada-climate-python/blob/
         # master/ECCC_stations_fulldownload.py
-        data = []
-
         # check that station has a first and last year value
-        if start_year and end_year:
-            for url in self._create_file_urls(station_id, parameter_or_dataset.resolution.value, start_year, end_year):
-                log.info(f"Acquiring file from {url}")
-                payload = download_file(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
-                df = pl.read_csv(payload, infer_schema_length=0).lazy()
-                df = df.rename(mapping=lambda col: col.lower())
-                droppable_columns = [
-                    "longitude (x)",
-                    "latitude (y)",
-                    "station name",
-                    "climate id",
-                    "year",
-                    "month",
-                    "day",
-                    "time (lst)",
-                    "data quality",
-                ]
-                df = df.drop(*droppable_columns, strict=False)
-                data.append(df)
-
+        if not (start_year and end_year):
+            return pl.DataFrame()
+        remote_files = list(
+            self._create_file_urls(station_id, parameter_or_dataset.resolution.value, start_year, end_year),
+        )
+        if len(remote_files) > 1:
+            with ThreadPoolExecutor() as p:
+                files_in_bytes = p.map(
+                    lambda remote_file: download_file(
+                        url=remote_file,
+                        settings=self.sr.stations.settings,
+                        ttl=CacheExpiry.FIVE_MINUTES,
+                    ),
+                    remote_files,
+                )
+        else:
+            files_in_bytes = [
+                download_file(url=remote_files[0], settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES),
+            ]
+        data = []
+        for file_in_bytes in files_in_bytes:
+            df = pl.read_csv(file_in_bytes, infer_schema_length=0)
+            data.append(df)
         try:
             df = pl.concat(data)
         except ValueError:
-            df = pl.LazyFrame()
+            return pl.DataFrame()
+        df = df.rename(str.lower)
+        droppable_columns = [
+            "longitude (x)",
+            "latitude (y)",
+            "station name",
+            "climate id",
+            "year",
+            "month",
+            "day",
+            "time (lst)",
+            "data quality",
+        ]
+        df = df.drop(*droppable_columns, strict=False)
         mapping = {"date/time (lst)": "date", "date/time": "date"}
         df = df.rename(
             mapping=lambda col: mapping.get(col, col),
         )
-
         df = self._tidy_up_df(df)
-
         return df.select(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
+            "parameter",
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("date").str.to_datetime("%Y-%m-%d", time_zone="UTC"),
             pl.when(pl.col("value").str.starts_with("<"))
@@ -140,7 +147,7 @@ class EcccObservationValues(TimeseriesValues):
             .alias("value")
             .cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
-        ).collect()
+        )
 
     def _create_file_urls(
         self,
@@ -157,7 +164,6 @@ class EcccObservationValues(TimeseriesValues):
         freq = "1y"
         if resolution == Resolution.HOURLY:
             freq = "1mo"
-
         # For hourly data request only necessary data to reduce amount of data being
         # downloaded and parsed
         for date in pl.datetime_range(
@@ -224,9 +230,7 @@ class EcccObservationRequest(TimeseriesRequest):
     def _all(self) -> pl.LazyFrame:
         # Acquire raw CSV payload.
         csv_payload, source = self._download_stations()
-
         header = 2 if source else 3
-
         # Read into Pandas data frame.
         df_raw = pl.read_csv(csv_payload, has_header=True, skip_rows=header, infer_schema_length=0).lazy()
         df_raw = df_raw.rename(str.lower)
@@ -244,12 +248,11 @@ class EcccObservationRequest(TimeseriesRequest):
         df_raw = df_raw.with_columns(
             pl.col("start_date").str.to_datetime("%Y", time_zone="UTC"),
             pl.col("end_date")
-            .cast(int)
+            .cast(pl.Int64)
             .add(1)
-            .map_elements(
-                lambda v: dt.datetime(v, 1, 1, tzinfo=ZoneInfo("UTC")) - dt.timedelta(days=1),
-                return_dtype=pl.Datetime,
-            ),
+            .cast(pl.String)
+            .str.to_datetime("%Y", time_zone="UTC")
+            .dt.offset_by("-1d"),
         )
         # combinations of resolution and dataset
         resolutions_and_datasets = {
@@ -286,7 +289,6 @@ class EcccObservationRequest(TimeseriesRequest):
             source = 0
         except Exception:
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
-
             # Fall back to different source.
             try:
                 log.info(f"Downloading file {http_url}.")
@@ -296,9 +298,7 @@ class EcccObservationRequest(TimeseriesRequest):
                 source = 1
             except Exception:
                 log.exception(f"Unable to access HTTP server at {http_url}")
-
         if not payload:
             msg = "Unable to acquire ECCC stations list"
             raise FileNotFoundError(msg)
-
         return payload, source

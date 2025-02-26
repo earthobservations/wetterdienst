@@ -72,7 +72,6 @@ nav:
         - data/provider/ea/index.md
         - Hydrology:
           - data/provider/ea/hydrology/index.md
-          - 6_hours: data/provider/ea/hydrology/6_hours.md
           - 15_minutes: data/provider/ea/hydrology/15_minutes.md
           - daily: data/provider/ea/hydrology/daily.md
       - Eaufrance:

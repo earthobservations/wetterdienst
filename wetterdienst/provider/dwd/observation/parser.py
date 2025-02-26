@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-PRECIPITATION_MINUTE_1_QUALITY = DwdObservationMetadata.minute_1.precipitation.quality
 
 DROPPABLE_PARAMETERS = {
     # EOR
@@ -144,10 +143,7 @@ def _parse_climate_observations_data(  # noqa: C901
         else:
             msg = f"Unknown dataset for wind extremes, expected FX3 or FX6 in filename {filename}"
             raise ValueError(msg)
-        df = df.select(
-            pl.all().exclude("qn_8"),
-            pl.col("qn_8").alias(alias),
-        )
+        df = df.rename({"qn_8": alias})
     if dataset.resolution.value in (Resolution.MONTHLY, Resolution.ANNUAL):
         df = df.drop("end_date")
     # prepare date column

@@ -23,7 +23,10 @@
 
 #### parameters
 
-| name              | original name     | description                  | unit type       | unit          | constraints |
-|-------------------|-------------------|------------------------------|-----------------|---------------|-------------|
-| flow              | water flow        | daily mean flow              | volume_per_time | m³/s          | >=0         |
-| groundwater_level | groundwater level | daily mean groundwater level | length_medium   | m             | >=0         |
+| name                  | original name   | description                     | unit type       | unit          | constraints |
+|-----------------------|-----------------|---------------------------------|-----------------|---------------|-------------|
+| discharge_max         | flow-max-86400  | daily maximum flow              | volume_per_time | m³/s          | >=0         |
+| discharge_mean        | flow-m-86400    | daily mean flow                 | volume_per_time | m³/s          | >=0         |
+| discharge_min         | flow-min-86400  | daily min flow                  | volume_per_time | m³/s          | >=0         |
+| groundwater_level_max | level-max-86400 | daily maximum groundwater level | length_medium   | m             | >=0         |
+| groundwater_level_min | level-min-86400 | daily minimum groundwater level | length_medium   | m             | >=0         |

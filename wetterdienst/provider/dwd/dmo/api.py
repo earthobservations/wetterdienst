@@ -122,7 +122,6 @@ class DwdDmoValues(TimeseriesValues):
         super().__init__(stations_result=stations_result)
 
         self.kml = KMLReader(
-            station_ids=self.sr.station_id.to_list(),
             settings=self.sr.stations.settings,
         )
 
@@ -154,12 +153,12 @@ class DwdDmoValues(TimeseriesValues):
             value_name="value",
         )
         return df.select(
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            "parameter",
             pl.col("date").str.to_datetime(),
-            pl.col("value"),
+            "value",
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
@@ -192,7 +191,7 @@ class DwdDmoValues(TimeseriesValues):
         """Get URL for a specific date."""
         urls = list_remote_files_fsspec(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
         df = pl.DataFrame({"url": urls}, orient="col")
-        df = df.filter(pl.col("url").str.contains(str(self.sr.stations.lead_time.value)))
+        df = df.filter(pl.col("url").str.contains(self.sr.stations.lead_time.value))
         df = df.with_columns(
             pl.col("url")
             .str.split("/")

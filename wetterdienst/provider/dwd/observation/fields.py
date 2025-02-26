@@ -87,19 +87,14 @@ def read_description(url: str, language: str = "en") -> dict:
     else:
         msg = "Only language 'en' or 'de' supported"
         raise ValueError(msg)
-
     data = OrderedDict()
-
     # Read "Parameters" section.
     document = read_pdf(url)
-
     document = re.sub(r"www\.dwd\.de\n-\n\d+\n-\n", "", document)
     parameters_text = parse_section(document, sections["parameters"])
     data["parameters"] = parse_parameters(parameters_text)
-
     # Read "Quality information" section.
     data["quality_information"] = parse_section(document, sections["quality_information"])
-
     return data
 
 

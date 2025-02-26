@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import json
 import logging
 from datetime import datetime, timedelta
 from itertools import groupby
@@ -22,7 +21,7 @@ from wetterdienst.provider.geosphere.observation.metadata import GeosphereObserv
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from wetterdienst.core.timeseries.metadata import DatasetModel
+    from wetterdienst.core.timeseries.metadata import ParameterModel
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ class GeosphereObservationValues(TimeseriesValues):
 
     _endpoint = (
         "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}?"
-        "parameters={parameters}&"
+        "parameters={parameter}&"
         "start={start_date}&"
         "end={end_date}&"
         "station_ids={station_id}&"
@@ -49,43 +48,70 @@ class GeosphereObservationValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: DatasetModel,
+        parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
-        start_date = self.sr.start_date or self._default_start_dates[parameter_or_dataset.resolution.value]
+        start_date = self.sr.start_date or self._default_start_dates[parameter_or_dataset.dataset.resolution.value]
         end_date = self.sr.end_date or datetime.now(ZoneInfo("UTC"))
         # add buffers
         start_date = start_date - timedelta(days=1)
         end_date = end_date + timedelta(days=1)
-        parameters = [parameter.name_original for parameter in parameter_or_dataset.parameters]
         url = self._endpoint.format(
             station_id=station_id,
-            parameters=",".join(parameters),
-            dataset=parameter_or_dataset.name_original,
+            parameter=parameter_or_dataset.name_original,
+            dataset=parameter_or_dataset.dataset.name_original,
             start_date=start_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
             end_date=end_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
         )
         log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
-        data_raw = json.loads(response.read())
-        timestamps = data_raw.pop("timestamps")
-        data = {"date": timestamps}
-        for par, par_dict in data_raw["features"][0]["properties"]["parameters"].items():
-            data[par] = par_dict["data"]
-        df = pl.DataFrame(data, orient="col")
+        df = pl.read_json(
+            response,
+            schema={
+                "timestamps": pl.List(pl.String),
+                "features": pl.List(
+                    pl.Struct(
+                        {
+                            "properties": pl.Struct(
+                                {
+                                    "parameters": pl.Struct(
+                                        {
+                                            parameter_or_dataset.name_original: pl.Struct(
+                                                {
+                                                    "data": pl.List(pl.Float64),
+                                                },
+                                            ),
+                                        },
+                                    ),
+                                },
+                            ),
+                        },
+                    ),
+                ),
+            },
+        )
+        series_timestamps = df.get_column("timestamps")
+        series_timestamps = series_timestamps.explode()
+        df = df.select("features")
+        df = df.explode("features")
+        df = df.select(pl.col("features").struct.unnest())
+        df = df.select(pl.col("properties").struct.field("parameters").struct.unnest())
         df = df.unpivot(
-            index=["date"],
             variable_name="parameter",
             value_name="value",
         )
+        df = df.with_columns(
+            pl.col("value").struct.field("data").alias("value"),
+        )
+        df = df.explode("value")
         # adjust units for radiation parameters of 10 minute/hourly resolution from W / m² to J / cm²
-        if parameter_or_dataset.resolution.value == Resolution.MINUTE_10:
+        if parameter_or_dataset.dataset.resolution.value == Resolution.MINUTE_10:
             df = df.with_columns(
                 pl.when(pl.col("parameter").is_in(["cglo", "chim"]))
                 .then(pl.col("value") * 600 / 10000)
                 .otherwise(pl.col("value"))
                 .alias("value"),
             )
-        elif parameter_or_dataset.resolution.value == Resolution.HOURLY:
+        elif parameter_or_dataset.dataset.resolution.value == Resolution.HOURLY:
             df = df.with_columns(
                 pl.when(pl.col("parameter").eq("cglo"))
                 .then(pl.col("value") * 3600 / 10000)
@@ -93,11 +119,11 @@ class GeosphereObservationValues(TimeseriesValues):
                 .alias("value"),
             )
         return df.select(
-            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+            series_timestamps.alias("date").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
             pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )
@@ -140,7 +166,8 @@ class GeosphereObservationRequest(TimeseriesRequest):
             url = self._endpoint.format(dataset=dataset.name_original)
             log.info(f"Downloading file {url}.")
             response = download_file(url=url, settings=self.settings, ttl=CacheExpiry.METAINDEX)
-            df = pl.read_csv(response).lazy()
+            df = pl.read_csv(response)
+            df = df.lazy()
             df = df.drop("Sonnenschein", "Globalstrahlung")
             df = df.rename(
                 mapping={

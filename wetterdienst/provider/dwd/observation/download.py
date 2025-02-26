@@ -47,17 +47,13 @@ def _download_climate_observations_data(remote_file: str, settings: Settings) ->
 def __download_climate_observations_data(remote_file: str, settings: Settings) -> bytes:
     log.info(f"Downloading file {remote_file}.")
     file = download_file(remote_file, settings=settings, ttl=CacheExpiry.FIVE_MINUTES)
-
     try:
         zfs = ZipFileSystem(file)
     except BadZipFile as e:
         msg = f"The archive of {remote_file} seems to be corrupted."
         raise BadZipFile(msg) from e
-
     product_file = zfs.glob("produkt*")
-
     if len(product_file) != 1:
         msg = f"The archive of {remote_file} does not hold a 'produkt' file."
         raise ProductFileNotFoundError(msg)
-
     return zfs.open(product_file[0]).read()

@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-import json
 import logging
+from typing import ClassVar
 
 import polars as pl
 
@@ -40,46 +40,19 @@ EAHydrologyMetadata = {
             "date_required": True,
             "datasets": [
                 {
-                    "name": "observations",
-                    "name_original": "observations",
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
                     "grouped": False,
                     "parameters": [
                         {
                             "name": "discharge",
-                            "name_original": "flow",
+                            "name_original": "flow-i-900",
                             "unit_type": "volume_per_time",
                             "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "groundwater_level",
-                            "name_original": "groundwater_level",
-                            "unit_type": "length_medium",
-                            "unit": "meter",
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            "name": "6_hour",
-            "name_original": "6_hour",
-            "periods": ["historical"],
-            "date_required": True,
-            "datasets": [
-                {
-                    "name": "observations",
-                    "name_original": "observations",
-                    "grouped": False,
-                    "parameters": [
-                        {
-                            "name": "discharge",
-                            "name_original": "flow",
-                            "unit_type": "volume_per_time",
-                            "unit": "cubic_meter_per_second",
-                        },
-                        {
-                            "name": "groundwater_level",
-                            "name_original": "groundwater_level",
+                            "name_original": "level-i-900",
                             "unit_type": "length_medium",
                             "unit": "meter",
                         },
@@ -100,14 +73,32 @@ EAHydrologyMetadata = {
                     "periods": ["historical"],
                     "parameters": [
                         {
-                            "name": "discharge",
-                            "name_original": "flow",
+                            "name": "discharge_max",
+                            "name_original": "flow-max-86400",
                             "unit_type": "volume_per_time",
                             "unit": "cubic_meter_per_second",
                         },
                         {
-                            "name": "groundwater_level",
-                            "name_original": "groundwater_level",
+                            "name": "discharge_mean",
+                            "name_original": "flow-m-86400",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
+                        },
+                        {
+                            "name": "discharge_min",
+                            "name_original": "flow-min-86400",
+                            "unit_type": "volume_per_time",
+                            "unit": "cubic_meter_per_second",
+                        },
+                        {
+                            "name": "groundwater_level_max",
+                            "name_original": "level-max-86400",
+                            "unit_type": "length_medium",
+                            "unit": "meter",
+                        },
+                        {
+                            "name": "groundwater_level_min",
+                            "name_original": "level-min-86400",
                             "unit_type": "length_medium",
                             "unit": "meter",
                         },
@@ -130,27 +121,73 @@ class EAHydrologyValues(TimeseriesValues):
         station_id: str,
         parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
+        """Collect data for a station, parameter or dataset."""
         url = self._url.format(station_id=station_id)
         log.info(f"Downloading file {url}.")
         payload = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.NO_CACHE)
-        measures_data = json.load(payload)["items"][0]["measures"]
-        s_measures = pl.Series(name="measure", values=measures_data).to_frame()
-        s_measures = s_measures.filter(
-            pl.col("measure")
-            .struct.field("parameterName")
-            .str.to_lowercase()
-            .str.replace(" ", "")
-            .eq(parameter_or_dataset.name_original.lower().replace("_", "")),
+        df_measures = pl.read_json(
+            payload,
+            schema={
+                "items": pl.List(
+                    pl.Struct(
+                        {
+                            "measures": pl.List(
+                                pl.Struct(
+                                    {
+                                        "parameterName": pl.String,
+                                        "parameter": pl.String,
+                                        "period": pl.Int64,
+                                        "@id": pl.String,
+                                    },
+                                ),
+                            ),
+                        },
+                    ),
+                ),
+            },
+        )
+        df_measures = df_measures.explode("items")
+        df_measures = df_measures.select(pl.col("items").struct.field("measures"))
+        df_measures = df_measures.explode("measures")
+        df_measures = df_measures.select(pl.col("measures").struct.unnest())
+        df_measures = df_measures.with_columns(
+            pl.col("period")
+            .cast(pl.String)
+            .replace(
+                {
+                    900: "15_minutes",
+                    86400: "daily",
+                },
+            )
+            .alias("resolution"),
+        )
+        df_measures = df_measures.filter(
+            pl.col("resolution").eq(parameter_or_dataset.dataset.resolution.name)
+            & pl.col("@id").str.contains(parameter_or_dataset.name_original),
         )
         try:
-            measure_dict = s_measures.get_column("measure")[0]
+            readings_id_url = df_measures.get_column("@id")[0]
         except IndexError:
             return pl.DataFrame()
-        readings_url = f"{measure_dict['@id']}/readings.json"
+        readings_url = f"{readings_id_url}/readings.json"
         log.info(f"Downloading file {readings_url}.")
         payload = download_file(url=readings_url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
-        data = json.loads(payload.read())["items"]
-        df = pl.from_dicts(data)
+        df = pl.read_json(
+            payload,
+            schema={
+                "items": pl.List(
+                    pl.Struct(
+                        {
+                            "dateTime": pl.String,
+                            "value": pl.Float64,
+                            "quality": pl.String,
+                        },
+                    ),
+                ),
+            },
+        )
+        df = df.explode("items")
+        df = df.select(pl.col("items").struct.unnest())
         return df.select(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
@@ -169,6 +206,18 @@ class EAHydrologyRequest(TimeseriesRequest):
     _values = EAHydrologyValues
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations.json"
+
+    _parameter_core_name_map: ClassVar = {
+        # 15 minutes
+        "discharge_instant": "flow",
+        "groundwater_level_instant": "level",
+        # daily
+        "discharge_max": "flow",
+        "discharge_mean": "flow",
+        "discharge_min": "flow",
+        "groundwater_level_max": "level",
+        "groundwater_level_min": "level",
+    }
 
     def __init__(
         self,
@@ -197,63 +246,79 @@ class EAHydrologyRequest(TimeseriesRequest):
         """Acquire all stations and filter for stations that have wanted resolution and parameter combinations."""
         log.info(f"Acquiring station listing from {self._url}")
         payload = download_file(self._url, self.settings, CacheExpiry.FIVE_MINUTES)
-        data = json.load(payload)["items"]
-        for station in data:
-            self._transform_station(station)
-        df_raw = pl.from_dicts(data)
-        # filter for stations that have wanted resolution and parameter combinations
-        df_measures = (
-            df_raw.select(pl.col("notation"), pl.col("measures"))
-            .explode("measures")
-            .with_columns(pl.col("measures").struct.field("parameter"))
+        df = pl.read_json(
+            payload,
+            schema={
+                "items": pl.List(
+                    pl.Struct(
+                        {
+                            "label": pl.String,
+                            "notation": pl.String,
+                            "easting": pl.Int64,
+                            "northing": pl.Int64,
+                            "lat": pl.Float64,
+                            "long": pl.Float64,
+                            "dateOpened": pl.String,
+                            "dateClosed": pl.String,
+                            "measures": pl.List(
+                                pl.Struct(
+                                    [
+                                        pl.Field("parameter", pl.String),
+                                        pl.Field("period", pl.Int64),
+                                    ],
+                                ),
+                            ),
+                        },
+                    ),
+                ),
+            },
         )
-        df_measures = df_measures.group_by(["notation"]).agg(pl.col("parameter").alias("parameters"))
-        df_notations = df_measures.filter(
-            pl.col("parameters").list.set_intersection(["flow", "level"]).len() > 0,
-        ).select("notation")
-        df_raw = df_raw.join(df_notations, how="inner", on="notation")
-        df_raw = df_raw.rename(mapping=lambda col: col.lower())
-        df_raw = df_raw.rename(
+        df = df.lazy()
+        df = df.select(pl.col("items").explode().struct.unnest())
+        df = df.explode("measures")
+        df = df.with_columns(pl.col("measures").struct.unnest())
+        df = df.rename(
             mapping={
                 "label": "name",
                 "lat": "latitude",
                 "long": "longitude",
                 "notation": "station_id",
-                "dateopened": "start_date",
-                "dateclosed": "end_date",
+                "dateOpened": "start_date",
+                "dateClosed": "end_date",
+                "period": "resolution",
             },
         )
-        df_raw = df_raw.with_columns(
+        df = df.with_columns(
+            pl.col("resolution").cast(pl.String),
+        )
+        df = df.with_columns(
+            pl.col("resolution").replace(
+                {
+                    "900": "15_minutes",
+                    "86400": "daily",
+                },
+            ),
+        )
+        df = df.drop_nulls("resolution")
+        resolution_parameter_pairs = {
+            (parameter.dataset.resolution.name, self._parameter_core_name_map[parameter.name])
+            for parameter in self.parameters
+        }
+        df = df.filter(
+            pl.concat_list(["resolution", "parameter"]).map_elements(
+                lambda rp: tuple(rp) in resolution_parameter_pairs,
+                return_dtype=pl.Boolean,
+            ),
+        )
+        return df.select(
+            "resolution",
+            pl.lit(DATASET_NAME_DEFAULT, dtype=pl.String).alias("dataset"),
+            "station_id",
             pl.col("start_date").str.to_datetime(format="%Y-%m-%d"),
             pl.col("end_date").str.to_datetime(format="%Y-%m-%d"),
+            "latitude",
+            "longitude",
             pl.lit(None, pl.Float64).alias("height"),
+            "name",
             pl.lit(None, pl.String).alias("state"),
         )
-        # combinations of resolution and dataset
-        resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
-        }
-        data = []
-        # for each combination of resolution and dataset create a new DataFrame with the columns
-        for resolution, dataset in resolutions_and_datasets:
-            data.append(
-                df_raw.with_columns(
-                    pl.lit(resolution, pl.String).alias("resolution"),
-                    pl.lit(dataset, pl.String).alias("dataset"),
-                ),
-            )
-        df = pl.concat(data)
-        df = df.select(self._base_columns)
-        return df.lazy()
-
-    @staticmethod
-    def _transform_station(station: dict) -> None:
-        """Reduce station dictionary to required keys and format dateOpened and dateClosed."""
-        required_keys = ["label", "notation", "lat", "long", "dateOpened", "dateClosed", "measures"]
-        for key in list(station.keys()):
-            if key not in required_keys:
-                del station[key]
-        if isinstance(station["dateOpened"], list):
-            station["dateOpened"] = station["dateOpened"][1]
-        if "dateClosed" not in station:
-            station["dateClosed"] = None

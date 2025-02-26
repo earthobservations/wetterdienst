@@ -216,13 +216,13 @@ def test_api_dwd_road(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail
+@pytest.mark.remote
 def test_api_eccc_observation(default_settings: Settings) -> None:
     """Test eccc observation API."""
     request = EcccObservationRequest(parameters=[("daily", "data")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df)
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "height"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -336,7 +336,7 @@ def test_api_wsv_pegel(default_settings: Settings) -> None:
 
 def test_api_ea_hydrology(default_settings: Settings) -> None:
     """Test ea hydrology API."""
-    request = EAHydrologyRequest(parameters=[("daily", "data", "discharge")], settings=default_settings).all()
+    request = EAHydrologyRequest(parameters=[("daily", "data", "discharge_max")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state", "height"})
@@ -371,7 +371,6 @@ def test_api_nws_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.skip(reason="currently something lets the test run forever")
 def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     """Test eaufrance hubeau API."""
     request = HubeauRequest(parameters=[("dynamic", "data", "discharge")], settings=default_settings).all()

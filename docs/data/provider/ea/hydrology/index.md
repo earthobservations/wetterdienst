@@ -9,4 +9,4 @@ The data provided through ``wetterdienst`` includes:
 - flow
 - groundwater stage
 
-in resolutions 15 minutes, 6 hours and daily for UK wide stations.
+in resolutions 15 minutes and daily for UK wide stations.

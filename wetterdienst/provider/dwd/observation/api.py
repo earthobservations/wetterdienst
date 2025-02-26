@@ -7,24 +7,24 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from collections.abc import Iterable
-from itertools import repeat
 from typing import TYPE_CHECKING, ClassVar, Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import portion
-from polars.exceptions import ColumnNotFoundError
 from portion import Interval
 
 from wetterdienst.core.timeseries.metadata import DatasetModel, ParameterSearch
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data,
 )
 from wetterdienst.provider.dwd.observation.fileindex import (
+    _build_url_from_dataset_and_period,
     _create_file_index_for_dwd_server,
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
@@ -47,6 +47,25 @@ if TYPE_CHECKING:
     from wetterdienst.core.timeseries.result import StationsResult
 log = logging.getLogger(__name__)
 
+# columns that can't be coerced to float are dropped
+DROPPABLE_COLUMNS = [
+    # Hourly
+    # Cloud type
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
+    # Cloudiness
+    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_index.name_original,
+    # Solar
+    DwdObservationMetadata.hourly.solar.end_of_interval.name_original,
+    DwdObservationMetadata.hourly.solar.true_local_time.name_original,
+    # Visibility
+    DwdObservationMetadata.hourly.visibility.visibility_range_index.name_original,
+    # Weather
+    DwdObservationMetadata.hourly.weather_phenomena.weather_text.name_original,
+]
+
 
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
@@ -58,7 +77,6 @@ class DwdObservationValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Collect station data for a given dataset."""
         periods_and_date_ranges = []
-
         for period in self.sr.stations.periods:
             if parameter_or_dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(
@@ -69,9 +87,7 @@ class DwdObservationValues(TimeseriesValues):
                 periods_and_date_ranges.append((period, date_ranges))
             else:
                 periods_and_date_ranges.append((period, None))
-
         parameter_data = []
-
         for period, date_ranges in periods_and_date_ranges:
             if period not in parameter_or_dataset.periods:
                 log.info(f"Skipping period {period} for {parameter_or_dataset.name}.")
@@ -93,26 +109,21 @@ class DwdObservationValues(TimeseriesValues):
             filenames_and_files = download_climate_observations_data(remote_files, self.sr.stations.settings)
             period_df = parse_climate_observations_data(filenames_and_files, parameter_or_dataset, period)
             parameter_data.append(period_df)
-
         try:
             parameter_df = pl.concat(parameter_data, how="align")
         except ValueError:
             return pl.DataFrame()
-
         # Filter out values which already are in the DataFrame
         parameter_df = parameter_df.unique(subset=["date"])
-
         parameter_df = parameter_df.collect()
-
+        parameter_df = parameter_df.drop(*DROPPABLE_COLUMNS, strict=False)
         if parameter_or_dataset.resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10):
             parameter_df = self._fix_timestamps(parameter_df)
-
-        df = self._tidy_up_df(parameter_df, parameter_or_dataset)
-
+        df = self._tidy_up_df(parameter_df)
         return df.select(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
+            "parameter",
             pl.col("station_id").str.pad_start(5, "0"),
             pl.col("date").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
@@ -130,106 +141,23 @@ class DwdObservationValues(TimeseriesValues):
         )
 
     @staticmethod
-    def _tidy_up_df(df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
+    def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:
         """Tidy up the DataFrame by dropping unnecessary columns and renaming columns."""
-        droppable_columns = [
-            # Hourly
-            # Cloud type
-            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.name_original,
-            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
-            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
-            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
-            # Cloudiness
-            DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_index.name_original,
-            # Solar
-            DwdObservationMetadata.hourly.solar.end_of_interval.name_original,
-            DwdObservationMetadata.hourly.solar.true_local_time.name_original,
-            # Visibility
-            DwdObservationMetadata.hourly.visibility.visibility_range_index.name_original,
-            # Weather
-            DwdObservationMetadata.hourly.weather_phenomena.weather_text.name_original,
-        ]
-
-        # Drop string columns, can't be coerced to float
-        df = df.drop(*droppable_columns, strict=False)
-
-        df = df.select(
-            pl.col("station_id"),
-            pl.col("date"),
-            pl.all().exclude(["station_id", "date"]),
-        )
-
-        if dataset == DwdObservationMetadata.daily.climate_summary:
-            quality_wind = df.get_column(dataset.quality_wind.name_original)
-            quality_general = df.get_column(dataset.quality_general.name_original)
-            quality = pl.concat(
-                [
-                    pl.Series(repeat(quality_wind, times=2)).list.explode(),
-                    pl.Series(repeat(quality_general, times=12)).list.explode(),
-                ],
-            )
-            df = df.drop(
-                dataset.quality_wind.name_original,
-                dataset.quality_general.name_original,
-            )
-        elif dataset in (DwdObservationMetadata.monthly.climate_summary, DwdObservationMetadata.annual.climate_summary):
-            quality_general = df.get_column(dataset.quality_general.name_original)
-            quality_precipitation = df.get_column(
-                dataset.quality_precipitation.name_original,
-            )
-
-            quality = pl.concat(
-                [
-                    pl.Series(
-                        repeat(
-                            quality_general,
-                            times=9,
-                        ),
-                    ).list.explode(),
-                    pl.Series(
-                        repeat(
-                            quality_precipitation,
-                            times=2,
-                        ),
-                    ).list.explode(),
-                ],
-            )
-            df = df.drop(
-                dataset.quality_general.name_original,
-                dataset.quality_precipitation.name_original,
-            )
-        elif dataset == DwdObservationMetadata.subdaily.wind_extreme:
-            quality = []
-            for column in ("qn_8_3", "qn_8_6"):
-                try:
-                    quality.append(df.get_column(column))
-                except ColumnNotFoundError:
-                    pass
-                else:
-                    df = df.select(pl.all().exclude(column))
-            quality = pl.concat(quality)
-        else:
-            n = len(df.columns) - 3
-            quality = pl.Series(values=repeat(df.get_column(df.columns[2]), times=n)).list.explode()
-            df = df.drop(df.columns[2])
-
-        possible_index_variables = (
-            "station_id",
-            "date",
-            "start_date",
-            "end_date",
-        )
-
-        index = list(set(df.columns).intersection(possible_index_variables))
-
-        df = df.unpivot(
-            index=index,
-            variable_name="parameter",
-            value_name="value",
-        )
-
-        df = df.with_columns(quality.alias("quality"))
-
+        data = []
+        series_quality = pl.Series()
+        for column in df.columns[2:]:
+            if column.startswith(("qn", "qualitaet")):
+                series_quality = df.get_column(column)
+            else:
+                df_parameter = df.select(
+                    "station_id",
+                    "date",
+                    pl.lit(column, dtype=pl.String).alias("parameter"),
+                    pl.col(column).alias("value"),
+                    series_quality.alias("quality"),
+                )
+                data.append(df_parameter)
+        df = pl.concat(data)
         return df.with_columns(pl.when(pl.col("value").is_not_null()).then(pl.col("quality")))
 
     def _get_historical_date_ranges(
@@ -244,9 +172,7 @@ class DwdObservationValues(TimeseriesValues):
             Period.HISTORICAL,
             settings,
         )
-
         file_index = file_index.filter(pl.col("station_id").eq(station_id))
-
         # The request interval may be None, if no start and end date
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
@@ -258,7 +184,6 @@ class DwdObservationValues(TimeseriesValues):
                 & pl.col("start_date").ge(end_date_max).not_()
                 & pl.col("end_date").le(start_date_min).not_(),
             )
-
         return file_index.collect().get_column("date_range").to_list()
 
 
@@ -278,7 +203,6 @@ class DwdObservationRequest(TimeseriesRequest):
                 self.start_date.astimezone(ZoneInfo(self.metadata.timezone)),
                 self.end_date.astimezone(ZoneInfo(self.metadata.timezone)),
             )
-
         return None
 
     @property
@@ -362,9 +286,7 @@ class DwdObservationRequest(TimeseriesRequest):
             end_date=end_date,
             settings=settings,
         )
-
         self.periods = self._parse_period(periods)
-
         # Has to follow the super call as start date and end date are required for getting
         # automated periods from overlapping intervals
         if not self.periods:
@@ -410,20 +332,17 @@ class DwdObservationRequest(TimeseriesRequest):
         else:
             msg = "dataset must be a string, ParameterTemplate or DatasetModel"
             raise KeyError(msg)
-
         dataset = DwdObservationMetadata.search_parameter(parameter_template)[0].dataset
         period = parse_enumeration_from_template(period, Period)
         if period not in dataset.periods or period not in cls._available_periods:
             msg = f"Period {period} not available for dataset {dataset}"
             raise ValueError(msg)
-
+        url = _build_url_from_dataset_and_period(dataset, period)
         file_index = _create_file_index_for_dwd_server(
-            dataset=dataset,
-            period=period,
-            cdc_base="observations_germany/climate",
+            url=url,
             settings=Settings(),
+            ttl=CacheExpiry.METAINDEX,
         ).collect()
-
         if language == "en":
             file_prefix = "DESCRIPTION_"
         elif language == "de":
@@ -431,11 +350,9 @@ class DwdObservationRequest(TimeseriesRequest):
         else:
             msg = "Only language 'en' or 'de' supported"
             raise ValueError(msg)
-
         file_index = file_index.filter(pl.col("filename").str.contains(file_prefix))
         description_file_url = str(file_index.get_column("filename").item())
         log.info(f"Acquiring field information from {description_file_url}")
-
         return read_description(description_file_url, language=language)
 
     def _all(self) -> pl.LazyFrame:
@@ -444,9 +361,7 @@ class DwdObservationRequest(TimeseriesRequest):
         for parameter in self.parameters:
             if parameter.dataset not in datasets:
                 datasets.append(parameter.dataset)
-
         stations = []
-
         for dataset in datasets:
             periods = set(dataset.periods) & set(self.periods) if self.periods else dataset.periods
             for period in reversed(list(periods)):
@@ -458,12 +373,9 @@ class DwdObservationRequest(TimeseriesRequest):
                     how="inner",
                 )
                 stations.append(df)
-
         try:
             stations_df = pl.concat(stations)
         except ValueError:
             return pl.LazyFrame()
-
         stations_df = stations_df.unique(subset=["resolution", "dataset", "station_id"], keep="first")
-
         return stations_df.sort(by=[pl.col("station_id").cast(int)])
