@@ -280,47 +280,6 @@ class WsvPegelRequest(TimeseriesRequest):
         It involves reading the REST API, doing some transformations
         and adding characteristic values in extra columns if given for each station.
         """
-
-        def _extract_ts(
-            ts_list: list[dict],
-        ) -> FLOAT_9_TIMES:
-            """Extract water level related information.
-
-            Gauge zero and characteristic values are extractred from timeseries dict given for each station.
-
-            Args:
-                ts_list: list of timeseries dicts for each station
-
-            Returns:
-                tuple of gauge zero and characteristic values
-
-            """
-            ts_water = None
-            for ts in ts_list:
-                if ts["shortname"] == "W":
-                    ts_water = ts
-                    break
-
-            if not ts_water:
-                return None, None, None, None, None, None, None, None, None
-
-            gauge_datum = ts_water.get("gaugeZero", {}).get("value", None)
-
-            # can be empty list or list with Nones -> ensure that we have a dict with shortname and value
-            characteristic_values = ts_water.get("characteristicValues", [{"shortname": None, "value": None}])
-            characteristic_values = {cv["shortname"]: cv["value"] for cv in characteristic_values}
-
-            m_i = characteristic_values.get("M_I", None)
-            m_ii = characteristic_values.get("M_II", None)
-            m_iii = characteristic_values.get("M_III", None)
-            mnw = characteristic_values.get("MNW", None)
-            mw = characteristic_values.get("MW", None)
-            mhw = characteristic_values.get("MHW", None)
-            hhw = characteristic_values.get("HHW", None)
-            hsw = characteristic_values.get("HSW", None)
-
-            return (gauge_datum, m_i, m_ii, m_iii, mnw, mw, mhw, hhw, hsw)
-
         response = download_file(self._endpoint, self.settings, CacheExpiry.ONE_HOUR)
         df = pl.read_json(
             response,
@@ -361,24 +320,67 @@ class WsvPegelRequest(TimeseriesRequest):
         df = df.rename(mapping={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
         df = df.with_columns(
             pl.col("water").struct.field("shortname"),
-            pl.col("timeseries")
-            .map_elements(lambda ts_list: [t["shortname"].lower() for t in ts_list], return_dtype=pl.List(pl.String))
-            .alias("ts"),
+            pl.col("timeseries").list.eval(pl.element().struct.field("shortname").str.to_lowercase()).alias("ts"),
         )
         parameters = {parameter.name_original.lower() for parameter in self.parameters}
         df = df.filter(pl.col("ts").list.set_intersection(list(parameters)).list.len() > 0)
-        df = df.with_columns(pl.col("timeseries").map_elements(_extract_ts, return_dtype=pl.List(pl.Float64)))
+        df = df.with_columns(
+            pl.col("timeseries")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "W"))
+            .list.first()
+            .alias("ts_water"),
+        )
         return df.select(
             pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
             pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
-            pl.all().exclude(["timeseries", "ts"]),
-            pl.col("timeseries").list.get(0).alias("gauge_datum"),
-            pl.col("timeseries").list.get(1).alias("m_i"),
-            pl.col("timeseries").list.get(2).alias("m_ii"),
-            pl.col("timeseries").list.get(3).alias("m_iii"),
-            pl.col("timeseries").list.get(4).alias("mnw"),
-            pl.col("timeseries").list.get(5).alias("mw"),
-            pl.col("timeseries").list.get(6).alias("mhw"),
-            pl.col("timeseries").list.get(7).alias("hhw"),
-            pl.col("timeseries").list.get(8).alias("hsw"),
+            pl.all().exclude(["timeseries", "ts", "ts_water"]),
+            pl.col("ts_water").struct.field("gaugeZero").struct.field("value").alias("gauge_datum"),
+            pl.col("ts_water")
+            .struct.field("characteristicValues")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "M_I"))
+            .list.first()
+            .struct.field("value")
+            .alias("m_i"),
+            pl.col("ts_water")
+            .struct.field("characteristicValues")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "M_II"))
+            .list.first()
+            .struct.field("value")
+            .alias("m_ii"),
+            pl.col("ts_water")
+            .struct.field("characteristicValues")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "M_III"))
+            .list.first()
+            .struct.field("value")
+            .alias("m_iii"),
+            pl.col("ts_water")
+            .struct.field("characteristicValues")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "MNW"))
+            .list.first()
+            .struct.field("value")
+            .alias("mnw"),
+            pl.col("ts_water")
+            .struct.field("characteristicValues")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "MW"))
+            .list.first()
+            .struct.field("value")
+            .alias("mw"),
+            pl.col("ts_water")
+            .struct.field("characteristicValues")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "MHW"))
+            .list.first()
+            .struct.field("value")
+            .alias("mhw"),
+            pl.col("ts_water")
+            .struct.field("characteristicValues")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "HHW"))
+            .list.first()
+            .struct.field("value")
+            .alias("hhw"),
+            pl.col("ts_water")
+            .struct.field("characteristicValues")
+            .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "HSW"))
+            .list.first()
+            .struct.field("value")
+            .alias("hsw"),
         )

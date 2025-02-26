@@ -156,27 +156,28 @@ class HubeauValues(TimeseriesValues):
             )
             log.info(f"Downloading file {url}.")
             response = download_file(url=url, settings=self.sr.stations.settings)
-            data_dict = json.load(response)["data"]
-            df = pl.DataFrame(data_dict, orient="row")
+            df = pl.read_json(
+                response,
+                schema={
+                    "data": pl.List(
+                        pl.Struct(
+                            {
+                                "code_station": pl.String,
+                                "date_obs": pl.String,
+                                "resultat_obs": pl.Float64,
+                                "code_qualification_obs": pl.Float64,
+                            },
+                        ),
+                    ),
+                },
+            )
+            df = df.explode("data")
+            df = df.select(pl.col("data").struct.unnest())
             data.append(df)
-
         try:
             df = pl.concat(data)
         except ValueError:
-            df = pl.DataFrame(
-                schema={
-                    "station_id": pl.String,
-                    "date": pl.Datetime(time_zone="UTC"),
-                    "value": pl.Float64,
-                    "quality": pl.Float64,
-                },
-            )
-        else:
-            df = df.with_columns(pl.col("date_obs").map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime))
-            df = df.with_columns(pl.col("date_obs").dt.replace_time_zone("UTC"))
-
-        df = df.with_columns(pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"))
-
+            return pl.DataFrame()
         df = df.rename(
             mapping={
                 "code_station": "station_id",
@@ -185,15 +186,14 @@ class HubeauValues(TimeseriesValues):
                 "code_qualification_obs": "quality",
             },
         )
-
         return df.select(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.col("station_id"),
-            pl.col("date"),
-            pl.col("value"),
-            pl.col("quality"),
+            pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
+            "station_id",
+            pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%SZ").dt.replace_time_zone("UTC"),
+            "value",
+            "quality",
         )
 
 
@@ -232,16 +232,28 @@ class HubeauRequest(TimeseriesRequest):
         """:return:"""
         log.info(f"Downloading file {self._endpoint}.")
         response = download_file(url=self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
-        data = json.load(response)["data"]
-        for entry in data:
-            keys = list(entry.keys())
-            for key in keys:
-                if key not in REQUIRED_ENTRIES:
-                    entry.pop(key)
-
-        df = pl.LazyFrame(data)
-
-        df = df.rename(
+        df_raw = pl.read_json(
+            response,
+            schema={
+                "data": pl.List(
+                    pl.Struct(
+                        {
+                            "code_station": pl.String,
+                            "libelle_station": pl.String,
+                            "longitude_station": pl.Float64,
+                            "latitude_station": pl.Float64,
+                            "altitude_ref_alti_station": pl.Float64,
+                            "libelle_departement": pl.String,
+                            "date_ouverture_station": pl.String,
+                            "date_fermeture_station": pl.String,
+                        },
+                    ),
+                ),
+            },
+        )
+        df_raw = df_raw.explode("data")
+        df_raw = df_raw.with_columns(pl.col("data").struct.unnest())
+        df_raw = df_raw.rename(
             mapping={
                 "code_station": "station_id",
                 "libelle_station": "name",
@@ -253,15 +265,29 @@ class HubeauRequest(TimeseriesRequest):
                 "date_fermeture_station": "end_date",
             },
         )
-
-        df = df.with_columns(
+        df_raw = df_raw.with_columns(
             pl.col("start_date").map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
             pl.when(pl.col("end_date").is_null())
             .then(dt.datetime.now(ZoneInfo("UTC")).date())
             .alias("end_date")
             .cast(pl.Datetime),
         )
-
-        return df.filter(
+        df_raw = df_raw.filter(
             pl.col("station_id").str.slice(offset=0, length=1).map_elements(str.isalpha, return_dtype=pl.Boolean),
         )
+        # combinations of resolution and dataset
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+        }
+        data = []
+        # for each combination of resolution and dataset create a new DataFrame with the columns
+        for resolution, dataset in resolutions_and_datasets:
+            data.append(
+                df_raw.with_columns(
+                    pl.lit(resolution, pl.String).alias("resolution"),
+                    pl.lit(dataset, pl.String).alias("dataset"),
+                ),
+            )
+        df = pl.concat(data)
+        df = df.select(self._base_columns)
+        return df.lazy()

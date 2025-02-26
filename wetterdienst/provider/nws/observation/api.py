@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 
 import polars as pl
@@ -151,86 +150,94 @@ class NwsObservationValues(TimeseriesValues):
         url = self._endpoint.format(station_id=station_id)
         log.info(f"acquiring data from {url}")
         response = download_file(url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
-        data = json.load(response)
-        try:
-            data = [feature["properties"] for feature in data["features"]]
-        except KeyError:
-            return pl.DataFrame()
-        df = pl.from_dicts(
-            data,
+        df = pl.read_json(
+            response,
             schema={
-                "station": pl.String,
-                "timestamp": pl.String,
-                "temperature": pl.Struct(
-                    [
-                        pl.Field("value", pl.Float64),
-                    ],
-                ),
-                "dewpoint": pl.Struct(
-                    [
-                        pl.Field("value", pl.Float64),
-                    ],
-                ),
-                "windDirection": pl.Struct(
-                    [
-                        pl.Field("value", pl.Int64),
-                    ],
-                ),
-                "windSpeed": pl.Struct(
-                    [
-                        pl.Field("value", pl.Float64),
-                    ],
-                ),
-                "windGust": pl.Struct(
-                    [
-                        pl.Field("value", pl.Int32),
-                    ],
-                ),
-                "barometricPressure": pl.Struct(
-                    [
-                        pl.Field("value", pl.Int64),
-                    ],
-                ),
-                "seaLevelPressure": pl.Struct(
-                    [
-                        pl.Field("value", pl.Int64),
-                    ],
-                ),
-                "visibility": pl.Struct(
-                    [
-                        pl.Field("value", pl.Int64),
-                    ],
-                ),
-                "maxTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
-                "minTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
-                "precipitationLastHour": pl.Struct(
-                    [
-                        pl.Field("value", pl.Int64),
-                    ],
-                ),
-                "precipitationLast3Hours": pl.Struct(
-                    [
-                        pl.Field("value", pl.Int64),
-                    ],
-                ),
-                "precipitationLast6Hours": pl.Struct(
-                    [
-                        pl.Field("value", pl.Int64),
-                    ],
-                ),
-                "relativeHumidity": pl.Struct(
-                    [
-                        pl.Field("value", pl.Float64),
-                    ],
-                ),
-                "windChill": pl.Struct(
-                    [
-                        pl.Field("value", pl.Float64),
-                    ],
+                "features": pl.List(
+                    pl.Struct(
+                        {
+                            "properties": pl.Struct(
+                                {
+                                    "station": pl.String,
+                                    "timestamp": pl.String,
+                                    "temperature": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Float64),
+                                        ],
+                                    ),
+                                    "dewpoint": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Float64),
+                                        ],
+                                    ),
+                                    "windDirection": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Int64),
+                                        ],
+                                    ),
+                                    "windSpeed": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Float64),
+                                        ],
+                                    ),
+                                    "windGust": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Int32),
+                                        ],
+                                    ),
+                                    "barometricPressure": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Int64),
+                                        ],
+                                    ),
+                                    "seaLevelPressure": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Int64),
+                                        ],
+                                    ),
+                                    "visibility": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Int64),
+                                        ],
+                                    ),
+                                    "maxTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
+                                    "minTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
+                                    "precipitationLastHour": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Int64),
+                                        ],
+                                    ),
+                                    "precipitationLast3Hours": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Int64),
+                                        ],
+                                    ),
+                                    "precipitationLast6Hours": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Int64),
+                                        ],
+                                    ),
+                                    "relativeHumidity": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Float64),
+                                        ],
+                                    ),
+                                    "windChill": pl.Struct(
+                                        [
+                                            pl.Field("value", pl.Float64),
+                                        ],
+                                    ),
+                                },
+                            ),
+                        },
+                    ),
                 ),
             },
         )
-        df = df.rename(mapping=lambda col: col.lower())
+        df = df.explode("features")
+        df = df.select(pl.col("features").struct.field("properties"))
+        df = df.select(pl.col("properties").struct.unnest())
+        df = df.rename(str.lower)
         df = df.rename(mapping={"station": "station_id", "timestamp": "date"})
         df = df.unpivot(
             index=["station_id", "date"],
@@ -241,7 +248,7 @@ class NwsObservationValues(TimeseriesValues):
         return df.with_columns(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("date").str.to_datetime(),
+            pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%z"),
             pl.col("value").struct.field("value").cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )

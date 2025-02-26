@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import logging
 from itertools import groupby
 from typing import TYPE_CHECKING
@@ -143,11 +142,11 @@ class NoaaGhcnValues(TimeseriesValues):
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.col("station_id"),
-            pl.col("date"),
-            pl.col("value"),
-            pl.col("quality"),
+            "parameter",
+            "station_id",
+            "date",
+            "value",
+            "quality",
         )
 
     @staticmethod
@@ -232,8 +231,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
             "name",
         ]
         df = df.with_columns(
-            pl.lit("hourly").alias("resolution"),
-            pl.lit("data").alias("dataset"),
+            pl.lit("hourly", dtype=pl.String).alias("resolution"),
+            pl.lit("data", dtype=pl.String).alias("dataset"),
             pl.all().str.strip_chars().replace("", None),
         )
         return df.lazy()
@@ -288,20 +287,17 @@ class NoaaGhcnRequest(TimeseriesRequest):
         inventory_df = read_fwf_from_df(inventory_df, column_specs)
         inventory_df.columns = ["station_id", "start_date", "end_date"]
         inventory_df = inventory_df.with_columns(
-            pl.col("start_date").cast(int),
-            pl.col("end_date").cast(int),
+            pl.col("start_date").cast(pl.Int64),
+            pl.col("end_date").cast(pl.Int64),
         )
         inventory_df = inventory_df.group_by(["station_id"]).agg(
             pl.col("start_date").min(),
             pl.col("end_date").max(),
         )
         inventory_df = inventory_df.with_columns(
-            pl.col("start_date").cast(str).str.to_datetime("%Y"),
-            pl.col("end_date")
-            .map_batches(lambda s: s + 1)
-            .cast(str)
-            .str.to_datetime("%Y")
-            .map_batches(lambda s: s - dt.timedelta(days=1)),
+            pl.col("start_date").cast(pl.String).str.to_datetime("%Y"),
+            pl.col("end_date").add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"),
+            # .map_batches(lambda s: s - dt.timedelta(days=1)),
         )
         df = df.join(other=inventory_df, how="left", on=["station_id"]).lazy()
         df = df.with_columns(

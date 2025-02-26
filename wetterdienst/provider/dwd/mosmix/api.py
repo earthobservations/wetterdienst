@@ -64,7 +64,6 @@ class DwdMosmixValues(TimeseriesValues):
         super().__init__(stations_result=stations_result)
 
         self.kml = KMLReader(
-            station_ids=self.sr.station_id.to_list(),
             settings=self.sr.stations.settings,
         )
 
@@ -108,12 +107,12 @@ class DwdMosmixValues(TimeseriesValues):
             value_name="value",
         )
         return df.select(
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            "parameter",
             pl.col("date").str.to_datetime(),
-            pl.col("value"),
+            "value",
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 

@@ -1096,7 +1096,7 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
         ],
         orient="row",
     )
-    given_df = request.values._tidy_up_df(df, DwdObservationMetadata.daily.climate_summary)  # noqa: SLF001
+    given_df = request.values._tidy_up_df(df)  # noqa: SLF001
     given_df = given_df.select(
         [
             "station_id",
@@ -1565,6 +1565,7 @@ def test_dwd_observation_datasets_high_resolution(default_settings: Settings, da
 @pytest.mark.parametrize(
     "dataset",
     [
+        # DwdObservationMetadata.subdaily.wind_extreme
         dataset
         for resolution in DwdObservationMetadata
         for dataset in resolution

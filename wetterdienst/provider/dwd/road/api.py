@@ -217,11 +217,11 @@ class DwdRoadValues(TimeseriesValues):
         return df.select(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.col("station_id"),
-            pl.col("date"),
-            pl.col("value"),
-            pl.col("quality"),
+            "parameter",
+            "station_id",
+            "date",
+            "value",
+            "quality",
         )
 
     def _create_file_index_for_dwd_road_weather_station(
@@ -277,7 +277,6 @@ class DwdRoadValues(TimeseriesValues):
                 lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.TWELVE_HOURS),
                 remote_files,
             )
-
         return list(zip(remote_files, files_in_bytes, strict=False))
 
     def _parse_dwd_road_weather_data(

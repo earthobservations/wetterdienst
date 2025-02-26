@@ -41,15 +41,13 @@ log = logging.getLogger(__name__)
 class KMLReader:
     """Read DWD XML Weather Forecast File of Type KML."""
 
-    def __init__(self, station_ids: list[str], settings: Settings) -> None:
+    def __init__(self, settings: Settings) -> None:
         """Initialize KMLReader.
 
         Args:
-            station_ids: List of station ids.
             settings: Settings object.
 
         """
-        self.station_ids = station_ids
         self.metadata = {}
         self.timesteps = []
         self.nsmap = None
@@ -93,19 +91,15 @@ class KMLReader:
         """Download and read DWD XML Weather Forecast File of Type KML."""
         log.info(f"Downloading KMZ file {Path(url).name}")
         kml = self.fetch(url)
-
         log.info("Parsing KML data")
         self.iter_elems = iterparse(BytesIO(kml), events=("start", "end"), resolve_entities=False)
-
         prod_items = {
             "issuer": "Issuer",
             "product_id": "ProductID",
             "generating_process": "GeneratingProcess",
             "issue_time": "IssueTime",
         }
-
         nsmap = None
-
         # Get Basic Metadata
         prod_definition = None
         prod_definition_tag = None
@@ -120,17 +114,14 @@ class KMLReader:
                 # stop processing after head
                 # leave forecast data for iteration
                 break
-
         self.metadata = {k: prod_definition.find(f"{{{nsmap['dwd']}}}{v}").text for k, v in prod_items.items()}
         self.metadata["issue_time"] = dt.datetime.fromisoformat(self.metadata["issue_time"])
-
         # Get time steps.
         timesteps = prod_definition.findall(
             "dwd:ForecastTimeSteps",
             nsmap,
         )[0]
         self.timesteps = [i.text for i in timesteps.getchildren()]
-
         # save namespace map for later iteration
         self.nsmap = nsmap
 

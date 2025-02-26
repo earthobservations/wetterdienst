@@ -76,14 +76,14 @@ def create_meta_index_for_climate_observations(
     return meta_index.select(
         pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
         pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-        pl.col("station_id"),
+        "station_id",
         pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
         pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
         pl.col("height").cast(pl.Float64),
         pl.col("latitude").cast(pl.Float64),
         pl.col("longitude").cast(pl.Float64),
-        pl.col("name"),
-        pl.col("state"),
+        "name",
+        "state",
     )
 
 
@@ -208,8 +208,6 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
         .otherwise(pl.col("end_date"))
         .alias("end_date"),
     )
-    # Drop empty state column again as it will be merged later on
-    df = df.select(pl.exclude("state"))
     df = df.with_columns(pl.all().str.strip_chars())
     # Make station id str
     return df.with_columns(pl.col("station_id").cast(str).str.pad_start(5, "0"))
