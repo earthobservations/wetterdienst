@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.105.0 - 2025-03-01
+
 ### Feature
 - Add user agent to default `fsspec_client_kwargs`
 - Adjust apis to track resolution and dataset
