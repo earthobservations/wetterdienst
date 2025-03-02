@@ -225,6 +225,7 @@ dev = [
   # formatting and linting
   "ruff>=0.3.3",
   "poethepoet>=0.27.0",
+  "creosote>=4.0.1",
 ]
 
 [tool.poe.tasks]
@@ -236,6 +237,7 @@ format = [ "format:fmt", "format:lint" ]
 "lint:fmt" = "uv run ruff format --check"
 "lint:lint" = "uv run ruff check"
 lint = [ "lint:fmt", "lint:lint" ]
+creosote = "uv run creosote --path wetterdienst"
 # docs
 docs = "cd docs && make html"
 "test:parallel" = "uv run pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)'"
@@ -294,6 +296,20 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 "tests/*" = ["S101"]
 "benchmarks/*" = ["T20", "INP001"]
 "examples/*" = ["T20", "INP001"]
+
+[tool.creosote]
+paths = [
+  "wetterdienst",
+  "tests",
+  "benchmarks",
+  "examples",
+]
+exclude_deps = [
+  "backports-datetime-fromisoformat",
+  "diskcache",
+  "python-dateutil",
+  "tzdata"
+]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3"
