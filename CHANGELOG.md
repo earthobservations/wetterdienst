@@ -2,6 +2,9 @@
 
 ## Development
 
+### Fix
+- Improve parameter unpacking in `ParameterSearch.parse`
+
 ## 0.105.0 - 2025-03-01
 
 ### Feature
