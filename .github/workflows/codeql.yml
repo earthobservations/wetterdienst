@@ -8,6 +8,8 @@ on:
   schedule:
     - cron: '26 4 * * 5'
 
+permissions: {}
+
 jobs:
   analyze:
     name: Analyze
@@ -38,6 +40,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL

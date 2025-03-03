@@ -17,6 +17,8 @@ on:
   # Allow job to be triggered manually.
   workflow_dispatch:
 
+permissions: {}
+
 # Cancel in-progress jobs when pushing to the same branch.
 concurrency:
   cancel-in-progress: true
@@ -33,9 +35,12 @@ jobs:
     steps:
       - name: Acquire sources
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: astral-sh/setup-uv@v5
         with:
+          enable-cache: false
           python-version: ${{ env.PYTHON }}
 
       - name: Build wheel package
@@ -59,6 +64,8 @@ jobs:
   docker:
     needs: build_and_test
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     if: ${{ ! (startsWith(github.actor, 'dependabot') || github.event.pull_request.head.repo.fork ) }}
 
     steps:
@@ -66,6 +73,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Download wheel package
         uses: actions/download-artifact@v4
@@ -87,7 +95,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
-      - name: Inspect meta
+      - name: Inspect meta # zizmor: ignore[template-injection]
         run: |
           echo "Tags:      ${{ steps.meta.outputs.tags }}"
           echo "Labels:    ${{ steps.meta.outputs.labels }}"
@@ -97,17 +105,17 @@ jobs:
 
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3 # zizmor: ignore[cache-poisoning]
 
       - name: Cache Docker layers
-        uses: actions/cache@v4
+        uses: actions/cache@v4 # zizmor: ignore[cache-poisoning]
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Inspect builder
+      - name: Inspect builder # zizmor: ignore[template-injection]
         run: |
           echo "Name:      ${{ steps.buildx.outputs.name }}"
           echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"

@@ -7,6 +7,8 @@ on:
 env:
   PYTHON: "3.13"
 
+permissions: {}
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -15,9 +17,12 @@ jobs:
     steps:
       - name: Acquire sources
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: astral-sh/setup-uv@v5
         with:
+          enable-cache: false
           python-version: ${{ env.PYTHON }}
 
       - name: Install project

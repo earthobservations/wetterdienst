@@ -6,6 +6,8 @@ on:
   schedule:
     - cron: '0 0 * * *' # everyday at midnight
 
+permissions: {}
+
 jobs:
   delete:
     runs-on: ubuntu-latest

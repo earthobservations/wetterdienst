@@ -13,6 +13,8 @@ concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.ref }}
 
+permissions: {}
+
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
@@ -43,6 +45,8 @@ jobs:
     steps:
       - name: Acquire sources
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: astral-sh/setup-uv@v5
         with:
