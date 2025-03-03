@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -303,9 +302,11 @@ class ParameterSearch:
             value = value.split("/")
         try:
             resolution, dataset, parameter = value
-        except ValueError:
-            with contextlib.suppress(ValueError):
+        except ValueError as e:
+            try:
                 resolution, dataset = value
+            except ValueError as inner_e:
+                raise inner_e from e
         resolution = resolution and resolution.strip().lower()
         dataset = dataset and dataset.strip().lower()
         parameter = parameter and parameter.strip().lower()
