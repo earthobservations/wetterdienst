@@ -17,12 +17,16 @@ concurrency:
 env:
   PYTHON: "3.13"
 
+permissions: {}
+
 jobs:
   creosote:
     runs-on: ubuntu-latest
     steps:
       - name: Acquire sources
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: astral-sh/setup-uv@v5
         with:

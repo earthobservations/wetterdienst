@@ -1,4 +1,4 @@
-name: Coverage
+name: Zizmor
 
 on:
   push:
@@ -15,16 +15,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 env:
-  OS: "ubuntu-latest"
   PYTHON: "3.13"
 
 permissions: {}
 
 jobs:
-  coverage:
+  zizmor:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Acquire sources
         uses: actions/checkout@v4
@@ -38,20 +35,5 @@ jobs:
       - name: Install project
         run: uv sync
 
-      - name: Install project
-        run: .github/workflows/install.sh testing
-
-      - name: Run tests, with coverage
-        run: |
-          uv run poe coverage
-
-      - name: Upload coverage report to Codecov
-        uses: codecov/codecov-action@v5
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        with:
-          files: ./coverage.xml
-          flags: unittests
-          env_vars: OS,PYTHON
-          name: codecov-umbrella
-          fail_ci_if_error: false
+      - name: Run code-style checks
+        run: uv run poe creosote

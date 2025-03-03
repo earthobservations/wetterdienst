@@ -226,6 +226,7 @@ dev = [
   "ruff>=0.3.3",
   "poethepoet>=0.27.0",
   "creosote>=4.0.1",
+  "zizmor>=1.4.1",
 ]
 
 [tool.poe.tasks]
@@ -238,6 +239,7 @@ format = [ "format:fmt", "format:lint" ]
 "lint:lint" = "uv run ruff check"
 lint = [ "lint:fmt", "lint:lint" ]
 creosote = "uv run creosote --path wetterdienst"
+zizmor = "uv run zizmor ."
 # docs
 docs = "cd docs && make html"
 "test:parallel" = "uv run pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)'"
