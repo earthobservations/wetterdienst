@@ -4,6 +4,7 @@
 
 ### Fix
 - Improve parameter unpacking in `ParameterSearch.parse`
+- Fix docker manifest
 
 ## 0.105.0 - 2025-03-01
 
