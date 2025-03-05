@@ -102,6 +102,8 @@ jobs:
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64  # TODO: add linux/arm/v7
 
       - name: Set up Docker Buildx
         id: buildx
@@ -141,6 +143,7 @@ jobs:
           push: true
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
+          provenance: false
 
       - name: Move cache
         run: |
