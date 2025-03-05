@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.106.0 - 2025-03-05
+
 ### Fix
 - Improve parameter unpacking in `ParameterSearch.parse`
 - Fix docker manifest
