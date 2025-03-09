@@ -14,7 +14,14 @@ from wetterdienst.util.network import download_file
 def read_pdf(url: str) -> str:
     """Read text from a PDF file."""
     text = StringIO()
-    response = download_file(url, settings=Settings(), ttl=CacheExpiry.NO_CACHE)
+    default_settings = Settings()
+    response = download_file(
+        url=url,
+        cache_dir=default_settings.cache_dir,
+        ttl=CacheExpiry.NO_CACHE,
+        client_kwargs=default_settings.client_kwargs,
+        cache_disable=default_settings.cache_disable,
+    )
     pdf = pypdf.PdfReader(response)
     for page_number in range(len(pdf.pages)):
         page = pdf.pages[page_number]

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO, StringIO
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
@@ -22,7 +21,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     _create_file_index_for_dwd_server,
 )
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, download_files
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.metadata import DatasetModel
@@ -105,8 +104,13 @@ def _create_meta_index_for_climate_observations(
         msg = f"No meta file was found amongst the files at {url}."
         raise MetaFileNotFoundError(msg)
     meta_file = df_files.get_column("url").to_list()[0]
-    log.info(f"Downloading file {meta_file}.")
-    payload = download_file(meta_file, settings=settings, ttl=CacheExpiry.METAINDEX)
+    payload = download_file(
+        url=meta_file,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+    )
     return _read_meta_df(payload)
 
 
@@ -167,10 +171,20 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
         .get_column("url")
         .first()
     )
-    log.info(f"Downloading file {meta_file_fx3}.")
-    payload_fx3 = download_file(meta_file_fx3, settings=settings, ttl=CacheExpiry.METAINDEX)
-    log.info(f"Downloading file {meta_file_fx6}.")
-    payload_fx6 = download_file(meta_file_fx6, settings=settings, ttl=CacheExpiry.METAINDEX)
+    payload_fx3 = download_file(
+        url=meta_file_fx3,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+    )
+    payload_fx6 = download_file(
+        url=meta_file_fx6,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+    )
     df_fx3 = _read_meta_df(payload_fx3)
     df_fx6 = _read_meta_df(payload_fx6)
     df_fx6 = df_fx6.join(df_fx3.select("station_id"), on=["station_id"], how="inner")
@@ -188,18 +202,17 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     )
     files_and_station_ids = df_files.select(["url", "station_id"]).collect().to_struct().to_list()
     log.info(f"Downloading {len(files_and_station_ids)} files for 1minute precipitation historical metadata.")
-    with ThreadPoolExecutor() as executor:
-        metadata_files = executor.map(
-            lambda file_and_station_id: download_file(
-                url=file_and_station_id["url"],
-                settings=settings,
-                ttl=CacheExpiry.NO_CACHE,
-            ),
-            files_and_station_ids,
-        )
+    remote_files = [file_and_station_id["url"] for file_and_station_id in files_and_station_ids]
+    files = download_files(
+        urls=remote_files,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.NO_CACHE,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+    )
     dfs = [
         _parse_geo_metadata((file, file_and_station_id["station_id"]))
-        for file, file_and_station_id in zip(metadata_files, files_and_station_ids, strict=False)
+        for file, file_and_station_id in zip(files, files_and_station_ids, strict=False)
     ]
     df = pl.concat(dfs)
     df = df.with_columns(

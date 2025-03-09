@@ -362,8 +362,13 @@ class DwdDmoRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """Get all stations from DMO."""
-        log.info(f"Downloading file {self._url}.")
-        payload = download_file(self._url, self.settings, CacheExpiry.METAINDEX)
+        payload = download_file(
+            url=self._url,
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
         text = StringIO(payload.read().decode(encoding="latin-1"))
         lines = text.readlines()
         header = lines.pop(0)

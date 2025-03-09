@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from functools import reduce
 from tempfile import NamedTemporaryFile
@@ -25,7 +24,7 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.util.eccodes import check_pdbufr
-from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.network import download_file, download_files, list_remote_files_fsspec
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -259,25 +258,26 @@ class DwdRoadValues(TimeseriesValues):
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """Collect data from DWD Road Weather stations."""
-        remote_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
+        df_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
         if self.sr.start_date:
-            remote_files = remote_files.filter(
+            df_files = df_files.filter(
                 pl.col("date").is_between(self.sr.start_date, self.sr.end_date),
             )
-        remote_files = remote_files.get_column("filename").to_list()
+        remote_files = df_files.get_column("filename").to_list()
         filenames_and_files = self._download_road_weather_observations(remote_files, self.sr.settings)
         return self._parse_dwd_road_weather_data(filenames_and_files, parameters)
 
     @staticmethod
     def _download_road_weather_observations(remote_files: list[str], settings: Settings) -> list[tuple[str, BytesIO]]:
         """Download the road weather station data from a given file and returns a DataFrame."""
-        log.info(f"Downloading {len(remote_files)} files from DWD Road Weather.")
-        with ThreadPoolExecutor() as p:
-            files_in_bytes = p.map(
-                lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.TWELVE_HOURS),
-                remote_files,
-            )
-        return list(zip(remote_files, files_in_bytes, strict=False))
+        files = download_files(
+            urls=remote_files,
+            cache_dir=settings.cache_dir,
+            ttl=CacheExpiry.TWELVE_HOURS,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+        )
+        return list(zip(remote_files, files, strict=False))
 
     def _parse_dwd_road_weather_data(
         self,
@@ -434,8 +434,13 @@ class DwdRoadRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        log.info(f"Downloading file {self._endpoint}.")
-        payload = download_file(self._endpoint, self.settings, CacheExpiry.METAINDEX)
+        payload = download_file(
+            url=self._endpoint,
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
         df = pl.read_excel(source=payload, sheet_name="Tabelle1", infer_schema_length=0)
         df = df.rename(mapping=self._column_mapping)
         df = df.select(pl.col(col) for col in self._column_mapping.values())
