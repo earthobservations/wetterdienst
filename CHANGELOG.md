@@ -2,6 +2,9 @@
 
 ## Development
 
+### Refactor
+- Refactor `download_file`
+
 ## 0.106.0 - 2025-03-05
 
 ### Fix

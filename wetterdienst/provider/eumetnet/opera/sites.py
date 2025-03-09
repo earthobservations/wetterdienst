@@ -10,6 +10,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from wetterdienst import Settings
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -111,7 +112,14 @@ class OperaRadarSitesGenerator:
 
     def get_opera_radar_sites(self) -> list[dict]:  # noqa: C901
         """Get all OPERA radar sites from EUMETNET."""
-        payload = download_file(self.url, settings=Settings())
+        default_settings = Settings()
+        payload = download_file(
+            url=self.url,
+            cache_dir=default_settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=default_settings.client_kwargs,
+            cache_disable=default_settings.cache_disable,
+        )
         data = json.load(payload)
 
         # Filter empty elements and convert data types.

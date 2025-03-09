@@ -7,7 +7,6 @@ from __future__ import annotations
 import datetime as dt
 import gzip
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
@@ -19,7 +18,7 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, download_files
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -95,22 +94,16 @@ class EcccObservationValues(TimeseriesValues):
         remote_files = list(
             self._create_file_urls(station_id, parameter_or_dataset.resolution.value, start_year, end_year),
         )
-        if len(remote_files) > 1:
-            with ThreadPoolExecutor() as p:
-                files_in_bytes = p.map(
-                    lambda remote_file: download_file(
-                        url=remote_file,
-                        settings=self.sr.stations.settings,
-                        ttl=CacheExpiry.FIVE_MINUTES,
-                    ),
-                    remote_files,
-                )
-        else:
-            files_in_bytes = [
-                download_file(url=remote_files[0], settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES),
-            ]
+        files = download_files(
+            urls=remote_files,
+            cache_dir=self.sr.stations.settings.cache_dir,
+            ttl=CacheExpiry.FIVE_MINUTES,
+            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.stations.settings.cache_disable,
+        )
+
         data = []
-        for file_in_bytes in files_in_bytes:
+        for file_in_bytes in files:
             df = pl.read_csv(file_in_bytes, infer_schema_length=0)
             data.append(df)
         try:
@@ -284,15 +277,25 @@ class EcccObservationRequest(TimeseriesRequest):
         payload = None
         source = None
         try:
-            log.info(f"Downloading file {gdrive_url}.")
-            payload = download_file(gdrive_url, self.settings, CacheExpiry.METAINDEX)
+            payload = download_file(
+                url=gdrive_url,
+                cache_dir=self.settings.cache_dir,
+                ttl=CacheExpiry.METAINDEX,
+                client_kwargs=self.settings.fsspec_client_kwargs,
+                cache_disable=self.settings.cache_disable,
+            )
             source = 0
         except Exception:
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
             # Fall back to different source.
             try:
-                log.info(f"Downloading file {http_url}.")
-                response = download_file(http_url, self.settings, CacheExpiry.METAINDEX)
+                response = download_file(
+                    url=http_url,
+                    cache_dir=self.settings.cache_dir,
+                    ttl=CacheExpiry.METAINDEX,
+                    client_kwargs=self.settings.fsspec_client_kwargs,
+                    cache_disable=self.settings.cache_disable,
+                )
                 with gzip.open(response, mode="rb") as f:
                     payload = BytesIO(f.read())
                 source = 1

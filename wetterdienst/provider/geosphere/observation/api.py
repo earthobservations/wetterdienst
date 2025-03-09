@@ -62,8 +62,13 @@ class GeosphereObservationValues(TimeseriesValues):
             start_date=start_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
             end_date=end_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
         )
-        log.info(f"Downloading file {url}.")
-        response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
+        response = download_file(
+            url=url,
+            cache_dir=self.sr.stations.settings.cache_dir,
+            ttl=CacheExpiry.FIVE_MINUTES,
+            client_kwargs=self.sr.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.settings.cache_disable,
+        )
         df = pl.read_json(
             response,
             schema={
@@ -164,8 +169,13 @@ class GeosphereObservationRequest(TimeseriesRequest):
         data = []
         for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
             url = self._endpoint.format(dataset=dataset.name_original)
-            log.info(f"Downloading file {url}.")
-            response = download_file(url=url, settings=self.settings, ttl=CacheExpiry.METAINDEX)
+            response = download_file(
+                url=url,
+                cache_dir=self.settings.cache_dir,
+                ttl=CacheExpiry.METAINDEX,
+                client_kwargs=self.settings.fsspec_client_kwargs,
+                cache_disable=self.settings.cache_disable,
+            )
             df = pl.read_csv(response)
             df = df.lazy()
             df = df.drop("Sonnenschein", "Globalstrahlung")
