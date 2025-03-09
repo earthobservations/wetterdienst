@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from concurrent.futures import ThreadPoolExecutor
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -22,7 +21,11 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
-from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.network import download_file, download_files, list_remote_files_fsspec
+
+if TYPE_CHECKING:
+    from io import BytesIO
+
 
 ImgwMeteorologyMetadata = {
     **_METADATA,
@@ -553,14 +556,16 @@ class ImgwMeteorologyValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Collect data for the given station and dataset."""
         urls = self._get_urls(parameter_or_dataset)
-        with ThreadPoolExecutor() as p:
-            files_in_bytes = p.map(
-                lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES),
-                urls,
-            )
+        files = download_files(
+            urls=urls,
+            cache_dir=self.sr.stations.settings.cache_dir,
+            ttl=CacheExpiry.FIVE_MINUTES,
+            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.stations.settings.cache_disable,
+        )
         data = []
         file_schema = self._file_schema[parameter_or_dataset.resolution.value][parameter_or_dataset.name]
-        for file_in_bytes in files_in_bytes:
+        for file_in_bytes in files:
             df = self._parse_file(
                 file_in_bytes=file_in_bytes,
                 station_id=station_id,
@@ -587,7 +592,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
 
     def _parse_file(
         self,
-        file_in_bytes: bytes,
+        file_in_bytes: BytesIO,
         station_id: str,
         resolution: Resolution,
         file_schema: dict,
@@ -632,7 +637,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         df = df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name="value")
         return df.with_columns(pl.col("value").cast(pl.Float64))
 
-    def _get_urls(self, dataset: DatasetModel) -> pl.Series:
+    def _get_urls(self, dataset: DatasetModel) -> list[str]:
         """Get URLs for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         files = list_remote_files_fsspec(url, self.sr.settings)
@@ -704,7 +709,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             df_files = df_files.filter(
                 pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean),
             )
-        return df_files.get_column("url")
+        return df_files.get_column("url").to_list()
 
 
 class ImgwMeteorologyRequest(TimeseriesRequest):
@@ -738,8 +743,14 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        """:return:"""
-        payload = download_file(self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
+        """Get all available stations."""
+        payload = download_file(
+            url=self._endpoint,
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
         df = pl.read_csv(payload, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
         df = df[:, 1:]
         df.columns = [

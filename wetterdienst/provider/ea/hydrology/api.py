@@ -123,8 +123,13 @@ class EAHydrologyValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Collect data for a station, parameter or dataset."""
         url = self._url.format(station_id=station_id)
-        log.info(f"Downloading file {url}.")
-        payload = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.NO_CACHE)
+        payload = download_file(
+            url=url,
+            cache_dir=self.sr.stations.settings.cache_dir,
+            ttl=CacheExpiry.NO_CACHE,
+            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.stations.settings.cache_disable,
+        )
         df_measures = pl.read_json(
             payload,
             schema={
@@ -170,8 +175,13 @@ class EAHydrologyValues(TimeseriesValues):
         except IndexError:
             return pl.DataFrame()
         readings_url = f"{readings_id_url}/readings.json"
-        log.info(f"Downloading file {readings_url}.")
-        payload = download_file(url=readings_url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
+        payload = download_file(
+            url=readings_url,
+            cache_dir=self.sr.stations.settings.cache_dir,
+            ttl=CacheExpiry.FIVE_MINUTES,
+            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.stations.settings.cache_disable,
+        )
         df = pl.read_json(
             payload,
             schema={
@@ -244,8 +254,13 @@ class EAHydrologyRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """Acquire all stations and filter for stations that have wanted resolution and parameter combinations."""
-        log.info(f"Acquiring station listing from {self._url}")
-        payload = download_file(self._url, self.settings, CacheExpiry.FIVE_MINUTES)
+        payload = download_file(
+            url=self._url,
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.FIVE_MINUTES,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
         df = pl.read_json(
             payload,
             schema={

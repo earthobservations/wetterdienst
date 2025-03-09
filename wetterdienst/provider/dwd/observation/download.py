@@ -45,8 +45,13 @@ def _download_climate_observations_data(remote_file: str, settings: Settings) ->
 
 
 def __download_climate_observations_data(remote_file: str, settings: Settings) -> bytes:
-    log.info(f"Downloading file {remote_file}.")
-    file = download_file(remote_file, settings=settings, ttl=CacheExpiry.FIVE_MINUTES)
+    file = download_file(
+        url=remote_file,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.FIVE_MINUTES,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+    )
     try:
         zfs = ZipFileSystem(file)
     except BadZipFile as e:

@@ -436,8 +436,13 @@ class DwdRadarValues:
         ttl = CacheExpiry.FIVE_MINUTES
         if not self._should_cache_download(url):
             ttl = CacheExpiry.NO_CACHE
-        log.info(f"Downloading file {url}.")
-        data = download_file(url=url, ttl=ttl, settings=self.settings)
+        data = download_file(
+            url=url,
+            cache_dir=self.settings.cache_dir,
+            ttl=ttl,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
 
         # RadarParameter.FX_REFLECTIVITY
         if url.endswith(Extension.TAR_BZ2.value):
@@ -498,7 +503,13 @@ class DwdRadarValues:
 
     def _download_radolan_data(self, url: str, start_date: dt.datetime, end_date: dt.datetime) -> Iterator[RadarResult]:
         """Download RADOLAN_CDC data for a given datetime."""
-        archive_in_bytes = self.__download_radolan_data(url=url, settings=self.settings)
+        archive_in_bytes = download_file(
+            url=url,
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.TWELVE_HOURS,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
 
         for result in self._extract_radolan_data(archive_in_bytes):
             if not result.timestamp:
@@ -511,12 +522,6 @@ class DwdRadarValues:
             result.url = url
 
             yield result
-
-    @staticmethod
-    def __download_radolan_data(url: str, settings: Settings) -> BytesIO:
-        """Download RADOLAN_CDC data for a given datetime."""
-        log.info(f"Downloading file {url}.")
-        return download_file(url=url, ttl=CacheExpiry.TWELVE_HOURS, settings=settings)
 
     @staticmethod
     def _extract_radolan_data(archive_in_bytes: BytesIO) -> Iterator[RadarResult]:

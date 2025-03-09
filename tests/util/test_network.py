@@ -9,6 +9,17 @@ from wetterdienst.util.network import NetworkFilesystemManager
 
 def test_create_fsspec_filesystem() -> None:
     """Test if a fsspec filesystem can be created."""
-    fs1 = NetworkFilesystemManager.get(settings=Settings(), ttl=CacheExpiry.METAINDEX)
-    fs2 = NetworkFilesystemManager.get(settings=Settings(), ttl=CacheExpiry.METAINDEX)
+    default_settings = Settings()
+    fs1 = NetworkFilesystemManager.get(
+        cache_dir=default_settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=default_settings.fsspec_client_kwargs,
+        cache_disable=default_settings.cache_disable,
+    )
+    fs2 = NetworkFilesystemManager.get(
+        cache_dir=default_settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=default_settings.fsspec_client_kwargs,
+        cache_disable=default_settings.cache_disable,
+    )
     assert id(fs1) == id(fs2)

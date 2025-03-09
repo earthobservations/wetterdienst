@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator, MutableMapping
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -170,12 +171,21 @@ class NetworkFilesystemManager:
         return ttl_name, ttl_value
 
     @classmethod
-    def register(cls, settings: Settings, ttl: int | CacheExpiry = CacheExpiry.NO_CACHE) -> None:
+    def register(
+        cls,
+        cache_dir: Path,
+        ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+        client_kwargs: dict | None = None,
+        *,
+        cache_disable: bool = False,
+    ) -> None:
         """Register a new filesystem instance for a given cache expiration time.
 
         Args:
-            settings: The settings to use for the filesystem.
+            cache_dir: The cache directory to use for the filesystem.
             ttl: The cache expiration time.
+            client_kwargs: Additional keyword arguments for the client.
+            cache_disable: If True, the cache is disabled.
 
         Returns:
             None
@@ -183,24 +193,37 @@ class NetworkFilesystemManager:
         """
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
-        real_cache_dir = str(Path(settings.cache_dir) / "fsspec" / key)
+        real_cache_dir = Path(cache_dir) / "fsspec" / key
 
-        use_cache = not (settings.cache_disable or ttl is CacheExpiry.NO_CACHE)
-        fs = HTTPFileSystem(use_listings_cache=use_cache, client_kwargs=settings.fsspec_client_kwargs)
+        use_cache = not (cache_disable or ttl is CacheExpiry.NO_CACHE)
+        fs = HTTPFileSystem(use_listings_cache=use_cache, client_kwargs=client_kwargs)
 
-        if settings.cache_disable or ttl is CacheExpiry.NO_CACHE:
+        if cache_disable or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = fs
         else:
-            filesystem_effective = WholeFileCacheFileSystem(fs=fs, cache_storage=real_cache_dir, expiry_time=ttl_value)
+            filesystem_effective = WholeFileCacheFileSystem(
+                fs=fs,
+                cache_storage=str(real_cache_dir),
+                expiry_time=ttl_value,
+            )
         cls.filesystems[key] = filesystem_effective
 
     @classmethod
-    def get(cls, settings: Settings, ttl: int | CacheExpiry = CacheExpiry.NO_CACHE) -> AbstractFileSystem:
+    def get(
+        cls,
+        cache_dir: Path,
+        ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+        client_kwargs: dict | None = None,
+        *,
+        cache_disable: bool = False,
+    ) -> AbstractFileSystem:
         """Get a filesystem instance for a given cache expiration time.
 
         Args:
-            settings: The settings to use for the filesystem.
+            cache_dir: The cache directory to use for the filesystem.
             ttl: The cache expiration time.
+            client_kwargs: Additional keyword arguments for the client.
+            cache_disable: If True, the cache is disabled
 
         Returns:
             The filesystem instance.
@@ -209,7 +232,7 @@ class NetworkFilesystemManager:
         ttl_name, _ = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         if key not in cls.filesystems:
-            cls.register(settings=settings, ttl=ttl)
+            cls.register(cache_dir=cache_dir, ttl=ttl, client_kwargs=client_kwargs, cache_disable=cache_disable)
         return cls.filesystems[key]
 
 
@@ -241,20 +264,70 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
 @stamina.retry(on=Exception, attempts=3)
 def download_file(
     url: str,
-    settings: Settings,
-    ttl: int | CacheExpiry = CacheExpiry.NO_CACHE,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
 ) -> BytesIO:
     """Download a specified file from the server.
 
     Args:
         url: The URL of the file to download.
-        settings: The settings to use for the download.
+        cache_dir: The cache directory to use for the filesystem.
         ttl: The cache expiration time.
+        client_kwargs: Additional keyword arguments for the client.
+        cache_disable: If True, the cache is disabled.
 
     Returns:
         A BytesIO object containing the downloaded file.
 
     """
-    filesystem = NetworkFilesystemManager.get(settings=settings, ttl=ttl)
-    payload = filesystem.cat(url)
+    filesystem = NetworkFilesystemManager.get(
+        cache_dir=cache_dir,
+        ttl=ttl,
+        client_kwargs=client_kwargs,
+        cache_disable=cache_disable,
+    )
+    log.info(f"Downloading file {url}")
+    payload = filesystem.cat_file(url)
+    log.info(f"Downloaded file {url}")
     return BytesIO(payload)
+
+
+def download_files(
+    urls: list[str],
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+) -> list[BytesIO]:
+    """Wrap download_file to download one or more files.
+
+    If multiple files are downloaded, it uses concurrent.futures to speed up the process.
+    """
+    log.info(f"Downloading {len(urls)} files.")
+    if len(urls) > 1:
+        with ThreadPoolExecutor() as p:
+            return list(
+                p.map(
+                    lambda file: download_file(
+                        url=file,
+                        cache_dir=cache_dir,
+                        ttl=ttl,
+                        client_kwargs=client_kwargs,
+                        cache_disable=cache_disable,
+                    ),
+                    urls,
+                ),
+            )
+    return [
+        download_file(
+            url=urls[0],
+            cache_dir=cache_dir,
+            ttl=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+        ),
+    ]
