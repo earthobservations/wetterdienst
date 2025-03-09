@@ -53,7 +53,12 @@ class KMLReader:
         self.nsmap = None
         self.iter_elems = None
 
-        self.dwdfs = NetworkFilesystemManager.get(settings=settings, ttl=CacheExpiry.FIVE_MINUTES)
+        self.dwdfs = NetworkFilesystemManager.get(
+            cache_dir=settings.cache_dir,
+            ttl=CacheExpiry.FIVE_MINUTES,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+        )
 
     def download(self, url: str) -> BytesIO:
         """Download kml file as bytes.

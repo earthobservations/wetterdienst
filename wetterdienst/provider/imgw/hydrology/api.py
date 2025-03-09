@@ -7,8 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import re
-from concurrent.futures import ThreadPoolExecutor
-from io import StringIO
+from io import BytesIO, StringIO
 from typing import ClassVar
 from zoneinfo import ZoneInfo
 
@@ -24,7 +23,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
-from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.network import download_file, download_files, list_remote_files_fsspec
 
 log = logging.getLogger(__name__)
 
@@ -182,14 +181,16 @@ class ImgwHydrologyValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Collect hydrological data for a single station and dataset."""
         urls = self._get_urls(parameter_or_dataset)
-        with ThreadPoolExecutor() as p:
-            files_in_bytes = p.map(
-                lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES),
-                urls,
-            )
+        files = download_files(
+            urls=urls,
+            cache_dir=self.sr.stations.settings.cache_dir,
+            ttl=CacheExpiry.FIVE_MINUTES,
+            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.stations.settings.cache_disable,
+        )
         data = []
         file_schema = self._file_schema[parameter_or_dataset.resolution.value][parameter_or_dataset.name]
-        for file_in_bytes in files_in_bytes:
+        for file_in_bytes in files:
             df = self._parse_file(
                 file_in_bytes=file_in_bytes,
                 station_id=station_id,
@@ -216,7 +217,7 @@ class ImgwHydrologyValues(TimeseriesValues):
 
     def _parse_file(
         self,
-        file_in_bytes: bytes,
+        file_in_bytes: BytesIO,
         station_id: str,
         dataset: DatasetModel,
         file_schema: dict,
@@ -293,7 +294,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             )
         return df
 
-    def _get_urls(self, dataset: DatasetModel) -> pl.Series:
+    def _get_urls(self, dataset: DatasetModel) -> list[str]:
         """Get all urls for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         files = list_remote_files_fsspec(url, self.sr.settings)
@@ -359,7 +360,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             df_files = df_files.filter(
                 pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean),
             )
-        return df_files.get_column("url")
+        return df_files.get_column("url").to_list()
 
 
 class ImgwHydrologyRequest(TimeseriesRequest):
@@ -394,8 +395,14 @@ class ImgwHydrologyRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """:return:"""
-        log.info(f"Downloading file {self._endpoint}.")
-        payload = download_file(self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
+        payload = download_file(
+            url=self._endpoint,
+            settings=self.settings,
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
         # skip empty lines in the csv file
         lines = payload.read().decode("latin-1").replace("\r", "").split("\n")
         lines = [line for line in lines if line]

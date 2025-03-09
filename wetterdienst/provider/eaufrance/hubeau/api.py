@@ -125,8 +125,13 @@ class HubeauValues(TimeseriesValues):
         parameter: ParameterModel,
     ) -> tuple[int, Literal["m", "H"]]:
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.name_original)
-        log.info(f"Downloading file {url}.")
-        response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)
+        response = download_file(
+            url=url,
+            cache_dir=self.sr.stations.settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.stations.settings.cache_disable,
+        )
         values_dict = json.load(response)["data"]
         try:
             second_date = values_dict[1]["date_obs"]
@@ -154,8 +159,13 @@ class HubeauValues(TimeseriesValues):
                 start_date=start_date.isoformat(),
                 end_date=end_date.isoformat(),
             )
-            log.info(f"Downloading file {url}.")
-            response = download_file(url=url, settings=self.sr.stations.settings)
+            response = download_file(
+                url=url,
+                cache_dir=self.sr.stations.settings.cache_dir,
+                ttl=CacheExpiry.FIVE_MINUTES,
+                client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+                cache_disable=self.sr.stations.settings.cache_disable,
+            )
             df = pl.read_json(
                 response,
                 schema={
@@ -230,8 +240,13 @@ class HubeauRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """:return:"""
-        log.info(f"Downloading file {self._endpoint}.")
-        response = download_file(url=self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
+        response = download_file(
+            url=self._endpoint,
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
         df_raw = pl.read_json(
             response,
             schema={

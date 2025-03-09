@@ -204,7 +204,13 @@ class WsvPegelValues(TimeseriesValues):
         url = self._endpoint.format(station_id=station_id, parameter=parameter_or_dataset.name_original)
 
         try:
-            response = download_file(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
+            response = download_file(
+                url=url,
+                cache_dir=self.sr.stations.settings.cache_dir,
+                ttl=CacheExpiry.NO_CACHE,
+                client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+                cache_disable=self.sr.stations.settings.cache_disable,
+            )
         except FileNotFoundError:
             return pl.DataFrame()
 
@@ -280,7 +286,13 @@ class WsvPegelRequest(TimeseriesRequest):
         It involves reading the REST API, doing some transformations
         and adding characteristic values in extra columns if given for each station.
         """
-        response = download_file(self._endpoint, self.settings, CacheExpiry.ONE_HOUR)
+        response = download_file(
+            url=self._endpoint,
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.ONE_HOUR,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
         df = pl.read_json(
             response,
             schema={
