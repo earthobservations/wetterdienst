@@ -7,8 +7,8 @@ from __future__ import annotations
 import json
 import logging
 import platform
-from pathlib import Path  # noqa: TC003
-from typing import Literal
+from pathlib import Path  # noqa: TCH003
+from typing import Literal, TypedDict
 
 import platformdirs
 from pydantic import Field, field_validator, model_validator
@@ -22,6 +22,12 @@ log = logging.getLogger(__name__)
 _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 
 
+_AUTH_TUPLE_TYPE = tuple[str, str]
+
+
+class _Auth(TypedDict):
+    metno_frost: _AUTH_TUPLE_TYPE | None
+
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
@@ -34,6 +40,7 @@ class Settings(BaseSettings):
             "headers": {"User-Agent": f"wetterdienst/{__import__('wetterdienst').__version__} ({platform.system()})"},
         },
     )
+    auth: dict[str, str] = Field(default_factory=dict)
     ts_humanize: bool = True
     ts_shape: Literal["wide", "long"] = "long"
     ts_convert_units: bool = True
