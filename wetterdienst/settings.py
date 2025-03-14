@@ -8,10 +8,10 @@ import json
 import logging
 import platform
 from pathlib import Path  # noqa: TCH003
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, NotRequired
 
 import platformdirs
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator, BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wetterdienst.core.timeseries.unit import UnitConverter
@@ -22,16 +22,24 @@ log = logging.getLogger(__name__)
 _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 
 
-_AUTH_TUPLE_TYPE = tuple[str, str]
-
-
-class _Auth(TypedDict):
-    metno_frost: _AUTH_TUPLE_TYPE | None
+class Auth(BaseModel):
+    # model_config = SettingsConfigDict(env_nested_delimiter='__', nested_model_default_partial_update=True)
+    metno_frost: tuple[str, str] | None = Field(default=None)
+    @field_validator("metno_frost", mode="before")
+    @classmethod
+    def validate_metno_frost(cls, value: tuple[str, str | None] | str | None) -> tuple[str, str] | None:
+        """Validate the metno frost auth."""
+        if isinstance(value, str):
+            return value, ""
+        if isinstance(value, tuple):
+            # ensure second value is str
+            return value
+        return None
 
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
-    model_config = SettingsConfigDict(env_ignore_empty=True, env_prefix="WD_")
+    model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, env_prefix="WD_", env_nested_delimiter='__')
 
     cache_disable: bool = Field(default=False)
     cache_dir: Path = Field(default_factory=lambda: platformdirs.user_cache_dir(appname="wetterdienst"))
@@ -40,7 +48,7 @@ class Settings(BaseSettings):
             "headers": {"User-Agent": f"wetterdienst/{__import__('wetterdienst').__version__} ({platform.system()})"},
         },
     )
-    auth: dict[str, str] = Field(default_factory=dict)
+    auth: Auth = Field(default_factory=dict)
     ts_humanize: bool = True
     ts_shape: Literal["wide", "long"] = "long"
     ts_convert_units: bool = True
