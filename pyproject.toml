@@ -84,7 +84,7 @@ dependencies = [
   "click>=8,<9",
   "cloup>=3.0.1,<4",
   "diskcache>=5.4,<6",
-  "fsspec[http]>=2023.1,<2025",
+  "fsspec[http]>=2023.1,<2026",
   "lxml>=4.9.1,<6",
   "measurement>=3.2,<4",
   "platformdirs>=4,<5",
@@ -96,10 +96,10 @@ dependencies = [
   "pypdf>=3.12.1,<6",
   "python-dateutil>=2,<3",
   "rapidfuzz>=3.1,<4",
-  "stamina>=23,<25",
+  "stamina>=23,<26",
   "tabulate>=0.8,<1",
   "tqdm>=4,<5",
-  "tzdata>=2024.2,<2025",
+  "tzdata>=2024.2,<2026",
   "tzfpy>=0.15.2,<1",
 ]
 
@@ -124,21 +124,21 @@ excel = [
 ]
 explorer = [
   "duckdb>=0.9,<2",
-  "plotly>=5.11,<6",
+  "plotly>=5.11,<7",
   "statsmodels>=0.14.1,<1",
   "streamlit>=1.27,<2",
 ]
 export = [
   "pandas>=2,<3",
   "sqlalchemy>=2,<3",
-  "xarray>=2023.1,<2025",
+  "xarray>=2023.1,<2026",
   "xlsxwriter>=3.0.9,<4",
-  "zarr>=2.13,<3",
+  "zarr>=2.13,<4",
 ]
 export_without_zarr = [
   "pandas>=2,<3",
   "sqlalchemy>=2,<3",
-  "xarray>=2023.1,<2025",
+  "xarray>=2023.1,<2026",
   "xlsxwriter>=3.0.9,<4",
 ]
 influxdb = [
