@@ -37,6 +37,8 @@ log = logging.getLogger(__name__)
 class StationsRequest(BaseModel):
     """Stations request with validated parameters."""
 
+    model_config = {"extra": "forbid"}
+
     provider: str
     network: str
     parameters: list[str]
@@ -154,6 +156,8 @@ class StationsRequest(BaseModel):
 
 class ValuesRequest(BaseModel):
     """Values request with validated parameters."""
+
+    model_config = {"extra": "forbid"}
 
     # from stations
     provider: str
@@ -296,6 +300,8 @@ class ValuesRequest(BaseModel):
 class InterpolationRequest(BaseModel):
     """Interpolation request with validated parameters."""
 
+    model_config = {"extra": "forbid"}
+
     provider: str
     network: str
     parameters: list[str]
@@ -401,6 +407,8 @@ class InterpolationRequest(BaseModel):
 
 class SummaryRequest(BaseModel):
     """Summary request with validated parameters."""
+
+    model_config = {"extra": "forbid"}
 
     provider: str
     network: str

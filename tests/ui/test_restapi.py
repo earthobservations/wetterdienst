@@ -363,7 +363,7 @@ def test_stations_dwd_obs_image_png_custom_settings(client: TestClient) -> None:
             "format": "png",
             "width": 1000,
             "height": 1000,
-            "dpi": 200,
+            "scale": 2,
         },
     )
     assert response.status_code == 200
@@ -384,7 +384,7 @@ def test_stations_dwd_obs_image_png_wrong_settings(client: TestClient) -> None:
             "format": "png",
             "width": 0,
             "height": 0,
-            "dpi": 0,
+            "scale": 0,
         },
     )
     assert response.status_code == 422
@@ -453,7 +453,6 @@ def test_values_dwd_sql_tabular(client: TestClient) -> None:
             "date": "2020/2021",
             "sql_values": "temperature_air_max_2m < 2.0",
             "shape": "wide",
-            "si_units": False,
         },
     )
     assert response.status_code == 200
@@ -508,7 +507,6 @@ def test_values_dwd_sql_long(client: TestClient) -> None:
             "parameters": "daily/kl",
             "date": "2019-12-01/2019-12-31",
             "sql_values": "parameter='temperature_air_max_2m' AND value < 1.5",
-            "si_units": False,
         },
     )
     assert response.status_code == 200
