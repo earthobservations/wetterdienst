@@ -205,7 +205,6 @@ def test_cli_summarize_image(fmt: str) -> None:
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
             "--station=00071",
             "--date=1986-10-31/1986-11-01",
-            "--format=json",
             f"--format={fmt}",
         ],
     )

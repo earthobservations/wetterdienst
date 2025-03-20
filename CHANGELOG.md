@@ -5,6 +5,9 @@
 ### Refactor
 - Refactor `download_file`
 
+### Fix
+- Fix false attribute parsing by pydantic model in cli
+
 ## 0.106.0 - 2025-03-05
 
 ### Fix
