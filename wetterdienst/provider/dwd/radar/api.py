@@ -494,7 +494,7 @@ class DwdRadarValues:
             date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
             timestamp = None
             if date_string:
-                timestamp = dt.datetime.strptime(date_string, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
+                timestamp = dt.datetime.strptime(date_string, "%y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
             yield RadarResult(
                 url=url,
                 data=data,
