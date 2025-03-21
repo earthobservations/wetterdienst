@@ -118,3 +118,14 @@ def parse_date(date_string: str) -> dt.datetime:
     if date_parsed and not date_parsed.tzinfo:
         date_parsed = date_parsed.replace(tzinfo=ZoneInfo("UTC"))
     return date_parsed
+
+
+def _parse_datetime_from_formats(string: str, formats: list[str]) -> dt.datetime:
+    """Parse datetime from a string given a number of possible formats."""
+    for fmt in formats:
+        try:
+            return dt.datetime.strptime(string, fmt)  # noqa: DTZ007
+        except ValueError:
+            pass
+    msg = f"datetime could not be parsed from {string} given the formats {formats}"
+    raise ValueError(msg)

@@ -40,7 +40,7 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_string_from_filename, verify_hdf5
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
-from wetterdienst.util.datetime import raster_minutes, round_minutes
+from wetterdienst.util.datetime import _parse_datetime_from_formats, raster_minutes, round_minutes
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 
@@ -55,6 +55,9 @@ else:
     MonkeyPatch.patch_fromisoformat()
 
 log = logging.getLogger(__name__)
+
+
+DATETIME_FORMATS = ["%y%m%d%H%M", "%Y%m%d%H%M"]
 
 
 @dataclass
@@ -455,7 +458,8 @@ class DwdRadarValues:
                 date_string = get_date_string_from_filename(file_name, pattern=RADAR_DT_PATTERN)
                 timestamp = None
                 if date_string:
-                    timestamp = dt.datetime.strptime(date_string, "%y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
+                    timestamp = _parse_datetime_from_formats(string=date_string, formats=DATETIME_FORMATS)
+                    timestamp = timestamp.replace(tzinfo=ZoneInfo("UTC"))
                 yield RadarResult(
                     data=BytesIO(tfs.open(file).read()),
                     timestamp=timestamp,
@@ -469,7 +473,8 @@ class DwdRadarValues:
                 date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
                 timestamp = None
                 if date_string:
-                    timestamp = dt.datetime.strptime(date_string, "%y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
+                    timestamp = _parse_datetime_from_formats(string=date_string, formats=DATETIME_FORMATS)
+                    timestamp = timestamp.replace(tzinfo=ZoneInfo("UTC"))
                 yield RadarResult(
                     url=url,
                     data=data,
@@ -483,7 +488,8 @@ class DwdRadarValues:
                 date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
                 timestamp = None
                 if date_string:
-                    timestamp = dt.datetime.strptime(date_string, "%y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
+                    timestamp = _parse_datetime_from_formats(string=date_string, formats=DATETIME_FORMATS)
+                    timestamp = timestamp.replace(tzinfo=ZoneInfo("UTC"))
                 yield RadarResult(
                     url=url,
                     data=data,
@@ -494,7 +500,8 @@ class DwdRadarValues:
             date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
             timestamp = None
             if date_string:
-                timestamp = dt.datetime.strptime(date_string, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
+                timestamp = _parse_datetime_from_formats(string=date_string, formats=DATETIME_FORMATS)
+                timestamp = timestamp.replace(tzinfo=ZoneInfo("UTC"))
             yield RadarResult(
                 url=url,
                 data=data,
