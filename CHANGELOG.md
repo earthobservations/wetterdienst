@@ -7,6 +7,7 @@
 
 ### Fix
 - Fix false attribute parsing by pydantic model in cli
+- Fix datetime parsing for generic radar data
 
 ## 0.106.0 - 2025-03-05
 
