@@ -279,7 +279,7 @@ class TimeseriesValues(ABC):
             hpm = self._create_humanized_parameters_mapping()
 
         for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
-            station_id = cast(str, station_id)
+            station_id = cast("str", station_id)
             available_datasets = [
                 self.sr.stations.metadata[res][ds]
                 for (res, ds), _ in df_station_meta.select(["resolution", "dataset"]).group_by(

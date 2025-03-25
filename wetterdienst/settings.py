@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import platform
-from pathlib import Path  # noqa: TCH003
+from pathlib import Path  # noqa: TC003
 from typing import Literal
 
 import platformdirs

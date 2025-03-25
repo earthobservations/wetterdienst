@@ -30,7 +30,7 @@ SETTINGS_VALUES = (
         "mosmix",
         [
             "--parameters=hourly/large",
-            f'--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=2), "%Y-%m-%d")}',
+            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=2), '%Y-%m-%d')}",
         ],
         "10488",
         "DRESDEN",
@@ -40,7 +40,7 @@ SETTINGS_VALUES = (
         "dmo",
         [
             "--parameters=hourly/icon",
-            f'--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=2), "%Y-%m-%d")}',
+            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=2), '%Y-%m-%d')}",
         ],
         "10488",
         "DRESDEN",
@@ -51,7 +51,7 @@ SETTINGS_VALUES = (
         [
             "--parameters=hourly/icon",
             "--lead_time=long",
-            f'--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo("UTC")) + dt.timedelta(days=3), "%Y-%m-%d")}',
+            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=3), '%Y-%m-%d')}",
         ],
         "10488",
         "DRESDEN",
