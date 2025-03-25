@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field, SkipValidation, field_validator
 from pydantic_extra_types.timezone_name import (
-    TimeZoneName,  # noqa: TCH002, needs to stay here for pydantic model to work
+    TimeZoneName,  # noqa: TC002, needs to stay here for pydantic model to work
 )
 
-from wetterdienst.metadata.period import Period  # noqa: TCH001, needs to stay here for pydantic model to work
-from wetterdienst.metadata.resolution import Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
+from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
+from wetterdienst.metadata.resolution import Resolution  # noqa: TC001, needs to stay here for pydantic model to work
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

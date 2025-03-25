@@ -48,7 +48,7 @@ class Info:
         {self.name} - open weather data for humans
         ===========================================
         version:                {self.version}
-        authors:                {', '.join([f"{author.name} <{author.email}>" for author in self.authors])}
+        authors:                {", ".join([f"{author.name} <{author.email}>" for author in self.authors])}
         documentation:          {self.documentation}
         repository:             {self.repository}
         cache_dir (default):    {self.cache_dir}

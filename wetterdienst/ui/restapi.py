@@ -164,17 +164,17 @@ def index() -> HTMLResponse:
                 </div>
                 <h2>Examples</h2>
                 <div class="list">
-                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_stations']}" target="_blank" rel="noopener">DWD Observation Daily Climate Stations</a></li>
-                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_values']}" target="_blank" rel="noopener">DWD Observation Daily Climate Values</a></li>
-                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_interpolation']}" target="_blank" rel="noopener">DWD Observation Daily Climate Interpolation</a></li>
-                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_summary']}" target="_blank" rel="noopener">DWD Observation Daily Climate Summary</a></li>
-                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_stripes_stations']}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Stations</a></li>
-                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_stripes_values']}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stations"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stations</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Values</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_interpolation"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Interpolation</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_summary"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Summary</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_stations"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Stations</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
                 </div>
                 <h2>Producer</h2>
                 <div class="List">
                     <li>Version: {info.version}</li>
-                    <li>Authors: {', '.join(_create_author_entry(author) for author in info.authors)}</li>
+                    <li>Authors: {", ".join(_create_author_entry(author) for author in info.authors)}</li>
                     <li>Repository: <a href="{info.repository}" target="_blank" rel="noopener">{info.repository}</a></li>
                     <li>Documentation: <a href="{info.documentation}" target="_blank" rel="noopener">{info.documentation}</a></li>
                 </div>

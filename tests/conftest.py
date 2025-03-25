@@ -11,7 +11,7 @@ import pytest
 from wetterdienst import Info, Settings
 from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
 
-IS_CI = os.environ.get("CI", False) and True
+IS_CI = bool(os.environ.get("CI"))
 IS_LINUX = platform.system() == "Linux"
 IS_LINUX_39 = IS_LINUX and sys.version_info[:2] == (3, 11)
 IS_WINDOWS = platform.system() == "Windows"
