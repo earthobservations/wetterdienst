@@ -489,10 +489,7 @@ class TimeseriesRequest:
         df = all_nearby_stations.filter(pl.col("distance").le(distance_in_km))
 
         if df.is_empty():
-            lat, lon = latlon
-            log.info(
-                f"No weather stations were found for coordinates {lat}/{lon} (lat/lon) and distance {distance_in_km}km",
-            )
+            log.info("No weather stations were found for the provided coordinates")
 
         return StationsResult(
             stations=self,
