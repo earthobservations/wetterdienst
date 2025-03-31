@@ -66,21 +66,29 @@ def index() -> HTMLResponse:
         return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"  # noqa:E501
 
     title = f"{info.slogan} | {info.name}"
-    sources = []
+    provider_rows = []
 
     for provider in Wetterdienst.registry:
         # take the first network api
         first_network = next(iter(Wetterdienst.registry[provider].keys()))
         api = Wetterdienst(provider, first_network)
         shortname = api.metadata.name_short
-        name = api.metadata.name_english
+        name = api.metadata.name_local
         country = api.metadata.country
         copyright_ = api.metadata.copyright
         url = api.metadata.url
-        sources.append(
-            f"<li><a href={url} target='_blank' rel='noopener'>{shortname}</a> ({name}, {country}) - {copyright_}</li>",
+        provider_rows.append(
+            f"<tr><td><a href='{url}' target='_blank' rel='noopener'>{shortname}</a></td>"
+            f"<td>{name}</td>"
+            f"<td>{country}</td>"
+            f"<td>{copyright_}</td></tr>"
         )
-    sources = "\n".join(sources)
+    providers_table = (
+        "<table>"
+        "<thead><tr><th>Provider</th><th>Name</th><th>Country</th><th>Copyright</th></tr></thead>"
+        f"<tbody>{''.join(provider_rows)}</tbody>"
+        "</table>"
+    )
     return HTMLResponse(
         content=f"""
     <html lang="en">
@@ -92,68 +100,55 @@ def index() -> HTMLResponse:
                 body {{
                     font-family: Arial, sans-serif;
                     margin: 0;
-                    padding: 0;
-                }}
-
-                header {{
-                    background-color: #0074d9;
-                    text-align: center;
                     padding: 20px;
+                    background-color: #f4f4f4;
                 }}
-
-                h1, h2 {{
+                .container {{
+                    max-width: 800px;
+                    margin: 50px auto;
+                    padding: 20px;
+                    background-color: #fff;
+                    border-radius: 8px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                }}
+                h1 {{
                     color: #333;
+                    border-bottom: 2px solid #0074d9;
+                    padding-bottom: 10px;
                 }}
-
-                h2 {{
-                    border-top: 1px solid #ccc;
-                    padding-top: 20px;
+                p {{
+                    margin-bottom: 10px;
+                    line-height: 1.6;
                 }}
-
                 li {{
                     margin-bottom: 10px;
                 }}
-
                 a {{
                     text-decoration: none;
                     color: #0074d9;
                 }}
-
                 a:hover {{
                     text-decoration: underline;
                 }}
-
-                .container {{
-                    max-width: 800px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    border-radius: 5px;
-                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
                 }}
-
-                .box {{
-                    margin-left: 20px;
-                }}
-
-                .list {{
-                    display: flex;
-                    flex-wrap: wrap;
-                    list-style: none;
-                    flex-direction: column;
-                }}
-
-                .list li {{
-                    margin-left: 20px;
+                th, td {{
+                    border: 1px solid #ddd;
+                    padding: 8px;
                     text-align: left;
                 }}
-
+                th {{
+                    background-color: #f2f2f2;
+                }}
             </style>
         </head>
         <body>
             <div class="container">
                 <h1>{info.slogan}</h1>
                 <h2>Endpoints</h2>
-                <div class="list">
+                <ul>
                     <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
                     <li><a href="api/stations" target="_blank" rel="noopener">stations</a></li>
                     <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
@@ -161,27 +156,29 @@ def index() -> HTMLResponse:
                     <li><a href="api/summarize" target="_blank" rel="noopener">summary</a></li>
                     <li><a href="api/stripes/stations" target="_blank" rel="noopener">stripes stations</a></li>
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
-                </div>
+                </ul>
                 <h2>Examples</h2>
-                <div class="list">
+                <ul>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stations"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stations</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Values</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_interpolation"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Interpolation</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_summary"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Summary</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_stations"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Stations</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
-                </div>
+                </ul>
                 <h2>Producer</h2>
-                <div class="List">
+                <ul>
                     <li>Version: {info.version}</li>
                     <li>Authors: {", ".join(_create_author_entry(author) for author in info.authors)}</li>
                     <li>Repository: <a href="{info.repository}" target="_blank" rel="noopener">{info.repository}</a></li>
                     <li>Documentation: <a href="{info.documentation}" target="_blank" rel="noopener">{info.documentation}</a></li>
-                </div>
+                </ul>
                 <h2>Providers</h2>
-                <div class="list">
-                    {sources}
-                </div>
+                {providers_table}
+                <h2>Legal</h2>
+                <ul>
+                    <li><a href="/impressum" target="_blank" rel="noopener">Impressum</a></li>
+                </ul>
             </div>
         </body>
     </html>
@@ -213,6 +210,53 @@ def favicon() -> RedirectResponse:
     """Redirect to favicon."""
     return RedirectResponse(
         url="https://raw.githubusercontent.com/earthobservations/wetterdienst/refs/heads/main/docs/assets/logo.png",
+    )
+
+
+@app.get("/impressum")
+def impressum() -> HTMLResponse:
+    """Provide impressum page."""
+    return HTMLResponse(
+        content="""
+    <html lang="en">
+        <head>
+            <title>Impressum</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    padding: 20px;
+                    background-color: #f4f4f4;
+                }
+                .container {
+                    max-width: 800px;
+                    margin: 50px auto;
+                    padding: 20px;
+                    background-color: #fff;
+                    border-radius: 8px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                }
+                h1 {
+                    color: #333;
+                    border-bottom: 2px solid #0074d9;
+                    padding-bottom: 10px;
+                }
+                p {
+                    margin-bottom: 10px;
+                    line-height: 1.6;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Impressum</h1>
+                <p>Organization: Earth Observations</p>
+                <p>Responsible: Benjamin Gutzmann</p>
+                <p>Email: <a href="mailto:info@eobs.org">info@eobs.org</a></p>
+            </div>
+        </body>
+    </html>
+    """,
     )
 
 
