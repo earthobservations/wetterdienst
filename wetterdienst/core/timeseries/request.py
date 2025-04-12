@@ -8,6 +8,7 @@ import datetime as dt
 import logging
 from abc import abstractmethod
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
@@ -62,21 +63,53 @@ EARTH_RADIUS_KM = 6371
 _PARAMETER_TYPE_SINGULAR = str | tuple[str, str] | tuple[str, str, str] | ParameterModel | DatasetModel
 _PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
 _DATETIME_TYPE = str | dt.datetime | None
-_SETTINGS_TYPE = dict | Settings | None
 
 
+@dataclass
 class TimeseriesRequest:
     """Core class for timeseries information of a source."""
 
-    @property
-    @abstractmethod
-    def metadata(self) -> MetadataModel:
-        """Metadata class."""
+    # implementations of subclasses
+    metadata: MetadataModel = field(
+        init=False,
+        repr=False,
+        default=None,
+    )
+    _values: TimeseriesValues = field(init=False, repr=False, default=None)
 
-    @property
-    @abstractmethod
-    def _values(self) -> TimeseriesValues:
-        """Values class used for retrieving values."""
+    # actual parameters
+    parameters: _PARAMETER_TYPE
+    start_date: _DATETIME_TYPE = None
+    end_date: _DATETIME_TYPE = None
+    settings: Settings | dict = field(default_factory=lambda: Settings())
+
+    def __post_init__(self) -> None:
+        """Post init method to validate the settings and convert the timestamps."""
+        if not self.metadata:
+            msg = f"{self.__class__.__name__}.metadata not implemented"
+            raise NotImplementedError(msg)
+        if not self._values:
+            msg = f"{self.__class__.__name__}._values not implemented"
+            raise NotImplementedError(msg)
+        # Convert settings to a validated model
+        self.settings = Settings.model_validate(self.settings)
+        # Convert timestamps
+        self.start_date, self.end_date = self.convert_timestamps(self.start_date, self.end_date)
+        # Parse parameters
+        self.parameters = parse_parameters(self.parameters, self.metadata)
+        if not self.parameters:
+            msg = "No valid parameters could be parsed from given argument"
+            raise NoParametersFoundError(msg)
+
+    # @property
+    # @abstractmethod
+    # def metadata(self) -> MetadataModel:
+    #     """Metadata class."""
+
+    # @property
+    # @abstractmethod
+    # def _values(self) -> TimeseriesValues:
+    #     """Values class used for retrieving values."""
 
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = (
@@ -114,79 +147,6 @@ class TimeseriesRequest:
 
         """
         return series.cast(pl.String)
-
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize a new TimeseriesRequest.
-
-        Args:
-            parameters: the parameters to request
-            start_date: the start date of the request
-            end_date: the end date of the request
-            settings: the settings for the request
-
-        """
-        settings = settings or Settings()
-        self.settings = Settings.model_validate(settings)
-
-        super().__init__()
-
-        self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
-        self.parameters = parse_parameters(parameters, self.metadata)
-
-        if not self.parameters:
-            msg = "no valid parameters could be parsed from given argument"
-            raise NoParametersFoundError(msg)
-
-        self.humanize = settings.ts_humanize
-        self.shape = settings.ts_shape
-        self.tidy = 1 if self.shape == "long" else 0
-        self.convert_units = settings.ts_convert_units
-
-        self.drop_nulls = self.tidy and settings.ts_drop_nulls
-        self.complete = not self.drop_nulls and settings.ts_complete
-        # skip empty stations
-        self.skip_empty = self.complete and settings.ts_skip_empty
-        self.skip_threshold = settings.ts_skip_threshold
-
-        self.interp_use_nearby_station_until_km = settings.ts_interpolation_use_nearby_station_distance
-
-        if self.drop_nulls != settings.ts_drop_nulls:
-            log.info(
-                "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
-                "is thus ignored in this request.",
-            )
-
-        if self.complete != settings.ts_complete:
-            log.info(
-                "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and "
-                "is thus ignored in this request.",
-            )
-
-        if self.skip_empty != settings.ts_skip_empty:
-            log.info(
-                "option 'ts_skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' "
-                "and is thus ignored in this request.",
-            )
-
-        log.info(f"Processing request {self.__repr__()}")
-
-    def __eq__(self, other: TimeseriesRequest) -> bool:
-        """Check if two TimeseriesRequest objects are equal."""
-        if not isinstance(other, TimeseriesRequest):
-            return False
-
-        return (
-            self.parameters == other.parameters
-            and self.start_date == other.start_date
-            and self.end_date == other.end_date
-            and self.settings == other.settings
-        )
 
     @staticmethod
     def convert_timestamps(  # noqa: C901

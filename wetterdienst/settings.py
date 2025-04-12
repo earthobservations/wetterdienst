@@ -76,9 +76,33 @@ class Settings(BaseSettings):
             return default
         return default | values
 
+    @property
+    def ts_tidy(self) -> bool:
+        """Return whether the time series is in tidy format."""
+        return self.ts_shape == "long"
+
     @model_validator(mode="after")
     def validate(self) -> Settings:
         """Validate the settings."""
+        if self.ts_shape != "long":
+            self.ts_drop_nulls = False
+            log.info(
+                "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
+                "is thus ignored in this request.",
+            )
+        if self.ts_drop_nulls:
+            self.ts_complete = False
+            log.info(
+                "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and "
+                "is thus ignored in this request.",
+            )
+        # skip empty stations
+        if not self.ts_complete:
+            self.ts_skip_empty = False
+            log.info(
+                "option 'skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' "
+                "and is thus ignored in this request.",
+            )
         if self.cache_disable:
             log.info("Wetterdienst cache is disabled")
         else:

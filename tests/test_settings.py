@@ -35,8 +35,15 @@ def test_default_settings(caplog: pytest.LogCaptureFixture) -> None:
         "precipitation_height": 20.0,
     }
     assert default_settings.ts_interpolation_use_nearby_station_distance == 1
-    log_message = caplog.messages[0]
-    assert re.match(WD_CACHE_ENABLED_PATTERN, log_message)
+    assert (
+        caplog.messages[0]
+        == "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and is thus ignored in this request."  # noqa: E501
+    )
+    assert (
+        caplog.messages[1]
+        == "option 'skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' and is thus ignored in this request."  # noqa: E501
+    )
+    assert re.match(WD_CACHE_ENABLED_PATTERN, caplog.messages[2])
 
 
 @mock.patch.dict(os.environ, {})
@@ -47,7 +54,15 @@ def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     os.environ["WD_TS_INTERPOLATION_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
     caplog.set_level(logging.INFO)
     settings = Settings()
-    assert caplog.messages[0] == "Wetterdienst cache is disabled"
+    assert (
+        caplog.messages[0]
+        == "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and is thus ignored in this request."
+    )
+    assert (
+        caplog.messages[1]
+        == "option 'skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' and is thus ignored in this request."  # noqa: E501
+    )
+    assert caplog.messages[2] == "Wetterdienst cache is disabled"
     assert settings.ts_shape == "wide"
     assert settings.ts_interpolation_station_distance == {
         "default": 40.0,
@@ -68,9 +83,16 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
         ts_convert_units=False,
         ts_interpolation_station_distance={"just_another": 43},
     )
-    log_message = caplog.messages[0]
     assert settings.cache_disable
-    assert log_message == "Wetterdienst cache is disabled"  # env variable
+    assert (
+        caplog.messages[0]
+        == "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and is thus ignored in this request."  # noqa: E501
+    )
+    assert (
+        caplog.messages[1]
+        == "option 'skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' and is thus ignored in this request."  # noqa: E501
+    )
+    assert caplog.messages[2] == "Wetterdienst cache is disabled"  # env variable
     assert settings.ts_shape  # default variable
     assert settings.ts_skip_threshold == 0.81  # argument variable overrules env variable
     assert not settings.ts_convert_units  # argument variable

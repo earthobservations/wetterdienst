@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
 from tempfile import NamedTemporaryFile
@@ -19,7 +20,7 @@ from wetterdienst.core.timeseries.metadata import (
     ParameterModel,
     build_metadata_model,
 )
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.metadata import _METADATA
@@ -30,7 +31,6 @@ if TYPE_CHECKING:
     from io import BytesIO
 
     from wetterdienst import Settings
-    from wetterdienst.core.timeseries.result import StationsResult
 
 log = logging.getLogger(__name__)
 
@@ -191,13 +191,10 @@ TEMPORARILY_UNAVAILABLE_STATION_GROUPS = [
 class DwdRoadValues(TimeseriesValues):
     """Values class for DWD road weather data."""
 
-    def __init__(self, stations_result: StationsResult) -> None:
-        """Initialize the DwdRoadValues class.
-
-        First, check if the pdbufr library is available. If not, raise an ImportError.
-        """
+    def __post_init__(self) -> None:
+        """Post-initialization of the DwdRoadValues class."""
+        super().__post_init__()
         check_pdbufr()
-        super().__init__(stations_result)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -352,6 +349,7 @@ class DwdRoadValues(TimeseriesValues):
         )
 
 
+@dataclass
 class DwdRoadRequest(TimeseriesRequest):
     """Request class for DWD road weather data."""
 
@@ -409,29 +407,6 @@ class DwdRoadRequest(TimeseriesRequest):
         "station_group": pl.Utf8,
         "has_file": pl.Utf8,
     }
-
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize the DwdRoadRequest class.
-
-        Args:
-            parameters: requested parameters
-            start_date: start date of the requested data
-            end_date: end date of the requested data
-            settings: settings for the request
-
-        """
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
 
     def _all(self) -> pl.LazyFrame:
         payload = download_file(

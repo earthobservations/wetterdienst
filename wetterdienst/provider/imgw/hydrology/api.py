@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import re
+from dataclasses import dataclass
 from io import BytesIO, StringIO
 from typing import ClassVar
 from zoneinfo import ZoneInfo
@@ -17,7 +18,7 @@ from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.core.timeseries.metadata import DatasetModel, build_metadata_model
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
@@ -363,35 +364,13 @@ class ImgwHydrologyValues(TimeseriesValues):
         return df_files.get_column("url").to_list()
 
 
+@dataclass
 class ImgwHydrologyRequest(TimeseriesRequest):
     """Request class for hydrological data from IMGW."""
 
     metadata = ImgwHydrologyMetadata
     _values = ImgwHydrologyValues
     _endpoint = "https://dane.imgw.pl/datastore/getfiledown/Arch/Telemetria/Hydro/kody_stacji.csv"
-
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize the request for hydrological data from IMGW.
-
-        Args:
-            parameters: requested parameters
-            start_date: start date of the requested data
-            end_date: end date of the requested data
-            settings: settings for the request
-
-        """
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
 
     def _all(self) -> pl.LazyFrame:
         """:return:"""

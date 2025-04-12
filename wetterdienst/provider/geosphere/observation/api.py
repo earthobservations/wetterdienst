@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import groupby
 from typing import TYPE_CHECKING, ClassVar
@@ -13,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
@@ -134,6 +135,7 @@ class GeosphereObservationValues(TimeseriesValues):
         )
 
 
+@dataclass
 class GeosphereObservationRequest(TimeseriesRequest):
     """Request class for geosphere observation data."""
 
@@ -141,29 +143,6 @@ class GeosphereObservationRequest(TimeseriesRequest):
     _values = GeosphereObservationValues
 
     _endpoint = "https://dataset.api.hub.zamg.ac.at/v1/station/historical/{dataset}/metadata/stations"
-
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize the GeosphereObservationRequest class.
-
-        Args:
-            parameters: requested parameters
-            start_date: start date of the requested data
-            end_date: end date of the requested data
-            settings: settings for the request
-
-        """
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
 
     def _all(self) -> pl.LazyFrame:
         data = []

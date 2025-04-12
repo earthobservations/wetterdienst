@@ -149,7 +149,7 @@ def test_dwd_observation_data_dates(default_settings: Settings) -> None:
     )
     assert request.start_date == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert request.end_date == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
-    assert request.periods == [Period.HISTORICAL]
+    assert request.periods == {Period.HISTORICAL}
 
 
 @pytest.mark.remote
@@ -164,16 +164,6 @@ def test_dwd_observations_stations_filter_name_empty(default_request: Timeseries
     """Test for empty station filters."""
     request = default_request.filter_by_name(name="FizzBuzz")
     assert request.df.is_empty()
-
-
-def test_dwd_observations_multiple_datasets_tidy(default_settings: Settings) -> None:
-    """Test for multiple datasets."""
-    request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")],
-        periods="historical",
-        settings=default_settings,
-    )
-    assert request.tidy
 
 
 def test_dwd_observations_stations_wrong_types(default_request: TimeseriesRequest) -> None:

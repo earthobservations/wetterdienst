@@ -4,6 +4,7 @@
 
 ### Feature
 - Improve restapi look and add impressum
+- Use dataclass everywhere
 
 ## 0.107.0 - 2025-03-25
 
