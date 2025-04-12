@@ -577,6 +577,7 @@ def test_radar_request_site_historic_px250_bufr_yesterday(default_settings: Sett
         start_date=timestamp,
         site=DwdRadarSite.BOO,
         settings=default_settings,
+        fmt=DwdRadarDataFormat.BUFR,
     )
 
     results = list(request.query())
@@ -620,6 +621,7 @@ def test_radar_request_site_historic_px250_bufr_timerange(default_settings: Sett
         end_date=dt.timedelta(hours=1),
         site=DwdRadarSite.BOO,
         settings=default_settings,
+        fmt=DwdRadarDataFormat.BUFR,
     )
 
     # Verify number of elements.
