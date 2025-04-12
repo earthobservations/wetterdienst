@@ -86,9 +86,7 @@ def test_request_period_historical(default_settings: Settings) -> None:
         start_date="1971-01-01",
         settings=default_settings,
     )
-    assert request.periods == [
-        Period.HISTORICAL,
-    ]
+    assert request.periods == {Period.HISTORICAL}
 
 
 def test_request_period_historical_recent(default_settings: Settings) -> None:
@@ -99,10 +97,10 @@ def test_request_period_historical_recent(default_settings: Settings) -> None:
         end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=400),
         settings=default_settings,
     )
-    assert request.periods == [
+    assert request.periods == {
         Period.HISTORICAL,
         Period.RECENT,
-    ]
+    }
 
 
 def test_request_period_historical_recent_now(default_settings: Settings) -> None:
@@ -113,11 +111,11 @@ def test_request_period_historical_recent_now(default_settings: Settings) -> Non
         end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
         settings=default_settings,
     )
-    assert request.periods == [
+    assert request.periods == {
         Period.HISTORICAL,
         Period.RECENT,
         Period.NOW,
-    ]
+    }
 
 
 @freeze_time(dt.datetime(2022, 1, 29, 1, 30, tzinfo=ZoneInfo("Europe/Berlin")))
@@ -128,7 +126,7 @@ def test_request_period_recent_now(default_settings: Settings) -> None:
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
-    assert request.periods == [Period.RECENT, Period.NOW]
+    assert request.periods == {Period.RECENT, Period.NOW}
 
 
 @freeze_time(dt.datetime(2022, 1, 29, 2, 30, tzinfo=ZoneInfo("Europe/Berlin")))
@@ -139,7 +137,7 @@ def test_request_period_now(default_settings: Settings) -> None:
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
-    assert request.periods == [Period.NOW]
+    assert request.periods == {Period.NOW}
 
 
 @freeze_time(dt.datetime(2021, 3, 28, 18, 38, tzinfo=ZoneInfo("Europe/Berlin")))
@@ -171,7 +169,7 @@ def test_request_period_empty(default_settings: Settings) -> None:
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) + dt.timedelta(days=720),
         settings=default_settings,
     )
-    assert request.periods == []
+    assert request.periods == set()
 
 
 @pytest.mark.remote
@@ -1050,8 +1048,8 @@ def test_create_humanized_column_names_mapping() -> None:
     }
     hcnm = (
         DwdObservationRequest(  # noqa: SLF001
-            [("daily", "kl")],
-            ["recent"],
+            parameters=[("daily", "kl")],
+            periods={"recent"},
         )
         .filter_by_station_id(
             (0,),

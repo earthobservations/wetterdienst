@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import datetime as dt
 import logging
+from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
 from typing import TYPE_CHECKING, ClassVar
@@ -14,7 +15,7 @@ from urllib.parse import urljoin
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -27,7 +28,6 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.metadata import DatasetModel
-    from wetterdienst.core.timeseries.result import StationsResult
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -59,10 +59,9 @@ class DwdForecastDate(Enum):
 class DwdMosmixValues(TimeseriesValues):
     """Fetch weather mosmix data (KML/MOSMIX_S dataset)."""
 
-    def __init__(self, stations_result: StationsResult) -> None:
-        """Initialize the MOSMIX values."""
-        super().__init__(stations_result=stations_result)
-
+    def __post_init__(self) -> None:
+        """Post-initialization of the DwdMosmixValues class."""
+        super().__post_init__()
         self.kml = KMLReader(
             settings=self.sr.stations.settings,
         )
@@ -180,11 +179,16 @@ class DwdMosmixValues(TimeseriesValues):
         return df.get_column("url").item()
 
 
+@dataclass
 class DwdMosmixRequest(TimeseriesRequest):
     """Request MOSMIX data from the DWD server."""
 
     metadata = DwdMosmixMetadata
     _values = DwdMosmixValues
+    # parameters
+    issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST
+    station_group: DwdMosmixStationGroup = DwdMosmixStationGroup.SINGLE_STATIONS
+
     _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
 
     _base_columns: ClassVar = [
@@ -201,49 +205,20 @@ class DwdMosmixRequest(TimeseriesRequest):
         "state",
     ]
 
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        issue: str | dt.datetime | DwdForecastDate | None = DwdForecastDate.LATEST,
-        station_group: DwdMosmixStationGroup | None = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize the MOSMIX request.
-
-        Args:
-            parameters: requested parameters
-            start_date: start date of the request
-            end_date: end date of the request
-            issue: issue date of the request
-            station_group: station group to be used
-            settings: settings to be used
-
-        """
+    def __post_init__(self) -> None:
+        """Post-initialization of the DwdMosmixRequest class."""
+        super().__post_init__()
         self.station_group = (
-            parse_enumeration_from_template(station_group, DwdMosmixStationGroup)
+            parse_enumeration_from_template(self.station_group, DwdMosmixStationGroup)
             or DwdMosmixStationGroup.SINGLE_STATIONS
         )
-
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
-
-        if not issue:
-            issue = DwdForecastDate.LATEST
-
+        issue = self.issue
         with contextlib.suppress(InvalidEnumerationError):
             issue = parse_enumeration_from_template(issue, DwdForecastDate)
-
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 issue = dt.datetime.fromisoformat(issue)
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=issue.tzinfo)
-
         self.issue = issue
 
     def _all(self) -> pl.LazyFrame:

@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import datetime as dt
 import logging
+from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
 from typing import TYPE_CHECKING, ClassVar, Literal
@@ -15,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -27,7 +28,6 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.metadata import DatasetModel
-    from wetterdienst.core.timeseries.result import StationsResult
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -117,10 +117,9 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
 class DwdDmoValues(TimeseriesValues):
     """Fetch DWD DMO data."""
 
-    def __init__(self, stations_result: StationsResult) -> None:
-        """Initialize DwdDmoValues."""
-        super().__init__(stations_result=stations_result)
-
+    def __post_init__(self) -> None:
+        """Post-initialize the DwdDmoValues class."""
+        super().__post_init__()
         self.kml = KMLReader(
             settings=self.sr.stations.settings,
         )
@@ -211,17 +210,21 @@ class DwdDmoValues(TimeseriesValues):
         return df.get_column("url").item()
 
 
+@dataclass
 class DwdDmoRequest(TimeseriesRequest):
     """Implementation of sites for dmo sites."""
 
     metadata = DwdDmoMetadata
     _values = DwdDmoValues
+    # required parameters
+    issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST
+    station_group: str | DwdDmoStationGroup | None = None
+    lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
         "dmo_stationsliste_txt.asc?__blob=publicationFile&v=1"
     )
-
     _base_columns: ClassVar = [
         "resolution",
         "dataset",
@@ -249,53 +252,22 @@ class DwdDmoRequest(TimeseriesRequest):
             return adjusted_date.replace(hour=12)
         return adjusted_date
 
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST,
-        station_group: str | DwdDmoStationGroup | None = None,
-        lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize the DwdDmoRequest class.
-
-        Args:
-            parameters: requested parameters
-            start_date: start date of the requested data
-            end_date: end date of the requested data
-            issue: issue date of the forecast
-            station_group: station group to be used
-            lead_time: lead time of the forecast
-            settings: settings for the request
-
-        """
+    def __post_init__(self) -> None:
+        """Post-initialize the DwdDmoRequest class."""
+        super().__post_init__()
         self.station_group = (
-            parse_enumeration_from_template(station_group, DwdDmoStationGroup) or DwdDmoStationGroup.SINGLE_STATIONS
+            parse_enumeration_from_template(self.station_group, DwdDmoStationGroup)
+            or DwdDmoStationGroup.SINGLE_STATIONS
         )
-        self.lead_time = parse_enumeration_from_template(lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
-
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
-
-        if not issue:
-            issue = DwdForecastDate.LATEST
-
+        self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
         with contextlib.suppress(InvalidEnumerationError):
-            issue = parse_enumeration_from_template(issue, DwdForecastDate)
-
+            issue = parse_enumeration_from_template(self.issue, DwdForecastDate)
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
-                issue = dt.datetime.fromisoformat(issue)
+                issue = dt.datetime.fromisoformat(self.issue)
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=ZoneInfo("UTC"))
             # Shift issue date to 0, 12 hour format
             issue = self.adjust_datetime(issue)
-
         self.issue = issue
 
     # required patches for stations as data is corrupted for these at least atm

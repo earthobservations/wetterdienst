@@ -5,11 +5,12 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 import polars as pl
 
 from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, DatasetModel, build_metadata_model
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import download_file
@@ -260,6 +261,7 @@ class NwsObservationValues(TimeseriesValues):
         )
 
 
+@dataclass
 class NwsObservationRequest(TimeseriesRequest):
     """Request class for NWS observation."""
 
@@ -268,29 +270,9 @@ class NwsObservationRequest(TimeseriesRequest):
 
     _endpoint = "https://madis-data.ncep.noaa.gov/madisPublic1/data/stations/METARTable.txt"
 
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize the NWS observation request.
-
-        Args:
-            parameters: parameters to request
-            start_date: start date
-            end_date: end date
-            settings: settings
-
-        """
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
-
+    def __post_init__(self) -> None:
+        """Post-initialization of the request object."""
+        super().__post_init__()
         self.settings.fsspec_client_kwargs.update(
             {
                 "headers": {

@@ -5,13 +5,14 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from itertools import groupby
 from typing import TYPE_CHECKING
 
 import polars as pl
 import polars.selectors as cs
 
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
@@ -174,34 +175,12 @@ class NoaaGhcnValues(TimeseriesValues):
         return pl.concat(data)
 
 
+@dataclass
 class NoaaGhcnRequest(TimeseriesRequest):
     """Request class for NOAA GHCN data provider."""
 
     metadata = NoaaGhcnMetadata
     _values = NoaaGhcnValues
-
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize the request for the NOAA GHCN data provider.
-
-        Args:
-            parameters: requested parameters
-            start_date: start date
-            end_date: end date
-            settings: settings for the request
-
-        """
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
 
     def _all(self) -> pl.LazyFrame:
         data = []

@@ -32,7 +32,9 @@ def get_interpolated_df(request: TimeseriesRequest, latitude: float, longitude: 
     """Get the interpolated DataFrame for the given request and location."""
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
-    return calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, request.interp_use_nearby_station_until_km)
+    return calculate_interpolation(
+        utm_x, utm_y, stations_dict, param_dict, request.settings.ts_interpolation_use_nearby_station_distance
+    )
 
 
 def request_stations(

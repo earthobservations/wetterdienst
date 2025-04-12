@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Literal
 from zoneinfo import ZoneInfo
 
@@ -15,7 +16,7 @@ import portion
 from portion import Interval
 
 from wetterdienst.core.timeseries.metadata import DatasetModel, ParameterSearch
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
@@ -187,12 +188,14 @@ class DwdObservationValues(TimeseriesValues):
         return file_index.collect().get_column("date_range").to_list()
 
 
+@dataclass
 class DwdObservationRequest(TimeseriesRequest):
     """Request class for DWD observation data."""
 
     metadata = DwdObservationMetadata
     _values = DwdObservationValues
     _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT, Period.NOW}
+    periods: str | Period | set[str | Period] = None
 
     @property
     def interval(self) -> Interval | None:
@@ -238,16 +241,16 @@ class DwdObservationRequest(TimeseriesRequest):
         now_begin = now_end.replace(hour=0, minute=0, second=0) - dt.timedelta(days=1)
         return portion.closed(now_begin, now_end)
 
-    def _get_periods(self) -> list[Period]:
+    def _get_periods(self) -> set[Period]:
         """Get periods based on the interval of the request."""
-        periods = []
+        periods = set()
         interval = self.interval
         if interval.overlaps(self._historical_interval):
-            periods.append(Period.HISTORICAL)
+            periods.add(Period.HISTORICAL)
         if interval.overlaps(self._recent_interval):
-            periods.append(Period.RECENT)
+            periods.add(Period.RECENT)
         if interval.overlaps(self._now_interval):
-            periods.append(Period.NOW)
+            periods.add(Period.NOW)
         return periods
 
     @staticmethod
@@ -262,31 +265,11 @@ class DwdObservationRequest(TimeseriesRequest):
         periods_parsed.update(parse_enumeration_from_template(p, Period) for p in to_list(period))
         return periods_parsed & self._available_periods or None
 
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        periods: str | Period | Sequence[str | Period] = None,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize DwdObservationRequest.
+    def __post_init__(self) -> None:
+        """Post init method."""
+        super().__post_init__()
 
-        Args:
-            parameters: requested parameters
-            periods: requested periods
-            start_date: start date of the request
-            end_date: end date of the request
-            settings: settings for the request
-
-        """
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
-        self.periods = self._parse_period(periods)
+        self.periods = self._parse_period(self.periods)
         # Has to follow the super call as start date and end date are required for getting
         # automated periods from overlapping intervals
         if not self.periods:
@@ -294,12 +277,6 @@ class DwdObservationRequest(TimeseriesRequest):
                 self.periods = self._get_periods()
             else:
                 self.periods = self._available_periods
-
-    def __eq__(self, other: DwdObservationRequest) -> bool:
-        """Equality method for DwdObservationRequest."""
-        if not isinstance(other, DwdObservationRequest):
-            return False
-        return super().__eq__(other) and self.periods == other.periods
 
     def filter_by_station_id(
         self,

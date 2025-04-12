@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from itertools import groupby
-from textwrap import dedent
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 from zoneinfo import ZoneInfo
 
@@ -37,20 +37,20 @@ else:
 log = logging.getLogger(__name__)
 
 
+@dataclass
 class TimeseriesValues(ABC):
     """Core for sources of timeseries where data is related to a station."""
 
-    def __init__(self, stations_result: StationsResult) -> None:
-        """Initialize the TimeseriesValues object.
+    sr: StationsResult
+    stations_counter: int = 0
+    stations_collected: list[str] = field(default_factory=list)
+    unit_converter: UnitConverter = field(default_factory=UnitConverter)
 
-        Args:
-            stations_result: StationsResult object with all necessary information.
+    # Fields for date coercion
+    _date_fields: ClassVar = ["date", "start_date", "end_date"]
 
-        """
-        self.sr = stations_result
-        self.stations_counter = 0
-        self.stations_collected = []
-        self.unit_converter = UnitConverter()
+    def __post_init__(self) -> None:
+        """Post-initialization of the TimeseriesValues object."""
         self.unit_converter.update_targets(self.sr.settings.ts_unit_targets)
 
     @classmethod
@@ -58,34 +58,12 @@ class TimeseriesValues(ABC):
         """Create a new instance of the class from a StationsResult object."""
         return cls(stations)
 
-    def __eq__(self, other: object) -> bool:
-        """Equal method of request object."""
-        return self.sr.stations == other.sr.stations and self.sr.station_id == other.sr.station
-
-    def __repr__(self) -> str:
-        """Representation of request object."""
-        parameters_joined = ",".join(
-            f"({parameter.dataset.resolution.name}/{parameter.dataset.name}/{parameter.name})"
-            for parameter in self.sr.stations.parameters
-        )
-        station_ids_joined = ", ".join(self.sr.station_id.to_list())
-        return dedent(
-            f"""
-            {self.sr.stations.__class__.__name__}Values(
-                parameters=[{parameters_joined}],
-                start_date={self.sr.start_date and self.sr.start_date.isoformat()},
-                end_date={self.sr.end_date and self.sr.end_date.isoformat()},
-                station_ids=[{station_ids_joined}],
-            )
-            """.strip(),
-        )
-
     # Fields for type coercion, needed for separation from fields with actual data
     # that have to be parsed differently when having data in tabular form
     @property
     def _meta_fields(self) -> dict[str, pl.DataType]:
         """Get metadata fields for the DataFrame."""
-        if not self.sr.tidy:
+        if not self.sr.settings.ts_tidy:
             return {
                 "station_id": pl.String,
                 "resolution": pl.String,
@@ -101,11 +79,6 @@ class TimeseriesValues(ABC):
             "value": pl.Float64,
             "quality": pl.Float64,
         }
-
-    # Fields for date coercion
-    _date_fields: ClassVar = ["date", "start_date", "end_date"]
-
-    # TODO: add data type (mosmix, observation, ...)
 
     @property
     def timezone_data(self) -> str:
@@ -275,7 +248,8 @@ class TimeseriesValues(ABC):
         self.stations_collected = []
 
         # mapping of original to humanized parameter names is always the same
-        if self.sr.humanize:
+        hpm = None
+        if self.sr.settings.ts_humanize:
             hpm = self._create_humanized_parameters_mapping()
 
         for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
@@ -313,14 +287,18 @@ class TimeseriesValues(ABC):
                     df = pl.concat(dataset_data)
                     del dataset_data
 
-                if self.sr.convert_units:
+                if self.sr.settings.ts_convert_units:
                     df = self._convert_units(df, dataset)
 
                 df = df.unique(subset=["resolution", "dataset", "parameter", "date"], maintain_order=True)
 
-                if self.sr.drop_nulls:
+                if self.sr.settings.ts_drop_nulls:
                     df = df.drop_nulls(subset=["value"])
-                elif self.sr.complete and self.sr.start_date and dataset.resolution.value != Resolution.DYNAMIC:
+                elif (
+                    self.sr.settings.ts_complete
+                    and self.sr.start_date
+                    and dataset.resolution.value != Resolution.DYNAMIC
+                ):
                     df = self._build_complete_df(df, station_id, dataset.resolution.value)
 
                 df = self._organize_df_columns(df, station_id, dataset)
@@ -341,23 +319,22 @@ class TimeseriesValues(ABC):
                     ),
                 )
 
-            if self.sr.skip_empty:
+            if self.sr.settings.ts_skip_empty:
                 percentage = self._get_actual_percentage(df=df)
-                if percentage < self.sr.skip_threshold:
+                if percentage < self.sr.settings.ts_skip_threshold:
                     log.info(
                         f"station {station_id} is skipped as percentage of actual values ({percentage}) "
-                        f"is below threshold ({self.sr.skip_threshold}).",
+                        f"is below threshold ({self.sr.settings.ts_skip_threshold}).",
                     )
                     continue
 
-            # if not df.is_empty():
-            if self.sr.humanize:
+            if self.sr.settings.ts_humanize:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
 
-            if not self.sr.tidy:
+            if not self.sr.settings.ts_tidy:
                 df = self._widen_df(df=df)
 
-            sort_columns = ["dataset", "parameter", "date"] if self.sr.tidy else ["dataset", "date"]
+            sort_columns = ["dataset", "parameter", "date"] if self.sr.settings.ts_tidy else ["dataset", "date"]
 
             df = df.sort(sort_columns)
 
@@ -420,7 +397,7 @@ class TimeseriesValues(ABC):
                 df_wide = df_wide.join(df_parameter, on=["date"])
         else:
             for parameter in self.sr.parameters:
-                parameter_name = parameter.name_original if not self.sr.humanize else parameter.name
+                parameter_name = parameter.name_original if not self.sr.settings.ts_humanize else parameter.name
                 parameter_quality = f"qn_{parameter_name}"
                 df_wide = df_wide.with_columns(
                     pl.lit(None, pl.Float64).alias(parameter_name),

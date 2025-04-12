@@ -4,12 +4,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import ClassVar
 
 import polars as pl
 
 from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import download_file
@@ -226,6 +227,7 @@ class WsvPegelValues(TimeseriesValues):
         )
 
 
+@dataclass
 class WsvPegelRequest(TimeseriesRequest):
     """Request class for WSV Pegelonline.
 
@@ -254,31 +256,11 @@ class WsvPegelRequest(TimeseriesRequest):
     }
 
     # extend base columns of core class with those of characteristic values plus gauge zero
-    _base_columns: ClassVar = list(TimeseriesRequest._base_columns)  # noqa: SLF001
-    _base_columns.extend(["gauge_zero", *characteristic_values.keys()])
-
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        settings: _SETTINGS_TYPE = None,
-    ) -> None:
-        """Initialize WSV Pegelonline request.
-
-        Args:
-            parameters: parameters
-            start_date: start date
-            end_date: end date
-            settings: settings
-
-        """
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "gauge_zero",
+        *characteristic_values.keys(),
+    )
 
     def _all(self) -> pl.LazyFrame:
         """Get stations for WSV Pegelonline.

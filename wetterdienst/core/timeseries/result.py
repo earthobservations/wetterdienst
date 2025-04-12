@@ -135,51 +135,20 @@ class _StationsOgcFeatureCollection(TypedDict):
     data: _StationsOgcFeatureCollectionData
 
 
+@dataclass
 class StationsResult(ExportMixin):
     """Result class for stations."""
 
-    def __init__(
-        self,
-        stations: TimeseriesRequest | DwdMosmixRequest | DwdDmoRequest,
-        df: pl.DataFrame,
-        df_all: pl.DataFrame,
-        stations_filter: StationsFilter,
-        rank: int | None = None,
-        **kwargs: dict,
-    ) -> None:
-        """Initialize stations result.
-
-        Args:
-            stations: the request object
-            df: the DataFrame with stations (filtered)
-            df_all: the DataFrame with all stations
-            stations_filter: the filter used to determine the subset of stations
-            rank: the rank used to determine the subset of stations
-            **kwargs: additional keyword arguments
-
-        """
-        self.stations = stations
-        self.df = df
-        self.df_all = df_all
-        self.stations_filter = stations_filter
-        self.rank = rank
-        self._kwargs = kwargs
-
-    def __eq__(self, other: StationsResult) -> bool:
-        """Check if two stations results are equal."""
-        if not isinstance(other, StationsResult):
-            return False
-        return (self.stations == other.stations) and self.df.equals(other.df)
+    stations: TimeseriesRequest | DwdMosmixRequest | DwdDmoRequest
+    df: pl.DataFrame
+    df_all: pl.DataFrame
+    stations_filter: StationsFilter
+    rank: int | None = None
 
     @property
     def settings(self) -> Settings:
         """Get settings for the request."""
         return self.stations.settings
-
-    @property
-    def station_id(self) -> pl.Series:
-        """Get station IDs from the DataFrame."""
-        return self.df.get_column("station_id")
 
     @property
     def parameters(self) -> list[ParameterModel]:
@@ -202,39 +171,9 @@ class StationsResult(ExportMixin):
         return self.stations.end_date
 
     @property
-    def tidy(self) -> bool:
-        """Get whether the DataFrame is tidy."""
-        return self.stations.tidy
-
-    @property
-    def humanize(self) -> bool:
-        """Get whether the DataFrame is humanized."""
-        return self.stations.humanize
-
-    @property
-    def convert_units(self) -> bool:
-        """Get whether to convert units."""
-        return self.stations.convert_units
-
-    @property
-    def skip_empty(self) -> bool:
-        """Get whether to skip empty stations."""
-        return self.stations.skip_empty
-
-    @property
-    def skip_threshold(self) -> float:
-        """Get the threshold for skipping stations."""
-        return self.stations.skip_threshold
-
-    @property
-    def complete(self) -> bool:
-        """Get whether the data is completed."""
-        return self.stations.complete
-
-    @property
-    def drop_nulls(self) -> float:
-        """Get whether to drop nulls."""
-        return self.stations.drop_nulls
+    def station_id(self) -> pl.Series:
+        """Get station IDs from the DataFrame."""
+        return self.df.get_column("station_id")
 
     def get_metadata(self) -> _Metadata:
         """Get metadata for the provider and producer."""
@@ -311,7 +250,7 @@ class StationsResult(ExportMixin):
             indent = None
         return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
 
-    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _StationsOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False, **_kwargs) -> _StationsOgcFeatureCollection:  # noqa: ANN003
         """Format station information as OGC feature collection.
 
         Will be used by ``.to_geojson()``.
@@ -567,7 +506,7 @@ class ValuesResult(_ValuesResult):
         """Get DataFrame with stations."""
         return self.stations.df.filter(pl.col("station_id").is_in(self.values.stations_collected))
 
-    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False, **_kwargs) -> _ValuesOgcFeatureCollection:  # noqa: ANN003
         """Format values as OGC feature collection."""
         data = {}
         if with_metadata:
@@ -776,7 +715,12 @@ class InterpolatedValuesResult(_ValuesResult):
         def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict:
             """Format interpolated values as dictionary."""
 
-    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _InterpolatedValuesOgcFeatureCollection:
+    def to_ogc_feature_collection(
+        self,
+        *,
+        with_metadata: bool = False,
+        **_kwargs,  # noqa: ANN003
+    ) -> _InterpolatedValuesOgcFeatureCollection:
         """Format interpolated values as OGC feature collection."""
         data = {}
         if with_metadata:
@@ -969,7 +913,12 @@ class SummarizedValuesResult(_ValuesResult):
         def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict:
             """Format summarized values as dictionary."""
 
-    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _SummarizedValuesOgcFeatureCollection:
+    def to_ogc_feature_collection(
+        self,
+        *,
+        with_metadata: bool = False,
+        **_kwargs,  # noqa: ANN003
+    ) -> _SummarizedValuesOgcFeatureCollection:
         """Export summarized values as OGC feature collection."""
         data = {}
         if with_metadata:
