@@ -6,6 +6,9 @@
 - Improve restapi look and add impressum
 - Use dataclass everywhere
 
+### Fix
+- Fix numerous radar tests
+
 ## 0.107.0 - 2025-03-25
 
 ### Refactor

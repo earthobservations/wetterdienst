@@ -96,6 +96,9 @@ def create_fileindex_radar(
     files_serv = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.NO_CACHE)
     df_fileindex = pl.DataFrame(files_serv, schema={"filename": pl.String}, orient="col")
 
+    if parameter == DwdRadarParameter.RV_REFLECTIVITY:
+        df_fileindex = df_fileindex.filter(pl.col("filename").str.split("/").list.last().str.starts_with("DE1200"))
+
     # Some directories have both "---bin" and "---bufr" files within the same directory,
     # so we need to filter here by designated RadarDataFormat. Example:
     # https://opendata.dwd.de/weather/radar/sites/px/boo/
