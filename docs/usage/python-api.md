@@ -41,13 +41,14 @@ Parameters can be requested in different ways e.g.
 
 - using a tuple of resolution and dataset
 
-  ```python exec="on" source="above"
-  from wetterdienst.provider.dwd.observation import DwdObservationRequest
-  
-  request = DwdObservationRequest(
-      parameters=("daily", "climate_summary")  # will resolve to all parameters of kl
-  )
-  ```
+```python {marimo}
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters=("daily", "climate_summary")  # will resolve to all parameters of kl
+)
+request
+```
 
 - using a tuple of resolution, dataset, parameter
 
