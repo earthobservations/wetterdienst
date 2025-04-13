@@ -189,6 +189,7 @@ docs = [
   "markdown-include>=0.8.1,<1",
   "mkdocstrings[python]>=0.18,<1",
   "markdown-exec[ansi]>=1.10.0,<2",
+  "mkdocs-marimo>=0.2.1",
 ]
 
 [project.urls]
