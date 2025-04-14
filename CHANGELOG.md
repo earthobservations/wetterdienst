@@ -6,6 +6,7 @@
 - Improve restapi look and add impressum
 - Use dataclass everywhere
 - Refactor query method
+- Adjust retry of function `download_file`
 
 ### Fix
 - Fix numerous radar tests

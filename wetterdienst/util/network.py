@@ -261,7 +261,7 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
     return fs.find(url)
 
 
-@stamina.retry(on=Exception, attempts=3)
+@stamina.retry(on=lambda error: error.status == 429 or 500 <= error.status < 600, attempts=2)
 def download_file(
     url: str,
     cache_dir: Path,
