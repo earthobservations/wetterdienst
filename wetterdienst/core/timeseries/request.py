@@ -96,7 +96,7 @@ class TimeseriesRequest:
         # Convert timestamps
         self.start_date, self.end_date = self.convert_timestamps(self.start_date, self.end_date)
         # Parse parameters
-        self.parameters = parse_parameters(self.parameters, self.metadata)
+        self.parameters = parse_parameters(self.parameters, self.metadata)  # type: list[ParameterModel]
         if not self.parameters:
             msg = "No valid parameters could be parsed from given argument"
             raise NoParametersFoundError(msg)

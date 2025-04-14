@@ -1355,7 +1355,7 @@ def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings
             ("minute_5", "precipitation", "precipitation_height_rocker"),
             ("minute_5", "precipitation", "precipitation_height_droplet"),
         ],
-        periods=["recent", "now"],
+        periods={"recent", "now"},
         settings=default_settings,
     ).filter_by_rank(
         latlon=(49.853706, 8.66311),

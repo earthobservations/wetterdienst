@@ -5,6 +5,7 @@
 ### Feature
 - Improve restapi look and add impressum
 - Use dataclass everywhere
+- Refactor query method
 
 ### Fix
 - Fix numerous radar tests
