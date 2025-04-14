@@ -92,13 +92,13 @@ def test_dwd_observation_data_api_singe_parameter(default_settings: Settings) ->
     """Test parameters given as parameter - dataset pair."""
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "precipitation_height")],
-        periods=["recent", "historical"],
+        periods={"recent", "historical"},
         settings=default_settings,
     )
 
     assert request == DwdObservationRequest(
         parameters=[DwdObservationMetadata.daily.kl.precipitation_height],
-        periods=[Period.HISTORICAL, Period.RECENT],
+        periods={Period.HISTORICAL, Period.RECENT},
         start_date=None,
         end_date=None,
     )

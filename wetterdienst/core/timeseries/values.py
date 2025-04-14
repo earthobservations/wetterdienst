@@ -241,75 +241,25 @@ class TimeseriesValues(ABC):
         )
         return df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in columns)
 
-    def query(self) -> Iterator[ValuesResult]:  # noqa: C901
+    def query(self) -> Iterator[ValuesResult]:
         """Query data for all stations and parameters and return a DataFrame for each station."""
         # reset station stations_counter
         self.stations_counter = 0
         self.stations_collected = []
-
         # mapping of original to humanized parameter names is always the same
         hpm = None
         if self.sr.settings.ts_humanize:
             hpm = self._create_humanized_parameters_mapping()
-
         for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
-            station_id = cast("str", station_id)
-            available_datasets = [
-                self.sr.stations.metadata[res][ds]
-                for (res, ds), _ in df_station_meta.select(["resolution", "dataset"]).group_by(
-                    ["resolution", "dataset"],
-                )
-            ]
             if self.stations_counter == self.sr.rank:
                 break
-
-            data = []
-
-            for dataset, parameters in groupby(self.sr.stations.parameters, key=lambda x: x.dataset):
-                if dataset not in available_datasets:
-                    continue
-                if dataset.grouped:
-                    df = self._collect_station_parameter_or_dataset(
-                        station_id=station_id,
-                        parameter_or_dataset=dataset,
-                    )
-                    if not df.is_empty():
-                        parameter_names = {parameter.name_original for parameter in parameters}
-                        df = df.filter(pl.col("parameter").is_in(parameter_names))
-                else:
-                    dataset_data = []
-                    for parameter in parameters:
-                        df = self._collect_station_parameter_or_dataset(
-                            station_id=station_id,
-                            parameter_or_dataset=parameter,
-                        )
-                        dataset_data.append(df)
-                    df = pl.concat(dataset_data)
-                    del dataset_data
-
-                if self.sr.settings.ts_convert_units:
-                    df = self._convert_units(df, dataset)
-
-                df = df.unique(subset=["resolution", "dataset", "parameter", "date"], maintain_order=True)
-
-                if self.sr.settings.ts_drop_nulls:
-                    df = df.drop_nulls(subset=["value"])
-                elif (
-                    self.sr.settings.ts_complete
-                    and self.sr.start_date
-                    and dataset.resolution.value != Resolution.DYNAMIC
-                ):
-                    df = self._build_complete_df(df, station_id, dataset.resolution.value)
-
-                df = self._organize_df_columns(df, station_id, dataset)
-
-                data.append(df)
-
-            try:
-                df = pl.concat(data)
-            except ValueError:
-                df = pl.DataFrame()
-
+            station_id = cast("str", station_id)
+            available_datasets = self._get_available_datasets(df_station_meta)
+            # Collect data for this station
+            df = self._collect_station_data(station_id, available_datasets)
+            # Skip if no data found
+            if df.is_empty():
+                continue
             if self.sr.start_date:
                 df = df.filter(
                     pl.col("date").is_between(
@@ -318,7 +268,6 @@ class TimeseriesValues(ABC):
                         closed="both",
                     ),
                 )
-
             if self.sr.settings.ts_skip_empty:
                 percentage = self._get_actual_percentage(df=df)
                 if percentage < self.sr.settings.ts_skip_threshold:
@@ -327,21 +276,67 @@ class TimeseriesValues(ABC):
                         f"is below threshold ({self.sr.settings.ts_skip_threshold}).",
                     )
                     continue
-
             if self.sr.settings.ts_humanize:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
-
             if not self.sr.settings.ts_tidy:
                 df = self._widen_df(df=df)
-
             sort_columns = ["dataset", "parameter", "date"] if self.sr.settings.ts_tidy else ["dataset", "date"]
-
             df = df.sort(sort_columns)
-
             self.stations_counter += 1
             self.stations_collected.append(station_id)
-
             yield ValuesResult(stations=self.sr, values=self, df=df)
+
+    def _get_available_datasets(self, df: pl.DataFrame) -> list[DatasetModel]:
+        """Extract available datasets for the station."""
+        resolution_dataset_pairs = (
+            df.select(["resolution", "dataset"]).unique().sort(["resolution", "dataset"]).rows(named=True)
+        )
+        return [self.sr.stations.metadata[pair["resolution"]][pair["dataset"]] for pair in resolution_dataset_pairs]
+
+    def _collect_station_data(self, station_id: str, available_datasets: list[DatasetModel]) -> pl.DataFrame:
+        """Collect and process data for a single station."""
+        if not available_datasets:
+            return pl.DataFrame()
+        data = []
+        for dataset, parameters in groupby(self.sr.stations.parameters, key=lambda x: x.dataset):
+            if dataset not in available_datasets:
+                continue
+            df = self._process_dataset(station_id, dataset, parameters)
+            if not df.is_empty():
+                data.append(df)
+        return pl.concat(data) if data else pl.DataFrame()
+
+    def _process_dataset(
+        self, station_id: str, dataset: DatasetModel, parameters: Iterator[ParameterModel]
+    ) -> pl.DataFrame:
+        """Process data for a specific dataset."""
+        if dataset.grouped:
+            df = self._collect_station_parameter_or_dataset(
+                station_id=station_id,
+                parameter_or_dataset=dataset,
+            )
+            if not df.is_empty():
+                parameter_names = {parameter.name_original for parameter in parameters}
+                df = df.filter(pl.col("parameter").is_in(parameter_names))
+        else:
+            data = []
+            for parameter in parameters:
+                df = self._collect_station_parameter_or_dataset(
+                    station_id=station_id,
+                    parameter_or_dataset=parameter,
+                )
+                data.append(df)
+            df = pl.concat(data) if data else pl.DataFrame()
+        if df.is_empty():
+            return df
+        if self.sr.settings.ts_convert_units:
+            df = self._convert_units(df, dataset)
+        df = df.unique(subset=["resolution", "dataset", "parameter", "date"], maintain_order=True)
+        if self.sr.settings.ts_drop_nulls:
+            df = df.drop_nulls(subset=["value"])
+        elif self.sr.settings.ts_complete and self.sr.start_date and dataset.resolution.value != Resolution.DYNAMIC:
+            df = self._build_complete_df(df, station_id, dataset.resolution.value)
+        return self._organize_df_columns(df, station_id, dataset)
 
     @abstractmethod
     def _collect_station_parameter_or_dataset(
