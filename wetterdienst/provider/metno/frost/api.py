@@ -1,10 +1,12 @@
+from dataclasses import dataclass
+
 import polars as pl
 from aiohttp import BasicAuth, ClientResponseError
 
 from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, build_metadata_model, ParameterModel, \
     DatasetModel
 
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import download_file
@@ -78,26 +80,13 @@ class MetnoFrostValues(TimeseriesValues):
         
 
 
+@dataclass
 class MetnoFrostRequest(TimeseriesRequest):
     """Request class for MetNo Frost API."""
     metadata = MetnoFrostMetadata
     _values = MetnoFrostValues
     
     _url = "https://frost.met.no/sources/v0.jsonld?types=SensorSystem"
-
-    def __init__(
-        self,
-        parameters: _PARAMETER_TYPE,
-        start_date: _DATETIME_TYPE = None,
-        end_date: _DATETIME_TYPE = None,
-        settings: _SETTINGS_TYPE = None,
-    ):
-        super().__init__(
-            parameters=parameters,
-            start_date=start_date,
-            end_date=end_date,
-            settings=settings,
-        )
         
     def _all(self) -> pl.LazyFrame:
         client_kwargs = self.settings.fsspec_client_kwargs
