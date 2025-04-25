@@ -7,6 +7,7 @@
 - Use dataclass everywhere
 - Refactor query method
 - Adjust retry of function `download_file`
+- Restapi: Add uvloop and httptools for speed via `uvicorn[standard]`
 
 ### Fix
 - Fix numerous radar tests
