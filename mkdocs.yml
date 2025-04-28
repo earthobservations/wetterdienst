@@ -40,6 +40,9 @@ plugins:
   - search
   - mkdocstrings:
       default_handler: python
+  - marimo:
+      display_code: true
+      is_reactive: false
 nav:
   - Overview: index.md
   - Data:
