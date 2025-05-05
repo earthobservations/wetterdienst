@@ -48,7 +48,7 @@ class Settings(BaseSettings):
             "headers": {"User-Agent": f"wetterdienst/{__import__('wetterdienst').__version__} ({platform.system()})"},
         },
     )
-    auth: Auth = Field(default_factory=dict)
+    auth: Auth = Field(default_factory=Auth)
     ts_humanize: bool = True
     ts_shape: Literal["wide", "long"] = "long"
     ts_convert_units: bool = True

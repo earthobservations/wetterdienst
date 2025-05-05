@@ -87,6 +87,10 @@ class MetnoFrostRequest(TimeseriesRequest):
     _values = MetnoFrostValues
     
     _url = "https://frost.met.no/sources/v0.jsonld?types=SensorSystem"
+
+    def __post_init__(self):
+        if not self.settings.auth.metno_frost:
+            raise ValueError("Metno Frost API requires authentication. Set in settings.auth.metno_frost.")
         
     def _all(self) -> pl.LazyFrame:
         client_kwargs = self.settings.fsspec_client_kwargs
