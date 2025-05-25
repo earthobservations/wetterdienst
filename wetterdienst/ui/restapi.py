@@ -11,6 +11,8 @@ from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
+from fastmcp import FastMCP
+from fastmcp.server.openapi import RouteMap, RouteType
 from starlette.responses import JSONResponse, RedirectResponse
 
 from wetterdienst import Author, Info, Settings, Wetterdienst
@@ -653,6 +655,30 @@ def stripes_values(
     return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
 
 
+# create mcp from fastapi app and mount it to the app itself
+mcp = FastMCP.from_fastapi(
+    app=app,
+    route_maps=[
+        RouteMap(
+            methods=["GET", "POST"],
+            pattern=r"^/api/(.*)",
+            route_type=RouteType.TOOL,
+        ),
+        # ignore other routes (that do not start with /api)
+        RouteMap(
+            methods="*",
+            pattern=r".*",
+            route_type=RouteType.IGNORE,
+        ),
+    ],
+)
+mcp_app = mcp.http_app(path="/mcp", transport="sse")
+# we need to recreate the FastAPI app to include lifespan of mcp
+old_app = app
+app = FastAPI(debug=False, lifespan=mcp_app.lifespan, routes=old_app.routes)
+app.mount("/", mcp_app)
+
+
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
     """Start the REST API service."""
     from uvicorn.main import run
@@ -660,7 +686,7 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     setup_logging()
 
     if listen_address is None:
-        listen_address = "127.0.0.1:7890"
+        listen_address = "127.0.0.1:4000"
 
     host, port = listen_address.split(":")
     port = int(port)

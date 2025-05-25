@@ -176,6 +176,7 @@ radarplus = [
 ]
 restapi = [
   "fastapi>=0.95.1,<1",
+  "fastmcp>=2.4.0,<3",
   "httpx>=0.24,<1",
   "uvicorn[standard]>=0.14,<1",
 ]
