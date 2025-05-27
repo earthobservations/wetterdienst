@@ -11,6 +11,8 @@ from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
+from fastmcp import FastMCP
+from fastmcp.server.openapi import RouteMap, RouteType
 from starlette.responses import JSONResponse, RedirectResponse
 
 from wetterdienst import Author, Info, Settings, Wetterdienst
@@ -262,15 +264,33 @@ def impressum() -> HTMLResponse:
 
 @app.get("/api/coverage")
 def coverage(
-    provider: str | None = None,
-    network: str | None = None,
-    resolutions: str | None = None,
-    datasets: str | None = None,
+    provider: Annotated[str | None, Query(description="The provider to query for coverage information.")] = None,
+    network: Annotated[str | None, Query(description="The network to query for coverage information.")] = None,
+    resolutions: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated list of resolutions to filter the coverage information. "
+            "Only use this if you already know the available resolutions for the provider and network."
+        ),
+    ] = None,
+    datasets: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated list of datasets to filter the coverage information. "
+            "Only use this if you already know the available datasets for the provider and network."
+        ),
+    ] = None,
     *,
-    pretty: bool = False,
-    debug: bool = False,
+    pretty: Annotated[
+        bool, Query(description="If true, the JSON response will be pretty-printed with indentation.")
+    ] = False,
+    debug: Annotated[bool, Query(description="If true, debug logging will be enabled for the request.")] = False,
 ) -> Response:
-    """Wrap around Wetterdienst.discover to provide results via restapi."""
+    """Get coverage information for all providers and networks or a specific provider and network.
+
+    Coverage for specific provider and network also contains information about available datasets and resolutions as
+    well as the available parameters and units.
+    """
     set_logging_level(debug=debug)
 
     if (provider and not network) or (not provider and network):
@@ -317,7 +337,13 @@ def coverage(
 def stations(
     request: Annotated[StationsRequest, Query()],
 ) -> Response:
-    """Wrap get_stations to provide results via restapi."""
+    """Get the list of stations for a given provider and network.
+
+    Steps to successfully use this endpoint:
+    1. Use coverage endpoint without provider and network to get available providers and networks.
+    2. Use coverage endpoint with provider and network to get available resolutions and datasets.
+    3. Use this endpoint with provider, network and resolution/dataset to get the list of stations.
+    """
     set_logging_level(debug=request.debug)
 
     try:
@@ -377,7 +403,14 @@ def stations(
 def values(
     request: Annotated[ValuesRequest, Query()],
 ) -> Response:
-    """Wrap get_values to provide results via restapi."""
+    """Get the values for a given provider, network, and stations given by the request.
+
+    Steps to successfully use this endpoint:
+    1. Use coverage endpoint without provider and network to get available providers and networks.
+    2. Use coverage endpoint with provider and network to get available resolutions and datasets.
+    3. Use stations endpoint with provider, network and resolution/dataset to get the list of stations.
+    4. Use this endpoint with provider, network, resolution/dataset and stations to get the values.
+    """
     set_logging_level(debug=request.debug)
 
     try:
@@ -450,7 +483,10 @@ def values(
 def interpolate(
     request: Annotated[InterpolationRequest, Query()],
 ) -> Response:
-    """Wrap around get_interpolate to provide results via restapi."""
+    """Get the interpolated values for a given provider, network, and stations given by the request.
+
+    Use coverage endpoint to get available providers and networks.
+    """
     set_logging_level(debug=request.debug)
 
     try:
@@ -517,7 +553,10 @@ def interpolate(
 def summarize(
     request: Annotated[SummaryRequest, Query()],
 ) -> Response:
-    """Wrap around get_summarize to provide results via restapi."""
+    """Get the summarized values for a given provider, network, and stations given by the request.
+
+    Use coverage endpoint to get available providers and networks.
+    """
     set_logging_level(debug=request.debug)
 
     try:
@@ -582,7 +621,7 @@ def stripes_stations(
     pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
     debug: Annotated[bool, Query()] = False,  # noqa: FBT002
 ) -> Response:
-    """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
+    """Get stripes stations for a given kind of data."""
     set_logging_level(debug=debug)
 
     try:
@@ -610,7 +649,7 @@ def stripes_values(
     dpi: Annotated[int, Query(gt=0)] = 300,
     debug: Annotated[bool, Query()] = False,  # noqa: FBT002
 ) -> Response:
-    """Wrap get_summarize to provide results via restapi."""
+    """Get stripes values for a given kind of data and optional station or name."""
     set_logging_level(debug=debug)
 
     if not station and not name:
@@ -653,6 +692,30 @@ def stripes_values(
     return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
 
 
+# create mcp from fastapi app and mount it to the app itself
+mcp = FastMCP.from_fastapi(
+    app=app,
+    route_maps=[
+        RouteMap(
+            methods=["GET", "POST"],
+            pattern=r"^/api/(.*)",
+            route_type=RouteType.TOOL,
+        ),
+        # ignore other routes (that do not start with /api)
+        RouteMap(
+            methods="*",
+            pattern=r".*",
+            route_type=RouteType.IGNORE,
+        ),
+    ],
+)
+mcp_app = mcp.http_app(path="/mcp", transport="sse")
+# we need to recreate the FastAPI app to include lifespan of mcp
+old_app = app
+app = FastAPI(debug=False, lifespan=mcp_app.lifespan, routes=old_app.routes)
+app.mount("/", mcp_app)
+
+
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
     """Start the REST API service."""
     from uvicorn.main import run
@@ -660,7 +723,7 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     setup_logging()
 
     if listen_address is None:
-        listen_address = "127.0.0.1:7890"
+        listen_address = "127.0.0.1:4000"
 
     host, port = listen_address.split(":")
     port = int(port)

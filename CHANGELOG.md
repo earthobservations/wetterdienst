@@ -3,6 +3,7 @@
 ## Development
 
 - Split `coordinates` and `bbox` into separate arguments
+- Add `fastapi` based mcp
 
 ## 0.108.0 - 2025-04-25
 
