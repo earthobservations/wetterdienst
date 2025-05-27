@@ -10,7 +10,7 @@ import sys
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
-from pydantic import BaseModel, confloat, conint, field_validator
+from pydantic import BaseModel, Field, confloat, conint, field_validator
 
 from wetterdienst.core.timeseries.metadata import parse_parameters
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
@@ -39,9 +39,19 @@ class StationsRequest(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    provider: str
-    network: str
-    parameters: list[str]
+    provider: str = Field(
+        description="The data provider, e.g. 'dwd' for Deutscher Wetterdienst. Available providers can be found with "
+        "the `coverage` function.",
+    )
+    network: str = Field(
+        description="The network of the provider, e.g. 'mosmix' for DWD Mosmix data. Available networks can be found "
+        "with the `coverage` function.",
+    )
+    parameters: list[str] = Field(
+        description="The parameters to retrieve from provider network given either as resolution/dataset for the entire dataset"  # noqa: E501
+        "or resolution/dataset/parameter, e.g. 'daily/climate_summary' or 'daily/climate_summary/temperature_air_mean_2m'. "  # noqa: E501
+        "Available resolutions, datasets and parameters can be found with the `coverage` function using the provider and network.",  # noqa: E501
+    )
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -57,7 +67,7 @@ class StationsRequest(BaseModel):
                 parameters.append(item)
         return parameters
 
-    periods: list[str] | None = None
+    periods: list[str] | None = Field(default=None, description="Periods to retrieve data for.")
 
     @field_validator("periods", mode="before")
     @classmethod
@@ -76,13 +86,23 @@ class StationsRequest(BaseModel):
         return periods
 
     # Mosmix/DMO
-    lead_time: Literal["short", "long"] | None = None
-    issue: str | None = None
+    lead_time: Literal["short", "long"] | None = Field(
+        default=None, description="(Only used by DWD Mosmix / DMO) Lead time period for the forecast data."
+    )
+    issue: str | None = Field(
+        default=None,
+        description="(Only used by DWD Mosmix/DMO) Issue date of the forecast data in ISO 8601 format, e.g. "
+        "'2023-10-01T12:00:00'.",
+    )
 
     # station filter parameters
-    all: bool | None = False
+    all: bool | None = Field(
+        default=False,
+        description="Boolean whether to return all stations for the given parameters. Use this if you do not know "
+        "which stations are available.",
+    )
     # station ids
-    station: list[str] | None = None
+    station: list[str] | None = Field(default=None, description="List of station IDs to return stations for.")
 
     @field_validator("station", mode="before")
     @classmethod
@@ -101,31 +121,87 @@ class StationsRequest(BaseModel):
         return stations
 
     # station name
-    name: str | None = None
+    name: str | None = Field(
+        default=None,
+        description="Name of the station to return stations for. Use this only if you are 99% sure about the name of "
+        "the station.",
+    )
     # latlon
-    latitude: confloat(ge=-90, le=90) | None = None
-    longitude: confloat(ge=-180, le=180) | None = None
-    rank: conint(ge=1) | None = None
-    distance: confloat(ge=0) | None = None
+    latitude: confloat(ge=-90, le=90) | None = Field(
+        default=None,
+        description="Latitude of the station to return stations for, in degrees.",
+    )
+    longitude: confloat(ge=-180, le=180) | None = Field(
+        default=None,
+        description="Longitude of the station to return stations for, in degrees.",
+    )
+    rank: conint(ge=1) | None = Field(
+        default=None,
+        description="Rank of the station to return stations for.",
+    )
+    distance: confloat(ge=0) | None = Field(
+        default=None,
+        description="Distance in kilometers to return stations for.",
+    )
     # bbox
-    left: confloat(ge=-180, le=180) | None = None
-    bottom: confloat(ge=-90, le=90) | None = None
-    right: confloat(ge=-180, le=180) | None = None
-    top: confloat(ge=-90, le=90) | None = None
+    left: confloat(ge=-180, le=180) | None = Field(
+        default=None,
+        description="Left boundary of the bounding box in degrees to return stations for.",
+    )
+    bottom: confloat(ge=-90, le=90) | None = Field(
+        default=None,
+        description="Bottom boundary of the bounding box in degrees to return stations for.",
+    )
+    right: confloat(ge=-180, le=180) | None = Field(
+        default=None,
+        description="Right boundary of the bounding box in degrees to return stations for.",
+    )
+    top: confloat(ge=-90, le=90) | None = Field(
+        default=None,
+        description="Top boundary of the bounding box in degrees to return stations for.",
+    )
     # sql
-    sql: str | None = None
+    sql: str | None = Field(
+        default=None,
+        description="SQL query to return stations for. Must be a valid SQL query string.",
+    )
 
-    with_metadata: bool = True
-    with_stations: bool = True
+    with_metadata: bool = Field(
+        default=True,
+        description="Boolean whether to include metadata in the response.",
+    )
+    with_stations: bool = Field(
+        default=True,
+        description="Boolean whether to include stations in the response.",
+    )
 
-    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
-    pretty: bool = False
-    debug: bool = False
+    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = Field(
+        default="json",
+        description="Format of the response.",
+    )
+    pretty: bool = Field(
+        default=False,
+        description="Boolean whether to pretty-print the response.",
+    )
+    debug: bool = Field(
+        default=False,
+        description="Boolean whether to enable debug mode for the request. "
+        "This will log additional information about the request and response.",
+    )
 
     # plot settings
-    width: conint(gt=0) | None = None
-    height: conint(gt=0) | None = None
-    scale: confloat(gt=0) | None = None
+    width: conint(gt=0) | None = Field(
+        default=None,
+        description="Width of the plot in pixels. If not set, the default width will be used.",
+    )
+    height: conint(gt=0) | None = Field(
+        default=None,
+        description="Height of the plot in pixels. If not set, the default height will be used.",
+    )
+    scale: confloat(gt=0) | None = Field(
+        default=None,
+        description="Scale of the plot. If not set, the default scale will be used.",
+    )
 
 
 class ValuesRequest(BaseModel):
@@ -134,9 +210,19 @@ class ValuesRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
     # from stations
-    provider: str
-    network: str
-    parameters: list[str]
+    provider: str = Field(
+        description="The data provider, e.g. 'dwd' for Deutscher Wetterdienst. "
+        "Available providers can be found with the `coverage` function.",
+    )
+    network: str = Field(
+        description="The network of the provider, e.g. 'mosmix' for DWD Mosmix data. "
+        "Available networks can be found with the `coverage` function.",
+    )
+    parameters: list[str] = Field(
+        description="The parameters to retrieve from provider network given either as resolution/dataset for the entire dataset"  # noqa: E501
+        "or resolution/dataset/parameter, e.g. 'daily/climate_summary' or 'daily/climate_summary/temperature_air_mean_2m'. "  # noqa: E501
+        "Available resolutions, datasets and parameters can be found with the `coverage` function using the provider and network.",  # noqa: E501
+    )
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -152,7 +238,10 @@ class ValuesRequest(BaseModel):
                 parameters.append(item)
         return parameters
 
-    periods: list[str] | None = None
+    periods: list[str] | None = Field(
+        default=None,
+        description="Periods to retrieve data for. If not set, the default periods will be used.",
+    )
 
     @field_validator("periods", mode="before")
     @classmethod
@@ -171,13 +260,26 @@ class ValuesRequest(BaseModel):
         return periods
 
     # Mosmix/DMO
-    lead_time: Literal["short", "long"] | None = None
-    issue: str | None = None
+    lead_time: Literal["short", "long"] | None = Field(
+        default=None,
+        description="(Only used by DWD Mosmix/DMO) Lead time period for the forecast data.",
+    )
+    issue: str | None = Field(
+        default=None,
+        description="(Only used by DWD Mosmix/DMO) Issue date of the forecast data in ISO 8601 format, e.g. "
+        "'2023-10-01T12:00:00'.",
+    )
 
     # station filter parameters
-    all: bool | None = False
+    all: bool | None = Field(
+        default=False,
+        description="Boolean whether to return all stations for the given parameters.",
+    )
     # station ids
-    station: list[str] | None = None
+    station: list[str] | None = Field(
+        default=None,
+        description="List of station IDs to return stations for.",
+    )
 
     @field_validator("station", mode="before")
     @classmethod
@@ -196,43 +298,134 @@ class ValuesRequest(BaseModel):
         return stations
 
     # station name
-    name: str | None = None
+    name: str | None = Field(
+        default=None,
+        description="Name of the station to return stations for.",
+    )
     # latlon
-    latitude: confloat(ge=-90, le=90) | None = None
-    longitude: confloat(ge=-180, le=180) | None = None
-    rank: conint(ge=1) | None = None
-    distance: confloat(ge=0) | None = None
+    latitude: confloat(ge=-90, le=90) | None = Field(
+        default=None,
+        description="Latitude of the station to return stations for, in degrees.",
+    )
+    longitude: confloat(ge=-180, le=180) | None = Field(
+        default=None,
+        description="Longitude of the station to return stations for, in degrees.",
+    )
+    rank: conint(ge=1) | None = Field(
+        default=None,
+        description="Rank of the station to return stations for.",
+    )
+    distance: confloat(ge=0) | None = Field(
+        default=None,
+        description="Distance in kilometers to return stations for.",
+    )
     # bbox
-    left: confloat(ge=-180, le=180) | None = None
-    bottom: confloat(ge=-90, le=90) | None = None
-    right: confloat(ge=-180, le=180) | None = None
-    top: confloat(ge=-90, le=90) | None = None
+    left: confloat(ge=-180, le=180) | None = Field(
+        default=None,
+        description="Left boundary of the bounding box in degrees to return stations for.",
+    )
+    bottom: confloat(ge=-90, le=90) | None = Field(
+        default=None,
+        description="Bottom boundary of the bounding box in degrees to return stations for.",
+    )
+    right: confloat(ge=-180, le=180) | None = Field(
+        default=None,
+        description="Right boundary of the bounding box in degrees to return stations for.",
+    )
+    top: confloat(ge=-90, le=90) | None = Field(
+        default=None,
+        description="Top boundary of the bounding box in degrees to return stations for.",
+    )
     # sql
-    sql: str | None = None
+    sql: str | None = Field(
+        default=None,
+        description="SQL query to return stations for. Must be a valid SQL query string.",
+    )
 
-    with_metadata: bool = True
-    with_stations: bool = True
+    with_metadata: bool = Field(
+        default=True,
+        description="Boolean whether to include metadata in the response.",
+    )
+    with_stations: bool = Field(
+        default=True,
+        description="Boolean whether to include stations in the response.",
+    )
 
-    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
-    pretty: bool = False
-    debug: bool = False
+    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = Field(
+        default="json",
+        description="Format of the response.",
+    )
+    pretty: bool = Field(
+        default=False,
+        description="Boolean whether to pretty-print the response.",
+    )
+    debug: bool = Field(
+        default=False,
+        description="Boolean whether to enable debug mode for the request. "
+        "This will log additional information about the request and response.",
+    )
 
     # plot settings
-    width: conint(gt=0) | None = None
-    height: conint(gt=0) | None = None
-    scale: confloat(gt=0) | None = None
+    width: conint(gt=0) | None = Field(
+        default=None,
+        description="Width of the plot in pixels. If not set, the default width will be used.",
+    )
+    height: conint(gt=0) | None = Field(
+        default=None,
+        description="Height of the plot in pixels. If not set, the default height will be used.",
+    )
+    scale: confloat(gt=0) | None = Field(
+        default=None,
+        description="Scale of the plot. If not set, the default scale will be used.",
+    )
 
     # values
-    date: str | None = None
-    sql_values: str | None = None
-    humanize: bool = True
-    shape: Literal["long", "wide"] = "long"
-    convert_units: bool = True
-    unit_targets: dict[str, str] | None = None
-    skip_empty: bool = False
-    skip_threshold: confloat(ge=0, le=1) = 0.95
-    skip_criteria: Literal["min", "mean", "max"] = "min"
-    drop_nulls: bool = True
+    date: str | None = Field(
+        default=None,
+        description="Date in ISO 8601 format, e.g. '2023-10-01T12:00:00' for which to retrieve values. Can also be a "
+        "time interval like '2023-10-01/2023-10-31'. ",
+    )
+    sql_values: str | None = Field(
+        default=None,
+        description="SQL query to filter values. Must be a valid SQL query string.",
+    )
+    humanize: bool = Field(default=True, description="Boolean whether to humanize parameter names.")
+    shape: Literal["long", "wide"] = Field(
+        default="long",
+        description="Shape of the returned values. 'long' returns a long format with one row per value, 'wide' returns "
+        "a wide format with one row per station and dataset.",
+    )
+    convert_units: bool = Field(
+        default=True,
+        description="Boolean whether to convert values to standardized units. "
+        "If set to False, the original units will be returned. See coverage function for units.",
+    )
+    unit_targets: dict[str, str] | None = Field(
+        default=None,
+        description="Dictionary of unit targets to convert values to. Keys are parameter names, values are target units. "  # noqa: E501
+        "If not set, the default units will be used.",
+    )
+    skip_empty: bool = Field(
+        default=False,
+        description="Boolean whether to skip empty stations.",
+    )
+    skip_threshold: confloat(ge=0, le=1) = Field(
+        default=0.95,
+        description="Threshold for skipping stations with missing values. "
+        "If the percentage of available values is below this threshold, the station will be skipped.",
+    )
+    skip_criteria: Literal["min", "mean", "max"] = Field(
+        default="min",
+        description="Criteria for skipping stations with missing values. "
+        "'min' skips stations where parameter with lowest availability has less than the skip_threshold percentage of available values, "  # noqa: E501
+        "'mean' skips stations where the mean availability of all parameters is below the skip_threshold percentage, "
+        "'max' skips stations where the maximum availability of all parameters is below the skip_threshold percentage.",
+    )
+    drop_nulls: bool = Field(
+        default=True,
+        description="Boolean whether to drop null values from the result. "
+        "If set to False, null values will be included in the result.",
+    )
 
     @field_validator("unit_targets", mode="before")
     @classmethod
