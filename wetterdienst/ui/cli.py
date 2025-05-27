@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Literal
 import click
 import cloup
 from cloup import Section
-from cloup.constraints import If, RequireExactly, accept_none
+from cloup.constraints import AllSet, If, RequireExactly, accept_none
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.ui.core import (
@@ -103,18 +103,24 @@ def station_options_extension(command: click.Command) -> click.Command:
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
-            cloup.option("--coordinates", metavar="LATITUDE,LONGITUDE", type=click.STRING),
+            cloup.option("--latitude", type=click.FLOAT),
+            cloup.option("--longitude", type=click.FLOAT),
             cloup.option("--rank", type=click.INT),
             cloup.option("--distance", type=click.FLOAT),
-            help="Provide --coordinates plus either --rank or --distance.",
+            help="Provide --latitude and --longitude plus either --rank or --distance.",
         ),
         cloup.constraint(
-            If("coordinates", then=RequireExactly(1), else_=accept_none),
+            If(AllSet("latitude", "longitude"), then=RequireExactly(1), else_=accept_none),
             ["rank", "distance"],
         ),
         cloup.option_group(
             "BBOX filtering",
-            cloup.option("--bbox", metavar="LEFT BOTTOM RIGHT TOP", type=click.STRING),
+            cloup.option("--left", type=click.FLOAT),
+            cloup.option("--bottom", type=click.FLOAT),
+            cloup.option("--right", type=click.FLOAT),
+            cloup.option("--top", type=click.FLOAT),
+            constraint=cloup.constraints.all_or_none,
+            help="Provide --left, --bottom, --right and --top to filter by bounding box.",
         ),
         cloup.option_group(
             "SQL filtering",
@@ -122,7 +128,7 @@ def station_options_extension(command: click.Command) -> click.Command:
         ),
         cloup.constraint(
             RequireExactly(1),
-            ["all_", "station", "name", "coordinates", "bbox", "sql"],
+            ["all_", "station", "name", "latitude", "left", "sql"],
         ),
     ]
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
@@ -137,11 +143,13 @@ def station_options_interpolate_summarize(command: click.Command) -> click.Comma
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
-            cloup.option("--coordinates", metavar="LATITUDE,LONGITUDE", type=click.STRING),
+            cloup.option("--latitude", type=click.FLOAT, help="Latitude of the station"),
+            cloup.option("--longitude", type=click.FLOAT, help="Longitude of the station"),
+            constraint=cloup.constraints.all_or_none,
         ),
         cloup.constraint(
             RequireExactly(1),
-            ["station", "coordinates"],
+            ["station", "latitude"],
         ),
     ]
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
@@ -184,9 +192,9 @@ Data acquisition:
         --date=<date>
         --station=<station>
         --name=<name>
-        --coordinates=<latitude,longitude> --rank=<rank>
-        --coordinates=<latitude,longitude> --distance=<distance>
-        --bbox=<left,lower,right,top>
+        --latitude=<latitude> --longitude=<longitude> --rank=<rank>
+        --latitude=<latitude> --longitude=<longitude> --distance=<distance>
+        --left=<left> --bottom=<bottom> --right=<right> --top=<top>
         --sql=<sql>
 
         # Output options
@@ -206,7 +214,7 @@ Data computation:
 
         # Filtering options
         --station=<station>
-        --coordinates=<latitude,longitude>
+        --latitude=<latitude> --longitude=<longitude>
 
         # Interpolation options
         --interpolation_station_distance=<distance>
@@ -253,17 +261,19 @@ Filtering options:
 
     --station                   Comma-separated list of station identifiers
 
-    --coordinates               Geolocation point for geospatial filtering
-                                Format: <latitude,longitude>
+    --latitude                  Latitude of geolocation point for filtering stations or values
+    --longitude                 Longitude of geolocation point for filtering stations or values
 
     --rank                      Rank of nearby stations when filtering by geolocation point
-                                To be used with `--coordinates`.
+                                To be used with `--latitude` and `--longitude`.
 
     --distance                  Maximum distance in km when filtering by geolocation point
-                                To be used with `--coordinates`.
+                                To be used with `--latitude` and `--longitude`.
 
-    --bbox                      Bounding box for geospatial filtering
-                                Format: <lon1,lat1,lon2,lat2> aka. <left,bottom,right,top>
+    --left                      Left longitude of bounding box
+    --bottom                    Bottom latitude of bounding box
+    --right                     Right longitude of bounding box
+    --top                       Top latitude of bounding box
 
     --sql                       SQL filter statement
 
@@ -395,7 +405,7 @@ Compute data:
 
     # Compute daily interpolation of precipitation for specific station selected by coordinates
     wetterdienst interpolate --provider=dwd --network=observation --parameters=daily/kl/precipitation_height \\
-        --date=2020-06-30 --coordinates=49.9195,8.9671
+        --date=2020-06-30 --latitude=49.9195 --longitude=8.9671
 
     # Compute daily summary of precipitation for specific station selected by id
     wetterdienst summarize --provider=dwd --network=observation --parameters=daily/kl/precipitation_height \\
@@ -403,23 +413,23 @@ Compute data:
 
     # Compute daily summary data of precipitation for specific station selected by coordinates
     wetterdienst summarize --provider=dwd --network=observation --parameters=daily/kl/precipitation_height \\
-        --date=2020-06-30 --coordinates=49.9195,8.9671
+        --date=2020-06-30 --latitude=49.9195 --longitude=8.9671
 
 Geospatial filtering:
 
     # Acquire stations and readings by geolocation, request specific number of nearby stations.
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --coordinates=49.9195,8.9671 --rank=5
+        --latitude=49.9195 --longitude=8.9671 --rank=5
 
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --coordinates=49.9195,8.9671 --rank=5 --date=2020-06-30
+        --latitude=49.9195 --longitude=8.9671 --rank=5 --date=2020-06-30
 
     # Acquire stations and readings by geolocation, request stations within specific distance.
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --coordinates=49.9195,8.9671 --distance=25
+        --latitude=49.9195 --longitude=8.9671 --distance=25
 
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --coordinates=49.9195,8.9671 --distance=25 --date=2020-06-30
+        --latitude=49.9195 --longitude=8.9671 --distance=25 --date=2020-06-30
 
 SQL filtering:
 
@@ -761,10 +771,6 @@ def fields(
     ),
     cloup.option("--target", type=click.STRING),
 )
-@cloup.constraint(
-    If("coordinates", then=RequireExactly(1), else_=accept_none),
-    ["rank", "distance"],
-)
 @cloup.option("--with_metadata", type=click.BOOL, default=True)
 @cloup.option("--pretty", type=click.BOOL, default=False)
 @debug_opt
@@ -776,10 +782,14 @@ def stations(
     all_: bool,  # noqa: FBT001
     station: list[str],
     name: str,
-    coordinates: str,
+    latitude: float,
+    longitude: float,
     rank: int,
     distance: float,
-    bbox: str,
+    left: float,
+    bottom: float,
+    right: float,
+    top: float,
     sql: str,
     fmt: str,
     target: str,
@@ -797,10 +807,14 @@ def stations(
             "all": all_,
             "station": station,
             "name": name,
-            "coordinates": coordinates,
+            "latitude": latitude,
+            "longitude": longitude,
             "rank": rank,
             "distance": distance,
-            "bbox": bbox,
+            "left": left,
+            "bottom": bottom,
+            "right": right,
+            "top": top,
             "sql": sql,
             "format": fmt,
             "pretty": pretty,
@@ -889,10 +903,14 @@ def values(
     all_: bool,  # noqa: FBT001
     station: list[str],
     name: str,
-    coordinates: str,
+    latitude: float,
+    longitude: float,
     rank: int,
     distance: float,
-    bbox: str,
+    left: float,
+    bottom: float,
+    right: float,
+    top: float,
     sql: str,
     sql_values: str,
     fmt: str,
@@ -923,10 +941,14 @@ def values(
             "all": all_,
             "station": station,
             "name": name,
-            "coordinates": coordinates,
+            "latitude": latitude,
+            "longitude": longitude,
             "rank": rank,
             "distance": distance,
-            "bbox": bbox,
+            "left": left,
+            "bottom": bottom,
+            "right": right,
+            "top": top,
             "sql": sql,
             "sql_values": sql_values,
             "format": fmt,
@@ -1037,7 +1059,8 @@ def interpolate(
     date: str,
     issue: str,
     station: str,
-    coordinates: str,
+    latitude: float,
+    longitude: float,
     sql_values: str,
     fmt: str,
     target: str,
@@ -1062,7 +1085,8 @@ def interpolate(
             "date": date,
             "issue": issue,
             "station": station,
-            "coordinates": coordinates,
+            "latitude": latitude,
+            "longitude": longitude,
             "sql_values": sql_values,
             "format": fmt,
             "convert_units": convert_units,
@@ -1160,7 +1184,8 @@ def summarize(
     date: str,
     issue: str,
     station: str,
-    coordinates: str,
+    latitude: float,
+    longitude: float,
     sql_values: str,
     fmt: str,
     target: str,
@@ -1183,7 +1208,8 @@ def summarize(
             "date": date,
             "issue": issue,
             "station": station,
-            "coordinates": coordinates,
+            "latitude": latitude,
+            "longitude": longitude,
             "sql_values": sql_values,
             "format": fmt,
             "convert_units": convert_units,

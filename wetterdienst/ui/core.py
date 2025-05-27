@@ -10,7 +10,7 @@ import sys
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
-from pydantic import BaseModel, Field, confloat, conint, field_validator
+from pydantic import BaseModel, confloat, conint, field_validator
 
 from wetterdienst.core.timeseries.metadata import parse_parameters
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
@@ -81,6 +81,7 @@ class StationsRequest(BaseModel):
 
     # station filter parameters
     all: bool | None = False
+    # station ids
     station: list[str] | None = None
 
     @field_validator("station", mode="before")
@@ -99,46 +100,19 @@ class StationsRequest(BaseModel):
                 stations.append(item)
         return stations
 
+    # station name
     name: str | None = None
-    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
-
-    @field_validator("coordinates", mode="before")
-    @classmethod
-    def validate_coordinates(cls, v: str | list | None) -> tuple[str, ...] | None:
-        """Validate coordinates."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return tuple(read_list(v, separator=","))
-        if isinstance(v, list):
-            if len(v) == 2:
-                return tuple(v)
-            return tuple(read_list(v[0], separator=","))
-        msg = "Coordinates must be a string or list"
-        raise KeyError(msg)
-
-    rank: int | None = Field(default=None, ge=1)
-    distance: float | None = Field(default=None, ge=0)
-    bbox: (
-        tuple[confloat(ge=-180, le=180), confloat(ge=-90, le=90), confloat(ge=-180, le=180), confloat(ge=-90, le=90)]
-        | None
-    ) = None
-
-    @field_validator("bbox", mode="before")
-    @classmethod
-    def validate_bbox(cls, v: str | None) -> list[str] | None:
-        """Validate bbox."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return read_list(v, separator=",")
-        if isinstance(v, list):
-            if len(v) == 4:
-                return v
-            return read_list(v[0], separator=",")
-        msg = "Bbox must be a string or list"
-        raise KeyError(msg)
-
+    # latlon
+    latitude: confloat(ge=-90, le=90) | None = None
+    longitude: confloat(ge=-180, le=180) | None = None
+    rank: conint(ge=1) | None = None
+    distance: confloat(ge=0) | None = None
+    # bbox
+    left: confloat(ge=-180, le=180) | None = None
+    bottom: confloat(ge=-90, le=90) | None = None
+    right: confloat(ge=-180, le=180) | None = None
+    top: confloat(ge=-90, le=90) | None = None
+    # sql
     sql: str | None = None
 
     with_metadata: bool = True
@@ -202,6 +176,7 @@ class ValuesRequest(BaseModel):
 
     # station filter parameters
     all: bool | None = False
+    # station ids
     station: list[str] | None = None
 
     @field_validator("station", mode="before")
@@ -220,46 +195,19 @@ class ValuesRequest(BaseModel):
                 stations.append(item)
         return stations
 
+    # station name
     name: str | None = None
-    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
-
-    @field_validator("coordinates", mode="before")
-    @classmethod
-    def validate_coordinates(cls, v: str | list | None) -> tuple[str, ...] | None:
-        """Validate coordinates."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return tuple(read_list(v, separator=","))
-        if isinstance(v, list):
-            if len(v) == 2:
-                return tuple(v)
-            return tuple(read_list(v[0], separator=","))
-        msg = "Coordinates must be a string or list"
-        raise KeyError(msg)
-
-    rank: int | None = Field(default=None, ge=1)
-    distance: float | None = Field(default=None, ge=0)
-    bbox: (
-        tuple[confloat(ge=-180, le=180), confloat(ge=-90, le=90), confloat(ge=-180, le=180), confloat(ge=-90, le=90)]
-        | None
-    ) = None
-
-    @field_validator("bbox", mode="before")
-    @classmethod
-    def validate_bbox(cls, v: str | None) -> list[str] | None:
-        """Validate bbox."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return read_list(v, separator=",")
-        if isinstance(v, list):
-            if len(v) == 4:
-                return v
-            return read_list(v[0], separator=",")
-        msg = "Bbox must be a string or list"
-        raise KeyError(msg)
-
+    # latlon
+    latitude: confloat(ge=-90, le=90) | None = None
+    longitude: confloat(ge=-180, le=180) | None = None
+    rank: conint(ge=1) | None = None
+    distance: confloat(ge=0) | None = None
+    # bbox
+    left: confloat(ge=-180, le=180) | None = None
+    bottom: confloat(ge=-90, le=90) | None = None
+    right: confloat(ge=-180, le=180) | None = None
+    top: confloat(ge=-90, le=90) | None = None
+    # sql
     sql: str | None = None
 
     with_metadata: bool = True
@@ -282,7 +230,7 @@ class ValuesRequest(BaseModel):
     convert_units: bool = True
     unit_targets: dict[str, str] | None = None
     skip_empty: bool = False
-    skip_threshold: confloat(gt=0, le=1) = 0.95
+    skip_threshold: confloat(ge=0, le=1) = 0.95
     skip_criteria: Literal["min", "mean", "max"] = "min"
     drop_nulls: bool = True
 
@@ -346,23 +294,10 @@ class InterpolationRequest(BaseModel):
 
     # station filter parameters
     station: str | None = None
-    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
-
-    @field_validator("coordinates", mode="before")
-    @classmethod
-    def validate_coordinates(cls, v: str | list | None) -> tuple[str, ...] | None:
-        """Validate coordinates."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return tuple(read_list(v, separator=","))
-        if isinstance(v, list):
-            if len(v) == 2:
-                return tuple(v)
-            return tuple(read_list(v[0], separator=","))
-        msg = "Coordinates must be a string or list"
-        raise KeyError(msg)
-
+    # latlon
+    latitude: confloat(ge=-90, le=90) | None = None
+    longitude: confloat(ge=-180, le=180) | None = None
+    # sql
     sql_values: str | None = None
     humanize: bool = True
     convert_units: bool = True
@@ -378,7 +313,7 @@ class InterpolationRequest(BaseModel):
             return v
         return json.loads(v)
 
-    interpolation_station_distance: dict[str, confloat(ge=0)] | None = None
+    interpolation_station_distance: dict[str, confloat(ge=0.0)] | None = None
 
     @field_validator("interpolation_station_distance", mode="before")
     @classmethod
@@ -454,23 +389,10 @@ class SummaryRequest(BaseModel):
 
     # station filter parameters
     station: str | None = None
-    coordinates: tuple[confloat(ge=-90, le=90), confloat(ge=-180, le=180)] | None = None
-
-    @field_validator("coordinates", mode="before")
-    @classmethod
-    def validate_coordinates(cls, v: str | list | None) -> tuple[str, ...] | None:
-        """Validate coordinates."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return tuple(read_list(v, separator=","))
-        if isinstance(v, list):
-            if len(v) == 2:
-                return tuple(v)
-            return tuple(read_list(v[0], separator=","))
-        msg = "Coordinates must be a string or list"
-        raise KeyError(msg)
-
+    # latlon
+    latitude: confloat(ge=-90, le=90) | None = None
+    longitude: confloat(ge=-180, le=180) | None = None
+    # sql
     sql_values: str | None = None
     humanize: bool = True
     convert_units: bool = True
@@ -566,20 +488,25 @@ def get_stations(
         return r.filter_by_name(request.name)
 
     # Use coordinates twice in main if-elif to get same KeyError
-    if request.coordinates and request.rank:
+    if request.latitude and request.longitude and request.rank:
         return r.filter_by_rank(
-            latlon=request.coordinates,
+            latlon=(request.latitude, request.longitude),
             rank=request.rank,
         )
 
-    if request.coordinates and request.distance:
+    if request.latitude and request.longitude and request.distance:
         return r.filter_by_distance(
-            latlon=request.coordinates,
+            latlon=(request.latitude, request.longitude),
             distance=request.distance,
         )
 
-    if request.bbox:
-        return r.filter_by_bbox(*request.bbox)
+    if request.left and request.bottom and request.right and request.top:
+        return r.filter_by_bbox(
+            left=request.left,
+            bottom=request.bottom,
+            right=request.right,
+            top=request.top,
+        )
 
     if request.sql:
         return r.filter_by_sql(request.sql)
@@ -588,9 +515,9 @@ def get_stations(
         "all (boolean)",
         "station (string)",
         "name (string)",
-        "coordinates (float,float) and rank (integer)",
-        "coordinates (float,float) and distance (float)",
-        "bbox (left float, bottom float, right float, top float)",
+        "latitude (float), longitude (float) and rank (integer)",
+        "latitude (float), longitude (float) and distance (float)",
+        "left (float), bottom (float), right (float), top (float)",
     ]
     msg = f"Give one of the parameters: {', '.join(param_options)}"
     raise KeyError(msg)
@@ -635,12 +562,12 @@ def get_interpolate(
     """Get interpolated values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
-    if request.coordinates:
-        values_ = r.interpolate(request.coordinates)
+    if request.latitude and request.longitude:
+        values_ = r.interpolate((request.latitude, request.longitude))
     elif request.station:
         values_ = r.interpolate_by_station_id(request.station)
     else:
-        msg = "Either coordinates or station must be provided"
+        msg = "Either latitude and longitude or station must be provided"
         raise ValueError(msg)
 
     if request.sql_values:
@@ -658,12 +585,12 @@ def get_summarize(
     """Get summarized values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
-    if request.coordinates:
-        values_ = r.summarize(request.coordinates)
+    if request.latitude and request.longitude:
+        values_ = r.summarize((request.latitude, request.longitude))
     elif request.station:
         values_ = r.summarize_by_station_id(request.station)
     else:
-        msg = "Either coordinates or station must be provided"
+        msg = "Either latitude and longitude or station must be provided"
         raise ValueError(msg)
 
     if request.sql_values:

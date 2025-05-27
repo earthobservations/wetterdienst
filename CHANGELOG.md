@@ -2,6 +2,8 @@
 
 ## Development
 
+- Split `coordinates` and `bbox` into separate arguments
+
 ## 0.108.0 - 2025-04-25
 
 ### Feature
