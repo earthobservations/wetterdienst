@@ -237,7 +237,8 @@ def test_stations_dwd_geo(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/kl",
             "periods": "recent",
-            "coordinates": "45.54,10.10",
+            "latitude": "45.54",
+            "longitude": "10.10",
             "rank": 5,
         },
     )
@@ -432,9 +433,9 @@ def test_values_dwd_no_station(client: TestClient) -> None:
     assert response.status_code == 400
     assert (
         "'Give one of the parameters: all (boolean), station (string), "
-        "name (string), coordinates (float,float) and rank (integer), "
-        "coordinates (float,float) and distance (float), "
-        "bbox (left float, bottom float, right float, top float)'" in response.text
+        "name (string), latitude (float), longitude (float) and rank (integer), "
+        "latitude (float), longitude (float) and distance (float), "
+        "left (float), bottom (float), right (float), top (float)'" in response.text
     )
 
 

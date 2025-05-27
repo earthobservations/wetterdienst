@@ -158,7 +158,8 @@ def invoke_wetterdienst_stations_filter_by_rank(
             "stations",
             f"--provider={provider}",
             f"--network={network}",
-            "--coordinates=51.1278,13.7543",
+            "--latitude=51.1278",
+            "--longitude=13.7543",
             "--rank=5",
             f"--format={fmt}",
         ]
