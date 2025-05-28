@@ -351,7 +351,7 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
     # station in climate_summary
     df_stats = (
         df_values.group_by(["resolution", "dataset", "station_id"], maintain_order=True)
-        .count()
+        .len(name="count")
         .sort(["resolution", "dataset", "station_id"])
     )
     assert df_stats.to_dicts() == [
