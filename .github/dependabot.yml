@@ -9,6 +9,7 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    versioning-strategy: "widen"
     groups:
       python:
         patterns:
