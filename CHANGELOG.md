@@ -2,6 +2,9 @@
 
 ## Development
 
+## 0.109.0 - 2025-06-03
+
+### Feature
 - Split `coordinates` and `bbox` into separate arguments
 - Bump dependencies
 
