@@ -2,6 +2,9 @@
 
 ## Development
 
+## Feature
+- Drop upper version pins for fsspec and tzdata
+
 ## 0.109.0 - 2025-06-03
 
 ### Feature
