@@ -15,7 +15,7 @@ from wetterdienst.ui.cli import cli
 def test_cli_stripes() -> None:
     """Test the CLI stripes command."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes"])
+    result = runner.invoke(cli, ["stripes", "--help"])
     assert result.exit_code == 0
     commands = dedent(
         """
@@ -79,7 +79,7 @@ def test_stripes_values_start_year_ge_end_year() -> None:
         ["stripes", "values", "--kind=precipitation", "--station=1048", "--start_year=2020", "--end_year=2019"],
     )
     assert result.exit_code == 1
-    assert "Error: start_year must be less than end_year" in result.stdout
+    assert "Error: start_year must be less than end_year" in result.stderr
 
 
 @pytest.mark.remote
@@ -91,7 +91,7 @@ def test_stripes_values_wrong_name_threshold() -> None:
         ["stripes", "values", "--kind=precipitation", "--station=1048", "--name_threshold=1.01"],
     )
     assert result.exit_code == 1
-    assert "Error: name_threshold must be between 0.0 and 1.0" in result.stdout
+    assert "Error: name_threshold must be between 0.0 and 1.0" in result.stderr
 
 
 @pytest.mark.remote
@@ -116,7 +116,7 @@ def test_stripes_values_target_not_matching_format(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
     assert result.exit_code == 1
-    assert "Error: 'target' must have extension 'png'" in result.stdout
+    assert "Error: 'target' must have extension 'png'" in result.stderr
 
 
 @pytest.mark.remote
@@ -125,4 +125,4 @@ def test_climate_stripes_target_wrong_dpi() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--dpi=0"])
     assert result.exit_code == 2
-    assert "Error: Invalid value for '--dpi': 0 is not in the range x>0.\n" in result.stdout
+    assert "Error: Invalid value for '--dpi': 0 is not in the range x>0.\n" in result.stderr
