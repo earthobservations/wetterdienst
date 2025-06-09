@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from wetterdienst.core.timeseries.metadata import build_metadata_model
+from wetterdienst.model.metadata import build_metadata_model
 from wetterdienst.provider.dwd.metadata import _METADATA
 
 DwdDmoMetadata = {

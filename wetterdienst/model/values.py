@@ -16,16 +16,16 @@ from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 from tzfpy import get_tz
 
-from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
-from wetterdienst.core.timeseries.unit import UnitConverter
 from wetterdienst.metadata.resolution import DAILY_AT_MOST, Frequency, Resolution
+from wetterdienst.model.result import StationsResult, ValuesResult
+from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Callable, Iterator
 
-    from wetterdienst.core.timeseries.metadata import DatasetModel, ParameterModel
+    from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch

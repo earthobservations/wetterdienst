@@ -7,8 +7,8 @@ from typing import Literal
 import pytest
 
 from wetterdienst import Settings
-from wetterdienst.core.timeseries.result import ValuesResult
 from wetterdienst.exceptions import NoParametersFoundError
+from wetterdienst.model.result import ValuesResult
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
     DwdObservationRequest,

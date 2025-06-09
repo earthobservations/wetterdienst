@@ -36,7 +36,7 @@ from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
-    from wetterdienst.core.timeseries.request import TimeseriesRequest
+    from wetterdienst.model.request import TimeseriesRequest
 
 log = logging.getLogger(__name__)
 

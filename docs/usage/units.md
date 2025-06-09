@@ -7,16 +7,16 @@ Wetterdienst offers conversion of units based on the parameter type and a number
 The default units per each unit type are shown below:
 
 ```python exec="on" source="above"
-from wetterdienst.core.timeseries.unit import UnitConverter
+from wetterdienst.model.unit import UnitConverter
 
 unit_converter = UnitConverter()
 print(unit_converter.targets)
 ```
 
 All available units per each unit type:
-    
+
 ```python exec="on" source="above"
-from wetterdienst.core.timeseries.unit import UnitConverter
+from wetterdienst.model.unit import UnitConverter
 
 unit_converter = UnitConverter()
 print(unit_converter.units)

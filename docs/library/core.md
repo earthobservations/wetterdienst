@@ -2,7 +2,19 @@
 
 ## Core
 
-::: wetterdienst.core.timeseries
+::: wetterdienst.core
+    options:
+      heading_level: 3
+
+## Model
+
+::: wetterdienst.model
+    options:
+      heading_level: 3
+
+## I/O
+
+::: wetterdienst.io
     options:
       heading_level: 3
 

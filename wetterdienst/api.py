@@ -5,7 +5,7 @@
 import importlib
 from typing import ClassVar
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.model.request import TimeseriesRequest
 
 
 class Wetterdienst:

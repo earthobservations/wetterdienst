@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, Literal
 import polars as pl
 from pydantic import BaseModel, confloat, conint, field_validator
 
-from wetterdienst.core.timeseries.metadata import parse_parameters
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
 from wetterdienst.metadata.period import Period
+from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import parse_date
 from wetterdienst.util.ui import read_list
@@ -22,8 +22,8 @@ from wetterdienst.util.ui import read_list
 if TYPE_CHECKING:
     import plotly.graph_objs as go
 
-    from wetterdienst.core.timeseries.request import TimeseriesRequest
-    from wetterdienst.core.timeseries.result import (
+    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.model.result import (
         InterpolatedValuesResult,
         StationsResult,
         SummarizedValuesResult,

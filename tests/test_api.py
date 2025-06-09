@@ -9,7 +9,7 @@ import pytest
 
 from wetterdienst import Parameter, Settings
 from wetterdienst.api import Wetterdienst
-from wetterdienst.core.timeseries.unit import UnitConverter
+from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.dwd.dmo import DwdDmoMetadata, DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest

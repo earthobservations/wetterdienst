@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING
 import polars as pl
 import polars.selectors as cs
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.noaa.ghcn.metadata import (
     DAILY_PARAMETER_MULTIPLICATION_FACTORS,
     NoaaGhcnMetadata,
@@ -24,7 +24,7 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
-    from wetterdienst.core.timeseries.metadata import DatasetModel
+    from wetterdienst.model.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
 

@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Literal
 import polars as pl
 from typing_extensions import NotRequired, TypedDict
 
-from wetterdienst.core.process import filter_by_date
-from wetterdienst.core.timeseries.export import ExportMixin
+from wetterdienst.io.export import ExportMixin
+from wetterdienst.model.util import filter_by_date
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -22,9 +22,9 @@ if TYPE_CHECKING:
     import plotly.graph_objects as go
 
     from wetterdienst import Settings
-    from wetterdienst.core.timeseries.metadata import ParameterModel
-    from wetterdienst.core.timeseries.request import TimeseriesRequest
-    from wetterdienst.core.timeseries.values import TimeseriesValues
+    from wetterdienst.model.metadata import ParameterModel
+    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 

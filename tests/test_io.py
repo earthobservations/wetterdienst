@@ -14,17 +14,17 @@ import pytest
 from surrogate import surrogate
 
 from wetterdienst import Settings
-from wetterdienst.core.process import filter_by_date
-from wetterdienst.core.timeseries.export import ExportMixin
-from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.result import (
+from wetterdienst.io.export import ExportMixin
+from wetterdienst.metadata.period import Period
+from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.result import (
     InterpolatedValuesResult,
     StationsFilter,
     StationsResult,
     SummarizedValuesResult,
     ValuesResult,
 )
-from wetterdienst.metadata.period import Period
+from wetterdienst.model.util import filter_by_date
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
 )

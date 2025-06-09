@@ -2,8 +2,11 @@
 
 ## Development
 
-## Feature
+### Feature
 - Drop upper version pins for fsspec and tzdata
+
+### Refactor
+- Introduce `wetterdienst.model`, streamline others
 
 ## 0.109.0 - 2025-06-03
 

@@ -15,12 +15,12 @@ import polars as pl
 import portion
 from portion import Interval
 
-from wetterdienst.core.timeseries.metadata import DatasetModel, ParameterSearch
-from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.metadata import DatasetModel, ParameterSearch
+from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data,
 )
@@ -45,7 +45,7 @@ from wetterdienst.util.python import to_list
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from wetterdienst.core.timeseries.result import StationsResult
+    from wetterdienst.model.result import StationsResult
 log = logging.getLogger(__name__)
 
 # columns that can't be coerced to float are dropped

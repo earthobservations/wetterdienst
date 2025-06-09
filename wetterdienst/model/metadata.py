@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
     from pydantic_core.core_schema import ValidationInfo
 
-    from wetterdienst.core.timeseries.request import _PARAMETER_TYPE
+    from wetterdienst.model.request import _PARAMETER_TYPE
 
 log = logging.getLogger(__name__)
 

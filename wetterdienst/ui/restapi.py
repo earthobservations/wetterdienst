@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from starlette.responses import JSONResponse, RedirectResponse
 
 from wetterdienst import Author, Info, Settings, Wetterdienst
-from wetterdienst.core.timeseries.result import (
+from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
     _StationsDict,

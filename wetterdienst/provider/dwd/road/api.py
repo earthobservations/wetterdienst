@@ -14,15 +14,15 @@ from urllib.parse import urljoin
 
 import polars as pl
 
-from wetterdienst.core.timeseries.metadata import (
+from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
     DatasetModel,
     ParameterModel,
     build_metadata_model,
 )
-from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.values import TimeseriesValues
-from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.util.eccodes import check_pdbufr
 from wetterdienst.util.network import download_file, download_files, list_remote_files_fsspec

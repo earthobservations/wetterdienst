@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from lmfit import Parameters
     from lmfit.model import ModelResult
 
-    from wetterdienst.core.timeseries.result import StationsResult
+    from wetterdienst.model.result import StationsResult
 
 HERE = Path(__file__).parent
 

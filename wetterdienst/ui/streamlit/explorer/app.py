@@ -13,14 +13,14 @@ import polars as pl
 import streamlit as st
 
 from wetterdienst import Resolution, Settings, Wetterdienst, __version__
-from wetterdienst.core.timeseries.unit import UnitConverter
+from wetterdienst.model.unit import UnitConverter
 
 if TYPE_CHECKING:
     import plotly.graph_objects as go
 
-    from wetterdienst.core.timeseries.metadata import DatasetModel, MetadataModel, ParameterModel, ResolutionModel
-    from wetterdienst.core.timeseries.request import TimeseriesRequest
-    from wetterdienst.core.timeseries.result import StationsResult
+    from wetterdienst.model.metadata import DatasetModel, MetadataModel, ParameterModel, ResolutionModel
+    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.model.result import StationsResult
 
 # this env is set manually on streamlit.com
 LIVE = os.getenv("LIVE", "false").lower() == "true"
