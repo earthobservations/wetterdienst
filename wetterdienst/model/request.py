@@ -19,19 +19,6 @@ from measurement.utils import guess
 from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
 
-from wetterdienst.core.timeseries.metadata import (
-    DatasetModel,
-    MetadataModel,
-    ParameterModel,
-    ResolutionModel,
-    parse_parameters,
-)
-from wetterdienst.core.timeseries.result import (
-    InterpolatedValuesResult,
-    StationsFilter,
-    StationsResult,
-    SummarizedValuesResult,
-)
 from wetterdienst.exceptions import (
     NoParametersFoundError,
     StartDateEndDateError,
@@ -39,6 +26,19 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.metadata import (
+    DatasetModel,
+    MetadataModel,
+    ParameterModel,
+    ResolutionModel,
+    parse_parameters,
+)
+from wetterdienst.model.result import (
+    InterpolatedValuesResult,
+    StationsFilter,
+    StationsResult,
+    SummarizedValuesResult,
+)
 from wetterdienst.settings import Settings
 from wetterdienst.util.python import to_list
 
@@ -50,7 +50,7 @@ else:
     MonkeyPatch.patch_fromisoformat()
 
 if TYPE_CHECKING:
-    from wetterdienst.core.timeseries.values import TimeseriesValues
+    from wetterdienst.model.values import TimeseriesValues
 log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
@@ -532,7 +532,7 @@ class TimeseriesRequest:
             InterpolatedValuesResult: Interpolated values.
 
         """
-        from wetterdienst.core.timeseries.interpolate import get_interpolated_df
+        from wetterdienst.core.interpolate import get_interpolated_df
 
         if not self.start_date:
             msg = "start_date and end_date are required for interpolation"
@@ -582,7 +582,7 @@ class TimeseriesRequest:
 
         Summarize means we take any available data of the closest station as representative for the timestamp.
         """
-        from wetterdienst.core.timeseries.summarize import get_summarized_df
+        from wetterdienst.core.summarize import get_summarized_df
 
         if not self.start_date:
             msg = "start_date and end_date are required for summarization"

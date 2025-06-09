@@ -10,14 +10,14 @@ from typing import ClassVar
 
 import polars as pl
 
-from wetterdienst.core.timeseries.metadata import (
+from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
     ParameterModel,
     build_metadata_model,
 )
-from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.values import TimeseriesValues
-from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__name__)

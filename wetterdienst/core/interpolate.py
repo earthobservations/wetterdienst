@@ -16,14 +16,14 @@ from scipy.interpolate import LinearNDInterpolator
 from shapely.geometry import Point, Polygon
 from tqdm import tqdm
 
-from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
+from wetterdienst.core.util import _ParameterData, extract_station_values
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
-    from wetterdienst.core.timeseries.request import TimeseriesRequest
-    from wetterdienst.core.timeseries.result import StationsResult
+    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.model.result import StationsResult
 
 log = logging.getLogger(__name__)
 

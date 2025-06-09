@@ -24,7 +24,7 @@ from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, D
 from wetterdienst.util.network import download_file, download_files
 
 if TYPE_CHECKING:
-    from wetterdienst.core.timeseries.metadata import DatasetModel
+    from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)

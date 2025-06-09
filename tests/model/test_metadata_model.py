@@ -4,7 +4,7 @@
 
 import pytest
 
-from wetterdienst.core.timeseries.metadata import ParameterModel, ParameterSearch, parse_parameters
+from wetterdienst.model.metadata import ParameterModel, ParameterSearch, parse_parameters
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 
 

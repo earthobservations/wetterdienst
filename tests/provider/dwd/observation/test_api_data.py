@@ -11,8 +11,8 @@ from freezegun import freeze_time
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Resolution, Settings
-from wetterdienst.core.timeseries.metadata import DatasetModel
 from wetterdienst.metadata.period import Period
+from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,

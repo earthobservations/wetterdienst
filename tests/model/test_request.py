@@ -10,8 +10,8 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Period, Settings
-from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.exceptions import StartDateEndDateError
+from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
     DwdObservationRequest,

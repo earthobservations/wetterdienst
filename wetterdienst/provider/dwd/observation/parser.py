@@ -19,7 +19,7 @@ from wetterdienst.provider.dwd.observation.metadata import (
 if TYPE_CHECKING:
     from io import BytesIO
 
-    from wetterdienst.core.timeseries.metadata import DatasetModel
+    from wetterdienst.model.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
 

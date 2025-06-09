@@ -4,7 +4,7 @@
 
 import pytest
 
-from wetterdienst.core.timeseries.unit import UnitConverter
+from wetterdienst.model.unit import UnitConverter
 
 
 @pytest.fixture

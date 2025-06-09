@@ -2,8 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """DWD observation metadata."""
 
-from wetterdienst.core.timeseries.metadata import build_metadata_model
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.metadata import build_metadata_model
 from wetterdienst.provider.dwd.metadata import _METADATA
 
 DwdObservationMetadata = {

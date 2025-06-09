@@ -14,8 +14,8 @@ import platformdirs
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from wetterdienst.core.timeseries.unit import UnitConverter
 from wetterdienst.metadata.parameter import Parameter
+from wetterdienst.model.unit import UnitConverter
 
 log = logging.getLogger(__name__)
 

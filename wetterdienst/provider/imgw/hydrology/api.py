@@ -17,11 +17,11 @@ import portion
 from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
 
-from wetterdienst.core.timeseries.metadata import DatasetModel, build_metadata_model
-from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.metadata import DatasetModel, build_metadata_model
+from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import download_file, download_files, list_remote_files_fsspec

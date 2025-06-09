@@ -16,7 +16,7 @@ from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, H
 from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
-    from wetterdienst.core.timeseries.metadata import DatasetModel
+    from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
 STATION_ID_REGEX = r"_(\d{3,5})_"

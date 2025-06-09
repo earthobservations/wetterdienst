@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
 EcccObservationMetadata = {
     "name_short": "ECCC",
