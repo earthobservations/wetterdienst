@@ -4,6 +4,7 @@
 
 ### Feature
 - Drop upper version pins for fsspec and tzdata
+- Overhaul docs switching to `sphinx` and `myst-parser`
 
 ### Refactor
 - Introduce `wetterdienst.model`, streamline others

@@ -1,4 +1,4 @@
-# Introduction
+# Overview
 
 This chapter provides an informative overview of the data accessible via the `wetterdienst` service and the associated
 usage conditions. `wetterdienst` facilitates user access to data from various agencies, including the German Weather

@@ -101,7 +101,6 @@ pip install wetterdienst[sql]
 ```
 
 - cratedb: Install support for CrateDB.
-- docs: Install the Sphinx documentation generator.
 - duckdb: Install support for DuckDB.
 - export: Install openpyxl for Excel export and pyarrow for writing files in Feather- and Parquet-format.
 - influxdb: Install support for InfluxDB.

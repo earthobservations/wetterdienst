@@ -1,3 +1,9 @@
+---
+file_format: mystnb
+kernelspec:
+  name: python3
+---
+
 # Python API
 
 ## Introduction
@@ -14,19 +20,28 @@ features interactively, you might want to try the [cli](cli.md). For managing ge
 The available APIs can be accessed by the top-level API Wetterdienst. This API also
 allows the user to discover the available APIs of each service included:
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst import Wetterdienst
 
-Wetterdienst.discover()
+coverage = Wetterdienst.discover()
+coverage
 ```
 
 To load any of the available APIs pass the provider and the network of data to the
-Wetterdienst API:
+wetterdienst api factory:
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst import Wetterdienst
 
-API = Wetterdienst(provider="dwd", network="observation")
+Wetterdienst(provider="dwd", network="observation")
 ```
 
 ## Request arguments
@@ -41,63 +56,87 @@ Parameters can be requested in different ways e.g.
 
 - using a tuple of resolution and dataset
 
-  ```python exec="on" source="above"
-  from wetterdienst.provider.dwd.observation import DwdObservationRequest
-  
-  request = DwdObservationRequest(
-      parameters=("daily", "climate_summary")  # will resolve to all parameters of kl
-  )
-  ```
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+DwdObservationRequest(
+    parameters=("daily", "climate_summary")  # will resolve to all parameters of kl
+)
+```
 
 - using a tuple of resolution, dataset, parameter
 
-  ```python exec="on" source="above"
-  from wetterdienst.provider.dwd.observation import DwdObservationRequest
-  
-  request = DwdObservationRequest(
-      parameters=("daily", "climate_summary", "precipitation_height")
-  )
-  ```
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+DwdObservationRequest(
+    parameters=("daily", "climate_summary", "precipitation_height")
+)
+```
 
 - the same with the original names
 
-  ```python exec="on" source="above"
-  from wetterdienst.provider.dwd.observation import DwdObservationRequest
-  
-  request = DwdObservationRequest(
-      parameters=("daily", "kl", "rsk")
-  )
-  ```
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+DwdObservationRequest(
+    parameters=("daily", "kl", "rsk")
+)
+```
 
 - using the metadata model
 
-  ```python exec="on" source="above"
-  from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
   
-  request = DwdObservationRequest(
-      parameters=DwdObservationMetadata.daily.kl  # will resolve to all parameters of kl
-  )
-  ```
+DwdObservationRequest(
+    parameters=DwdObservationMetadata.daily.kl  # will resolve to all parameters of kl
+)
+```
 
 - using a list of tuples
 
-  ```python exec="on" source="above"
-  from wetterdienst.provider.dwd.observation import DwdObservationRequest
-  
-  request = DwdObservationRequest(
-      parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")]
-  )
-  ```
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+DwdObservationRequest(
+    parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")]
+)
+```
 
 - using a list of metadata
 
-  ```python exec="on" source="above"
-  from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
 
-  request = DwdObservationRequest(
-      parameters=[DwdObservationMetadata.daily.kl, DwdObservationMetadata.daily.more_precip]
-  )
-  ```
+DwdObservationRequest(
+    parameters=[DwdObservationMetadata.daily.kl, DwdObservationMetadata.daily.more_precip]
+)
+```
 
 For some weather service one can select which period of the data is request with ``periods``.
 Valid periods are ``historical``, ``recent`` and ``now``. ``periods`` can be given as a list or a single value.
@@ -105,16 +144,21 @@ The value can be a string, the enumeration value or the enumeration name e.g.
 
 - by using the exact enumeration e.g.
 
-  ```python exec="on" source="above"
-  from wetterdienst.metadata.period import Period
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.metadata.period import Period
 
-  Period.HISTORICAL
-  ```
+Period.HISTORICAL
+```
 
 - by using the enumeration name or value as string e.g.
-  ```python
-  "historical" or "HISTORICAL"
-  ```
+
+```python
+"historical" or "HISTORICAL"
+```
 If a weather service has periods, the period argument typically can be used as replacement
 for the start_date and end_date arguments. In case both arguments are given they are used
 as a filter for the data.
@@ -134,7 +178,11 @@ to discover available parameters based on the given filter arguments.
 Get station information for a given *dataset/parameter* and
 *period*.
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -145,14 +193,18 @@ request = DwdObservationRequest(
 )
 stations = request.all()
 df = stations.df
-print(df.head())
+df
 ```
 
 The function returns a Polars DataFrame with information about the available stations.
 
 #### filter by station id
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -163,12 +215,16 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_station_id(station_id=("01048", ))
 df = stations.df
-print(df.head())
+df
 ```
 
 #### filter by name
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -179,14 +235,18 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_name(name="Dresden-Klotzsche")
 df = stations.df
-print(df.head())
+df
 ```
 
 #### filter by distance
 
 Distance in kilometers (default)
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -198,12 +258,16 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_distance(latlon=hamburg, distance=30, unit="km")
 df = stations.df
-print(df.head())
+df
 ```
 
 Distance in miles
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -215,12 +279,16 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_distance(latlon=hamburg, distance=30, unit="mi")
 df = stations.df
-print(df.head())
+df
 ```
 
 #### filter by rank
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -232,12 +300,16 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_rank(latlon=hamburg, rank=5)
 df = stations.df
-print(df.head())
+df
 ```
 
 #### filter by bbox
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -249,14 +321,19 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_bbox(*bbox)
 df = stations.df
-print(df.head())
+df
 ```
 
 ### Values
 
-Values are just an extension of requests:
+Values are just an extension of requests. You can query data by using the
+`.query()` method on the values object:
 
-```python
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst import Settings
 
@@ -272,11 +349,32 @@ stations = request.filter_by_station_id(station_id=("00003", "01048"))
 # From here you can query data by station
 for result in stations.values.query():
     # analyse the station here
-    print(result.df.drop_nulls().head())
+    break
 
-# Query data all together
+df = result.df.drop_nulls()
+df
+```
+
+Or you can query all data at once:
+
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst import Settings
+
+# if no settings are provided, default settings are used which are
+# Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)
+request = DwdObservationRequest(
+    parameters=[("daily", "kl"), ("daily", "solar")],
+    start_date="1990-01-01",
+    end_date="2020-01-01",
+)
+stations = request.filter_by_station_id(station_id=("00003", "01048"))
 df = stations.values.all().df.drop_nulls()
-print(df.head())
+df
 ```
 
 This gives us the most options to work with the data, getting multiple parameters at
@@ -287,14 +385,18 @@ database once in a while with a fixed set of records.
 In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from 
 [settings](settings.md) to achieve that:
 
-```python
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-settings = Settings(ts_skip_empty=True, ts_skip_criteria="min", ignore_env=True)
+settings = Settings(ts_skip_empty=True, ts_skip_criteria="min", ts_skip_threshold=0.2)
 karlsruhe = (49.19780976647141, 8.135207205143768)
 request = DwdObservationRequest(
-  parameters=[("daily", "kl"), ("daily", "solar")],
+  parameters=[("daily", "kl")],
   start_date="2021-01-01",
   end_date="2021-12-31",
   settings=settings,
@@ -303,7 +405,7 @@ stations = request.filter_by_rank(latlon=karlsruhe, rank=2)
 values = stations.values.all()
 print(values.df.head())
 # df_stations has only stations that appear in the values
-print(values.df_stations.head())
+values.df_stations
 ```
 
 ### Interpolation
@@ -339,7 +441,11 @@ The interpolated value looks like this:
 |------------|-----------------|-------------------------|---------------------------|--------|
 | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 277.65 |
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -350,13 +456,17 @@ request = DwdObservationRequest(
 )
 values = request.interpolate(latlon=(50.0, 8.9))
 df = values.df
-print(df.head())
+df
 ```
 
 Instead of a latlon you may alternatively use an existing station id for which to interpolate values in a manner of
 getting a more complete dataset:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -367,12 +477,16 @@ request = DwdObservationRequest(
 )
 values = request.interpolate_by_station_id(station_id="02480")
 df = values.df
-print(df.head())
+df
 ```
 
 Increase maximum distance for interpolation:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst import Settings
@@ -386,7 +500,7 @@ request = DwdObservationRequest(
 )
 values = request.interpolate(latlon=(52.8, 12.9))
 df = values.df
-print(df.head())
+df
 ```
 
 ### Summary
@@ -401,7 +515,11 @@ following figure visualizes how summary works. The first graph shows the summari
 The code to execute the summary is given below. It currently only works for ``DwdObservationRequest`` and individual parameters.
 Currently, the following parameters are supported (more will be added if useful): ``temperature_air_mean_2m``, ``wind_speed``, ``precipitation_height``.
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -412,13 +530,17 @@ request = DwdObservationRequest(
 )
 values = request.summarize(latlon=(50.0, 8.9))
 df = values.df
-print(df.head())
+df
 ```
 
 Instead of a latlon you may alternatively use an existing station id for which to summarize values in a manner of
 getting a more complete dataset:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -429,14 +551,18 @@ request = DwdObservationRequest(
 )
 values = request.summarize_by_station_id(station_id="02480")
 df = values.df
-print(df.head())
+df
 ```
 
 ### Format
 
 #### To Dict
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -446,12 +572,16 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_station_id(station_id="01048")
 values = stations.values.all()
-print(values.to_dict(with_metadata=True, with_stations=True))
+values.to_dict(with_metadata=True, with_stations=True)
 ```
 
 #### To Json
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -466,7 +596,11 @@ print(values.to_json(with_metadata=True, with_stations=True))
 
 #### To Ogc Feature Collection
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -476,12 +610,16 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_station_id(station_id="01048")
 values = stations.values.all()
-print(values.to_ogc_feature_collection(with_metadata=True))
+values.to_ogc_feature_collection(with_metadata=True)
 ```
 
 #### To GeoJson
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -496,7 +634,11 @@ print(values.to_geojson(with_metadata=True))
 
 #### To CSV
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -517,8 +659,12 @@ In order to explore what is possible, please have a look at the
 
 The result data is provided through a virtual table called ``data``.
 
-```python
-    from wetterdienst import Settings
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 settings = Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)  # defaults
@@ -531,7 +677,7 @@ request = DwdObservationRequest(
 stations = request.filter_by_station_id(station_id=[1048])
 values = stations.values.all()
 df = values.filter_by_sql("parameter='temperature_air_mean_2m' AND value < -7.0;")
-print(df.head())
+df
 ```
 
 ### Export
@@ -571,17 +717,22 @@ an environment variable ``WD_CACHE_DIR`` to define the place where the caching d
 
 To find out where your cache is located you can use the following code:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst import Settings
 
 settings = Settings()
-print(settings.cache_dir)
+settings.cache_dir
 ```
 
 Or similarly with the cli:
 
-```bash
-wetterdienst cache
+```{code-cell} bash
+
+!wetterdienst cache
 ```
 
 ### FSSPEC
@@ -590,14 +741,20 @@ FSSPEC is used for flexible file caching. It relies on the two libraries request
 asynchronous requests and may swallow some errors related to proxies, ssl or similar. Use the defined variable
 FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 settings = Settings(fsspec_client_kwargs={"trust_env": True})  # use proxy from environment variables
 
-stations = DwdObservationRequest(
+request = DwdObservationRequest(
     parameters=("hourly", "temperature_air"),
     settings=settings
-).filter_by_station_id(station_id=[1048])
+)
+stations = request.filter_by_station_id(station_id=[1048])
+stations
 ```

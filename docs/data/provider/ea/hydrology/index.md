@@ -10,3 +10,10 @@ The data provided through ``wetterdienst`` includes:
 - groundwater stage
 
 in resolutions 15 minutes and daily for UK wide stations.
+
+```{toctree}
+:hidden:
+
+15_minutes.md
+daily.md
+```

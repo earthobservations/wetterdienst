@@ -1,3 +1,9 @@
+---
+file_format: mystnb
+kernelspec:
+  name: python3
+---
+
 # Settings
 
 ## Overview
@@ -47,30 +53,43 @@ For more on units see the chapter [Units](units.md).
 
 You can import and show Settings like
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst import Settings
 
 settings = Settings()
-print(settings)
+settings
 ```
 
 or modify them for your very own request like
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst import Settings
 
 settings = Settings(ts_shape="wide")
-print(settings)
+settings
 ```
 
 If your system is running behind a proxy e.g., like 
 [here](https://github.com/earthobservations/wetterdienst/issues/524)
 you may want to use the `trust_env` setting like
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst import Settings
 
 settings = Settings(fsspec_client_kwargs={"trust_env": True})
+settings
 ```
 
 to allow requesting through a proxy.

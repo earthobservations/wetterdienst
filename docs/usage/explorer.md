@@ -10,7 +10,7 @@ easily be self-hosted. A hosted version is available [here](https://wetterdienst
 
 ## Screenshot
 
-![Wetterdienst Explorer](../img/wetterdienst_explorer.png)
+![Wetterdienst Explorer](../assets/wetterdienst_explorer.png)
 
 ## Features
 

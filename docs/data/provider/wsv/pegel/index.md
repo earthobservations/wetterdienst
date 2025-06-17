@@ -18,3 +18,9 @@ statistical values which are fragmentary provided per each station:
 - mhw -> mean of high water level
 - hhw -> highest water level
 - hsw -> highest of shipping water level
+
+```{toctree}
+:hidden:
+
+dynamic.md
+```
