@@ -1,3 +1,9 @@
+---
+file_format: mystnb
+kernelspec:
+  name: python3
+---
+
 # Parameters
 
 The data that is provided via `wetterdienst` and its implemented services comes in all kinds of different shapes. All
@@ -6,28 +12,37 @@ tested against it so that newly added parameters will be sorted and carefully ad
 `Parameter` enumeration can be used for requests as well, as internally the requested parameter is always translated
 to the provider specific parameter enumeration.
 
+## Metadata Model
+
 Import the provider specific metadata model like:
 
-```python exec="on" source="above"
+You can inspect the metadata model of the services to see the available parameters and their descriptions. The metadata 
+model is a Pydantic model with all its functionality so you can also extract a JSON schema.
+
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 
-# print resolutions, datasets and parameters
-for resolution in DwdObservationMetadata:
-    print(f"{2 * "\t"}{resolution.name}", "\n")
-    for dataset in resolution:
-        print(f"{3 * "\t"}{dataset.name}", "\n")
-        for parameter in dataset:
-            print(f"{4 * "\t"}{parameter.name}", "\n")
+metadata = DwdObservationMetadata.model_dump_json(indent=2)
+print(metadata)
 ```
+
+## List of Parameters
 
 The amount of distinct parameters and a list of the parameter names:
 
-```python exec="on"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.metadata.parameter import Parameter
 
 parameters = [parameter.value.lower() for parameter in Parameter]
-
-print(f"Number of parameters: {len(parameters)}", "\n")
-
-print("\n".join(f"{2*"\t"}{parameter}" for parameter in parameters))
+print(f"Number of parameters: {len(parameters)}")
+print("Parameters:")
+print("\n".join(parameters))
 ```

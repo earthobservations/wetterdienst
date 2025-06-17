@@ -1,4 +1,9 @@
-{!LICENSE.md!}
+# License
+
+```{include} ../LICENSE.md
+:start-line: 1
+:relative-docs: docs/
+```
 
 Cite us with
 

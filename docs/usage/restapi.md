@@ -6,7 +6,7 @@ Wetterdienst has an integrated REST API which can be started by invoking:
 wetterdienst restapi
 ```
 
-There's also a hosted version at [wetterdienst.eobs.org](wetterdienst.eobs.org).
+There's also a hosted version at [wetterdienst.eobs.org](https://www.wetterdienst.eobs.org).
 
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 

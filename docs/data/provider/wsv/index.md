@@ -12,3 +12,9 @@ The data provided by WSV is open and free to use. See the following urls for mor
 - [imprint](https://www.pegelonline.wsv.de/gast/impressum)
 
 For further questions you may write a [mail](https://www.pegelonline.wsv.de/adminmail).
+
+```{toctree}
+:hidden:
+
+pegel/index.md
+```

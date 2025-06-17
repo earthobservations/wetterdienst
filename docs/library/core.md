@@ -2,36 +2,42 @@
 
 ## Core
 
-::: wetterdienst.core
-    options:
-      heading_level: 3
+```{autodoc2-object} wetterdienst.core.interpolate
+render_plugin = "myst"
+no_index = true
+```
 
 ## Model
 
-::: wetterdienst.model
-    options:
-      heading_level: 3
+```{autodoc2-object} wetterdienst.model
+render_plugin = "myst"
+no_index = true
+```
 
 ## I/O
 
-::: wetterdienst.io
-    options:
-      heading_level: 3
+```{autodoc2-object} wetterdienst.io.export
+render_plugin = "myst"
+no_index = true
+```
 
 ## Settings
 
-::: wetterdienst.settings
-    options:
-      heading_level: 3
+```{autodoc2-object} wetterdienst.settings
+render_plugin = "myst"
+no_index = true
+```
 
 ## Data models
 
-::: wetterdienst.util.geo
-    options:
-      heading_level: 3
+```{autodoc2-object} wetterdienst.util.geo
+render_plugin = "myst"
+no_index = true
+```
 
 ## Download
 
-::: wetterdienst.util.network
-    options:
-      heading_level: 3
+```{autodoc2-object} wetterdienst.util.network
+render_plugin = "myst"
+no_index = true
+```
