@@ -8,3 +8,9 @@ opposition to the Mosmix product, DMO is not a statistical postprocessing but a 
 product is available for the ICON model in its global (ICON) and regional (ICON-EU) configuration. For ICON-EU, the DMO 
 product is available in hourly resolution with a lead time of 78 hours. For ICON, the DMO product is available in hourly 
 resolution with a lead time of 78 hours and in 3-hourly resolution with a lead time of 168 hours.
+
+```{toctree}
+:hidden:
+
+hourly.md
+```

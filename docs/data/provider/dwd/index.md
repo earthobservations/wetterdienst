@@ -1,4 +1,4 @@
-# DWD (Deutscher Wetterdienst)
+# DWD
 
 ## Overview
 
@@ -39,3 +39,13 @@ reference them as copyright owner. Take a look at the
 [Open Data Strategy at the DWD](https://www.dwd.de/EN/ourservices/opendata/opendata.html)
 and the [Official Copyright](https://www.dwd.de/EN/service/copyright/copyright_artikel.html?nn=495490&lsbId=627548) 
 statements before using the data.
+
+```{toctree}
+:hidden:
+
+dmo/index.md
+mosmix/index.md
+observation/index.md
+road/index.md
+radar/index.md
+```

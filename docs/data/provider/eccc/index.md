@@ -34,3 +34,9 @@ Specifically we want to quote and therewith highlight two passages from ECCC:
     > limited to implied warranties of merchantability and fitness for a particular purpose,
     > with respect to the software, the data retrieved from this product, and any accompanying
     > materials.
+
+```{toctree}
+:hidden:
+
+observation/index.md
+```

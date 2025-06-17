@@ -4,100 +4,128 @@
 
 ### DMO
 
-::: wetterdienst.provider.dwd.dmo.api.DwdDmoRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.dwd.dmo.api.DwdDmoRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ### Mosmix
 
-::: wetterdienst.provider.dwd.mosmix.api.DwdMosmixRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.dwd.mosmix.api.DwdMosmixRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ### Observation
 
-::: wetterdienst.provider.dwd.observation.api.DwdObservationRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.dwd.observation.api.DwdObservationRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ### Radar
 
-::: wetterdienst.provider.dwd.radar.api.DwdRadarValues
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.dwd.radar.api.DwdRadarValues
+    :show-inheritance:
+    :members: parse
+```
 
 ### Road
 
-::: wetterdienst.provider.dwd.road.api.DwdRoadRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.dwd.road.api.DwdRoadRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ## EA
 
 ### Hydrology
 
-::: wetterdienst.provider.ea.hydrology.api.EAHydrologyRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.ea.hydrology.api.EAHydrologyRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ## Eaufrance
 
 ### Hubeau
 
-::: wetterdienst.provider.eaufrance.hubeau.api.HubeauRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.eaufrance.hubeau.api.HubeauRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ## ECCC
 
 ### Observation
 
-::: wetterdienst.provider.eccc.observation.api.EcccObservationRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.eccc.observation.api.EcccObservationRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ## Geosphere
 
 ### Observation
 
-::: wetterdienst.provider.geosphere.observation.api.GeosphereObservationRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.geosphere.observation.api.GeosphereObservationRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ## IMGW
 
 ### Hydrology
 
-::: wetterdienst.provider.imgw.hydrology.api.ImgwHydrologyRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.imgw.hydrology.api.ImgwHydrologyRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ### Meteorology
 
-::: wetterdienst.provider.imgw.meteorology.api.ImgwMeteorologyRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.imgw.meteorology.api.ImgwMeteorologyRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ## NOAA
 
 ### GHCN
 
-::: wetterdienst.provider.noaa.ghcn.api.NoaaGhcnRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.noaa.ghcn.api.NoaaGhcnRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ## National Weather Service
 
 ### Observation
 
-::: wetterdienst.provider.nws.observation.api.NwsObservationRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.nws.observation.api.NwsObservationRequest
+    :show-inheritance:
+    :members: parse
+```
 
 ## WSV
 
 ### Observation
 
-::: wetterdienst.provider.wsv.pegel.api.WsvPegelRequest
-    options:
-      heading_level: 4
+```{eval-rst}
+.. autoclass:: wetterdienst.provider.wsv.pegel.api.WsvPegelRequest
+    :show-inheritance:
+    :members: parse
+```

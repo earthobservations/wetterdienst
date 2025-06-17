@@ -1,3 +1,9 @@
+---
+file_format: mystnb
+kernelspec:
+  name: python3
+---
+
 # Python Examples
 
 ## DWD
@@ -6,22 +12,27 @@
 
 Get available parameters for daily historical data of DWD:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-observations_meta = DwdObservationRequest.discover(
+metadata = DwdObservationRequest.discover(
     resolutions="daily",
 )
 
-# Available datasets/parameters.
-print(observations_meta)
-
-print(observations_meta)
+metadata
 ```
 
 Get stations for daily historical precipitation:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -29,12 +40,18 @@ request = DwdObservationRequest(
     periods="historical",
 )
 
-print(request.all().df.head())
+stations = request.all()
+df = stations.df
+df
 ```
 
 Get data for a dataset:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -42,12 +59,18 @@ request = DwdObservationRequest(
     periods="historical",
 )
 
-print(next(request.all().values.query()))
+first_values = next(request.all().values.query())
+df = first_values.df
+df
 ```
 
 Get data for a parameter:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -55,12 +78,18 @@ request = DwdObservationRequest(
     periods="historical",
 )
 
-print(next(request.all().values.query()))
+first_values = next(request.all().values.query())
+df = first_values.df
+df
 ```
 
 Get data for a parameter from another dataset:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -68,33 +97,47 @@ request = DwdObservationRequest(
     periods="historical",
 )
 
-print(next(request.all().values.query()))
+first_values = next(request.all().values.query())
+df = first_values.df
+df
 ```
 
 ### Mosmix
 
 Get stations for MOSMIX-SMALL:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 request = DwdMosmixRequest(
     parameters=("hourly", "small"),
 )
 
-print(request.all().df.head())
+stations = request.all()
+df = stations.df
+df
 ```
 
 Get data for MOSMIX-LARGE:
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 stations = DwdMosmixRequest(
     parameters=("hourly", "large"),
 )
 
-print(request.all().df.head())
+stations = request.all()
+df = stations.df
+df
 ```
 
 ### Radar
@@ -103,7 +146,11 @@ print(request.all().df.head())
 
 Retrieve information about all OPERA radar sites.
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 
 # Acquire information for all OPERA sites.
@@ -112,17 +159,21 @@ print(f"Number of OPERA radar sites: {len(sites)}")
 
 # Acquire information for a specific OPERA site.
 site_ukdea = OperaRadarSites().by_odim_code("ukdea")
-print(site_ukdea)
+site_ukdea
 ```
 
 Retrieve information about the DWD radar sites.
 
-```python exec="on" source="above"
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.radar.api import DwdRadarSites
 
 # Acquire information for a specific site.
 site_asb = DwdRadarSites().by_odim_code("ASB")
-print(site_asb)
+site_asb
 ```
 
 #### Data
@@ -155,7 +206,11 @@ This is an example on how to acquire ``RADOLAN_CDC`` data using
 For more examples, please have a look at 
 [examples/radar/](https://github.com/earthobservations/wetterdienst/tree/main/examples/radar).
 
-```python
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
 from wetterdienst.provider.dwd.radar import DwdRadarValues, DwdRadarParameter, DwdRadarResolution
 import wradlib as wrl
 
@@ -167,12 +222,11 @@ radar = DwdRadarValues(
 )
 
 for item in radar.query():
-
-    # Decode item.
-    timestamp, buffer = item
-
     # Decode data using wradlib.
-    data, attributes = wrl.io.read_radolan_composite(buffer)
+    data, attributes = wrl.io.read_radolan_composite(item.data)
 
     # Do something with the data (numpy.ndarray) here.
+    break
+    
+attributes
 ```
