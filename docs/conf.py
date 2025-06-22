@@ -5,14 +5,22 @@
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+import tomllib
 
-project = 'wetterdienst'
-copyright = '2025, Benjamin Gutzmann, Andreas Motl'
-author = 'Benjamin Gutzmann, Andreas Motl'
+with open("../pyproject.toml", "rb") as f:
+    data = tomllib.load(f)["project"]
+    
+project = data["name"]
+copyright = "earthobservations"
+author = ", ".join(author["name"] for author in data["authors"])
+version = str(data["version"])
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 master_doc = "index"
+
+latex_engine = "xelatex"
+
 extensions = [
     "myst_nb",
     "autodoc2",
