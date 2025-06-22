@@ -451,21 +451,55 @@ class ExportMixin:
             for record in self.df.iter_rows(named=True):
                 # for record in items.iter_rows(named=True):
                 time = record.pop("date").isoformat()
+                tags = {
+                    "station_id": record.pop("station_id"),
+                    "resolution": record.pop("resolution"),
+                    "dataset": record.pop("dataset"),
+                }
+                parameter = record.pop("parameter", None)
+                quality = record.pop("quality", None)
+                # fields is a dict of either a single value (long format) or multiple values (wide format).
                 fields = {k: v for k, v in record.items() if v is not None}
                 if not fields:
                     continue
                 if version == 1:
+                    if parameter:
+                        tags["parameter"] = parameter
+                        if quality:
+                            fields["quality"] = quality
                     point = {
                         "measurement": tablename,
                         "time": time,
+                        "tags": tags,
                         "fields": fields,
                     }
                 elif version == 2:
-                    point = PointV2(tablename).time(time)
+                    point = (
+                        PointV2(tablename)
+                        .time(time)
+                        .tag("station_id", tags["station_id"])
+                        .tag("resolution", tags["resolution"])
+                        .tag("dataset", tags["dataset"])
+                    )
+                    # long format
+                    if parameter:
+                        point = point.tag("parameter", parameter)
+                        if quality:
+                            point = point.field("quality", quality)
                     for field, value in fields.items():
                         point = point.field(field, value)
                 elif version == 3:
-                    point = PointV3(tablename).time(time)
+                    point = (
+                        PointV3(tablename)
+                        .time(time)
+                        .tag("station_id", tags["station_id"])
+                        .tag("resolution", tags["resolution"])
+                        .tag("dataset", tags["dataset"])
+                    )
+                    if parameter:
+                        point = point.tag("parameter", parameter)
+                        if quality:
+                            point = point.field("quality", quality)
                     for field, value in fields.items():
                         point = point.field(field, value)
 

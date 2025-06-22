@@ -11,7 +11,6 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
-from surrogate import surrogate
 
 from wetterdienst import Settings
 from wetterdienst.io.export import ExportMixin
@@ -1151,13 +1150,13 @@ def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -
 
 
 @pytest.mark.xfail
-@surrogate("influxdb.InfluxDBClient")
 @pytest.mark.remote
 def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings) -> None:
     """Test export of DataFrame to influxdb v1."""
+    pytest.importorskip("influxdb")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        periods=Period.RECENT,
+        start_date="2019-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1183,48 +1182,53 @@ def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings
             batch_size=50000,
         )
         points = mock_client.write_points.call_args.kwargs["points"]
-        assert points[0]["measurement"] == "weather"
-        assert list(points[0]["fields"].keys()) == [
-            "station_id",
-            "dataset",
-            "wind_gust_max",
-            "qn_wind_gust_max",
-            "wind_speed",
-            "qn_wind_speed",
-            "precipitation_height",
-            "qn_precipitation_height",
-            "precipitation_form",
-            "qn_precipitation_form",
-            "sunshine_duration",
-            "qn_sunshine_duration",
-            "snow_depth",
-            "qn_snow_depth",
-            "cloud_cover_total",
-            "qn_cloud_cover_total",
-            "pressure_vapor",
-            "qn_pressure_vapor",
-            "pressure_air_site",
-            "qn_pressure_air_site",
-            "temperature_air_mean_2m",
-            "qn_temperature_air_mean_2m",
-            "humidity",
-            "qn_humidity",
-            "temperature_air_max_2m",
-            "qn_temperature_air_max_2m",
-            "temperature_air_min_2m",
-            "qn_temperature_air_min_2m",
-            "temperature_air_min_0_05m",
-            "qn_temperature_air_min_0_05m",
-        ]
+        first_point = points[0]
+        assert first_point["measurement"] == "weather"
+        assert first_point["time"] == "2019-01-01T00:00:00+00:00"
+        assert first_point["tags"] == {
+            "station_id": "01048",
+            "dataset": "climate_summary",
+            "resolution": "daily",
+        }
+        assert first_point["fields"] == {
+            "cloud_cover_total": 7.4,
+            "humidity": 84.0,
+            "precipitation_form": 8.0,
+            "precipitation_height": 0.9,
+            "pressure_air_site": 991.9,
+            "pressure_vapor": 7.9,
+            "qn_cloud_cover_total": 10.0,
+            "qn_humidity": 10.0,
+            "qn_precipitation_form": 10.0,
+            "qn_precipitation_height": 10.0,
+            "qn_pressure_air_site": 10.0,
+            "qn_pressure_vapor": 10.0,
+            "qn_snow_depth": 10.0,
+            "qn_sunshine_duration": 10.0,
+            "qn_temperature_air_max_2m": 10.0,
+            "qn_temperature_air_mean_2m": 10.0,
+            "qn_temperature_air_min_0_05m": 10.0,
+            "qn_temperature_air_min_2m": 10.0,
+            "qn_wind_gust_max": 10.0,
+            "qn_wind_speed": 10.0,
+            "snow_depth": 0.0,
+            "sunshine_duration": 0.0,
+            "temperature_air_max_2m": 7.5,
+            "temperature_air_mean_2m": 5.9,
+            "temperature_air_min_0_05m": 1.5,
+            "temperature_air_min_2m": 2.0,
+            "wind_gust_max": 19.9,
+            "wind_speed": 8.5,
+        }
 
 
-@surrogate("influxdb.InfluxDBClient")
 @pytest.mark.remote
 def test_export_influxdb1_tidy(settings_convert_units_false: Settings) -> None:
     """Test export of DataFrame to influxdb v1."""
+    pytest.importorskip("influxdb")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        periods=Period.RECENT,
+        start_date="2019-01-01",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1250,26 +1254,28 @@ def test_export_influxdb1_tidy(settings_convert_units_false: Settings) -> None:
             batch_size=50000,
         )
         points = mock_client.write_points.call_args.kwargs["points"]
-        assert points[0]["measurement"] == "weather"
-        assert list(points[0]["fields"].keys()) == [
-            "station_id",
-            "resolution",
-            "dataset",
-            "parameter",
-            "value",
-            "quality",
-        ]
+        first_point = points[0]
+        assert first_point["measurement"] == "weather"
+        assert first_point["time"]
+        assert first_point["tags"] == {
+            "station_id": "01048",
+            "resolution": "daily",
+            "dataset": "climate_summary",
+            "parameter": "cloud_cover_total",
+        }
+        assert first_point["fields"] == {
+            "value": 7.4,
+            "quality": 10.0,
+        }
 
 
-@surrogate("influxdb_client.InfluxDBClient")
-@surrogate("influxdb_client.Point")
-@surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
 @pytest.mark.remote
 def test_export_influxdb2_wide(settings_convert_units_false_wide_shape: Settings) -> None:
     """Test export of DataFrame to influxdb v2."""
+    pytest.importorskip("influxdb_client")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        periods=Period.RECENT,
+        start_date="2019-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1280,24 +1286,60 @@ def test_export_influxdb2_wide(settings_convert_units_false_wide_shape: Settings
             side_effect=[mock_client],
             create=True,
         ) as mock_connect,
-        mock.patch(
-            "influxdb_client.Point",
-            create=True,
-        ),
     ):
         values.to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
         mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
+        mock_client.write_api.assert_called_once()
+        mock_client.write_api().write.assert_called_once_with(
+            bucket="dwd",
+            record=mock.ANY,
+        )
+        points = mock_client.write_api().write.call_args.kwargs["record"]
+        first_point = points[0]
+        assert first_point._tags == {  # noqa: SLF001
+            "station_id": "01048",
+            "dataset": "climate_summary",
+            "resolution": "daily",
+        }
+        assert first_point._fields == {
+            "cloud_cover_total": 7.4,
+            "humidity": 84.0,
+            "precipitation_form": 8.0,
+            "precipitation_height": 0.9,
+            "pressure_air_site": 991.9,
+            "pressure_vapor": 7.9,
+            "qn_cloud_cover_total": 10.0,
+            "qn_humidity": 10.0,
+            "qn_precipitation_form": 10.0,
+            "qn_precipitation_height": 10.0,
+            "qn_pressure_air_site": 10.0,
+            "qn_pressure_vapor": 10.0,
+            "qn_snow_depth": 10.0,
+            "qn_sunshine_duration": 10.0,
+            "qn_temperature_air_max_2m": 10.0,
+            "qn_temperature_air_mean_2m": 10.0,
+            "qn_temperature_air_min_0_05m": 10.0,
+            "qn_temperature_air_min_2m": 10.0,
+            "qn_wind_gust_max": 10.0,
+            "qn_wind_speed": 10.0,
+            "snow_depth": 0.0,
+            "sunshine_duration": 0.0,
+            "temperature_air_max_2m": 7.5,
+            "temperature_air_mean_2m": 5.9,
+            "temperature_air_min_0_05m": 1.5,
+            "temperature_air_min_2m": 2.0,
+            "wind_gust_max": 19.9,
+            "wind_speed": 8.5,
+        }
 
 
-@surrogate("influxdb_client.InfluxDBClient")
-@surrogate("influxdb_client.Point")
-@surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
 @pytest.mark.remote
 def test_export_influxdb2_tidy(settings_convert_units_false: Settings) -> None:
     """Test export of DataFrame to influxdb v2."""
+    pytest.importorskip("influxdb_client")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        periods=Period.RECENT,
+        start_date="2019-01-01",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1308,26 +1350,35 @@ def test_export_influxdb2_tidy(settings_convert_units_false: Settings) -> None:
             side_effect=[mock_client],
             create=True,
         ) as mock_connect,
-        mock.patch(
-            "influxdb_client.Point",
-            create=True,
-        ),
     ):
         values.to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
         mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
+        mock_client.write_api.assert_called_once()
+        mock_client.write_api().write.assert_called_once_with(
+            bucket="dwd",
+            record=mock.ANY,
+        )
+        points = mock_client.write_api().write.call_args.kwargs["record"]
+        first_point = points[0]
+        assert first_point._tags == {  # noqa: SLF001
+            "station_id": "01048",
+            "resolution": "daily",
+            "dataset": "climate_summary",
+            "parameter": "cloud_cover_total",
+        }
+        assert first_point._fields == {
+            "value": 7.4,
+            "quality": 10.0,
+        }
 
 
-@surrogate("influxdb_client_3.InfluxDBClient3")
-@surrogate("influxdb_client_3.Point")
-@surrogate("influxdb_client_3.WriteOptions")
-@surrogate("influxdb_client_3.write_client_options")
-@surrogate("influxdb_client_3.write_client.client.write_api.WriteType")
 @pytest.mark.remote
 def test_export_influxdb3_wide(settings_convert_units_false_wide_shape: Settings) -> None:
     """Test export of DataFrame to influxdb v3."""
+    pytest.importorskip("influxdb_client_3")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        periods=Period.RECENT,
+        start_date="2019-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1335,42 +1386,63 @@ def test_export_influxdb3_wide(settings_convert_units_false_wide_shape: Settings
         mock.patch(
             "influxdb_client_3.InfluxDBClient3",
         ) as mock_client,
-        mock.patch(
-            "influxdb_client_3.Point",
-        ),
-        mock.patch(
-            "influxdb_client_3.WriteOptions",
-        ) as mock_write_options,
-        mock.patch(
-            "influxdb_client_3.write_client_options",
-        ) as mock_write_client_options,
-        mock.patch(
-            "influxdb_client_3.write_client.client.write_api.WriteType",
-        ) as mock_write_type,
     ):
         values.to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
-        mock_write_options.assert_called_once_with(write_type=mock_write_type.synchronous)
-        mock_write_client_options.assert_called_once_with(WriteOptions=mock_write_options())
         mock_client.assert_called_once_with(
             host="localhost",
             org="orga",
-            database="dwd",
             token="token",  # noqa: S106
-            write_client_options=mock_write_client_options(),
+            write_client_options=mock.ANY,
+            database="dwd",
         )
+        write_options = mock_client.call_args.kwargs["write_client_options"]["WriteOptions"]
+        assert write_options.write_type.name == "synchronous"
+        points = mock_client().write.call_args.kwargs["record"]
+        first_point = points[0]
+        assert first_point._tags == {  # noqa: SLF001
+            "station_id": "01048",
+            "dataset": "climate_summary",
+            "resolution": "daily",
+        }
+        assert first_point._fields == {
+            "cloud_cover_total": 7.4,
+            "humidity": 84.0,
+            "precipitation_form": 8.0,
+            "precipitation_height": 0.9,
+            "pressure_air_site": 991.9,
+            "pressure_vapor": 7.9,
+            "qn_cloud_cover_total": 10.0,
+            "qn_humidity": 10.0,
+            "qn_precipitation_form": 10.0,
+            "qn_precipitation_height": 10.0,
+            "qn_pressure_air_site": 10.0,
+            "qn_pressure_vapor": 10.0,
+            "qn_snow_depth": 10.0,
+            "qn_sunshine_duration": 10.0,
+            "qn_temperature_air_max_2m": 10.0,
+            "qn_temperature_air_mean_2m": 10.0,
+            "qn_temperature_air_min_0_05m": 10.0,
+            "qn_temperature_air_min_2m": 10.0,
+            "qn_wind_gust_max": 10.0,
+            "qn_wind_speed": 10.0,
+            "snow_depth": 0.0,
+            "sunshine_duration": 0.0,
+            "temperature_air_max_2m": 7.5,
+            "temperature_air_mean_2m": 5.9,
+            "temperature_air_min_0_05m": 1.5,
+            "temperature_air_min_2m": 2.0,
+            "wind_gust_max": 19.9,
+            "wind_speed": 8.5,
+        }
 
 
-@surrogate("influxdb_client_3.InfluxDBClient3")
-@surrogate("influxdb_client_3.Point")
-@surrogate("influxdb_client_3.WriteOptions")
-@surrogate("influxdb_client_3.write_client_options")
-@surrogate("influxdb_client_3.write_client.client.write_api.WriteType")
 @pytest.mark.remote
 def test_export_influxdb3_tidy(settings_convert_units_false: Settings) -> None:
     """Test export of DataFrame to influxdb v3."""
+    pytest.importorskip("influxdb_client_3")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        periods=Period.RECENT,
+        start_date="2019-01-01",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1378,26 +1450,24 @@ def test_export_influxdb3_tidy(settings_convert_units_false: Settings) -> None:
         mock.patch(
             "influxdb_client_3.InfluxDBClient3",
         ) as mock_client,
-        mock.patch(
-            "influxdb_client_3.Point",
-        ),
-        mock.patch(
-            "influxdb_client_3.WriteOptions",
-        ) as mock_write_options,
-        mock.patch(
-            "influxdb_client_3.write_client_options",
-        ) as mock_write_client_options,
-        mock.patch(
-            "influxdb_client_3.write_client.client.write_api.WriteType",
-        ) as mock_write_type,
     ):
         values.to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
-        mock_write_options.assert_called_once_with(write_type=mock_write_type.synchronous)
-        mock_write_client_options.assert_called_once_with(WriteOptions=mock_write_options())
         mock_client.assert_called_once_with(
             host="localhost",
             org="orga",
             database="dwd",
             token="token",  # noqa: S106
-            write_client_options=mock_write_client_options(),
+            write_client_options=mock.ANY,
         )
+        points = mock_client().write.call_args.kwargs["record"]
+        first_point = points[0]
+        assert first_point._tags == {  # noqa: SLF001
+            "station_id": "01048",
+            "resolution": "daily",
+            "dataset": "climate_summary",
+            "parameter": "cloud_cover_total",
+        }
+        assert first_point._fields == {
+            "value": 7.4,
+            "quality": 10.0,
+        }

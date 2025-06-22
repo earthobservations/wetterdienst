@@ -6,6 +6,9 @@
 - Drop upper version pins for fsspec and tzdata
 - Make retry of `download_file` more robust
 
+### Fix
+- Export: Fix influx tags and fields
+
 ### Refactor
 - Introduce `wetterdienst.model`, streamline others
 

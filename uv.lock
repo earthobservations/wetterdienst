@@ -4204,12 +4204,6 @@ wheels = [
 ]
 
 [[package]]
-name = "surrogate"
-version = "0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a5/d3/e6ab988593d3c6779d79a676953da49caefbd6b7cd9f0ce4d3b4eae6f1d1/surrogate-0.1.tar.gz", hash = "sha256:edebec660d728325be1d52cab40d778d4c75ba04f927f4aba12d35f730b2df03", size = 3370, upload-time = "2019-04-11T04:13:59.405Z" }
-
-[[package]]
 name = "sympy"
 version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4813,7 +4807,6 @@ dev = [
     { name = "pytest-rerunfailures" },
     { name = "pytest-xdist" },
     { name = "ruff" },
-    { name = "surrogate" },
     { name = "zizmor" },
 ]
 
@@ -4904,7 +4897,6 @@ dev = [
     { name = "pytest-rerunfailures" },
     { name = "pytest-xdist", specifier = ">=3" },
     { name = "ruff", specifier = ">=0.3.3" },
-    { name = "surrogate", specifier = "==0.1" },
     { name = "zizmor", specifier = ">=1.4.1" },
 ]
 

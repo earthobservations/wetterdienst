@@ -13,7 +13,7 @@ set -e
 set -x
 
 if [ "${flavor}" = "testing" ]; then
-  uv pip install .[bufr,explorer,export,interpolation,plotting,radar,radarplus,restapi,sql]
+  uv pip install .[bufr,explorer,export,influxdb,interpolation,plotting,radar,radarplus,restapi,sql]
 
 elif [ "${flavor}" = "docs" ]; then
   uv pip install .[docs,interpolation]
