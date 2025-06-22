@@ -8,6 +8,9 @@
 ### Refactor
 - Introduce `wetterdienst.model`, streamline others
 
+### Fix
+- Include resolution column in wide format
+
 ## 0.109.0 - 2025-06-03
 
 ### Feature
