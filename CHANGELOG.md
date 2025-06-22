@@ -4,6 +4,7 @@
 
 ### Feature
 - Drop upper version pins for fsspec and tzdata
+- Make retry of `download_file` more robust
 
 ### Refactor
 - Introduce `wetterdienst.model`, streamline others
