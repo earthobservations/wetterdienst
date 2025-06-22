@@ -461,10 +461,12 @@ def test_values_dwd_sql_tabular(client: TestClient) -> None:
     assert len(data) >= 8
     item = data[0]
     assert item == {
+        "station_id": "01048",
+        "date": "2020-01-25T00:00:00+00:00",
+        "resolution": "daily",
+        "dataset": "climate_summary",
         "cloud_cover_total": 0.8625,
         "qn_cloud_cover_total": 10.0,
-        "dataset": "climate_summary",
-        "date": "2020-01-25T00:00:00+00:00",
         "humidity": 0.89,
         "qn_humidity": 10.0,
         "precipitation_form": 0.0,
@@ -477,7 +479,6 @@ def test_values_dwd_sql_tabular(client: TestClient) -> None:
         "qn_pressure_vapor": 10.0,
         "snow_depth": 0,
         "qn_snow_depth": 10.0,
-        "station_id": "01048",
         "sunshine_duration": 0.0,
         "qn_sunshine_duration": 10.0,
         "temperature_air_max_2m": -0.6,

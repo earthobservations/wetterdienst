@@ -24,6 +24,7 @@ def dwd_climate_summary_wide_columns() -> list[str]:
     """Provide expected columns for climate summary wide DataFrame."""
     return [
         "station_id",
+        "resolution",
         "dataset",
         "date",
         "fx",
@@ -260,6 +261,7 @@ def test_dwd_observation_data_result_wide_single_dataset(
     expected_df = pl.DataFrame(
         {
             "station_id": ["01048"] * 2,
+            "resolution": ["daily"] * 2,
             "dataset": ["climate_summary"] * 2,
             "date": [
                 dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
@@ -296,6 +298,7 @@ def test_dwd_observation_data_result_wide_single_dataset(
         },
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "fx": pl.Float64,
@@ -351,6 +354,7 @@ def test_dwd_observation_data_result_wide_single_parameter(
     given_df = request.values.all().df
     assert given_df.columns == [
         "station_id",
+        "resolution",
         "dataset",
         "date",
         "rsk",
@@ -359,6 +363,7 @@ def test_dwd_observation_data_result_wide_single_parameter(
     expected_df = pl.DataFrame(
         {
             "station_id": ["01048"] * 2,
+            "resolution": ["daily"] * 2,
             "dataset": ["climate_summary"] * 2,
             "date": [
                 dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
@@ -369,6 +374,7 @@ def test_dwd_observation_data_result_wide_single_parameter(
         },
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "rsk": pl.Float64,
@@ -398,6 +404,7 @@ def test_dwd_observation_data_result_wide_convert_units(
     expected_df = pl.DataFrame(
         {
             "station_id": ["01048"] * 2,
+            "resolution": ["daily"] * 2,
             "dataset": ["climate_summary"] * 2,
             "date": [
                 dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
@@ -434,6 +441,7 @@ def test_dwd_observation_data_result_wide_convert_units(
         },
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "fx": pl.Float64,
@@ -487,6 +495,7 @@ def test_dwd_observation_data_result_wide_two_datasets(
     expected_df = pl.DataFrame(
         {
             "station_id": ["01048"] * 4,
+            "resolution": ["daily"] * 4,
             "dataset": ["climate_summary"] * 2 + ["precipitation_more"] * 2,
             "date": [
                 dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
@@ -533,6 +542,7 @@ def test_dwd_observation_data_result_wide_two_datasets(
         },
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "climate_summary_fx": pl.Float64,

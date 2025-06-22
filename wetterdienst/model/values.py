@@ -378,7 +378,7 @@ class TimeseriesValues(ABC):
                 .alias("parameter"),
             )
         df_wide = df.select(
-            [pl.col("station_id"), pl.col("dataset"), pl.col("date")],
+            [pl.col("station_id"), pl.col("resolution"), pl.col("dataset"), pl.col("date")],
         ).unique()
 
         if not df.is_empty():

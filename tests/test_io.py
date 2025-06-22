@@ -35,6 +35,7 @@ def dwd_climate_summary_tabular_columns() -> list[str]:
     """Provide tabular columns for climate summary."""
     return [
         "station_id",
+        "resolution",
         "dataset",
         "date",
         "wind_gust_max",
@@ -756,6 +757,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
     df = pl.read_excel(filename)
     assert df.columns == [
         "station_id",
+        "resolution",
         "dataset",
         "date",
         "wind_gust_max",
@@ -792,6 +794,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
     first_record = df.head(1).to_dicts()[0]
     assert first_record == {
         "station_id": "01048",
+        "resolution": "daily",
         "dataset": "climate_summary",
         "date": "2019-01-01T00:00:00+00:00",
         "wind_gust_max": 19.9,
@@ -826,6 +829,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
     last_record = df.tail(1).to_dicts()[0]
     assert last_record == {
         "station_id": "01048",
+        "resolution": "daily",
         "dataset": "climate_summary",
         "date": "2020-01-01T00:00:00+00:00",
         "wind_gust_max": 6.9,
@@ -883,7 +887,7 @@ def test_export_parquet(
     # Read back Parquet file.
     table = pq.read_table(filename)
     # Validate dimensions.
-    assert table.num_columns == 31
+    assert table.num_columns == 32
     assert table.num_rows == 366
     # Validate column names.
     assert table.column_names == dwd_climate_summary_tabular_columns
@@ -921,7 +925,7 @@ def test_export_zarr(
     root = zarr.open(filename, mode="r")
     group = root.get("climate_summary")
     # Validate dimensions.
-    assert len(group) == 32
+    assert len(group) == 33
     assert len(group.index) == 366
     # Validate column names.
     columns = set(group.keys())
@@ -973,7 +977,7 @@ def test_export_feather(
     # Read back Feather file.
     table = feather.read_table(filename)
     # Validate dimensions.
-    assert table.num_columns == 31
+    assert table.num_columns == 32
     assert table.num_rows == 366
     # Validate column names.
     assert table.column_names == dwd_climate_summary_tabular_columns
@@ -1006,9 +1010,10 @@ def test_export_sqlite(settings_convert_units_false_wide_shape: Settings, tmp_pa
     cursor.close()
     connection.close()
     first = list(results[0])
-    first[2] = dt.datetime.fromisoformat(first[2])
+    first[3] = dt.datetime.fromisoformat(first[3])
     assert first == [
         "01048",
+        "daily",
         "climate_summary",
         dt.datetime(2019, 1, 1),  # noqa: DTZ001
         19.9,
@@ -1041,9 +1046,10 @@ def test_export_sqlite(settings_convert_units_false_wide_shape: Settings, tmp_pa
         10.0,
     ]
     last = list(results[-1])
-    last[2] = dt.datetime.fromisoformat(last[2])
+    last[3] = dt.datetime.fromisoformat(last[3])
     assert last == [
         "01048",
+        "daily",
         "climate_summary",
         dt.datetime(2020, 1, 1),  # noqa: DTZ001
         6.9,
