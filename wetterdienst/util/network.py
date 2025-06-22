@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 import stamina
+from aiohttp import ClientResponse
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
@@ -261,7 +262,11 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
     return fs.find(url)
 
 
-@stamina.retry(on=lambda error: error.status == 429 or 500 <= error.status < 600, attempts=2)
+@stamina.retry(
+    on=lambda response: isinstance(response, ClientResponse)
+    and (response.status == 429 or 500 <= response.status < 600),
+    attempts=2,
+)
 def download_file(
     url: str,
     cache_dir: Path,
