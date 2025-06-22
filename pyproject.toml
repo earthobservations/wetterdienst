@@ -221,7 +221,6 @@ dev = [
   "pytest-cov>=4",
   "pytest-rerunfailures",
   "pytest-xdist>=3",
-  "surrogate==0.1",
   # formatting and linting
   "ruff>=0.3.3",
   "poethepoet>=0.27.0",
