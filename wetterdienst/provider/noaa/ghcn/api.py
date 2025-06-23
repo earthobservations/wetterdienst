@@ -206,28 +206,32 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
         df = pl.read_csv(
             payload,
-            has_header=False,
-            columns=[
-                "column_1",
-                "column_2",
-                "column_3",
-                "column_4",
-                "column_5",
-                "column_6",
-            ],
+            has_header=True,
         )
-        df.columns = [
-            "station_id",
-            "latitude",
-            "longitude",
-            "height",
-            "state",
-            "name",
-        ]
+        df = df.select(
+            [
+                "GHCN_ID",
+                "LATITUDE",
+                "LONGITUDE",
+                "ELEVATION",
+                "STATE",
+                "NAME",
+            ]
+        )
+        df = df.rename(
+            {
+                "GHCN_ID": "station_id",
+                "LATITUDE": "latitude",
+                "LONGITUDE": "longitude",
+                "ELEVATION": "height",
+                "STATE": "state",
+                "NAME": "name",
+            }
+        )
         df = df.with_columns(
             pl.lit("hourly", dtype=pl.String).alias("resolution"),
             pl.lit("data", dtype=pl.String).alias("dataset"),
-            pl.all().str.strip_chars().replace("", None),
+            cs.string().str.strip_chars().replace("", None),
         )
         return df.lazy()
 

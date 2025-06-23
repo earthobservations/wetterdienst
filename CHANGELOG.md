@@ -8,6 +8,7 @@
 
 ### Fix
 - Export: Fix influx tags and fields
+- \[NOAA GHCN hourly\] Fix metadata creation
 
 ### Refactor
 - Introduce `wetterdienst.model`, streamline others
