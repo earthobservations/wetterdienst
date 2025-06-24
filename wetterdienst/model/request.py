@@ -393,7 +393,7 @@ class TimeseriesRequest:
             StationsResult: Filtered stations.
 
         """
-        from wetterdienst.util.geo import derive_nearest_neighbours
+        from wetterdienst.util.geo import derive_nearest_neighbours  # noqa: PLC0415
 
         rank = int(rank)
         if rank <= 0:
@@ -503,7 +503,7 @@ class TimeseriesRequest:
             StationsResult: Filtered stations.
 
         """
-        import duckdb
+        import duckdb  # noqa: PLC0415
 
         df = self.all().df
         df = df.with_columns(
@@ -532,7 +532,7 @@ class TimeseriesRequest:
             InterpolatedValuesResult: Interpolated values.
 
         """
-        from wetterdienst.core.interpolate import get_interpolated_df
+        from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
 
         if not self.start_date:
             msg = "start_date and end_date are required for interpolation"
@@ -582,7 +582,7 @@ class TimeseriesRequest:
 
         Summarize means we take any available data of the closest station as representative for the timestamp.
         """
-        from wetterdienst.core.summarize import get_summarized_df
+        from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
 
         if not self.start_date:
             msg = "start_date and end_date are required for summarization"

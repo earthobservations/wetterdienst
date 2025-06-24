@@ -91,7 +91,7 @@ class RadarResult:
 
 
 # TODO: add core class information
-class DwdRadarValues:
+class DwdRadarValues:  # noqa: PLW1641
     """API for DWD radar data requests.
 
     Request radar data from different places on the DWD data repository.

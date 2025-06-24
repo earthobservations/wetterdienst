@@ -156,7 +156,7 @@ class ExportMixin:
             Filtered DataFrame
 
         """
-        import duckdb
+        import duckdb  # noqa: PLC0415
 
         df = df.with_columns(pl.col("date").dt.replace_time_zone(None))  # uses df from local scope
         sql = f"FROM df WHERE {sql}"
@@ -240,7 +240,7 @@ class ExportMixin:
                 """  # noqa:E501
 
                 log.info(f"Writing to Zarr group '{filepath}'")
-                import xarray
+                import xarray  # noqa: PLC0415
 
                 # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
                 # Solution: Fill gaps in the data.
@@ -301,7 +301,7 @@ class ExportMixin:
 
             """  # noqa:E501
             log.info(f"Writing to DuckDB. database={database}, table={tablename}")
-            import duckdb
+            import duckdb  # noqa: PLC0415
 
             df = copy(self.df)
 
@@ -404,7 +404,7 @@ class ExportMixin:
 
             # Set up the connection.
             if version == 1:
-                from influxdb import InfluxDBClient
+                from influxdb import InfluxDBClient  # noqa: PLC0415
 
                 client = InfluxDBClient(
                     host=connspec.host,
@@ -416,26 +416,26 @@ class ExportMixin:
                 )
                 client.create_database(database)
             elif version == 2:
-                from influxdb_client import InfluxDBClient as InfluxDBClientV2
-                from influxdb_client import Point as PointV2
-                from influxdb_client.client.write_api import SYNCHRONOUS
+                from influxdb_client import InfluxDBClient as InfluxDBClientV2  # noqa: PLC0415
+                from influxdb_client import Point as PointV2  # noqa: PLC0415
+                from influxdb_client.client.write_api import SYNCHRONOUS  # noqa: PLC0415
 
                 ssl = protocol.endswith("s")
                 url = f"http{(ssl and 's') or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
                 client = InfluxDBClientV2(url=url, org=connspec.username, token=connspec.password)
                 write_api = client.write_api(write_options=SYNCHRONOUS)
             elif version == 3:
-                from influxdb_client_3 import (
+                from influxdb_client_3 import (  # noqa: PLC0415
                     InfluxDBClient3 as InfluxDBClientV3,
                 )
-                from influxdb_client_3 import (
+                from influxdb_client_3 import (  # noqa: PLC0415
                     Point as PointV3,
                 )
-                from influxdb_client_3 import (
+                from influxdb_client_3 import (  # noqa: PLC0415
                     WriteOptions,
                     write_client_options,
                 )
-                from influxdb_client_3.write_client.client.write_api import WriteType
+                from influxdb_client_3.write_client.client.write_api import WriteType  # noqa: PLC0415
 
                 write_options = WriteOptions(write_type=WriteType.synchronous)
                 wco = write_client_options(WriteOptions=write_options)
@@ -594,7 +594,7 @@ class ExportMixin:
             # see https://www.sqlite.org/limits.html#max_variable_number.
             chunk_size = 5000
             if target.startswith("sqlite://"):
-                import sqlite3
+                import sqlite3  # noqa: PLC0415
 
                 if sqlite3.sqlite_version_info < (3, 32, 0):
                     chunk_size = int(999 / len(self.df.columns))

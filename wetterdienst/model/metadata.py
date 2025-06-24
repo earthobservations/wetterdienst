@@ -32,7 +32,7 @@ POSSIBLE_SEPARATORS = ("/", ".", ":")
 DATASET_NAME_DEFAULT = "data"
 
 
-class ParameterModel(BaseModel):
+class ParameterModel(BaseModel):  # noqa: PLW1641
     """Parameter model for a provider."""
 
     name: str
@@ -58,7 +58,7 @@ class ParameterModel(BaseModel):
         )
 
 
-class DatasetModel(BaseModel):
+class DatasetModel(BaseModel):  # noqa: PLW1641
     """Dataset model for a provider."""
 
     name: str

@@ -73,7 +73,7 @@ def visualize(
 ) -> None:
     """Visualize regular and interpolated data."""
     try:
-        import plotly.graph_objects as go
+        import plotly.graph_objects as go  # noqa: PLC0415
     except ImportError as e:
         msg = "Please install extra `plotting` with wetterdienst[plotting]"
         raise ImportError(msg) from e

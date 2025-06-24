@@ -69,7 +69,7 @@ class DwdRadarSitesGenerator:  # pragma: no cover
     def read_pdf(self) -> pl.DataFrame:
         """Parse PDF file and build DataFrame containing radar site information."""
         # Read table from PDF.
-        import tabula
+        import tabula  # noqa: PLC0415
 
         df = tabula.read_pdf(self.url, multiple_tables=False, pages=1)[0]
 

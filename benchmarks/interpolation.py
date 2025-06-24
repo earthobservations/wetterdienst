@@ -115,7 +115,7 @@ def interpolate_data(latitude: float, longitude: float, data: Data) -> None:
 def visualize_points(data: Data) -> None:
     """Visualize the weather stations and the interpolated point."""
     try:
-        import plotly.graph_objects as go
+        import plotly.graph_objects as go  # noqa: PLC0415
     except ImportError as e:
         msg = "Please install extra `plotting` with wetterdienst[plotting]"
         raise ImportError(msg) from e

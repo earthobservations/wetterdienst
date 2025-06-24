@@ -177,7 +177,7 @@ class StationsResult(ExportMixin):
 
     def get_metadata(self) -> _Metadata:
         """Get metadata for the provider and producer."""
-        from wetterdienst import Info
+        from wetterdienst import Info  # noqa: PLC0415
 
         info = Info()
         name_local = self.stations.metadata.name_local
@@ -302,8 +302,8 @@ class StationsResult(ExportMixin):
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the stations DataFrame."""
         try:
-            import plotly.express as px
-            import plotly.graph_objects as go
+            import plotly.express as px  # noqa: PLC0415
+            import plotly.graph_objects as go  # noqa: PLC0415
         except ImportError as e:
             msg = (
                 "To use this method, please install the optional dependencies for plotly: "
@@ -553,8 +553,8 @@ class ValuesResult(_ValuesResult):
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         try:
-            import plotly.express as px
-            import plotly.graph_objects as go
+            import plotly.express as px  # noqa: PLC0415
+            import plotly.graph_objects as go  # noqa: PLC0415
         except ImportError as e:
             msg = (
                 "To use this method, please install the optional dependencies for plotly: "
@@ -756,8 +756,8 @@ class InterpolatedValuesResult(_ValuesResult):
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         try:
-            import plotly.express as px
-            import plotly.graph_objects as go
+            import plotly.express as px  # noqa: PLC0415
+            import plotly.graph_objects as go  # noqa: PLC0415
         except ImportError as e:
             msg = (
                 "To use this method, please install the optional dependencies for plotly: "
@@ -954,8 +954,8 @@ class SummarizedValuesResult(_ValuesResult):
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         try:
-            import plotly.express as px
-            import plotly.graph_objects as go
+            import plotly.express as px  # noqa: PLC0415
+            import plotly.graph_objects as go  # noqa: PLC0415
         except ImportError as e:
             msg = (
                 "To use this method, please install the optional dependencies for plotly: "
