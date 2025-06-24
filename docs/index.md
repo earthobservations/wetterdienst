@@ -1,7 +1,13 @@
+# Overview
+
+```{include} ../README.md
+:relative-docs: docs/
+:start-line: 1
+```
+
 ```{toctree}
 :hidden:
 
-overview.md
 data/index.md
 usage/index.md
 library/index.md
