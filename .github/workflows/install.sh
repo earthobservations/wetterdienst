@@ -13,9 +13,9 @@ set -e
 set -x
 
 if [ "${flavor}" = "testing" ]; then
-  uv pip install .[bufr,explorer,export,influxdb,interpolation,plotting,radar,radarplus,restapi,sql]
+  uv sync --active --extra bufr --extra explorer --extra export --extra influxdb --extra interpolation --extra plotting --extra radar --extra radarplus --extra restapi --extra sql
 
 elif [ "${flavor}" = "docs" ]; then
-  uv pip install .[docs,interpolation]
+  uv sync --active --extra docs --extra interpolation
 
 fi
