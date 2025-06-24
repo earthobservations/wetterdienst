@@ -295,7 +295,7 @@ class DwdRoadValues(TimeseriesValues):
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """Read the road weather station data from a given file and returns a DataFrame."""
-        import pdbufr
+        import pdbufr  # noqa: PLC0415
 
         _, file = filename_and_file
         parameter_names = [parameter.name_original for parameter in parameters]

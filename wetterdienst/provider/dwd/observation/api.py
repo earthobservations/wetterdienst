@@ -295,7 +295,7 @@ class DwdObservationRequest(TimeseriesRequest):
         language: Literal["en", "de"] = "en",
     ) -> dict:
         """Describe fields of a dataset."""
-        from wetterdienst.provider.dwd.observation.fields import read_description
+        from wetterdienst.provider.dwd.observation.fields import read_description  # noqa: PLC0415
 
         if isinstance(dataset, str | Iterable):
             parameter_template = ParameterSearch.parse(dataset)

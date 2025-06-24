@@ -47,7 +47,7 @@ def get_date_string_from_filename(filename: str, pattern: re.Pattern) -> str | N
 
 def verify_hdf5(buffer: BytesIO) -> None:
     """Verify that the buffer is a valid HDF5 file."""
-    import h5py
+    import h5py  # noqa: PLC0415
 
     buffer.seek(0)
     try:

@@ -44,8 +44,8 @@ class FileDirCache(MutableMapping):
             listings_cache_location: Directory path at which the listings cache file is stored. If None,
 
         """
-        import platformdirs
-        from diskcache import Cache
+        import platformdirs  # noqa: PLC0415
+        from diskcache import Cache  # noqa: PLC0415
 
         listings_expiry_time = listings_expiry_time and float(listings_expiry_time)
 
@@ -113,10 +113,10 @@ class HTTPFileSystem(_HTTPFileSystem):
 
     def __init__(
         self,
+        *args: tuple,
         use_listings_cache: bool | None = None,
         listings_expiry_time: float | None = None,
         listings_cache_location: str | None = None,
-        *args: tuple,
         **kwargs: dict,
     ) -> None:
         """Initialize the HTTPFileSystem.

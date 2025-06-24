@@ -655,7 +655,7 @@ def stripes_values(
 
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
     """Start the REST API service."""
-    from uvicorn.main import run
+    from uvicorn.main import run  # noqa: PLC0415
 
     setup_logging()
 

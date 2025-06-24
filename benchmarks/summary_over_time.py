@@ -55,8 +55,8 @@ def main() -> None:
     regular_df_05282 = get_regular_df(start_date, end_date, "05282")
 
     try:
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
+        import plotly.graph_objects as go  # noqa: PLC0415
+        from plotly.subplots import make_subplots  # noqa: PLC0415
     except ImportError as e:
         msg = "Please install extra `plotting` with wetterdienst[plotting]"
         raise ImportError(msg) from e

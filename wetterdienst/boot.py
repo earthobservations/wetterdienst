@@ -5,7 +5,7 @@
 
 def get_version(appname: str) -> str:
     """Get version of package."""
-    from importlib.metadata import PackageNotFoundError, version
+    from importlib.metadata import PackageNotFoundError, version  # noqa: PLC0415
 
     try:
         return version(appname)

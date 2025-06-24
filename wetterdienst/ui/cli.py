@@ -573,7 +573,7 @@ def cli() -> None:
 @cli.command("cache", section=basic_section)
 def cache() -> None:
     """Display cache location."""
-    from wetterdienst import Settings
+    from wetterdienst import Settings  # noqa: PLC0415
 
     print(Settings().cache_dir)  # noqa: T201
 
@@ -581,7 +581,7 @@ def cache() -> None:
 @cli.command("info", section=basic_section)
 def info() -> None:
     """Display project information."""
-    from wetterdienst import Info
+    from wetterdienst import Info  # noqa: PLC0415
 
     print(Info())  # noqa: T201
 
@@ -602,7 +602,7 @@ def restapi(
     log.info(f"Starting {appname}")
     log.info(f"Starting HTTP web service on http://{listen}")
 
-    from wetterdienst.ui.restapi import start_service
+    from wetterdienst.ui.restapi import start_service  # noqa: PLC0415
 
     start_service(listen, reload=reload)
 
@@ -618,7 +618,7 @@ def explorer(
     set_logging_level(debug=debug)
 
     try:
-        from wetterdienst.ui.streamlit.explorer import app
+        from wetterdienst.ui.streamlit.explorer import app  # noqa: PLC0415
     except ImportError:
         msg = "Please install the explorer extras with 'pip install wetterdienst[explorer]'"
         log.exception(msg)
@@ -1289,8 +1289,8 @@ def radar(
     indent: int,
 ) -> None:
     """List radar stations."""
-    from wetterdienst.provider.dwd.radar.api import DwdRadarSites
-    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
+    from wetterdienst.provider.dwd.radar.api import DwdRadarSites  # noqa: PLC0415
+    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites  # noqa: PLC0415
 
     if dwd:
         data = DwdRadarSites().all()
@@ -1409,7 +1409,7 @@ def interactive(*, debug: bool) -> None:
     set_logging_level(debug=debug)
 
     try:
-        from wetterdienst.ui.streamlit.stripes import app
+        from wetterdienst.ui.streamlit.stripes import app  # noqa: PLC0415
     except ImportError:
         log.exception("Please install the stripes extras from stripes/requirements.txt")
         sys.exit(1)

@@ -1112,7 +1112,7 @@ def test_export_cratedb(
 @pytest.mark.remote
 def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -> None:
     """Test export of DataFrame to duckdb."""
-    import duckdb
+    import duckdb  # noqa: PLC0415
 
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],

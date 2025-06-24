@@ -8,7 +8,7 @@ import pytest
 @pytest.mark.xfail(reason="zlib.error: Error -3 while decompressing data: invalid literal/length/distance code")
 def test_benchmarks() -> None:
     """Test benchmarks."""
-    from benchmarks import (
+    from benchmarks import (  # noqa: PLC0415
         interpolation,
         interpolation_over_time,
         interpolation_precipitation_difference,

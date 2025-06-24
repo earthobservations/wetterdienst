@@ -14,9 +14,9 @@ from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 @pytest.fixture
 def client() -> TestClient:
     """Create test client."""
-    from fastapi.testclient import TestClient
+    from fastapi.testclient import TestClient  # noqa: PLC0415
 
-    from wetterdienst.ui.restapi import app
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
     return TestClient(app)
 

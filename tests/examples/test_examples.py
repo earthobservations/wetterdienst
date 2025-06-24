@@ -12,8 +12,8 @@ from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX
 @pytest.mark.cflake
 def test_examples() -> None:
     """Test DWD observation examples."""
-    from examples.provider.dwd.mosmix import dwd_mosmix_forecasts
-    from examples.provider.dwd.observation import (
+    from examples.provider.dwd.mosmix import dwd_mosmix_forecasts  # noqa: PLC0415
+    from examples.provider.dwd.observation import (  # noqa: PLC0415
         dwd_obs_climate_summary_duckdb_dump,
         dwd_obs_climate_summary_zarr_dump,
         dwd_obs_interpolate,
@@ -41,7 +41,7 @@ def test_examples() -> None:
 @pytest.mark.cflake
 def test_examples_failing_describe_fields() -> None:
     """Test DWD observation describe fields for daily climate data."""
-    from examples.provider.dwd.observation import dwd_obs_climate_summary_describe_fields
+    from examples.provider.dwd.observation import dwd_obs_climate_summary_describe_fields  # noqa: PLC0415
 
     assert dwd_obs_climate_summary_describe_fields.main() is None
 
@@ -49,7 +49,7 @@ def test_examples_failing_describe_fields() -> None:
 @pytest.mark.skipif(not ENSURE_ECCODES_PDBUFR, reason="eccodes and pdbufr required")
 def test_pdbufr_examples() -> None:
     """Test DWD observation PDBUFR examples."""
-    from examples.provider.dwd.road import dwd_road_validation
+    from examples.provider.dwd.road import dwd_road_validation  # noqa: PLC0415
 
     assert dwd_road_validation.main() is None
 
@@ -58,7 +58,7 @@ def test_pdbufr_examples() -> None:
 @pytest.mark.cflake
 def test_gaussian_example(tmp_path: Path) -> None:
     """Test DWD observation Gaussian model example."""
-    from examples.provider.dwd.observation import dwd_obs_gaussian_model
+    from examples.provider.dwd.observation import dwd_obs_gaussian_model  # noqa: PLC0415
 
     assert dwd_obs_gaussian_model.main(tmp_path) is None
 
@@ -68,7 +68,7 @@ def test_radar_examples() -> None:
     """Test DWD radar examples."""
     pytest.importorskip("wradlib")
 
-    from examples.provider.dwd.radar import (
+    from examples.provider.dwd.radar import (  # noqa: PLC0415
         dwd_radar_composite_rw,
         dwd_radar_radolan_cdc,
         dwd_radar_radolan_rw,

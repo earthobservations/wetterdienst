@@ -142,7 +142,7 @@ def _create_csv_line(columns: list[str]) -> str:
     if num_columns > 8:
         excess_columns = num_columns - 8
         station_name = " ".join(columns[-excess_columns - 2 : -1])
-        columns = columns[: -excess_columns - 2] + [station_name] + columns[-1:]
+        columns = [*columns[: -excess_columns - 2], station_name, *columns[-1:]]
     if num_columns == 7:
         # if there are only 7 columns, fill up to_date with empty string
         columns.insert(2, "")

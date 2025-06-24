@@ -427,8 +427,8 @@ def _get_stations_request(
     settings: Settings,
 ) -> TimeseriesRequest:
     """Create a request object for stations."""
-    from wetterdienst.provider.dwd.dmo import DwdDmoRequest
-    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
 
     # TODO: move this into Request core
     start_date, end_date = None, None
@@ -663,7 +663,7 @@ def _plot_stripes(  # noqa: C901
         msg = "name_threshold must be between 0.0 and 1.0"
         raise ValueError(msg)
 
-    import plotly.graph_objects as go
+    import plotly.graph_objects as go  # noqa: PLC0415
 
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]()
     cmap = CLIMATE_STRIPES_CONFIG[kind]["color_map"]
