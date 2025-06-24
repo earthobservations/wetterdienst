@@ -9,12 +9,13 @@
 ### Fix
 - Export: Fix influx tags and fields
 - \[NOAA GHCN hourly\] Fix metadata creation
+- Include resolution column in wide format
 
 ### Refactor
 - Introduce `wetterdienst.model`, streamline others
 
-### Fix
-- Include resolution column in wide format
+### Chore
+- Bump minimum kaleido version to `0.2.2`
 
 ## 0.109.0 - 2025-06-03
 
