@@ -11,6 +11,7 @@
 - Export: Fix influx tags and fields
 - \[NOAA GHCN hourly\] Fix metadata creation
 - Include resolution column in wide format
+- Disallow `polars==1.31.0` due to issues
 
 ### Refactor
 - Introduce `wetterdienst.model`, streamline others
