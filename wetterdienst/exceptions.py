@@ -33,3 +33,7 @@ class ProviderNotFoundError(Exception):
 
 class StationNotFoundError(Exception):
     """Raised when a station is not found in the station list."""
+
+
+class ApiNotFoundError(Exception):
+    """Raised when an API is not found in the API list."""

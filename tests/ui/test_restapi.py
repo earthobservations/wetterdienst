@@ -159,7 +159,10 @@ def test_stations_no_provider(client: TestClient) -> None:
         },
     )
     assert response.status_code == 404
-    assert "Choose provider and network from /api/coverage" in response.text
+    assert (
+        "No API available for provider abc and network abc. "
+        "Use /api/coverage to discover available providers and networks." in response.text
+    )
 
 
 def test_stations_no_network(client: TestClient) -> None:
@@ -175,7 +178,10 @@ def test_stations_no_network(client: TestClient) -> None:
         },
     )
     assert response.status_code == 404
-    assert "Choose provider and network from /api/coverage" in response.text
+    assert (
+        "No API available for provider dwd and network abc. "
+        "Use /api/coverage to discover available providers and networks."
+    ) in response.text
 
 
 def test_stations_wrong_format(client: TestClient) -> None:

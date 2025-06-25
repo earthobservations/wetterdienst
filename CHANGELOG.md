@@ -6,6 +6,7 @@
 - Drop upper version pins for fsspec and tzdata
 - Make retry of `download_file` more robust
 - Overhaul docs switching to `sphinx` and `myst-parser`
+- Improve exception handling in restapi
 
 ### Fix
 - Export: Fix influx tags and fields

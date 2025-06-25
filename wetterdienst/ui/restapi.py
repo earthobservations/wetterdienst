@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from starlette.responses import JSONResponse, RedirectResponse
 
 from wetterdienst import Author, Info, Settings, Wetterdienst
+from wetterdienst.exceptions import ApiNotFoundError, StartDateEndDateError
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -322,11 +323,10 @@ def stations(
 
     try:
         api = Wetterdienst(request.provider, request.network)
-    except KeyError as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
-        ) from e
+    except ApiNotFoundError as e:
+        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        log.exception(msg)
+        raise HTTPException(status_code=404, detail=msg) from e
 
     try:
         stations_ = get_stations(
@@ -335,7 +335,14 @@ def stations(
             date=None,
             settings=Settings(),
         )
-    except (KeyError, ValueError) as e:
+    except StartDateEndDateError as e:
+        log.exception("Failed to get stations.")
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        log.exception("Failed to get stations.")
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     # build kwargs dynamically
@@ -382,12 +389,10 @@ def values(
 
     try:
         api = Wetterdienst(request.provider, request.network)
-    except KeyError as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Given combination of provider and network not available. "
-            f"Choose provider and network from {Wetterdienst.discover()}",
-        ) from e
+    except ApiNotFoundError as e:
+        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        log.exception(msg)
+        raise HTTPException(status_code=404, detail=msg) from e
 
     settings = Settings(
         ts_convert_units=request.convert_units,
@@ -406,8 +411,14 @@ def values(
             request=request,
             settings=settings,
         )
+    except StartDateEndDateError as e:
+        log.exception("Failed to get values.")
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        ) from e
     except Exception as e:
-        log.exception("Failed to get values")
+        log.exception("Failed to get values.")
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     # build kwargs dynamically
@@ -455,12 +466,10 @@ def interpolate(
 
     try:
         api = Wetterdienst(request.provider, request.network)
-    except KeyError as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Given combination of provider and network not available. "
-            f"Choose provider and network from {Wetterdienst.discover()}",
-        ) from e
+    except ApiNotFoundError as e:
+        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        log.exception(msg)
+        raise HTTPException(status_code=404, detail=msg) from e
 
     settings = Settings(
         ts_humanize=request.humanize,
@@ -476,6 +485,12 @@ def interpolate(
             request=request,
             settings=settings,
         )
+    except StartDateEndDateError as e:
+        log.exception("Failed to interpolate")
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        ) from e
     except Exception as e:
         log.exception("Failed to interpolate")
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -522,12 +537,10 @@ def summarize(
 
     try:
         api = Wetterdienst(request.provider, request.network)
-    except KeyError as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Given combination of provider and network not available. "
-            f"Choose provider and network from {Wetterdienst.discover()}",
-        ) from e
+    except ApiNotFoundError as e:
+        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        log.exception(msg)
+        raise HTTPException(status_code=404, detail=msg) from e
 
     settings = Settings(
         ts_humanize=request.humanize,
