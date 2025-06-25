@@ -4,100 +4,114 @@
 
 ### DMO
 
-::: wetterdienst.provider.dwd.dmo.api.DwdDmoRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.dwd.dmo.api.DwdDmoRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ### Mosmix
 
-::: wetterdienst.provider.dwd.mosmix.api.DwdMosmixRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.dwd.mosmix.api.DwdMosmixRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ### Observation
 
-::: wetterdienst.provider.dwd.observation.api.DwdObservationRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.dwd.observation.api.DwdObservationRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ### Radar
 
-::: wetterdienst.provider.dwd.radar.api.DwdRadarValues
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.dwd.radar.api.DwdRadarValues
+render_plugin = "myst"
+no_index = true
+```
 
 ### Road
 
-::: wetterdienst.provider.dwd.road.api.DwdRoadRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.dwd.road.api.DwdRoadRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ## EA
 
 ### Hydrology
 
-::: wetterdienst.provider.ea.hydrology.api.EAHydrologyRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.ea.hydrology.api.EAHydrologyRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ## Eaufrance
 
 ### Hubeau
 
-::: wetterdienst.provider.eaufrance.hubeau.api.HubeauRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.eaufrance.hubeau.api.HubeauRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ## ECCC
 
 ### Observation
 
-::: wetterdienst.provider.eccc.observation.api.EcccObservationRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.eccc.observation.api.EcccObservationRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ## Geosphere
 
 ### Observation
 
-::: wetterdienst.provider.geosphere.observation.api.GeosphereObservationRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.geosphere.observation.api.GeosphereObservationRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ## IMGW
 
 ### Hydrology
 
-::: wetterdienst.provider.imgw.hydrology.api.ImgwHydrologyRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.imgw.hydrology.api.ImgwHydrologyRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ### Meteorology
 
-::: wetterdienst.provider.imgw.meteorology.api.ImgwMeteorologyRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.imgw.meteorology.api.ImgwMeteorologyRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ## NOAA
 
 ### GHCN
 
-::: wetterdienst.provider.noaa.ghcn.api.NoaaGhcnRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.noaa.ghcn.api.NoaaGhcnRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ## National Weather Service
 
 ### Observation
 
-::: wetterdienst.provider.nws.observation.api.NwsObservationRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.nws.observation.api.NwsObservationRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ## WSV
 
 ### Observation
 
-::: wetterdienst.provider.wsv.pegel.api.WsvPegelRequest
-    options:
-      heading_level: 4
+```{autodoc2-object} wetterdienst.provider.wsv.pegel.api.WsvPegelRequest
+render_plugin = "myst"
+no_index = true
+```

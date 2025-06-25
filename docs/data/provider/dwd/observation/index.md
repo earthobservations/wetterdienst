@@ -3,7 +3,7 @@
 ## Overview
 
 The big treasure of the DWD is buried under a clutter of a 
-[file_server](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/).
+[file server](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/).
 The data you find here can reach back to 19th century and is represented by over 1000
 stations in Germany according to the report referenced above. The amount of stations
 that cover a specific parameter may differ strongly, so don't expect the amount of data
@@ -221,4 +221,17 @@ Quality level (column header: ``QN``):
     1- Only formal control during decoding and import
     2- Controlled with individually defined criteria
     3- ROUTINE automatic control and correction with QUALIMET
+```
+
+```{toctree}
+:hidden:
+
+1_minute.md
+5_minutes.md
+10_minutes.md
+hourly.md
+subdaily.md
+daily.md
+monthly.md
+annual.md
 ```
