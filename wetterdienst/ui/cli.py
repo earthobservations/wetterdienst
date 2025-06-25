@@ -19,6 +19,7 @@ from cloup import Section
 from cloup.constraints import AllSet, If, RequireExactly, accept_none
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
+from wetterdienst.exceptions import ApiNotFoundError
 from wetterdienst.ui.core import (
     InterpolationRequest,
     StationsRequest,
@@ -75,8 +76,8 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     """
     try:
         return Wetterdienst(provider, network)
-    except KeyError:
-        log.exception(f"No API available for provider {provider} and network {network}")
+    except ApiNotFoundError:
+        log.exception("No API found.")
         sys.exit(1)
 
 

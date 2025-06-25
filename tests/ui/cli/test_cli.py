@@ -68,7 +68,7 @@ def test_no_combination_of_provider_and_network(caplog: pytest.CaptureFixture) -
             "--all",
         ],
     )
-    assert "No API available for provider dwd and network abc" in caplog.text
+    assert "No API available for provider dwd and network abc." in caplog.text
 
 
 def test_coverage() -> None:
