@@ -11,7 +11,7 @@ ROOT = Path(__file__).parent.parent
 PROVIDER = Path(ROOT / "wetterdienst" / "provider")
 COVERAGE = Path(ROOT / "docs" / "data" / "provider")
 
-EXCLUDE_PROVIDER_NETWORKS_STARTSWITH = ["_", ".", "metadata"]
+EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH = ["_", ".", "metadata"]
 
 # Providers that are excluded from the docs. "*" is a wildcard.
 EXCLUDE_PROVIDER_NETWORKS = {
@@ -38,25 +38,29 @@ def test_data_coverage() -> None:
     def _check_startswith(name: str, startswith: list[str]) -> bool:
         return any(name.startswith(sw) for sw in startswith)
 
-    mkdocs_content = Path(ROOT / "mkdocs.yml").read_text()
-
     for provider in PROVIDER.glob("*"):
         if (
-            _check_startswith(provider.name, EXCLUDE_PROVIDER_NETWORKS_STARTSWITH)
+            _check_startswith(provider.name, EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH)
             or EXCLUDE_PROVIDER_NETWORKS.get(provider.name) == "*"
         ):
             continue
         assert Path(COVERAGE / provider.name).is_dir()
         provider_readme = Path(COVERAGE / provider.name / "index.md")
         assert provider_readme.exists()
-        assert str(provider_readme).split("docs/")[1] in mkdocs_content
-        for network in Path(PROVIDER / provider.name).glob("*"):
+        provider_readme_content = provider_readme.read_text()
+        for network in provider.glob("*"):
             if _check_startswith(
                 network.name,
-                EXCLUDE_PROVIDER_NETWORKS_STARTSWITH,
+                EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH,
             ) or network.name in EXCLUDE_PROVIDER_NETWORKS.get(provider.name, []):
                 continue
+            assert f"{network.name}/index.md" in provider_readme_content
             assert Path(COVERAGE / provider.name / network.name).is_dir()
-            provider_network_readme = Path(COVERAGE / provider.name / network.name / "index.md")
-            assert provider_network_readme.exists()
-            assert str(provider_network_readme).split("docs/")[1] in mkdocs_content
+            network_readme = Path(COVERAGE / provider.name / network.name / "index.md")
+            assert network_readme.exists()
+            network_readme_content = network_readme.read_text()
+            # check docs consistency
+            for resolution in Path(COVERAGE, provider.name, network.name).glob("*"):
+                if resolution.name == "index.md":
+                    continue
+                assert f"{resolution.stem}{resolution.suffix}" in network_readme_content
