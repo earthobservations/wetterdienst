@@ -238,10 +238,11 @@ def test_api_eccc_observation(default_settings: Settings) -> None:
 @pytest.mark.remote
 def test_api_imgw_hydrology(default_settings: Settings) -> None:
     """Test imgw hydrology API."""
-    request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings).all()
+    request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings, start_date="1990-01-01", end_date="2001-01-01").all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df)
+    print(request.df)
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "height", "state"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")

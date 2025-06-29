@@ -296,73 +296,113 @@ class ImgwHydrologyValues(TimeseriesValues):
             )
         return df
 
+    @staticmethod
+    def _get_start_and_end_date(
+        start_date: dt.date,
+        end_date: dt.date,
+    ) -> tuple[dt.date, dt.date]:
+        min_hydro_start_date = dt.date(1951, 1, 1)
+        today = dt.date.today()
+        if today.month >= 10:
+            max_hydro_end_date = dt.date(today.year + 1, today.month-10, 1)
+        else:
+            max_hydro_end_date = dt.date(today.year, today.month + 2, 1)
+        given_hydro_start_date = None
+        if start_date:
+            # convert regular start_date to hydrological year
+            if start_date.month <= 10:
+                given_hydro_start_date = dt.date(start_date.year, start_date.month + 2, start_date.day)
+            else:
+                given_hydro_start_date = dt.date(start_date.year+1, start_date.month-10, start_date.day)
+        given_hydro_end_date = None
+        if end_date:
+            # convert regular end_date to hydrological year
+            end_date = end_date
+            if end_date.month <= 10:
+                given_hydro_end_date = dt.date(end_date.year, end_date.month + 2, end_date.day)
+            else:
+                given_hydro_end_date = dt.date(end_date.year+1, end_date.month-10, end_date.day)
+        return max(given_hydro_start_date or min_hydro_start_date, min_hydro_start_date), min(given_hydro_end_date or max_hydro_end_date, max_hydro_end_date)
+
     def _get_urls(self, dataset: DatasetModel) -> list[str]:
         """Get all urls for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
-        files = list_remote_files_fsspec(url, self.sr.settings)
-        df_files = pl.DataFrame({"url": files})
-        df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
-        df_files = df_files.filter(pl.col("file").str.ends_with(".zip") & ~pl.col("file").str.starts_with("zjaw"))
-        if self.sr.start_date:
-            interval = portion.closed(self.sr.start_date, self.sr.end_date)
-            if dataset.resolution.value == Resolution.DAILY:
-                df_files = df_files.with_columns(
-                    pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
-                )
-                df_files = df_files.with_columns(
-                    pl.col("year_month").list.first().cast(pl.Int64).alias("year"),
-                    pl.col("year_month").list.last().cast(pl.Int64).alias("month"),
-                )
-                df_files = df_files.with_columns(
-                    pl.when(pl.col("month") <= 2).then(pl.col("year") - 1).otherwise(pl.col("year")).alias("year"),
-                    pl.when(pl.col("month").add(10).gt(12))
-                    .then(pl.col("month").sub(2))
-                    .otherwise(pl.col("month"))
-                    .alias("month"),
-                )
-                df_files = df_files.with_columns(
-                    pl.struct(["year", "month"])
-                    .map_elements(
-                        lambda x: [
-                            dt.datetime(x["year"], x["month"], 1, tzinfo=ZoneInfo("UTC")),
-                            dt.datetime(x["year"], x["month"], 1, tzinfo=ZoneInfo("UTC"))
-                            + relativedelta(months=1)
-                            - relativedelta(days=1),
-                        ],
-                        return_dtype=pl.Array(pl.Datetime, shape=2),
-                    )
-                    .alias("date_range"),
-                )
-            else:
-                df_files = df_files.with_columns(
-                    pl.col("file")
-                    .str.strip_chars_end(".zip")
-                    .str.split("_")
-                    .list.last()
-                    .str.to_datetime("%Y", time_zone="UTC", strict=False)
-                    .map_elements(
-                        lambda d: [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)],
-                        return_dtype=pl.Array(pl.Datetime, shape=2),
-                    )
-                    .alias("date_range"),
-                )
-            df_files = df_files.select(
-                pl.col("url"),
-                pl.col("date_range").list.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                pl.col("date_range").list.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
-            )
-            df_files = df_files.with_columns(
-                pl.struct(["start_date", "end_date"])
-                .map_elements(
-                    lambda dates: portion.closed(dates["start_date"], dates["end_date"]),
-                    return_dtype=pl.Object,
-                )
-                .alias("interval"),
-            )
-            df_files = df_files.filter(
-                pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean),
-            )
-        return df_files.get_column("url").to_list()
+        start_date, end_date = self._get_start_and_end_date(self.sr.start_date, self.sr.end_date)
+        files = []
+        if dataset.resolution.value == Resolution.DAILY:
+            for date in pl.date_range(start_date, end_date, interval="1mo", eager=True):
+                file_name = f"{date.year}/codz_{date.year}_{date.month:02d}.zip"
+                files.append(f"{url}{file_name}")
+        elif dataset.resolution.value == Resolution.MONTHLY:
+            for date in pl.date_range(start_date, end_date, interval="1y", eager=True):
+                file_name = f"{date.year}/mies_{date.year}.zip"
+                files.append(f"{url}{file_name}")
+        return files
+        #
+        # files = list_remote_files_fsspec(url, self.sr.settings)
+        # df_files = pl.DataFrame({"url": files})
+        # df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
+        # df_files = df_files.filter(pl.col("file").str.ends_with(".zip") & ~pl.col("file").str.starts_with("zjaw"))
+        # if self.sr.start_date:
+        #     interval = portion.closed(self.sr.start_date, self.sr.end_date)
+        #     if dataset.resolution.value == Resolution.DAILY:
+        #         df_files = df_files.with_columns(
+        #             pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
+        #         )
+        #         df_files = df_files.with_columns(
+        #             pl.col("year_month").list.first().cast(pl.Int64).alias("year"),
+        #             pl.col("year_month").list.last().cast(pl.Int64).alias("month"),
+        #         )
+        #         df_files = df_files.with_columns(
+        #             pl.when(pl.col("month") <= 2).then(pl.col("year") - 1).otherwise(pl.col("year")).alias("year"),
+        #             pl.when(pl.col("month").add(10).gt(12))
+        #             .then(pl.col("month").sub(2))
+        #             .otherwise(pl.col("month"))
+        #             .alias("month"),
+        #         )
+        #         df_files = df_files.with_columns(
+        #             pl.struct(["year", "month"])
+        #             .map_elements(
+        #                 lambda x: [
+        #                     dt.datetime(x["year"], x["month"], 1, tzinfo=ZoneInfo("UTC")),
+        #                     dt.datetime(x["year"], x["month"], 1, tzinfo=ZoneInfo("UTC"))
+        #                     + relativedelta(months=1)
+        #                     - relativedelta(days=1),
+        #                 ],
+        #                 return_dtype=pl.Array(pl.Datetime, shape=2),
+        #             )
+        #             .alias("date_range"),
+        #         )
+        #     else:
+        #         df_files = df_files.with_columns(
+        #             pl.col("file")
+        #             .str.strip_chars_end(".zip")
+        #             .str.split("_")
+        #             .list.last()
+        #             .str.to_datetime("%Y", time_zone="UTC", strict=False)
+        #             .map_elements(
+        #                 lambda d: [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)],
+        #                 return_dtype=pl.Array(pl.Datetime, shape=2),
+        #             )
+        #             .alias("date_range"),
+        #         )
+        #     df_files = df_files.select(
+        #         pl.col("url"),
+        #         pl.col("date_range").list.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
+        #         pl.col("date_range").list.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+        #     )
+        #     df_files = df_files.with_columns(
+        #         pl.struct(["start_date", "end_date"])
+        #         .map_elements(
+        #             lambda dates: portion.closed(dates["start_date"], dates["end_date"]),
+        #             return_dtype=pl.Object,
+        #         )
+        #         .alias("interval"),
+        #     )
+        #     df_files = df_files.filter(
+        #         pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean),
+        #     )
+        # return df_files.get_column("url").to_list()
 
 
 @dataclass
@@ -377,7 +417,6 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         """:return:"""
         payload = download_file(
             url=self._endpoint,
-            settings=self.settings,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
@@ -387,7 +426,7 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         lines = payload.read().decode("latin-1").replace("\r", "").split("\n")
         lines = [line for line in lines if line]
         payload = StringIO("\n".join(lines))
-        df = pl.read_csv(
+        df_raw = pl.read_csv(
             payload,
             encoding="latin-1",
             has_header=False,
@@ -396,8 +435,8 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             infer_schema_length=0,
             truncate_ragged_lines=True,
         )
-        df = df[:, [1, 2, 4, 5]]
-        df.columns = [
+        df_raw = df_raw[:, [1, 2, 4, 5]]
+        df_raw.columns = [
             "station_id",
             "name",
             "latitude",
@@ -408,7 +447,7 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         # 603;150190400;CZ�STOCHOWA 2;Kucelinka;50 48 22;19 09 15
         # 604;150190410;CZ�STOCHOWA 3;Warta;50 48 50	19;07 58  <-- this is the bugged line
         # 605;152140100;DOLSK;My�la;52 48 10;14 50 35
-        df = df.with_columns(
+        df_raw = df_raw.with_columns(
             pl.when(pl.col("station_id") == "150190410")
             .then(pl.lit("50 48 50").alias("latitude"))
             .otherwise(pl.col("latitude")),
@@ -416,8 +455,22 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             .then(pl.lit("19 07 58").alias("longitude"))
             .otherwise(pl.col("longitude")),
         )
-        df = df.lazy()
-        return df.with_columns(
+        df_raw =             df_raw.with_columns(
             pl.col("latitude").map_batches(convert_dms_string_to_dd),
             pl.col("longitude").map_batches(convert_dms_string_to_dd),
         )
+        df_raw = df_raw.lazy()
+        data = []
+        # combinations of resolution and dataset
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+        }
+        # for each combination of resolution and dataset create a new DataFrame with the columns
+        for resolution, dataset in resolutions_and_datasets:
+            data.append(
+                df_raw.with_columns(
+                    pl.lit(resolution, pl.String).alias("resolution"),
+                    pl.lit(dataset, pl.String).alias("dataset"),
+                ),
+            )
+        return pl.concat(data)
