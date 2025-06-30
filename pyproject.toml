@@ -85,7 +85,7 @@ dependencies = [
   "cloup>=3.0.1,<4",
   "diskcache>=5.4,<6",
   "fsspec[http]>=2023.1",
-  "lxml>=4.9.1,<6",
+  "lxml>=4.9.1,<7",
   "measurement>=3.2,<4",
   "platformdirs>=4,<5",
   "polars[calamine,pyarrow]>=1.0.0,<2,!=1.31.0",
