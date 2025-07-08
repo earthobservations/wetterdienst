@@ -546,6 +546,80 @@ class ImgwMeteorologyValues(TimeseriesValues):
             },
         },
     }
+    _historical_url_ranges = {
+        Resolution.DAILY: {
+            "climate": [
+                portion.closed(1951, 1955),
+                portion.closed(1956, 1960),
+                portion.closed(1961, 1965),
+                portion.closed(1966, 1970),
+                portion.closed(1971, 1975),
+                portion.closed(1976, 1980),
+                portion.closed(1981, 1985),
+                portion.closed(1986, 1990),
+                portion.closed(1991, 1995),
+                portion.closed(1996, 2000),
+            ],
+            "precipitation": [
+                portion.closed(1951, 1955),
+                portion.closed(1956, 1960),
+                portion.closed(1961, 1965),
+                portion.closed(1966, 1970),
+                portion.closed(1971, 1975),
+                portion.closed(1976, 1980),
+                portion.closed(1981, 1985),
+                portion.closed(1986, 1990),
+                portion.closed(1991, 1995),
+                portion.closed(1996, 2000),
+            ],
+            "synop": [
+                portion.closed(1960, 1965),
+                portion.closed(1966, 1970),
+                portion.closed(1971, 1975),
+                portion.closed(1976, 1980),
+                portion.closed(1981, 1985),
+                portion.closed(1986, 1990),
+                portion.closed(1991, 1995),
+                portion.closed(1996, 2000),
+            ],
+        },
+        Resolution.MONTHLY: {
+            "climate": [
+                portion.closed(1951, 1955),
+                portion.closed(1956, 1960),
+                portion.closed(1961, 1965),
+                portion.closed(1966, 1970),
+                portion.closed(1971, 1975),
+                portion.closed(1976, 1980),
+                portion.closed(1981, 1985),
+                portion.closed(1986, 1990),
+                portion.closed(1991, 1995),
+                portion.closed(1996, 2000),
+            ],
+            "precipitation": [
+                portion.closed(1950, 1955),
+                portion.closed(1956, 1960),
+                portion.closed(1961, 1965),
+                portion.closed(1966, 1970),
+                portion.closed(1971, 1975),
+                portion.closed(1976, 1980),
+                portion.closed(1981, 1985),
+                portion.closed(1986, 1990),
+                portion.closed(1991, 1995),
+                portion.closed(1996, 2000),
+            ],
+            "synop": [
+                portion.closed(1960, 1965),
+                portion.closed(1966, 1970),
+                portion.closed(1971, 1975),
+                portion.closed(1976, 1980),
+                portion.closed(1981, 1985),
+                portion.closed(1986, 1990),
+                portion.closed(1991, 1995),
+                portion.closed(1996, 2000),
+            ],
+        },
+    }
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -636,79 +710,54 @@ class ImgwMeteorologyValues(TimeseriesValues):
         df = df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name="value")
         return df.with_columns(pl.col("value").cast(pl.Float64))
 
+    @staticmethod
+    def _get_start_and_end_date(
+        start_date: dt.datetime,
+        end_date: dt.datetime,
+    ) -> tuple[dt.date, dt.date]:
+        min_start_date = dt.date(1951, 1, 1)
+        today = dt.date.today()
+        max_end_date = dt.date(today.year - 1, 12, 31)
+        return max(start_date.date() or min_start_date, min_start_date), min(
+            end_date.date() or max_end_date, max_end_date
+        )
+
     def _get_urls(self, dataset: DatasetModel) -> list[str]:
         """Get URLs for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
-        files = list_remote_files_fsspec(url, self.sr.settings)
-        df_files = pl.DataFrame({"url": files})
-        df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
-        df_files = df_files.filter(pl.col("file").str.ends_with(".zip"))
-        if self.sr.start_date:
-            interval = portion.closed(self.sr.start_date, self.sr.end_date)
-            if dataset.resolution.value == Resolution.MONTHLY:
-                df_files = df_files.with_columns(
-                    pl.when(pl.col("file").str.split("_").list.len() == 3)
-                    .then(
-                        pl.col("file")
-                        .str.split("_")
-                        .list.first()
-                        .map_elements(lambda y: [y, y], return_dtype=pl.Array(pl.Int64, shape=2)),
-                    )
-                    .otherwise(pl.col("file").str.split("_").list.slice(0, 2))
-                    .map_elements(
-                        lambda years: [
-                            dt.datetime(int(years[0]), 1, 1, tzinfo=ZoneInfo("UTC")),
-                            dt.datetime(int(years[1]), 1, 1, tzinfo=ZoneInfo("UTC"))
-                            + relativedelta(years=1)
-                            - relativedelta(days=1),
-                        ],
-                        return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
-                    )
-                    .alias("date_range"),
-                )
+        start_date, end_date = self._get_start_and_end_date(self.sr.start_date, self.sr.end_date)
+        historical_url_ranges = self._historical_url_ranges[dataset.resolution.value][dataset.name]
+        dataset_suffix = {
+            "climate": "k",
+            "precipitation": "o",
+            "synop": "s",
+        }[dataset.name]
+        files = set()
+        resolution_prefix = {
+            Resolution.DAILY: "",
+            Resolution.MONTHLY: "_m",
+        }[dataset.resolution.value]
+        resolution_frequency = {
+            Resolution.DAILY: "1mo",
+            Resolution.MONTHLY: "1y",
+        }[dataset.resolution.value]
+        for date in pl.date_range(start_date, end_date, interval=resolution_frequency, eager=True):
+            historical_url_range = [hur for hur in historical_url_ranges if date.year in hur]
+            historical_url_range_prefix = None
+            if historical_url_range:
+                if len(historical_url_range) > 1:
+                    raise ValueError(f"Multiple historical URL ranges found for {date.year}: {historical_url_range}")
+                historical_url_range_prefix = f"{historical_url_range[0].lower}_{historical_url_range[0].upper}"
+            if historical_url_range_prefix:
+                if dataset.resolution.value == Resolution.MONTHLY:
+                    file_name = f"{historical_url_range_prefix}/{historical_url_range_prefix}{resolution_prefix}_{dataset_suffix}.zip"
+                else:
+                    file_name = f"{historical_url_range_prefix}/{date.year}{resolution_prefix}_{dataset_suffix}.zip"
             else:
-                df_files = df_files.with_columns(
-                    pl.when(pl.col("file").str.split("_").list.len() == 2)
-                    .then(
-                        pl.col("file")
-                        .str.split("_")
-                        .list.first()
-                        .str.to_datetime("%Y", time_zone="UTC", strict=False)
-                        .map_elements(
-                            lambda d: [d, d + relativedelta(years=1) - relativedelta(days=1)],
-                            return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
-                        ),
-                    )
-                    .otherwise(
-                        pl.col("file")
-                        .str.split("_")
-                        .list.slice(0, 2)
-                        .list.join("_")
-                        .str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
-                        .map_elements(
-                            lambda d: [d, d + relativedelta(months=1) - relativedelta(days=1)],
-                            return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
-                        ),
-                    )
-                    .alias("date_range"),
-                )
-            df_files = df_files.select(
-                pl.col("url"),
-                pl.col("date_range").list.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                pl.col("date_range").list.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
-            )
-            df_files = df_files.with_columns(
-                pl.struct(["start_date", "end_date"])
-                .map_elements(
-                    lambda dates: portion.closed(dates["start_date"], dates["end_date"]),
-                    return_dtype=pl.Object,
-                )
-                .alias("interval"),
-            )
-            df_files = df_files.filter(
-                pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean),
-            )
-        return df_files.get_column("url").to_list()
+                month_prefix = f"_{date.month:02d}" if dataset.resolution.value == Resolution.DAILY else ""
+                file_name = f"{date.year}/{date.year}{month_prefix}{resolution_prefix}_{dataset_suffix}.zip"
+            files.add(f"{url}{file_name}")
+        return list(files)
 
 
 @dataclass
@@ -729,9 +778,9 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             cache_disable=self.settings.cache_disable,
         )
         file.raise_if_exception()
-        df = pl.read_csv(file.content, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
-        df = df[:, 1:]
-        df.columns = [
+        df_raw = pl.read_csv(file.content, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
+        df_raw = df_raw[:, 1:]
+        df_raw.columns = [
             "station_id",
             "name",
             "state",
@@ -739,9 +788,23 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             "longitude",
             "height",
         ]
-        df = df.lazy()
-        return df.with_columns(
+        df_raw = df_raw.lazy()
+        df_raw = df_raw.with_columns(
             pl.col("latitude").map_batches(convert_dms_string_to_dd),
             pl.col("longitude").map_batches(convert_dms_string_to_dd),
             pl.col("height").str.replace(" ", "").cast(pl.Float64, strict=False),
         )
+        data = []
+        # combinations of resolution and dataset
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+        }
+        # for each combination of resolution and dataset create a new DataFrame with the columns
+        for resolution, dataset in resolutions_and_datasets:
+            data.append(
+                df_raw.with_columns(
+                    pl.lit(resolution, pl.String).alias("resolution"),
+                    pl.lit(dataset, pl.String).alias("dataset"),
+                ),
+            )
+        return pl.concat(data)

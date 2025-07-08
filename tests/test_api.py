@@ -234,14 +234,12 @@ def test_api_eccc_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_api_imgw_hydrology(default_settings: Settings) -> None:
     """Test imgw hydrology API."""
-    request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings, start_date="1990-01-01", end_date="2001-01-01").all()
+    request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    print(request.df)
     assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "height", "state"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
@@ -254,16 +252,17 @@ def test_api_imgw_hydrology(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_api_imgw_meteorology(default_settings: Settings) -> None:
     """Test imgw meteorology API."""
-    request = ImgwMeteorologyRequest(parameters=[("daily", "climate")], settings=default_settings).filter_by_station_id(
+    request = ImgwMeteorologyRequest(
+        parameters=[("monthly", "climate")], settings=default_settings, start_date="1990-01-01", end_date="2005-12-31"
+    ).filter_by_station_id(
         "249200180",
     )
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df)
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "height", "state"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
