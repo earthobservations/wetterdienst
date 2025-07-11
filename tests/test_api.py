@@ -9,6 +9,7 @@ import pytest
 
 from wetterdienst import Parameter, Settings
 from wetterdienst.api import Wetterdienst
+from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.dwd.dmo import DwdDmoMetadata, DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
@@ -235,9 +236,22 @@ def test_api_eccc_observation(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
-def test_api_imgw_hydrology(default_settings: Settings) -> None:
+@pytest.mark.parametrize(
+    "dataset",
+    [
+        # DwdObservationMetadata.subdaily.wind_extreme
+        dataset
+        for resolution in ImgwHydrologyMetadata
+        for dataset in resolution
+    ],
+)
+def test_api_imgw_hydrology(default_settings: Settings, dataset: DatasetModel) -> None:
     """Test imgw hydrology API."""
-    request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings).all()
+    request = ImgwHydrologyRequest(
+        parameters=[dataset],
+        start_date="2024-01-01",
+        end_date="2026-01-31",
+        settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "height", "state"})
@@ -253,10 +267,20 @@ def test_api_imgw_hydrology(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
-def test_api_imgw_meteorology(default_settings: Settings) -> None:
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "dataset",
+    [
+        # DwdObservationMetadata.subdaily.wind_extreme
+        dataset
+        for resolution in ImgwMeteorologyMetadata
+        for dataset in resolution
+    ],
+)
+def test_api_imgw_meteorology(default_settings: Settings, dataset: DatasetModel) -> None:
     """Test imgw meteorology API."""
     request = ImgwMeteorologyRequest(
-        parameters=[("monthly", "climate")], settings=default_settings, start_date="1990-01-01", end_date="2005-12-31"
+        parameters=[dataset], settings=default_settings, start_date="1990-01-01", end_date="2005-12-31"
     ).filter_by_station_id(
         "249200180",
     )

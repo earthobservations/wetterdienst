@@ -182,6 +182,7 @@ class ImgwHydrologyValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Collect hydrological data for a single station and dataset."""
         urls = self._get_urls(parameter_or_dataset)
+        print(urls)
         files = download_files(
             urls=urls,
             cache_dir=self.sr.stations.settings.cache_dir,
@@ -352,15 +353,16 @@ class ImgwHydrologyRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """:return:"""
-        payload = download_file(
+        file = download_file(
             url=self._endpoint,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
+        file.raise_if_exception()
         # skip empty lines in the csv file
-        lines = payload.read().decode("latin-1").replace("\r", "").split("\n")
+        lines = file.content.read().decode("latin-1").replace("\r", "").split("\n")
         lines = [line for line in lines if line]
         payload = StringIO("\n".join(lines))
         df_raw = pl.read_csv(
