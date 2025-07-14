@@ -4,15 +4,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+from asyncio import Task
 from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
+from urllib.parse import urlparse
 
 import stamina
-from aiohttp import ClientResponse
+from aiohttp import ClientResponse, ClientResponseError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
@@ -24,6 +29,25 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class File:
+    """File object for the network utilities."""
+
+    url: str
+    """The URL of the file."""
+
+    @property
+    def filename(self) -> str:
+        """The filename of the file"""
+        return os.path.basename(urlparse(self.url).path)
+
+    """The filename of the file, if available."""
+    content: BytesIO | Exception
+    """The content of the file as a BytesIO object."""
+    status: int
+    """The status code of the file download, if available."""
 
 
 class FileDirCache(MutableMapping):
@@ -149,7 +173,7 @@ class HTTPFileSystem(_HTTPFileSystem):
 class NetworkFilesystemManager:
     """Manage multiple FSSPEC instances keyed by cache expiration time."""
 
-    filesystems: ClassVar[dict[str, AbstractFileSystem]] = {}
+    filesystems: ClassVar[dict[str, HTTPFileSystem]] = {}
 
     @staticmethod
     def resolve_ttl(ttl: int | CacheExpiry) -> tuple[str, int]:
@@ -178,7 +202,7 @@ class NetworkFilesystemManager:
         ttl: CacheExpiry = CacheExpiry.NO_CACHE,
         client_kwargs: dict | None = None,
         *,
-        cache_disable: bool = False,
+        cache_disable: bool,
     ) -> None:
         """Register a new filesystem instance for a given cache expiration time.
 
@@ -187,6 +211,8 @@ class NetworkFilesystemManager:
             ttl: The cache expiration time.
             client_kwargs: Additional keyword arguments for the client.
             cache_disable: If True, the cache is disabled.
+            asynchronous: If True, the filesystem is asynchronous.
+            loop: The event loop to use for the filesystem.
 
         Returns:
             None
@@ -216,8 +242,8 @@ class NetworkFilesystemManager:
         ttl: CacheExpiry = CacheExpiry.NO_CACHE,
         client_kwargs: dict | None = None,
         *,
-        cache_disable: bool = False,
-    ) -> AbstractFileSystem:
+        cache_disable: bool,
+    ) -> HTTPFileSystem:
         """Get a filesystem instance for a given cache expiration time.
 
         Args:
@@ -225,6 +251,7 @@ class NetworkFilesystemManager:
             ttl: The cache expiration time.
             client_kwargs: Additional keyword arguments for the client.
             cache_disable: If True, the cache is disabled
+            asynchronous: If True, the filesystem is asynchronous.
 
         Returns:
             The filesystem instance.
@@ -233,7 +260,12 @@ class NetworkFilesystemManager:
         ttl_name, _ = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         if key not in cls.filesystems:
-            cls.register(cache_dir=cache_dir, ttl=ttl, client_kwargs=client_kwargs, cache_disable=cache_disable)
+            cls.register(
+                cache_dir=cache_dir,
+                ttl=ttl,
+                client_kwargs=client_kwargs,
+                cache_disable=cache_disable,
+            )
         return cls.filesystems[key]
 
 
@@ -274,7 +306,7 @@ def download_file(
     client_kwargs: dict | None = None,
     *,
     cache_disable: bool = False,
-) -> BytesIO:
+) -> File:
     """Download a specified file from the server.
 
     Args:
@@ -295,9 +327,26 @@ def download_file(
         cache_disable=cache_disable,
     )
     log.info(f"Downloading file {url}")
-    payload = filesystem.cat_file(url)
-    log.info(f"Downloaded file {url}")
-    return BytesIO(payload)
+    try:
+        payload = filesystem.cat_file(url)
+        log.info(f"Downloaded file {url}")
+        return File(
+            url=url,
+            content=BytesIO(payload),
+            status=200,
+        )
+    except (ClientResponseError, FileNotFoundError) as e:
+        log.error(f"Failed to download file {url}.")
+        # retrieve the status code from the exception if available
+        if isinstance(e, ClientResponseError):
+            status = e.status
+        else:
+            status = 404
+        return File(
+            url=url,
+            content=e,
+            status=status,
+        )
 
 
 def download_files(
@@ -307,26 +356,43 @@ def download_files(
     client_kwargs: dict | None = None,
     *,
     cache_disable: bool = False,
-) -> list[BytesIO]:
+) -> list[File]:
     """Wrap download_file to download one or more files.
 
     If multiple files are downloaded, it uses concurrent.futures to speed up the process.
     """
     log.info(f"Downloading {len(urls)} files.")
+    filesystem = NetworkFilesystemManager.get(
+        cache_dir=cache_dir,
+        ttl=ttl,
+        client_kwargs=client_kwargs,
+        cache_disable=cache_disable,
+    )
     if len(urls) > 1:
-        with ThreadPoolExecutor() as p:
-            return list(
-                p.map(
-                    lambda file: download_file(
-                        url=file,
-                        cache_dir=cache_dir,
-                        ttl=ttl,
-                        client_kwargs=client_kwargs,
-                        cache_disable=cache_disable,
-                    ),
-                    urls,
-                ),
-            )
+        payloads = filesystem.cat(
+            urls,
+            on_error="return"
+        )
+        files = []
+        for url, payload in payloads.items():
+            if isinstance(payload, bytes):
+                files.append(
+                    File(
+                        url=url,
+                        content=BytesIO(payload),
+                        status=200,
+                    )
+                )
+            elif isinstance(payload, (ClientResponseError, FileNotFoundError)):
+                status = payload.status if isinstance(payload, ClientResponseError) else 404
+                files.append(
+                    File(
+                        url=url,
+                        content=payload,
+                        status=status,
+                    )
+                )
+        return files
     return [
         download_file(
             url=urls[0],
