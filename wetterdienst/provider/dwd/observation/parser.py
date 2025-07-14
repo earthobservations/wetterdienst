@@ -17,8 +17,9 @@ from wetterdienst.provider.dwd.observation.metadata import (
 )
 
 if TYPE_CHECKING:
-    from io import BytesIO
+    from wetterdienst.util.network import File
 
+if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
@@ -64,16 +65,13 @@ COLUMNS_MAPPING = {
 
 
 def parse_climate_observations_data(
-    filenames_and_files: list[tuple[str, BytesIO]],
+    files: list[File],
     dataset: DatasetModel,
     period: Period,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
     if dataset == DwdObservationMetadata.subdaily.wind_extreme:
-        data = [
-            _parse_climate_observations_data(filename_and_file, dataset, period)
-            for filename_and_file in filenames_and_files
-        ]
+        data = [_parse_climate_observations_data(file, dataset, period) for file in files]
         try:
             df1, df2 = data
             df = df1.join(df2, on=["station_id", "date"], how="full", coalesce=True)
@@ -82,31 +80,30 @@ def parse_climate_observations_data(
             return data[0]
     else:
         data = []
-        for filename_and_file in filenames_and_files:
-            data.append(_parse_climate_observations_data(filename_and_file, dataset, period))
+        for file in files:
+            data.append(_parse_climate_observations_data(file, dataset, period))
         return pl.concat(data)
 
 
 def _parse_climate_observations_data(  # noqa: C901
-    filename_and_file: tuple[str, BytesIO],
+    file: File,
     dataset: DatasetModel,
     period: Period,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
-    filename, file = filename_and_file
     try:
         df = pl.read_csv(
-            source=file,
+            source=file.content,
             separator=";",
             null_values=["-999"],
             encoding="latin-1",
         )
         df = df.lazy()
     except pl.exceptions.SchemaError:
-        log.warning(f"The file representing {filename} could not be parsed and is skipped.")
+        log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
         return pl.LazyFrame()
     except ValueError:
-        log.warning(f"The file representing {filename} is None and is skipped.")
+        log.warning(f"The file representing {file.filename} is None and is skipped.")
         return pl.LazyFrame()
     df = df.with_columns(cs.string().str.strip_chars())
     df = df.with_columns(cs.string().replace("-999", None), cs.numeric().replace(-999, None))
@@ -136,12 +133,12 @@ def _parse_climate_observations_data(  # noqa: C901
         # Fix real date column by cutting of minutes
         df = df.with_columns(pl.col("date").str.head(-3))
     elif dataset == DwdObservationMetadata.subdaily.wind_extreme:
-        if "FX3" in filename:
+        if "FX3" in file.filename:
             alias = "qn_8_3"
-        elif "FX6" in filename:
+        elif "FX6" in file.filename:
             alias = "qn_8_6"
         else:
-            msg = f"Unknown dataset for wind extremes, expected FX3 or FX6 in filename {filename}"
+            msg = f"Unknown dataset for wind extremes, expected FX3 or FX6 in filename {file.filename}"
             raise ValueError(msg)
         df = df.rename({"qn_8": alias})
     if dataset.resolution.value in (Resolution.MONTHLY, Resolution.ANNUAL):

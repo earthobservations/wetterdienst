@@ -44,17 +44,15 @@ class NoaaGhcnValues(TimeseriesValues):
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
         file = url.format(station_id=station_id)
-        try:
-            payload = download_file(
-                url=file,
-                cache_dir=self.sr.stations.settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES,
-                client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-                cache_disable=self.sr.stations.settings.cache_disable,
-            )
-        except FileNotFoundError:
-            return pl.DataFrame()
-        df = pl.read_csv(payload, separator="|", has_header=True, infer_schema_length=0)
+        file = download_file(
+            url=file,
+            cache_dir=self.sr.stations.settings.cache_dir,
+            ttl=CacheExpiry.FIVE_MINUTES,
+            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.stations.settings.cache_disable,
+        )
+        file.raise_if_exception()
+        df = pl.read_csv(file.content, separator="|", has_header=True, infer_schema_length=0)
         # drop last line if it is header line
         if df.get_column("Station_ID").last() == "Station_ID":
             df = df[:-1, :]
@@ -98,15 +96,16 @@ class NoaaGhcnValues(TimeseriesValues):
         """Collect station parameter for daily resolution."""
         url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
         file = url.format(station_id=station_id)
-        payload = download_file(
+        file = download_file(
             url=file,
             cache_dir=self.sr.stations.settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
             cache_disable=self.sr.stations.settings.cache_disable,
         )
+        file.raise_if_exception()
         df = pl.read_csv(
-            source=payload,
+            source=file.content,
             separator=",",
             has_header=True,
         )
@@ -197,15 +196,16 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
         file = "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv"
-        payload = download_file(
+        file = download_file(
             url=file,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
+        file.raise_if_exception()
         df = pl.read_csv(
-            payload,
+            file.content,
             has_header=True,
         )
         df = df.select(
@@ -269,7 +269,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
-        df = pl.read_csv(listings_file, has_header=False, truncate_ragged_lines=True)
+        listings_file.raise_if_exception()
+        df = pl.read_csv(listings_file.content, has_header=False, truncate_ragged_lines=True)
         column_specs = ((0, 10), (12, 19), (21, 29), (31, 36), (38, 39), (41, 70), (80, 84))
         df = read_fwf_from_df(df, column_specs)
         df.columns = [
@@ -290,7 +291,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
-        inventory_df = pl.read_csv(inventory_file, has_header=False, truncate_ragged_lines=True)
+        inventory_file.raise_if_exception()
+        inventory_df = pl.read_csv(inventory_file.content, has_header=False, truncate_ragged_lines=True)
         column_specs = ((0, 10), (36, 39), (41, 44))
         inventory_df = read_fwf_from_df(inventory_df, column_specs)
         inventory_df.columns = ["station_id", "start_date", "end_date"]

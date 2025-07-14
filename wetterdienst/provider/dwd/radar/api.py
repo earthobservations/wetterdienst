@@ -439,17 +439,17 @@ class DwdRadarValues:  # noqa: PLW1641
         ttl = CacheExpiry.FIVE_MINUTES
         if not self._should_cache_download(url):
             ttl = CacheExpiry.NO_CACHE
-        data = download_file(
+        file = download_file(
             url=url,
             cache_dir=self.settings.cache_dir,
             ttl=ttl,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
-
+        file.raise_if_exception()
         # RadarParameter.FX_REFLECTIVITY
         if url.endswith(Extension.TAR_BZ2.value):
-            tfs = TarFileSystem(data, compression="bz2")
+            tfs = TarFileSystem(file.content, compression="bz2")
             for file in tfs.glob("*"):
                 try:
                     file_name = file.name
@@ -468,7 +468,7 @@ class DwdRadarValues:  # noqa: PLW1641
 
         # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)  # noqa: ERA001
         elif url.endswith(Extension.BZ2.value):
-            with bz2.BZ2File(data, mode="rb") as archive:
+            with bz2.BZ2File(file.content, mode="rb") as archive:
                 data = BytesIO(archive.read())
                 date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
                 timestamp = None
@@ -483,7 +483,7 @@ class DwdRadarValues:  # noqa: PLW1641
 
         # RADAR_PARAMETERS_RADVOR
         elif url.endswith(Extension.GZ.value):
-            with gzip.GzipFile(fileobj=data, mode="rb") as archive:
+            with gzip.GzipFile(fileobj=file.content, mode="rb") as archive:
                 data = BytesIO(archive.read())
                 date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
                 timestamp = None
@@ -504,21 +504,21 @@ class DwdRadarValues:  # noqa: PLW1641
                 timestamp = timestamp.replace(tzinfo=ZoneInfo("UTC"))
             yield RadarResult(
                 url=url,
-                data=data,
+                data=file.content,
                 timestamp=timestamp,
             )
 
     def _download_radolan_data(self, url: str, start_date: dt.datetime, end_date: dt.datetime) -> Iterator[RadarResult]:
         """Download RADOLAN_CDC data for a given datetime."""
-        archive_in_bytes = download_file(
+        file = download_file(
             url=url,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.TWELVE_HOURS,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
-
-        for result in self._extract_radolan_data(archive_in_bytes):
+        file.raise_if_exception()
+        for result in self._extract_radolan_data(file.content):
             if not result.timestamp:
                 # if result has no timestamp, take it from main url instead of files in archive
                 datetime_string = re.findall(r"\d{10}", url)[0]

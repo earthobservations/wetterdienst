@@ -15,6 +15,7 @@ from polars.testing import assert_frame_equal
 from wetterdienst import Period
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
+from wetterdienst.util.network import File
 
 
 @pytest.mark.remote
@@ -28,9 +29,14 @@ def test_parse_dwd_data() -> None:
     payload = BytesIO(httpfs.cat(url))
     filename = "produkt_klima_tag_19370101_19860630_00001.txt"
     zfs = ZipFileSystem(payload)
-    file = zfs.cat(filename)
+    product_payload = zfs.cat(filename)
+    file = File(
+        url=url,
+        content=BytesIO(product_payload),
+        status=200,
+    )
     given_df = parse_climate_observations_data(
-        filenames_and_files=[(filename, BytesIO(file))],
+        files=[file],
         dataset=DwdObservationMetadata.daily.climate_summary,
         period=Period.HISTORICAL,
     ).collect()

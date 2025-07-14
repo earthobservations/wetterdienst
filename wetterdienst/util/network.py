@@ -4,12 +4,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import os
-from asyncio import Task
 from collections.abc import Iterator, MutableMapping
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -20,13 +16,10 @@ import stamina
 from aiohttp import ClientResponse, ClientResponseError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
-from tqdm.asyncio import tqdm
 
 from wetterdienst.metadata.cache import CacheExpiry
 
 if TYPE_CHECKING:
-    from fsspec import AbstractFileSystem
-
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -41,14 +34,19 @@ class File:
 
     @property
     def filename(self) -> str:
-        """The filename of the file"""
-        return os.path.basename(urlparse(self.url).path)
+        """The filename of the file."""
+        return Path(urlparse(self.url).path).name
 
     """The filename of the file, if available."""
     content: BytesIO | Exception
     """The content of the file as a BytesIO object."""
     status: int
     """The status code of the file download, if available."""
+
+    def raise_if_exception(self) -> None:
+        """Raise an exception if the content is not a BytesIO object."""
+        if isinstance(self.content, Exception):
+            raise self.content
 
 
 class FileDirCache(MutableMapping):
@@ -337,12 +335,9 @@ def download_file(
             status=200,
         )
     except (ClientResponseError, FileNotFoundError) as e:
-        log.error(f"Failed to download file {url}.")
+        log.exception(f"Failed to download file {url}.")
         # retrieve the status code from the exception if available
-        if isinstance(e, ClientResponseError):
-            status = e.status
-        else:
-            status = 404
+        status = e.status if isinstance(e, ClientResponseError) else 404
         return File(
             url=url,
             content=e,
@@ -358,10 +353,7 @@ def download_files(
     *,
     cache_disable: bool = False,
 ) -> list[File]:
-    """Wrap download_file to download one or more files.
-
-    If multiple files are downloaded, it uses concurrent.futures to speed up the process.
-    """
+    """Download multiple files from the server concurrently."""
     filesystem = NetworkFilesystemManager.get(
         cache_dir=cache_dir,
         ttl=ttl,
@@ -369,10 +361,8 @@ def download_files(
         cache_disable=cache_disable,
     )
     log.info(f"Downloading {len(urls)} files.")
-    payloads = filesystem.cat(
-        urls,
-        on_error="return"
-    )
+    payloads = filesystem.cat(urls, on_error="return")
+    # wrap the payloads in File objects
     files = []
     for url, payload in payloads.items():
         if isinstance(payload, bytes):
@@ -385,11 +375,12 @@ def download_files(
             elif isinstance(payload, ClientResponseError):
                 status = payload.status
             else:
-                raise TypeError(f"Unsupported payload type: {type(payload)}")
+                msg = f"Unsupported payload type: {type(payload)}"
+                raise TypeError(msg)
         files.append(
             File(
                 url=url,
-                content=payload,
+                content=BytesIO(payload),
                 status=status,
             )
         )
