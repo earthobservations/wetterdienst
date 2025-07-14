@@ -20,6 +20,7 @@ import stamina
 from aiohttp import ClientResponse, ClientResponseError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
+from tqdm.asyncio import tqdm
 
 from wetterdienst.metadata.cache import CacheExpiry
 
@@ -361,44 +362,35 @@ def download_files(
 
     If multiple files are downloaded, it uses concurrent.futures to speed up the process.
     """
-    log.info(f"Downloading {len(urls)} files.")
     filesystem = NetworkFilesystemManager.get(
         cache_dir=cache_dir,
         ttl=ttl,
         client_kwargs=client_kwargs,
         cache_disable=cache_disable,
     )
-    if len(urls) > 1:
-        payloads = filesystem.cat(
-            urls,
-            on_error="return"
+    log.info(f"Downloading {len(urls)} files.")
+    payloads = filesystem.cat(
+        urls,
+        on_error="return"
+    )
+    files = []
+    for url, payload in payloads.items():
+        if isinstance(payload, bytes):
+            log.info(f"Downloaded file {url}")
+            status = 200
+        else:
+            log.error(f"Failed to download file {url}.")
+            if isinstance(payload, FileNotFoundError):
+                status = 404
+            elif isinstance(payload, ClientResponseError):
+                status = payload.status
+            else:
+                raise TypeError(f"Unsupported payload type: {type(payload)}")
+        files.append(
+            File(
+                url=url,
+                content=payload,
+                status=status,
+            )
         )
-        files = []
-        for url, payload in payloads.items():
-            if isinstance(payload, bytes):
-                files.append(
-                    File(
-                        url=url,
-                        content=BytesIO(payload),
-                        status=200,
-                    )
-                )
-            elif isinstance(payload, (ClientResponseError, FileNotFoundError)):
-                status = payload.status if isinstance(payload, ClientResponseError) else 404
-                files.append(
-                    File(
-                        url=url,
-                        content=payload,
-                        status=status,
-                    )
-                )
-        return files
-    return [
-        download_file(
-            url=urls[0],
-            cache_dir=cache_dir,
-            ttl=ttl,
-            client_kwargs=client_kwargs,
-            cache_disable=cache_disable,
-        ),
-    ]
+    return files
