@@ -90,11 +90,11 @@ class HubeauValues(TimeseriesValues):
     """Values class for Eaufrance Hubeau data."""
 
     _endpoint = (
-        "https://hubeau.eaufrance.fr/api/v1/hydrometrie/observations_tr?code_entite={station_id}"
+        "https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite={station_id}"
         "&grandeur_hydro={grandeur_hydro}&sort=asc&date_debut_obs={start_date}&date_fin_obs={end_date}"
     )
     _endpoint_freq = (
-        "https://hubeau.eaufrance.fr/api/v1/hydrometrie/observations_tr?code_entite={station_id}&"
+        "https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite={station_id}&"
         "grandeur_hydro={grandeur_hydro}&sort=asc&size=2"
     )
 
@@ -126,14 +126,15 @@ class HubeauValues(TimeseriesValues):
         parameter: ParameterModel,
     ) -> tuple[int, Literal["m", "H"]]:
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.name_original)
-        response = download_file(
+        file = download_file(
             url=url,
             cache_dir=self.sr.stations.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
             cache_disable=self.sr.stations.settings.cache_disable,
         )
-        values_dict = json.load(response)["data"]
+        file.raise_if_exception()
+        values_dict = json.load(file.content)["data"]
         try:
             second_date = values_dict[1]["date_obs"]
             first_date = values_dict[0]["date_obs"]
@@ -160,15 +161,16 @@ class HubeauValues(TimeseriesValues):
                 start_date=start_date.isoformat(),
                 end_date=end_date.isoformat(),
             )
-            response = download_file(
+            file = download_file(
                 url=url,
                 cache_dir=self.sr.stations.settings.cache_dir,
                 ttl=CacheExpiry.FIVE_MINUTES,
                 client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
                 cache_disable=self.sr.stations.settings.cache_disable,
             )
+            file.raise_if_exception()
             df = pl.read_json(
-                response,
+                file.content,
                 schema={
                     "data": pl.List(
                         pl.Struct(
@@ -215,19 +217,20 @@ class HubeauRequest(TimeseriesRequest):
     metadata = HubeauMetadata
     _values = HubeauValues
 
-    _endpoint = "https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations?format=json&en_service=true"
+    _endpoint = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?format=json&en_service=true"
 
     def _all(self) -> pl.LazyFrame:
         """:return:"""
-        response = download_file(
+        file = download_file(
             url=self._endpoint,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
+        file.raise_if_exception()
         df_raw = pl.read_json(
-            response,
+            file.content,
             schema={
                 "data": pl.List(
                     pl.Struct(

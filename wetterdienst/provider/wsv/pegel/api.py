@@ -203,19 +203,16 @@ class WsvPegelValues(TimeseriesValues):
 
         """
         url = self._endpoint.format(station_id=station_id, parameter=parameter_or_dataset.name_original)
-
-        try:
-            response = download_file(
-                url=url,
-                cache_dir=self.sr.stations.settings.cache_dir,
-                ttl=CacheExpiry.NO_CACHE,
-                client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-                cache_disable=self.sr.stations.settings.cache_disable,
-            )
-        except FileNotFoundError:
+        file = download_file(
+            url=url,
+            cache_dir=self.sr.stations.settings.cache_dir,
+            ttl=CacheExpiry.NO_CACHE,
+            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.stations.settings.cache_disable,
+        )
+        if isinstance(file.content, FileNotFoundError):
             return pl.DataFrame()
-
-        df = pl.read_json(response)
+        df = pl.read_json(file.content)
         df = df.rename(mapping={"timestamp": "date", "value": "value"})
         return df.with_columns(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
@@ -268,15 +265,16 @@ class WsvPegelRequest(TimeseriesRequest):
         It involves reading the REST API, doing some transformations
         and adding characteristic values in extra columns if given for each station.
         """
-        response = download_file(
+        file = download_file(
             url=self._endpoint,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.ONE_HOUR,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
+        file.raise_if_exception()
         df = pl.read_json(
-            response,
+            file.content,
             schema={
                 "number": pl.String,
                 "shortname": pl.String,

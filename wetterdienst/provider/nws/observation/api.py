@@ -150,15 +150,16 @@ class NwsObservationValues(TimeseriesValues):
     ) -> pl.DataFrame:
         url = self._endpoint.format(station_id=station_id)
         log.info(f"acquiring data from {url}")
-        response = download_file(
+        file = download_file(
             url=url,
             cache_dir=self.sr.stations.settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
             cache_disable=self.sr.stations.settings.cache_disable,
         )
+        file.raise_if_exception()
         df = pl.read_json(
-            response,
+            file.content,
             schema={
                 "features": pl.List(
                     pl.Struct(
@@ -283,14 +284,15 @@ class NwsObservationRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
-        response = download_file(
+        file = download_file(
             url=self._endpoint,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
-        df = pl.read_csv(source=response, has_header=False, separator="\t", infer_schema_length=0).lazy()
+        file.raise_if_exception()
+        df = pl.read_csv(source=file.content, has_header=False, separator="\t", infer_schema_length=0).lazy()
         df = df.filter(pl.col("column_7").eq("US"))
         df = df.select(
             pl.col("column_2"),

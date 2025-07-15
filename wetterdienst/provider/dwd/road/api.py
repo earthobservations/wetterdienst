@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 from urllib.parse import urljoin
 
 import polars as pl
@@ -25,12 +25,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.util.eccodes import check_pdbufr
-from wetterdienst.util.network import download_file, download_files, list_remote_files_fsspec
-
-if TYPE_CHECKING:
-    from io import BytesIO
-
-    from wetterdienst import Settings
+from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 log = logging.getLogger(__name__)
 
@@ -261,48 +256,38 @@ class DwdRoadValues(TimeseriesValues):
                 pl.col("date").is_between(self.sr.start_date, self.sr.end_date),
             )
         remote_files = df_files.get_column("filename").to_list()
-        filenames_and_files = self._download_road_weather_observations(remote_files, self.sr.settings)
-        return self._parse_dwd_road_weather_data(filenames_and_files, parameters)
-
-    @staticmethod
-    def _download_road_weather_observations(remote_files: list[str], settings: Settings) -> list[tuple[str, BytesIO]]:
-        """Download the road weather station data from a given file and returns a DataFrame."""
         files = download_files(
             urls=remote_files,
-            cache_dir=settings.cache_dir,
+            cache_dir=self.sr.settings.cache_dir,
             ttl=CacheExpiry.TWELVE_HOURS,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
+            client_kwargs=self.sr.settings.fsspec_client_kwargs,
+            cache_disable=self.sr.settings.cache_disable,
         )
-        return list(zip(remote_files, files, strict=False))
+        return self._parse_dwd_road_weather_data(files, parameters)
 
     def _parse_dwd_road_weather_data(
         self,
-        filenames_and_files: list[tuple[str, BytesIO]],
+        files: list[File],
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """Parse the road weather station data from a given file and returns a DataFrame."""
         return pl.concat(
-            [
-                self.__parse_dwd_road_weather_data(filename_and_file, parameters)
-                for filename_and_file in filenames_and_files
-            ],
+            [self.__parse_dwd_road_weather_data(file, parameters) for file in files],
         )
 
     @staticmethod
     def __parse_dwd_road_weather_data(
-        filename_and_file: tuple[str, BytesIO],
+        file: File,
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """Read the road weather station data from a given file and returns a DataFrame."""
         import pdbufr  # noqa: PLC0415
 
-        _, file = filename_and_file
         parameter_names = [parameter.name_original for parameter in parameters]
         first_batch = parameter_names[:10]
         second_batch = parameter_names[10:]
         with NamedTemporaryFile("w+b") as tf:
-            tf.write(file.read())
+            tf.write(file.content.read())
             tf.seek(0)
             df = pdbufr.read_bufr(
                 tf.name,
@@ -409,14 +394,15 @@ class DwdRoadRequest(TimeseriesRequest):
     }
 
     def _all(self) -> pl.LazyFrame:
-        payload = download_file(
+        file = download_file(
             url=self._endpoint,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
-        df = pl.read_excel(source=payload, sheet_name="Tabelle1", infer_schema_length=0)
+        file.raise_if_exception()
+        df = pl.read_excel(source=file.content, sheet_name="Tabelle1", infer_schema_length=0)
         df = df.rename(mapping=self._column_mapping)
         df = df.select(pl.col(col) for col in self._column_mapping.values())
         df = df.filter(

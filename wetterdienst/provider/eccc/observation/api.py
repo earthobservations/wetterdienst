@@ -13,13 +13,14 @@ from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
+from aiohttp import ClientResponseError
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
-from wetterdienst.util.network import download_file, download_files
+from wetterdienst.util.network import File, download_file, download_files
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -102,10 +103,10 @@ class EcccObservationValues(TimeseriesValues):
             client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
             cache_disable=self.sr.stations.settings.cache_disable,
         )
-
+        files = [file for file in files if isinstance(file.content, BytesIO)]
         data = []
-        for file_in_bytes in files:
-            df = pl.read_csv(file_in_bytes, infer_schema_length=0)
+        for file in files:
+            df = pl.read_csv(file.content, infer_schema_length=0)
             data.append(df)
         try:
             df = pl.concat(data)
@@ -201,10 +202,10 @@ class EcccObservationRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         # Acquire raw CSV payload.
-        csv_payload, source = self._download_stations()
+        csv_file, source = self._download_stations()
         header = 2 if source else 3
         # Read into Pandas data frame.
-        df_raw = pl.read_csv(csv_payload, has_header=True, skip_rows=header, infer_schema_length=0).lazy()
+        df_raw = pl.read_csv(csv_file.content, has_header=True, skip_rows=header, infer_schema_length=0).lazy()
         df_raw = df_raw.rename(str.lower)
         df_raw = df_raw.drop("latitude", "longitude")
         df_raw = df_raw.rename(self._columns_mapping)
@@ -242,7 +243,7 @@ class EcccObservationRequest(TimeseriesRequest):
         df = pl.concat(data)
         return df.filter(pl.col("latitude").ne("") & pl.col("longitude").ne(""))
 
-    def _download_stations(self) -> tuple[BytesIO, int]:
+    def _download_stations(self) -> tuple[File, int]:
         """Download station list from ECCC FTP server.
 
         :return: CSV payload, source identifier
@@ -253,34 +254,41 @@ class EcccObservationRequest(TimeseriesRequest):
             "Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv.gz"
         )
 
-        payload = None
+        file = None
         source = None
         try:
-            payload = download_file(
+            file = download_file(
                 url=gdrive_url,
                 cache_dir=self.settings.cache_dir,
                 ttl=CacheExpiry.METAINDEX,
                 client_kwargs=self.settings.fsspec_client_kwargs,
                 cache_disable=self.settings.cache_disable,
             )
+            file.raise_if_exception()
             source = 0
-        except Exception:
+        except (FileNotFoundError, ClientResponseError):
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
             # Fall back to different source.
             try:
-                response = download_file(
+                file = download_file(
                     url=http_url,
                     cache_dir=self.settings.cache_dir,
                     ttl=CacheExpiry.METAINDEX,
                     client_kwargs=self.settings.fsspec_client_kwargs,
                     cache_disable=self.settings.cache_disable,
                 )
-                with gzip.open(response, mode="rb") as f:
+                file.raise_if_exception()
+                with gzip.open(file.content, mode="rb") as f:
                     payload = BytesIO(f.read())
+                file = File(
+                    url=http_url,
+                    content=payload,
+                    status=file.status,
+                )
                 source = 1
-            except Exception:
+            except (FileNotFoundError, ClientResponseError):
                 log.exception(f"Unable to access HTTP server at {http_url}")
-        if not payload:
+        if not file:
             msg = "Unable to acquire ECCC stations list"
             raise FileNotFoundError(msg)
-        return payload, source
+        return file, source

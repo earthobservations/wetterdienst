@@ -15,14 +15,15 @@ def read_pdf(url: str) -> str:
     """Read text from a PDF file."""
     text = StringIO()
     default_settings = Settings()
-    response = download_file(
+    file = download_file(
         url=url,
         cache_dir=default_settings.cache_dir,
         ttl=CacheExpiry.NO_CACHE,
         client_kwargs=default_settings.client_kwargs,
         cache_disable=default_settings.cache_disable,
     )
-    pdf = pypdf.PdfReader(response)
+    file.raise_if_exception()
+    pdf = pypdf.PdfReader(file.content)
     for page_number in range(len(pdf.pages)):
         page = pdf.pages[page_number]
         result = page.extract_text()

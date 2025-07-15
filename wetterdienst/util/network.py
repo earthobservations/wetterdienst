@@ -7,23 +7,47 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
+from urllib.parse import urlparse
 
 import stamina
-from aiohttp import ClientResponse
-from fsspec.implementations.cached import WholeFileCacheFileSystem
+from aiohttp import ClientResponse, ClientResponseError
+from fsspec.implementations.cached import SimpleCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
 from wetterdienst.metadata.cache import CacheExpiry
 
 if TYPE_CHECKING:
-    from fsspec import AbstractFileSystem
-
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class File:
+    """File object for the network utilities."""
+
+    url: str
+    """The URL of the file."""
+
+    @property
+    def filename(self) -> str:
+        """The filename of the file."""
+        return Path(urlparse(self.url).path).name
+
+    """The filename of the file, if available."""
+    content: BytesIO | Exception
+    """The content of the file as a BytesIO object."""
+    status: int
+    """The status code of the file download, if available."""
+
+    def raise_if_exception(self) -> None:
+        """Raise an exception if the content is not a BytesIO object."""
+        if isinstance(self.content, Exception):
+            raise self.content
 
 
 class FileDirCache(MutableMapping):
@@ -149,7 +173,7 @@ class HTTPFileSystem(_HTTPFileSystem):
 class NetworkFilesystemManager:
     """Manage multiple FSSPEC instances keyed by cache expiration time."""
 
-    filesystems: ClassVar[dict[str, AbstractFileSystem]] = {}
+    filesystems: ClassVar[dict[str, HTTPFileSystem]] = {}
 
     @staticmethod
     def resolve_ttl(ttl: int | CacheExpiry) -> tuple[str, int]:
@@ -178,7 +202,7 @@ class NetworkFilesystemManager:
         ttl: CacheExpiry = CacheExpiry.NO_CACHE,
         client_kwargs: dict | None = None,
         *,
-        cache_disable: bool = False,
+        cache_disable: bool,
     ) -> None:
         """Register a new filesystem instance for a given cache expiration time.
 
@@ -197,12 +221,15 @@ class NetworkFilesystemManager:
         real_cache_dir = Path(cache_dir) / "fsspec" / key
 
         use_cache = not (cache_disable or ttl is CacheExpiry.NO_CACHE)
-        fs = HTTPFileSystem(use_listings_cache=use_cache, client_kwargs=client_kwargs)
+        fs = HTTPFileSystem(
+            use_listings_cache=use_cache,
+            client_kwargs=client_kwargs,
+        )
 
         if cache_disable or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = fs
         else:
-            filesystem_effective = WholeFileCacheFileSystem(
+            filesystem_effective = SimpleCacheFileSystem(
                 fs=fs,
                 cache_storage=str(real_cache_dir),
                 expiry_time=ttl_value,
@@ -216,8 +243,8 @@ class NetworkFilesystemManager:
         ttl: CacheExpiry = CacheExpiry.NO_CACHE,
         client_kwargs: dict | None = None,
         *,
-        cache_disable: bool = False,
-    ) -> AbstractFileSystem:
+        cache_disable: bool,
+    ) -> HTTPFileSystem:
         """Get a filesystem instance for a given cache expiration time.
 
         Args:
@@ -233,7 +260,12 @@ class NetworkFilesystemManager:
         ttl_name, _ = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         if key not in cls.filesystems:
-            cls.register(cache_dir=cache_dir, ttl=ttl, client_kwargs=client_kwargs, cache_disable=cache_disable)
+            cls.register(
+                cache_dir=cache_dir,
+                ttl=ttl,
+                client_kwargs=client_kwargs,
+                cache_disable=cache_disable,
+            )
         return cls.filesystems[key]
 
 
@@ -274,7 +306,7 @@ def download_file(
     client_kwargs: dict | None = None,
     *,
     cache_disable: bool = False,
-) -> BytesIO:
+) -> File:
     """Download a specified file from the server.
 
     Args:
@@ -295,9 +327,23 @@ def download_file(
         cache_disable=cache_disable,
     )
     log.info(f"Downloading file {url}")
-    payload = filesystem.cat_file(url)
-    log.info(f"Downloaded file {url}")
-    return BytesIO(payload)
+    try:
+        payload = filesystem.cat_file(url)
+        log.info(f"Downloaded file {url}")
+        return File(
+            url=url,
+            content=BytesIO(payload),
+            status=200,
+        )
+    except (ClientResponseError, FileNotFoundError) as e:
+        # retrieve the status code from the exception if available
+        status = e.status if isinstance(e, ClientResponseError) else 404
+        log.info(f"Failed to download file {url} with status {status}.")
+        return File(
+            url=url,
+            content=e,
+            status=status,
+        )
 
 
 def download_files(
@@ -307,32 +353,19 @@ def download_files(
     client_kwargs: dict | None = None,
     *,
     cache_disable: bool = False,
-) -> list[BytesIO]:
-    """Wrap download_file to download one or more files.
-
-    If multiple files are downloaded, it uses concurrent.futures to speed up the process.
-    """
+) -> list[File]:
+    """Download multiple files from the server concurrently."""
     log.info(f"Downloading {len(urls)} files.")
-    if len(urls) > 1:
-        with ThreadPoolExecutor() as p:
-            return list(
-                p.map(
-                    lambda file: download_file(
-                        url=file,
-                        cache_dir=cache_dir,
-                        ttl=ttl,
-                        client_kwargs=client_kwargs,
-                        cache_disable=cache_disable,
-                    ),
-                    urls,
+    with ThreadPoolExecutor() as p:
+        return list(
+            p.map(
+                lambda file: download_file(
+                    url=file,
+                    cache_dir=cache_dir,
+                    ttl=ttl,
+                    client_kwargs=client_kwargs,
+                    cache_disable=cache_disable,
                 ),
-            )
-    return [
-        download_file(
-            url=urls[0],
-            cache_dir=cache_dir,
-            ttl=ttl,
-            client_kwargs=client_kwargs,
-            cache_disable=cache_disable,
-        ),
-    ]
+                urls,
+            ),
+        )
