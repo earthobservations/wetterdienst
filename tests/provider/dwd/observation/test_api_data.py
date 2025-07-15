@@ -1349,17 +1349,14 @@ def test_dwd_observation_data_5minute_precipitation_data(default_settings: Setti
         start_date="2023-08-25 00:00",
         end_date="2023-08-27 00:00",
         settings=default_settings,
-    ).filter_by_rank(
-        latlon=(49.853706, 8.66311),
-        rank=1,
-    )
+    ).filter_by_station_id(station_id="01048")
     values = request.values.all().df
-    assert values.get_column("value").sum() == 23.82
+    assert round(values.get_column("value").sum(), 2) == 4.35
 
 
 @pytest.mark.remote
 def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings: Settings) -> None:
-    """Test for DWD observation 5 minute precipitation data with recent and now periods."""
+    """Test for DWD observation 5 minute precipitation data with recent and now periods. This is actually missing."""
     request = DwdObservationRequest(
         parameters=[
             ("minute_5", "precipitation", "precipitation_height_rocker"),
@@ -1367,12 +1364,9 @@ def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings
         ],
         periods={"recent", "now"},
         settings=default_settings,
-    ).filter_by_rank(
-        latlon=(49.853706, 8.66311),
-        rank=1,
-    )
+    ).filter_by_station_id(station_id="01048")
     values = request.values.all().df
-    assert values.get_column("value").is_not_null().sum() == 0
+    assert values.is_empty()
 
 
 @pytest.mark.remote

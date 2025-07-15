@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from io import BytesIO, StringIO
+from io import StringIO
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -21,7 +21,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     _create_file_index_for_dwd_server,
 )
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
-from wetterdienst.util.network import download_file, download_files
+from wetterdienst.util.network import File, download_file, download_files
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -104,19 +104,20 @@ def _create_meta_index_for_climate_observations(
         msg = f"No meta file was found amongst the files at {url}."
         raise MetaFileNotFoundError(msg)
     meta_file = df_files.get_column("url").to_list()[0]
-    payload = download_file(
+    file = download_file(
         url=meta_file,
         cache_dir=settings.cache_dir,
         ttl=CacheExpiry.METAINDEX,
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
     )
-    return _read_meta_df(payload)
+    file.raise_if_exception()
+    return _read_meta_df(file)
 
 
-def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
+def _read_meta_df(file: File) -> pl.LazyFrame:
     """Read meta file into DataFrame."""
-    lines = file.readlines()[2:]
+    lines = file.content.readlines()[2:]
     first = lines[0].decode("latin-1")
     if first.startswith("SP"):
         # Skip first line if it contains a header
@@ -171,22 +172,22 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
         .get_column("url")
         .first()
     )
-    payload_fx3 = download_file(
+    file_fx3 = download_file(
         url=meta_file_fx3,
         cache_dir=settings.cache_dir,
         ttl=CacheExpiry.METAINDEX,
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
     )
-    payload_fx6 = download_file(
+    file_fx6 = download_file(
         url=meta_file_fx6,
         cache_dir=settings.cache_dir,
         ttl=CacheExpiry.METAINDEX,
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
     )
-    df_fx3 = _read_meta_df(payload_fx3)
-    df_fx6 = _read_meta_df(payload_fx6)
+    df_fx3 = _read_meta_df(file_fx3)
+    df_fx6 = _read_meta_df(file_fx6)
     df_fx6 = df_fx6.join(df_fx3.select("station_id"), on=["station_id"], how="inner")
     return pl.concat([df_fx3, df_fx6])
 
@@ -200,9 +201,9 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     df_files = df_files.with_columns(
         pl.col("filename").str.split("_").list.last().str.split(".").list.first().alias("station_id"),
     )
-    files_and_station_ids = df_files.select(["url", "station_id"]).collect().to_struct().to_list()
-    log.info(f"Downloading {len(files_and_station_ids)} files for 1minute precipitation historical metadata.")
-    remote_files = [file_and_station_id["url"] for file_and_station_id in files_and_station_ids]
+    urls_and_station_ids = df_files.select(["url", "station_id"]).collect().rows()
+    log.info(f"Downloading {len(urls_and_station_ids)} files for 1minute precipitation historical metadata.")
+    remote_files = [url for url, _ in urls_and_station_ids]
     files = download_files(
         urls=remote_files,
         cache_dir=settings.cache_dir,
@@ -211,8 +212,8 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
         cache_disable=settings.cache_disable,
     )
     dfs = [
-        _parse_geo_metadata((file, file_and_station_id["station_id"]))
-        for file, file_and_station_id in zip(files, files_and_station_ids, strict=False)
+        _parse_geo_metadata(file=file, station_id=station_id)
+        for file, (_, station_id) in zip(files, urls_and_station_ids, strict=False)
     ]
     df = pl.concat(dfs)
     df = df.with_columns(
@@ -226,10 +227,9 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     return df.with_columns(pl.col("station_id").cast(str).str.pad_start(5, "0"))
 
 
-def _parse_geo_metadata(metadata_file_and_station_id: tuple[BytesIO, str]) -> pl.LazyFrame:
+def _parse_geo_metadata(file: File, station_id: str) -> pl.LazyFrame:
     """Parse metadata file into DataFrame."""
-    metadata_file, station_id = metadata_file_and_station_id
-    zfs = ZipFileSystem(metadata_file, mode="r")
+    zfs = ZipFileSystem(file.content, mode="r")
     file = zfs.open(f"Metadaten_Geographie_{station_id}.txt").read()
     df = _parse_zipped_data_into_df(file)
     df = df.rename(

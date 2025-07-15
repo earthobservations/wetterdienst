@@ -24,7 +24,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
-from wetterdienst.util.network import download_file, download_files, list_remote_files_fsspec
+from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 log = logging.getLogger(__name__)
 
@@ -189,11 +189,12 @@ class ImgwHydrologyValues(TimeseriesValues):
             client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
             cache_disable=self.sr.stations.settings.cache_disable,
         )
+        files = [file for file in files if isinstance(file.content, BytesIO)]
         data = []
         file_schema = self._file_schema[parameter_or_dataset.resolution.value][parameter_or_dataset.name]
-        for file_in_bytes in files:
+        for file in files:
             df = self._parse_file(
-                file_in_bytes=file_in_bytes,
+                file=file,
                 station_id=station_id,
                 dataset=parameter_or_dataset,
                 file_schema=file_schema,
@@ -218,13 +219,13 @@ class ImgwHydrologyValues(TimeseriesValues):
 
     def _parse_file(
         self,
-        file_in_bytes: BytesIO,
+        file: File,
         station_id: str,
         dataset: DatasetModel,
         file_schema: dict,
     ) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
-        zfs = ZipFileSystem(file_in_bytes)
+        zfs = ZipFileSystem(file.content)
         data = []
         files = zfs.glob("*")
         for file_pattern, schema in file_schema.items():

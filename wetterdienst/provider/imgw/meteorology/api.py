@@ -7,7 +7,8 @@ from __future__ import annotations
 import datetime as dt
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from io import BytesIO
+from typing import ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -22,11 +23,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
-from wetterdienst.util.network import download_file, download_files, list_remote_files_fsspec
-
-if TYPE_CHECKING:
-    from io import BytesIO
-
+from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 ImgwMeteorologyMetadata = {
     **_METADATA,
@@ -564,11 +561,12 @@ class ImgwMeteorologyValues(TimeseriesValues):
             client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
             cache_disable=self.sr.stations.settings.cache_disable,
         )
+        files = [file for file in files if isinstance(file.content, BytesIO)]
         data = []
         file_schema = self._file_schema[parameter_or_dataset.resolution.value][parameter_or_dataset.name]
-        for file_in_bytes in files:
+        for file in files:
             df = self._parse_file(
-                file_in_bytes=file_in_bytes,
+                file=file,
                 station_id=station_id,
                 resolution=parameter_or_dataset.resolution.value,
                 file_schema=file_schema,
@@ -593,13 +591,13 @@ class ImgwMeteorologyValues(TimeseriesValues):
 
     def _parse_file(
         self,
-        file_in_bytes: BytesIO,
+        file: File,
         station_id: str,
         resolution: Resolution,
         file_schema: dict,
     ) -> pl.DataFrame:
         """Parse the meteorological zip file."""
-        zfs = ZipFileSystem(file_in_bytes)
+        zfs = ZipFileSystem(file.content)
         data = []
         files = zfs.glob("*")
         for file_pattern, schema in file_schema.items():
@@ -723,14 +721,15 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """Get all available stations."""
-        payload = download_file(
+        file = download_file(
             url=self._endpoint,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
-        df = pl.read_csv(payload, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
+        file.raise_if_exception()
+        df = pl.read_csv(file.content, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
         df = df[:, 1:]
         df.columns = [
             "station_id",

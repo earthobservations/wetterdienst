@@ -124,15 +124,16 @@ class EAHydrologyValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Collect data for a station, parameter or dataset."""
         url = self._url.format(station_id=station_id)
-        payload = download_file(
+        file = download_file(
             url=url,
             cache_dir=self.sr.stations.settings.cache_dir,
             ttl=CacheExpiry.NO_CACHE,
             client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
             cache_disable=self.sr.stations.settings.cache_disable,
         )
+        file.raise_if_exception()
         df_measures = pl.read_json(
-            payload,
+            file.content,
             schema={
                 "items": pl.List(
                     pl.Struct(
@@ -176,15 +177,16 @@ class EAHydrologyValues(TimeseriesValues):
         except IndexError:
             return pl.DataFrame()
         readings_url = f"{readings_id_url}/readings.json"
-        payload = download_file(
+        file = download_file(
             url=readings_url,
             cache_dir=self.sr.stations.settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
             cache_disable=self.sr.stations.settings.cache_disable,
         )
+        file.raise_if_exception()
         df = pl.read_json(
-            payload,
+            file.content,
             schema={
                 "items": pl.List(
                     pl.Struct(
@@ -233,15 +235,16 @@ class EAHydrologyRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """Acquire all stations and filter for stations that have wanted resolution and parameter combinations."""
-        payload = download_file(
+        file = download_file(
             url=self._url,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
+        file.raise_if_exception()
         df = pl.read_json(
-            payload,
+            file.content,
             schema={
                 "items": pl.List(
                     pl.Struct(
@@ -298,12 +301,14 @@ class EAHydrologyRequest(TimeseriesRequest):
             (parameter.dataset.resolution.name, self._parameter_core_name_map[parameter.name])
             for parameter in self.parameters
         }
+        df = df.collect()
         df = df.filter(
             pl.concat_list(["resolution", "parameter"]).map_elements(
                 lambda rp: tuple(rp) in resolution_parameter_pairs,
                 return_dtype=pl.Boolean,
-            ),
+            )
         )
+        df = df.lazy()
         return df.select(
             "resolution",
             pl.lit(DATASET_NAME_DEFAULT, dtype=pl.String).alias("dataset"),

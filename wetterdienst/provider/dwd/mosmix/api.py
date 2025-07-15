@@ -223,14 +223,15 @@ class DwdMosmixRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """Read the MOSMIX station catalog from the DWD server and return a DataFrame."""
-        payload = download_file(
+        file = download_file(
             url=self._url,
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
         )
-        text = StringIO(payload.read().decode(encoding="latin-1"))
+        file.raise_if_exception()
+        text = StringIO(file.content.read().decode(encoding="latin-1"))
         lines = text.readlines()
         header = lines.pop(0)
         df_raw = pl.DataFrame({"column_0": lines[1:]})
