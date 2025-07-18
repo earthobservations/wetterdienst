@@ -249,9 +249,7 @@ def test_api_imgw_hydrology(default_settings: Settings, dataset: DatasetModel) -
     """Test imgw hydrology API."""
     request = ImgwHydrologyRequest(
         parameters=[dataset],
-        start_date="2024-01-01",
-        end_date="2026-01-31",
-        settings=default_settings).all()
+        settings=default_settings).filter_by_station_id("149180010")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "height", "state"})
@@ -271,7 +269,6 @@ def test_api_imgw_hydrology(default_settings: Settings, dataset: DatasetModel) -
 @pytest.mark.parametrize(
     "dataset",
     [
-        # DwdObservationMetadata.subdaily.wind_extreme
         dataset
         for resolution in ImgwMeteorologyMetadata
         for dataset in resolution

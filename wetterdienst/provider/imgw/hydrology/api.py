@@ -182,7 +182,6 @@ class ImgwHydrologyValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Collect hydrological data for a single station and dataset."""
         urls = self._get_urls(parameter_or_dataset)
-        print(urls)
         files = download_files(
             urls=urls,
             cache_dir=self.sr.stations.settings.cache_dir,
@@ -226,6 +225,9 @@ class ImgwHydrologyValues(TimeseriesValues):
         file_schema: dict,
     ) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
+        # TODO: remove workaround for mies_2023 once the data is fixed upstream
+        # the data in this case uses a different separator ";" instead of ","
+        is_mies_2023 = "mies_2023" in file.filename
         zfs = ZipFileSystem(file.content)
         data = []
         files = zfs.glob("*")
@@ -235,7 +237,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                 if re.match(file_pattern, f):
                     file = f
                     break
-            df = self.__parse_file(file=zfs.read_bytes(file), station_id=station_id, dataset=dataset, schema=schema)
+            df = self.__parse_file(file=zfs.read_bytes(file), station_id=station_id, dataset=dataset, schema=schema, is_mies_2023=is_mies_2023)
             if not df.is_empty():
                 data.append(df)
         try:
@@ -246,12 +248,12 @@ class ImgwHydrologyValues(TimeseriesValues):
             return pl.DataFrame()
         return df.unique(subset=["parameter", "date"], keep="first")
 
-    def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict) -> pl.DataFrame:
+    def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict, is_mies_2023: bool) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
         df = pl.read_csv(
             file,
             encoding="latin-1",
-            separator=",",
+            separator=";" if is_mies_2023 else ",",
             has_header=False,
             infer_schema_length=0,
             null_values=["9999", "99999.999", "99.9"],
