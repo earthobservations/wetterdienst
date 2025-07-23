@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.110.0 - 2025-07-23
+
 ### Feature
 - Drop upper version pins for fsspec and tzdata
 - Make retry of `download_file` more robust
