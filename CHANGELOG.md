@@ -4,6 +4,7 @@
 
 ### Fix
 - Parse parameters only if any are given
+- Fix export for interpolated values to csv
 
 ## 0.110.0 - 2025-07-23
 

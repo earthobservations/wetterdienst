@@ -87,6 +87,11 @@ class ExportMixin:
                 return_dtype=pl.String,
             ),
         )
+        if "taken_station_ids" in df.columns:
+            # Convert list of station IDs to a comma-separated string.
+            df = df.with_columns(
+                pl.col("taken_station_ids").list.join(",").alias("taken_station_ids"),
+            )
         return df.write_csv(**kwargs)
 
     @abstractmethod
