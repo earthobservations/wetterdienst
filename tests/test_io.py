@@ -203,8 +203,8 @@ def df_interpolated_values() -> pl.DataFrame:
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
-                "distance_mean": 0.0,
-                "taken_station_ids": ["01048"],
+                "distance_mean": 5.3,
+                "taken_station_ids": ["01048", "1050"],
             },
         ],
         schema={
@@ -502,10 +502,19 @@ def test_interpolated_values_to_dict(df_interpolated_values: pl.DataFrame) -> No
             "parameter": "temperature_air_max_2m",
             "date": "2019-01-01T00:00:00+00:00",
             "value": 1.3,
-            "distance_mean": 0.0,
-            "taken_station_ids": ["01048"],
+            "distance_mean": 5.3,
+            "taken_station_ids": ["01048", "1050"],
         },
     ]
+
+
+def test_interpolated_values_to_csv(df_interpolated_values: pl.DataFrame) -> None:
+    """Test export of DataFrame of interpolated values to dictionary."""
+    output = InterpolatedValuesResult(stations=None, df=df_interpolated_values, latlon=(1, 2)).to_csv(
+        include_header=False
+    )
+    lines = output.split("\n")
+    assert lines[0] == 'abc,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00+00:00,1.3,5.3,"01048,1050"'
 
 
 def test_interpolated_values_to_dict_with_metadata(
@@ -558,8 +567,8 @@ def test_interpolated_values_to_ogc_feature_collection(
                 "parameter": "temperature_air_max_2m",
                 "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,
-                "distance_mean": 0.0,
-                "taken_station_ids": ["01048"],
+                "distance_mean": 5.3,
+                "taken_station_ids": ["01048", "1050"],
             },
         ],
     }
@@ -596,6 +605,15 @@ def test_summarized_values_to_dict(df_summarized_values: pl.DataFrame) -> None:
             "taken_station_id": "01048",
         },
     ]
+
+
+def test_summarized_values_to_csv(df_summarized_values: pl.DataFrame) -> None:
+    """Test export of DataFrame of summarized values to csv."""
+    output = SummarizedValuesResult(stations=None, df=df_summarized_values, latlon=(1.2345, 2.3456)).to_csv(
+        include_header=False
+    )
+    lines = output.split("\n")
+    assert lines[0] == "abc,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00+00:00,1.3,0.0,01048"
 
 
 def test_summarized_values_to_dict_with_metadata(
