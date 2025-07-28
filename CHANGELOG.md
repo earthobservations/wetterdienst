@@ -2,6 +2,9 @@
 
 ## Development
 
+### Fix
+- Parse parameters only if any are given
+
 ## 0.110.0 - 2025-07-23
 
 ### Feature
