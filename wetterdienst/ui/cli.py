@@ -1108,8 +1108,8 @@ def interpolate(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
         ts_unit_targets=request.unit_targets,
-        ts_interpolation_station_distance=request.interpolation_station_distance,
-        ts_interpolation_use_nearby_station_distance=request.use_nearby_station_distance,
+        ts_interp_station_distance=request.interpolation_station_distance,
+        ts_interp_use_nearby_station_distance=request.use_nearby_station_distance,
     )
 
     try:
