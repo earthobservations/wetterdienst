@@ -2,6 +2,9 @@
 
 ## Development
 
+## Feature
+- Make humidity interpolatable
+
 ### Fix
 - Parse parameters only if any are given
 - Fix export for interpolated values to csv

@@ -414,8 +414,13 @@ Occasionally, you may require data specific to your precise location rather than
 station's location. To address this need, we have introduced an interpolation feature, enabling you to interpolate data
 from nearby stations to your exact coordinates. The function leverages the four closest stations to your specified
 latitude and longitude and employs the bilinear interpolation method provided by the scipy package (interp2d) to
-interpolate the given parameter values. Currently, this interpolation feature is exclusive to
-`DWDObservationRequest` and parameters ``temperature_air_mean_2m``, ``wind_speed``, ``precipitation_height``.
+interpolate the given parameter values. Currently, this interpolation feature is exclusive to the parameters 
+- ``temperature_air_mean_2m``
+- ``temperature_air_max_2m``
+- ``temperature_air_min_2m``
+- ``humidity``
+- ``wind_speed``
+- ``precipitation_height``.
 As it is in its early stages, we welcome feedback to enhance and refine its functionality. Interpolation by nearby
 stations is limited to a distance of 40 km by default (20.0 km for precipitation). You can
 change this by setting the ``ts_interpolation_station_distance`` setting. An example is shown below.
