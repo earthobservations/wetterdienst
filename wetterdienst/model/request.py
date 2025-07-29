@@ -102,16 +102,6 @@ class TimeseriesRequest:
             msg = "No valid parameters could be parsed from given argument"
             raise NoParametersFoundError(msg)
 
-    # @property
-    # @abstractmethod
-    # def metadata(self) -> MetadataModel:
-    #     """Metadata class."""
-
-    # @property
-    # @abstractmethod
-    # def _values(self) -> TimeseriesValues:
-    #     """Values class used for retrieving values."""
-
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = (
         "resolution",
@@ -132,6 +122,7 @@ class TimeseriesRequest:
         Parameter.TEMPERATURE_AIR_MEAN_2M.name.lower(),
         Parameter.TEMPERATURE_AIR_MAX_2M.name.lower(),
         Parameter.TEMPERATURE_AIR_MIN_2M.name.lower(),
+        Parameter.HUMIDITY.name.lower(),
         Parameter.WIND_SPEED.name.lower(),
         Parameter.PRECIPITATION_HEIGHT.name.lower(),
     ]
