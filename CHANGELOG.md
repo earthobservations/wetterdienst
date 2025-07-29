@@ -4,6 +4,7 @@
 
 ## Feature
 - Make humidity interpolatable
+- Improve interpolation configuration
 
 ### Fix
 - Parse parameters only if any are given

@@ -421,9 +421,15 @@ interpolate the given parameter values. Currently, this interpolation feature is
 - ``humidity``
 - ``wind_speed``
 - ``precipitation_height``.
-As it is in its early stages, we welcome feedback to enhance and refine its functionality. Interpolation by nearby
-stations is limited to a distance of 40 km by default (20.0 km for precipitation). You can
-change this by setting the ``ts_interpolation_station_distance`` setting. An example is shown below.
+
+There are several settings that can be used to control the interpolation behavior:
+
+| Name                                  | Type             | Default                                      | Description                                                                                                                                                                                                             |
+|---------------------------------------|------------------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ts_interp_station_distance            | dict[str, float] | 20.0 (precipitation_height)<br/>40.0 (other) | Max distance for stations used for interpolation (in km)                                                                                                                                                                |
+| ts_interp_use_nearby_station_distance | float            | 1.0                                          | Distance (in km) until which the value of a nearby station is used instead of interpolation.                                                                                                                            |
+| ts_interp_min_gain_of_value_pairs     | float            | 0.1                                          | Minimum gain of value pairs [for an additional station] to be included in the list of stations used. This is to prevent taking all stations into account in case of a dense station network.                            |
+| ts_interp_num_additional_stations     | int              | 3                                            | Number of additional stations to be used for interpolation regardless of min_gain_of_value_pairs. This is to ensure that at least a certain number of stations are used for interpolation, even if the gain is not met. |
 
 The graphic below shows values of the parameter ``temperature_air_mean_2m`` from multiple stations measured at the same time.
 The blue points represent the position of a station and includes the measured value.
@@ -508,6 +514,8 @@ df = values.df
 df
 ```
 
+Interpolation is still in its early stages, we welcome feedback to enhance and refine its functionality. 
+
 ### Summary
 
 Similar to interpolation you may sometimes want to combine multiple stations to get a complete list of data. For that
@@ -558,6 +566,8 @@ values = request.summarize_by_station_id(station_id="02480")
 df = values.df
 df
 ```
+
+Summary is still in its early stages, we welcome feedback to enhance and refine its functionality.
 
 ### Format
 

@@ -7,11 +7,12 @@ from __future__ import annotations
 import json
 import logging
 import platform
+from collections import defaultdict
 from pathlib import Path  # noqa: TC003
 from typing import Literal
 
 import platformdirs
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, confloat, conint, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wetterdienst.metadata.parameter import Parameter
@@ -43,13 +44,24 @@ class Settings(BaseSettings):
     ts_skip_criteria: Literal["min", "mean", "max"] = "min"
     ts_complete: bool = False
     ts_drop_nulls: bool = True
-    ts_interpolation_station_distance: dict[str, float] = Field(
-        default_factory=lambda: {
-            "default": 40.0,
-            Parameter.PRECIPITATION_HEIGHT.value.lower(): 20.0,
-        },
+    # this setting is used to define for each parameter how far away a station can be to be used for interpolation
+    # the default is 40km, but for precipitation height it is 20km
+    # parameters such as precipitation height are more local and thus need a smaller distance, while parameters such as
+    # temperature can be interpolated over a larger distance
+    ts_interp_station_distance: defaultdict[str, float] = Field(
+        default_factory=lambda: defaultdict(lambda: 40) | {Parameter.PRECIPITATION_HEIGHT.value.lower(): 20}
     )
-    ts_interpolation_use_nearby_station_distance: float = 1.0
+    # this setting is used to define how far away a station can be so that no interpolation is done
+    # but instead the station is used directly
+    ts_interp_use_nearby_station_distance: confloat(ge=0) | None = 1.0
+    # this rather complicated setting is used in the process of figuring out how many additional stations will be used
+    # the gain defines how many additional timestamps can be interpolated by adding the specific station and thus
+    # getting more timestamps with the required minimum of four values
+    # so basically this setting considers the extra effort against the gain of additional interpolated timestamps
+    ts_interp_min_gain_of_value_pairs: confloat(gt=0.0) = 0.10
+    # this settings defines how many additional stations are used in the interpolation process independent from the gain
+    # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
+    ts_interp_num_additional_stations: conint(ge=0) = 3
 
     @field_validator("ts_unit_targets", mode="before")
     @classmethod
@@ -66,12 +78,12 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         return values
 
-    # make ts_interpolation_station_distance update but not replace the default values
-    @field_validator("ts_interpolation_station_distance", mode="before")
+    # make ts_interp_station_distance update but not replace the default values
+    @field_validator("ts_interp_station_distance", mode="before")
     @classmethod
-    def validate_ts_interpolation_station_distance(cls, values: dict[str, float] | None) -> dict[str, float]:
+    def validate_ts_interp_station_distance(cls, values: dict[str, float] | None) -> dict[str, float]:
         """Validate the interpolation station distance settings."""
-        default = cls.model_fields["ts_interpolation_station_distance"].default_factory()
+        default = cls.model_fields["ts_interp_station_distance"].default_factory()
         if not values:
             return default
         return default | values

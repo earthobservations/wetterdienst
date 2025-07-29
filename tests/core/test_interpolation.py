@@ -49,7 +49,7 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
     )
     result = request.interpolate(latlon=(50.0, 8.9))
     assert result.df.shape[0] == 18001
-    assert result.df.drop_nulls().shape[0] == 17881
+    assert result.df.drop_nulls().shape[0] == 17914
     given_df = result.filter_by_date("2022-01-02 00:00:00+00:00")
     expected_df = pl.DataFrame(
         [
@@ -229,7 +229,7 @@ def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_se
 
 def test_interpolation_increased_station_distance() -> None:
     """Test that the interpolation works with increased station distance."""
-    settings = Settings(ts_interpolation_station_distance={"precipitation_height": 25})
+    settings = Settings(ts_interp_station_distance={"precipitation_height": 25})
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_height")],
         start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
