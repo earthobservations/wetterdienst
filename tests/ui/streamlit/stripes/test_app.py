@@ -30,7 +30,7 @@ def test_stripes() -> None:
         "resolution": "annual",
         "dataset": "climate_summary",
         "station_id": "15000",
-        "start_date": dt.datetime(2011, 4, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+        "start_date": dt.datetime(2012, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
         "latitude": 50.7983,
         "longitude": 6.0244,
         "height": 231.0,
