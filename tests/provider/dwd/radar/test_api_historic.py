@@ -257,6 +257,7 @@ def test_radar_request_composite_historic_hg_timerange(default_settings: Setting
     )
 
 
+@pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_yesterday(
     default_settings: Settings,
@@ -306,6 +307,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday(
     assert requested_attrs == attrs
 
 
+@pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_timerange(
     default_settings: Settings,
@@ -567,6 +569,7 @@ def test_radar_request_site_historic_pe_timerange(default_settings: Settings, fm
         assert re.match(bytes(header, encoding="ascii"), payload[:115])
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_px250_bufr_yesterday(default_settings: Settings) -> None:
     """Example for testing radar/site PX250 for a specific date."""

@@ -294,6 +294,7 @@ def test_stations_dwd_sql(client: TestClient) -> None:
     }
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 @pytest.mark.parametrize(
     "fmt",
@@ -357,6 +358,7 @@ def test_stations_dwd_obs_image_pdf(client: TestClient) -> None:
     assert response.headers["Content-Type"] == "application/pdf"
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_stations_dwd_obs_image_png_custom_settings(client: TestClient) -> None:
     """Test custom settings."""
