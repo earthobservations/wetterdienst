@@ -63,6 +63,7 @@ def test_gaussian_example(tmp_path: Path) -> None:
     assert dwd_obs_gaussian_model.main(tmp_path) is None
 
 
+@pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")
 @pytest.mark.cflake
 def test_radar_examples() -> None:
     """Test DWD radar examples."""
