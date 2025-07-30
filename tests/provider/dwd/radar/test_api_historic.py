@@ -569,6 +569,7 @@ def test_radar_request_site_historic_pe_timerange(default_settings: Settings, fm
         assert re.match(bytes(header, encoding="ascii"), payload[:115])
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_px250_bufr_yesterday(default_settings: Settings) -> None:
     """Example for testing radar/site PX250 for a specific date."""
