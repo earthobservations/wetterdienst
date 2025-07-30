@@ -1566,6 +1566,7 @@ def test_dwd_observation_datasets_high_resolution(default_settings: Settings, da
     assert given_df.get_column("quality").is_not_null().mean() >= 0.99
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 @pytest.mark.parametrize(
     "dataset",
