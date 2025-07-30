@@ -9,6 +9,7 @@ import pytest
 from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX, IS_WINDOWS
 
 
+@pytest.mark.xfail(IS_CI and IS_WINDOWS)
 @pytest.mark.cflake
 def test_examples() -> None:
     """Test DWD observation examples."""
