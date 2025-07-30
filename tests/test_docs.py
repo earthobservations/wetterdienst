@@ -47,7 +47,7 @@ def test_data_coverage() -> None:
         assert Path(COVERAGE / provider.name).is_dir()
         provider_readme = Path(COVERAGE / provider.name / "index.md")
         assert provider_readme.exists()
-        provider_readme_content = provider_readme.read_text()
+        provider_readme_content = provider_readme.read_text(encoding="utf8")
         for network in provider.glob("*"):
             if _check_startswith(
                 network.name,
@@ -58,7 +58,7 @@ def test_data_coverage() -> None:
             assert Path(COVERAGE / provider.name / network.name).is_dir()
             network_readme = Path(COVERAGE / provider.name / network.name / "index.md")
             assert network_readme.exists()
-            network_readme_content = network_readme.read_text()
+            network_readme_content = network_readme.read_text(encoding="utf8")
             # check docs consistency
             for resolution in Path(COVERAGE, provider.name, network.name).glob("*"):
                 if resolution.name == "index.md":
