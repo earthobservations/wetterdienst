@@ -1291,7 +1291,26 @@ def test_dwd_observation_solar_hourly(settings_convert_units_false: Settings) ->
         settings=settings_convert_units_false,
     ).filter_by_distance(latlon_bremen, 500)
     values_df = next(request.values.query()).df
-    assert values_df.get_column("value").sum() == 417997.0
+    assert values_df.get_column("value").sum() == 417914.0
+
+
+@pytest.mark.remote
+def test_dwd_observation_solar_hourly_timestamps_off(default_settings: Settings) -> None:
+    """Test DWD observation solar hourly data with timestamps off by one minute.
+
+    This is to test the rounding of timestamps to the nearest hour.
+
+    Thanks, @nkiessling, for reporting the issue.
+    """
+    request = DwdObservationRequest(
+        parameters=[("hourly", "solar", "radiation_global")],
+        start_date=dt.datetime(2024, 12, 8, 0, 0, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2024, 12, 8, 23, 0, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    ).filter_by_station_id(station_id="03987")
+    values_df = next(request.values.query()).df
+    assert len(values_df) == 24
+    assert values_df.get_column("value").sum() == 46.0
 
 
 @pytest.mark.remote

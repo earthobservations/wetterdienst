@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 from typing import TYPE_CHECKING
 
@@ -130,8 +131,17 @@ def _parse_climate_observations_data(  # noqa: C901
         df = df.with_columns(pl.lit(None, dtype=pl.String).alias(parameter) for parameter in missing_parameters)
     # Special handling for hourly solar data, as it has more date columns
     elif dataset == DwdObservationMetadata.hourly.solar:
-        # Fix real date column by cutting of minutes
-        df = df.with_columns(pl.col("date").str.head(-3))
+        # Fix timestamps of hourly solar data
+        # The timestamps are sometimes given as e.g. 2024-12-08 17:59:00 instead of 2024-12-08 18:00:00
+        # Other times they are off by 10 minutes, e.g. 2024-12-08 17:50:00 or 2024-12-08 17:10:00
+        # @nkiessling proposed to round the timestamps to the nearest hour
+        # Until further discussion, we will apply this rounding
+        df = df.with_columns(
+            pl.col("date")
+            .str.to_datetime("%Y%m%d%H:%M", time_zone="UTC")
+            .dt.round(dt.timedelta(hours=1))
+            .dt.strftime("%Y%m%d%H%M")
+        )
     elif dataset == DwdObservationMetadata.subdaily.wind_extreme:
         if "FX3" in file.filename:
             alias = "qn_8_3"
