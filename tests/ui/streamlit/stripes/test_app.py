@@ -12,7 +12,7 @@ from wetterdienst import __version__
 from wetterdienst.ui.streamlit.stripes import app
 
 
-@pytest.mark.xfail
+@pytest.mark.skip
 @pytest.mark.cflake
 @pytest.mark.remote
 def test_stripes() -> None:

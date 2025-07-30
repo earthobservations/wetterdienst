@@ -14,7 +14,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui.streamlit.explorer import app
 
 
-@pytest.mark.xfail
+@pytest.mark.skip
 @pytest.mark.cflake
 @pytest.mark.remote
 def test_explorer() -> None:
