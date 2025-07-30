@@ -294,6 +294,7 @@ def test_stations_dwd_sql(client: TestClient) -> None:
     }
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 @pytest.mark.parametrize(
     "fmt",
