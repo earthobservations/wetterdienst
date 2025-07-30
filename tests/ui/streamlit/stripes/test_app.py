@@ -9,7 +9,6 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from wetterdienst import __version__
-from wetterdienst.ui.streamlit.stripes import app
 
 
 @pytest.mark.skip
@@ -17,6 +16,8 @@ from wetterdienst.ui.streamlit.stripes import app
 @pytest.mark.remote
 def test_stripes() -> None:
     """Test the Stripes app."""
+    from wetterdienst.ui.streamlit.stripes import app  # noqa: PLC0415
+
     app_test = AppTest.from_file(app.__file__)
     app_test.run()
     assert app_test.error == []
