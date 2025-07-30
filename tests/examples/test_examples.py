@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX
+from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX, IS_WINDOWS
 
 
 @pytest.mark.cflake
@@ -46,6 +46,7 @@ def test_examples_failing_describe_fields() -> None:
     assert dwd_obs_climate_summary_describe_fields.main() is None
 
 
+@pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="problem with storage on Windows in CI")
 @pytest.mark.skipif(not ENSURE_ECCODES_PDBUFR, reason="eccodes and pdbufr required")
 def test_pdbufr_examples() -> None:
     """Test DWD observation PDBUFR examples."""
