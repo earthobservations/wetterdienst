@@ -334,6 +334,7 @@ def test_api_wsv_pegel(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.xfail(reason="ClientResponseError 403: Forbidden")
 def test_api_ea_hydrology(default_settings: Settings) -> None:
     """Test ea hydrology API."""
     request = EAHydrologyRequest(parameters=[("daily", "data", "discharge_max")], settings=default_settings).all()
