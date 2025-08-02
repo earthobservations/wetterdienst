@@ -1,4 +1,6 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS build
+FROM python:3.13-slim-bookworm AS build
+
+COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /bin/
 
 # Copy wheel that was generated in the previous step (./.github/workflows/docker-publish.yml).
 # If you want to build the Docker image locally, you need to build the wheel first e.g. with `uv build`.
