@@ -5,11 +5,14 @@
 ## Feature
 - Make humidity interpolatable
 - Improve interpolation configuration
+- Docker: Copy uv bin from uv image
+- Docker: Remove workaround for `export` extra on linux/arm64
 
 ### Fix
 - Parse parameters only if any are given
 - Fix export for interpolated values to csv
 - Round timestamps of hourly solar data to nearest hour
+- Docker: Install chromium to fix png export
 
 ## 0.110.0 - 2025-07-23
 
