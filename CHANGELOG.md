@@ -8,6 +8,7 @@
 - Set missing `return_dtype` in fileindex function
 - Pin zarr to `>=3.1;python_version>=3.11`
 - Set `return_dtype` for polars functions 
+- Docker: Copy uv bin from uv image
 
 ### Fix
 - Parse parameters only if any are given
