@@ -5,6 +5,7 @@
 ## Feature
 - Make humidity interpolatable
 - Improve interpolation configuration
+- Set missing `return_dtype` in fileindex function
 
 ### Fix
 - Parse parameters only if any are given
