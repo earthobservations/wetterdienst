@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX, IS_WINDOWS
+from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX, IS_PYTHON_3_10, IS_WINDOWS
 
 
 @pytest.mark.xfail(IS_CI and IS_WINDOWS, reason="fails on Windows in CI")
@@ -16,7 +16,6 @@ def test_examples() -> None:
     from examples.provider.dwd.mosmix import dwd_mosmix_forecasts  # noqa: PLC0415
     from examples.provider.dwd.observation import (  # noqa: PLC0415
         dwd_obs_climate_summary_duckdb_dump,
-        dwd_obs_climate_summary_zarr_dump,
         dwd_obs_interpolate,
         dwd_obs_plot_german_weather_stations,
         dwd_obs_plot_hohenpeissenberg_warming_stripes,
@@ -28,7 +27,6 @@ def test_examples() -> None:
 
     assert dwd_mosmix_forecasts.main() is None
     assert dwd_obs_climate_summary_duckdb_dump.main() is None
-    assert dwd_obs_climate_summary_zarr_dump.main() is None
     assert dwd_obs_interpolate.main() is None
     assert dwd_obs_plot_german_weather_stations.main() is None
     assert dwd_obs_plot_hohenpeissenberg_warming_stripes.main() is None
@@ -36,6 +34,18 @@ def test_examples() -> None:
     assert dwd_obs_stations_filter_by_examples.main() is None
     assert dwd_obs_summarize.main() is None
     assert dwd_obs_values_sql.main() is None
+
+
+@pytest.mark.skipif(IS_PYTHON_3_10, reason="zarr not supported in Python 3.10")
+@pytest.mark.cflake
+def test_examples_zarr() -> None:
+    """Test DWD observation examples with Zarr.
+
+    Zarr is not supported in Python 3.10, so this test is skipped.
+    """
+    from examples.provider.dwd.observation import dwd_obs_climate_summary_zarr_dump  # noqa: PLC0415
+
+    assert dwd_obs_climate_summary_zarr_dump.main() is None
 
 
 @pytest.mark.xfail
