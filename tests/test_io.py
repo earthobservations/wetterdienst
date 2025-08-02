@@ -943,7 +943,7 @@ def test_export_zarr(
     group = root.get("climate_summary")
     # Validate dimensions.
     assert len(group) == 33
-    assert len(group.index) == 366
+    assert group.get("index").size == 366
     # Validate column names.
     columns = set(group.keys())
     columns.discard("index")

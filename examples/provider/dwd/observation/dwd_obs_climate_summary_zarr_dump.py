@@ -6,12 +6,11 @@ import os
 from pathlib import Path
 
 import xarray as xr
-import zarr
 from tqdm import tqdm
 
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-ROOT = Path(__file__).parent.parent
+ZARR_OUTPUT_PATH = Path(__file__).parent / "dwd_obs_climate_summary.zarr"
 
 
 def create_dwd_climate_summary_zarr_dump(filepath: Path, *, test: bool) -> None:
@@ -21,7 +20,6 @@ def create_dwd_climate_summary_zarr_dump(filepath: Path, *, test: bool) -> None:
         periods="historical",
     ).all()
     meta = request.df
-    store = zarr.DirectoryStore(str(filepath))
     data = []
     for result in tqdm(request.values.query(), total=meta.shape[0]):
         df = result.df.drop("quality").to_pandas()
@@ -32,16 +30,15 @@ def create_dwd_climate_summary_zarr_dump(filepath: Path, *, test: bool) -> None:
         if test:
             break
     ds = xr.concat(data, dim="station_id")
-    ds.to_zarr(store, mode="w")
+    ds.to_zarr(filepath, mode="w")
 
 
 def main() -> None:
     """Create a Zarr dump of DWD climate summary data."""
-    filepath = ROOT / "dwd_obs_climate_summary.zarr"
     test = "PYTEST_CURRENT_TEST" in os.environ
     # this takes something like 15 min and will require roughly 1 gb on disk
-    create_dwd_climate_summary_zarr_dump(filepath, test=test)
-    ds = xr.open_zarr(filepath)
+    create_dwd_climate_summary_zarr_dump(filepath=ZARR_OUTPUT_PATH, test=test)
+    ds = xr.open_zarr(ZARR_OUTPUT_PATH)
     print(ds)
 
 
