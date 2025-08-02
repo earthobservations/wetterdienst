@@ -81,7 +81,7 @@ def create_file_index_for_climate_observations(
             .list.last()
             .str.to_datetime("%Y%m%d")
             .dt.replace_time_zone("Europe/Berlin")
-            .map_batches(lambda dates: dates + dt.timedelta(days=1))
+            .map_batches(lambda dates: dates + dt.timedelta(days=1), return_dtype=pl.Datetime(time_zone="Europe/Berlin"))
             .alias("end_date"),
         )
         df_files = df_files.with_columns(
