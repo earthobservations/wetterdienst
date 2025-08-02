@@ -82,7 +82,7 @@ class ExportMixin:
         """
         df = self.df
         df = df.with_columns(
-            pl.col(cs.Datetime(time_zone="*")).map_elements(
+            cs.datetime().map_elements(
                 lambda date: date.isoformat() if date else None,
                 return_dtype=pl.String,
             ),

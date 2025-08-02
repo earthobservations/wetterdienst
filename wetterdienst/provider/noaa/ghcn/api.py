@@ -270,7 +270,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
             cache_disable=self.settings.cache_disable,
         )
         listings_file.raise_if_exception()
-        df = pl.read_csv(listings_file.content, has_header=False, truncate_ragged_lines=True)
+        lines = listings_file.content.read().decode("utf8").splitlines()
+        df = pl.DataFrame(lines)
         column_specs = ((0, 10), (12, 19), (21, 29), (31, 36), (38, 39), (41, 70), (80, 84))
         df = read_fwf_from_df(df, column_specs)
         df.columns = [
