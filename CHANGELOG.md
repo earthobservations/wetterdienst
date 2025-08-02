@@ -6,6 +6,7 @@
 - Make humidity interpolatable
 - Improve interpolation configuration
 - Docker: Copy uv bin from uv image
+- Docker: Remove workaround for `export` extra on linux/arm64
 
 ### Fix
 - Parse parameters only if any are given
