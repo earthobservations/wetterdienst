@@ -15,6 +15,7 @@
 - Fix export for interpolated values to csv
 - Round timestamps of hourly solar data to nearest hour
 - Fix several polars issues
+- Docker: Install chromium to fix png export
 
 ## 0.110.0 - 2025-07-23
 

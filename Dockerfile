@@ -15,6 +15,11 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
 # Final stage
 FROM python:3.13-slim-bookworm
 
+# Install chromium -> required for kaleido png export
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends chromium && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy installed pip packages from build stage
 COPY --from=build /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=build /usr/local/bin /usr/local/bin
