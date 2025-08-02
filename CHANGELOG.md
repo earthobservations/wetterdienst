@@ -6,6 +6,7 @@
 - Make humidity interpolatable
 - Improve interpolation configuration
 - Set missing `return_dtype` in fileindex function
+- Pin zarr to `>=3.1;python_version>=3.11` and remove Docker workaround
 
 ### Fix
 - Parse parameters only if any are given

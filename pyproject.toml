@@ -133,13 +133,7 @@ export = [
   "sqlalchemy>=2,<3",
   "xarray>=2023.1,<2026",
   "xlsxwriter>=3.0.9,<4",
-  "zarr>=2.13,<3",
-]
-export_without_zarr = [
-  "pandas>=2,<3",
-  "sqlalchemy>=2,<3",
-  "xarray>=2023.1,<2026",
-  "xlsxwriter>=3.0.9,<4",
+  "zarr>=3.1,<4;python_version>='3.11'",
 ]
 influxdb = [
   "influxdb>=5.3,<6",
