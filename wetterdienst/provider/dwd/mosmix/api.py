@@ -250,8 +250,8 @@ class DwdMosmixRequest(TimeseriesRequest):
             pl.col("icao_id").replace("----", None),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
-            pl.col("latitude").cast(float).map_batches(convert_dm_to_dd),
-            pl.col("longitude").cast(float).map_batches(convert_dm_to_dd),
+            pl.col("latitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
+            pl.col("longitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
             pl.col("height").cast(int),
             pl.lit(None, pl.String).alias("state"),
         )

@@ -185,7 +185,7 @@ class TimeseriesValues(ABC):
         ):
             lambda_ = conversion_factors[parameter.lower()]
             # round by 4 decimals to avoid long floats but keep precision
-            df_group = df_group.with_columns(pl.col("value").map_batches(lambda_).round(4))
+            df_group = df_group.with_columns(pl.col("value").map_batches(lambda_, return_dtype=pl.Float64).round(4))
             data.append(df_group)
 
         return pl.concat(data)
