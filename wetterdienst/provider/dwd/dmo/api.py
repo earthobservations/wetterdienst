@@ -357,7 +357,7 @@ class DwdDmoRequest(TimeseriesRequest):
             "longitude",
             "height",
         ]
-        df_raw = df_raw.filter(pl.col("station_id").is_in(self._station_patches.get_column("station_id")).not_())
+        df_raw = df_raw.join(self._station_patches.select("station_id"), how="anti", on="station_id")
         df_raw = pl.concat([df_raw, self._station_patches])
         df_raw = df_raw.with_columns(
             pl.col("icao_id").replace("----", None),
