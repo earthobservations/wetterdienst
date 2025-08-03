@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.111.0 - 2025-08-03
+
 ## Feature
 - Make humidity interpolatable
 - Improve interpolation configuration
