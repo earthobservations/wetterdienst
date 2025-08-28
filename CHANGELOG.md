@@ -2,6 +2,9 @@
 
 ## Development
 
+### Feature
+- Switch back to `WholeFileCacheFileSystem` for caching
+
 ## 0.111.0 - 2025-08-03
 
 ## Feature
