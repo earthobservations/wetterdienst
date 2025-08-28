@@ -12,13 +12,13 @@ def test_create_fsspec_filesystem() -> None:
     default_settings = Settings()
     fs1 = NetworkFilesystemManager.get(
         cache_dir=default_settings.cache_dir,
-        ttl=CacheExpiry.METAINDEX,
+        cache_expiry=CacheExpiry.METAINDEX,
         client_kwargs=default_settings.fsspec_client_kwargs,
         cache_disable=default_settings.cache_disable,
     )
     fs2 = NetworkFilesystemManager.get(
         cache_dir=default_settings.cache_dir,
-        ttl=CacheExpiry.METAINDEX,
+        cache_expiry=CacheExpiry.METAINDEX,
         client_kwargs=default_settings.fsspec_client_kwargs,
         cache_disable=default_settings.cache_disable,
     )

@@ -102,7 +102,7 @@ def _create_file_index_for_dwd_server(
     settings: Settings,
     ttl: CacheExpiry,
 ) -> pl.LazyFrame:
-    urls = list_remote_files_fsspec(url, settings=settings, ttl=ttl)
+    urls = list_remote_files_fsspec(url, settings=settings, cache_expiry=ttl)
     if not urls:
         msg = f"url {url} does not have a list of files"
         raise FileNotFoundError(msg)

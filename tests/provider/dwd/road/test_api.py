@@ -50,7 +50,7 @@ def test_dwd_road_weather_station_groups() -> None:
     files = list_remote_files_fsspec(
         url=url,
         settings=Settings(),
-        ttl=CacheExpiry.METAINDEX,
+        cache_expiry=CacheExpiry.METAINDEX,
     )
     files = {file[len(url) :].split("/")[0] for file in files}
     if "quality-assured" in files:
