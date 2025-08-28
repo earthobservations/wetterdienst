@@ -55,7 +55,7 @@ class KMLReader:
 
         self.dwdfs = NetworkFilesystemManager.get(
             cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
+            cache_expiry=CacheExpiry.FIVE_MINUTES,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
         )

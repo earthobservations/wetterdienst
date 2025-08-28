@@ -4,6 +4,7 @@
 
 ### Feature
 - Switch back to `WholeFileCacheFileSystem` for caching
+- Improve more things on caching
 
 ## 0.111.0 - 2025-08-03
 

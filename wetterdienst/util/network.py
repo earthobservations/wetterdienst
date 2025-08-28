@@ -5,12 +5,12 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator, MutableMapping
+from collections.abc import Generator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Literal
 from urllib.parse import urlparse
 
 import stamina
@@ -58,14 +58,14 @@ class FileDirCache(MutableMapping):
         listings_expiry_time: float,
         *,
         use_listings_cache: bool,
-        listings_cache_location: str | None = None,
+        listings_cache_location: Path | None = None,
     ) -> None:
         """Initialize the FileDirCache.
 
         Args:
-            listings_expiry_time: Time in seconds that a listing is considered valid. If None,
-            use_listings_cache: If False, this cache never returns items, but always reports KeyError,
-            listings_cache_location: Directory path at which the listings cache file is stored. If None,
+            listings_expiry_time: Time in seconds that a listing is considered valid.
+            use_listings_cache: If False, this cache never returns items, but always reports KeyError.
+            listings_cache_location: Directory path at which the listings cache file is stored.
 
         """
         import platformdirs  # noqa: PLC0415
@@ -74,22 +74,22 @@ class FileDirCache(MutableMapping):
         listings_expiry_time = listings_expiry_time and float(listings_expiry_time)
 
         if listings_cache_location:
-            listings_cache_location = Path(listings_cache_location) / str(listings_expiry_time)
-            listings_cache_location.mkdir(exist_ok=True, parents=True)
+            cache_location = Path(listings_cache_location) / str(listings_expiry_time)
+            cache_location.mkdir(exist_ok=True, parents=True)
         else:
-            listings_cache_location = Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec")) / str(
+            cache_location = Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec")) / str(
                 listings_expiry_time,
             )
 
         try:
-            log.info(f"Creating dircache folder at {listings_cache_location}")
-            listings_cache_location.mkdir(exist_ok=True, parents=True)
+            log.info(f"Creating dircache folder at {cache_location}")
+            cache_location.mkdir(exist_ok=True, parents=True)
         except OSError:
-            log.exception(f"Failed creating dircache folder at {listings_cache_location}")
+            log.exception(f"Failed creating dircache folder at {cache_location}")
 
-        self.cache_location = listings_cache_location
+        self.cache_location = cache_location
 
-        self._cache = Cache(directory=listings_cache_location)
+        self._cache = Cache(directory=str(cache_location))
         self.use_listings_cache = use_listings_cache
         self.listings_expiry_time = listings_expiry_time
 
@@ -105,7 +105,7 @@ class FileDirCache(MutableMapping):
         """Return number of items in cache."""
         return len(list(self._cache.iterkeys()))
 
-    def __contains__(self, item: str) -> bool:
+    def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
         value = self._cache.get(item, retry=True)  # None, if expired
         return bool(value)
@@ -120,7 +120,7 @@ class FileDirCache(MutableMapping):
         """Remove item from cache."""
         del self._cache[key]
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Generator[bytes]:
         """Iterate over keys in cache."""
         return (k for k in self._cache.iterkeys() if k in self)
 
@@ -137,11 +137,12 @@ class HTTPFileSystem(_HTTPFileSystem):
 
     def __init__(
         self,
-        *args: tuple,
-        use_listings_cache: bool | None = None,
-        listings_expiry_time: float | None = None,
-        listings_cache_location: str | None = None,
-        **kwargs: dict,
+        /,
+        *,
+        use_listings_cache: bool,
+        listings_expiry_time: float,
+        listings_cache_location: Path | None = None,
+        **kwargs,  # noqa: ANN003
     ) -> None:
         """Initialize the HTTPFileSystem.
 
@@ -159,7 +160,7 @@ class HTTPFileSystem(_HTTPFileSystem):
                 "listings_expiry_time": listings_expiry_time,
             },
         )
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         # Overwrite the dircache with our own file-based cache
         # we have to use kwargs here, because the parent class
         # requires them to actually activate the cache
@@ -173,33 +174,26 @@ class HTTPFileSystem(_HTTPFileSystem):
 class NetworkFilesystemManager:
     """Manage multiple FSSPEC instances keyed by cache expiration time."""
 
-    filesystems: ClassVar[dict[str, HTTPFileSystem]] = {}
+    filesystems: ClassVar[dict[str, HTTPFileSystem | WholeFileCacheFileSystem]] = {}
 
     @staticmethod
-    def resolve_ttl(ttl: int | CacheExpiry) -> tuple[str, int]:
+    def resolve_ttl(cache_expiry: CacheExpiry) -> tuple[str, float | int | Literal[False]]:
         """Resolve the cache expiration time.
 
         Args:
-            ttl: The cache expiration time.
+            cache_expiry: The cache expiration time.
 
         Returns:
             The cache expiration time as name and value.
 
         """
-        ttl_name = ttl
-        ttl_value = ttl
-
-        if isinstance(ttl, CacheExpiry):
-            ttl_name = ttl.name
-            ttl_value = ttl.value
-
-        return ttl_name, ttl_value
+        return cache_expiry.name, cache_expiry.value
 
     @classmethod
     def register(
         cls,
         cache_dir: Path,
-        ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+        cache_expiry: CacheExpiry = CacheExpiry.NO_CACHE,
         client_kwargs: dict | None = None,
         *,
         cache_disable: bool,
@@ -208,7 +202,7 @@ class NetworkFilesystemManager:
 
         Args:
             cache_dir: The cache directory to use for the filesystem.
-            ttl: The cache expiration time.
+            cache_expiry: The cache expiration time.
             client_kwargs: Additional keyword arguments for the client.
             cache_disable: If True, the cache is disabled.
 
@@ -216,23 +210,22 @@ class NetworkFilesystemManager:
             None
 
         """
-        ttl_name, ttl_value = cls.resolve_ttl(ttl)
+        ttl_name, ttl_value = cls.resolve_ttl(cache_expiry)
         key = f"ttl-{ttl_name}"
-        real_cache_dir = Path(cache_dir) / "fsspec" / key
-
-        use_cache = not (cache_disable or ttl is CacheExpiry.NO_CACHE)
         fs = HTTPFileSystem(
-            use_listings_cache=use_cache,
+            use_listings_cache=False,
             client_kwargs=client_kwargs,
+            listings_expiry_time=0.0,  # not relevant for the download of files
         )
 
-        if cache_disable or ttl is CacheExpiry.NO_CACHE:
+        if cache_disable or cache_expiry == CacheExpiry.NO_CACHE:
             filesystem_effective = fs
         else:
+            real_cache_dir = Path(cache_dir) / "fsspec" / key
             filesystem_effective = WholeFileCacheFileSystem(
                 fs=fs,
                 cache_storage=str(real_cache_dir),
-                expiry_time=ttl_value,
+                expiry_time=int(ttl_value),
             )
         cls.filesystems[key] = filesystem_effective
 
@@ -240,16 +233,16 @@ class NetworkFilesystemManager:
     def get(
         cls,
         cache_dir: Path,
-        ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+        cache_expiry: CacheExpiry = CacheExpiry.NO_CACHE,
         client_kwargs: dict | None = None,
         *,
         cache_disable: bool,
-    ) -> HTTPFileSystem:
+    ) -> HTTPFileSystem | WholeFileCacheFileSystem:
         """Get a filesystem instance for a given cache expiration time.
 
         Args:
             cache_dir: The cache directory to use for the filesystem.
-            ttl: The cache expiration time.
+            cache_expiry: The cache expiration time.
             client_kwargs: Additional keyword arguments for the client.
             cache_disable: If True, the cache is disabled
 
@@ -257,12 +250,12 @@ class NetworkFilesystemManager:
             The filesystem instance.
 
         """
-        ttl_name, _ = cls.resolve_ttl(ttl)
+        ttl_name, _ = cls.resolve_ttl(cache_expiry)
         key = f"ttl-{ttl_name}"
         if key not in cls.filesystems:
             cls.register(
                 cache_dir=cache_dir,
-                ttl=ttl,
+                cache_expiry=cache_expiry,
                 client_kwargs=client_kwargs,
                 cache_disable=cache_disable,
             )
@@ -270,7 +263,9 @@ class NetworkFilesystemManager:
 
 
 @stamina.retry(on=Exception, attempts=3)
-def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FILEINDEX) -> list[str]:
+def list_remote_files_fsspec(
+    url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
+) -> list[str]:
     """Create a listing of all files of a given path on the server.
 
     The default ttl with ``CacheExpiry.FILEINDEX`` is "5 minutes".
@@ -278,16 +273,16 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
     Args:
         url: The URL to list files from.
         settings: The settings to use for the listing.
-        ttl: The cache expiration time.
+        cache_expiry: The cache expiration time.
 
     Returns:
         A list of all files on the server
 
     """
-    use_cache = not (settings.cache_disable or ttl is CacheExpiry.NO_CACHE)
+    use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
     fs = HTTPFileSystem(
         use_listings_cache=use_cache,
-        listings_expiry_time=not settings.cache_disable and ttl.value,
+        listings_expiry_time=not settings.cache_disable and cache_expiry.value,
         listings_cache_location=settings.cache_dir,
         client_kwargs=settings.fsspec_client_kwargs,
     )
@@ -322,7 +317,7 @@ def download_file(
     """
     filesystem = NetworkFilesystemManager.get(
         cache_dir=cache_dir,
-        ttl=ttl,
+        cache_expiry=ttl,
         client_kwargs=client_kwargs,
         cache_disable=cache_disable,
     )

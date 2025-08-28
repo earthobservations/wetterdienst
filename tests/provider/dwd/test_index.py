@@ -32,7 +32,7 @@ def test_list_files_of_climate_observations() -> None:
     files_server = list_remote_files_fsspec(
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/annual/kl/recent",
         settings=Settings(),
-        ttl=CacheExpiry.NO_CACHE,
+        cache_expiry=CacheExpiry.NO_CACHE,
     )
     assert (
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
