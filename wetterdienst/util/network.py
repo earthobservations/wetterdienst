@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 import stamina
 from aiohttp import ClientResponse, ClientResponseError
-from fsspec.implementations.cached import SimpleCacheFileSystem
+from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
 from wetterdienst.metadata.cache import CacheExpiry
@@ -229,7 +229,7 @@ class NetworkFilesystemManager:
         if cache_disable or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = fs
         else:
-            filesystem_effective = SimpleCacheFileSystem(
+            filesystem_effective = WholeFileCacheFileSystem(
                 fs=fs,
                 cache_storage=str(real_cache_dir),
                 expiry_time=ttl_value,
