@@ -218,7 +218,7 @@ class WsvPegelValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
-            pl.col("date").str.to_datetime(),
+            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
             pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
