@@ -107,8 +107,7 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
         [
             pl.all().exclude(["year", "month", "day", "hour"]),
             pl.concat_str([pl.col("year"), pl.col("month"), pl.col("day"), pl.col("hour"), pl.col("minute")])
-            .str.to_datetime("%Y%m%d%H%M", time_zone=current_date.tzname())
-            .alias("date")
+            .str.to_datetime(format="%Y%m%d%H%M", time_zone=current_date.tzname())
             .alias("date"),
         ],
     )
@@ -156,7 +155,7 @@ class DwdDmoValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
-            pl.col("date").str.to_datetime(),
+            pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.000Z", time_zone="UTC"),
             "value",
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )

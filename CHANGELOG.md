@@ -6,6 +6,7 @@
 - Switch back to `WholeFileCacheFileSystem` for caching
 - Improve more things on caching
 - Update uv.lock
+- Polars: Set format and timezone on datetime conversion
 
 ## 0.111.0 - 2025-08-03
 

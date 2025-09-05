@@ -110,7 +110,7 @@ class DwdMosmixValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
-            pl.col("date").str.to_datetime(),
+            pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.%fZ", time_zone="UTC"),
             "value",
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )

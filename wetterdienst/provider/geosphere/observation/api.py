@@ -179,6 +179,6 @@ class GeosphereObservationRequest(TimeseriesRequest):
             data.append(df)
         df = pl.concat(data)
         return df.with_columns(
-            pl.col("start_date").str.to_datetime(),
-            pl.col("end_date").str.to_datetime(),
+            pl.col("start_date").str.to_datetime(format="%Y-%m-%d %H:%M:%S%z", time_zone="UTC"),
+            pl.col("end_date").str.to_datetime(format="%Y-%m-%d %H:%M:%S%z", time_zone="UTC"),
         )
