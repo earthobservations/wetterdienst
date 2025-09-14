@@ -52,6 +52,9 @@ class KMLReader:
         self.timesteps = []
         self.nsmap = None
         self.iter_elems = None
+        # Cache for already loaded URLs to avoid re-downloading/re-parsing
+        self._current_url = None
+        self._cached_kml_data = None
 
         self.dwdfs = NetworkFilesystemManager.get(
             cache_dir=settings.cache_dir,
@@ -94,9 +97,23 @@ class KMLReader:
 
     def read(self, url: str) -> None:
         """Download and read DWD XML Weather Forecast File of Type KML."""
+        # Check if we already have this URL loaded
+        if self._current_url == url and self._cached_kml_data is not None:
+            log.info(f"Using cached data for {Path(url).name}")
+            # Reset iterator to beginning of cached data
+            self.iter_elems = iterparse(BytesIO(self._cached_kml_data), events=("start", "end"), resolve_entities=False)
+            # Fast-forward through metadata to leave iterator positioned at forecast data
+            self._skip_to_forecast_data()
+            return
+
         log.info(f"Downloading KMZ file {Path(url).name}")
         kml = self.fetch(url)
         log.info("Parsing KML data")
+
+        # Cache the downloaded data
+        self._current_url = url
+        self._cached_kml_data = kml
+
         self.iter_elems = iterparse(BytesIO(kml), events=("start", "end"), resolve_entities=False)
         prod_items = {
             "issuer": "Issuer",
@@ -129,6 +146,15 @@ class KMLReader:
         self.timesteps = [i.text for i in timesteps.getchildren()]
         # save namespace map for later iteration
         self.nsmap = nsmap
+
+    def _skip_to_forecast_data(self) -> None:
+        """Skip through metadata to position iterator at forecast data when using cached data."""
+        prod_definition_tag = f"{{{self.nsmap['dwd']}}}ProductDefinition"
+        for event, element in self.iter_elems:
+            if event == "end" and element.tag == prod_definition_tag:
+                # stop processing after head
+                # leave forecast data for iteration
+                break
 
     def iter_items(self) -> Iterator[Element]:
         """Iterate over station forecasts."""
