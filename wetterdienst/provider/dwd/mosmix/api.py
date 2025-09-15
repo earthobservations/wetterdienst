@@ -63,6 +63,7 @@ class DwdMosmixValues(TimeseriesValues):
         """Post-initialization of the DwdMosmixValues class."""
         super().__post_init__()
         self.kml = KMLReader(
+            station_ids=self.sr.station_id.to_list(),
             settings=self.sr.stations.settings,
         )
 
@@ -96,8 +97,8 @@ class DwdMosmixValues(TimeseriesValues):
         if issue is not DwdForecastDate.LATEST and parameter_or_dataset == DwdMosmixMetadata.hourly.large:
             issue = self.adjust_datetime(issue)
         df = self.read_mosmix(station_id=station_id, dataset=parameter_or_dataset, date=issue)
-        if df.is_empty():
-            return df
+        if df is None or df.is_empty():
+            return pl.DataFrame()
         df = df.unpivot(
             index=[
                 "date",
