@@ -120,6 +120,7 @@ class DwdDmoValues(TimeseriesValues):
         """Post-initialize the DwdDmoValues class."""
         super().__post_init__()
         self.kml = KMLReader(
+            station_ids=self.sr.station_id.to_list(),
             settings=self.sr.stations.settings,
         )
 

@@ -2,6 +2,9 @@
 
 ## Development
 
+### Feature
+- Make Mosmix and DMO a lot faster for multiple stations requests
+
 ## 0.112.0 - 2025-09-06
 
 ### Feature

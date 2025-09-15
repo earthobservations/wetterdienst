@@ -41,14 +41,17 @@ log = logging.getLogger(__name__)
 class KMLReader:
     """Read DWD XML Weather Forecast File of Type KML."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, station_ids: list[str], settings: Settings) -> None:
         """Initialize KMLReader.
 
         Args:
+            station_ids: List of station IDs to read.
             settings: Settings object.
 
         """
+        self.station_ids = station_ids
         self.metadata = {}
+        self.data = {}
         self.timesteps = []
         self.nsmap = None
         self.iter_elems = None
@@ -99,11 +102,6 @@ class KMLReader:
         """Download and read DWD XML Weather Forecast File of Type KML."""
         # Check if we already have this URL loaded
         if self._current_url == url and self._cached_kml_data is not None:
-            log.info(f"Using cached data for {Path(url).name}")
-            # Reset iterator to beginning of cached data
-            self.iter_elems = iterparse(BytesIO(self._cached_kml_data), events=("start", "end"), resolve_entities=False)
-            # Fast-forward through metadata to leave iterator positioned at forecast data
-            self._skip_to_forecast_data()
             return
 
         log.info(f"Downloading KMZ file {Path(url).name}")
@@ -146,15 +144,7 @@ class KMLReader:
         self.timesteps = [i.text for i in timesteps.getchildren()]
         # save namespace map for later iteration
         self.nsmap = nsmap
-
-    def _skip_to_forecast_data(self) -> None:
-        """Skip through metadata to position iterator at forecast data when using cached data."""
-        prod_definition_tag = f"{{{self.nsmap['dwd']}}}ProductDefinition"
-        for event, element in self.iter_elems:
-            if event == "end" and element.tag == prod_definition_tag:
-                # stop processing after head
-                # leave forecast data for iteration
-                break
+        self._store_station_forecasts()
 
     def iter_items(self) -> Iterator[Element]:
         """Iterate over station forecasts."""
@@ -175,20 +165,37 @@ class KMLReader:
         """Get metadata as DataFrame."""
         return pl.DataFrame([self.metadata], orient="row")
 
-    def get_station_forecast(self, station_id: str) -> pl.DataFrame:
-        """Get forecasts as DataFrame."""
+    def _store_station_forecasts(self) -> None:
+        """Store station forecasts in self.data.
+
+        For mosmix we want the reader to only go once through the file and store
+        all data (meaning all queried stations) in memory. This is to avoid
+        multiple downloads/parses of the same file when users want to access
+        data of multiple stations.
+
+        Returns:
+            None
+
+        """
+        self.data = {}
         for station_forecast in self.iter_items():
-            if station_forecast.find("kml:name", self.nsmap).text != station_id:
+            station_id = station_forecast.find("kml:name", self.nsmap).text
+            if station_id not in self.station_ids:
                 continue
+            self.data[station_id] = {}
             measurement_list = station_forecast.findall("kml:ExtendedData/dwd:Forecast", self.nsmap)
-            data_dict = {"date": self.timesteps}
             for measurement_item in measurement_list:
                 measurement_parameter = measurement_item.get(f"{{{self.nsmap['dwd']}}}elementName")
                 measurement_string = measurement_item.getchildren()[0].text
                 measurement_values = " ".join(measurement_string.split()).split(" ")
                 measurement_values = [None if i == "-" else float(i) for i in measurement_values]
-                data_dict[measurement_parameter.lower()] = measurement_values
+                self.data[station_id][measurement_parameter.lower()] = measurement_values
             station_forecast.clear()
-            return pl.DataFrame(data_dict)
-        msg = f"Station {station_id} not found in KML file"
-        raise IndexError(msg)
+
+    def get_station_forecast(self, station_id: str) -> pl.DataFrame | None:
+        """Get forecasts as DataFrame."""
+        station_forecast_values = self.data.get(station_id)
+        if not station_forecast_values:
+            return None
+        data = {"date": self.timesteps} | station_forecast_values
+        return pl.DataFrame(data)
