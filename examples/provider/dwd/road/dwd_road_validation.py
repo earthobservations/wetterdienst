@@ -41,7 +41,7 @@ def dwd_road_weather_example() -> None:
     df_dobs = dobs_request.df.drop_nulls(subset="value")
     print(df_dobs)
 
-    fig, ax = plt.subplots(tight_layout=True)
+    _fig, ax = plt.subplots(tight_layout=True)
 
     df_drw.drop_nulls(subset="value").to_pandas().plot(x="date", y="value", label="DRW", ax=ax)
     df_dobs.drop_nulls(subset="value").to_pandas().plot(x="date", y="value", label="DOBS", ax=ax)

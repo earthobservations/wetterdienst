@@ -192,7 +192,7 @@ def test_unit_converter_update_targets_invalid(unit_converter: UnitConverter) ->
     """Test that the update_targets method raises an error for invalid units."""
     with pytest.raises(
         ValueError,
-        match="Unit invalid not supported for type dimensionless. Supported units are: dimensionless",
+        match=r"Unit invalid not supported for type dimensionless\. Supported units are: dimensionless",
     ):
         unit_converter.update_targets({"fraction": "percent", "dimensionless": "invalid"})
 
