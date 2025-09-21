@@ -4,8 +4,6 @@
 
 from io import StringIO
 
-import pypdf
-
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import download_file
@@ -13,6 +11,8 @@ from wetterdienst.util.network import download_file
 
 def read_pdf(url: str) -> str:
     """Read text from a PDF file."""
+    import pypdf  # noqa: PLC0415
+
     text = StringIO()
     default_settings = Settings()
     file = download_file(
