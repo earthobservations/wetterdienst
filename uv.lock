@@ -5898,7 +5898,7 @@ wheels = [
 
 [[package]]
 name = "wetterdienst"
-version = "0.112.0"
+version = "0.113.0"
 source = { editable = "." }
 dependencies = [
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'" },
@@ -5914,7 +5914,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-extra-types" },
     { name = "pydantic-settings" },
-    { name = "pypdf" },
     { name = "python-dateutil" },
     { name = "rapidfuzz" },
     { name = "stamina" },
@@ -5974,6 +5973,9 @@ matplotlib = [
 mysql = [
     { name = "mysqlclient" },
     { name = "pandas" },
+]
+pdf = [
+    { name = "pypdf" },
 ]
 plotting = [
     { name = "kaleido" },
@@ -6067,7 +6069,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7.3,<3" },
     { name = "pydantic-extra-types", specifier = ">=2.10.1,<3" },
     { name = "pydantic-settings", specifier = ">=2.7.0,<3" },
-    { name = "pypdf", specifier = ">=3.12.1,<7" },
+    { name = "pypdf", marker = "extra == 'pdf'", specifier = ">=3.12.1,<7" },
     { name = "python-dateutil", specifier = ">=2,<3" },
     { name = "rapidfuzz", specifier = ">=3.1,<4" },
     { name = "scipy", marker = "extra == 'interpolation'", specifier = ">=1.14.1,<2" },
@@ -6090,7 +6092,7 @@ requires-dist = [
     { name = "xradar", marker = "extra == 'radarplus'", specifier = ">=0.2,<1" },
     { name = "zarr", marker = "python_full_version >= '3.11' and extra == 'export'", specifier = ">=3.1,<4" },
 ]
-provides-extras = ["bufr", "cratedb", "duckdb", "eccodes", "excel", "explorer", "export", "influxdb", "interpolation", "matplotlib", "mysql", "plotting", "postgresql", "radar", "radarplus", "restapi", "sql"]
+provides-extras = ["bufr", "cratedb", "duckdb", "eccodes", "excel", "explorer", "export", "influxdb", "interpolation", "matplotlib", "mysql", "pdf", "plotting", "postgresql", "radar", "radarplus", "restapi", "sql"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.113.0 - 2025-09-21
+
 ### Feature
 - Make Mosmix and DMO a lot faster for multiple stations requests
 - Bump pypdf to <7
