@@ -41,5 +41,5 @@ def test_parse_date() -> None:
     assert parse_date("2020-02-02 02:02:02") == dt.datetime(2020, 2, 2, 2, 2, 2, tzinfo=ZoneInfo("UTC"))
     with pytest.raises(ValueError, match="date_string 02/02/2020 could not be parsed"):
         parse_date("02/02/2020")
-    with pytest.raises(ValueError, match="date_string 02.02.2020 could not be parsed"):
+    with pytest.raises(ValueError, match=r"date_string 02\.02\.2020 could not be parsed"):
         parse_date("02.02.2020")

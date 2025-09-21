@@ -250,7 +250,7 @@ def test_dwd_observation_stations_bbox_empty(default_request: TimeseriesRequest)
 def test_dwd_observation_stations_fail(default_request: TimeseriesRequest) -> None:
     """Test for failing station filters."""
     # Number
-    with pytest.raises(ValueError, match="'rank' has to be at least 1."):
+    with pytest.raises(ValueError, match=r"'rank' has to be at least 1\."):
         default_request.filter_by_rank(
             latlon=(51.4, 9.3),
             rank=0,

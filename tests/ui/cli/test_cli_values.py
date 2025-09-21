@@ -165,7 +165,7 @@ def invoke_wetterdienst_values_filter_by_rank(
 )
 def test_cli_values_json_wide(setting: list) -> None:
     """Test JSON export in wide format."""
-    provider, network, setting, station_id, station_name = setting
+    provider, network, setting, station_id, _station_name = setting
     result = invoke_wetterdienst_values_static_wide(
         provider=provider,
         network=network,
