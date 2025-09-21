@@ -745,12 +745,17 @@ def fields(
         msg = "'fields' command only available for provider 'DWD'"
         raise click.BadParameter(msg)
 
-    metadata = api.describe_fields(
-        dataset=dataset,
-        resolution=resolution,
-        period=period,
-        language=language,
-    )
+    try:
+        metadata = api.describe_fields(
+            dataset=dataset,
+            resolution=resolution,
+            period=period,
+            language=language,
+        )
+    except ImportError:
+        msg = "Could not retrieve fields."
+        log.exception(msg)
+        sys.exit(1)
 
     output = pformat(dict(metadata))
 

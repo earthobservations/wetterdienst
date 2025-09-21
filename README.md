@@ -107,6 +107,7 @@ pip install wetterdienst[sql]
 - interpolation: Install support for station interpolation.
 - mysql: Install support for MySQL.
 - matplotlib: Install support for plotting (matplotlib), only used in radar examples.
+- pdf: Install support for PDF to get extra information on DWD Observation metadata.
 - plotting: Install support for plotting (plotly).
 - postgresql: Install support for PostgreSQL.
 - sql: Install DuckDB for querying data using SQL.
