@@ -2,6 +2,9 @@
 
 ## Development
 
+### Feature
+- \[DWD Obs\] Use utf8 encoding for parsing data
+
 ## 0.113.0 - 2025-09-21
 
 ### Feature

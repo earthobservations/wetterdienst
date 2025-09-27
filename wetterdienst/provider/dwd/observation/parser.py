@@ -93,13 +93,11 @@ def _parse_climate_observations_data(  # noqa: C901
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
     try:
-        df = pl.read_csv(
+        df = pl.scan_csv(
             source=file.content,
             separator=";",
             null_values=["-999"],
-            encoding="latin-1",
         )
-        df = df.lazy()
     except pl.exceptions.SchemaError:
         log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
         return pl.LazyFrame()
