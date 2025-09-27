@@ -242,8 +242,8 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="row",
     )

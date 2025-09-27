@@ -31,8 +31,8 @@ def df_interpolated_empty() -> pl.DataFrame:
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "distance_mean": pl.Float64,
+            "value": pl.Float32,
+            "distance_mean": pl.Float32,
             "taken_station_ids": pl.List(pl.String),
         },
     )
