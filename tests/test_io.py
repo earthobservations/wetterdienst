@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from polars import selectors as cs
 
 from wetterdienst import Settings
 from wetterdienst.io.export import ExportMixin
@@ -184,8 +185,8 @@ def df_values() -> pl.DataFrame:
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="row",
     )
@@ -213,8 +214,8 @@ def df_interpolated_values() -> pl.DataFrame:
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "distance_mean": pl.Float64,
+            "value": pl.Float32,
+            "distance_mean": pl.Float32,
             "taken_station_ids": pl.List(pl.String),
         },
         orient="row",
@@ -243,8 +244,8 @@ def df_summarized_values() -> pl.DataFrame:
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "distance": pl.Float64,
+            "value": pl.Float32,
+            "distance": pl.Float32,
             "taken_station_id": pl.String,
         },
         orient="row",
@@ -772,6 +773,8 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
     # 2. Validate some details of .xlsx file.
     # Validate header row.
     df = pl.read_excel(filename)
+    # round float columns to 2 decimal places, float32 seems to create precision error in excel export
+    df = df.with_columns(cs.float().round(2))
     assert df.columns == [
         "station_id",
         "resolution",
