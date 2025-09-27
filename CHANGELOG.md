@@ -2,6 +2,9 @@
 
 ## Development
 
+### Feature
+- Use `pl.Float32` instead of `pl.Float64` for numeric values
+
 ## 0.113.0 - 2025-09-21
 
 ### Feature

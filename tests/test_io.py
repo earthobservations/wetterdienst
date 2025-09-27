@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from polars import selectors as cs
 
 from wetterdienst import Settings
 from wetterdienst.io.export import ExportMixin
@@ -772,6 +773,8 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
     # 2. Validate some details of .xlsx file.
     # Validate header row.
     df = pl.read_excel(filename)
+    # round float columns to 2 decimal places, float32 seems to create precision error in excel export
+    df = df.with_columns(cs.float().round(2))
     assert df.columns == [
         "station_id",
         "resolution",

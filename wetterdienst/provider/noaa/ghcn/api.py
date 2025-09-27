@@ -84,8 +84,8 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
             pl.col("date").str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
-            pl.col("value").replace("-None", None).cast(pl.Float64),
-            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
+            pl.col("value").replace("-None", None).cast(pl.Float32),
+            pl.lit(value=None, dtype=pl.Float32).alias("quality"),
         )
 
     def _collect_station_parameter_for_daily(
@@ -132,7 +132,7 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.col("date").str.to_date("%Y-%m-%d"),
             pl.col("parameter").str.to_lowercase(),
             pl.col("value").str.strip_chars().cast(float),
-            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
+            pl.lit(value=None, dtype=pl.Float32).alias("quality"),
         )
         # Here comes a bit of magic ;)
         # Because we deal with stations (and timezones, sigh...) around the world, all kinds of problems await us

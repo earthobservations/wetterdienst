@@ -220,7 +220,7 @@ class WsvPegelValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
             pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
             pl.col("value"),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
 
@@ -278,9 +278,9 @@ class WsvPegelRequest(TimeseriesRequest):
             schema={
                 "number": pl.String,
                 "shortname": pl.String,
-                "km": pl.Float64,
-                "latitude": pl.Float64,
-                "longitude": pl.Float64,
+                "km": pl.Float32,
+                "latitude": pl.Float32,
+                "longitude": pl.Float32,
                 "water": pl.Struct(
                     {
                         "shortname": pl.String,
@@ -292,14 +292,14 @@ class WsvPegelRequest(TimeseriesRequest):
                             "shortname": pl.String,
                             "gaugeZero": pl.Struct(
                                 {
-                                    "value": pl.Float64,
+                                    "value": pl.Float32,
                                 },
                             ),
                             "characteristicValues": pl.List(
                                 pl.Struct(
                                     {
                                         "shortname": pl.String,
-                                        "value": pl.Float64,
+                                        "value": pl.Float32,
                                     },
                                 ),
                             ),

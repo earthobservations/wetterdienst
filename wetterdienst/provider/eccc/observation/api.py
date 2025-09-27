@@ -140,8 +140,8 @@ class EcccObservationValues(TimeseriesValues):
             .then(pl.col("value").str.slice(1))
             .otherwise(pl.col("value"))
             .alias("value")
-            .cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            .cast(pl.Float32),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
     def _create_file_urls(
