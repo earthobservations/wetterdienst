@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bookworm AS build
+FROM python:3.14-slim-bookworm AS build
 
 COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /bin/
 
@@ -13,7 +13,7 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     && uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,plotting,postgresql,radar,radarplus,restapi]
 
 # Final stage
-FROM python:3.13-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 # Install chromium -> required for kaleido png export
 RUN apt-get update && \
