@@ -95,8 +95,8 @@ def test_dwd_observations_stations_geojson(default_settings: Settings) -> None:
         "resolution": "daily",
         "dataset": "climate_summary",
         "id": "00001",
-        "start_date": "1937-01-01T00:00:00+00:00",
-        "end_date": "1986-06-30T00:00:00+00:00",
+        "start_date": "1937-01-01T00:00:00.000000+00:00",
+        "end_date": "1986-06-30T00:00:00.000000+00:00",
         "name": "Aach",
         "state": "Baden-Württemberg",
     }

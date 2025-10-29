@@ -83,12 +83,7 @@ class ExportMixin:
 
         """
         df = self.df
-        df = df.with_columns(
-            cs.datetime().map_elements(
-                lambda date: date.isoformat() if date else None,
-                return_dtype=pl.String,
-            ),
-        )
+        df = df.with_columns(cs.datetime().dt.to_string("iso:strict"))
         if "taken_station_ids" in df.columns:
             # Convert list of station IDs to a comma-separated string.
             df = df.with_columns(
@@ -271,10 +266,7 @@ class ExportMixin:
                 # Solution: Fill gaps in the data.
                 df = self.df.fill_null(-999)
                 df = df.with_columns(
-                    pl.col("date")
-                    .dt.convert_time_zone("UTC")
-                    .dt.replace_time_zone(None)
-                    .map_elements(lambda date: date.isoformat(), return_dtype=pl.String),
+                    pl.col("date").dt.convert_time_zone("UTC").dt.replace_time_zone(None).dt.to_string("iso:strict"),
                 )
                 group = df.get_column("dataset").gather(0).item()
                 df = df.to_pandas()
@@ -688,6 +680,6 @@ def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
     for date_column in date_columns:
         if date_column in df:
             df = df.with_columns(
-                pl.col(date_column).map_elements(lambda v: v.isoformat() if v else None, return_dtype=pl.String),
+                pl.col(date_column).dt.to_string("iso:strict"),
             )
     return df

@@ -192,14 +192,9 @@ class DwdDmoValues(TimeseriesValues):
         df = pl.DataFrame({"url": urls}, orient="col")
         df = df.filter(pl.col("url").str.contains(self.sr.stations.lead_time.value))
         df = df.with_columns(
-            pl.col("url")
-            .str.split("/")
-            .list.last()
-            .str.split("_")
-            .list.last()
-            .map_elements(lambda s: s[:-4], return_dtype=pl.String)
-            .alias("date_str"),
+            pl.col("url").str.split("/").list.last().str.split("_").list.last().alias("date_str"),
         )
+        df = df.with_columns(pl.col("date_str").str.slice(offset=0, length=pl.col("date_str").str.len_chars() - 4))
         df = add_date_from_filename(df, dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None))
         if date == DwdForecastDate.LATEST:
             date = df.get_column("date").max()
