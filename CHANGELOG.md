@@ -4,6 +4,7 @@
 
 ### Feature
 - \[DWD Obs\] Use utf8 encoding for parsing data
+- Add `if_exists` argument to `to_target`
 
 ## 0.113.0 - 2025-09-21
 

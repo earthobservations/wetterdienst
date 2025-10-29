@@ -9,11 +9,13 @@ import logging
 from abc import abstractmethod
 from copy import copy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlunparse
 
 import polars as pl
 import polars.selectors as cs
+from duckdb import CatalogException
 
 from wetterdienst.util.url import ConnectionString
 
@@ -168,7 +170,7 @@ class ExportMixin:
         df = duckdb.sql(sql).pl()
         return df.with_columns(pl.col("date").dt.replace_time_zone("UTC"))
 
-    def to_target(self, target: str) -> None:  # noqa: C901
+    def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "replace") -> None:  # noqa: C901
         """Emit data to a target.
 
         The target is identified by a connection string.
@@ -186,6 +188,12 @@ class ExportMixin:
 
         Args:
             target: Connection string
+            if_exists: Behavior when the target already exists. Options: 'replace', 'append', 'fail', 'skip'.
+                Default is 'replace'.
+                - 'replace': Drop and recreate the target (default, backward compatible)
+                - 'append': Append data to the target
+                - 'fail': Raise error if target exists
+                - 'skip': Do not write if target exists (only for supported backends)
 
         Raises:
             KeyError: Unknown export
@@ -202,7 +210,19 @@ class ExportMixin:
         tablename = connspec.table
 
         if target.startswith("file://"):
+            if if_exists == "append":
+                msg = "Append mode is not supported for file exports."
+                raise NotImplementedError(msg)
+
             filepath = connspec.path
+
+            if Path(filepath).exists():
+                if if_exists == "fail":
+                    msg = f"File '{filepath}' already exists, aborting write due to if_exists='fail'."
+                    raise FileExistsError(msg)
+                if if_exists == "skip":
+                    log.info(f"File '{filepath}' exists, skipping write due to if_exists='skip'.")
+                    return
 
             if target.endswith(".xlsx"):
                 log.info(f"Writing to spreadsheet file '{filepath}'")
@@ -316,10 +336,36 @@ class ExportMixin:
 
             connection = duckdb.connect(database=database, read_only=False)
             connection.register("origin", df)
-            connection.execute(f"DROP TABLE IF EXISTS {tablename};")
-            connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa:S608
+            if if_exists == "replace":
+                connection.execute(f"DROP TABLE IF EXISTS {tablename};")
+                connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+            elif if_exists == "append":
+                result = connection.execute(
+                    f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';",  # noqa: S608
+                )
+                exists = result.fetchone()[0] > 0
+                if not exists:
+                    connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+                else:
+                    connection.execute(f"INSERT INTO {tablename} SELECT * FROM origin;")  # noqa: S608
+            elif if_exists == "fail":
+                # Will fail if table exists
+                try:
+                    connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+                except CatalogException as e:
+                    msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
+                    raise KeyError(msg) from e
+            elif if_exists == "skip":
+                # Only create if not exists, skip if exists
+                result = connection.execute(
+                    f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';"  # noqa: S608
+                )
+                exists = result.fetchone()[0] > 0
+                if not exists:
+                    connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+                else:
+                    log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
             connection.close()
-
             log.info("Writing to DuckDB finished")
 
         elif protocol.startswith("influxdb"):
@@ -394,6 +440,9 @@ class ExportMixin:
 
                 influx query 'from(bucket:"dwd") |> range(start:-2d) |> limit(n: 10)'
             """  # noqa:E501
+            if if_exists in ("append", "fail", "skip"):
+                msg = f"if_exists='{if_exists}' is not supported for InfluxDB exports."
+                raise NotImplementedError(msg)
 
             if protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
                 version = 1
@@ -560,12 +609,19 @@ class ExportMixin:
             # Convert timezone-aware datetime fields to naive ones.
             # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
             df = self.df.with_columns(pl.col("date").dt.replace_time_zone(time_zone=None))
+            if if_exists == "skip":
+                import sqlalchemy  # noqa: PLC0415
 
+                engine = sqlalchemy.create_engine(cratedb_target)
+                insp = sqlalchemy.inspect(engine)
+                if insp.has_table(tablename, schema=database):
+                    log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
+                    return
             df.to_pandas().to_sql(
                 name=tablename,
                 con=cratedb_target,
                 schema=database,
-                if_exists="replace",
+                if_exists=if_exists if if_exists != "skip" else "fail",
                 index=False,
                 chunksize=5000,
             )
@@ -605,10 +661,18 @@ class ExportMixin:
                     chunk_size = int(999 / len(self.df.columns))
 
             log.info("Writing to SQL database")
+            if if_exists == "skip":
+                import sqlalchemy  # noqa: PLC0415
+
+                engine = sqlalchemy.create_engine(target)
+                insp = sqlalchemy.inspect(engine)
+                if insp.has_table(tablename):
+                    log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
+                    return
             self.df.to_pandas().to_sql(
                 name=tablename,
                 con=target,
-                if_exists="replace",
+                if_exists=if_exists if if_exists != "skip" else "fail",
                 index=False,
                 method="multi",
                 chunksize=chunk_size,

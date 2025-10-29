@@ -707,22 +707,63 @@ Examples:
 - duckdb:///dwd.duckdb?table=weather
 - influxdb://localhost/?database=dwd&table=weather
 - crate://localhost/?database=dwd&table=weather
+# parquet, feather, zarr
+- file:///path/to/dwd.parquet
+- file:///path/to/dwd.feather
+- file:///path/to/dwd.zarr
 
 ```python
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-settings = Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)  # defaults
 request = DwdObservationRequest(
   parameters=("hourly", "temperature_air"),
   start_date="2019-01-01",
   end_date="2020-01-01",
-  settings=settings
 )
-stations = request.filter_by_station_id(station_id=[1048])
-values = stations.values.all()
-values.to_target("influxdb://localhost/?database=dwd&table=weather")
+stations = request.filter_by_station_id(station_id=[1048, 1050])
+stations.values.to_target("influxdb://localhost/?database=dwd&table=weather")
 ```
+
+The previous example uses a batch approach meaning each station is written one by one. Also, it will automatically 
+append data after the first batch. 
+
+You could also first collect all data and then write it at once:
+
+```python
+from wetterdienst import Settings
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+  parameters=("hourly", "temperature_air"),
+  start_date="2019-01-01",
+  end_date="2020-01-01",
+)
+stations = request.filter_by_station_id(station_id=[1048, 1050])
+stations.values.all().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
+```
+
+You could also iterate over the stations and write them one by one:
+
+```python
+from wetterdienst import Settings
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+  parameters=("hourly", "temperature_air"),
+  start_date="2019-01-01",
+  end_date="2020-01-01",
+)
+stations = request.filter_by_station_id(station_id=[1048, 1050])
+for station in stations.values.query():
+    station.to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
+```
+
+The argument `if_exists` supports the following modes:
+- `fail`: Raise an error if the table/file already exists.
+- `replace`: Drop the table/file before inserting new values.
+- `append`: Insert new values to the existing table (not supported by files).
+- `skip`: Do nothing if the table/file already exists.
 
 ### Caching
 
