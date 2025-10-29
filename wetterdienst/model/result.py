@@ -220,14 +220,8 @@ class StationsResult(ExportMixin):
         if not df.is_empty():
             df = df.with_columns(
                 [
-                    pl.col("start_date").map_elements(
-                        lambda date: date.isoformat() if date else None,
-                        return_dtype=pl.String,
-                    ),
-                    pl.col("end_date").map_elements(
-                        lambda date: date.isoformat() if date else None,
-                        return_dtype=pl.String,
-                    ),
+                    pl.col("start_date").dt.to_string("iso:strict"),
+                    pl.col("end_date").dt.to_string("iso:strict"),
                 ],
             )
         data["stations"] = df.to_dicts()
@@ -266,7 +260,10 @@ class StationsResult(ExportMixin):
         if with_metadata:
             data["metadata"] = self.get_metadata()
         features = []
-        for station in self.df.iter_rows(named=True):
+        for station in self.df.with_columns(
+            pl.col("start_date").dt.to_string("iso:strict"),
+            pl.col("end_date").dt.to_string("iso:strict"),
+        ).iter_rows(named=True):
             features.append(
                 {
                     "type": "Feature",
@@ -276,8 +273,8 @@ class StationsResult(ExportMixin):
                         "id": station["station_id"],
                         "name": station["name"],
                         "state": station["state"],
-                        "start_date": station["start_date"].isoformat() if station["start_date"] else None,
-                        "end_date": station["end_date"].isoformat() if station["end_date"] else None,
+                        "start_date": station["start_date"],
+                        "end_date": station["end_date"],
                     },
                     "geometry": {
                         # WGS84 is implied and coordinates represent decimal degrees
@@ -436,7 +433,7 @@ class _ValuesResult(ExportMixin):
         """
         if not df.is_empty():
             df = df.with_columns(
-                pl.col("date").map_elements(lambda date: date.isoformat(), return_dtype=pl.String),
+                pl.col("date").dt.to_string("iso:strict"),
             )
         return df.to_dicts()
 
@@ -513,7 +510,10 @@ class ValuesResult(_ValuesResult):
             data["metadata"] = self.stations.get_metadata()
         df_stations = self.stations.df.join(self.df.select("station_id").unique(), on="station_id")
         features = []
-        for station in df_stations.iter_rows(named=True):
+        for station in df_stations.with_columns(
+            pl.col("start_date").dt.to_string("iso:strict"),
+            pl.col("end_date").dt.to_string("iso:strict"),
+        ).iter_rows(named=True):
             df_values = self.df.filter(pl.col("station_id") == station["station_id"]).select(
                 pl.all().exclude("station_id"),
             )
@@ -526,8 +526,8 @@ class ValuesResult(_ValuesResult):
                         "id": station["station_id"],
                         "name": station["name"],
                         "state": station["state"],
-                        "start_date": station["start_date"].isoformat() if station["start_date"] else None,
-                        "end_date": station["end_date"].isoformat() if station["end_date"] else None,
+                        "start_date": station["start_date"],
+                        "end_date": station["end_date"],
                     },
                     "geometry": {
                         # WGS84 is implied and coordinates represent decimal degrees

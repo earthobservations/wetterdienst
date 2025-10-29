@@ -26,7 +26,7 @@ SETTINGS_STATIONS = (
             "resolution": "daily",
             "dataset": "climate_summary",
             "station_id": "01048",
-            "start_date": "1934-01-01T00:00:00+00:00",
+            "start_date": "1934-01-01T00:00:00.000000+00:00",
             "end_date": IsStr,
             "latitude": 51.1278,
             "longitude": 13.7543,

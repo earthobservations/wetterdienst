@@ -140,8 +140,7 @@ class TimeseriesValues(ABC):
         """Get a complete date range for a given start and end date and resolution."""
         date_range = pl.datetime_range(start_date, end_date, interval=Frequency[resolution.name].value, eager=True)
         if resolution not in DAILY_AT_MOST:
-            date_range = date_range.map_elements(lambda date: date.replace(day=1).isoformat(), return_dtype=pl.String)
-            date_range = date_range.str.to_datetime()
+            date_range = date_range.dt.replace(day=1)
         date_range = date_range.dt.cast_time_unit("us")
         return date_range.dt.convert_time_zone("UTC")
 
@@ -373,9 +372,13 @@ class TimeseriesValues(ABC):
         datasets = {parameter.dataset.name for parameter in self.sr.parameters}
         if len(datasets) > 1:
             df = df.with_columns(
-                pl.struct([pl.col("dataset"), pl.col("parameter")])
-                .map_elements(lambda x: f"""{x["dataset"]}_{x["parameter"]}""", return_dtype=pl.String)
-                .alias("parameter"),
+                pl.concat_str(
+                    [
+                        pl.col("dataset"),
+                        pl.lit("_"),
+                        pl.col("parameter"),
+                    ]
+                ).alias("parameter"),
             )
         df_wide = df.select(
             [pl.col("station_id"), pl.col("resolution"), pl.col("dataset"), pl.col("date")],

@@ -168,7 +168,12 @@ class DwdMosmixValues(TimeseriesValues):
         df = df.filter(pl.col("date").ne("LATEST"))
 
         df = df.with_columns(
-            pl.col("date").map_elements(lambda d: f"{d}00", return_dtype=pl.String).str.to_datetime("%Y%m%d%H%M"),
+            pl.concat_str(
+                [
+                    pl.col("date"),
+                    pl.lit("00"),
+                ]
+            ).str.to_datetime("%Y%m%d%H%M"),
         )
 
         df = df.filter(pl.col("date").eq(date))

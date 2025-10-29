@@ -84,9 +84,7 @@ def create_plotly_fig(
     """Create a plotly figure."""
     if "unit" in df.columns:
         df = df.with_columns(
-            pl.struct(["parameter", "unit"])
-            .map_elements(lambda s: f"{s['parameter']} ({s['unit']})", return_dtype=pl.String)
-            .alias("parameter"),
+            pl.concat_str([pl.col("parameter"), pl.lit(" ("), pl.col("unit"), pl.lit(")")]).alias("parameter"),
         )
     fig = px.scatter(
         x=df.get_column(x).to_list(),

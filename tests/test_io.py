@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Settings
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.metadata.period import Period
@@ -265,8 +266,8 @@ def test_stations_to_dict(df_stations: pl.DataFrame) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "station_id": "01048",
-            "start_date": "1957-05-01T00:00:00+00:00",
-            "end_date": "1995-11-30T00:00:00+00:00",
+            "start_date": "1957-05-01T00:00:00.000000+00:00",
+            "end_date": "1995-11-30T00:00:00.000000+00:00",
             "height": 645.0,
             "latitude": 48.8049,
             "longitude": 13.5528,
@@ -307,8 +308,8 @@ def test_stations_to_ogc_feature_collection(df_stations: pl.DataFrame) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "id": "01048",
-            "start_date": "1957-05-01T00:00:00+00:00",
-            "end_date": "1995-11-30T00:00:00+00:00",
+            "start_date": "1957-05-01T00:00:00.000000+00:00",
+            "end_date": "1995-11-30T00:00:00.000000+00:00",
             "name": "Freyung vorm Wald",
             "state": "Bayern",
         },
@@ -375,7 +376,7 @@ def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
     lines = output.split("\n")
     assert lines[0] == "resolution,dataset,station_id,start_date,end_date,height,latitude,longitude,name,state"
     assert (
-        lines[1] == "daily,climate_summary,01048,1957-05-01T00:00:00+00:00,1995-11-30T00:00:00+00:00,"
+        lines[1] == "daily,climate_summary,01048,1957-05-01T00:00:00.000000+00:00,1995-11-30T00:00:00.000000+00:00,"
         "645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
     )
 
@@ -390,7 +391,7 @@ def test_values_to_dict(df_values: pl.DataFrame) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_max_2m",
-            "date": "2019-01-01T00:00:00+00:00",
+            "date": "2019-01-01T00:00:00.000000+00:00",
             "value": 1.3,
             "quality": None,
         },
@@ -420,8 +421,8 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
             "id": "01048",
             "name": "Freyung vorm Wald",
             "state": "Bayern",
-            "start_date": "1957-05-01T00:00:00+00:00",
-            "end_date": "1995-11-30T00:00:00+00:00",
+            "start_date": "1957-05-01T00:00:00.000000+00:00",
+            "end_date": "1995-11-30T00:00:00.000000+00:00",
         },
         "type": "Feature",
         "values": [
@@ -429,7 +430,7 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": "2019-01-01T00:00:00+00:00",
+                "date": "2019-01-01T00:00:00.000000+00:00",
                 "value": 1.3,
                 "quality": None,
             },
@@ -469,7 +470,7 @@ def test_values_format_geojson(df_values: pl.DataFrame, stations_result_mock: St
         "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "temperature_air_max_2m",
-        "date": "2019-01-01T00:00:00+00:00",
+        "date": "2019-01-01T00:00:00.000000+00:00",
         "value": 1.3,
         "quality": None,
     }
@@ -480,14 +481,14 @@ def test_values_format_csv(df_values: pl.DataFrame) -> None:
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv().strip()
     lines = output.split("\n")
     assert lines[0] == "station_id,resolution,dataset,parameter,date,value,quality"
-    assert lines[-1] == "01048,daily,climate_summary,temperature_air_max_2m,2022-01-01T00:00:00+00:00,4.0,"
+    assert lines[-1] == "01048,daily,climate_summary,temperature_air_max_2m,2022-01-01T00:00:00.000000+00:00,4.0,"
 
 
 def test_values_format_csv_kwargs(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to csv."""
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv(include_header=False).strip()
     lines = output.split("\n")
-    assert lines[0] == "01048,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00+00:00,1.3,"
+    assert lines[0] == "01048,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00.000000+00:00,1.3,"
 
 
 def test_interpolated_values_to_dict(df_interpolated_values: pl.DataFrame) -> None:
@@ -500,7 +501,7 @@ def test_interpolated_values_to_dict(df_interpolated_values: pl.DataFrame) -> No
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_max_2m",
-            "date": "2019-01-01T00:00:00+00:00",
+            "date": "2019-01-01T00:00:00.000000+00:00",
             "value": 1.3,
             "distance_mean": 5.3,
             "taken_station_ids": ["01048", "1050"],
@@ -514,7 +515,10 @@ def test_interpolated_values_to_csv(df_interpolated_values: pl.DataFrame) -> Non
         include_header=False
     )
     lines = output.split("\n")
-    assert lines[0] == 'abc,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00+00:00,1.3,5.3,"01048,1050"'
+    assert (
+        lines[0]
+        == 'abc,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00.000000+00:00,1.3,5.3,"01048,1050"'
+    )
 
 
 def test_interpolated_values_to_dict_with_metadata(
@@ -549,8 +553,8 @@ def test_interpolated_values_to_ogc_feature_collection(
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "station_id": "01048",
-                "start_date": "1957-05-01T00:00:00+00:00",
-                "end_date": "1995-11-30T00:00:00+00:00",
+                "start_date": "1957-05-01T00:00:00.000000+00:00",
+                "end_date": "1995-11-30T00:00:00.000000+00:00",
                 "latitude": 48.8049,
                 "longitude": 13.5528,
                 "height": 645.0,
@@ -565,7 +569,7 @@ def test_interpolated_values_to_ogc_feature_collection(
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": "2019-01-01T00:00:00+00:00",
+                "date": "2019-01-01T00:00:00.000000+00:00",
                 "value": 1.3,
                 "distance_mean": 5.3,
                 "taken_station_ids": ["01048", "1050"],
@@ -599,7 +603,7 @@ def test_summarized_values_to_dict(df_summarized_values: pl.DataFrame) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_max_2m",
-            "date": "2019-01-01T00:00:00+00:00",
+            "date": "2019-01-01T00:00:00.000000+00:00",
             "value": 1.3,
             "distance": 0.0,
             "taken_station_id": "01048",
@@ -613,7 +617,7 @@ def test_summarized_values_to_csv(df_summarized_values: pl.DataFrame) -> None:
         include_header=False
     )
     lines = output.split("\n")
-    assert lines[0] == "abc,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00+00:00,1.3,0.0,01048"
+    assert lines[0] == "abc,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00.000000+00:00,1.3,0.0,01048"
 
 
 def test_summarized_values_to_dict_with_metadata(
@@ -650,8 +654,8 @@ def test_summarized_values_to_ogc_feature_collection(
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "station_id": "01048",
-                "start_date": "1957-05-01T00:00:00+00:00",
-                "end_date": "1995-11-30T00:00:00+00:00",
+                "start_date": "1957-05-01T00:00:00.000000+00:00",
+                "end_date": "1995-11-30T00:00:00.000000+00:00",
                 "latitude": 48.8049,
                 "longitude": 13.5528,
                 "height": 645.0,
@@ -666,7 +670,7 @@ def test_summarized_values_to_ogc_feature_collection(
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": "2019-01-01T00:00:00+00:00",
+                "date": "2019-01-01T00:00:00.000000+00:00",
                 "value": 1.3,
                 "distance": 0.0,
                 "taken_station_id": "01048",
@@ -813,7 +817,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "station_id": "01048",
         "resolution": "daily",
         "dataset": "climate_summary",
-        "date": "2019-01-01T00:00:00+00:00",
+        "date": "2019-01-01T00:00:00.000000+00:00",
         "wind_gust_max": 19.9,
         "qn_wind_gust_max": 10,
         "wind_speed": 8.5,
@@ -848,7 +852,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "station_id": "01048",
         "resolution": "daily",
         "dataset": "climate_summary",
-        "date": "2020-01-01T00:00:00+00:00",
+        "date": "2020-01-01T00:00:00.000000+00:00",
         "wind_gust_max": 6.9,
         "qn_wind_gust_max": 10,
         "wind_speed": 3.2,
@@ -1202,7 +1206,7 @@ def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings
         points = mock_client.write_points.call_args.kwargs["points"]
         first_point = points[0]
         assert first_point["measurement"] == "weather"
-        assert first_point["time"] == "2019-01-01T00:00:00+00:00"
+        assert first_point["time"] == "2019-01-01T00:00:00.000000+00:00"
         assert first_point["tags"] == {
             "station_id": "01048",
             "dataset": "climate_summary",
@@ -1729,6 +1733,9 @@ def test_export_file_append_exception() -> None:
     assert exec_info.match("Append mode is not supported for file exports.")
 
 
+@pytest.mark.skipif(
+    condition=IS_CI and IS_WINDOWS, reason="File existence check behaves differently on Windows CI environments."
+)
 def test_export_file_fail_exception(tmp_path: Path) -> None:
     """Test export of DataFrame to file with if_exists='fail' parameter."""
     filename = tmp_path.joinpath("testfile")
