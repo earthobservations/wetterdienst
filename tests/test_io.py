@@ -1489,3 +1489,256 @@ def test_export_influxdb3_tidy(settings_convert_units_false: Settings) -> None:
             "value": 7.4,
             "quality": 10.0,
         }
+
+
+# test for to_target with if_exists parameter, use duckdb for simplicity
+def test_export_duckdb_if_exists_fail(
+    tmp_path: Path,
+) -> None:
+    """Test export of DataFrame to duckdb with if_exists parameter."""
+    pytest.importorskip("duckdb")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+        periods=Period.HISTORICAL,
+    ).filter_by_station_id(station_id=[1048])
+    filename = tmp_path.joinpath("test.duckdb")
+    request.values.to_target(f"duckdb:///{filename}?table=testdrive")
+    # Second export with if_exists='fail' should raise an error
+    with pytest.raises(KeyError) as exec_info:
+        request.values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="fail")
+    assert exec_info.match("Table 'testdrive' already exists in the database, aborting write due to if_exists='fail'.")
+
+
+def test_export_duckdb_if_exists_replace(
+    tmp_path: Path,
+) -> None:
+    """Test export of DataFrame to duckdb with if_exists='replace' parameter."""
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048])
+    request.values.to_target(f"duckdb:///{filename}?table=testdrive")
+
+    # Verify that the table exists and has station_id 1048
+    conn = duckdb.connect(str(filename), read_only=False)
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01048",)]
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1050])
+    request.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="replace")
+    # Verify that the table exists and has station_id 1050
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01050",)]
+
+
+def test_export_duckdb_if_exists_append(
+    tmp_path: Path,
+) -> None:
+    """Test export of DataFrame to duckdb with if_exists='append' parameter."""
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048])
+    request.values.to_target(f"duckdb:///{filename}?table=testdrive")
+
+    # Verify that the table exists and has two entries for station_id 1048
+    conn = duckdb.connect(str(filename), read_only=False)
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall()[0] == ("01048",)
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1050])
+    request.values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="append")
+    # Verify that the table has entries for both station_ids
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive ORDER BY station_id").fetchall() == [
+        ("01048",),
+        ("01050",),
+    ]
+
+
+def test_export_duckdb_if_exists_skip(
+    tmp_path: Path,
+) -> None:
+    """Test export of DataFrame to duckdb with if_exists='skip' parameter."""
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048])
+    request.values.to_target(f"duckdb:///{filename}?table=testdrive")
+
+    # Verify that the table exists and has station_id 1048
+    conn = duckdb.connect(str(filename), read_only=False)
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01048",)]
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1050])
+    request.values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="skip")
+    # Verify that the table still only has station_id 1048
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01048",)]
+
+
+def test_export_duckdb_single_query_results_if_exists_replace(tmp_path: Path) -> None:
+    """Test export of DataFrame to duckdb with if_exists='replace' parameter."""
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048, 1050])
+
+    values_query = request.values.query()
+
+    result_1048 = next(values_query)
+    result_1048.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="replace")
+
+    # Verify that the table exists and has station_id 1048
+    conn = duckdb.connect(str(filename), read_only=False)
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01048",)]
+
+    result_1050 = next(values_query)
+    result_1050.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="replace")
+
+    # Verify that the table exists and has station_id 1050
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01050",)]
+
+
+def test_export_duckdb_single_query_results_if_exists_append(tmp_path: Path) -> None:
+    """Test export of DataFrame to duckdb with if_exists='append' parameter."""
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048, 1050])
+
+    values_query = request.values.query()
+
+    result_1048 = next(values_query)
+    result_1048.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="append")
+
+    # Verify that the table exists and has station_id 1048
+    conn = duckdb.connect(str(filename), read_only=False)
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01048",)]
+
+    result_1050 = next(values_query)
+    result_1050.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="append")
+
+    # Verify that the table has entries for both station_ids
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive ORDER BY station_id").fetchall() == [
+        ("01048",),
+        ("01050",),
+    ]
+
+
+def test_export_duckdb_all_result_if_exists_replace(tmp_path: Path) -> None:
+    """Test export of DataFrame to duckdb with if_exists='replace' parameter."""
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048])
+
+    values = request.values.all()
+    values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="replace")
+
+    # Verify that the table exists and has station_id 1048
+    conn = duckdb.connect(str(filename), read_only=False)
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01048",)]
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1050])
+
+    values = request.values.all()
+    values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="replace")
+
+    # Verify that the table exists and has station_id 1050
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01050",)]
+
+
+def test_export_duckdb_all_result_if_exists_append(tmp_path: Path) -> None:
+    """Test export of DataFrame to duckdb with if_exists='append' parameter."""
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048])
+
+    values = request.values.all()
+    values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="append")
+
+    # Verify that the table exists and has station_id 1048
+    conn = duckdb.connect(str(filename), read_only=False)
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01048",)]
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1050])
+
+    values = request.values.all()
+    values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="append")
+
+    # Verify that the table exists and has station_id 1050
+    assert conn.execute("SELECT DISTINCT station_id FROM testdrive ORDER BY station_id").fetchall() == [
+        ("01048",),
+        ("01050",),
+    ]
+
+
+def test_export_file_excel_if_exists_replace(tmp_path: Path) -> None:
+    """Test export of DataFrame to Excel file with if_exists='replace' parameter."""
+    pytest.importorskip("openpyxl")
+
+    filename = tmp_path.joinpath("testfile.xlsx")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048])
+
+    values = request.values.all()
+    values.to_target(f"file:///{filename}", if_exists="replace")
+    assert filename.exists()
+
+
+def test_export_file_append_exception() -> None:
+    """Test export of DataFrame to file with if_exists='append' parameter."""
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048])
+
+    values = request.values.all()
+    with pytest.raises(NotImplementedError) as exec_info:
+        values.to_target("file:///foo", if_exists="append")
+    assert exec_info.match("Append mode is not supported for file exports.")
+
+
+def test_export_file_fail_exception(tmp_path: Path) -> None:
+    """Test export of DataFrame to file with if_exists='fail' parameter."""
+    filename = tmp_path.joinpath("testfile")
+    filename.write_text("foo")
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+    ).filter_by_station_id(station_id=[1048])
+
+    values = request.values.all()
+    with pytest.raises(FileExistsError) as exec_info:
+        values.to_target(f"file:///{filename}", if_exists="fail")
+    assert exec_info.match("File '.*testfile' already exists, aborting write due to if_exists='fail'.")

@@ -8,7 +8,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from itertools import groupby
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -417,6 +417,13 @@ class TimeseriesValues(ABC):
             return ValuesResult(stations=self.sr, values=self, df=pl.DataFrame())
 
         return ValuesResult(stations=self.sr, values=self, df=df)
+
+    def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
+        """Wrap to_target of all queried results."""
+        tqdm_out = TqdmToLogger(log, level=logging.INFO)
+        for i, result in tqdm(enumerate(self.query()), total=len(self.sr.station_id), file=tqdm_out):
+            result.to_target(target, if_exists=if_exists if i == 0 else "append")
+            log.info(f"Exported data for station {result.df.get_column('station_id').unique()[0]} to {target}.")
 
     @staticmethod
     def _humanize(df: pl.DataFrame, humanized_parameters_mapping: dict[str, str]) -> pl.DataFrame:
