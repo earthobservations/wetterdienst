@@ -10,6 +10,9 @@
 ### Fix
 - \[DWD Road\]: Skip empty files
 
+### Chore
+- Bump polars minimum to 1.15.0
+
 ## 0.113.0 - 2025-09-21
 
 ### Feature
