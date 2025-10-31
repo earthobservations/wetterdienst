@@ -49,6 +49,18 @@ class File:
         if isinstance(self.content, Exception):
             raise self.content
 
+    @property
+    def nbytes(self) -> int:
+        """Return the number of bytes in the file content."""
+        if isinstance(self.content, BytesIO):
+            return self.content.getbuffer().nbytes
+        return 0
+
+    @property
+    def is_empty(self) -> bool:
+        """Check if the file content is empty."""
+        return self.nbytes == 0
+
 
 class FileDirCache(MutableMapping):
     """File-based cache for FSSPEC."""
