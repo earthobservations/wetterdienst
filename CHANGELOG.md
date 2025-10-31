@@ -7,6 +7,9 @@
 - Add `if_exists` argument to `to_target`
 - Use more polars-native methods
 
+### Fix
+- \[DWD Road\]: Skip empty files
+
 ## 0.113.0 - 2025-09-21
 
 ### Feature

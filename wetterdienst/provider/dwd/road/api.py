@@ -263,6 +263,10 @@ class DwdRoadValues(TimeseriesValues):
             client_kwargs=self.sr.settings.fsspec_client_kwargs,
             cache_disable=self.sr.settings.cache_disable,
         )
+        # files may be empty, see https://github.com/earthobservations/wetterdienst/issues/1526
+        # -> those files had only 142 bytes
+        # -> skip empty files with equal or less size
+        files = [file for file in files if file.nbytes > 142]
         return self._parse_dwd_road_weather_data(files, parameters)
 
     def _parse_dwd_road_weather_data(
