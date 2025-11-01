@@ -5914,7 +5914,7 @@ wheels = [
 
 [[package]]
 name = "wetterdienst"
-version = "0.114.0"
+version = "0.114.1"
 source = { editable = "." }
 dependencies = [
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'" },

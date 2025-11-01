@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.114.1 - 2025-11-01
+
 ### Fix
 - Fix global import of duckdb exception in `to_target` method
 
