@@ -15,7 +15,6 @@ from urllib.parse import urlunparse
 
 import polars as pl
 import polars.selectors as cs
-from duckdb import CatalogException
 
 from wetterdienst.util.url import ConnectionString
 
@@ -319,6 +318,7 @@ class ExportMixin:
             """  # noqa:E501
             log.info(f"Writing to DuckDB. database={database}, table={tablename}")
             import duckdb  # noqa: PLC0415
+            from duckdb import CatalogException  # noqa: PLC0415
 
             df = copy(self.df)
 
