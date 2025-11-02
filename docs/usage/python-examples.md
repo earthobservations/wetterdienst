@@ -204,7 +204,7 @@ This is an example on how to acquire ``RADOLAN_CDC`` data using
 ``wetterdienst`` and process it using ``wradlib``.
 
 For more examples, please have a look at 
-[examples/radar/](https://github.com/earthobservations/wetterdienst/tree/main/examples/radar).
+[examples/provider/dwd/radar](https://github.com/earthobservations/wetterdienst/tree/main/examples/provider/dwd/radar).
 
 ```{code-cell}
 ---
