@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.114.2 - 2025-11-05
+
 ### Fix
 - \[DWD DMO\] Fix path for `icon_eu` and minor fixes
 
