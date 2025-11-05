@@ -1708,7 +1708,7 @@ def test_export_duckdb_all_result_if_exists_append(tmp_path: Path) -> None:
 
 def test_export_file_excel_if_exists_replace(tmp_path: Path) -> None:
     """Test export of DataFrame to Excel file with if_exists='replace' parameter."""
-    pytest.importorskip("openpyxl")
+    pytest.importorskip("xlsxwriter")
 
     filename = tmp_path.joinpath("testfile.xlsx")
 
