@@ -192,10 +192,10 @@ class KMLReader:
                 self.data[station_id][measurement_parameter.lower()] = measurement_values
             station_forecast.clear()
 
-    def get_station_forecast(self, station_id: str) -> pl.DataFrame | None:
+    def get_station_forecast(self, station_id: str) -> pl.DataFrame:
         """Get forecasts as DataFrame."""
         station_forecast_values = self.data.get(station_id)
         if not station_forecast_values:
-            return None
+            return pl.DataFrame()
         data = {"date": self.timesteps} | station_forecast_values
         return pl.DataFrame(data)
