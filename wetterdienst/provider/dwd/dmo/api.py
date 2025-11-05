@@ -126,7 +126,8 @@ class DwdDmoValues(TimeseriesValues):
 
     def get_dwd_dmo_path(self, dataset: DatasetModel, station_id: str | None = None) -> str:
         """Get DWD DMO path."""
-        path = f"weather/local_forecasts/dmo/{dataset.name_original}/{self.sr.stations.station_group.value}"
+        dataset_name = "icon-eu" if dataset.name_original == "icon_eu" else dataset.name_original
+        path = f"weather/local_forecasts/dmo/{dataset_name}/{self.sr.stations.station_group.value}"
         if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
             return f"{path}/kmz"
         return f"{path}/{station_id}/kmz/"
@@ -169,9 +170,14 @@ class DwdDmoValues(TimeseriesValues):
 
     def read_icon_eu(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Read large icon_eu file with all stations."""
-        dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon_eu)
+        if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
+            dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon_eu)
+        else:
+            dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon_eu, station_id=station_id)
         url = urljoin("https://opendata.dwd.de", dmo_path)
         file_url = self.get_url_for_date(url, date)
+        if not file_url:
+            return pl.DataFrame()
         self.kml.read(file_url)
         return self.kml.get_station_forecast(station_id)
 
@@ -183,12 +189,16 @@ class DwdDmoValues(TimeseriesValues):
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon, station_id=station_id)
         url = urljoin("https://opendata.dwd.de", dmo_path)
         file_url = self.get_url_for_date(url, date)
+        if not file_url:
+            return pl.DataFrame()
         self.kml.read(file_url)
         return self.kml.get_station_forecast(station_id)
 
-    def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str:
+    def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str | None:
         """Get URL for a specific date."""
         urls = list_remote_files_fsspec(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
+        if not urls:
+            return None
         df = pl.DataFrame({"url": urls}, orient="col")
         df = df.filter(pl.col("url").str.contains(self.sr.stations.lead_time.value))
         df = df.with_columns(
@@ -213,7 +223,7 @@ class DwdDmoRequest(TimeseriesRequest):
     _values = DwdDmoValues
     # required parameters
     issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST
-    station_group: str | DwdDmoStationGroup | None = None
+    station_group: Literal["single_stations", "all_stations"] | DwdDmoStationGroup | None = None
     lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None
 
     _url = (

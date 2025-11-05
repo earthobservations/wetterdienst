@@ -173,9 +173,68 @@ def test_api_dwd_mosmix(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-def test_api_dwd_dmo(default_settings: Settings) -> None:
+def test_api_dwd_dmo_icon_single_stations(default_settings: Settings) -> None:
     """Test dwd dmo API."""
-    request = DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings).all()
+    request = DwdDmoRequest(
+        parameters=[("hourly", "icon")], station_group="single_stations", settings=default_settings
+    ).all()
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_start_date:
+        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+def test_api_dwd_dmo_icon_all_stations(default_settings: Settings) -> None:
+    """Test dwd dmo API."""
+    request = DwdDmoRequest(
+        parameters=[("hourly", "icon")], station_group="all_stations", settings=default_settings
+    ).all()
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_start_date:
+        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+def test_api_dwd_dmo_icon_eu_single_stations(default_settings: Settings) -> None:
+    """Test dwd dmo API."""
+    request = DwdDmoRequest(
+        parameters=[("hourly", "icon_eu")], station_group="single_stations", settings=default_settings
+    ).all()
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_start_date:
+        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
+    """Test dwd dmo API."""
+    request = DwdDmoRequest(
+        parameters=[("hourly", "icon_eu")], station_group="all_stations", settings=default_settings
+    ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
