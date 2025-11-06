@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from io import BytesIO
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -92,6 +93,9 @@ def _parse_climate_observations_data(  # noqa: C901
     period: Period,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
+    if isinstance(file.content, BytesIO):
+        file.content = BytesIO(file.content.read().decode("latin1").encode("utf8"))
+
     try:
         df = pl.scan_csv(
             source=file.content,
