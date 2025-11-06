@@ -2,6 +2,9 @@
 
 ## Development
 
+### Fix
+- \[DWD Obs\] Fix encoding issue
+
 ## 0.114.2 - 2025-11-05
 
 ### Fix

@@ -156,6 +156,28 @@ def test_api_dwd_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+def test_api_dwd_observation_hourly_weather_phenomena(default_settings: Settings) -> None:
+    """Test dwd observation API for hourly weather phenomena.
+
+    The data contains invalid utf8 sequence which would cause an error if not transformed from latin1 to utf8.
+    """
+    request = DwdObservationRequest(
+        parameters=[("hourly", "weather_phenomena")], settings=default_settings
+    ).filter_by_station_id("00003")
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    assert _is_complete_stations_df(request.df)
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_start_date:
+        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
 def test_api_dwd_mosmix(default_settings: Settings) -> None:
     """Test dwd mosmix API."""
     request = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings).all()
