@@ -28,7 +28,7 @@ jobs:
             python-version: "3.14"
           - os: "macos-latest" # arm64 (M1)
             python-version: "3.14"
-          - os: "macos-13" # x86 (Intel)
+          - os: "macos-15-intel" # x86 (Intel)
             python-version: "3.14"
 
     continue-on-error: true
