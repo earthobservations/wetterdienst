@@ -663,7 +663,7 @@ def test_filter_date_range_for_period(
 
     with patch("wetterdienst.provider.dwd.derived.api.list_remote_files_fsspec") as mocked_function:
         mocked_function.return_value = input_files_on_server
-        filtered_range = values._filter_date_range_for_period( # noqa: SLF001
+        filtered_range = values._filter_date_range_for_period(  # noqa: SLF001
             date_range=input_range, period=Period.RECENT, parameter=request.parameters[0]
         )
         assert_series_equal(filtered_range, expected_range, check_names=False, check_dtypes=False)

@@ -6,15 +6,14 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import re
 from dataclasses import dataclass
-from datetime import datetime, UTC
-
+from datetime import datetime
 from itertools import groupby
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
-import re
 
 from wetterdienst import Period
 from wetterdienst.metadata.cache import CacheExpiry
@@ -24,11 +23,11 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
 from wetterdienst.provider.dwd.observation.metaindex import _read_meta_df
 from wetterdienst.util.enumeration import parse_enumeration_from_template
-from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from wetterdienst.model.metadata import ParameterModel, DatasetModel
+    from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ _ENDPOINT_SUFFIX = {
 }
 
 
-def _get_data_from_file(file):
+def _get_data_from_file(file: File) -> pl.DataFrame:
     df = pl.read_csv(
         file.content,
         separator=";",
@@ -64,7 +63,7 @@ class DwdDerivedValues(TimeseriesValues):
         Resolution.MONTHLY: dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
     }
 
-    _column_name_mapping = {
+    _column_name_mapping: ClassVar = {
         "#ID": "station_id",
         "Anzahl Tage": "amount_days_per_month",
         "Monatsgradtage": "heating_degreedays",
@@ -76,9 +75,7 @@ class DwdDerivedValues(TimeseriesValues):
         df: pl.DataFrame,
         station_id: str,
     ) -> pl.DataFrame | None:
-        """
-        Filter stations for a particular station.
-        """
+        """Filter stations for a particular station."""
         try:
             row_data = df.row(by_predicate=(pl.col("#ID") == int(station_id)), named=True)
             return pl.DataFrame(row_data)
@@ -92,8 +89,7 @@ class DwdDerivedValues(TimeseriesValues):
             # Other files like txt files.
             return None
         date_str = match.group(1)
-        parsed_datetime = datetime.strptime(date_str, "%Y%m").replace(tzinfo=UTC)
-        return parsed_datetime
+        return datetime.strptime(date_str, "%Y%m").replace(tzinfo=ZoneInfo("UTC"))
 
     def _filter_date_range_for_period(
         self,
@@ -108,7 +104,9 @@ class DwdDerivedValues(TimeseriesValues):
             settings=self.sr.settings,
         )
         available_dates = {self._extract_datetime_from_file_url(file_url=file_url) for file_url in available_file_urls}
-        available_dates.discard(None,)
+        available_dates.discard(
+            None,
+        )
         earliest_date_with_available_file = min(available_dates)
         latest_date_with_available_file = max(available_dates)
 
@@ -123,8 +121,7 @@ class DwdDerivedValues(TimeseriesValues):
         self,
         parameter_or_dataset: ParameterModel,
     ) -> list[datetime | None] | pl.Series:
-        """
-        Creates a list of dates that are the first days of the months to fetch.
+        """Create a list of dates that are the first days of the months to fetch.
 
         If start and end dates were given, these determine the first and last month, respectively.
         Else, default values are used.
@@ -151,7 +148,7 @@ class DwdDerivedValues(TimeseriesValues):
         )
 
     @staticmethod
-    def _get_values_url(product_name: str, period: Period, start_date=None) -> str:
+    def _get_values_url(product_name: str, period: Period, start_date: str) -> str:
         endpoint_prefix = _ENDPOINT_PREFIX.get(product_name).get(period)
         endpoint = endpoint_prefix + _ENDPOINT_SUFFIX.get(product_name, "")
         return endpoint.format(
@@ -165,9 +162,7 @@ class DwdDerivedValues(TimeseriesValues):
         date: datetime,
         parameter: ParameterModel,
     ) -> pl.DataFrame:
-        """
-        Process DataFrame to the expected format.
-        """
+        """Process DataFrame to the expected format."""
         df = df.rename(mapping=column_name_mapping)
         return pl.DataFrame(
             {
@@ -216,7 +211,7 @@ class DwdDerivedValues(TimeseriesValues):
                     )
 
                     if file.status == 404:
-                        logging.warning(
+                        log.warning(
                             f"File {url.rsplit('/', 1)[1]} for "
                             f"station {station_id} not found on server {url}. Skipping."
                         )
@@ -230,7 +225,7 @@ class DwdDerivedValues(TimeseriesValues):
                     )
 
                     if df is None:
-                        logging.warning(
+                        log.warning(
                             f"No data found for ID {station_id} at {first_day_of_month_to_fetch.strftime('%m/%Y')}"
                         )
                         continue

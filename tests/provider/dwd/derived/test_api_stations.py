@@ -2,17 +2,17 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD derived station data."""
 
-import pytest
-
 import datetime as dt
 from zoneinfo import ZoneInfo
 
 import polars as pl
+import pytest
 from dirty_equals import IsDatetime, IsDict
-from wetterdienst.provider.dwd.derived.api import DwdDerivedRequest
+from polars.testing import assert_frame_equal
+
 from wetterdienst import Settings
 from wetterdienst.exceptions import InvalidEnumerationError
-from polars.testing import assert_frame_equal
+from wetterdienst.provider.dwd.derived.api import DwdDerivedRequest
 
 
 @pytest.fixture
@@ -50,6 +50,7 @@ def expected_df() -> pl.DataFrame:
     ],
 )
 def test_dwd_derived_stations_filter(default_settings: Settings, expected_df: pl.DataFrame, period: str) -> None:
+    """Test to check station ID filter."""
     request = DwdDerivedRequest(
         parameters=("monthly", "heating_degreedays"),
         periods=period,
@@ -60,6 +61,7 @@ def test_dwd_derived_stations_filter(default_settings: Settings, expected_df: pl
 
 
 def test_dwd_derived_stations_filter_false_period(default_settings: Settings) -> None:
+    """Test to check for error on unknown period."""
     period = "hadean"
     with pytest.raises(InvalidEnumerationError) as exception_info:
         DwdDerivedRequest(
@@ -67,9 +69,7 @@ def test_dwd_derived_stations_filter_false_period(default_settings: Settings) ->
             periods=period,
             settings=default_settings,
         ).filter_by_station_id(station_id="00433")
-    assert exception_info.value.args[0] == (
-        f"{period} could not be parsed from Period."
-    )
+    assert exception_info.value.args[0] == (f"{period} could not be parsed from Period.")
 
 
 @pytest.mark.remote
@@ -157,8 +157,8 @@ def test_dwd_observations_stations_name_with_comma() -> None:
 @pytest.mark.remote
 @pytest.mark.parametrize(
     (
-            "station_id",
-            "period",
+        "station_id",
+        "period",
     ),
     [
         (
@@ -186,11 +186,11 @@ def test_dwd_observations_stations_name_with_comma() -> None:
     ],
 )
 def test_dwd_derived_stations_filter_misentries(
-        default_settings: Settings,
-        expected_df: pl.DataFrame,
-        station_id: str,
-        period: str,
+    default_settings: Settings,
+    station_id: str,
+    period: str,
 ) -> None:
+    """Test to check for handling of missing or incorrect parameter inputs."""
     request = DwdDerivedRequest(
         parameters=("monthly", "heating_degreedays"),
         periods=period,

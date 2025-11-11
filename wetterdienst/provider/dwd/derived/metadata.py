@@ -2,8 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """DWD derived metadata."""
 
-from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.model.metadata import build_metadata_model
+from wetterdienst.provider.dwd.metadata import _METADATA
 
 DwdDerivedMetadata = {
     **_METADATA,
@@ -43,7 +43,7 @@ DwdDerivedMetadata = {
                     ],
                 },
             ],
-         },
+        },
     ],
 }
 DwdDerivedMetadata = build_metadata_model(DwdDerivedMetadata, "DwdDerivedMetadata")
