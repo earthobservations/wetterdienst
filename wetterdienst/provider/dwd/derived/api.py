@@ -52,8 +52,7 @@ def _get_data_from_file(file: File) -> pl.DataFrame:
         separator=";",
         skip_rows=3,
     )
-    df.columns = pl.Series(df.columns).str.strip_chars()
-    return df
+    return df.select(pl.all().name.map(str.strip))
 
 
 class DwdDerivedValues(TimeseriesValues):
@@ -69,18 +68,6 @@ class DwdDerivedValues(TimeseriesValues):
         "Monatsgradtage": "heating_degreedays",
         "Anzahl Heiztage": "amount_heating_degreedays_per_month",
     }
-
-    @staticmethod
-    def _get_values_for_single_station(
-        df: pl.DataFrame,
-        station_id: str,
-    ) -> pl.DataFrame | None:
-        """Filter stations for a particular station."""
-        try:
-            row_data = df.row(by_predicate=(pl.col("#ID") == int(station_id)), named=True)
-            return pl.DataFrame(row_data)
-        except pl.exceptions.NoRowsReturnedError:
-            return None
 
     @staticmethod
     def _extract_datetime_from_file_url(file_url: str) -> datetime | None:
@@ -164,15 +151,16 @@ class DwdDerivedValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Process DataFrame to the expected format."""
         df = df.rename(mapping=column_name_mapping)
-        return pl.DataFrame(
-            {
-                "resolution": parameter.dataset.resolution.name,
-                "dataset": parameter.dataset.name,
-                "parameter": parameter.name_original,
-                "date": date,
-                "value": float(df.select(parameter.name).item()),
-                "quality": None,
-            }
+        # Need to manually cast value since leading whitespaces cause issues
+        # when using polars casting function.
+        value = float(df.select(parameter.name).item())
+        return df.select(
+            pl.lit(parameter.dataset.resolution.name).alias("resolution"),
+            pl.lit(parameter.dataset.name).alias("dataset"),
+            pl.lit(parameter.name_original).alias("parameter"),
+            pl.lit(date).alias("date"),
+            pl.lit(value).alias("value"),
+            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
     def _collect_station_parameter_or_dataset(
@@ -219,12 +207,9 @@ class DwdDerivedValues(TimeseriesValues):
                     file.raise_if_exception()
 
                     df = _get_data_from_file(file)
-                    df = self._get_values_for_single_station(
-                        df=df,
-                        station_id=station_id,
-                    )
+                    df = df.filter(pl.col("#ID").eq(int(station_id)))
 
-                    if df is None:
+                    if df.is_empty():
                         log.warning(
                             f"No data found for ID {station_id} at {first_day_of_month_to_fetch.strftime('%m/%Y')}"
                         )
@@ -238,9 +223,9 @@ class DwdDerivedValues(TimeseriesValues):
                     )
                     data.append(df)
 
-        if len(data) != 0:
-            return pl.concat(data)
-        return pl.DataFrame()
+        if len(data) == 0:
+            return pl.DataFrame()
+        return pl.concat(data)
 
 
 @dataclass

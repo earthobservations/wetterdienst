@@ -5,6 +5,7 @@
 import datetime
 from collections.abc import Collection
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
@@ -21,13 +22,13 @@ from wetterdienst.provider.dwd.derived import DwdDerivedRequest
     [
         (
             Period.RECENT,
-            datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-            datetime.datetime(year=2014, month=10, day=1, tzinfo=datetime.timezone.utc),
+            datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
         ),
         (
             Period.HISTORICAL,
-            datetime.datetime(year=2024, month=7, day=1, tzinfo=datetime.timezone.utc),
-            datetime.datetime(year=2024, month=10, day=1, tzinfo=datetime.timezone.utc),
+            datetime.datetime(year=2024, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(year=2024, month=10, day=1, tzinfo=ZoneInfo("UTC")),
         ),
     ],
 )
@@ -124,8 +125,8 @@ def test_dwd_recent_data_result_long_single_parameter(
             "heating_degreedays",
         ),
         settings=default_settings,
-        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-        end_date=datetime.datetime(year=2014, month=9, day=1, tzinfo=datetime.timezone.utc),
+        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
             "historical",
         ],
@@ -147,9 +148,9 @@ def test_dwd_recent_data_result_long_single_parameter(
             "dataset": ["heating_degreedays"] * 3,
             "parameter": ["heating_degreedays"] * 3,
             "date": [
-                datetime.datetime(2014, 7, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 8, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 9, 1, tzinfo=datetime.UTC),
+                datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
             ],
             "value": [
                 12.3,
@@ -169,7 +170,7 @@ def test_dwd_recent_data_result_long_single_parameter(
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Null,
+            "quality": pl.Float64,
         },
         orient="col",
     )
@@ -189,8 +190,8 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "heating_degreedays",
         ),
         settings=default_settings,
-        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-        end_date=datetime.datetime(year=2014, month=9, day=1, tzinfo=datetime.timezone.utc),
+        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
             "historical",
         ],
@@ -210,9 +211,9 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "resolution": ["monthly"] * 3,
             "dataset": ["heating_degreedays"] * 3,
             "date": [
-                datetime.datetime(2014, 7, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 8, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 9, 1, tzinfo=datetime.UTC),
+                datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
             ],
             "heating_degreedays": [
                 12.3,
@@ -231,7 +232,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "dataset": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "heating_degreedays": pl.Float64,
-            "qn_heating_degreedays": pl.Null,
+            "qn_heating_degreedays": pl.Float64,
         },
         orient="col",
     )
@@ -251,8 +252,8 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month(
             "heating_degreedays",
         ),
         settings=default_settings,
-        start_date=datetime.datetime(year=2023, month=3, day=1, tzinfo=datetime.timezone.utc),
-        end_date=datetime.datetime(year=2023, month=5, day=1, tzinfo=datetime.timezone.utc),
+        start_date=datetime.datetime(year=2023, month=3, day=1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2023, month=5, day=1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(station_id="00044")
     given_df = request.values.all().df
     assert given_df.columns == [
@@ -271,8 +272,8 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month(
             "dataset": ["heating_degreedays"] * 2,
             "parameter": ["heating_degreedays"] * 2,
             "date": [
-                datetime.datetime(2023, 3, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2023, 5, 1, tzinfo=datetime.UTC),
+                datetime.datetime(2023, 3, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2023, 5, 1, tzinfo=ZoneInfo("UTC")),
             ],
             "value": [
                 430.7,
@@ -290,7 +291,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month(
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Null,
+            "quality": pl.Float64,
         },
         orient="col",
     )
@@ -309,8 +310,8 @@ def test_dwd_recent_data_result_long_single_dataset(
             "heating_degreedays",
         ),
         settings=default_settings,
-        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-        end_date=datetime.datetime(year=2014, month=9, day=1, tzinfo=datetime.timezone.utc),
+        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
             "historical",
         ],
@@ -342,15 +343,15 @@ def test_dwd_recent_data_result_long_single_dataset(
                 "heating_degreedays",
             ],
             "date": [
-                datetime.datetime(2014, 7, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 8, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 9, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 7, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 8, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 9, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 7, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 8, 1, tzinfo=datetime.UTC),
-                datetime.datetime(2014, 9, 1, tzinfo=datetime.UTC),
+                datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
             ],
             "value": [
                 31.0,
@@ -382,7 +383,7 @@ def test_dwd_recent_data_result_long_single_dataset(
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Null,
+            "quality": pl.Float64,
         },
         orient="col",
     )
@@ -393,50 +394,50 @@ def test_dwd_recent_data_result_long_single_dataset(
     ("start_date", "end_date", "expected_range"),
     [
         (
-            datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-            datetime.datetime(year=2014, month=10, day=13, tzinfo=datetime.timezone.utc),
+            datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(year=2014, month=10, day=13, tzinfo=ZoneInfo("UTC")),
             pl.Series(
                 [
-                    datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=8, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=9, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=10, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
         ),
         (
-            datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-            datetime.datetime(year=2014, month=7, day=13, tzinfo=datetime.timezone.utc),
+            datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(year=2014, month=7, day=13, tzinfo=ZoneInfo("UTC")),
             pl.Series(
                 [
-                    datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
         ),
         (
-            datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-            datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
+            datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
             pl.Series(
                 [
-                    datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
         ),
         (
             None,
-            datetime.datetime(year=2000, month=5, day=3, tzinfo=datetime.timezone.utc),
+            datetime.datetime(year=2000, month=5, day=3, tzinfo=ZoneInfo("UTC")),
             pl.Series(
                 [
-                    datetime.datetime(year=2000, month=5, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2000, month=5, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
         ),
         (
-            datetime.datetime(year=2000, month=5, day=3, tzinfo=datetime.timezone.utc),
+            datetime.datetime(year=2000, month=5, day=3, tzinfo=ZoneInfo("UTC")),
             None,
             pl.Series(
                 [
-                    datetime.datetime(year=2000, month=5, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2000, month=5, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
         ),
@@ -483,17 +484,17 @@ def test_get_first_day_of_months_to_fetch_neither_start_nor_end_date_given(
         2000,
         1,
         1,
-        tzinfo=datetime.timezone.utc,
+        tzinfo=ZoneInfo("UTC"),
     )
     assert max(months_to_fetch) == datetime.datetime(
         year=datetime.datetime.now(
-            tz=datetime.timezone.utc,
+            tz=ZoneInfo("UTC"),
         ).year,
         month=datetime.datetime.now(
-            tz=datetime.timezone.utc,
+            tz=ZoneInfo("UTC"),
         ).month,
         day=1,
-        tzinfo=datetime.timezone.utc,
+        tzinfo=ZoneInfo("UTC"),
     )
 
 
@@ -506,7 +507,7 @@ def test_get_first_day_of_months_to_fetch_neither_start_nor_end_date_given(
         ),
         (
             "example.org/somefile_202510.csv",
-            datetime.datetime(year=2025, month=10, day=1, tzinfo=datetime.timezone.utc),
+            datetime.datetime(year=2025, month=10, day=1, tzinfo=ZoneInfo("UTC")),
         ),
         ("example.org/somefile_2025.csv", None),
     ],
@@ -557,7 +558,7 @@ def test_process_dataframe_to_expected_format(
         orient="col",
     )
 
-    input_date = datetime.datetime(year=2000, month=5, day=3, tzinfo=datetime.timezone.utc)
+    input_date = datetime.datetime(year=2000, month=5, day=3, tzinfo=ZoneInfo("UTC"))
     input_parameter = request.parameters[0]
 
     expected_df = pl.DataFrame(
@@ -577,7 +578,7 @@ def test_process_dataframe_to_expected_format(
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Null,
+            "quality": pl.Float64,
         },
         orient="col",
     )
@@ -594,45 +595,45 @@ def test_process_dataframe_to_expected_format(
         (
             pl.Series(
                 [
-                    datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=8, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=9, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=10, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
             [f"example.org/data_2014{str(i_month).zfill(2)}.csv" for i_month in range(1, 12)],
             pl.Series(
                 [
-                    datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=8, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=9, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=10, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
         ),
         (
             pl.Series(
                 [
-                    datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=8, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=9, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=10, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
             [f"example.org/data_2014{str(i_month).zfill(2)}.csv" for i_month in range(6, 8)],
             pl.Series(
                 [
-                    datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
         ),
         (
             pl.Series(
                 [
-                    datetime.datetime(year=2014, month=7, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=8, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=9, day=1, tzinfo=datetime.timezone.utc),
-                    datetime.datetime(year=2014, month=10, day=1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
                 ]
             ),
             [f"example.org/data_2015{str(i_month).zfill(2)}.csv" for i_month in range(6, 8)],

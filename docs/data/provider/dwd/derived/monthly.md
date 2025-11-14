@@ -23,9 +23,9 @@
 
 #### parameters
 
-| name                                | original name         | description                                                                | unit type         | unit             | constraints   |
-|-------------------------------------|-----------------------|----------------------------------------------------------------------------|-------------------|------------------|---------------|
-| amount_days_per_month               | Anzahl Tage           | number of available values of mean daily air temperatures per month        | dimensionless     | dimensionless    | >=0           |
-| heating_degreedays                  | Monatsgradtage        | sum of degree days over a month                                            | dimensionless     | dimensionless    | >=0           |
-| amount_heating_degreedays_per_month | Anzahl Heiztage       | number of days with daily mean air temperature less than 15 degree Celsius | dimensionless     | dimensionless    | >=0           |
+| name                                | original name         | description                                                                | unit type     | unit           | constraints   |
+|-------------------------------------|-----------------------|----------------------------------------------------------------------------|---------------|----------------|---------------|
+| amount_days_per_month               | Anzahl Tage           | number of available values of mean daily air temperatures per month        | dimensionless | dimensionless  | >=0           |
+| heating_degreedays                  | Monatsgradtage        | sum of degree days over a month                                            | degree_day    | °Cd            | >=0           |
+| amount_heating_degreedays_per_month | Anzahl Heiztage       | number of days with daily mean air temperature less than 15 degree Celsius | dimensionless | dimensionless  | >=0           |
 

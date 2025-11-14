@@ -69,7 +69,7 @@ def test_dwd_derived_stations_filter_false_period(default_settings: Settings) ->
             periods=period,
             settings=default_settings,
         ).filter_by_station_id(station_id="00433")
-    assert exception_info.value.args[0] == (f"{period} could not be parsed from Period.")
+    assert exception_info.match(f"{period} could not be parsed from Period.")
 
 
 @pytest.mark.remote

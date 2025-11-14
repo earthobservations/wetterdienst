@@ -31,8 +31,8 @@ DwdDerivedMetadata = {
                         {
                             "name": "heating_degreedays",
                             "name_original": "Monatsgradtage",
-                            "unit_type": "dimensionless",
-                            "unit": "dimensionless",
+                            "unit_type": "degree_day",
+                            "unit": "degree_celsius_day",
                         },
                         {
                             "name": "amount_heating_degreedays_per_month",
