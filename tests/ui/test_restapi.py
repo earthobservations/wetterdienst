@@ -68,7 +68,7 @@ def test_coverage(client: TestClient) -> None:
         "wsv",
     }
     networks = data["dwd"]
-    assert networks == ["observation", "mosmix", "dmo", "road", "radar"]
+    assert networks == ["observation", "mosmix", "dmo", "road", "radar", "derived"]
 
 
 @pytest.mark.remote

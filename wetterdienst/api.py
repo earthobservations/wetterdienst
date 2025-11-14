@@ -22,6 +22,7 @@ class Wetterdienst:
             "dmo": "wetterdienst.provider.dwd.dmo.DwdDmoRequest",
             "road": "wetterdienst.provider.dwd.road.DwdRoadRequest",
             "radar": "wetterdienst.provider.dwd.radar.DwdRadarValues",
+            "derived": "wetterdienst.provider.dwd.derived.DwdDerivedRequest",
         },
         "eccc": {
             "observation": "wetterdienst.provider.eccc.observation.EcccObservationRequest",

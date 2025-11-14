@@ -27,6 +27,11 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - All of composite, radolan, radvor, sites and radolan_cdc
     - Radolan: calibrated radar precipitation
     - Radvor: radar precipitation forecast
+- derived technical products
+    - Secondary data products from primary weather observations
+    - Currently only data product heating_degreedays supported
+    - Monthly resolution
+    - From stations in Germany
 
 For a quick overview of the work of the DWD check the current 
 [dwd report](https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14) 
@@ -48,4 +53,5 @@ mosmix/index.md
 observation/index.md
 road/index.md
 radar/index.md
+derived/index.md
 ```

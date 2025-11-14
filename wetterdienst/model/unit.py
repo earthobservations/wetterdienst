@@ -117,6 +117,11 @@ class UnitConverter:
             "wind_scale": [
                 Unit("beaufort", "bft"),
             ],
+            "degree_day": [
+                Unit("degree_celsius_day", "°Cd"),
+                Unit("degree_kelvin_day", "Kd"),
+                Unit("degree_fahrenheit_day", "°Fd"),
+            ],
         }
         # dict of target unit types and their default unit, default is the first unit in the list, can be changed with
         # update_targets
@@ -143,6 +148,7 @@ class UnitConverter:
             "volume_per_time": self.units["volume_per_time"][1],
             "wave_period": self.units["wave_period"][0],
             "wind_scale": self.units["wind_scale"][0],
+            "degree_day": self.units["degree_day"][0],
         }
         # dict of lambdas for conversion between units (described by names)
         self.lambdas: dict[tuple[str, str], Callable[[Any], Any]] = {
@@ -264,6 +270,14 @@ class UnitConverter:
             # volume_per_time
             ("liter_per_second", "cubic_meter_per_second"): lambda x: x / 1000,
             ("cubic_meter_per_second", "liter_per_second"): lambda x: x * 1000,
+            # degree_day
+            # See https://en.wikipedia.org/wiki/Heating_degree_day
+            ("degree_celsius_day", "degree_kelvin_day"): lambda x: x,
+            ("degree_kelvin_day", "degree_celsius_day"): lambda x: x,
+            ("degree_celsius_day", "degree_fahrenheit_day"): lambda x: 9 / 5 * x,
+            ("degree_kelvin_day", "degree_fahrenheit_day"): lambda x: 9 / 5 * x,
+            ("degree_fahrenheit_day", "degree_celsius_day"): lambda x: 5 / 9 * x,
+            ("degree_fahrenheit_day", "degree_kelvin_day"): lambda x: 5 / 9 * x,
         }
 
     def update_targets(self, targets: dict[str, str]) -> None:
