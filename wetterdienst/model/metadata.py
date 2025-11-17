@@ -202,7 +202,7 @@ class MetadataModel(BaseModel):
     country: str
     copyright: str
     url: str
-    kind: Literal["observation", "forecast"]
+    kind: Literal["observation", "forecast", "derived"]
     timezone: TimeZoneName
     timezone_data: TimeZoneName | Literal["dynamic"]
     resolutions: list[ResolutionModel]

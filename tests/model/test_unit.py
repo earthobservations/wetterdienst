@@ -39,6 +39,7 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
         "volume_per_time": "cubic_meter_per_second",
         "wave_period": "wave_period",
         "wind_scale": "beaufort",
+        "degree_day": "degree_celsius_day",
     }
 
 
@@ -174,6 +175,16 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("cubic_meter_per_second", "cubic_meter_per_second", 42, 42),
         ("cubic_meter_per_second", "liter_per_second", 42, 42000),
         ("liter_per_second", "cubic_meter_per_second", 42000, 42),
+        # degree_day
+        ("degree_celsius_day", "degree_celsius_day", 42, 42),
+        ("degree_kelvin_day", "degree_kelvin_day", 42, 42),
+        ("degree_fahrenheit_day", "degree_fahrenheit_day", 42, 42),
+        ("degree_celsius_day", "degree_kelvin_day", 42, 42),
+        ("degree_kelvin_day", "degree_celsius_day", 42, 42),
+        ("degree_celsius_day", "degree_fahrenheit_day", 50, 90),
+        ("degree_kelvin_day", "degree_fahrenheit_day", 50, 90),
+        ("degree_fahrenheit_day", "degree_celsius_day", 90, 50),
+        ("degree_fahrenheit_day", "degree_kelvin_day", 90, 50),
     ],
 )
 def test_unit_converter_lambdas(
