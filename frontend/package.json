@@ -12,10 +12,13 @@
   "dependencies": {
     "@nuxt/icon": "2.1.0",
     "@nuxt/ui": "^4.1.0",
+    "@nuxtjs/leaflet": "^1.3.2",
     "@nuxtjs/mdc": "^0.18.3",
     "@tailwindcss/vite": "^4.1.17",
     "@vueuse/core": "^14.0.0",
     "@vueuse/nuxt": "^14.0.0",
+    "leaflet.markercluster": "^1.5.3",
+    "minisearch": "^7.2.0",
     "nuxt": "^4.2.0",
     "nuxt-security": "^2.4.0",
     "tailwindcss": "^4.1.17",

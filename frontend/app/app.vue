@@ -56,4 +56,10 @@ const items = computed<NavigationMenuItem[]>(() =>
   </UApp>
 </template>
 <style>
+/* Make main container full width for better map display */
+:deep(.u-main) {
+  max-width: 100% !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
 </style>
