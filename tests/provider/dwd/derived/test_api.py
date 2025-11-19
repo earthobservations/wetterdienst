@@ -240,7 +240,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
 
 
 @pytest.mark.remote
-def test_dwd_recent_data_result_long_single_parameter_missing_month(
+def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degree_days(
     default_settings: Settings,
 ) -> None:
     """Test for actual values (long), where no data exists for a month."""
@@ -283,6 +283,135 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month(
                 None,
                 None,
             ],
+        },
+        schema={
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
+        orient="col",
+    )
+    assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.remote
+def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_degree_hours(
+    default_settings: Settings,
+) -> None:
+    """Test for actual values (long), where no data exists for a month."""
+    default_settings.ts_shape = "long"
+    request = DwdDerivedRequest(
+        parameters=(
+            "monthly",
+            "cooling_degreehours_13",
+            "cooling_degreehours",
+        ),
+        settings=default_settings,
+        start_date=datetime.datetime(year=2014, month=6, day=1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+    ).filter_by_station_id(station_id="00044")
+    given_df = request.values.all().df
+    assert given_df.columns == [
+        "station_id",
+        "resolution",
+        "dataset",
+        "parameter",
+        "date",
+        "value",
+        "quality",
+    ]
+    expected_df = pl.DataFrame(
+        {
+            "station_id": ["00044"] * 2,
+            "resolution": ["monthly"] * 2,
+            "dataset": ["cooling_degreehours_13"] * 2,
+            "parameter": ["cooling_degreehours"] * 2,
+            "date": [
+                datetime.datetime(2014, 6, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
+            ],
+            "value": [2240.6, 2549.5],
+            "quality": [
+                None,
+                None,
+            ],
+        },
+        schema={
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
+        orient="col",
+    )
+    assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.remote
+def test_dwd_recent_data_result_long_multiple_reference_temperatures(
+    default_settings: Settings,
+) -> None:
+    """Test for actual values (long)."""
+    default_settings.ts_shape = "long"
+    request = DwdDerivedRequest(
+        parameters=[
+            (
+                "monthly",
+                "cooling_degreehours_13",
+            ),
+            (
+                "monthly",
+                "cooling_degreehours_16",
+            ),
+        ],
+        settings=default_settings,
+        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        periods=[
+            "historical",
+        ],
+    ).filter_by_station_id(station_id="00071")
+    given_df = request.values.all().df
+    assert given_df.columns == [
+        "station_id",
+        "resolution",
+        "dataset",
+        "parameter",
+        "date",
+        "value",
+        "quality",
+    ]
+    expected_df = pl.DataFrame(
+        {
+            "station_id": ["00071"] * 8,
+            "resolution": ["monthly"] * 8,
+            "dataset": ["cooling_degreehours_13"] * 4 + ["cooling_degreehours_16"] * 4,
+            "parameter": ["amount_cooling_hours", "amount_hours", "cooling_days", "cooling_degreehours"] * 2,
+            "date": [
+                datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
+            ]
+            * 8,
+            "value": [
+                624.0,
+                744.0,
+                29.0,
+                3015.2,
+                350.0,
+                744.0,
+                28.0,
+                1505.7,
+            ],
+            "quality": [
+                None,
+            ]
+            * 8,
         },
         schema={
             "station_id": pl.String,
@@ -536,7 +665,7 @@ def test_extract_datetime_from_file_url(
 def test_process_dataframe_to_expected_format(
     default_settings: Settings,
 ) -> None:
-    """Test for getting dates from file url."""
+    """Test for processing df."""
     request = DwdDerivedRequest(
         parameters=[
             ("monthly", "heating_degreedays", "heating_degreedays"),
@@ -665,6 +794,6 @@ def test_filter_date_range_for_period(
     with patch("wetterdienst.provider.dwd.derived.api.list_remote_files_fsspec") as mocked_function:
         mocked_function.return_value = input_files_on_server
         filtered_range = values._filter_date_range_for_period(  # noqa: SLF001
-            date_range=input_range, period=Period.RECENT, parameter=request.parameters[0]
+            date_range=input_range, period=Period.RECENT, dataset=request.parameters[0].dataset
         )
         assert_series_equal(filtered_range, expected_range, check_names=False, check_dtypes=False)

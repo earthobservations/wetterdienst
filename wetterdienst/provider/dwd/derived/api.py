@@ -9,6 +9,8 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+from functools import partial
 from itertools import groupby
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
@@ -27,30 +29,35 @@ from wetterdienst.util.network import File, download_file, list_remote_files_fss
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
 log = logging.getLogger(__name__)
 
-_ENDPOINT_PREFIX = {
-    "heating_degreedays": {
-        Period.RECENT: "https://opendata.dwd.de/climate_environment/CDC/derived_germany/"
-        "techn/monthly/heating_degreedays/hdd_3807/recent/",
-        Period.HISTORICAL: "https://opendata.dwd.de/climate_environment/CDC/derived_germany/"
-        "techn/monthly/heating_degreedays/hdd_3807/historical/",
-    },
-    "stations_list": "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
-}
 
-_ENDPOINT_SUFFIX = {
-    "heating_degreedays": "gradtage_{date}.csv",
-}
+class CoolingDegreeHoursReferenceTemperature(Enum):
+    """Enumeration for reference temperatures for cooling degree hours on dwd server."""
+
+    CDH_13 = 13
+    CDH_16 = 16
+    CDH_18 = 18
 
 
-def _get_data_from_file(file: File) -> pl.DataFrame:
+def _get_data_from_file(
+    downloaded_file: File,
+    skip_rows: int = 3,
+) -> pl.DataFrame:
+    """Parse file content to DataFrame.
+
+    :param downloaded_file: Downloaded file to parse
+    :param skip_rows: How many rows to skip in the beginning of the file
+    :return: Parsed DataFrame
+    """
     df = pl.read_csv(
-        file.content,
+        downloaded_file.content,
         separator=";",
-        skip_rows=3,
+        skip_rows=skip_rows,
     )
     return df.select(pl.all().name.map(str.strip))
 
@@ -62,15 +69,20 @@ class DwdDerivedValues(TimeseriesValues):
         Resolution.MONTHLY: dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
     }
 
-    _column_name_mapping: ClassVar = {
-        "#ID": "station_id",
-        "Anzahl Tage": "amount_days_per_month",
-        "Monatsgradtage": "heating_degreedays",
-        "Anzahl Heiztage": "amount_heating_degreedays_per_month",
-    }
+    _DERIVED_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/derived_germany/techn/monthly"
 
     @staticmethod
-    def _extract_datetime_from_file_url(file_url: str) -> datetime | None:
+    def _extract_datetime_from_file_url(
+        file_url: str,
+    ) -> datetime | None:
+        """Extract a timestamp from a given file url.
+
+        This assumes that the file url is for a CSV file, ending mit a year and a month.
+        Example: "example.org/file_202510.csv" will be parsed to 2025-10-01T00:00Z.
+
+        :param file_url: URL to parse
+        :return: Parsed result if a timestamp could be extraced, else None
+        """
         match = re.search(r"_(\d{6})\.csv", file_url)
         if match is None:
             # Other files like txt files.
@@ -82,9 +94,19 @@ class DwdDerivedValues(TimeseriesValues):
         self,
         date_range: pl.Series,
         period: Period,
-        parameter: ParameterModel,
+        dataset: DatasetModel,
     ) -> pl.Series:
-        file_url = _ENDPOINT_PREFIX.get(parameter.dataset.name).get(period)
+        """Filter the given date range to only include dates where files exist for a period.
+
+        :param date_range: Date range to filter
+        :param period: Period for which is filtered
+        :param dataset: Name of dataset whose files are searched for the period
+        :return: Filtered date range, can be empty if no files exist for that period
+        """
+        file_url = self._get_base_file_url(
+            dataset=dataset,
+            period=period,
+        )
 
         available_file_urls = list_remote_files_fsspec(
             url=file_url,
@@ -106,17 +128,18 @@ class DwdDerivedValues(TimeseriesValues):
 
     def _get_first_day_of_months_to_fetch(
         self,
-        parameter_or_dataset: ParameterModel,
+        parameter: ParameterModel,
     ) -> list[datetime | None] | pl.Series:
         """Create a list of dates that are the first days of the months to fetch.
 
         If start and end dates were given, these determine the first and last month, respectively.
         Else, default values are used.
+
+        :param parameter: Parameter name, determining default values for start dates
+        :return: List of dates for which data should be fetched
         """
         if self.sr.start_date is None:
-            start_date_of_range = self._default_start_dates[parameter_or_dataset.dataset.resolution.value].replace(
-                day=1
-            )
+            start_date_of_range = self._default_start_dates[parameter.dataset.resolution.value].replace(day=1)
         else:
             start_date_of_range = self.sr.start_date.replace(day=1)
 
@@ -135,12 +158,178 @@ class DwdDerivedValues(TimeseriesValues):
         )
 
     @staticmethod
-    def _get_values_url(product_name: str, period: Period, start_date: str) -> str:
-        endpoint_prefix = _ENDPOINT_PREFIX.get(product_name).get(period)
-        endpoint = endpoint_prefix + _ENDPOINT_SUFFIX.get(product_name, "")
-        return endpoint.format(
-            date=start_date,
+    def _get_base_file_url_heating_degreedays(
+        period: Period,
+    ) -> str:
+        """Get base file url for heating degreedays.
+
+        This base file url is the root directory of all files
+        related to heating degreedays in the given period.
+
+        :param period: Relevant period of data
+        :return: Base file URL
+        """
+        return f"{DwdDerivedValues._DERIVED_BASE_URL}/heating_degreedays/hdd_3807/{period.value.lower()}"
+
+    @staticmethod
+    def _get_base_file_url_cooling_degreehours(
+        period: Period,
+        reference_temperature: CoolingDegreeHoursReferenceTemperature,
+    ) -> str:
+        """Get base file url for cooling degreehours.
+
+        This base file url is the root directory of all files
+        related to cooling degreehours days in the given period.
+
+        :param period: Relevant period of data
+        :param reference_temperature: Reference temperature for cooling degreehours
+        :return: Base file URL
+        """
+        return (
+            f"{DwdDerivedValues._DERIVED_BASE_URL}/cooling_degreehours/"
+            f"cdh_{reference_temperature.value}/{period.value.lower()}"
         )
+
+    @staticmethod
+    def _get_values_url_heating_degreedays(
+        period: Period,
+        month_of_year: str,
+    ) -> str:
+        """Get specific file url for a month for heating degreedays.
+
+        :param period: Relevant period of data
+        :param month_of_year: String representing the month of a year (e.g. 202510)
+        :return: File URL
+        """
+        base_file_url = DwdDerivedValues._get_base_file_url_heating_degreedays(
+            period=period,
+        )
+        return f"{base_file_url}/gradtage_{month_of_year}.csv"
+
+    @staticmethod
+    def _get_values_url_cooling_degreehours(
+        period: Period,
+        month_of_year: str,
+        reference_temperature: CoolingDegreeHoursReferenceTemperature,
+    ) -> str:
+        """Get specific file url for a month for cooling_degreehours.
+
+        :param period: Relevant period of data
+        :param month_of_year: String representing the month of a year (e.g. 202510)
+        :param reference_temperature: Reference temperature for cooling degreehours
+        :return: File URL
+        """
+        base_file_url = DwdDerivedValues._get_base_file_url_cooling_degreehours(
+            period=period,
+            reference_temperature=reference_temperature,
+        )
+        return f"{base_file_url}/kuehlgrade_{reference_temperature.value}_0_{month_of_year}.csv"
+
+    _STRATEGIES_BASE_URL: ClassVar = {
+        DwdDerivedMetadata.monthly.heating_degreedays.name: _get_base_file_url_heating_degreedays,
+        DwdDerivedMetadata.monthly.cooling_degreehours_13.name: partial(
+            _get_base_file_url_cooling_degreehours,
+            reference_temperature=CoolingDegreeHoursReferenceTemperature.CDH_13,
+        ),
+        DwdDerivedMetadata.monthly.cooling_degreehours_16.name: partial(
+            _get_base_file_url_cooling_degreehours,
+            reference_temperature=CoolingDegreeHoursReferenceTemperature.CDH_16,
+        ),
+        DwdDerivedMetadata.monthly.cooling_degreehours_18.name: partial(
+            _get_base_file_url_cooling_degreehours,
+            reference_temperature=CoolingDegreeHoursReferenceTemperature.CDH_18,
+        ),
+    }
+
+    _STRATEGIES_VALUES_URL: ClassVar = {
+        DwdDerivedMetadata.monthly.heating_degreedays.name: _get_values_url_heating_degreedays,
+        DwdDerivedMetadata.monthly.cooling_degreehours_13.name: partial(
+            _get_values_url_cooling_degreehours,
+            reference_temperature=CoolingDegreeHoursReferenceTemperature.CDH_13,
+        ),
+        DwdDerivedMetadata.monthly.cooling_degreehours_16.name: partial(
+            _get_values_url_cooling_degreehours,
+            reference_temperature=CoolingDegreeHoursReferenceTemperature.CDH_16,
+        ),
+        DwdDerivedMetadata.monthly.cooling_degreehours_18.name: partial(
+            _get_values_url_cooling_degreehours, reference_temperature=CoolingDegreeHoursReferenceTemperature.CDH_18
+        ),
+    }
+
+    _N_ROWS_TO_SKIP: ClassVar = {
+        DwdDerivedMetadata.monthly.heating_degreedays.name: 3,
+        DwdDerivedMetadata.monthly.cooling_degreehours_13.name: 2,
+        DwdDerivedMetadata.monthly.cooling_degreehours_16.name: 2,
+        DwdDerivedMetadata.monthly.cooling_degreehours_18.name: 2,
+    }
+
+    _STATION_ID_COLUMN_NAME: ClassVar = {
+        DwdDerivedMetadata.monthly.heating_degreedays.name: "#ID",
+        DwdDerivedMetadata.monthly.cooling_degreehours_13.name: "ID",
+        DwdDerivedMetadata.monthly.cooling_degreehours_16.name: "ID",
+        DwdDerivedMetadata.monthly.cooling_degreehours_18.name: "ID",
+    }
+
+    _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING: ClassVar = {
+        "ID": "station_id",
+        "Anzahl Stunden": "amount_hours",
+        "Anzahl Kuehlstunden": "amount_cooling_hours",
+        "Kuehlgradestunden": "cooling_degreehours",
+        "Kuehltage": "cooling_days",
+    }
+
+    _HEATING_DEGREE_DAYS_COLUMN_NAME_MAPPING: ClassVar = {
+        "#ID": "station_id",
+        "Anzahl Tage": "amount_days_per_month",
+        "Monatsgradtage": "heating_degreedays",
+        "Anzahl Heiztage": "amount_heating_degreedays_per_month",
+    }
+
+    _COLUMN_NAME_MAPPING: ClassVar = {
+        DwdDerivedMetadata.monthly.heating_degreedays.name: _HEATING_DEGREE_DAYS_COLUMN_NAME_MAPPING,
+        DwdDerivedMetadata.monthly.cooling_degreehours_13.name: _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING,
+        DwdDerivedMetadata.monthly.cooling_degreehours_16.name: _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING,
+        DwdDerivedMetadata.monthly.cooling_degreehours_18.name: _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING,
+    }
+
+    @staticmethod
+    def _get_base_file_url(
+        dataset: DatasetModel,
+        period: Period,
+    ) -> str:
+        """Get base file url for a dataset.
+
+        This base file url is the root directory of all files
+        related to the dataset in the given period.
+
+        :param dataset: Relevant dataset for which base file url is determined
+        :param period: Relevant period of data
+        :return: Base file URL
+        """
+        strategy = DwdDerivedValues._STRATEGIES_BASE_URL.get(dataset.name)
+        if not strategy:
+            error_msg = f"Unknown dataset: {dataset.name}"
+            raise ValueError(error_msg)
+        return strategy(period=period)
+
+    @staticmethod
+    def _get_values_url(
+        dataset: DatasetModel,
+        period: Period,
+        month_of_year: str,
+    ) -> str:
+        """Get specific file url for a month for a dataset.
+
+        :param dataset: Relevant dataset for which specific file url is determined
+        :param period: Relevant period of data
+        :param month_of_year: String representing the month of a year (e.g. 202510)
+        :return: Specific file URL
+        """
+        strategy = DwdDerivedValues._STRATEGIES_VALUES_URL.get(dataset.name)
+        if not strategy:
+            error_msg = f"Unknown dataset: {dataset.name}"
+            raise ValueError(error_msg)
+        return strategy(period=period, month_of_year=month_of_year)
 
     @staticmethod
     def _process_dataframe_to_expected_format(
@@ -149,7 +338,14 @@ class DwdDerivedValues(TimeseriesValues):
         date: datetime,
         parameter: ParameterModel,
     ) -> pl.DataFrame:
-        """Process DataFrame to the expected format."""
+        """Process DataFrame to the expected format.
+
+        :param df: Data to be processed
+        :param column_name_mapping: Mapping of column names (key: old name, value: new name)
+        :param date: Constant date that is stored in "date" column
+        :param parameter: Parameter to which input data belongs
+        :return: Processed DataFrame
+        """
         df = df.rename(mapping=column_name_mapping)
         # Need to manually cast value since leading whitespaces cause issues
         # when using polars casting function.
@@ -168,6 +364,13 @@ class DwdDerivedValues(TimeseriesValues):
         station_id: str,
         parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
+        """Fetch data for a station and a parameter.
+
+        :param station_id: Station for which data is fetched
+        :param parameter_or_dataset: Parameter for which data is fetched
+        (name is for consistency with overridden method)
+        :return: Fetched data
+        """
         data = []
 
         full_date_range_to_fetch = self._get_first_day_of_months_to_fetch(
@@ -181,47 +384,54 @@ class DwdDerivedValues(TimeseriesValues):
             date_range_to_fetch_for_period = self._filter_date_range_for_period(
                 date_range=full_date_range_to_fetch,
                 period=period,
-                parameter=parameter_or_dataset,
+                dataset=parameter_or_dataset.dataset,
             )
             for first_day_of_month_to_fetch in date_range_to_fetch_for_period:
-                for dataset, _ in groupby(self.sr.stations.parameters, key=lambda x: x.dataset):
-                    url = self._get_values_url(
-                        product_name=dataset.name,
-                        period=period,
-                        start_date=first_day_of_month_to_fetch.strftime("%Y%m"),
+                url = self._get_values_url(
+                    dataset=parameter_or_dataset.dataset,
+                    period=period,
+                    month_of_year=first_day_of_month_to_fetch.strftime("%Y%m"),
+                )
+                downloaded_file = download_file(
+                    url=url,
+                    cache_dir=self.sr.stations.settings.cache_dir,
+                    ttl=CacheExpiry.FIVE_MINUTES,
+                    client_kwargs=self.sr.settings.fsspec_client_kwargs,
+                    cache_disable=self.sr.settings.cache_disable,
+                )
+
+                if downloaded_file.status == 404:
+                    log.warning(
+                        f"File {url.rsplit('/', 1)[1]} for station {station_id} not found on server {url}. Skipping."
                     )
-                    file = download_file(
-                        url=url,
-                        cache_dir=self.sr.stations.settings.cache_dir,
-                        ttl=CacheExpiry.FIVE_MINUTES,
-                        client_kwargs=self.sr.settings.fsspec_client_kwargs,
-                        cache_disable=self.sr.settings.cache_disable,
+                    continue
+                downloaded_file.raise_if_exception()
+
+                df = _get_data_from_file(
+                    downloaded_file=downloaded_file,
+                    skip_rows=DwdDerivedValues._N_ROWS_TO_SKIP.get(
+                        parameter_or_dataset.dataset.name,
+                        2,
+                    ),
+                )
+                df = df.filter(
+                    pl.col(DwdDerivedValues._STATION_ID_COLUMN_NAME[parameter_or_dataset.dataset.name]).eq(
+                        int(station_id)
                     )
+                )
 
-                    if file.status == 404:
-                        log.warning(
-                            f"File {url.rsplit('/', 1)[1]} for "
-                            f"station {station_id} not found on server {url}. Skipping."
-                        )
-                        continue
-                    file.raise_if_exception()
+                if df.is_empty():
+                    log.warning(f"No data found for ID {station_id} at {first_day_of_month_to_fetch.strftime('%m/%Y')}")
+                    continue
 
-                    df = _get_data_from_file(file)
-                    df = df.filter(pl.col("#ID").eq(int(station_id)))
+                df = self._process_dataframe_to_expected_format(
+                    df=df,
+                    column_name_mapping=self._COLUMN_NAME_MAPPING.get(parameter_or_dataset.dataset.name),
+                    date=first_day_of_month_to_fetch,
+                    parameter=parameter_or_dataset,
+                )
 
-                    if df.is_empty():
-                        log.warning(
-                            f"No data found for ID {station_id} at {first_day_of_month_to_fetch.strftime('%m/%Y')}"
-                        )
-                        continue
-
-                    df = self._process_dataframe_to_expected_format(
-                        df=df,
-                        column_name_mapping=self._column_name_mapping,
-                        date=first_day_of_month_to_fetch,
-                        parameter=parameter_or_dataset,
-                    )
-                    data.append(df)
+                data.append(df)
 
         if len(data) == 0:
             return pl.DataFrame()
@@ -240,11 +450,21 @@ class DwdDerivedRequest(TimeseriesRequest):
     _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT}
     periods: str | Period | set[str | Period] = None
 
+    _STATION_URL: ClassVar = (
+        "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt"
+    )
+
     @staticmethod
     def _process_dataframe_to_expected_format(
         stations_data: pl.LazyFrame,
         dataset: DatasetModel,
     ) -> pl.LazyFrame:
+        """Process station data to the expected format.
+
+        :param stations_data: Data to be processed
+        :param dataset: Dataset to which input data belongs
+        :return: Processed DataFrame
+        """
         stations_data = stations_data.sort(by=["station_id"])
         return stations_data.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
@@ -259,12 +479,6 @@ class DwdDerivedRequest(TimeseriesRequest):
             "state",
         )
 
-    @staticmethod
-    def _get_station_url(
-        product_name: str,
-    ) -> str:
-        return _ENDPOINT_PREFIX.get(product_name)
-
     def __post_init__(self) -> None:
         """Post init method."""
         super().__post_init__()
@@ -273,8 +487,15 @@ class DwdDerivedRequest(TimeseriesRequest):
         if not self.periods:
             self.periods = self._available_periods
 
-    def _parse_period(self, period: str | Period | None) -> set[Period] | None:
-        """Parse period from string or Period enumeration."""
+    def _parse_period(
+        self,
+        period: str | Period | Iterable[str | Period] | None,
+    ) -> set[Period] | None:
+        """Parse period from string or Period enumeration.
+
+        :param period: Input value for the period
+        :return: Parsed period
+        """
         if not period:
             return None
         periods_parsed = {
@@ -287,18 +508,21 @@ class DwdDerivedRequest(TimeseriesRequest):
         return periods_parsed & self._available_periods or None
 
     def _all(self) -> pl.LazyFrame:
+        """Fetch station data for the given request.
+
+        :return: Fetched station data.
+        """
         data = []
         for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
-            url = self._get_station_url(product_name="stations_list")
-            file = download_file(
-                url=url,
+            downloaded_file = download_file(
+                url=self._STATION_URL,
                 cache_dir=self.settings.cache_dir,
                 ttl=CacheExpiry.METAINDEX,
                 client_kwargs=self.settings.fsspec_client_kwargs,
                 cache_disable=self.settings.cache_disable,
             )
-            file.raise_if_exception()
-            raw_stations_data = _read_meta_df(file=file)
+            downloaded_file.raise_if_exception()
+            raw_stations_data = _read_meta_df(file=downloaded_file)
             processed_stations_data = self._process_dataframe_to_expected_format(
                 stations_data=raw_stations_data,
                 dataset=dataset,
