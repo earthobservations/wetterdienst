@@ -333,4 +333,4 @@ def apply_interpolation(
         f_index = LinearNDInterpolator(points=(xs, ys), values=[float(v > 0) for v in list(vals.values())])
         value_index = f_index(utm_x, utm_y)
         value = value if value_index >= 0.5 else 0
-    return resolution, dataset, parameter, value, distance_mean, station_group_ids
+    return resolution, dataset, parameter, float(value), distance_mean, station_group_ids
