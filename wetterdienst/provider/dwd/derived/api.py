@@ -81,7 +81,7 @@ class DwdDerivedValues(TimeseriesValues):
         Example: "example.org/file_202510.csv" will be parsed to 2025-10-01T00:00Z.
 
         :param file_url: URL to parse
-        :return: Parsed result if a timestamp could be extraced, else None
+        :return: Parsed result if a timestamp could be extracted, else None
         """
         match = re.search(r"_(\d{6})\.csv", file_url)
         if match is None:
@@ -401,7 +401,7 @@ class DwdDerivedValues(TimeseriesValues):
                 )
 
                 if downloaded_file.status == 404:
-                    log.warning(
+                    log.info(
                         f"File {url.rsplit('/', 1)[1]} for station {station_id} not found on server {url}. Skipping."
                     )
                     continue
@@ -421,7 +421,7 @@ class DwdDerivedValues(TimeseriesValues):
                 )
 
                 if df.is_empty():
-                    log.warning(f"No data found for ID {station_id} at {first_day_of_month_to_fetch.strftime('%m/%Y')}")
+                    log.info(f"No data found for ID {station_id} at {first_day_of_month_to_fetch.strftime('%m/%Y')}")
                     continue
 
                 df = self._process_dataframe_to_expected_format(
