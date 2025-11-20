@@ -13,6 +13,7 @@ Depending on the parameter selected following periods are supported:
 
 The derived technical products currently supported are:
 - [heating degreedays](https://opendata.dwd.de/climate_environment/CDC/derived_germany/techn/monthly/heating_degreedays/hdd_3807/) for weather stations
+- [cooling degreehours](https://opendata.dwd.de/climate_environment/CDC/derived_germany/techn/monthly/cooling_degreehours/) for weather stations
 
 
 ```{toctree}
