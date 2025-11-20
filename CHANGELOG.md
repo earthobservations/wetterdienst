@@ -2,6 +2,11 @@
 
 ## Development
 
+### Fix
+- Cast value in interpolate function to float
+
+  @ninjeanne reported that wetterdienst lately quirks when running interpolation. This issue is related to one of the new polars versions > 1.33.1. A shorthand fix would be to cast the value coming from the scipy interpolate function to a float.
+
 ## 0.114.3 - 2025-11-07
 
 ### Fix
