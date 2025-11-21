@@ -16,6 +16,7 @@ IS_LINUX = platform.system() == "Linux"
 IS_LINUX_39 = IS_LINUX and sys.version_info[:2] == (3, 11)
 IS_WINDOWS = platform.system() == "Windows"
 IS_PYTHON_3_10 = sys.version_info[:2] == (3, 10)
+IS_PYTHON_3_14 = sys.version_info[:2] == (3, 14)
 ENSURE_ECCODES_PDBUFR = ensure_eccodes() and ensure_pdbufr()
 
 info = Info()
