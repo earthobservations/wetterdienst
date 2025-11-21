@@ -121,12 +121,6 @@ eccodes = [
 excel = [
   "xlsxwriter>=3.0.9,<4",
 ]
-explorer = [
-  "duckdb>=0.9,<2",
-  "plotly>=5.11,<7",
-  "statsmodels>=0.14.1,<1",
-  "streamlit>=1.27,<2",
-]
 export = [
   "pandas>=2,<3",
   "sqlalchemy>=2,<3",
@@ -180,13 +174,11 @@ sql = [
 ]
 
 [project.urls]
-Explorer = "https://wetterdienst.streamlit.app/"
 Homepage = "https://wetterdienst.readthedocs.io/"
 Issues = "https://github.com/earthobservations/wetterdienst/issues"
 Releases = "https://github.com/earthobservations/wetterdienst/releases"
 Repository = "https://github.com/earthobservations/wetterdienst"
 Restapi = "https://wetterdienst.eobs.org/"
-Stripes = "https://stripes.streamlit.app/"
 
 [project.scripts]
 wddump = "wetterdienst.provider.dwd.radar.cli:wddump"

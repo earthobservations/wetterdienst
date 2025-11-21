@@ -13,6 +13,10 @@
 > This library is a work in progress!
 > Breaking changes should be expected until a 1.0 release, so version pinning is recommended.
 
+> [!WARNING]
+> The explorer and stripes interactive, streamlit-based apps are deprecated. We are currently working on a new, modern 
+> web interface.
+
 ### Badges
 
 #### CI
@@ -72,7 +76,6 @@ or the [table](https://bookdown.org/brry/rdwd/available-datasets.html) provided 
 - Define general settings in Settings context
 - Command line interfaced
 - Web-API via FastAPI, hosted on [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
-- Rich UI features like [explorer](https://wetterdienst.streamlit.app/), [stripes](https://stripes.streamlit.app/)
 - Run SQL queries on the results
 - Export results to databases and other data sinks
 - Public Docker image
@@ -259,8 +262,6 @@ better every day.
 ## Important Links
 
 - Restapi: https://wetterdienst.eobs.org/
-- Explorer: https://wetterdienst.streamlit.app/
-- Stripes: https://stripes.streamlit.app/
 - Documentation: https://wetterdienst.readthedocs.io/
 
     - Usage: https://wetterdienst.readthedocs.io/en/latest/usage/

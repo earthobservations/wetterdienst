@@ -7,7 +7,6 @@ from __future__ import annotations
 import functools
 import json
 import logging
-import subprocess
 import sys
 from pathlib import Path
 from pprint import pformat
@@ -517,18 +516,6 @@ The HTTP REST API service:
     # Start service on public interface and specific port.
     wetterdienst restapi --listen=0.0.0.0:8890
 
-The Wetterdienst Explorer UI service:
-
-    # Start service on standard port, listening on http://localhost:7891.
-    wetterdienst explorer
-
-    # Start service on standard port and watch filesystem changes.
-    # This is suitable for development.
-    wetterdienst explorer --reload
-
-    # Start service on public interface and specific port.
-    wetterdienst explorer --listen=0.0.0.0:8891
-
 Explore OPERA radar stations:
 
     # Display all radar stations.
@@ -606,53 +593,6 @@ def restapi(
     from wetterdienst.ui.restapi import start_service  # noqa: PLC0415
 
     start_service(listen, reload=reload)
-
-
-@cli.command("explorer", section=advanced_section)
-@cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
-@debug_opt
-def explorer(
-    listen: str,
-    debug: bool,  # noqa: FBT001
-) -> None:
-    """Start the Wetterdienst Explorer web service."""
-    set_logging_level(debug=debug)
-
-    try:
-        from wetterdienst.ui.streamlit.explorer import app  # noqa: PLC0415
-    except ImportError:
-        msg = "Please install the explorer extras with 'pip install wetterdienst[explorer]'"
-        log.exception(msg)
-        sys.exit(1)
-
-    address = "localhost"
-    port = "8501"
-    if listen:
-        try:
-            address, port = listen.split(":")
-        except ValueError:
-            msg = (
-                f"Invalid listen address. Please provide address and port separated by a colon e.g. '{address}:{port}'."
-            )
-            log.exception(
-                msg,
-            )
-            sys.exit(1)
-
-    log.info(f"Starting {appname}")
-    log.info(f"Starting Explorer web service on http://{address}:{port}")
-
-    process = None
-    try:
-        process = subprocess.Popen(  # noqa: S603
-            ["streamlit", "run", app.__file__, "--server.address", address, "--server.port", port],  # noqa: S607
-        )
-        process.wait()
-    except KeyboardInterrupt:
-        log.info("Stopping Explorer web service")
-    finally:
-        if process is not None:
-            process.terminate()
 
 
 @cli.group(section=data_section)
@@ -1406,32 +1346,6 @@ def stripes_values(
         return
 
     click.echo(fig.to_image(fmt, scale=dpi / 100), nl=False)
-
-
-@stripes.command("interactive")
-@debug_opt
-def interactive(*, debug: bool) -> None:
-    """Start the Climate Stripes web service."""
-    set_logging_level(debug=debug)
-
-    try:
-        from wetterdienst.ui.streamlit.stripes import app  # noqa: PLC0415
-    except ImportError:
-        log.exception("Please install the stripes extras from stripes/requirements.txt")
-        sys.exit(1)
-
-    log.info(f"Starting {appname}")
-    log.info("Starting Stripes web service on http://localhost:8501")
-
-    process = None
-    try:
-        process = subprocess.Popen(["streamlit", "run", app.__file__])  # noqa: S603, S607
-        process.wait()
-    except KeyboardInterrupt:
-        log.info("Stopping Climate Stripes web service")
-    finally:
-        if process is not None:
-            process.terminate()
 
 
 if __name__ == "__main__":
