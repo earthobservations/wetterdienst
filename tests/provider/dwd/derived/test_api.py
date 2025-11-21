@@ -355,7 +355,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
 
 
 @pytest.mark.remote
-def test_dwd_recent_data_result_long_multiple_reference_temperatures(
+def test_dwd_historical_data_result_long_multiple_reference_temperatures(
     default_settings: Settings,
 ) -> None:
     """Test for actual values (long)."""
@@ -519,6 +519,83 @@ def test_dwd_recent_data_result_long_single_dataset(
     assert_frame_equal(given_df, expected_df)
 
 
+@pytest.mark.remote
+def test_dwd_recent_data_result_long_climate_correction_factor(
+    default_settings: Settings,
+) -> None:
+    """Test for actual values (long).
+
+    Note that we cannot use historical data for stability since DWD only provides recent data.
+    """
+    default_settings.ts_shape = "long"
+    request = DwdDerivedRequest(
+        parameters=[
+            (
+                "monthly",
+                "climate_correction_factor",
+            ),
+        ],
+        settings=default_settings,
+        start_date=datetime.datetime(year=2019, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2020, month=3, day=1, tzinfo=ZoneInfo("UTC")),
+        periods=[
+            "recent",
+        ],
+    ).filter_by_station_id(station_id="01067")
+
+    given_df = request.values.all().df
+    assert given_df.columns == [
+        "station_id",
+        "resolution",
+        "dataset",
+        "parameter",
+        "date",
+        "value",
+        "quality",
+    ]
+    expected_df = pl.DataFrame(
+        {
+            "station_id": ["01067"] * 7,
+            "resolution": ["monthly"] * 7,
+            "dataset": ["climate_correction_factor"] * 7,
+            "parameter": ["climate_correction_factor"] * 7,
+            "date": [
+                datetime.datetime(2019, 9, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2019, 10, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2019, 11, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2020, 2, 1, tzinfo=ZoneInfo("UTC")),
+                datetime.datetime(2020, 3, 1, tzinfo=ZoneInfo("UTC")),
+            ],
+            "value": [
+                1.24,
+                1.24,
+                1.23,
+                1.23,
+                1.22,
+                1.19,
+                1.14,
+            ],
+            "quality": [
+                None,
+            ]
+            * 7,
+        },
+        schema={
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
+        orient="col",
+    )
+    assert_frame_equal(given_df, expected_df)
+
+
 @pytest.mark.parametrize(
     ("start_date", "end_date", "expected_range"),
     [
@@ -641,7 +718,7 @@ def test_get_first_day_of_months_to_fetch_neither_start_nor_end_date_given(
         ("example.org/somefile_2025.csv", None),
     ],
 )
-def test_extract_datetime_from_file_url(
+def test_extract_datetime_from_file_url_single_date_format(
     default_settings: Settings,
     file_url: str,
     expected_date: datetime.datetime,
@@ -655,7 +732,38 @@ def test_extract_datetime_from_file_url(
     ).filter_by_station_id(station_id="00044")
 
     values = request.values
-    extracted_date = values._extract_datetime_from_file_url(file_url)  # noqa: SLF001
+    extracted_date = values._extract_datetime_from_file_url_single_date_format(file_url)  # noqa: SLF001
+    if expected_date is None:
+        assert extracted_date is None
+    else:
+        assert extracted_date == expected_date
+
+
+@pytest.mark.parametrize(
+    ("file_url", "expected_date"),
+    [
+        ("example.org/somefile_2025.csv", None),
+        (
+            "example.org/somefile_20250824_20260915.csv",
+            datetime.datetime(year=2025, month=8, day=24, tzinfo=ZoneInfo("UTC")),
+        ),
+    ],
+)
+def test_extract_datetime_from_file_url_multiple_dates_format(
+    default_settings: Settings,
+    file_url: str,
+    expected_date: datetime.datetime,
+) -> None:
+    """Test for getting dates from file url."""
+    request = DwdDerivedRequest(
+        parameters=[
+            ("monthly", "heating_degreedays"),
+        ],
+        settings=default_settings,
+    ).filter_by_station_id(station_id="00044")
+
+    values = request.values
+    extracted_date = values._extract_datetime_from_file_url_multiple_dates_format(file_url)  # noqa: SLF001
     if expected_date is None:
         assert extracted_date is None
     else:
@@ -768,11 +876,33 @@ def test_process_dataframe_to_expected_format(
             [f"example.org/data_2015{str(i_month).zfill(2)}.csv" for i_month in range(6, 8)],
             pl.Series([]),
         ),
+        (
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
+            ["example.org/no_file_that_matches.txt"],
+            pl.Series([]),
+        ),
+        (
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
+            [],
+            pl.Series([]),
+        ),
     ],
     ids=[
         "file_range_full_covers_date_range",
         "file_range_partially_covers_date_range",
         "file_range_does_not_cover_date_range",
+        "file_range_no_matching_files_available",
+        "file_range_no_files_available",
     ],
 )
 def test_filter_date_range_for_period(
@@ -797,3 +927,54 @@ def test_filter_date_range_for_period(
             date_range=input_range, period=Period.RECENT, dataset=request.parameters[0].dataset
         )
         assert_series_equal(filtered_range, expected_range, check_names=False, check_dtypes=False)
+
+
+@pytest.mark.parametrize(
+    ("month_of_year", "expected_start_date", "expected_end_date"),
+    [
+        (
+            "202401",
+            datetime.datetime(year=2024, month=1, day=1, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(year=2024, month=12, day=31, tzinfo=ZoneInfo("UTC")),
+        ),
+        (
+            "202501",
+            datetime.datetime(year=2025, month=1, day=1, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(year=2025, month=12, day=31, tzinfo=ZoneInfo("UTC")),
+        ),
+        (
+            "202403",
+            datetime.datetime(year=2024, month=3, day=1, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(year=2025, month=2, day=28, tzinfo=ZoneInfo("UTC")),
+        ),
+        (
+            "202303",
+            datetime.datetime(year=2023, month=3, day=1, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(year=2024, month=2, day=29, tzinfo=ZoneInfo("UTC")),
+        ),
+    ],
+    ids=[
+        "range_is_in_leap_year",
+        "range_is_not_leap_year",
+        "range_ends_in_february_no_leap_year",
+        "range_ends_in_february_leap_year",
+    ],
+)
+def test_get_date_range_for_year_starting_in_month(
+    default_settings: Settings,
+    month_of_year: str,
+    expected_start_date: datetime.datetime,
+    expected_end_date: datetime.datetime,
+) -> None:
+    """Test for getting dates for months to fetch from input dates."""
+    request = DwdDerivedRequest(
+        parameters=[
+            ("monthly", "heating_degreedays"),
+        ],
+        settings=default_settings,
+    ).filter_by_station_id(station_id="00044")
+
+    values = request.values
+    start_date, end_date = values._get_date_range_for_year_starting_in_month(month_of_year)  # noqa: SLF001
+    assert start_date == expected_start_date
+    assert end_date == expected_end_date

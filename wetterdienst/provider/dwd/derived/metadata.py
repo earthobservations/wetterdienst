@@ -87,6 +87,20 @@ DwdDerivedMetadata = {
                     "grouped": False,
                     "parameters": cooling_degree_hours_common_parameters,
                 },
+                {
+                    "name": "climate_correction_factor",
+                    "name_original": "climate_correction_factor",
+                    "grouped": False,
+                    "periods": ["recent"],
+                    "parameters": [
+                        {
+                            "name": "climate_correction_factor",
+                            "name_original": "KF",
+                            "unit_type": "dimensionless",
+                            "unit": "dimensionless",
+                        },
+                    ],
+                },
             ],
         },
     ],
