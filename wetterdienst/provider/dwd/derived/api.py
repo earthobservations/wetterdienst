@@ -5,10 +5,11 @@
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from functools import partial
 from itertools import groupby
@@ -29,7 +30,7 @@ from wetterdienst.util.network import File, download_file, list_remote_files_fss
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Generator, Iterable
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
@@ -72,23 +73,69 @@ class DwdDerivedValues(TimeseriesValues):
     _DERIVED_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/derived_germany/techn/monthly"
 
     @staticmethod
-    def _extract_datetime_from_file_url(
+    def _extract_datetime_from_file_url_single_date_format(
         file_url: str,
     ) -> datetime | None:
         """Extract a timestamp from a given file url.
 
-        This assumes that the file url is for a CSV file, ending mit a year and a month.
+        This assumes that the file url is for a CSV file in the format used
+        by heating degreedays or cooling degreehours.
         Example: "example.org/file_202510.csv" will be parsed to 2025-10-01T00:00Z.
 
         :param file_url: URL to parse
         :return: Parsed result if a timestamp could be extracted, else None
         """
         match = re.search(r"_(\d{6})\.csv", file_url)
-        if match is None:
-            # Other files like txt files.
-            return None
-        date_str = match.group(1)
-        return datetime.strptime(date_str, "%Y%m").replace(tzinfo=ZoneInfo("UTC"))
+        if match is not None:
+            return datetime.strptime(match.group(1), "%Y%m").replace(tzinfo=ZoneInfo("UTC"))
+        # Other files like txt files.
+        return None
+
+    @staticmethod
+    def _extract_datetime_from_file_url_multiple_dates_format(
+        file_url: str,
+    ) -> datetime | None:
+        """Extract a timestamp from a given file url.
+
+        This assumes that the file url is for a CSV file in the format used
+        by climate correction factors.
+        Example: "example.org/file_20251001_20261130.csv" will be parsed to 2025-10-01T00:00Z.
+
+        :param file_url: URL to parse
+        :return: Parsed result if a timestamp could be extracted, else None
+        """
+        match = re.search(r"_(\d{8})_\d{8}.csv", file_url)
+        if match is not None:
+            return datetime.strptime(match.group(1), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC"))
+        # Other files like txt files.
+        return None
+
+    _STRATEGIES_DATETIME_EXTRACTION_FROM_FILE_URL: ClassVar = {
+        DwdDerivedMetadata.monthly.heating_degreedays.name: _extract_datetime_from_file_url_single_date_format,
+        DwdDerivedMetadata.monthly.cooling_degreehours_13.name: _extract_datetime_from_file_url_single_date_format,
+        DwdDerivedMetadata.monthly.cooling_degreehours_16.name: _extract_datetime_from_file_url_single_date_format,
+        DwdDerivedMetadata.monthly.cooling_degreehours_18.name: _extract_datetime_from_file_url_single_date_format,
+        DwdDerivedMetadata.monthly.climate_correction_factor.name: (
+            _extract_datetime_from_file_url_multiple_dates_format
+        ),
+    }
+
+    @staticmethod
+    def _extract_datetime_from_file_url(
+        dataset: DatasetModel,
+        file_url: str,
+    ) -> datetime | None:
+        """Extract a timestamp from a given file url.
+
+        :param dataset: Relevant dataset for which timestamp is parsed
+        :param file_url: URL to parse
+        :return: Parsed result if a timestamp could be extracted, else None
+        """
+        strategy = DwdDerivedValues._STRATEGIES_DATETIME_EXTRACTION_FROM_FILE_URL.get(dataset.name)
+        if not strategy:
+            error_msg = f"Unknown dataset: {dataset.name}"
+            raise ValueError(error_msg)
+        return strategy(file_url=file_url)
 
     def _filter_date_range_for_period(
         self,
@@ -107,15 +154,27 @@ class DwdDerivedValues(TimeseriesValues):
             dataset=dataset,
             period=period,
         )
-
         available_file_urls = list_remote_files_fsspec(
             url=file_url,
             settings=self.sr.settings,
         )
-        available_dates = {self._extract_datetime_from_file_url(file_url=file_url) for file_url in available_file_urls}
+        available_dates = {
+            self._extract_datetime_from_file_url(
+                dataset=dataset,
+                file_url=file_url,
+            )
+            for file_url in available_file_urls
+        }
+
+        # None values are artifacts from files that contain no dates, like
+        # station TXT files or description PDFs.
         available_dates.discard(
             None,
         )
+
+        if len(available_dates) == 0:
+            return pl.Series()
+
         earliest_date_with_available_file = min(available_dates)
         latest_date_with_available_file = max(available_dates)
 
@@ -191,6 +250,20 @@ class DwdDerivedValues(TimeseriesValues):
         )
 
     @staticmethod
+    def _get_base_file_url_climate_correction_factors(
+        period: Period,
+    ) -> str:
+        """Get base file url for climate correction factors.
+
+        This base file url is the root directory of all files
+        related to climate factors in the given period.
+
+        :param period: Relevant period of data
+        :return: Base file URL
+        """
+        return f"{DwdDerivedValues._DERIVED_BASE_URL}/climate_correction_factor/{period.value.lower()}"
+
+    @staticmethod
     def _get_values_url_heating_degreedays(
         period: Period,
         month_of_year: str,
@@ -225,6 +298,46 @@ class DwdDerivedValues(TimeseriesValues):
         )
         return f"{base_file_url}/kuehlgrade_{reference_temperature.value}_0_{month_of_year}.csv"
 
+    @staticmethod
+    def _get_values_url_climate_correction_factors(
+        period: Period,
+        month_of_year: str,
+    ) -> str:
+        """Get specific file url for a month for climate correction factors.
+
+        The given month corresponds to the first month of the one-year range covered by the file.
+
+        :param period: Relevant period of data
+        :param month_of_year: String representing the month of a year (e.g. 202510),
+        represents the start of the date range
+        :return: File URL
+        """
+        base_file_url = DwdDerivedValues._get_base_file_url_climate_correction_factors(
+            period=period,
+        )
+
+        start_date, end_date = DwdDerivedValues._get_date_range_for_year_starting_in_month(month_of_year=month_of_year)
+        return f"{base_file_url}/KF_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
+
+    @staticmethod
+    def _get_date_range_for_year_starting_in_month(
+        month_of_year: str,
+    ) -> tuple[datetime, datetime]:
+        """Get start and end date for a year that start at given month.
+
+        The start date corresponds to the first day of the given month.
+        The end date is the last day of the previous month one year later.
+        E.g. for the input "202403", the returned start date is
+        2024-03-01T00:00Z and the end date is 2025-02-28T00:00Z.
+
+        :param month_of_year: Start month
+        :return: Start and end date of year range
+        """
+        start_date = datetime.strptime(month_of_year, "%Y%m").replace(tzinfo=ZoneInfo("UTC"))
+        # Do not need to worry about leap years since start_date is always the first of a month.
+        end_date = start_date.replace(year=start_date.year + 1) - timedelta(days=1)
+        return start_date, end_date
+
     _STRATEGIES_BASE_URL: ClassVar = {
         DwdDerivedMetadata.monthly.heating_degreedays.name: _get_base_file_url_heating_degreedays,
         DwdDerivedMetadata.monthly.cooling_degreehours_13.name: partial(
@@ -239,6 +352,7 @@ class DwdDerivedValues(TimeseriesValues):
             _get_base_file_url_cooling_degreehours,
             reference_temperature=CoolingDegreeHoursReferenceTemperature.CDH_18,
         ),
+        DwdDerivedMetadata.monthly.climate_correction_factor.name: _get_base_file_url_climate_correction_factors,
     }
 
     _STRATEGIES_VALUES_URL: ClassVar = {
@@ -254,6 +368,7 @@ class DwdDerivedValues(TimeseriesValues):
         DwdDerivedMetadata.monthly.cooling_degreehours_18.name: partial(
             _get_values_url_cooling_degreehours, reference_temperature=CoolingDegreeHoursReferenceTemperature.CDH_18
         ),
+        DwdDerivedMetadata.monthly.climate_correction_factor.name: _get_values_url_climate_correction_factors,
     }
 
     _N_ROWS_TO_SKIP: ClassVar = {
@@ -261,6 +376,7 @@ class DwdDerivedValues(TimeseriesValues):
         DwdDerivedMetadata.monthly.cooling_degreehours_13.name: 2,
         DwdDerivedMetadata.monthly.cooling_degreehours_16.name: 2,
         DwdDerivedMetadata.monthly.cooling_degreehours_18.name: 2,
+        DwdDerivedMetadata.monthly.climate_correction_factor.name: 0,
     }
 
     _STATION_ID_COLUMN_NAME: ClassVar = {
@@ -268,6 +384,7 @@ class DwdDerivedValues(TimeseriesValues):
         DwdDerivedMetadata.monthly.cooling_degreehours_13.name: "ID",
         DwdDerivedMetadata.monthly.cooling_degreehours_16.name: "ID",
         DwdDerivedMetadata.monthly.cooling_degreehours_18.name: "ID",
+        DwdDerivedMetadata.monthly.climate_correction_factor.name: "PLZ",
     }
 
     _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING: ClassVar = {
@@ -285,11 +402,17 @@ class DwdDerivedValues(TimeseriesValues):
         "Anzahl Heiztage": "amount_heating_degreedays_per_month",
     }
 
+    _CLIMATE_CORRECTION_FACTOR_COLUMN_NAME_MAPPING: ClassVar = {
+        "PLZ": "station_id",
+        "KF": "climate_correction_factor",
+    }
+
     _COLUMN_NAME_MAPPING: ClassVar = {
         DwdDerivedMetadata.monthly.heating_degreedays.name: _HEATING_DEGREE_DAYS_COLUMN_NAME_MAPPING,
         DwdDerivedMetadata.monthly.cooling_degreehours_13.name: _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING,
         DwdDerivedMetadata.monthly.cooling_degreehours_16.name: _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING,
         DwdDerivedMetadata.monthly.cooling_degreehours_18.name: _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING,
+        DwdDerivedMetadata.monthly.climate_correction_factor.name: _CLIMATE_CORRECTION_FACTOR_COLUMN_NAME_MAPPING,
     }
 
     @staticmethod
@@ -450,10 +573,6 @@ class DwdDerivedRequest(TimeseriesRequest):
     _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT}
     periods: str | Period | set[str | Period] = None
 
-    _STATION_URL: ClassVar = (
-        "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt"
-    )
-
     @staticmethod
     def _process_dataframe_to_expected_format(
         stations_data: pl.LazyFrame,
@@ -507,6 +626,82 @@ class DwdDerivedRequest(TimeseriesRequest):
         }
         return periods_parsed & self._available_periods or None
 
+    def _get_raw_station_data_from_url(self) -> pl.LazyFrame:
+        """Download raw station data from DWD help directory.
+
+        :return: Raw station data as lazy DataFrame
+        """
+        downloaded_file = download_file(
+            url="https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+        )
+        downloaded_file.raise_if_exception()
+        return _read_meta_df(file=downloaded_file)
+
+    @staticmethod
+    def _generate_digit_combinations(number_of_digits: int = 5) -> Generator[str]:
+        """Create a generator of all possible combinations of digits 0-9.
+
+        This is mainly used to generate all possible postal codes (PLZ),
+        when setting the number of digits to 5.
+
+        :param number_of_digits: How many digits are included in the combination
+        :return: Generator of strings containing the combinations
+        """
+        return (
+            "".join(str(digit) for digit in combination_of_digits)
+            for combination_of_digits in itertools.product(range(10), repeat=number_of_digits)
+        )
+
+    def _get_raw_station_data_from_plz_generator(self) -> pl.LazyFrame:
+        """Get proxy station data containing all possible postals codes (PLZ) as station ID.
+
+        The rest of the columns required by the library are filled with NULLs.
+
+        :return: Proxy station data as lazy DataFrame
+        """
+        autogenerated_station_data = pl.DataFrame(
+            {
+                "station_id": DwdDerivedRequest._generate_digit_combinations(),
+            },
+            schema={"station_id": pl.String},
+        ).lazy()
+        return autogenerated_station_data.with_columns(
+            pl.lit(None, dtype=pl.Float64).alias("name"),
+            pl.lit(None, dtype=pl.String).alias("state"),
+            pl.lit(None, dtype=pl.String).alias("latitude"),
+            pl.lit(None, dtype=pl.String).alias("longitude"),
+            pl.lit(None, dtype=pl.Float64).alias("height"),
+            pl.lit(None, dtype=pl.String).alias("start_date"),
+            pl.lit(None, dtype=pl.String).alias("end_date"),
+        )
+
+    _STRATEGIES_RAW_STATION_DATA: ClassVar = {
+        DwdDerivedMetadata.monthly.heating_degreedays.name: _get_raw_station_data_from_url,
+        DwdDerivedMetadata.monthly.cooling_degreehours_13.name: _get_raw_station_data_from_url,
+        DwdDerivedMetadata.monthly.cooling_degreehours_16.name: _get_raw_station_data_from_url,
+        DwdDerivedMetadata.monthly.cooling_degreehours_18.name: _get_raw_station_data_from_url,
+        DwdDerivedMetadata.monthly.climate_correction_factor.name: _get_raw_station_data_from_plz_generator,
+    }
+
+    def _get_raw_station_data(
+        self,
+        dataset: DatasetModel,
+    ) -> pl.LazyFrame:
+        """Get raw station data for a given dataset.
+
+        :param dataset: Dataset for which station data is returned
+        :return: Raw station data as lazy DataFrame
+        """
+        strategy = DwdDerivedRequest._STRATEGIES_RAW_STATION_DATA.get(dataset.name)
+        if not strategy:
+            error_msg = f"Unknown dataset: {dataset.name}"
+            raise ValueError(error_msg)
+        return strategy(self)
+
     def _all(self) -> pl.LazyFrame:
         """Fetch station data for the given request.
 
@@ -514,15 +709,10 @@ class DwdDerivedRequest(TimeseriesRequest):
         """
         data = []
         for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
-            downloaded_file = download_file(
-                url=self._STATION_URL,
-                cache_dir=self.settings.cache_dir,
-                ttl=CacheExpiry.METAINDEX,
-                client_kwargs=self.settings.fsspec_client_kwargs,
-                cache_disable=self.settings.cache_disable,
+            raw_stations_data = self._get_raw_station_data(
+                dataset=dataset,
             )
-            downloaded_file.raise_if_exception()
-            raw_stations_data = _read_meta_df(file=downloaded_file)
+
             processed_stations_data = self._process_dataframe_to_expected_format(
                 stations_data=raw_stations_data,
                 dataset=dataset,

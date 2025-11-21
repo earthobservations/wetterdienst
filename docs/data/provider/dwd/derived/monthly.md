@@ -50,3 +50,20 @@ To distinguish different base temperatures, there exist three datasets with the 
 | cooling_degreehours  | Kuehlgradstunden        | accumulated hourly temperature differences between air temperature and reference temperature                | degree_day     | °Cd           | >=0                      |
 | cooling_days         | Anzahl Kühltage         | number of days with at least one cooling hour                                                               | dimensionless  | dimensionless | >=0                      |
 
+### climate_correction_factor
+
+#### metadata
+
+| property      | value                                                                                                                                                                                                                                                                                                                    |
+|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | climate_correction_factor                                                                                                                                                                                                                                                                                                |
+| original name | climate_correction_factor                                                                                                                                                                                                                                                                                                |
+| description   | Data on climate correction factors, comparing the degree days between a postal code and a reference station ([details](https://opendata.dwd.de/climate_environment/CDC/derived_germany/techn/monthly/climate_correction_factor/recent/DESCRIPTION_derivgermany_techn_monthly_climate_correction_factor_recent_en.pdf))   |
+| access        | [here](https://opendata.dwd.de/climate_environment/CDC/derived_germany/techn/monthly/climate_correction_factor/)                                                                                                                                                                                                         |
+
+#### parameters
+
+| name                      | original name       | description                                                                    | unit type      | unit          | constraints              |
+|---------------------------|---------------------|--------------------------------------------------------------------------------|----------------|---------------|--------------------------|
+| climate_correction_factor | KF                  | quotient of yearly degree days of reference station in Potsdam and postal code | dimensionless  | dimensionless | >=0                      |
+
