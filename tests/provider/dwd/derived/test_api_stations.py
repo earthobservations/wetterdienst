@@ -24,7 +24,7 @@ def expected_df() -> pl.DataFrame:
                 "resolution": "monthly",
                 "dataset": "heating_degreedays",
                 "station_id": "00433",
-                "start_date": dt.datetime(1938, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "start_date": dt.datetime(1918, 4, 1, tzinfo=ZoneInfo("UTC")),
                 "end_date": dt.datetime(2025, 10, 31, tzinfo=ZoneInfo("UTC")),
                 "latitude": 52.4676,
                 "longitude": 13.4020,
