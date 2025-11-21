@@ -26,7 +26,6 @@ def test_cli_help() -> None:
 
         Advanced:
           restapi      Start the Wetterdienst REST API web service.
-          explorer     Start the Wetterdienst Explorer web service.
 
         Data:
           about        Get information about the data.
