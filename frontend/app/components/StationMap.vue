@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import L from 'leaflet'
+import * as L from 'leaflet'
 
 const map = ref(null) as any
 let markerClusterGroup: any = null
