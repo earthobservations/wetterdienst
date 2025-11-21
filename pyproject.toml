@@ -117,7 +117,7 @@ duckdb = [
   "pandas>=2,<3",
 ]
 eccodes = [
-  "eccodes>=1.5.2,<3",
+  "eccodes>=1.5.2,<3; python_version<'3.14'",
 ]
 excel = [
   "xlsxwriter>=3.0.9,<4",

@@ -5,7 +5,7 @@ on:
     types: [ published ]
 
 env:
-  PYTHON: "3.13"
+  PYTHON: "3.14"
 
 permissions: {}
 
