@@ -20,9 +20,8 @@ def test_cli_stripes() -> None:
     commands = dedent(
         """
         Commands:
-          interactive  Start the Climate Stripes web service.
-          stations     List stations for climate stripes.
-          values       Create climate stripes for a specific station.
+          stations  List stations for climate stripes.
+          values    Create climate stripes for a specific station.
         """,
     )
     assert commands in result.output
