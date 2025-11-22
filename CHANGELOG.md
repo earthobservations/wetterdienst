@@ -2,6 +2,10 @@
 
 ## Development
 
+### Feat
+- Add classifier for python 3.14
+- Update docker image to use python 3.14
+
 ### Fix
 - Cast value in interpolate function to float
 

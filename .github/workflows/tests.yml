@@ -22,14 +22,14 @@ jobs:
     strategy:
       matrix:
         os: [ "ubuntu-latest" ]
-        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
         include:
           - os: "windows-latest"
-            python-version: "3.13"
+            python-version: "3.14"
           - os: "macos-latest" # arm64 (M1)
-            python-version: "3.13"
+            python-version: "3.14"
           - os: "macos-13" # x86 (Intel)
-            python-version: "3.13"
+            python-version: "3.14"
 
     continue-on-error: true
 

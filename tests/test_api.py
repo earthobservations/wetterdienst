@@ -7,7 +7,7 @@ import zoneinfo
 import polars as pl
 import pytest
 
-from tests.conftest import IS_CI, IS_WINDOWS
+from tests.conftest import IS_CI, IS_PYTHON_3_14, IS_WINDOWS
 from wetterdienst import Parameter, Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.model.unit import UnitConverter
@@ -272,7 +272,7 @@ def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
 
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
-@pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed")
+@pytest.mark.skipif(IS_PYTHON_3_14 and not ensure_eccodes(), reason="eccodes not installed")
 def test_api_dwd_road(default_settings: Settings) -> None:
     """Test dwd road API."""
     request = DwdRoadRequest(

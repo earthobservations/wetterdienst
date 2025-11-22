@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX, IS_PYTHON_3_10, IS_WINDOWS
+from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX, IS_PYTHON_3_10, IS_PYTHON_3_14, IS_WINDOWS
 
 
 @pytest.mark.xfail(IS_CI and IS_WINDOWS, reason="fails on Windows in CI")
@@ -58,7 +58,7 @@ def test_examples_failing_describe_fields() -> None:
 
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="problem with storage on Windows in CI")
-@pytest.mark.skipif(not ENSURE_ECCODES_PDBUFR, reason="eccodes and pdbufr required")
+@pytest.mark.skipif(IS_PYTHON_3_14 and not ENSURE_ECCODES_PDBUFR, reason="eccodes and pdbufr required")
 @pytest.mark.xfail
 def test_pdbufr_examples() -> None:
     """Test DWD observation PDBUFR examples."""
