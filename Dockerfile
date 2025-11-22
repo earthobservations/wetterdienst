@@ -10,7 +10,7 @@ COPY dist/wetterdienst-*.whl /tmp/
 RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     true \
     && WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) \
-    && uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,plotting,postgresql,radar,radarplus,restapi]
+    && uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,export,influxdb,interpolation,plotting,postgresql,radar,radarplus,restapi]
 
 # Final stage
 FROM python:3.13-slim-bookworm
