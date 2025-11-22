@@ -24,7 +24,7 @@ def expected_df() -> pl.DataFrame:
                 "resolution": "monthly",
                 "dataset": "heating_degreedays",
                 "station_id": "00433",
-                "start_date": dt.datetime(1938, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "start_date": dt.datetime(1918, 4, 1, tzinfo=ZoneInfo("UTC")),
                 "end_date": dt.datetime(2025, 10, 31, tzinfo=ZoneInfo("UTC")),
                 "latitude": 52.4676,
                 "longitude": 13.4020,
@@ -197,3 +197,32 @@ def test_dwd_derived_stations_filter_misentries(
         settings=default_settings,
     ).filter_by_station_id(station_id=station_id)
     assert request.df.is_empty()
+
+
+def test_generate_digit_combinations() -> None:
+    """Test to check digit combination generation."""
+    request = DwdDerivedRequest(
+        parameters=("monthly", "climate_correction_factor"),
+    )
+    generated_combinations = request._generate_digit_combinations(  # noqa: SLF001
+        number_of_digits=1,
+    )
+    assert list(generated_combinations) == ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+    for number_of_digits in range(2, 6):
+        generated_combinations = list(
+            request._generate_digit_combinations(  # noqa: SLF001
+                number_of_digits=number_of_digits,
+            )
+        )
+        assert len(generated_combinations) == 10**number_of_digits
+        assert all(len(combination) == number_of_digits for combination in generated_combinations)
+
+
+def test_get_raw_station_data_from_plz_generator() -> None:
+    """Test to check dimensions of proxy PLZ station data."""
+    request = DwdDerivedRequest(
+        parameters=("monthly", "climate_correction_factor"),
+    )
+    raw_station_data = request._get_raw_station_data_from_plz_generator().collect()  # noqa: SLF001
+    assert raw_station_data.shape == (10**5, 8)
