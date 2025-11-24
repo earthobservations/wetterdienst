@@ -6054,7 +6054,7 @@ wheels = [
 
 [[package]]
 name = "wetterdienst"
-version = "0.114.3"
+version = "0.115.0"
 source = { editable = "." }
 dependencies = [
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'" },
@@ -6093,7 +6093,7 @@ duckdb = [
     { name = "pandas" },
 ]
 eccodes = [
-    { name = "eccodes" },
+    { name = "eccodes", marker = "python_full_version < '3.14'" },
 ]
 excel = [
     { name = "xlsxwriter" },
@@ -6189,7 +6189,7 @@ requires-dist = [
     { name = "diskcache", specifier = ">=5.4,<6" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=0.9,<2" },
     { name = "duckdb", marker = "extra == 'sql'", specifier = ">=0.9,<2" },
-    { name = "eccodes", marker = "extra == 'eccodes'", specifier = ">=1.5.2,<3" },
+    { name = "eccodes", marker = "python_full_version < '3.14' and extra == 'eccodes'", specifier = ">=1.5.2,<3" },
     { name = "fastapi", marker = "extra == 'restapi'", specifier = ">=0.95.1,<1" },
     { name = "fsspec", extras = ["http"], specifier = ">=2023.1" },
     { name = "h5py", marker = "extra == 'radar'", specifier = ">=3.1,<4" },
