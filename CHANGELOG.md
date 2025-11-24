@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.115.0 - 2025-11-24
+
 ### Feat
 - Add classifier for python 3.14
 - Update docker image to use python 3.14
