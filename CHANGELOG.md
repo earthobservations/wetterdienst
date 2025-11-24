@@ -5,6 +5,7 @@
 ### Feat
 - Add classifier for python 3.14
 - Update docker image to use python 3.14
+- Add new data of DWD Derived, thanks @jb-at-bdr
 
 ### Fix
 - Cast value in interpolate function to float
