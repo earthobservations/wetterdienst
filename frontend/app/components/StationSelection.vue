@@ -1,5 +1,70 @@
 <script setup lang="ts">
 import StationMap from "~/components/StationMap.vue";
+import type {Station} from "~/types/station.type";
+import type {ParameterSelectionState} from "~/types/parameter-selection-state.type";
+import MiniSearch from "minisearch";
+
+const props = defineProps<{ parameterSelection: ParameterSelectionState["selection"] }>()
+
+const selectedStations = useState<Station[]>(() => [])
+
+const {data: stationsData, pending: stationsPending, refresh: refreshStations} = await useFetch<{
+  stations: Station[]
+}>(
+    '/api/stations',
+    {
+      query: {
+        provider: props.parameterSelection.provider,
+        network: props.parameterSelection.network,
+        parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
+        all: 'true'
+      },
+      immediate: false,
+      default: () => ({stations: []})
+    }
+)
+
+const query = ref('')
+
+const miniSearch = new MiniSearch({
+  fields: ["station_id", "name", "state"],
+  idField: "station_id"
+})
+
+watch(stationsData, (data) => {
+  console.log('Stations data received:', data?.stations?.length || 0, 'stations')
+}, {immediate: true})
+
+watch(stationsData, (data) => {
+  if (data?.stations) {
+    miniSearch.removeAll()
+    miniSearch.addAll(data.stations)
+    console.log('Sample station:', data.stations[0])
+  }
+})
+
+const filteredStations = computed(() => {
+  if (!stationsData.value?.stations) {
+    console.log('filteredStations: no stations data')
+    return []
+  }
+  if (!query.value.trim()) {
+    console.log('filteredStations: no query, returning all', stationsData.value.stations.length, 'stations')
+    return stationsData.value.stations
+  }
+
+  const searchResults = miniSearch.search(query.value, {
+    prefix: true,
+    fuzzy: 0.2
+  })
+
+  const filtered = searchResults.map(result =>
+      stationsData.value.stations.find((s: Station) => s.station_id === result.id)
+  ).filter((station): station is Station => station !== undefined)
+
+  console.log('filteredStations: search for', query.value, 'returned', filtered.length, 'results')
+  return filtered
+})
 
 function toggleStation(station: Station) {
   const index = selectedStations.value.findIndex(s => s.station_id === station.station_id)
@@ -20,7 +85,7 @@ function removeStation(station: Station) {
 
 </script>
 <template>
-  <UCard v-if="showResults" :ui="{ body: { padding: 'p-0 sm:p-0' } }">
+  <UCard :ui="{ body: { padding: 'p-0 sm:p-0' } }">
     <template #header>
       <h3 class="text-lg font-semibold">Select Stations</h3>
     </template>

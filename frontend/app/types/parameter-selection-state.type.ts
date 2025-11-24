@@ -5,6 +5,7 @@ export type ParameterSelection = {
       dataset: string | undefined
       parameters: string[]
 }
+
 export type ParameterSelectionState = {
     selection: ParameterSelection
 }
