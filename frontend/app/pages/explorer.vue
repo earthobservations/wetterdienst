@@ -4,6 +4,7 @@ import StationSelection from "~/components/StationSelection.vue";
 import ParameterSelection from "~/components/ParameterSelection.vue";
 import type {ParameterSelectionState} from "~/types/parameter-selection-state.type";
 import type {Station} from "~/types/station.type";
+import type {StationSelectionState} from "~/types/station-selection-state.type";
 
 const route = useRoute();
 const router = useRouter();
@@ -40,8 +41,8 @@ const toQuery = (sel: ParameterSelectionState): Record<string, string> => {
   return q;
 }
 
-const parameterSelectionState = ref<ParameterSelectionState>(fromQuery(route.query))
-
+const parameterSelectionState = useState<ParameterSelectionState>(() => fromQuery(route.query))
+const stationSelectionState = useState<StationSelectionState>(() => ({ selection: { stations: [] } }));
 watch(
     parameterSelectionState,
     (val) => router.replace({query: toQuery(val)}),
@@ -66,8 +67,8 @@ const showStationSelection = computed(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl px-4 py-1">
+  <UContainer class="mx-auto max-w-3xl px-4 py-1">
     <ParameterSelection v-model="parameterSelectionState.selection"/>
-    <StationSelection v-if="showStationSelection" :parameter-selection="parameterSelectionState.selection" />
-  </div>
+    <StationSelection v-model="stationSelectionState.selection" :parameter-selection="parameterSelectionState.selection" />
+  </UContainer>
 </template>

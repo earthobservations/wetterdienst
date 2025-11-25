@@ -89,11 +89,11 @@ watch([provider, network, resolution, dataset, parameters], () => {
 </script>
 
 <template>
-<div class="flex flex-col gap-4">
+<UContainer class="flex flex-col gap-4">
   <USelect v-model="provider" :items="providers" placeholder="Select provider"/>
   <USelect v-model="network" :items="networks" placeholder="Select network" :disabled="!provider" />
   <USelect v-model="resolution" :items="resolutions" placeholder="Select resolution" :disabled="!network" />
   <USelect v-model="dataset" :items="datasets" placeholder="Select dataset" :disabled="!resolution" />
   <USelect v-model="parameters" :items="params" multiple placeholder="Select parameters" :disabled="!dataset"/>
-</div>
+</UContainer>
 </template>
