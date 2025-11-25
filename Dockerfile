@@ -13,7 +13,7 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     && uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,export,influxdb,interpolation,plotting,postgresql,radar,radarplus,restapi]
 
 # Final stage
-FROM python:3.14-slim-bookworm
+FROM python:3.14-slim-trixie
 
 # Install chromium -> required for kaleido png export
 RUN apt-get update && \
