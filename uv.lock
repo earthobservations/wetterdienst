@@ -6081,7 +6081,7 @@ dependencies = [
 
 [package.optional-dependencies]
 bufr = [
-    { name = "pdbufr" },
+    { name = "pdbufr", marker = "python_full_version < '3.14'" },
     { name = "pybufrkit" },
 ]
 cratedb = [
@@ -6206,7 +6206,7 @@ requires-dist = [
     { name = "pandas", marker = "extra == 'duckdb'", specifier = ">=2,<3" },
     { name = "pandas", marker = "extra == 'export'", specifier = ">=2,<3" },
     { name = "pandas", marker = "extra == 'mysql'", specifier = ">=2,<3" },
-    { name = "pdbufr", marker = "extra == 'bufr'", specifier = ">=0.10.2,<1" },
+    { name = "pdbufr", marker = "python_full_version < '3.14' and extra == 'bufr'", specifier = ">=0.10.2,<1" },
     { name = "platformdirs", specifier = ">=4,<5" },
     { name = "plotly", marker = "extra == 'plotting'", specifier = ">=5.24.1" },
     { name = "polars", extras = ["calamine", "pyarrow"], specifier = ">=1.15.0,<2" },
