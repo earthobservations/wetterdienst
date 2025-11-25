@@ -2,6 +2,9 @@
 
 ## Development
 
+### Feat
+- Improve polars code, thanks @SeeBastion524
+
 ## 0.115.0 - 2025-11-24
 
 ### Feat
