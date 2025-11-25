@@ -111,7 +111,7 @@ class DwdMosmixValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
-            pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.%fZ", time_zone="UTC"),
+            pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_zone="UTC"),
             "value",
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
@@ -162,7 +162,7 @@ class DwdMosmixValues(TimeseriesValues):
         df = pl.DataFrame({"url": urls}, orient="col")
 
         df = df.with_columns(
-            pl.col("url").str.split("/").list.last().str.split("_").list.gather(2).flatten().alias("date"),
+            pl.col("url").str.split("/").list.last().str.split("_").list.get(2).alias("date"),
         )
 
         df = df.filter(pl.col("date").ne("LATEST"))
