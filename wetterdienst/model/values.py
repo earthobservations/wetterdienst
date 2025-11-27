@@ -414,7 +414,7 @@ class TimeseriesValues(ABC):
             data.append(result.df)
 
         try:
-            df = pl.concat(data)
+            df = pl.concat(data, how="diagonal")
         except ValueError:
             log.exception("No data available for given constraints")
             return ValuesResult(stations=self.sr, values=self, df=pl.DataFrame())
