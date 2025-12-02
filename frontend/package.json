@@ -18,7 +18,6 @@
     "@vueuse/core": "^14.0.0",
     "@vueuse/nuxt": "^14.0.0",
     "leaflet.markercluster": "^1.5.3",
-    "minisearch": "^7.2.0",
     "nuxt": "^4.2.0",
     "nuxt-security": "^2.4.0",
     "tailwindcss": "^4.1.17",
@@ -28,6 +27,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "^6.2.0",
     "@nuxt/eslint": "^1.10.0",
+    "@types/leaflet": "^1.9.21",
     "eslint": "^9.39.1",
     "eslint-plugin-oxlint": "^1.28.0",
     "oxlint": "^1.28.0",

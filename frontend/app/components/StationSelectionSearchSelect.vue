@@ -1,44 +1,72 @@
 <script setup lang="ts">
-import MiniSearch from "minisearch";
 import type {Station} from "~/types/station.type";
-import type {ParameterSelectionState} from "~/types/parameter-selection-state.type";
 
-const props = defineProps<{ allStations: Station[], selectedStations: Station[] }>()
+const { stationsPending, allStations } = defineProps<{ stationsPending: boolean, allStations: Station[]}>()
 
-const query = useState(() => "")
+const selectedStations = defineModel<Station[]>('selectedStations', { required: true, default: () => [] })
 
-const miniSearch = new MiniSearch({
-  fields: ["station_id", "name", "state"],
-  idField: "station_id"
-})
+// Items for the select menu
+const stationItems = computed(() =>
+  (allStations || []).map(station => ({
+    label: `${station.name} (ID: ${station.station_id}, ${station.state})`,
+    value: station.station_id
+  }))
+)
 
-watch(props.allStations, (stations) => {
-  if (stations) {
-    miniSearch.removeAll()
-    miniSearch.addAll(stations)
+// Bridge between Station[] and item objects
+const selectedItems = computed({
+  get: () => selectedStations.value.map(s => ({
+    label: `${s.name} (ID: ${s.station_id}, ${s.state})`,
+    value: s.station_id
+  })),
+  set: (items: { label: string; value: string }[]) => {
+    selectedStations.value = items
+      .map(item => allStations.find(s => s.station_id === item.value))
+      .filter((s): s is Station => s !== undefined)
+      .sort((a, b) => a.station_id.localeCompare(b.station_id))
   }
 })
 
-const filteredStations = computed(() => {
-  if (!props.allStations) {
-    return []
+function removeStation(station: Station) {
+  const index = selectedStations.value.findIndex(s => s.station_id === station.station_id)
+  if (index >= 0) {
+    selectedStations.value.splice(index, 1)
   }
-  if (!query.value.trim()) {
-    return props.allStations
-  }
+}
 
-  const searchResults = miniSearch.search(query.value, {
-    prefix: true,
-    fuzzy: 0.2
-  })
-
-  return searchResults.map(result =>
-      props.allStations.find((s: Station) => s.station_id === result.id)
-  ).filter((station): station is Station => station !== undefined)
-})
 </script>
 <template>
-  <UContainer>
+  <div class="flex flex-col gap-3">
+    <div>
+      <USelectMenu
+          v-model="selectedItems"
+          multiple
+          searchable
+          :items="stationItems"
+          class="w-full"
+      />
+    </div>
 
-  </UContainer>
+    <div v-if="selectedStations.length > 0" class="mt-2">
+      <div class="flex items-center justify-between mb-2">
+        <h4 class="text-sm font-medium">Selected Stations:</h4>
+        <UButton size="xs" color="neutral" variant="ghost" @click="selectedStations = []">
+          Clear all
+        </UButton>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <UBadge
+            v-for="station in selectedStations"
+            :key="station.station_id"
+            color="primary"
+            variant="subtle"
+            class="cursor-pointer"
+            @click="removeStation(station)"
+        >
+          {{ station.name }} ({{ station.station_id }})
+          <span class="ml-1">×</span>
+        </UBadge>
+      </div>
+    </div>
+  </div>
 </template>

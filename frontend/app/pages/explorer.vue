@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import MiniSearch from "minisearch";
 import StationSelection from "~/components/StationSelection.vue";
 import ParameterSelection from "~/components/ParameterSelection.vue";
 import type {ParameterSelectionState} from "~/types/parameter-selection-state.type";
-import type {Station} from "~/types/station.type";
 import type {StationSelectionState} from "~/types/station-selection-state.type";
 
 const route = useRoute();
@@ -67,8 +65,8 @@ const showStationSelection = computed(() => {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-1">
+  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <ParameterSelection v-model="parameterSelectionState.selection"/>
-    <StationSelection v-model="stationSelectionState.selection" :parameter-selection="parameterSelectionState.selection" />
+    <StationSelection v-if="showStationSelection" v-model="stationSelectionState.selection" :parameter-selection="parameterSelectionState.selection" />
   </UContainer>
 </template>
