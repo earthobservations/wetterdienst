@@ -27,7 +27,7 @@ const isSelected = (stationId: string) => {
   return props.selectedStations.some(s => s.station_id === stationId)
 }
 
-const centerOfGermany = [51.1657, 10.4515]
+const centerOfGermany: [number, number] = [51.1657, 10.4515]
 
 // Center of Germany
 const mapCenter = computed<[number, number]>(() => {
@@ -114,7 +114,7 @@ watch(() => props.selectedStations, async () => {
     >
       <LTileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution="&amp;copy; <a href=&quot;https://www.openstreetmap.org/&quot;>OpenStreetMap</a> contributors"
+        attribution="&copy; <a href='https://www.openstreetmap.org/'>OpenStreetMap</a> contributors"
         layer-type="base"
         name="OpenStreetMap"
       />

@@ -1,5 +1,6 @@
 services:
   backend:
+    profiles: ["backend"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -20,6 +21,7 @@ services:
           action: rebuild
 
   frontend:
+    profiles: ["frontend"]
     build:
       context: .
       dockerfile: frontend.dev.Dockerfile
@@ -46,5 +48,3 @@ services:
             - frontend/node_modules
             - frontend/.nuxt
             - frontend/.output
-    depends_on:
-      - backend
