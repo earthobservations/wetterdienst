@@ -68,5 +68,6 @@ const showStationSelection = computed(() => {
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <ParameterSelection v-model="parameterSelectionState.selection"/>
     <StationSelection v-if="showStationSelection" v-model="stationSelectionState.selection" :parameter-selection="parameterSelectionState.selection" />
+    {{stationSelectionState.selection.stations[0]}}
   </UContainer>
 </template>
