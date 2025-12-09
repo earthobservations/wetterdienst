@@ -20,6 +20,11 @@ Types of changes:
 
 - Improve polars code, thanks @SeeBastion524
 
+### Fixed
+
+- Allow concatenation of station data with varying columns, thanks @jb-at-bdr
+- Adjust data type of "name" column, thanks @jb-at-bdr
+
 ## [0.115.0] - 2025-11-24
 
 ### Added
