@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.116.0] - 2025-12-09
+
 ### Changed
 
 - Improve polars code, thanks @SeeBastion524
@@ -1607,7 +1609,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.115.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.116.0...HEAD
+[0.116.0]: https://github.com/earthobservations/wetterdienst/compare/v0.115.0...v0.116.0
 [0.115.0]: https://github.com/earthobservations/wetterdienst/compare/v0.114.3...v0.115.0
 [0.114.3]: https://github.com/earthobservations/wetterdienst/compare/v0.114.2...v0.114.3
 [0.114.2]: https://github.com/earthobservations/wetterdienst/compare/v0.114.1...v0.114.2
