@@ -3,6 +3,7 @@ import StationSelection from "~/components/StationSelection.vue";
 import ParameterSelection from "~/components/ParameterSelection.vue";
 import type {ParameterSelectionState} from "~/types/parameter-selection-state.type";
 import type {StationSelectionState} from "~/types/station-selection-state.type";
+import DataViewer from "~/components/DataViewer.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -62,12 +63,17 @@ watch(
 const showStationSelection = computed(() => {
   return parameterSelectionState.value.selection.parameters.length > 0
 })
+
+// once stations are selected, we have all information to continue with data viewing
+const showDataViewer = computed(() => {
+  return stationSelectionState.value.selection.stations.length > 0
+})
 </script>
 
 <template>
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <ParameterSelection v-model="parameterSelectionState.selection"/>
     <StationSelection v-if="showStationSelection" v-model="stationSelectionState.selection" :parameter-selection="parameterSelectionState.selection" />
-    {{stationSelectionState.selection.stations[0]}}
+    <DataViewer v-if="showDataViewer" :parameter-selection="parameterSelectionState.selection" :station-selection="stationSelectionState.selection" />
   </UContainer>
 </template>
