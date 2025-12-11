@@ -1,8 +1,8 @@
-import * as L from 'leaflet';
-import 'leaflet.markercluster';
+import * as L from 'leaflet'
+import 'leaflet.markercluster'
 
-export default defineNuxtPlugin((nuxtApp) => ({
-    provide: {
-        L,
-    },
-}));
+export default defineNuxtPlugin(() => ({
+  provide: {
+    L,
+  },
+}))

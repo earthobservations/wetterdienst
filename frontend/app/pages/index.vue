@@ -6,10 +6,13 @@ const features = [
   { icon: 'i-lucide-line-chart', title: 'Data Analysis', description: 'Interpolation, summarization, and climate stripes visualization.' },
 ]
 </script>
+
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4">
     <div class="text-center mb-12">
-      <h1 class="text-4xl font-bold mb-4">Wetterdienst</h1>
+      <h1 class="text-4xl font-bold mb-4">
+        Wetterdienst
+      </h1>
       <p class="text-xl text-gray-600 dark:text-gray-400 mb-2">
         Open weather data for humans
       </p>
@@ -20,7 +23,9 @@ const features = [
 
     <UCard class="mb-8">
       <template #header>
-        <h2 class="text-lg font-semibold">About</h2>
+        <h2 class="text-lg font-semibold">
+          About
+        </h2>
       </template>
       <p class="text-gray-600 dark:text-gray-400 mb-4">
         Wetterdienst is a Python library that provides easy access to weather and climate data from
@@ -34,14 +39,20 @@ const features = [
       </p>
     </UCard>
 
-    <h2 class="text-xl font-semibold mb-4">Features</h2>
+    <h2 class="text-xl font-semibold mb-4">
+      Features
+    </h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
       <UCard v-for="feature in features" :key="feature.title">
         <div class="flex items-start gap-3">
           <UIcon :name="feature.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
           <div>
-            <h3 class="font-medium mb-1">{{ feature.title }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400">{{ feature.description }}</p>
+            <h3 class="font-medium mb-1">
+              {{ feature.title }}
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+              {{ feature.description }}
+            </p>
           </div>
         </div>
       </UCard>
@@ -49,7 +60,9 @@ const features = [
 
     <UCard class="mb-8">
       <template #header>
-        <h2 class="text-lg font-semibold">Getting Started</h2>
+        <h2 class="text-lg font-semibold">
+          Getting Started
+        </h2>
       </template>
       <ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-400">
         <li>Select a <strong>Provider</strong> (e.g., DWD for German Weather Service)</li>
@@ -63,7 +76,9 @@ const features = [
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">Links</h2>
+        <h2 class="text-lg font-semibold">
+          Links
+        </h2>
       </template>
       <div class="flex flex-wrap gap-4">
         <UButton

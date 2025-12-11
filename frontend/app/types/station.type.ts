@@ -1,4 +1,4 @@
-export type Station = {
+export interface Station {
   station_id: string
   name: string
   state: string

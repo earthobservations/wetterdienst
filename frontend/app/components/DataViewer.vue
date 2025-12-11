@@ -1,36 +1,72 @@
 <script setup lang="ts">
-
-import type {ParameterSelectionState} from "~/types/parameter-selection-state.type";
-import type {StationSelectionState} from "~/types/station-selection-state.type";
-import type {Value} from "~/types/value.type";
 import type { TableColumn } from '@nuxt/ui'
+import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
+import type { StationSelectionState } from '~/types/station-selection-state.type'
+import type { Value } from '~/types/value.type'
 import { h } from 'vue'
 
 const { parameterSelection, stationSelection } = defineProps<{
-  parameterSelection: ParameterSelectionState["selection"],
-  stationSelection: StationSelectionState["selection"]
+  parameterSelection: ParameterSelectionState['selection']
+  stationSelection: StationSelectionState
 }>()
+
+const isInterpolationMode = computed(() => stationSelection.mode === 'interpolation')
+const isSummaryMode = computed(() => stationSelection.mode === 'summary')
+
+const apiEndpoint = computed(() => {
+  if (isInterpolationMode.value)
+    return '/api/interpolate'
+  if (isSummaryMode.value)
+    return '/api/summarize'
+  return '/api/values'
+})
+
+const apiQuery = computed(() => {
+  const base: Record<string, string | number | undefined> = {
+    provider: parameterSelection.provider,
+    network: parameterSelection.network,
+    parameters: parameterSelection.parameters.map(parameter => `${parameterSelection.resolution}/${parameterSelection.dataset}/${parameter}`).join(','),
+  }
+
+  // Add date range if provided
+  if (stationSelection.dateRange.startDate) {
+    base.date = stationSelection.dateRange.startDate
+    if (stationSelection.dateRange.endDate) {
+      base.date = `${stationSelection.dateRange.startDate}/${stationSelection.dateRange.endDate}`
+    }
+  }
+
+  if (isInterpolationMode.value || isSummaryMode.value) {
+    const interp = stationSelection.interpolation
+    return {
+      ...base,
+      latitude: interp.latitude,
+      longitude: interp.longitude,
+    }
+  }
+  else {
+    return {
+      ...base,
+      station: stationSelection.selection.stations.map(station => station.station_id).join(','),
+    }
+  }
+})
 
 const { data: valuesData, pending: valuesPending, refresh: refreshValues } = useFetch<{
   values: Value[]
 }>(
-  '/api/values',
+  apiEndpoint,
   {
     method: 'GET',
-    query: computed(() => ({
-      provider: parameterSelection.provider,
-      network: parameterSelection.network,
-      parameters: parameterSelection.parameters.map((parameter) => `${parameterSelection.resolution}/${parameterSelection.dataset}/${parameter}` ).join(","),
-      station: stationSelection.stations.map((station) => station.station_id).join(",")
-    })),
+    query: apiQuery,
     immediate: false,
-    default: () => ({ values: [] })
-  }
+    default: () => ({ values: [] }),
+  },
 )
 
 const allValues = computed(() => valuesData.value?.values ?? [])
 
-const formatDate = (dateStr: string) => {
+function formatDate(dateStr: string) {
   // Remove unnecessary microseconds (.000000) and simplify timezone
   // 1934-01-01T00:00:00.000000+00:00 -> 1934-01-01T00:00:00Z
   return dateStr.replace(/\.0+([+-])/, '$1').replace(/[+-]00:00$/, 'Z')
@@ -43,46 +79,55 @@ const columnDefinitions: { key: keyof Value, column: TableColumn<Value> }[] = [
   { key: 'parameter', column: { accessorKey: 'parameter', header: 'parameter' } },
   { key: 'date', column: { accessorKey: 'date', header: 'date', cell: ({ row }) => formatDate(row.original.date) } },
   { key: 'value', column: { accessorKey: 'value', header: 'value' } },
-  { key: 'quality', column: { accessorKey: 'quality', header: 'quality' } }
+  { key: 'quality', column: { accessorKey: 'quality', header: 'quality' } },
+  { key: 'taken_station_id', column: { accessorKey: 'taken_station_id', header: 'taken_station_id' } },
+  { key: 'taken_station_ids', column: { accessorKey: 'taken_station_ids', header: 'taken_station_ids' } },
 ]
 
 // Sorting
 const sortColumn = ref<keyof Value | null>(null)
 const sortDirection = ref<'asc' | 'desc'>('asc')
 
-const toggleSort = (column: keyof Value) => {
+function toggleSort(column: keyof Value) {
   if (sortColumn.value === column) {
     if (sortDirection.value === 'asc') {
       sortDirection.value = 'desc'
-    } else {
+    }
+    else {
       sortColumn.value = null
       sortDirection.value = 'asc'
     }
-  } else {
+  }
+  else {
     sortColumn.value = column
     sortDirection.value = 'asc'
   }
 }
 
-const getSortIcon = (column: keyof Value) => {
-  if (sortColumn.value !== column) return '↕'
+function getSortIcon(column: keyof Value) {
+  if (sortColumn.value !== column)
+    return '↕'
   return sortDirection.value === 'asc' ? '↑' : '↓'
 }
 
 const sortedValues = computed(() => {
-  if (!sortColumn.value) return allValues.value
+  if (!sortColumn.value)
+    return allValues.value
 
   return [...allValues.value].sort((a, b) => {
     const aVal = a[sortColumn.value!]
     const bVal = b[sortColumn.value!]
 
-    if (aVal === null || aVal === undefined) return 1
-    if (bVal === null || bVal === undefined) return -1
+    if (aVal === null || aVal === undefined)
+      return 1
+    if (bVal === null || bVal === undefined)
+      return -1
 
     let comparison = 0
     if (typeof aVal === 'number' && typeof bVal === 'number') {
       comparison = aVal - bVal
-    } else {
+    }
+    else {
       comparison = String(aVal).localeCompare(String(bVal))
     }
 
@@ -91,22 +136,40 @@ const sortedValues = computed(() => {
 })
 
 const columnOptions = columnDefinitions.map(c => c.key)
-const selectedColumns = ref<(keyof Value)[]>(['station_id', 'parameter', 'date', 'value', 'quality'])
+
+// Default columns based on mode
+const defaultColumns = computed((): (keyof Value)[] => {
+  const base: (keyof Value)[] = ['station_id', 'parameter', 'date', 'value', 'quality']
+  if (isSummaryMode.value) {
+    return [...base, 'taken_station_id']
+  }
+  if (isInterpolationMode.value) {
+    return [...base, 'taken_station_ids']
+  }
+  return base
+})
+
+const selectedColumns = ref<(keyof Value)[]>([...defaultColumns.value])
+
+// Update selected columns when mode changes
+watch([isInterpolationMode, isSummaryMode], () => {
+  selectedColumns.value = [...defaultColumns.value]
+})
 
 const columns = computed(() =>
-  columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map(c => {
+  columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map((c) => {
     const key = c.key
     return {
       ...c.column,
       header: () => h('span', {
         class: 'cursor-pointer select-none flex items-center gap-1',
-        onClick: () => toggleSort(key)
+        onClick: () => toggleSort(key),
       }, [
         c.key,
-        h('span', { class: sortColumn.value === key ? 'opacity-100' : 'opacity-30' }, getSortIcon(key))
-      ])
+        h('span', { class: sortColumn.value === key ? 'opacity-100' : 'opacity-30' }, getSortIcon(key)),
+      ]),
     } as TableColumn<Value>
-  })
+  }),
 )
 
 // Pagination
@@ -126,39 +189,72 @@ watch(pageSize, () => {
 
 const toast = useToast()
 
-const valuesToCsv = (values: Value[]) => {
-  if (!values.length) return ''
+function valuesToCsv(values: Value[]) {
+  if (!values.length)
+    return ''
   const headers = selectedColumns.value
   const rows = values.map(row => headers.map(h => row[h] ?? '').join(','))
   return [headers.join(','), ...rows].join('\n')
 }
 
-const copyCurrentPage = async () => {
+async function copyCurrentPage() {
   await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value))
   toast.add({ title: 'Copied', description: `${paginatedValues.value.length} rows copied to clipboard`, color: 'success' })
 }
 
-const copyAllValues = async () => {
+async function copyAllValues() {
   await navigator.clipboard.writeText(valuesToCsv(sortedValues.value))
   toast.add({ title: 'Copied', description: `${sortedValues.value.length} rows copied to clipboard`, color: 'success' })
 }
 
-const downloadValues = async (format: string, extension: string) => {
+async function downloadValues(format: string, extension: string) {
   const params = new URLSearchParams()
   params.set('provider', parameterSelection.provider ?? '')
   params.set('network', parameterSelection.network ?? '')
-  params.set('parameters', parameterSelection.parameters.map((parameter) => `${parameterSelection.resolution}/${parameterSelection.dataset}/${parameter}`).join(','))
-  params.set('station', stationSelection.stations.map((station) => station.station_id).join(','))
+  params.set('parameters', parameterSelection.parameters.map(parameter => `${parameterSelection.resolution}/${parameterSelection.dataset}/${parameter}`).join(','))
   params.set('format', format)
 
-  const response = await fetch(`/api/values?${params.toString()}`)
+  // Add date range if provided
+  if (stationSelection.dateRange.startDate) {
+    let dateParam = stationSelection.dateRange.startDate
+    if (stationSelection.dateRange.endDate) {
+      dateParam = `${stationSelection.dateRange.startDate}/${stationSelection.dateRange.endDate}`
+    }
+    params.set('date', dateParam)
+  }
+
+  let endpoint = '/api/values'
+  let filename = 'values'
+  if (isInterpolationMode.value) {
+    endpoint = '/api/interpolate'
+    filename = 'interpolated'
+    const interp = stationSelection.interpolation
+    if (interp.latitude !== undefined)
+      params.set('latitude', interp.latitude.toString())
+    if (interp.longitude !== undefined)
+      params.set('longitude', interp.longitude.toString())
+  }
+  else if (isSummaryMode.value) {
+    endpoint = '/api/summary'
+    filename = 'summary'
+    const interp = stationSelection.interpolation
+    if (interp.latitude !== undefined)
+      params.set('latitude', interp.latitude.toString())
+    if (interp.longitude !== undefined)
+      params.set('longitude', interp.longitude.toString())
+  }
+  else {
+    params.set('station', stationSelection.selection.stations.map(station => station.station_id).join(','))
+  }
+
+  const response = await fetch(`${endpoint}?${params.toString()}`)
   const data = await response.text()
 
   const blob = new Blob([data], { type: 'application/octet-stream' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `values.${extension}`
+  link.download = `${filename}.${extension}`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -171,25 +267,37 @@ const downloadMenuItems = computed(() => [
   [
     { label: 'CSV', onSelect: () => downloadValues('csv', 'csv') },
     { label: 'JSON', onSelect: () => downloadValues('json', 'json') },
-    { label: 'GeoJSON', onSelect: () => downloadValues('geojson', 'geojson') }
-  ]
+    { label: 'GeoJSON', onSelect: () => downloadValues('geojson', 'geojson') },
+  ],
 ])
+
+const canFetchData = computed(() => {
+  if (!parameterSelection.parameters.length)
+    return false
+
+  if (stationSelection.mode === 'station') {
+    return stationSelection.selection.stations.length > 0
+  }
+  else {
+    const interp = stationSelection.interpolation
+    return interp.latitude !== undefined && interp.longitude !== undefined
+  }
+})
 
 watch(
   () => [parameterSelection, stationSelection],
   () => {
-    if (!parameterSelection.parameters.length || !stationSelection.stations.length) {
-      // No parameters or stations selected, clear values data
+    if (!canFetchData.value) {
       valuesData.value = { values: [] }
       return
     }
-    // Refresh values data
     refreshValues()
     currentPage.value = 1
   },
-  { deep: true, immediate: true }
+  { deep: true, immediate: true },
 )
 </script>
+
 <template>
   <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
     <template #header>
@@ -205,10 +313,10 @@ watch(
           </div>
           <div class="flex items-center gap-1">
             <UTooltip text="Copy current page">
-              <UButton size="xs" variant="ghost" icon="i-lucide-copy" @click="copyCurrentPage" :disabled="valuesPending" />
+              <UButton size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending" @click="copyCurrentPage" />
             </UTooltip>
             <UTooltip text="Copy all values">
-              <UButton size="xs" variant="ghost" icon="i-lucide-copy-check" @click="copyAllValues" :disabled="valuesPending" />
+              <UButton size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending" @click="copyAllValues" />
             </UTooltip>
             <UDropdownMenu :items="downloadMenuItems">
               <UButton size="xs" variant="ghost" icon="i-lucide-download" :disabled="valuesPending" />

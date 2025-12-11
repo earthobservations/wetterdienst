@@ -4,34 +4,35 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 const route = useRoute()
 
 const items = computed<NavigationMenuItem[]>(() =>
-    [
+  [
     {
-      label: "Home",
-      icon: "i-lucide-home",
-      to: "/",
-      active: route.path === "/"
+      label: 'Home',
+      icon: 'i-lucide-home',
+      to: '/',
+      active: route.path === '/',
     },
     {
-      label: "Explorer",
-      icon: "i-lucide-globe",
-      to: "/explorer",
-      active: route.path.startsWith("/explorer")
+      label: 'Explorer',
+      icon: 'i-lucide-globe',
+      to: '/explorer',
+      active: route.path.startsWith('/explorer'),
     },
     {
-      label: "Stripes",
-      icon: "i-lucide-bar-chart-3",
-      to: "/stripes",
-      active: route.path.startsWith("/stripes")
+      label: 'Stripes',
+      icon: 'i-lucide-bar-chart-3',
+      to: '/stripes',
+      active: route.path.startsWith('/stripes'),
     },
     {
-      label: "API",
-      icon: "i-lucide-code",
-      to: "/api",
-      active: route.path.startsWith("/api")
-    }
-  ]
+      label: 'API',
+      icon: 'i-lucide-code',
+      to: '/api',
+      active: route.path.startsWith('/api'),
+    },
+  ],
 )
 </script>
+
 <template>
   <UApp>
     <UHeader>
@@ -40,7 +41,7 @@ const items = computed<NavigationMenuItem[]>(() =>
           wetterdienst by earthobservations
         </NuxtLink>
       </template>
-      <UNavigationMenu :items="items"/>
+      <UNavigationMenu :items="items" />
       <template #right>
         <ColorModeSelect />
       </template>
@@ -55,6 +56,7 @@ const items = computed<NavigationMenuItem[]>(() =>
     </UFooter>
   </UApp>
 </template>
+
 <style>
 /* Make main container full width for better map display */
 :deep(.u-main) {
