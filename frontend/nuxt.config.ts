@@ -43,6 +43,12 @@ export default defineNuxtConfig({
     }
   },
   modules: ["@nuxt/eslint", "@nuxtjs/mdc", '@nuxt/ui', '@nuxt/icon', "nuxt-security", "@vueuse/nuxt", "@nuxtjs/leaflet"],
+  colorMode: {
+    classSuffix: '',
+    preference: 'system',
+    fallback: 'light',
+    classPrefix: '',
+  },
   leaflet: {
     markerCluster: true
   },
