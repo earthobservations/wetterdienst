@@ -1,2 +1,25 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/* Sepia color mode */
+html.sepia {
+  --ui-bg: #f4ecd8;
+  --ui-bg-muted: #e8ddc4;
+  --ui-bg-elevated: #faf6eb;
+  --ui-bg-accented: #ddd0b0;
+  --ui-bg-inverted: #3d2b1f;
+
+  --ui-text: #3d2b1f;
+  --ui-text-muted: #5c4a3d;
+  --ui-text-dimmed: #7a6555;
+  --ui-text-highlighted: #2d1f15;
+  --ui-text-inverted: #f4ecd8;
+
+  --ui-border: #c9b896;
+  --ui-border-muted: #ddd0b0;
+  --ui-border-accented: #b5a07a;
+  --ui-border-inverted: #3d2b1f;
+
+  color-scheme: light;
+  background-color: var(--ui-bg);
+}
