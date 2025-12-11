@@ -18,10 +18,13 @@ const examples = [
   { name: 'Climate Stripes Values (Temperature)', path: '/api/stripes/values?kind=temperature&station=1048' },
 ]
 </script>
+
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4">
     <div class="text-center mb-12">
-      <h1 class="text-4xl font-bold mb-4">REST API</h1>
+      <h1 class="text-4xl font-bold mb-4">
+        REST API
+      </h1>
       <p class="text-xl text-gray-600 dark:text-gray-400">
         Access weather data programmatically
       </p>
@@ -29,7 +32,9 @@ const examples = [
 
     <UCard class="mb-8">
       <template #header>
-        <h2 class="text-lg font-semibold">Endpoints</h2>
+        <h2 class="text-lg font-semibold">
+          Endpoints
+        </h2>
       </template>
       <div class="space-y-3">
         <div v-for="endpoint in endpoints" :key="endpoint.name" class="flex items-start gap-3">
@@ -49,7 +54,9 @@ const examples = [
 
     <UCard class="mb-8">
       <template #header>
-        <h2 class="text-lg font-semibold">Examples</h2>
+        <h2 class="text-lg font-semibold">
+          Examples
+        </h2>
       </template>
       <div class="space-y-2">
         <div v-for="example in examples" :key="example.name">
@@ -68,7 +75,9 @@ const examples = [
 
     <UCard class="mb-8">
       <template #header>
-        <h2 class="text-lg font-semibold">Response Formats</h2>
+        <h2 class="text-lg font-semibold">
+          Response Formats
+        </h2>
       </template>
       <p class="text-gray-600 dark:text-gray-400 mb-4">
         All endpoints support multiple output formats via the <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">format</code> query parameter:
@@ -83,40 +92,70 @@ const examples = [
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">Common Parameters</h2>
+        <h2 class="text-lg font-semibold">
+          Common Parameters
+        </h2>
       </template>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b dark:border-gray-700">
-              <th class="text-left py-2 pr-4">Parameter</th>
-              <th class="text-left py-2">Description</th>
+              <th class="text-left py-2 pr-4">
+                Parameter
+              </th>
+              <th class="text-left py-2">
+                Description
+              </th>
             </tr>
           </thead>
           <tbody class="text-gray-600 dark:text-gray-400">
             <tr class="border-b dark:border-gray-700">
-              <td class="py-2 pr-4"><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">provider</code></td>
-              <td class="py-2">Data provider (e.g., dwd, noaa)</td>
+              <td class="py-2 pr-4">
+                <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">provider</code>
+              </td>
+              <td class="py-2">
+                Data provider (e.g., dwd, noaa)
+              </td>
             </tr>
             <tr class="border-b dark:border-gray-700">
-              <td class="py-2 pr-4"><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">network</code></td>
-              <td class="py-2">Data network (e.g., observation, forecast)</td>
+              <td class="py-2 pr-4">
+                <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">network</code>
+              </td>
+              <td class="py-2">
+                Data network (e.g., observation, forecast)
+              </td>
             </tr>
             <tr class="border-b dark:border-gray-700">
-              <td class="py-2 pr-4"><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">parameters</code></td>
-              <td class="py-2">Parameter path (e.g., daily/kl/temperature_air_mean_2m)</td>
+              <td class="py-2 pr-4">
+                <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">parameters</code>
+              </td>
+              <td class="py-2">
+                Parameter path (e.g., daily/kl/temperature_air_mean_2m)
+              </td>
             </tr>
             <tr class="border-b dark:border-gray-700">
-              <td class="py-2 pr-4"><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">station</code></td>
-              <td class="py-2">Station ID(s), comma-separated</td>
+              <td class="py-2 pr-4">
+                <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">station</code>
+              </td>
+              <td class="py-2">
+                Station ID(s), comma-separated
+              </td>
             </tr>
             <tr class="border-b dark:border-gray-700">
-              <td class="py-2 pr-4"><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">date</code></td>
-              <td class="py-2">Date or date range (e.g., 2020-01-01/2020-12-31)</td>
+              <td class="py-2 pr-4">
+                <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">date</code>
+              </td>
+              <td class="py-2">
+                Date or date range (e.g., 2020-01-01/2020-12-31)
+              </td>
             </tr>
             <tr>
-              <td class="py-2 pr-4"><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">format</code></td>
-              <td class="py-2">Output format (json, csv, geojson, html)</td>
+              <td class="py-2 pr-4">
+                <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">format</code>
+              </td>
+              <td class="py-2">
+                Output format (json, csv, geojson, html)
+              </td>
             </tr>
           </tbody>
         </table>

@@ -1,9 +1,28 @@
-import type {Station} from "~/types/station.type";
+import type { Station } from '~/types/station.type'
 
-export type StationSelection = {
+export type StationMode = 'station' | 'interpolation' | 'summary'
+
+export type InterpolationSource = 'manual' | 'station'
+
+export interface StationSelection {
   stations: Station[]
 }
 
-export type StationSelectionState = {
-    selection: StationSelection
+export interface InterpolationSelection {
+  source: InterpolationSource
+  latitude?: number
+  longitude?: number
+  station?: Station
+}
+
+export interface DateRange {
+  startDate?: string
+  endDate?: string
+}
+
+export interface StationSelectionState {
+  mode: StationMode
+  selection: StationSelection
+  interpolation: InterpolationSelection
+  dateRange: DateRange
 }

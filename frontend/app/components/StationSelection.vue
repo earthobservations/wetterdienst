@@ -1,56 +1,59 @@
-<script setup lang="ts" xmlns="http://www.w3.org/1999/html">
-import type {Station} from "~/types/station.type";
-import type {ParameterSelectionState} from "~/types/parameter-selection-state.type";
+<script setup lang="ts">
+import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
+import type { Station } from '~/types/station.type'
 
 declare const L: typeof import('leaflet')
 
 const props = defineProps<{
-  parameterSelection: ParameterSelectionState["selection"]
+  parameterSelection: ParameterSelectionState['selection']
   initialStationIds?: string[]
 }>()
-const selectedStations = ref<Station[]>([])
-
 const emit = defineEmits(['update:modelValue'])
+
+const selectedStations = ref<Station[]>([])
 
 const map = ref(null) as any
 let markerClusterGroup: any = null
-let markersMap: Map<string, any> = new Map() // station_id -> marker
+const markersMap: Map<string, any> = new Map() // station_id -> marker
 
 const showMap = useState<boolean>('showMap', () => true)
 const centerOnSelectedStations = useState<boolean>('centerOnSelectedStations', () => false)
 
 watch(selectedStations, () => {
   emit('update:modelValue', {
-    stations: [...selectedStations.value]
+    stations: [...selectedStations.value],
   })
 })
 
 // Track whether we've already restored initial stations
 const hasRestoredInitialStations = ref(false)
 
-const {data: stationsData, pending: stationsPending, refresh: refreshStations} = useFetch<{
+const { data: stationsData, pending: stationsPending, refresh: refreshStations } = useFetch<{
   stations: Station[]
 }>(
-    '/api/stations',
-    {
-      query: computed(() => ({
-        provider: props.parameterSelection.provider,
-        network: props.parameterSelection.network,
-        parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
-        all: 'true'
-      })),
-      immediate: false,
-      default: () => ({stations: []})
-    }
+  '/api/stations',
+  {
+    query: computed(() => ({
+      provider: props.parameterSelection.provider,
+      network: props.parameterSelection.network,
+      parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
+      all: 'true',
+    })),
+    immediate: false,
+    default: () => ({ stations: [] }),
+  },
 )
 
 const allStations = computed(() => stationsData.value?.stations ?? [])
 
 // Restore initial stations when stations data is loaded
 watch(allStations, (stations) => {
-  if (hasRestoredInitialStations.value) return
-  if (!stations.length) return
-  if (!props.initialStationIds?.length) return
+  if (hasRestoredInitialStations.value)
+    return
+  if (!stations.length)
+    return
+  if (!props.initialStationIds?.length)
+    return
 
   // Find stations matching the initial IDs
   const restoredStations = props.initialStationIds
@@ -67,7 +70,7 @@ watch(allStations, (stations) => {
 watch(() => props.parameterSelection, (ps) => {
   if (!ps.parameters?.length) {
     // No parameters selected, clear stations data
-    stationsData.value = {stations: []}
+    stationsData.value = { stations: [] }
     selectedStations.value = []
     return
   }
@@ -77,28 +80,28 @@ watch(() => props.parameterSelection, (ps) => {
   }
   // Refresh stations data
   refreshStations()
-}, {deep: true, immediate: true})
+}, { deep: true, immediate: true })
 
 // Items for the select menu
 const stationItems = computed(() =>
   allStations.value.map(station => ({
     label: `${station.name} (ID: ${station.station_id}, ${station.state})`,
-    value: station.station_id
-  }))
+    value: station.station_id,
+  })),
 )
 
 // Bridge between Station[] and item objects
 const selectedItems = computed({
   get: () => selectedStations.value.map(s => ({
     label: `${s.name} (ID: ${s.station_id}, ${s.state})`,
-    value: s.station_id
+    value: s.station_id,
   })),
-  set: (items: { label: string; value: string }[]) => {
+  set: (items: { label: string, value: string }[]) => {
     selectedStations.value = items
       .map(item => allStations.value.find(s => s.station_id === item.value))
       .filter((s): s is Station => s !== undefined)
       .sort((a, b) => a.station_id.localeCompare(b.station_id))
-  }
+  },
 })
 
 function removeStation(station: Station) {
@@ -110,40 +113,46 @@ function removeStation(station: Station) {
 
 // map features
 // Check if a station is selected
-const isSelected = (stationId: string) => {
+function isSelected(stationId: string) {
   return selectedStations.value.some(s => s.station_id === stationId)
 }
 
 const mapCenter = computed<[number, number]>(() => {
-  if (!allStations.value.length) return [51.1657, 10.4515] // Center of Germany
+  if (!allStations.value.length)
+    return [51.1657, 10.4515] // Center of Germany
   const latSum = allStations.value.reduce((a, s) => a + s.latitude, 0)
   const lngSum = allStations.value.reduce((a, s) => a + s.longitude, 0)
   return [latSum / allStations.value.length, lngSum / allStations.value.length]
 })
 
 const mapBounds = computed(() => {
-  if (!allStations.value.length) return null
+  if (!allStations.value.length)
+    return null
   if (!centerOnSelectedStations.value) {
     const latitudes = allStations.value.map(s => s.latitude)
     const longitudes = allStations.value.map(s => s.longitude)
     return L.latLngBounds(
       L.latLng(Math.min(...latitudes), Math.min(...longitudes)),
-      L.latLng(Math.max(...latitudes), Math.max(...longitudes))
+      L.latLng(Math.max(...latitudes), Math.max(...longitudes)),
     )
-  } else {
-    if (!selectedStations.value.length) return null
+  }
+  else {
+    if (!selectedStations.value.length)
+      return null
     const latitudes = selectedStations.value.map(s => s.latitude)
     const longitudes = selectedStations.value.map(s => s.longitude)
     return L.latLngBounds(
       L.latLng(Math.min(...latitudes), Math.min(...longitudes)),
-      L.latLng(Math.max(...latitudes), Math.max(...longitudes))
+      L.latLng(Math.max(...latitudes), Math.max(...longitudes)),
     )
   }
 })
 
-const createMarkers = async () => {
-  if (!map.value?.leafletObject) return
-  if (!allStations.value.length) return
+async function createMarkers() {
+  if (!map.value?.leafletObject)
+    return
+  if (!allStations.value.length)
+    return
 
   // Remove existing cluster if it exists
   if (markerClusterGroup) {
@@ -154,14 +163,14 @@ const createMarkers = async () => {
 
   const result = await useLMarkerCluster({
     leafletObject: map.value.leafletObject,
-    markers: allStations.value.map((station) => ({
+    markers: allStations.value.map(station => ({
       name: station.name,
       lat: station.latitude,
       lng: station.longitude,
       options: {
         title: `${station.name} (ID: ${station.station_id}, ${station.state})`,
-      }
-    }))
+      },
+    })),
   })
 
   markerClusterGroup = result.markerCluster
@@ -174,7 +183,8 @@ const createMarkers = async () => {
       marker.on('click', () => {
         if (isSelected(station.station_id)) {
           removeStation(station)
-        } else {
+        }
+        else {
           selectedStations.value.push(station)
         }
       })
@@ -182,8 +192,9 @@ const createMarkers = async () => {
   })
 }
 
-const updateMarkerIcons = () => {
-  if (!markerClusterGroup) return
+function updateMarkerIcons() {
+  if (!markerClusterGroup)
+    return
 
   const defaultIcon = L.icon({
     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
@@ -191,7 +202,7 @@ const updateMarkerIcons = () => {
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
-    shadowSize: [41, 41]
+    shadowSize: [41, 41],
   })
 
   const selectedIcon = L.icon({
@@ -200,7 +211,7 @@ const updateMarkerIcons = () => {
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
-    shadowSize: [41, 41]
+    shadowSize: [41, 41],
   })
 
   markersMap.forEach((marker, stationId) => {
@@ -213,7 +224,7 @@ const updateMarkerIcons = () => {
 }
 
 // When the map is ready, initialize clustering
-const onMapReady = async () => {
+async function onMapReady() {
   await createMarkers()
   updateMarkerIcons()
   // Restore bounds if centering on selected stations
@@ -240,20 +251,16 @@ watch(() => selectedStations.value, () => {
     map.value.leafletObject.fitBounds(mapBounds.value)
   }
 }, { deep: true })
-
 </script>
+
 <template>
-<UCard>
-  <template #header>
-    Select Stations
-  </template>
-  <UContainer v-if="stationsPending" class="flex justify-center py-8">
-    <UContainer class="text-gray-500">Loading stations...</UContainer>
-  </UContainer>
-  <UContainer v-else-if="!allStations?.length" class="flex justify-center py-8">
-    <UContainer class="text-gray-500">No stations found for the selected parameters</UContainer>
-  </UContainer>
-  <UContainer v-else class="flex flex-col gap-4">
+  <div v-if="stationsPending" class="flex justify-center py-8">
+    <span class="text-gray-500">Loading stations...</span>
+  </div>
+  <div v-else-if="!allStations?.length" class="flex justify-center py-8">
+    <span class="text-gray-500">No stations found for the selected parameters</span>
+  </div>
+  <div v-else class="flex flex-col gap-4">
     <USelectMenu
       v-model="selectedItems"
       :items="stationItems"
@@ -265,18 +272,20 @@ watch(() => selectedStations.value, () => {
     />
     <UContainer v-if="selectedStations.length > 0" class="mt-2">
       <div class="flex items-center justify-between mb-2">
-        <h4 class="text-sm font-medium">Selected Stations:</h4>
+        <h4 class="text-sm font-medium">
+          Selected Stations:
+        </h4>
         <UButton size="xs" color="neutral" variant="ghost" @click="selectedStations = []">
           Clear all
         </UButton>
       </div>
       <div class="flex flex-wrap gap-2">
         <UBadge
-            v-for="station in selectedStations"
-            :key="station.station_id"
-            variant="subtle"
-            class="cursor-pointer"
-            @click="removeStation(station)"
+          v-for="station in selectedStations"
+          :key="station.station_id"
+          variant="subtle"
+          class="cursor-pointer"
+          @click="removeStation(station)"
         >
           {{ station.name }} ({{ station.station_id }})
           <span class="ml-1">×</span>
@@ -297,9 +306,9 @@ watch(() => selectedStations.value, () => {
             :label="centerOnSelectedStations ? 'Center on all stations' : 'Center on selected stations'"
             variant="subtle"
             color="neutral"
-            @click="centerOnSelectedStations = !centerOnSelectedStations"
             :disabled="!selectedStations.length"
             block
+            @click="centerOnSelectedStations = !centerOnSelectedStations"
           />
           <LMap
             ref="map"
@@ -320,9 +329,9 @@ watch(() => selectedStations.value, () => {
         </div>
       </template>
     </UCollapsible>
-  </UContainer>
-</UCard>
+  </div>
 </template>
+
 <style>
 @import 'leaflet.markercluster/dist/MarkerCluster.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
