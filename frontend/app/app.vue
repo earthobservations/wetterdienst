@@ -7,25 +7,25 @@ const items = computed<NavigationMenuItem[]>(() =>
     [
     {
       label: "Home",
-      icon: "i-heroicons-home",
+      icon: "i-lucide-home",
       to: "/",
       active: route.path === "/"
     },
     {
       label: "Explorer",
-      icon: "i-heroicons-magnifying-glass",
+      icon: "i-lucide-globe",
       to: "/explorer",
       active: route.path.startsWith("/explorer")
     },
     {
       label: "Stripes",
-      icon: "i-heroicons-chart-bar",
+      icon: "i-lucide-bar-chart-3",
       to: "/stripes",
       active: route.path.startsWith("/stripes")
     },
     {
       label: "API",
-      icon: "i-heroicons-code-bracket",
+      icon: "i-lucide-code",
       to: "/api",
       active: route.path.startsWith("/api")
     }

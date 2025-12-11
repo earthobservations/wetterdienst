@@ -4,8 +4,11 @@ import type {ParameterSelectionState} from "~/types/parameter-selection-state.ty
 
 declare const L: typeof import('leaflet')
 
-const { parameterSelection } = defineProps<{ parameterSelection: ParameterSelectionState["selection"] }>()
-const selectedStations = useState<Station[]>(() => [])
+const props = defineProps<{
+  parameterSelection: ParameterSelectionState["selection"]
+  initialStationIds?: string[]
+}>()
+const selectedStations = ref<Station[]>([])
 
 const emit = defineEmits(['update:modelValue'])
 
@@ -22,17 +25,20 @@ watch(selectedStations, () => {
   })
 })
 
+// Track whether we've already restored initial stations
+const hasRestoredInitialStations = ref(false)
+
 const {data: stationsData, pending: stationsPending, refresh: refreshStations} = useFetch<{
   stations: Station[]
 }>(
     '/api/stations',
     {
-      query: {
-        provider: parameterSelection.provider,
-        network: parameterSelection.network,
-        parameters: `${parameterSelection.resolution}/${parameterSelection.dataset}`,
+      query: computed(() => ({
+        provider: props.parameterSelection.provider,
+        network: props.parameterSelection.network,
+        parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
         all: 'true'
-      },
+      })),
       immediate: false,
       default: () => ({stations: []})
     }
@@ -40,15 +46,35 @@ const {data: stationsData, pending: stationsPending, refresh: refreshStations} =
 
 const allStations = computed(() => stationsData.value?.stations ?? [])
 
-watch(() => parameterSelection, (ps) => {
+// Restore initial stations when stations data is loaded
+watch(allStations, (stations) => {
+  if (hasRestoredInitialStations.value) return
+  if (!stations.length) return
+  if (!props.initialStationIds?.length) return
+
+  // Find stations matching the initial IDs
+  const restoredStations = props.initialStationIds
+    .map(id => stations.find(s => s.station_id === id))
+    .filter((s): s is Station => s !== undefined)
+    .sort((a, b) => a.station_id.localeCompare(b.station_id))
+
+  if (restoredStations.length > 0) {
+    selectedStations.value = restoredStations
+  }
+  hasRestoredInitialStations.value = true
+})
+
+watch(() => props.parameterSelection, (ps) => {
   if (!ps.parameters?.length) {
     // No parameters selected, clear stations data
     stationsData.value = {stations: []}
     selectedStations.value = []
     return
   }
-  // Clear selected stations when parameters change
-  selectedStations.value = []
+  // Clear selected stations when parameters change (but not on initial load)
+  if (hasRestoredInitialStations.value) {
+    selectedStations.value = []
+  }
   // Refresh stations data
   refreshStations()
 }, {deep: true, immediate: true})

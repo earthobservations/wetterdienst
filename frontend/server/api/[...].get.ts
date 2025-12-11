@@ -1,6 +1,7 @@
 export default defineEventHandler(async (event) => {
     const {public: {apiBase}} = useRuntimeConfig()
-    const path = event.path.replace(/^\/api/, '') || '/'
+    const fullPath = event.path.replace(/^\/api/, '') || '/'
+    const path = fullPath.split('?')[0]
     const query = getQuery(event) || {}
 
     // build URL search string (handles arrays)
@@ -16,6 +17,27 @@ export default defineEventHandler(async (event) => {
 
     const queryString = params.toString()
     const url = `${apiBase}${path}${queryString ? '?' + queryString : ''}`
+    const format = query.format as string | undefined
+
+    // For image/binary formats, fetch raw response and preserve content-type
+    if (format === 'png' || format === 'svg') {
+        try {
+            const response = await fetch(url, { method: 'GET' })
+
+            if (format === 'png') {
+                setResponseHeader(event, 'content-type', 'image/png')
+                const arrayBuffer = await response.arrayBuffer()
+                return send(event, new Uint8Array(arrayBuffer), 'image/png')
+            }
+
+            // SVG
+            const svgText = await response.text()
+            return send(event, svgText, 'image/svg+xml')
+        } catch (error: any) {
+            setResponseStatus(event, 500)
+            return { detail: error?.message || 'An error occurred' }
+        }
+    }
 
     try {
         return await $fetch(url, {method: 'GET'})
