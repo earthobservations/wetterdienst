@@ -43,7 +43,25 @@ const items = computed<NavigationMenuItem[]>(() =>
       </template>
       <UNavigationMenu :items="items" />
       <template #right>
-        <ColorModeSelect />
+        <div class="flex items-center gap-1">
+          <UButton
+            to="https://wetterdienst.readthedocs.io/"
+            target="_blank"
+            icon="i-lucide-book-open"
+            color="neutral"
+            variant="ghost"
+            aria-label="Documentation"
+          />
+          <UButton
+            to="https://github.com/earthobservations/wetterdienst"
+            target="_blank"
+            icon="i-lucide-github"
+            color="neutral"
+            variant="ghost"
+            aria-label="GitHub"
+          />
+          <ColorModeSelect />
+        </div>
       </template>
     </UHeader>
     <UMain>

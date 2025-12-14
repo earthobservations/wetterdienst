@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import type { Resolution } from '~/types/parameter-selection-state.type'
 import type { DateRange } from '~/types/station-selection-state.type'
 
 const props = defineProps<{
   required: boolean
-  resolution?: string
+  resolution?: Resolution
   stationCount?: number
   parameterCount?: number
 }>()
@@ -11,7 +12,7 @@ const props = defineProps<{
 const modelValue = defineModel<DateRange>({ required: true })
 
 // High resolution thresholds (resolutions that require date filtering)
-const HIGH_RESOLUTION_THRESHOLDS = ['1_minute', '5_minute', '10_minute'] as const
+const HIGH_RESOLUTION_THRESHOLDS: Resolution[] = ['1_minute', '5_minutes', '10_minutes']
 
 const isHighResolution = computed(() => {
   if (!props.resolution)
@@ -39,10 +40,10 @@ const estimatedValues = computed(() => {
     return null
 
   // Values per day based on resolution
-  const valuesPerDay: Record<string, number> = {
+  const valuesPerDay: Partial<Record<Resolution, number>> = {
     '1_minute': 1440,
-    '5_minute': 288,
-    '10_minute': 144,
+    '5_minutes': 288,
+    '10_minutes': 144,
     'hourly': 24,
     'daily': 1,
     'monthly': 1 / 30,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
+import type { ParameterSelectionState, Resolution } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
 import DataViewer from '~/components/DataViewer.vue'
 import DateRangeSelector from '~/components/DateRangeSelector.vue'
@@ -27,7 +27,7 @@ function fromQuery(q: Record<string, any>): ParameterSelectionState {
     selection: {
       provider: q.provider?.toString(),
       network: q.network?.toString(),
-      resolution: q.resolution?.toString(),
+      resolution: q.resolution?.toString() as Resolution | undefined,
       dataset: q.dataset?.toString(),
       parameters: q.parameters
         ? q.parameters.toString().split(',').filter(Boolean)
@@ -133,7 +133,7 @@ const showModeSelection = computed(() => {
 })
 
 // High resolution thresholds that require date filtering
-const HIGH_RESOLUTION_THRESHOLDS = ['1_minute', '5_minutes', '10_minutes'] as const
+const HIGH_RESOLUTION_THRESHOLDS: Resolution[] = ['1_minute', '5_minutes', '10_minutes']
 
 const isHighResolution = computed(() => {
   const resolution = parameterSelectionState.value.selection.resolution
@@ -187,13 +187,13 @@ const isDateRangeValid = computed(() => {
     const diffDays = diffMs / (1000 * 60 * 60 * 24)
     const resolution = parameterSelectionState.value.selection.resolution
 
-    const valuesPerDay: Record<string, number> = {
+    const valuesPerDay: Partial<Record<Resolution, number>> = {
       '1_minute': 1440,
-      '5_minute': 288,
-      '10_minute': 144,
+      '5_minutes': 288,
+      '10_minutes': 144,
     }
 
-    const perDay = valuesPerDay[resolution ?? ''] ?? 1
+    const perDay = resolution ? (valuesPerDay[resolution] ?? 1) : 1
     const stationCount = stationSelectionState.value.mode === 'station'
       ? stationSelectionState.value.selection.stations.length
       : 1

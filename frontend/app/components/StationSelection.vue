@@ -16,8 +16,8 @@ const map = ref(null) as any
 let markerClusterGroup: any = null
 const markersMap: Map<string, any> = new Map() // station_id -> marker
 
-const showMap = useState<boolean>('showMap', () => true)
-const centerOnSelectedStations = useState<boolean>('centerOnSelectedStations', () => false)
+const showMap = ref(true)
+const centerOnSelectedStations = ref(false)
 
 watch(selectedStations, () => {
   emit('update:modelValue', {

@@ -5,6 +5,11 @@ const features = [
   { icon: 'i-lucide-download', title: 'Flexible Export', description: 'Export data in CSV, JSON, or GeoJSON formats.' },
   { icon: 'i-lucide-line-chart', title: 'Data Analysis', description: 'Interpolation, summarization, and climate stripes visualization.' },
 ]
+
+const authors = [
+  { name: 'Benjamin Gutzmann', email: 'gutzemann@gmail.com', github: 'gutzbenj' },
+  { name: 'Andreas Motl', email: 'andreas.motl@panodata.org', github: 'amotl' },
+]
 </script>
 
 <template>
@@ -72,6 +77,42 @@ const features = [
         <li>Browse and select <strong>Stations</strong> from the map or list</li>
         <li>View and download the <strong>Values</strong></li>
       </ol>
+    </UCard>
+
+    <UCard class="mb-8">
+      <template #header>
+        <h2 class="text-lg font-semibold">
+          Authors
+        </h2>
+      </template>
+      <div class="flex flex-wrap gap-8 justify-center">
+        <div
+          v-for="author in authors"
+          :key="author.github"
+          class="flex flex-col items-center gap-2"
+        >
+          <a
+            :href="`https://github.com/${author.github}`"
+            target="_blank"
+            class="group flex flex-col items-center gap-2"
+          >
+            <img
+              :src="`https://github.com/${author.github}.png`"
+              :alt="author.name"
+              class="w-16 h-16 rounded-full ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-primary-500 transition-all"
+            >
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-primary-500 transition-colors">
+              {{ author.name }}
+            </span>
+          </a>
+          <a
+            :href="`mailto:${author.email}`"
+            class="text-xs text-gray-500 dark:text-gray-500 hover:text-primary-500 transition-colors"
+          >
+            {{ author.email }}
+          </a>
+        </div>
+      </div>
     </UCard>
 
     <UCard>
