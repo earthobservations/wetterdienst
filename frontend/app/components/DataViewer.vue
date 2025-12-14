@@ -4,11 +4,40 @@ import type { ParameterSelectionState } from '~/types/parameter-selection-state.
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import type { Value } from '~/types/value.type'
 import { h } from 'vue'
+import { Line } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale,
+} from 'chart.js'
+import 'chartjs-adapter-date-fns'
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale,
+)
 
 const { parameterSelection, stationSelection } = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
   stationSelection: StationSelectionState
 }>()
+
+// View mode toggle
+type ViewMode = 'table' | 'graph'
+const viewMode = ref<ViewMode>('table')
 
 const isInterpolationMode = computed(() => stationSelection.mode === 'interpolation')
 const isSummaryMode = computed(() => stationSelection.mode === 'summary')
@@ -296,18 +325,139 @@ watch(
   },
   { deep: true, immediate: true },
 )
+
+// Chart.js data preparation
+const chartColors = [
+  '#3b82f6',
+  '#22c55e',
+  '#f59e0b',
+  '#ef4444',
+  '#8b5cf6',
+  '#06b6d4',
+  '#ec4899',
+  '#84cc16',
+  '#f97316',
+  '#6366f1',
+]
+
+const chartData = computed(() => {
+  if (!allValues.value.length)
+    return { datasets: [] as { label: string, data: { x: number, y: number }[], borderColor: string, backgroundColor: string, tension: number, pointRadius: number }[] }
+
+  // Group values by series (station + parameter combination)
+  const seriesMap = new Map<string, { x: number[], y: number[] }>()
+
+  for (const value of sortedValues.value) {
+    const seriesKey = stationSelection.mode === 'station'
+      ? `${value.station_id}_${value.parameter}`
+      : value.parameter
+
+    if (!seriesMap.has(seriesKey)) {
+      seriesMap.set(seriesKey, { x: [], y: [] })
+    }
+
+    const series = seriesMap.get(seriesKey)!
+    if (value.value !== null && value.value !== undefined) {
+      series.x.push(new Date(value.date).getTime())
+      series.y.push(value.value)
+    }
+  }
+
+  // Convert to Chart.js datasets
+  const datasets: {
+    label: string
+    data: { x: number, y: number }[]
+    borderColor: string
+    backgroundColor: string
+    tension: number
+    pointRadius: number
+  }[] = []
+  let colorIndex = 0
+
+  for (const [seriesKey, data] of seriesMap) {
+    const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
+    datasets.push({
+      label: seriesKey.replace('_', ' - '),
+      data: data.x.map((x, i) => ({ x, y: data.y[i]! })),
+      borderColor: color,
+      backgroundColor: color,
+      tension: 0.1,
+      pointRadius: 2,
+    })
+    colorIndex++
+  }
+
+  return { datasets }
+})
+
+const chartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: {
+    mode: 'index' as const,
+    intersect: false,
+  },
+  plugins: {
+    legend: {
+      position: 'bottom' as const,
+    },
+    tooltip: {
+      enabled: true,
+    },
+  },
+  scales: {
+    x: {
+      type: 'time' as const,
+      time: {
+        displayFormats: {
+          hour: 'MMM d, HH:mm',
+          day: 'MMM d',
+          month: 'MMM yyyy',
+        },
+      },
+      title: {
+        display: true,
+        text: 'Date',
+      },
+    },
+    y: {
+      title: {
+        display: true,
+        text: 'Value',
+      },
+    },
+  },
+}))
 </script>
 
 <template>
   <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
     <template #header>
       <div class="flex items-center justify-between">
-        <span class="text-sm text-gray-500">
-          <template v-if="valuesPending">Loading values...</template>
-          <template v-else>{{ allValues.length }} total values</template>
-        </span>
         <div class="flex items-center gap-4">
-          <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-500">
+            <template v-if="valuesPending">Loading values...</template>
+            <template v-else>{{ allValues.length }} total values</template>
+          </span>
+          <div class="flex items-center gap-1">
+            <UButton
+              icon="i-lucide-table"
+              size="xs"
+              :variant="viewMode === 'table' ? 'solid' : 'ghost'"
+              color="neutral"
+              @click="viewMode = 'table'"
+            />
+            <UButton
+              icon="i-lucide-chart-line"
+              size="xs"
+              :variant="viewMode === 'graph' ? 'solid' : 'ghost'"
+              color="neutral"
+              @click="viewMode = 'graph'"
+            />
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div v-if="viewMode === 'table'" class="flex items-center gap-2">
             <span class="text-sm">Columns:</span>
             <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40" />
           </div>
@@ -328,8 +478,18 @@ watch(
     <div v-if="valuesPending" class="flex items-center justify-center py-12">
       <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
     </div>
-    <UTable v-else :data="paginatedValues" :columns="columns" sticky :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }" />
-    <template #footer>
+    <template v-else>
+      <UTable v-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }" />
+      <div v-else class="py-4">
+        <div v-if="chartData.datasets.length === 0" class="flex items-center justify-center py-12 text-gray-500">
+          No data available for chart
+        </div>
+        <div v-else class="w-full" style="height: 400px;">
+          <Line :data="chartData" :options="chartOptions" />
+        </div>
+      </div>
+    </template>
+    <template v-if="viewMode === 'table'" #footer>
       <div class="flex items-center justify-center gap-4">
         <div class="flex items-center gap-2">
           <span class="text-sm">Rows per page:</span>

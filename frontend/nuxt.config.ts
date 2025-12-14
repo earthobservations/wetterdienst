@@ -34,7 +34,7 @@ export default defineNuxtConfig({
       tailwindcss(),
     ],
     optimizeDeps: {
-      include: ['leaflet', 'leaflet.markercluster'],
+      include: ['leaflet', 'leaflet.markercluster', 'chart.js', 'vue-chartjs'],
     },
   },
   runtimeConfig: {
