@@ -2,7 +2,7 @@
 name = "wetterdienst"
 version = "0.116.0"
 authors = [
-  { name = "Benjamin Gutzmann", email = "gutzemann@gmail.com" },
+  { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
   { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
 ]
 description = "Open weather data for humans"
