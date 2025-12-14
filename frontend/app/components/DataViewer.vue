@@ -4,31 +4,26 @@ import type { ParameterSelectionState } from '~/types/parameter-selection-state.
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import type { Value } from '~/types/value.type'
 import { h } from 'vue'
-import { Line } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  TimeScale,
-} from 'chart.js'
-import 'chartjs-adapter-date-fns'
+import type { LineSeriesOption } from 'echarts/charts'
+import type { ComposeOption } from 'echarts/core'
+import type {
+  TitleComponentOption,
+  TooltipComponentOption,
+  LegendComponentOption,
+  GridComponentOption,
+  DataZoomComponentOption,
+  ToolboxComponentOption,
+} from 'echarts/components'
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  TimeScale,
-)
+type ChartOption = ComposeOption<
+  | LineSeriesOption
+  | TitleComponentOption
+  | TooltipComponentOption
+  | LegendComponentOption
+  | GridComponentOption
+  | DataZoomComponentOption
+  | ToolboxComponentOption
+>
 
 const { parameterSelection, stationSelection } = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
@@ -38,6 +33,46 @@ const { parameterSelection, stationSelection } = defineProps<{
 // View mode toggle
 type ViewMode = 'table' | 'graph'
 const viewMode = ref<ViewMode>('table')
+
+// Chart ref for image export
+const chartRef = ref<{ getDataURL: (opts: { type: string, pixelRatio: number, backgroundColor: string }) => string } | null>(null)
+
+// Chart display options
+const showDatasetPrefix = ref(false)
+const facetByParameter = ref(false)
+
+// Trendline options
+type TrendlineType = 'none' | 'linear' | 'moving-average'
+const trendlineType = ref<TrendlineType>('none')
+const trendlineOptions = [
+  { label: 'None', value: 'none' },
+  { label: 'Linear', value: 'linear' },
+  { label: 'Moving Average', value: 'moving-average' },
+]
+const movingAverageWindow = ref(5)
+
+// Performance options
+const enableAnimation = ref(false)
+const enableSampling = ref(true)
+type SamplingType = 'lttb' | 'average' | 'max' | 'min' | 'sum'
+const samplingType = ref<SamplingType>('lttb')
+const samplingOptions = [
+  { label: 'LTTB (best visual)', value: 'lttb' },
+  { label: 'Average', value: 'average' },
+  { label: 'Max', value: 'max' },
+  { label: 'Min', value: 'min' },
+  { label: 'Sum', value: 'sum' },
+]
+
+// Large data threshold - when to enable optimizations
+const LARGE_DATA_THRESHOLD = 1000
+
+// Data settings (API options)
+const humanize = ref(true)
+const convertUnits = ref(true)
+
+// Parameter filter (initialized after allValues is defined)
+const selectedParameters = ref<string[]>([])
 
 const isInterpolationMode = computed(() => stationSelection.mode === 'interpolation')
 const isSummaryMode = computed(() => stationSelection.mode === 'summary')
@@ -51,10 +86,12 @@ const apiEndpoint = computed(() => {
 })
 
 const apiQuery = computed(() => {
-  const base: Record<string, string | number | undefined> = {
+  const base: Record<string, string | number | boolean | undefined> = {
     provider: parameterSelection.provider,
     network: parameterSelection.network,
     parameters: parameterSelection.parameters.map(parameter => `${parameterSelection.resolution}/${parameterSelection.dataset}/${parameter}`).join(','),
+    humanize: humanize.value,
+    convert_units: convertUnits.value,
   }
 
   // Add date range if provided
@@ -162,6 +199,29 @@ const sortedValues = computed(() => {
 
     return sortDirection.value === 'asc' ? comparison : -comparison
   })
+})
+
+// Parameter filter computeds (must be after allValues and sortedValues)
+const availableParameters = computed(() => {
+  const params = new Set<string>()
+  for (const value of allValues.value) {
+    params.add(value.parameter)
+  }
+  return Array.from(params).sort()
+})
+
+// Initialize selected parameters when data loads
+watch(availableParameters, (params) => {
+  if (params.length > 0 && selectedParameters.value.length === 0) {
+    selectedParameters.value = [...params]
+  }
+}, { immediate: true })
+
+// Filtered values based on selected parameters
+const filteredValues = computed(() => {
+  if (selectedParameters.value.length === 0)
+    return sortedValues.value
+  return sortedValues.value.filter(v => selectedParameters.value.includes(v.parameter))
 })
 
 const columnOptions = columnDefinitions.map(c => c.key)
@@ -292,13 +352,45 @@ async function downloadValues(format: string, extension: string) {
   toast.add({ title: 'Downloaded', description: `Values downloaded as ${format.toUpperCase()}`, color: 'success' })
 }
 
-const downloadMenuItems = computed(() => [
-  [
-    { label: 'CSV', onSelect: () => downloadValues('csv', 'csv') },
-    { label: 'JSON', onSelect: () => downloadValues('json', 'json') },
-    { label: 'GeoJSON', onSelect: () => downloadValues('geojson', 'geojson') },
-  ],
-])
+function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
+  const chart = chartRef.value
+  if (!chart)
+    return
+
+  const dataUrl = chart.getDataURL({
+    type: format === 'jpeg' ? 'jpeg' : 'png',
+    pixelRatio: 2,
+    backgroundColor: '#fff',
+  })
+
+  const link = document.createElement('a')
+  link.href = dataUrl
+  link.download = `chart.${format}`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  toast.add({ title: 'Downloaded', description: `Chart downloaded as ${format.toUpperCase()}`, color: 'success' })
+}
+
+const downloadMenuItems = computed(() => {
+  if (viewMode.value === 'graph') {
+    return [
+      [
+        { label: 'PNG', onSelect: () => downloadChartImage('png') },
+        { label: 'JPEG', onSelect: () => downloadChartImage('jpeg') },
+        { label: 'SVG', onSelect: () => downloadChartImage('svg') },
+      ],
+    ]
+  }
+  return [
+    [
+      { label: 'CSV', onSelect: () => downloadValues('csv', 'csv') },
+      { label: 'JSON', onSelect: () => downloadValues('json', 'json') },
+      { label: 'GeoJSON', onSelect: () => downloadValues('geojson', 'geojson') },
+    ],
+  ]
+})
 
 const canFetchData = computed(() => {
   if (!parameterSelection.parameters.length)
@@ -326,7 +418,7 @@ watch(
   { deep: true, immediate: true },
 )
 
-// Chart.js data preparation
+// ECharts data preparation
 const chartColors = [
   '#3b82f6',
   '#22c55e',
@@ -340,163 +432,593 @@ const chartColors = [
   '#6366f1',
 ]
 
-const chartData = computed(() => {
-  if (!allValues.value.length)
-    return { datasets: [] as { label: string, data: { x: number, y: number }[], borderColor: string, backgroundColor: string, tension: number, pointRadius: number }[] }
+// Linear regression calculation
+function calculateLinearRegression(data: [number, number][]): [number, number][] {
+  if (data.length < 2)
+    return []
+
+  const n = data.length
+  let sumX = 0
+  let sumY = 0
+  let sumXY = 0
+  let sumXX = 0
+
+  for (const [x, y] of data) {
+    sumX += x
+    sumY += y
+    sumXY += x * y
+    sumXX += x * x
+  }
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
+  const intercept = (sumY - slope * sumX) / n
+
+  const minX = Math.min(...data.map(d => d[0]))
+  const maxX = Math.max(...data.map(d => d[0]))
+
+  return [
+    [minX, slope * minX + intercept],
+    [maxX, slope * maxX + intercept],
+  ]
+}
+
+// Moving average calculation
+function calculateMovingAverage(data: [number, number][], windowSize: number): [number, number][] {
+  if (data.length < windowSize)
+    return []
+
+  const sorted = [...data].sort((a, b) => a[0] - b[0])
+  const result: [number, number][] = []
+
+  for (let i = windowSize - 1; i < sorted.length; i++) {
+    let sum = 0
+    for (let j = 0; j < windowSize; j++) {
+      sum += sorted[i - j]![1]
+    }
+    result.push([sorted[i]![0], sum / windowSize])
+  }
+
+  return result
+}
+
+// Helper to adjust color opacity
+function hexToRgba(hex: string, alpha: number): string {
+  const r = Number.parseInt(hex.slice(1, 3), 16)
+  const g = Number.parseInt(hex.slice(3, 5), 16)
+  const b = Number.parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+// ECharts options for single chart
+const chartOptions = computed((): ChartOption => {
+  if (!filteredValues.value.length)
+    return {}
 
   // Group values by series (station + parameter combination)
-  const seriesMap = new Map<string, { x: number[], y: number[] }>()
+  const seriesMap = new Map<string, [number, number][]>()
 
-  for (const value of sortedValues.value) {
-    const seriesKey = stationSelection.mode === 'station'
-      ? `${value.station_id}_${value.parameter}`
+  for (const value of filteredValues.value) {
+    const parameterLabel = showDatasetPrefix.value
+      ? `${value.dataset}/${value.parameter}`
       : value.parameter
+    const seriesKey = stationSelection.mode === 'station'
+      ? `${value.station_id} - ${parameterLabel}`
+      : parameterLabel
 
     if (!seriesMap.has(seriesKey)) {
-      seriesMap.set(seriesKey, { x: [], y: [] })
+      seriesMap.set(seriesKey, [])
     }
 
-    const series = seriesMap.get(seriesKey)!
     if (value.value !== null && value.value !== undefined) {
-      series.x.push(new Date(value.date).getTime())
-      series.y.push(value.value)
+      seriesMap.get(seriesKey)!.push([new Date(value.date).getTime(), value.value])
     }
   }
 
-  // Convert to Chart.js datasets
-  const datasets: {
-    label: string
-    data: { x: number, y: number }[]
-    borderColor: string
-    backgroundColor: string
-    tension: number
-    pointRadius: number
-  }[] = []
+  // Convert to ECharts series
+  const series: LineSeriesOption[] = []
   let colorIndex = 0
 
   for (const [seriesKey, data] of seriesMap) {
     const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
-    datasets.push({
-      label: seriesKey.replace('_', ' - '),
-      data: data.x.map((x, i) => ({ x, y: data.y[i]! })),
-      borderColor: color,
-      backgroundColor: color,
-      tension: 0.1,
-      pointRadius: 2,
+
+    // Sort data by time
+    const sortedData = [...data].sort((a, b) => a[0] - b[0])
+
+    // Performance optimizations for large datasets
+    const seriesIsLarge = sortedData.length > LARGE_DATA_THRESHOLD
+
+    // Main data series
+    series.push({
+      name: seriesKey,
+      type: 'line',
+      data: sortedData,
+      // Disable smooth for large datasets (CPU intensive)
+      smooth: !seriesIsLarge,
+      // Hide symbols for large datasets
+      symbol: seriesIsLarge ? 'none' : 'circle',
+      symbolSize: 8,
+      // Enable sampling for large datasets
+      sampling: enableSampling.value ? samplingType.value : undefined,
+      itemStyle: {
+        color,
+      },
+      lineStyle: {
+        color,
+        width: seriesIsLarge ? 1 : 2,
+      },
     })
+
+    // Add trendline if enabled
+    if (trendlineType.value === 'linear' && sortedData.length >= 2) {
+      const trendData = calculateLinearRegression(sortedData)
+      series.push({
+        name: `${seriesKey} (trend)`,
+        type: 'line',
+        data: trendData,
+        smooth: false,
+        symbol: 'none',
+        lineStyle: {
+          color: hexToRgba(color, 0.5),
+          width: 2,
+          type: 'dashed',
+        },
+      })
+    }
+    else if (trendlineType.value === 'moving-average' && sortedData.length >= movingAverageWindow.value) {
+      const maData = calculateMovingAverage(sortedData, movingAverageWindow.value)
+      series.push({
+        name: `${seriesKey} (MA${movingAverageWindow.value})`,
+        type: 'line',
+        data: maData,
+        smooth: !seriesIsLarge,
+        symbol: 'none',
+        sampling: enableSampling.value ? samplingType.value : undefined,
+        lineStyle: {
+          color: hexToRgba(color, 0.7),
+          width: 2,
+          type: 'dotted',
+        },
+      })
+    }
+
     colorIndex++
   }
 
-  return { datasets }
+  return {
+    // Disable animation for better performance
+    animation: enableAnimation.value,
+    animationThreshold: LARGE_DATA_THRESHOLD,
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross',
+      },
+      // Limit tooltip items for large datasets
+      confine: true,
+    },
+    legend: {
+      type: 'scroll',
+      bottom: 0,
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      containLabel: true,
+    },
+    toolbox: {
+      feature: {
+        dataZoom: {
+          yAxisIndex: 'none',
+        },
+        restore: {},
+      },
+    },
+    dataZoom: [
+      {
+        type: 'inside',
+        start: 0,
+        end: 100,
+        // Throttle for performance
+        throttle: 100,
+      },
+      {
+        start: 0,
+        end: 100,
+        throttle: 100,
+      },
+    ],
+    xAxis: {
+      type: 'time',
+      name: 'Date',
+      nameLocation: 'middle',
+      nameGap: 30,
+    },
+    yAxis: {
+      type: 'value',
+      name: 'Value',
+      nameLocation: 'middle',
+      nameGap: 50,
+    },
+    series,
+  }
 })
 
-const chartOptions = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: {
-    mode: 'index' as const,
-    intersect: false,
-  },
-  plugins: {
-    legend: {
-      position: 'bottom' as const,
-    },
-    tooltip: {
-      enabled: true,
-    },
-  },
-  scales: {
-    x: {
-      type: 'time' as const,
-      time: {
-        displayFormats: {
-          hour: 'MMM d, HH:mm',
-          day: 'MMM d',
-          month: 'MMM yyyy',
+// Check if chart has data
+const hasChartData = computed(() => {
+  const options = chartOptions.value
+  return options.series && Array.isArray(options.series) && options.series.length > 0
+})
+
+// For faceted charts - group data by parameter
+const facetedChartOptions = computed((): { parameter: string, options: ChartOption }[] => {
+  if (!facetByParameter.value || !filteredValues.value.length)
+    return []
+
+  const parameterGroups = new Map<string, Map<string, [number, number][]>>()
+
+  for (const value of filteredValues.value) {
+    const param = value.parameter
+    if (!parameterGroups.has(param)) {
+      parameterGroups.set(param, new Map())
+    }
+
+    const stationKey = stationSelection.mode === 'station' ? value.station_id : 'interpolated'
+    const stationMap = parameterGroups.get(param)!
+
+    if (!stationMap.has(stationKey)) {
+      stationMap.set(stationKey, [])
+    }
+
+    if (value.value !== null && value.value !== undefined) {
+      stationMap.get(stationKey)!.push([new Date(value.date).getTime(), value.value])
+    }
+  }
+
+  const result: { parameter: string, options: ChartOption }[] = []
+
+  for (const [parameter, stationMap] of parameterGroups) {
+    const series: LineSeriesOption[] = []
+    let colorIndex = 0
+
+    for (const [stationKey, data] of stationMap) {
+      const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
+      const sortedData = [...data].sort((a, b) => a[0] - b[0])
+
+      // Performance optimizations for large datasets
+      const seriesIsLarge = sortedData.length > LARGE_DATA_THRESHOLD
+
+      series.push({
+        name: stationKey,
+        type: 'line',
+        data: sortedData,
+        smooth: !seriesIsLarge,
+        symbol: seriesIsLarge ? 'none' : 'circle',
+        symbolSize: 8,
+        sampling: enableSampling.value ? samplingType.value : undefined,
+        itemStyle: {
+          color,
         },
+        lineStyle: {
+          color,
+          width: seriesIsLarge ? 1 : 2,
+        },
+      })
+
+      // Add trendline if enabled
+      if (trendlineType.value === 'linear' && sortedData.length >= 2) {
+        const trendData = calculateLinearRegression(sortedData)
+        series.push({
+          name: `${stationKey} (trend)`,
+          type: 'line',
+          data: trendData,
+          smooth: false,
+          symbol: 'none',
+          lineStyle: {
+            color: hexToRgba(color, 0.5),
+            width: 2,
+            type: 'dashed',
+          },
+        })
+      }
+      else if (trendlineType.value === 'moving-average' && sortedData.length >= movingAverageWindow.value) {
+        const maData = calculateMovingAverage(sortedData, movingAverageWindow.value)
+        series.push({
+          name: `${stationKey} (MA${movingAverageWindow.value})`,
+          type: 'line',
+          data: maData,
+          smooth: !seriesIsLarge,
+          symbol: 'none',
+          sampling: enableSampling.value ? samplingType.value : undefined,
+          lineStyle: {
+            color: hexToRgba(color, 0.7),
+            width: 2,
+            type: 'dotted',
+          },
+        })
+      }
+
+      colorIndex++
+    }
+
+    result.push({
+      parameter,
+      options: {
+        animation: enableAnimation.value,
+        animationThreshold: LARGE_DATA_THRESHOLD,
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: {
+            type: 'cross',
+          },
+          confine: true,
+        },
+        legend: {
+          type: 'scroll',
+          bottom: 0,
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '15%',
+          containLabel: true,
+        },
+        dataZoom: [
+          {
+            type: 'inside',
+            start: 0,
+            end: 100,
+            throttle: 100,
+          },
+        ],
+        xAxis: {
+          type: 'time',
+          name: 'Date',
+          nameLocation: 'middle',
+          nameGap: 30,
+        },
+        yAxis: {
+          type: 'value',
+          name: parameter,
+          nameLocation: 'middle',
+          nameGap: 50,
+        },
+        series,
       },
-      title: {
-        display: true,
-        text: 'Date',
-      },
-    },
-    y: {
-      title: {
-        display: true,
-        text: 'Value',
-      },
-    },
-  },
-}))
+    })
+  }
+
+  return result
+})
+
+// Parameter statistics
+interface ParameterStats {
+  parameter: string
+  dataset: string
+  count: number
+  min: number | null
+  max: number | null
+  mean: number | null
+  sum: number | null
+}
+
+const parameterStats = computed((): ParameterStats[] => {
+  if (!allValues.value.length)
+    return []
+
+  const statsMap = new Map<string, { values: number[], dataset: string }>()
+
+  for (const value of allValues.value) {
+    const key = `${value.dataset}/${value.parameter}`
+    if (!statsMap.has(key)) {
+      statsMap.set(key, { values: [], dataset: value.dataset })
+    }
+    if (value.value !== null && value.value !== undefined) {
+      statsMap.get(key)!.values.push(value.value)
+    }
+  }
+
+  const stats: ParameterStats[] = []
+  for (const [key, data] of statsMap) {
+    const parameter = key.split('/').slice(1).join('/')
+    const { values, dataset } = data
+    const count = values.length
+
+    if (count === 0) {
+      stats.push({ parameter, dataset, count, min: null, max: null, mean: null, sum: null })
+    }
+    else {
+      const min = Math.min(...values)
+      const max = Math.max(...values)
+      const sum = values.reduce((a, b) => a + b, 0)
+      const mean = sum / count
+      stats.push({ parameter, dataset, count, min, max, mean, sum })
+    }
+  }
+
+  return stats.sort((a, b) => `${a.dataset}/${a.parameter}`.localeCompare(`${b.dataset}/${b.parameter}`))
+})
+
+const statsTableColumns: TableColumn<ParameterStats>[] = [
+  { accessorKey: 'dataset', header: 'Dataset' },
+  { accessorKey: 'parameter', header: 'Parameter' },
+  { accessorKey: 'count', header: 'Count' },
+  { accessorKey: 'min', header: 'Min', cell: ({ row }) => row.original.min?.toFixed(2) ?? '-' },
+  { accessorKey: 'max', header: 'Max', cell: ({ row }) => row.original.max?.toFixed(2) ?? '-' },
+  { accessorKey: 'mean', header: 'Mean', cell: ({ row }) => row.original.mean?.toFixed(2) ?? '-' },
+  { accessorKey: 'sum', header: 'Sum', cell: ({ row }) => row.original.sum?.toFixed(2) ?? '-' },
+]
+
+// Expose stats for parent component
+defineExpose({
+  parameterStats,
+  statsTableColumns,
+})
 </script>
 
 <template>
-  <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
-    <template #header>
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-500">
-            <template v-if="valuesPending">Loading values...</template>
-            <template v-else>{{ allValues.length }} total values</template>
-          </span>
-          <div class="flex items-center gap-1">
-            <UButton
-              icon="i-lucide-table"
-              size="xs"
-              :variant="viewMode === 'table' ? 'solid' : 'ghost'"
-              color="neutral"
-              @click="viewMode = 'table'"
-            />
-            <UButton
-              icon="i-lucide-chart-line"
-              size="xs"
-              :variant="viewMode === 'graph' ? 'solid' : 'ghost'"
-              color="neutral"
-              @click="viewMode = 'graph'"
-            />
-          </div>
+  <div class="space-y-4">
+    <!-- Data Options (applies to both table and graph) -->
+    <div class="flex justify-center gap-4">
+      <UCheckbox v-model="humanize" label="Humanize parameters" />
+      <UCheckbox v-model="convertUnits" label="Convert to SI units" />
+    </div>
+
+    <!-- View mode toggle -->
+    <div class="flex justify-center">
+      <div class="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+        <UButton
+          icon="i-lucide-table"
+          size="md"
+          :variant="viewMode === 'table' ? 'solid' : 'ghost'"
+          :color="viewMode === 'table' ? 'primary' : 'neutral'"
+          @click="viewMode = 'table'"
+        />
+        <UButton
+          icon="i-lucide-chart-line"
+          size="md"
+          :variant="viewMode === 'graph' ? 'solid' : 'ghost'"
+          :color="viewMode === 'graph' ? 'primary' : 'neutral'"
+          @click="viewMode = 'graph'"
+        />
+      </div>
+    </div>
+
+    <!-- Options bar -->
+    <div class="flex items-center justify-between">
+      <span class="text-sm text-gray-500">
+        <template v-if="valuesPending">Loading values...</template>
+        <template v-else>{{ filteredValues.length }} / {{ allValues.length }} values</template>
+      </span>
+      <div class="flex items-center gap-4">
+        <div v-if="viewMode === 'table'" class="flex items-center gap-2">
+          <span class="text-sm">Columns:</span>
+          <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40" />
         </div>
-        <div class="flex items-center gap-4">
-          <div v-if="viewMode === 'table'" class="flex items-center gap-2">
-            <span class="text-sm">Columns:</span>
-            <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40" />
-          </div>
-          <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1">
+          <template v-if="viewMode === 'table'">
             <UTooltip text="Copy current page">
               <UButton size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending" @click="copyCurrentPage" />
             </UTooltip>
             <UTooltip text="Copy all values">
               <UButton size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending" @click="copyAllValues" />
             </UTooltip>
-            <UDropdownMenu :items="downloadMenuItems">
-              <UButton size="xs" variant="ghost" icon="i-lucide-download" :disabled="valuesPending" />
-            </UDropdownMenu>
+          </template>
+          <UDropdownMenu :items="downloadMenuItems">
+            <UButton size="xs" variant="ghost" icon="i-lucide-download" :disabled="valuesPending" />
+          </UDropdownMenu>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart Settings (only in graph mode) -->
+    <UCollapsible v-if="viewMode === 'graph'" :default-open="true">
+      <UButton
+        label="Chart Settings"
+        variant="subtle"
+        color="neutral"
+        trailing-icon="i-lucide-chevron-down"
+        block
+        size="sm"
+      />
+      <template #content>
+        <div class="pt-4 space-y-4">
+          <!-- Parameter Filter -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-medium">Parameters:</span>
+            <USelectMenu
+              v-model="selectedParameters"
+              :items="availableParameters"
+              multiple
+              class="min-w-40"
+              placeholder="Select parameters"
+            />
+            <UButton size="xs" variant="ghost" @click="selectedParameters = [...availableParameters]">
+              All
+            </UButton>
+            <UButton size="xs" variant="ghost" @click="selectedParameters = []">
+              None
+            </UButton>
+          </div>
+
+          <!-- Display Options -->
+          <div class="flex flex-wrap items-center gap-4">
+            <UCheckbox v-model="showDatasetPrefix" label="Dataset prefix" />
+            <UCheckbox v-model="facetByParameter" label="Facet by parameter" />
+          </div>
+
+          <!-- Trendline Settings -->
+          <div class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-2">
+              <span class="text-sm">Trendline:</span>
+              <USelect v-model="trendlineType" :items="trendlineOptions" class="w-40" />
+            </div>
+            <div v-if="trendlineType === 'moving-average'" class="flex items-center gap-2">
+              <span class="text-sm">Window:</span>
+              <input
+                v-model.number="movingAverageWindow"
+                type="number"
+                min="2"
+                max="50"
+                class="w-16 px-2 py-1 border rounded text-sm dark:bg-gray-800 dark:border-gray-700"
+              >
+            </div>
+          </div>
+
+          <!-- Performance Settings -->
+          <div class="border-t pt-4 dark:border-gray-700">
+            <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Performance</span>
+            <div class="flex flex-wrap items-center gap-4 mt-2">
+              <UCheckbox v-model="enableAnimation" label="Animation" />
+              <UCheckbox v-model="enableSampling" label="Sampling" />
+              <div v-if="enableSampling" class="flex items-center gap-2">
+                <span class="text-sm">Method:</span>
+                <USelect v-model="samplingType" :items="samplingOptions" class="w-40" />
+              </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              Large datasets (>{{ LARGE_DATA_THRESHOLD }} points) auto-optimize: no smooth curves, no markers, progressive rendering
+            </p>
           </div>
         </div>
+      </template>
+    </UCollapsible>
+
+    <!-- Content -->
+    <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
+      <div v-if="valuesPending" class="flex items-center justify-center py-12">
+        <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
       </div>
-    </template>
-    <div v-if="valuesPending" class="flex items-center justify-center py-12">
-      <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
-    </div>
-    <template v-else>
-      <UTable v-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }" />
-      <div v-else class="py-4">
-        <div v-if="chartData.datasets.length === 0" class="flex items-center justify-center py-12 text-gray-500">
-          No data available for chart
+      <template v-else>
+        <UTable v-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }" />
+        <div v-else class="py-4">
+          <div v-if="(facetByParameter && facetedChartOptions.length === 0) || (!facetByParameter && !hasChartData)" class="flex items-center justify-center py-12 text-gray-500">
+            No data available for chart
+          </div>
+          <!-- Faceted charts (one per parameter) -->
+          <div v-else-if="facetByParameter" class="space-y-6">
+            <div v-for="facet in facetedChartOptions" :key="facet.parameter" class="border rounded-lg p-4 dark:border-gray-700">
+              <h4 class="text-sm font-medium mb-2">{{ facet.parameter }}</h4>
+              <div class="w-full" style="height: 300px;">
+                <VChart :option="facet.options" autoresize />
+              </div>
+            </div>
+          </div>
+          <!-- Single combined chart -->
+          <div v-else class="w-full" style="height: 400px;">
+            <VChart ref="chartRef" :option="chartOptions" autoresize />
+          </div>
         </div>
-        <div v-else class="w-full" style="height: 400px;">
-          <Line :data="chartData" :options="chartOptions" />
+      </template>
+      <template v-if="viewMode === 'table'" #footer>
+        <div class="flex items-center justify-center gap-4">
+          <div class="flex items-center gap-2">
+            <span class="text-sm">Rows per page:</span>
+            <USelect v-model="pageSize" :items="pageSizeOptions" class="w-20" />
+          </div>
+          <UPagination v-model:page="currentPage" :total="allValues.length" :items-per-page="pageSize" />
         </div>
-      </div>
-    </template>
-    <template v-if="viewMode === 'table'" #footer>
-      <div class="flex items-center justify-center gap-4">
-        <div class="flex items-center gap-2">
-          <span class="text-sm">Rows per page:</span>
-          <USelect v-model="pageSize" :items="pageSizeOptions" class="w-20" />
-        </div>
-        <UPagination v-model:page="currentPage" :total="allValues.length" :items-per-page="pageSize" />
-      </div>
-    </template>
-  </UCard>
+      </template>
+    </UCard>
+  </div>
 </template>

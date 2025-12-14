@@ -227,6 +227,9 @@ const showDataViewer = computed(() => {
     return false
   return true
 })
+
+// Reference to DataViewer for accessing exposed stats
+const dataViewerRef = ref<InstanceType<typeof DataViewer> | null>(null)
 </script>
 
 <template>
@@ -281,7 +284,7 @@ const showDataViewer = computed(() => {
 
     <UCollapsible v-if="stationSelectionState.mode === 'station' && stationSelectionState.selection.stations.length > 0">
       <UButton
-        label="Station Details"
+        label="Stations Details"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -310,6 +313,25 @@ const showDataViewer = computed(() => {
       </template>
     </UCollapsible>
 
-    <DataViewer v-if="showDataViewer" :parameter-selection="parameterSelectionState.selection" :station-selection="stationSelectionState" />
+    <UCollapsible v-if="dataViewerRef?.parameterStats?.length">
+      <UButton
+        label="Values Details"
+        variant="subtle"
+        color="neutral"
+        trailing-icon="i-lucide-chevron-down"
+        block
+      />
+      <template #content>
+        <div class="pt-4">
+          <UTable
+            :data="dataViewerRef.parameterStats"
+            :columns="dataViewerRef.statsTableColumns"
+            :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
+          />
+        </div>
+      </template>
+    </UCollapsible>
+
+    <DataViewer v-if="showDataViewer" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection" :station-selection="stationSelectionState" />
   </UContainer>
 </template>
