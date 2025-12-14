@@ -68,8 +68,12 @@ const items = computed<NavigationMenuItem[]>(() =>
       <NuxtPage />
     </UMain>
     <UFooter>
-      <div class="w-full text-center">
-        © {{ new Date().getFullYear() }} earthobservations
+      <div class="w-full flex justify-center items-center gap-4">
+        <span>© {{ new Date().getFullYear() }} earthobservations</span>
+        <span class="text-gray-400">|</span>
+        <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">
+          Legal Notice
+        </NuxtLink>
       </div>
     </UFooter>
   </UApp>

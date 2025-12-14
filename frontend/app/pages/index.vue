@@ -7,7 +7,7 @@ const features = [
 ]
 
 const authors = [
-  { name: 'Benjamin Gutzmann', email: 'gutzemann@gmail.com', github: 'gutzbenj' },
+  { name: 'Benjamin Gutzmann', email: 'benjamin@eobs.org', github: 'gutzbenj' },
   { name: 'Andreas Motl', email: 'andreas.motl@panodata.org', github: 'amotl' },
 ]
 </script>

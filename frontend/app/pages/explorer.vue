@@ -1,11 +1,23 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
 import type { ParameterSelectionState, Resolution } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
+import type { Station } from '~/types/station.type'
 import DataViewer from '~/components/DataViewer.vue'
 import DateRangeSelector from '~/components/DateRangeSelector.vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
+
+const stationTableColumns: TableColumn<Station>[] = [
+  { accessorKey: 'station_id', header: 'Station ID' },
+  { accessorKey: 'name', header: 'Name' },
+  { accessorKey: 'state', header: 'State' },
+  { accessorKey: 'latitude', header: 'Latitude' },
+  { accessorKey: 'longitude', header: 'Longitude' },
+  { accessorKey: 'start_date', header: 'Start Date' },
+  { accessorKey: 'end_date', header: 'End Date' },
+]
 
 const route = useRoute()
 const router = useRouter()
@@ -266,6 +278,37 @@ const showDataViewer = computed(() => {
         />
       </div>
     </UCard>
+
+    <UCollapsible v-if="stationSelectionState.mode === 'station' && stationSelectionState.selection.stations.length > 0">
+      <UButton
+        label="Station Details"
+        variant="subtle"
+        color="neutral"
+        trailing-icon="i-lucide-chevron-down"
+        block
+      />
+      <template #content>
+        <div class="pt-4">
+          <UTable
+            :data="stationSelectionState.selection.stations"
+            :columns="stationTableColumns"
+          >
+            <template #latitude-cell="{ row }">
+              {{ row.original.latitude.toFixed(4) }}
+            </template>
+            <template #longitude-cell="{ row }">
+              {{ row.original.longitude.toFixed(4) }}
+            </template>
+            <template #start_date-cell="{ row }">
+              {{ row.original.start_date?.slice(0, 10) ?? '-' }}
+            </template>
+            <template #end_date-cell="{ row }">
+              {{ row.original.end_date?.slice(0, 10) ?? '-' }}
+            </template>
+          </UTable>
+        </div>
+      </template>
+    </UCollapsible>
 
     <DataViewer v-if="showDataViewer" :parameter-selection="parameterSelectionState.selection" :station-selection="stationSelectionState" />
   </UContainer>
