@@ -42,19 +42,7 @@ export default defineNuxtConfig({
       apiBase: 'http://backend:3000/api',
     },
   },
-  modules: ['@nuxt/eslint', '@nuxtjs/mdc', '@nuxt/ui', '@nuxt/icon', 'nuxt-security', '@vueuse/nuxt', '@nuxtjs/leaflet', 'nuxt-echarts'],
-  echarts: {
-    renderer: ['canvas'],
-    charts: ['LineChart'],
-    components: [
-      'TitleComponent',
-      'TooltipComponent',
-      'LegendComponent',
-      'GridComponent',
-      'DataZoomComponent',
-      'ToolboxComponent',
-    ],
-  },
+  modules: ['@nuxt/eslint', '@nuxtjs/mdc', '@nuxt/ui', '@nuxt/icon', 'nuxt-security', '@vueuse/nuxt', '@nuxtjs/leaflet'],
   colorMode: {
     classSuffix: '',
     preference: 'system',

@@ -1,81 +1,67 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-dist-min'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import type { Value } from '~/types/value.type'
 import { h } from 'vue'
-import type { LineSeriesOption } from 'echarts/charts'
-import type { ComposeOption } from 'echarts/core'
-import type {
-  TitleComponentOption,
-  TooltipComponentOption,
-  LegendComponentOption,
-  GridComponentOption,
-  DataZoomComponentOption,
-  ToolboxComponentOption,
-} from 'echarts/components'
 
-type ChartOption = ComposeOption<
-  | LineSeriesOption
-  | TitleComponentOption
-  | TooltipComponentOption
-  | LegendComponentOption
-  | GridComponentOption
-  | DataZoomComponentOption
-  | ToolboxComponentOption
->
-
-const { parameterSelection, stationSelection } = defineProps<{
+const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
   stationSelection: StationSelectionState
 }>()
+
+// Safe accessors for props to prevent reactivity issues
+const stationSelection = computed(() => {
+  if (!props.stationSelection) {
+    return {
+      mode: 'station' as const,
+      selection: { stations: [] as { station_id: string }[] },
+      interpolation: { source: 'manual' as const, latitude: undefined, longitude: undefined, station: undefined },
+      dateRange: { startDate: undefined, endDate: undefined },
+    }
+  }
+  return props.stationSelection
+})
+
+const parameterSelection = computed(() => {
+  if (!props.parameterSelection) {
+    return {
+      provider: undefined,
+      network: undefined,
+      resolution: undefined,
+      dataset: undefined,
+      parameters: [] as string[],
+    }
+  }
+  return props.parameterSelection
+})
 
 // View mode toggle
 type ViewMode = 'table' | 'graph'
 const viewMode = ref<ViewMode>('table')
 
-// Chart ref for image export
-const chartRef = ref<{ getDataURL: (opts: { type: string, pixelRatio: number, backgroundColor: string }) => string } | null>(null)
+// Chart container refs
+const chartRef = ref<HTMLDivElement | null>(null)
+const facetChartRefs = ref<Map<string, HTMLDivElement>>(new Map())
+
+// Plotly instance (loaded client-side only)
+const plotlyLoaded = ref(false)
+let Plotly: typeof import('plotly.js-dist-min') | null = null
 
 // Chart display options
 const showDatasetPrefix = ref(false)
 const facetByParameter = ref(false)
 
-// Trendline options
-type TrendlineType = 'none' | 'linear' | 'moving-average'
-const trendlineType = ref<TrendlineType>('none')
-const trendlineOptions = [
-  { label: 'None', value: 'none' },
-  { label: 'Linear', value: 'linear' },
-  { label: 'Moving Average', value: 'moving-average' },
-]
-const movingAverageWindow = ref(5)
-
-// Performance options
-const enableAnimation = ref(false)
-const enableSampling = ref(true)
-type SamplingType = 'lttb' | 'average' | 'max' | 'min' | 'sum'
-const samplingType = ref<SamplingType>('lttb')
-const samplingOptions = [
-  { label: 'LTTB (best visual)', value: 'lttb' },
-  { label: 'Average', value: 'average' },
-  { label: 'Max', value: 'max' },
-  { label: 'Min', value: 'min' },
-  { label: 'Sum', value: 'sum' },
-]
-
-// Large data threshold - when to enable optimizations
-const LARGE_DATA_THRESHOLD = 1000
+// Trendline option
+const showTrendline = ref(false)
 
 // Data settings (API options)
 const humanize = ref(true)
 const convertUnits = ref(true)
 
-// Parameter filter (initialized after allValues is defined)
-const selectedParameters = ref<string[]>([])
-
-const isInterpolationMode = computed(() => stationSelection.mode === 'interpolation')
-const isSummaryMode = computed(() => stationSelection.mode === 'summary')
+const isInterpolationMode = computed(() => stationSelection.value.mode === 'interpolation')
+const isSummaryMode = computed(() => stationSelection.value.mode === 'summary')
 
 const apiEndpoint = computed(() => {
   if (isInterpolationMode.value)
@@ -86,34 +72,36 @@ const apiEndpoint = computed(() => {
 })
 
 const apiQuery = computed(() => {
+  const ps = parameterSelection.value
+  const ss = stationSelection.value
   const base: Record<string, string | number | boolean | undefined> = {
-    provider: parameterSelection.provider,
-    network: parameterSelection.network,
-    parameters: parameterSelection.parameters.map(parameter => `${parameterSelection.resolution}/${parameterSelection.dataset}/${parameter}`).join(','),
+    provider: ps.provider,
+    network: ps.network,
+    parameters: ps.parameters.map(parameter => `${ps.resolution}/${ps.dataset}/${parameter}`).join(','),
     humanize: humanize.value,
     convert_units: convertUnits.value,
   }
 
   // Add date range if provided
-  if (stationSelection.dateRange.startDate) {
-    base.date = stationSelection.dateRange.startDate
-    if (stationSelection.dateRange.endDate) {
-      base.date = `${stationSelection.dateRange.startDate}/${stationSelection.dateRange.endDate}`
+  if (ss.dateRange?.startDate) {
+    base.date = ss.dateRange.startDate
+    if (ss.dateRange.endDate) {
+      base.date = `${ss.dateRange.startDate}/${ss.dateRange.endDate}`
     }
   }
 
   if (isInterpolationMode.value || isSummaryMode.value) {
-    const interp = stationSelection.interpolation
+    const interp = ss.interpolation
     return {
       ...base,
-      latitude: interp.latitude,
-      longitude: interp.longitude,
+      latitude: interp?.latitude,
+      longitude: interp?.longitude,
     }
   }
   else {
     return {
       ...base,
-      station: stationSelection.selection.stations.map(station => station.station_id).join(','),
+      station: ss.selection?.stations?.map(station => station.station_id).join(',') ?? '',
     }
   }
 })
@@ -201,29 +189,6 @@ const sortedValues = computed(() => {
   })
 })
 
-// Parameter filter computeds (must be after allValues and sortedValues)
-const availableParameters = computed(() => {
-  const params = new Set<string>()
-  for (const value of allValues.value) {
-    params.add(value.parameter)
-  }
-  return Array.from(params).sort()
-})
-
-// Initialize selected parameters when data loads
-watch(availableParameters, (params) => {
-  if (params.length > 0 && selectedParameters.value.length === 0) {
-    selectedParameters.value = [...params]
-  }
-}, { immediate: true })
-
-// Filtered values based on selected parameters
-const filteredValues = computed(() => {
-  if (selectedParameters.value.length === 0)
-    return sortedValues.value
-  return sortedValues.value.filter(v => selectedParameters.value.includes(v.parameter))
-})
-
 const columnOptions = columnDefinitions.map(c => c.key)
 
 // Default columns based on mode
@@ -297,17 +262,19 @@ async function copyAllValues() {
 }
 
 async function downloadValues(format: string, extension: string) {
+  const ps = parameterSelection.value
+  const ss = stationSelection.value
   const params = new URLSearchParams()
-  params.set('provider', parameterSelection.provider ?? '')
-  params.set('network', parameterSelection.network ?? '')
-  params.set('parameters', parameterSelection.parameters.map(parameter => `${parameterSelection.resolution}/${parameterSelection.dataset}/${parameter}`).join(','))
+  params.set('provider', ps.provider ?? '')
+  params.set('network', ps.network ?? '')
+  params.set('parameters', ps.parameters.map(parameter => `${ps.resolution}/${ps.dataset}/${parameter}`).join(','))
   params.set('format', format)
 
   // Add date range if provided
-  if (stationSelection.dateRange.startDate) {
-    let dateParam = stationSelection.dateRange.startDate
-    if (stationSelection.dateRange.endDate) {
-      dateParam = `${stationSelection.dateRange.startDate}/${stationSelection.dateRange.endDate}`
+  if (ss.dateRange?.startDate) {
+    let dateParam = ss.dateRange.startDate
+    if (ss.dateRange.endDate) {
+      dateParam = `${ss.dateRange.startDate}/${ss.dateRange.endDate}`
     }
     params.set('date', dateParam)
   }
@@ -317,23 +284,23 @@ async function downloadValues(format: string, extension: string) {
   if (isInterpolationMode.value) {
     endpoint = '/api/interpolate'
     filename = 'interpolated'
-    const interp = stationSelection.interpolation
-    if (interp.latitude !== undefined)
+    const interp = ss.interpolation
+    if (interp?.latitude !== undefined)
       params.set('latitude', interp.latitude.toString())
-    if (interp.longitude !== undefined)
+    if (interp?.longitude !== undefined)
       params.set('longitude', interp.longitude.toString())
   }
   else if (isSummaryMode.value) {
     endpoint = '/api/summary'
     filename = 'summary'
-    const interp = stationSelection.interpolation
-    if (interp.latitude !== undefined)
+    const interp = ss.interpolation
+    if (interp?.latitude !== undefined)
       params.set('latitude', interp.latitude.toString())
-    if (interp.longitude !== undefined)
+    if (interp?.longitude !== undefined)
       params.set('longitude', interp.longitude.toString())
   }
   else {
-    params.set('station', stationSelection.selection.stations.map(station => station.station_id).join(','))
+    params.set('station', ss.selection?.stations?.map(station => station.station_id).join(',') ?? '')
   }
 
   const response = await fetch(`${endpoint}?${params.toString()}`)
@@ -352,23 +319,15 @@ async function downloadValues(format: string, extension: string) {
   toast.add({ title: 'Downloaded', description: `Values downloaded as ${format.toUpperCase()}`, color: 'success' })
 }
 
-function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
-  const chart = chartRef.value
-  if (!chart)
+async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
+  if (!Plotly || !chartRef.value)
     return
 
-  const dataUrl = chart.getDataURL({
-    type: format === 'jpeg' ? 'jpeg' : 'png',
-    pixelRatio: 2,
-    backgroundColor: '#fff',
+  await Plotly.downloadImage(chartRef.value, {
+    format: format === 'jpeg' ? 'jpeg' : format === 'svg' ? 'svg' : 'png',
+    filename: 'chart',
+    scale: 2,
   })
-
-  const link = document.createElement('a')
-  link.href = dataUrl
-  link.download = `chart.${format}`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
 
   toast.add({ title: 'Downloaded', description: `Chart downloaded as ${format.toUpperCase()}`, color: 'success' })
 }
@@ -393,20 +352,45 @@ const downloadMenuItems = computed(() => {
 })
 
 const canFetchData = computed(() => {
-  if (!parameterSelection.parameters.length)
+  const ps = parameterSelection.value
+  const ss = stationSelection.value
+  // Safety checks for props
+  if (!ps.parameters?.length)
     return false
 
-  if (stationSelection.mode === 'station') {
-    return stationSelection.selection.stations.length > 0
+  if (!ss.mode)
+    return false
+
+  if (ss.mode === 'station') {
+    return (ss.selection?.stations?.length ?? 0) > 0
   }
   else {
-    const interp = stationSelection.interpolation
-    return interp.latitude !== undefined && interp.longitude !== undefined
+    const interp = ss.interpolation
+    return interp?.latitude !== undefined && interp?.longitude !== undefined
   }
 })
 
+// Watch specific properties to trigger data fetching
 watch(
-  () => [parameterSelection, stationSelection],
+  () => {
+    const ps = parameterSelection.value
+    const ss = stationSelection.value
+    return [
+      ps?.provider,
+      ps?.network,
+      ps?.resolution,
+      ps?.dataset,
+      ps?.parameters?.join(','),
+      ss?.mode,
+      ss?.selection?.stations?.map(s => s.station_id).join(','),
+      ss?.interpolation?.latitude,
+      ss?.interpolation?.longitude,
+      ss?.dateRange?.startDate,
+      ss?.dateRange?.endDate,
+      humanize.value,
+      convertUnits.value,
+    ]
+  },
   () => {
     if (!canFetchData.value) {
       valuesData.value = { values: [] }
@@ -415,10 +399,10 @@ watch(
     refreshValues()
     currentPage.value = 1
   },
-  { deep: true, immediate: true },
+  { immediate: true },
 )
 
-// ECharts data preparation
+// Plotly data preparation
 const chartColors = [
   '#3b82f6',
   '#22c55e',
@@ -433,362 +417,293 @@ const chartColors = [
 ]
 
 // Linear regression calculation
-function calculateLinearRegression(data: [number, number][]): [number, number][] {
-  if (data.length < 2)
-    return []
+function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[], y: number[] } {
+  if (xData.length < 2)
+    return { x: [], y: [] }
 
-  const n = data.length
+  const n = xData.length
+  const xNums = xData.map(d => d.getTime())
   let sumX = 0
   let sumY = 0
   let sumXY = 0
   let sumXX = 0
 
-  for (const [x, y] of data) {
-    sumX += x
-    sumY += y
-    sumXY += x * y
-    sumXX += x * x
+  for (let i = 0; i < n; i++) {
+    sumX += xNums[i]!
+    sumY += yData[i]!
+    sumXY += xNums[i]! * yData[i]!
+    sumXX += xNums[i]! * xNums[i]!
   }
 
   const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
   const intercept = (sumY - slope * sumX) / n
 
-  const minX = Math.min(...data.map(d => d[0]))
-  const maxX = Math.max(...data.map(d => d[0]))
+  const minX = Math.min(...xNums)
+  const maxX = Math.max(...xNums)
 
-  return [
-    [minX, slope * minX + intercept],
-    [maxX, slope * maxX + intercept],
-  ]
+  return {
+    x: [new Date(minX), new Date(maxX)],
+    y: [slope * minX + intercept, slope * maxX + intercept],
+  }
 }
 
-// Moving average calculation
-function calculateMovingAverage(data: [number, number][], windowSize: number): [number, number][] {
-  if (data.length < windowSize)
+// Performance threshold - use WebGL and simplified rendering for large datasets
+const LARGE_DATASET_THRESHOLD = 500
+
+// Plotly traces for single chart
+const chartTraces = computed(() => {
+  const ss = stationSelection.value
+  if (!sortedValues.value.length || !ss.mode)
     return []
 
-  const sorted = [...data].sort((a, b) => a[0] - b[0])
-  const result: [number, number][] = []
-
-  for (let i = windowSize - 1; i < sorted.length; i++) {
-    let sum = 0
-    for (let j = 0; j < windowSize; j++) {
-      sum += sorted[i - j]![1]
-    }
-    result.push([sorted[i]![0], sum / windowSize])
-  }
-
-  return result
-}
-
-// Helper to adjust color opacity
-function hexToRgba(hex: string, alpha: number): string {
-  const r = Number.parseInt(hex.slice(1, 3), 16)
-  const g = Number.parseInt(hex.slice(3, 5), 16)
-  const b = Number.parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
-// ECharts options for single chart
-const chartOptions = computed((): ChartOption => {
-  if (!filteredValues.value.length)
-    return {}
-
   // Group values by series (station + parameter combination)
-  const seriesMap = new Map<string, [number, number][]>()
+  const seriesMap = new Map<string, { x: Date[], y: number[] }>()
+  const mode = ss.mode
 
-  for (const value of filteredValues.value) {
+  for (const value of sortedValues.value) {
     const parameterLabel = showDatasetPrefix.value
       ? `${value.dataset}/${value.parameter}`
       : value.parameter
-    const seriesKey = stationSelection.mode === 'station'
+    const seriesKey = mode === 'station'
       ? `${value.station_id} - ${parameterLabel}`
       : parameterLabel
 
     if (!seriesMap.has(seriesKey)) {
-      seriesMap.set(seriesKey, [])
+      seriesMap.set(seriesKey, { x: [], y: [] })
     }
 
     if (value.value !== null && value.value !== undefined) {
-      seriesMap.get(seriesKey)!.push([new Date(value.date).getTime(), value.value])
+      const series = seriesMap.get(seriesKey)!
+      series.x.push(new Date(value.date))
+      series.y.push(value.value)
     }
   }
 
-  // Convert to ECharts series
-  const series: LineSeriesOption[] = []
+  // Convert to Plotly traces
+  const traces: PlotlyData[] = []
+  const trendlineTraces: PlotlyData[] = []
   let colorIndex = 0
+  const totalPoints = sortedValues.value.length
+  const isLargeDataset = totalPoints > LARGE_DATASET_THRESHOLD
 
   for (const [seriesKey, data] of seriesMap) {
     const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
 
     // Sort data by time
-    const sortedData = [...data].sort((a, b) => a[0] - b[0])
+    const pairs = data.x.map((x, i) => ({ x, y: data.y[i]! })).sort((a, b) => a.x.getTime() - b.x.getTime())
+    const sortedXDates = pairs.map(p => p.x)
+    const sortedY = pairs.map(p => p.y)
+    // Convert to ISO strings for Plotly compatibility
+    const sortedX = sortedXDates.map(d => d.toISOString())
 
-    // Performance optimizations for large datasets
-    const seriesIsLarge = sortedData.length > LARGE_DATA_THRESHOLD
-
-    // Main data series
-    series.push({
+    // For large datasets: skip markers and use thinner lines for performance
+    const trace: PlotlyData = {
       name: seriesKey,
-      type: 'line',
-      data: sortedData,
-      // Disable smooth for large datasets (CPU intensive)
-      smooth: !seriesIsLarge,
-      // Hide symbols for large datasets
-      symbol: seriesIsLarge ? 'none' : 'circle',
-      symbolSize: 8,
-      // Enable sampling for large datasets
-      sampling: enableSampling.value ? samplingType.value : undefined,
-      itemStyle: {
-        color,
-      },
-      lineStyle: {
-        color,
-        width: seriesIsLarge ? 1 : 2,
-      },
-    })
-
-    // Add trendline if enabled
-    if (trendlineType.value === 'linear' && sortedData.length >= 2) {
-      const trendData = calculateLinearRegression(sortedData)
-      series.push({
-        name: `${seriesKey} (trend)`,
-        type: 'line',
-        data: trendData,
-        smooth: false,
-        symbol: 'none',
-        lineStyle: {
-          color: hexToRgba(color, 0.5),
-          width: 2,
-          type: 'dashed',
-        },
-      })
+      x: sortedX,
+      y: sortedY,
+      type: 'scatter',
+      mode: isLargeDataset ? 'lines' : 'lines+markers',
+      line: { color, width: isLargeDataset ? 1 : 2 },
+      showlegend: true,
     }
-    else if (trendlineType.value === 'moving-average' && sortedData.length >= movingAverageWindow.value) {
-      const maData = calculateMovingAverage(sortedData, movingAverageWindow.value)
-      series.push({
-        name: `${seriesKey} (MA${movingAverageWindow.value})`,
-        type: 'line',
-        data: maData,
-        smooth: !seriesIsLarge,
-        symbol: 'none',
-        sampling: enableSampling.value ? samplingType.value : undefined,
-        lineStyle: {
-          color: hexToRgba(color, 0.7),
-          width: 2,
-          type: 'dotted',
-        },
+    if (!isLargeDataset) {
+      trace.marker = { size: 6, color }
+    }
+    traces.push(trace)
+
+    // Add trendline if enabled (collect separately to render on top)
+    if (showTrendline.value && sortedX.length >= 2) {
+      const trend = calculateLinearRegression(sortedXDates, sortedY)
+      trendlineTraces.push({
+        name: `${seriesKey} (trend)`,
+        x: trend.x.map(d => d.toISOString()),
+        y: trend.y,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color, width: 4, dash: 'dash' },
+        showlegend: true,
       })
     }
 
     colorIndex++
   }
 
-  return {
-    // Disable animation for better performance
-    animation: enableAnimation.value,
-    animationThreshold: LARGE_DATA_THRESHOLD,
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'cross',
-      },
-      // Limit tooltip items for large datasets
-      confine: true,
-    },
-    legend: {
-      type: 'scroll',
-      bottom: 0,
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '15%',
-      containLabel: true,
-    },
-    toolbox: {
-      feature: {
-        dataZoom: {
-          yAxisIndex: 'none',
-        },
-        restore: {},
-      },
-    },
-    dataZoom: [
-      {
-        type: 'inside',
-        start: 0,
-        end: 100,
-        // Throttle for performance
-        throttle: 100,
-      },
-      {
-        start: 0,
-        end: 100,
-        throttle: 100,
-      },
-    ],
-    xAxis: {
-      type: 'time',
-      name: 'Date',
-      nameLocation: 'middle',
-      nameGap: 30,
-    },
-    yAxis: {
-      type: 'value',
-      name: 'Value',
-      nameLocation: 'middle',
-      nameGap: 50,
-    },
-    series,
-  }
+  // Add trendlines after main traces so they render on top
+  return [...traces, ...trendlineTraces]
 })
 
 // Check if chart has data
-const hasChartData = computed(() => {
-  const options = chartOptions.value
-  return options.series && Array.isArray(options.series) && options.series.length > 0
-})
+const hasChartData = computed(() => chartTraces.value.length > 0)
 
 // For faceted charts - group data by parameter
-const facetedChartOptions = computed((): { parameter: string, options: ChartOption }[] => {
-  if (!facetByParameter.value || !filteredValues.value.length)
+const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] }[] => {
+  const ss = stationSelection.value
+  if (!facetByParameter.value || !sortedValues.value.length || !ss.mode)
     return []
 
-  const parameterGroups = new Map<string, Map<string, [number, number][]>>()
+  const parameterGroups = new Map<string, Map<string, { x: Date[], y: number[] }>>()
+  const mode = ss.mode
 
-  for (const value of filteredValues.value) {
+  for (const value of sortedValues.value) {
     const param = value.parameter
     if (!parameterGroups.has(param)) {
       parameterGroups.set(param, new Map())
     }
 
-    const stationKey = stationSelection.mode === 'station' ? value.station_id : 'interpolated'
+    const stationKey = mode === 'station' ? value.station_id : 'interpolated'
     const stationMap = parameterGroups.get(param)!
 
     if (!stationMap.has(stationKey)) {
-      stationMap.set(stationKey, [])
+      stationMap.set(stationKey, { x: [], y: [] })
     }
 
     if (value.value !== null && value.value !== undefined) {
-      stationMap.get(stationKey)!.push([new Date(value.date).getTime(), value.value])
+      const series = stationMap.get(stationKey)!
+      series.x.push(new Date(value.date))
+      series.y.push(value.value)
     }
   }
 
-  const result: { parameter: string, options: ChartOption }[] = []
+  const result: { parameter: string, traces: PlotlyData[] }[] = []
+  const totalPoints = sortedValues.value.length
+  const isLargeDataset = totalPoints > LARGE_DATASET_THRESHOLD
 
   for (const [parameter, stationMap] of parameterGroups) {
-    const series: LineSeriesOption[] = []
+    const traces: PlotlyData[] = []
+    const trendlineTraces: PlotlyData[] = []
     let colorIndex = 0
 
     for (const [stationKey, data] of stationMap) {
       const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
-      const sortedData = [...data].sort((a, b) => a[0] - b[0])
 
-      // Performance optimizations for large datasets
-      const seriesIsLarge = sortedData.length > LARGE_DATA_THRESHOLD
+      const pairs = data.x.map((x, i) => ({ x, y: data.y[i]! })).sort((a, b) => a.x.getTime() - b.x.getTime())
+      const sortedXDates = pairs.map(p => p.x)
+      const sortedY = pairs.map(p => p.y)
+      // Convert to ISO strings for Plotly compatibility
+      const sortedX = sortedXDates.map(d => d.toISOString())
 
-      series.push({
+      // For large datasets: skip markers and use thinner lines for performance
+      const trace: PlotlyData = {
         name: stationKey,
-        type: 'line',
-        data: sortedData,
-        smooth: !seriesIsLarge,
-        symbol: seriesIsLarge ? 'none' : 'circle',
-        symbolSize: 8,
-        sampling: enableSampling.value ? samplingType.value : undefined,
-        itemStyle: {
-          color,
-        },
-        lineStyle: {
-          color,
-          width: seriesIsLarge ? 1 : 2,
-        },
-      })
-
-      // Add trendline if enabled
-      if (trendlineType.value === 'linear' && sortedData.length >= 2) {
-        const trendData = calculateLinearRegression(sortedData)
-        series.push({
-          name: `${stationKey} (trend)`,
-          type: 'line',
-          data: trendData,
-          smooth: false,
-          symbol: 'none',
-          lineStyle: {
-            color: hexToRgba(color, 0.5),
-            width: 2,
-            type: 'dashed',
-          },
-        })
+        x: sortedX,
+        y: sortedY,
+        type: 'scatter',
+        mode: isLargeDataset ? 'lines' : 'lines+markers',
+        line: { color, width: isLargeDataset ? 1 : 2 },
       }
-      else if (trendlineType.value === 'moving-average' && sortedData.length >= movingAverageWindow.value) {
-        const maData = calculateMovingAverage(sortedData, movingAverageWindow.value)
-        series.push({
-          name: `${stationKey} (MA${movingAverageWindow.value})`,
-          type: 'line',
-          data: maData,
-          smooth: !seriesIsLarge,
-          symbol: 'none',
-          sampling: enableSampling.value ? samplingType.value : undefined,
-          lineStyle: {
-            color: hexToRgba(color, 0.7),
-            width: 2,
-            type: 'dotted',
-          },
+      if (!isLargeDataset) {
+        trace.marker = { size: 6, color }
+      }
+      traces.push(trace)
+
+      // Add trendline if enabled (collect separately to render on top)
+      if (showTrendline.value && sortedX.length >= 2) {
+        const trend = calculateLinearRegression(sortedXDates, sortedY)
+        trendlineTraces.push({
+          name: `${stationKey} (trend)`,
+          x: trend.x.map(d => d.toISOString()),
+          y: trend.y,
+          type: 'scatter',
+          mode: 'lines',
+          line: { color, width: 4, dash: 'dash' },
+          showlegend: true,
         })
       }
 
       colorIndex++
     }
 
-    result.push({
-      parameter,
-      options: {
-        animation: enableAnimation.value,
-        animationThreshold: LARGE_DATA_THRESHOLD,
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'cross',
-          },
-          confine: true,
-        },
-        legend: {
-          type: 'scroll',
-          bottom: 0,
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '15%',
-          containLabel: true,
-        },
-        dataZoom: [
-          {
-            type: 'inside',
-            start: 0,
-            end: 100,
-            throttle: 100,
-          },
-        ],
-        xAxis: {
-          type: 'time',
-          name: 'Date',
-          nameLocation: 'middle',
-          nameGap: 30,
-        },
-        yAxis: {
-          type: 'value',
-          name: parameter,
-          nameLocation: 'middle',
-          nameGap: 50,
-        },
-        series,
-      },
-    })
+    // Add trendlines after main traces so they render on top
+    result.push({ parameter, traces: [...traces, ...trendlineTraces] })
   }
 
   return result
+})
+
+// Plotly layout - optimized for large datasets
+const chartLayout = computed((): Partial<PlotlyLayout> => {
+  const isLargeDataset = sortedValues.value.length > LARGE_DATASET_THRESHOLD
+  return {
+    autosize: true,
+    margin: { l: 60, r: 20, t: 40, b: 60 },
+    xaxis: {
+      title: 'Date',
+      type: 'date',
+    },
+    yaxis: {
+      title: 'Value',
+    },
+    showlegend: true,
+    legend: {
+      orientation: 'h',
+      x: 0.5,
+      xanchor: 'center',
+      y: 1.02,
+      yanchor: 'bottom',
+    },
+    // Use 'closest' for large datasets - 'x unified' is very slow
+    hovermode: isLargeDataset ? 'closest' : 'x unified',
+  }
+})
+
+const plotlyConfig: Partial<PlotlyConfig> = {
+  responsive: true,
+  displayModeBar: true,
+  modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+}
+
+// Render chart helper functions
+async function renderMainChart() {
+  if (!Plotly || !plotlyLoaded.value || viewMode.value !== 'graph' || facetByParameter.value)
+    return
+
+  await nextTick()
+  if (chartRef.value && chartTraces.value.length > 0) {
+    // Use newPlot for clean initialization
+    Plotly.purge(chartRef.value)
+    await Plotly.newPlot(chartRef.value, chartTraces.value, chartLayout.value, plotlyConfig)
+  }
+}
+
+async function renderFacetedCharts() {
+  if (!Plotly || !plotlyLoaded.value || viewMode.value !== 'graph' || !facetByParameter.value)
+    return
+
+  await nextTick()
+  for (const facet of facetedChartData.value) {
+    const el = facetChartRefs.value.get(facet.parameter)
+    if (el) {
+      const layout: Partial<PlotlyLayout> = {
+        ...chartLayout.value,
+        yaxis: { title: facet.parameter },
+      }
+      await Plotly.react(el, facet.traces, layout, plotlyConfig)
+    }
+  }
+}
+
+// Load Plotly and render charts
+onMounted(async () => {
+  Plotly = await import('plotly.js-dist-min')
+  plotlyLoaded.value = true
+
+  // Initial render after Plotly loads
+  if (facetByParameter.value) {
+    await renderFacetedCharts()
+  }
+  else {
+    await renderMainChart()
+  }
+})
+
+// Render main chart when data changes
+watch([chartTraces, chartLayout, viewMode, facetByParameter, showDatasetPrefix, showTrendline], async () => {
+  await renderMainChart()
+})
+
+// Render faceted charts when data changes
+watch([facetedChartData, chartLayout, viewMode, facetByParameter, showDatasetPrefix, showTrendline], async () => {
+  await renderFacetedCharts()
 })
 
 // Parameter statistics
@@ -854,6 +769,16 @@ defineExpose({
   parameterStats,
   statsTableColumns,
 })
+
+// Set facet chart ref
+function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
+  if (el) {
+    facetChartRefs.value.set(parameter, el)
+  }
+  else {
+    facetChartRefs.value.delete(parameter)
+  }
+}
 </script>
 
 <template>
@@ -888,7 +813,7 @@ defineExpose({
     <div class="flex items-center justify-between">
       <span class="text-sm text-gray-500">
         <template v-if="valuesPending">Loading values...</template>
-        <template v-else>{{ filteredValues.length }} / {{ allValues.length }} values</template>
+        <template v-else>{{ allValues.length }} values</template>
       </span>
       <div class="flex items-center gap-4">
         <div v-if="viewMode === 'table'" class="flex items-center gap-2">
@@ -923,62 +848,11 @@ defineExpose({
       />
       <template #content>
         <div class="pt-4 space-y-4">
-          <!-- Parameter Filter -->
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-sm font-medium">Parameters:</span>
-            <USelectMenu
-              v-model="selectedParameters"
-              :items="availableParameters"
-              multiple
-              class="min-w-40"
-              placeholder="Select parameters"
-            />
-            <UButton size="xs" variant="ghost" @click="selectedParameters = [...availableParameters]">
-              All
-            </UButton>
-            <UButton size="xs" variant="ghost" @click="selectedParameters = []">
-              None
-            </UButton>
-          </div>
-
           <!-- Display Options -->
           <div class="flex flex-wrap items-center gap-4">
             <UCheckbox v-model="showDatasetPrefix" label="Dataset prefix" />
             <UCheckbox v-model="facetByParameter" label="Facet by parameter" />
-          </div>
-
-          <!-- Trendline Settings -->
-          <div class="flex flex-wrap items-center gap-4">
-            <div class="flex items-center gap-2">
-              <span class="text-sm">Trendline:</span>
-              <USelect v-model="trendlineType" :items="trendlineOptions" class="w-40" />
-            </div>
-            <div v-if="trendlineType === 'moving-average'" class="flex items-center gap-2">
-              <span class="text-sm">Window:</span>
-              <input
-                v-model.number="movingAverageWindow"
-                type="number"
-                min="2"
-                max="50"
-                class="w-16 px-2 py-1 border rounded text-sm dark:bg-gray-800 dark:border-gray-700"
-              >
-            </div>
-          </div>
-
-          <!-- Performance Settings -->
-          <div class="border-t pt-4 dark:border-gray-700">
-            <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Performance</span>
-            <div class="flex flex-wrap items-center gap-4 mt-2">
-              <UCheckbox v-model="enableAnimation" label="Animation" />
-              <UCheckbox v-model="enableSampling" label="Sampling" />
-              <div v-if="enableSampling" class="flex items-center gap-2">
-                <span class="text-sm">Method:</span>
-                <USelect v-model="samplingType" :items="samplingOptions" class="w-40" />
-              </div>
-            </div>
-            <p class="text-xs text-gray-500 mt-2">
-              Large datasets (>{{ LARGE_DATA_THRESHOLD }} points) auto-optimize: no smooth curves, no markers, progressive rendering
-            </p>
+            <UCheckbox v-model="showTrendline" label="Trendline" />
           </div>
         </div>
       </template>
@@ -992,22 +866,20 @@ defineExpose({
       <template v-else>
         <UTable v-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }" />
         <div v-else class="py-4">
-          <div v-if="(facetByParameter && facetedChartOptions.length === 0) || (!facetByParameter && !hasChartData)" class="flex items-center justify-center py-12 text-gray-500">
+          <div v-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)" class="flex items-center justify-center py-12 text-gray-500">
             No data available for chart
           </div>
           <!-- Faceted charts (one per parameter) -->
           <div v-else-if="facetByParameter" class="space-y-6">
-            <div v-for="facet in facetedChartOptions" :key="facet.parameter" class="border rounded-lg p-4 dark:border-gray-700">
-              <h4 class="text-sm font-medium mb-2">{{ facet.parameter }}</h4>
-              <div class="w-full" style="height: 300px;">
-                <VChart :option="facet.options" autoresize />
-              </div>
+            <div v-for="facet in facetedChartData" :key="facet.parameter" class="border rounded-lg p-4 dark:border-gray-700">
+              <h4 class="text-sm font-medium mb-2">
+                {{ facet.parameter }}
+              </h4>
+              <div :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" class="w-full" style="height: 300px;" />
             </div>
           </div>
           <!-- Single combined chart -->
-          <div v-else class="w-full" style="height: 400px;">
-            <VChart ref="chartRef" :option="chartOptions" autoresize />
-          </div>
+          <div v-else ref="chartRef" class="w-full overflow-visible" style="height: 400px;" />
         </div>
       </template>
       <template v-if="viewMode === 'table'" #footer>
