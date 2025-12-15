@@ -91,7 +91,7 @@ jobs:
           persist-credentials: true
 
       - name: Download wheel package
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{ runner.os }}-wheel-${{ github.sha }}
           path: dist
