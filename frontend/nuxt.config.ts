@@ -24,7 +24,7 @@ export default defineNuxtConfig({
     routeRules: {
       '/**': {
         headers: {
-          'Content-Security-Policy': 'default-src \'self\'; connect-src \'self\' http://backend:3000; img-src \'self\' data: https://*.tile.openstreetmap.org https://raw.githubusercontent.com https://cdnjs.cloudflare.com https://unpkg.com; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\'; style-src \'self\' \'unsafe-inline\'; font-src \'self\' https: data:; base-uri \'none\'; form-action \'self\'; frame-ancestors \'self\'; object-src \'none\';',
+          'Content-Security-Policy': 'default-src \'self\'; connect-src \'self\' http://backend:3000 https://wetterdienst-backend.up.railway.app; img-src \'self\' data: https://*.tile.openstreetmap.org https://raw.githubusercontent.com https://cdnjs.cloudflare.com https://unpkg.com; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\'; style-src \'self\' \'unsafe-inline\'; font-src \'self\' https: data:; base-uri \'none\'; form-action \'self\'; frame-ancestors \'self\'; object-src \'none\';',
         },
       },
     },
