@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import type { StationsResponse, Station  } from '#types/api.types'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
-import type { Station } from '~/types/station.type'
 
 declare const L: typeof import('leaflet')
 
@@ -28,9 +28,7 @@ watch(selectedStations, () => {
 // Track whether we've already restored initial stations
 const hasRestoredInitialStations = ref(false)
 
-const { data: stationsData, pending: stationsPending, refresh: refreshStations } = useFetch<{
-  stations: Station[]
-}>(
+const { data: stationsData, pending: stationsPending, refresh: refreshStations } = useFetch<StationsResponse>(
   '/api/stations',
   {
     query: computed(() => ({

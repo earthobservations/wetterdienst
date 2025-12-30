@@ -1,17 +1,4 @@
-// Resolution values from backend wetterdienst/metadata/resolution.py
-export type Resolution
-  = '1_minute'
-    | '5_minutes'
-    | '10_minutes'
-    | '15_minutes'
-    | 'hourly'
-    | '6_hour'
-    | 'subdaily'
-    | 'daily'
-    | 'monthly'
-    | 'annual'
-    | 'undefined'
-    | 'dynamic'
+import type {Resolution} from '#types/api.types';
 
 export interface ParameterSelection {
   provider: string | undefined

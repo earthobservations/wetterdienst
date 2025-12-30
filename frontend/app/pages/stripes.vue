@@ -1,15 +1,7 @@
 <script setup lang="ts">
-interface StripesStation {
-  station_id: string
-  name: string
-  state: string
-  latitude: number
-  longitude: number
-  start_date: string
-  end_date: string
-}
+import type { StripesKind, StripesStation, StripesStationsResponse } from '#types/api.types'
 
-const kind = ref<'temperature' | 'precipitation'>('temperature')
+const kind = ref<StripesKind>('temperature')
 const selectedStation = ref<StripesStation | null>(null)
 const startYear = ref<number | null>(null)
 const endYear = ref<number | null>(null)
@@ -18,7 +10,7 @@ const showYears = ref(true)
 const showDataAvailability = ref(true)
 const imageFormat = ref<'png' | 'svg'>('png')
 
-const { data: stationsData, pending: stationsPending } = useFetch<{ stations: StripesStation[] }>(
+const { data: stationsData, pending: stationsPending } = useFetch<StripesStationsResponse>(
   '/api/stripes/stations',
   {
     query: { kind },

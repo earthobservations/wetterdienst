@@ -1,4 +1,4 @@
-import type { Station } from '~/types/station.type'
+import type { Station } from '#types/api.types'
 
 export type StationMode = 'station' | 'interpolation' | 'summary'
 

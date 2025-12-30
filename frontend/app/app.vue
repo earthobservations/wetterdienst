@@ -29,6 +29,12 @@ const items = computed<NavigationMenuItem[]>(() =>
       to: '/api',
       active: route.path.startsWith('/api'),
     },
+    {
+      label: 'Support',
+      icon: 'i-lucide-heart',
+      to: '/support',
+      active: route.path.startsWith('/support'),
+    },
   ],
 )
 </script>
@@ -37,29 +43,44 @@ const items = computed<NavigationMenuItem[]>(() =>
   <UApp>
     <UHeader>
       <template #left>
-        <NuxtLink to="/">
-          wetterdienst by earthobservations
-        </NuxtLink>
+        <div />
       </template>
       <UNavigationMenu :items="items" />
+      <template #body>
+        <UNavigationMenu orientation="vertical" :items="items" />
+      </template>
       <template #right>
         <div class="flex items-center gap-1">
-          <UButton
-            to="https://wetterdienst.readthedocs.io/"
-            target="_blank"
-            icon="i-lucide-book-open"
-            color="neutral"
-            variant="ghost"
-            aria-label="Documentation"
-          />
-          <UButton
-            to="https://github.com/earthobservations/wetterdienst"
-            target="_blank"
-            icon="i-lucide-github"
-            color="neutral"
-            variant="ghost"
-            aria-label="GitHub"
-          />
+          <UTooltip text="Documentation">
+            <UButton
+              to="https://wetterdienst.readthedocs.io/"
+              target="_blank"
+              icon="i-lucide-book-open"
+              color="neutral"
+              variant="ghost"
+              aria-label="Documentation"
+            />
+          </UTooltip>
+          <UTooltip text="GitHub">
+            <UButton
+              to="https://github.com/earthobservations/wetterdienst"
+              target="_blank"
+              icon="i-lucide-github"
+              color="neutral"
+              variant="ghost"
+              aria-label="GitHub"
+            />
+          </UTooltip>
+          <UTooltip text="PyPI">
+            <UButton
+              to="https://pypi.org/project/wetterdienst"
+              target="_blank"
+              icon="i-lucide-package"
+              color="neutral"
+              variant="ghost"
+              aria-label="PyPI"
+            />
+          </UTooltip>
           <ColorModeSelect />
         </div>
       </template>

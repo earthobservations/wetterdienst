@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import type { Value, ValuesResponse } from '#types/api.types'
 import type { TableColumn } from '@nuxt/ui'
 import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-dist-min'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
-import type { Value } from '~/types/value.type'
 import { h } from 'vue'
 
 const props = defineProps<{
@@ -106,9 +106,7 @@ const apiQuery = computed(() => {
   }
 })
 
-const { data: valuesData, pending: valuesPending, refresh: refreshValues } = useFetch<{
-  values: Value[]
-}>(
+const { data: valuesData, pending: valuesPending, refresh: refreshValues } = useFetch<ValuesResponse>(
   apiEndpoint,
   {
     method: 'GET',
@@ -326,7 +324,8 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   await Plotly.downloadImage(chartRef.value, {
     format: format === 'jpeg' ? 'jpeg' : format === 'svg' ? 'svg' : 'png',
     filename: 'chart',
-    scale: 2,
+    width: null,
+    height: null,
   })
 
   toast.add({ title: 'Downloaded', description: `Chart downloaded as ${format.toUpperCase()}`, color: 'success' })

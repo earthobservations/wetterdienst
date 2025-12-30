@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { CoverageParameter, CoverageResponse, ProviderNetworkCoverageResponse, Resolution } from '#types/api.types'
+
 // Accept initial values from parent via v-model
 const props = defineProps<{
   modelValue?: {
@@ -23,18 +25,18 @@ const parameters = ref<string[]>([])
 const isInitializing = ref(true)
 
 // fetch coverage data
-const { data: coverage } = await useFetch('/api/coverage')
+const { data: coverage } = await useFetch<CoverageResponse>('/api/coverage')
 
 // EXPECTING
 const providers = computed(() => coverage.value ? Object.keys(coverage.value).sort() : [])
 const networks = computed<string[]>(() => {
-  if (!provider.value)
+  if (!provider.value || !coverage.value)
     return []
   return coverage.value[provider.value] ?? []
 })
 
 // provider-network coverage
-const { data: providerNetworkCoverage, refresh: refreshProviderNetworkCoverage } = await useFetch(
+const { data: providerNetworkCoverage, refresh: refreshProviderNetworkCoverage } = await useFetch<ProviderNetworkCoverageResponse>(
   '/api/coverage',
   {
     query: computed(() => ({
@@ -52,13 +54,20 @@ const resolutions = computed((): string[] => {
 const datasets = computed((): string[] => {
   if (!providerNetworkCoverage.value || !resolution.value)
     return []
-  return Object.keys(providerNetworkCoverage.value[resolution.value]).sort()
+  const resolutionData = providerNetworkCoverage.value[resolution.value as Resolution]
+  return resolutionData ? Object.keys(resolutionData).sort() : []
 })
 const params = computed<string[]>(() => {
   if (!providerNetworkCoverage.value || !resolution.value || !dataset.value)
     return []
-  return providerNetworkCoverage.value[resolution.value][dataset.value]
-    .map((p: any) => p.name)
+  const resolutionData = providerNetworkCoverage.value[resolution.value as Resolution]
+  if (!resolutionData)
+    return []
+  const datasetParams = resolutionData[dataset.value]
+  if (!datasetParams)
+    return []
+  return datasetParams
+    .map((p: CoverageParameter) => p.name)
     .sort()
 })
 
@@ -94,7 +103,7 @@ async function initializeFromProps() {
 
   // Step 3: Validate resolution
   if (initial.resolution && resolutions.value.includes(initial.resolution)) {
-    resolution.value = initial.resolution
+    resolution.value = initial.resolution as Resolution
   }
   else {
     isInitializing.value = false

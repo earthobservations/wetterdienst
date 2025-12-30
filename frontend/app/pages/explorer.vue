@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import type {Resolution, Station} from '#types/api.types'
 import type { TableColumn } from '@nuxt/ui'
-import type { ParameterSelectionState, Resolution } from '~/types/parameter-selection-state.type'
+import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
-import type { Station } from '~/types/station.type'
 import DataViewer from '~/components/DataViewer.vue'
 import DateRangeSelector from '~/components/DateRangeSelector.vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'

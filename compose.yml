@@ -7,8 +7,6 @@ services:
     image: wetterdienst-backend:dev
     container_name: wetterdienst-backend
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       # Common development env overrides; can be overridden in .env
       - PYTHONUNBUFFERED=1
@@ -28,8 +26,6 @@ services:
     image: wetterdienst-frontend:dev
     container_name: wetterdienst-frontend
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       - HOST=0.0.0.0
       - PORT=4000

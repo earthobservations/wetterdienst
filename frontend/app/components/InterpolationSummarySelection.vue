@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { StationsResponse, Station  } from '#types/api.types'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { InterpolationSelection, InterpolationSource } from '~/types/station-selection-state.type'
-import type { Station } from '~/types/station.type'
 
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
@@ -42,9 +42,7 @@ watch(selectedStation, (station) => {
 })
 
 // Fetch stations for station source
-const { data: stationsData, pending: stationsPending, refresh: refreshStations } = useFetch<{
-  stations: Station[]
-}>(
+const { data: stationsData, pending: stationsPending, refresh: refreshStations } = useFetch<StationsResponse>(
   '/api/stations',
   {
     query: computed(() => ({

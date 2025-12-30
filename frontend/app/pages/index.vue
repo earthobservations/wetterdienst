@@ -7,8 +7,9 @@ const features = [
 ]
 
 const authors = [
-  { name: 'Benjamin Gutzmann', email: 'benjamin@eobs.org', github: 'gutzbenj' },
-  { name: 'Andreas Motl', email: 'andreas.motl@panodata.org', github: 'amotl' },
+  { name: 'Benjamin Gutzmann', email: 'benjamin@eobs.org', githubUsername: 'gutzbenj', githubAvatarId: '29654631' },
+  // TODO: add more authors here if they want to be displayed
+  // { name: 'Andreas Motl', email: 'andreas.motl@panodata.org', githubUsername: 'amotl', githubAvatarId: '453543' },
 ]
 </script>
 
@@ -79,7 +80,7 @@ const authors = [
       </ol>
     </UCard>
 
-    <UCard class="mb-8">
+    <UCard>
       <template #header>
         <h2 class="text-lg font-semibold">
           Authors
@@ -88,16 +89,16 @@ const authors = [
       <div class="flex flex-wrap gap-8 justify-center">
         <div
           v-for="author in authors"
-          :key="author.github"
+          :key="author.githubUsername"
           class="flex flex-col items-center gap-2"
         >
           <a
-            :href="`https://github.com/${author.github}`"
+            :href="`https://github.com/${author.githubUsername}`"
             target="_blank"
             class="group flex flex-col items-center gap-2"
           >
             <img
-              :src="`https://github.com/${author.github}.png`"
+              :src="`https://avatars.githubusercontent.com/u/${author.githubAvatarId}`"
               :alt="author.name"
               class="w-16 h-16 rounded-full ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-primary-500 transition-all"
             >
@@ -112,40 +113,6 @@ const authors = [
             {{ author.email }}
           </a>
         </div>
-      </div>
-    </UCard>
-
-    <UCard>
-      <template #header>
-        <h2 class="text-lg font-semibold">
-          Links
-        </h2>
-      </template>
-      <div class="flex flex-wrap gap-4">
-        <UButton
-          to="https://github.com/earthobservations/wetterdienst"
-          target="_blank"
-          variant="outline"
-          icon="i-lucide-github"
-        >
-          GitHub
-        </UButton>
-        <UButton
-          to="https://wetterdienst.readthedocs.io"
-          target="_blank"
-          variant="outline"
-          icon="i-lucide-book-open"
-        >
-          Documentation
-        </UButton>
-        <UButton
-          to="https://pypi.org/project/wetterdienst"
-          target="_blank"
-          variant="outline"
-          icon="i-lucide-package"
-        >
-          PyPI
-        </UButton>
       </div>
     </UCard>
   </div>
