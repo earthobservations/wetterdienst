@@ -1,11 +1,51 @@
+# Dependencies
 node_modules
-.git
+
+# Build outputs
+.output
+.nuxt
 dist
 build
+
+# Development
 .vite
 .cache
 *.log
+
+# OS files
 .DS_Store
+
+# IDE
 .vscode
 .idea
+
+# Testing
 coverage
+test-results
+playwright-report
+tests
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+vitest.config.ts
+playwright.config.ts
+
+# Development configs
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Lint and format
+.eslintcache
+eslint.config.mjs
+
+# CI/CD
+.github
+
+# Docs
+*.md
