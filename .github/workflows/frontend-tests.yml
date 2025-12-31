@@ -144,22 +144,40 @@ jobs:
         with:
           python-version: '3.12'
       
-      - name: Install backend
+      - name: Install backend dependencies
         working-directory: .
         run: |
-          uv sync
-          uv pip install .
+          uv sync --no-dev --extra restapi
+          uv pip list
+      
+      - name: Verify wetterdienst installation
+        working-directory: .
+        run: |
+          uv run wetterdienst --version
+          uv run wetterdienst info
       
       - name: Start backend
         working-directory: .
         run: |
-          uv run wetterdienst restapi --listen 0.0.0.0:3000 &
+          uv run wetterdienst restapi --listen 0.0.0.0:3000 > backend.log 2>&1 &
           echo $! > backend.pid
-          sleep 10
+          echo "Backend started with PID $(cat backend.pid)"
       
-      - name: Verify backend is running
+      - name: Wait for backend to be ready
         run: |
-          curl -f http://localhost:3000/health || exit 1
+          echo "Waiting for backend to start..."
+          for i in {1..30}; do
+            if curl -f http://localhost:3000/health > /dev/null 2>&1; then
+              echo "✅ Backend is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: Backend not ready yet, waiting..."
+            sleep 2
+          done
+          echo "❌ Backend failed to start within 60 seconds"
+          echo "Backend logs:"
+          cat backend.log || echo "No backend logs found"
+          exit 1
       
       - name: Run E2E tests
         run: pnpm run test:e2e
@@ -175,11 +193,22 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 7
       
+      - name: Upload backend logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-logs
+          path: backend.log
+          retention-days: 3
+      
       - name: Stop backend
         if: always()
         working-directory: .
         run: |
           if [ -f backend.pid ]; then
+            echo "Stopping backend process $(cat backend.pid)"
             kill $(cat backend.pid) || true
             rm backend.pid
           fi
+          # Also try to kill any remaining wetterdienst processes
+          pkill -f "wetterdienst restapi" || true
