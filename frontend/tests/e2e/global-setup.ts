@@ -7,14 +7,14 @@ async function checkBackendHealth() {
   console.log(`   Backend URL: ${BACKEND_URL}`)
   
   try {
-    const response = await fetch(`${BACKEND_URL}/api/coverage`, {
+    const response = await fetch(`${BACKEND_URL}/health`, {
       signal: AbortSignal.timeout(5000),
     })
     
     if (response.ok) {
       const data = await response.json()
       console.log('✅ Backend is healthy and responding')
-      console.log(`   Available providers: ${Object.keys(data).join(', ')}`)
+      console.log(`   Status: ${data.status}`)
       console.log('')
       return true
     }

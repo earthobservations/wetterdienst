@@ -35,7 +35,7 @@ npx playwright install chromium webkit
 ## Health Checks
 
 The E2E test suite includes automatic health checks that verify:
-- ✅ Backend API is running and accessible
+- ✅ Backend API is running and accessible (via `/health` endpoint)
 - ✅ Frontend dev server is running
 
 If the backend is not available, you'll see a clear error message:
