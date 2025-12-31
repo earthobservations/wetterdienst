@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type {Resolution} from '#types/api.types'
+import type { Resolution } from '#types/api.types'
 import type { DateRange } from '~/types/station-selection-state.type'
 
 const props = defineProps<{

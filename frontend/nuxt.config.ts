@@ -9,6 +9,10 @@ export default defineNuxtConfig({
     '#types': '../types',
   },
 
+  dirs: {
+    utils: ['utils'],
+  },
+
   app: {
     head: {
       title: 'Wetterdienst',

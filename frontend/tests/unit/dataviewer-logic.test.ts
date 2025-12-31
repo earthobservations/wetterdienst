@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { formatDate } from '../../app/utils/format'
 
-describe('DataViewer Component Logic', () => {
+describe('dataViewer Component Logic', () => {
   it('formats dates correctly', () => {
     const input = '1934-01-01T00:00:00.000000+00:00'
     const expected = '1934-01-01T00:00:00Z'
@@ -11,36 +11,36 @@ describe('DataViewer Component Logic', () => {
   it('determines correct API endpoint for station mode', () => {
     const mode = 'station'
     let endpoint = '/api/values'
-    
+
     if (mode === 'interpolation')
       endpoint = '/api/interpolate'
     else if (mode === 'summary')
       endpoint = '/api/summarize'
-    
+
     expect(endpoint).toBe('/api/values')
   })
 
   it('determines correct API endpoint for interpolation mode', () => {
     const mode = 'interpolation'
     let endpoint = '/api/values'
-    
+
     if (mode === 'interpolation')
       endpoint = '/api/interpolate'
     else if (mode === 'summary')
       endpoint = '/api/summarize'
-    
+
     expect(endpoint).toBe('/api/interpolate')
   })
 
   it('determines correct API endpoint for summary mode', () => {
     const mode = 'summary'
     let endpoint = '/api/values'
-    
+
     if (mode === 'interpolation')
       endpoint = '/api/interpolate'
     else if (mode === 'summary')
       endpoint = '/api/summarize'
-    
+
     expect(endpoint).toBe('/api/summarize')
   })
 
@@ -77,9 +77,9 @@ describe('DataViewer Component Logic', () => {
 
     const xData = [new Date('2024-01-01'), new Date('2024-01-02'), new Date('2024-01-03')]
     const yData = [10, 20, 30]
-    
+
     const result = calculateLinearRegression(xData, yData)
-    
+
     expect(result.x.length).toBe(2)
     expect(result.y.length).toBe(2)
     expect(result.y[1]! - result.y[0]!).toBeGreaterThan(0)
@@ -119,9 +119,9 @@ describe('DataViewer Component Logic', () => {
       { station_id: '002', parameter: 'temp', value: 20 },
     ]
     const columns = ['station_id', 'parameter', 'value']
-    
+
     const csv = valuesToCsv(values, columns)
-    
+
     expect(csv).toContain('station_id,parameter,value')
     expect(csv).toContain('001,temp,10')
     expect(csv).toContain('002,temp,20')
@@ -131,11 +131,11 @@ describe('DataViewer Component Logic', () => {
     const allValues = Array.from({ length: 150 }, (_, i) => ({ id: i, value: i }))
     const pageSize = 50
     const currentPage = 1
-    
+
     const start = (currentPage - 1) * pageSize
     const end = start + pageSize
     const paginatedValues = allValues.slice(start, end)
-    
+
     expect(paginatedValues.length).toBe(50)
     expect(paginatedValues[0]!.id).toBe(0)
     expect(paginatedValues[49]!.id).toBe(49)
@@ -147,10 +147,10 @@ describe('DataViewer Component Logic', () => {
       { station_id: '001', value: 10 },
       { station_id: '002', value: 20 },
     ]
-    
+
     const sortedAsc = [...values].sort((a, b) => a.value - b.value)
     const sortedDesc = [...values].sort((a, b) => b.value - a.value)
-    
+
     expect(sortedAsc[0]!.value).toBe(10)
     expect(sortedAsc[2]!.value).toBe(30)
     expect(sortedDesc[0]!.value).toBe(30)

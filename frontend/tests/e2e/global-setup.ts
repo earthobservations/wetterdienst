@@ -1,21 +1,22 @@
 import type { FullConfig } from '@playwright/test'
+import process from 'node:process'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
 
 async function checkBackendHealth() {
-  console.log('\n🔍 Checking backend health...')
-  console.log(`   Backend URL: ${BACKEND_URL}`)
-  
+  console.warn('\n🔍 Checking backend health...')
+  console.warn(`   Backend URL: ${BACKEND_URL}`)
+
   try {
     const response = await fetch(`${BACKEND_URL}/health`, {
       signal: AbortSignal.timeout(5000),
     })
-    
+
     if (response.ok) {
       const data = await response.json()
-      console.log('✅ Backend is healthy and responding')
-      console.log(`   Status: ${data.status}`)
-      console.log('')
+      console.warn('✅ Backend is healthy and responding')
+      console.warn(`   Status: ${data.status}`)
+      console.warn('')
       return true
     }
     else {
@@ -39,17 +40,17 @@ async function checkBackendHealth() {
     console.error(`Error: ${error.message}`)
     console.error('━'.repeat(60))
     console.error('')
-    
+
     return false
   }
 }
 
-export default async function globalSetup(config: FullConfig) {
+export default async function globalSetup(_config: FullConfig) {
   const isHealthy = await checkBackendHealth()
-  
+
   if (!isHealthy) {
     throw new Error(
-      `Backend not available at ${BACKEND_URL}. Please start the backend before running E2E tests.`
+      `Backend not available at ${BACKEND_URL}. Please start the backend before running E2E tests.`,
     )
   }
 }

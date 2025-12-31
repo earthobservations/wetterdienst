@@ -1,5 +1,5 @@
-import type { H3Event } from 'h3'
 import type { ApiErrorResponse } from '#types/api.types'
+import type { H3Event } from 'h3'
 
 type QueryValue = string | number | boolean | undefined | null
 type QueryObject = Record<string, QueryValue | QueryValue[]>

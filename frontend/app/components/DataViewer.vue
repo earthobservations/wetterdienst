@@ -5,7 +5,7 @@ import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import { h } from 'vue'
-import { formatDate } from '~/utils/format'
+import { formatDate } from '../utils/format'
 
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']

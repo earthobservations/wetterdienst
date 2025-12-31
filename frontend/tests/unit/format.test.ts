@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { formatDate } from '../../app/utils/format'
 
-describe('Date formatting utilities', () => {
+describe('date formatting utilities', () => {
   it('formats date with microseconds', () => {
     const input = '1934-01-01T00:00:00.000000+00:00'
     const expected = '1934-01-01T00:00:00Z'
@@ -26,7 +26,7 @@ describe('Date formatting utilities', () => {
   })
 })
 
-describe('Number formatting utilities', () => {
+describe('number formatting utilities', () => {
   it('formats numbers with fixed decimals', () => {
     expect((123.456789).toFixed(2)).toBe('123.46')
     expect((10).toFixed(2)).toBe('10.00')

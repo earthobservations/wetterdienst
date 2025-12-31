@@ -1,14 +1,14 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ApiPage from '~/pages/api.vue'
 
-describe('API Page', () => {
+describe('aPI Page', () => {
   beforeEach(() => {
-    global.fetch = vi.fn()
+    globalThis.fetch = vi.fn()
   })
 
   it('renders the page', async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
+    vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     )
 
@@ -17,25 +17,25 @@ describe('API Page', () => {
   })
 
   it('displays API endpoints', async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
+    vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     )
 
     const wrapper = await mountSuspended(ApiPage)
     const text = wrapper.text()
-    
+
     expect(text).toContain('REST API')
     expect(text).toContain('Endpoints')
   })
 
   it('lists all API endpoints', async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
+    vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     )
 
     const wrapper = await mountSuspended(ApiPage)
     const text = wrapper.text()
-    
+
     expect(text).toContain('coverage')
     expect(text).toContain('stations')
     expect(text).toContain('values')
@@ -44,13 +44,13 @@ describe('API Page', () => {
   })
 
   it('displays API examples', async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
+    vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     )
 
     const wrapper = await mountSuspended(ApiPage)
     const text = wrapper.text()
-    
+
     expect(text).toContain('Examples')
   })
 })

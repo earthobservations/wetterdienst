@@ -11,7 +11,7 @@ Currently configured to use **Firefox**. You can easily switch or test multiple 
 ```typescript
 // playwright.config.ts
 projects: [
-  { name: 'firefox', use: { ...devices['Desktop Firefox'] } },      // ✅ Current
+  { name: 'firefox', use: { ...devices['Desktop Firefox'] } }, // ✅ Current
   // { name: 'chromium', use: { ...devices['Desktop Chrome'] } },   // Alternative
   // { name: 'webkit', use: { ...devices['Desktop Safari'] } },     // Alternative
 ]
@@ -202,7 +202,7 @@ docker compose --profile backend down
 Example test structure:
 
 ```typescript
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('Feature Name', () => {
   test('should do something', async ({ page }) => {

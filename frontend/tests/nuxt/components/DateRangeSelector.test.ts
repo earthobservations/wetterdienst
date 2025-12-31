@@ -1,8 +1,8 @@
 import { DateRangeSelector } from '#components'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-describe('DateRangeSelector Component', () => {
+describe('dateRangeSelector Component', () => {
   it('renders with optional date range', async () => {
     const wrapper = await mountSuspended(DateRangeSelector, {
       props: {

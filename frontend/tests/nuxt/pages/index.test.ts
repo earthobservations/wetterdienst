@@ -1,14 +1,14 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import IndexPage from '~/pages/index.vue'
 
-describe('Index Page', () => {
+describe('index Page', () => {
   beforeEach(() => {
-    global.fetch = vi.fn()
+    globalThis.fetch = vi.fn()
   })
 
   it('renders the page', async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
+    vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     )
 
@@ -17,13 +17,13 @@ describe('Index Page', () => {
   })
 
   it('contains main navigation elements', async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
+    vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     )
 
     const wrapper = await mountSuspended(IndexPage)
     const html = wrapper.html()
-    
+
     expect(html.length).toBeGreaterThan(0)
   })
 })

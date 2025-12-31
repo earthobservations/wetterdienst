@@ -1,4 +1,4 @@
-import type {Resolution} from '#types/api.types';
+import type { Resolution } from '#types/api.types'
 
 export interface ParameterSelection {
   provider: string | undefined

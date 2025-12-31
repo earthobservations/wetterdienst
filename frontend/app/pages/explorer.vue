@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type {Resolution, Station} from '#types/api.types'
+import type { Resolution, Station } from '#types/api.types'
 import type { TableColumn } from '@nuxt/ui'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'

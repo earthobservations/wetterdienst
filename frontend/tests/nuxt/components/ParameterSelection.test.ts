@@ -1,14 +1,14 @@
 import { ParameterSelection } from '#components'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-describe('ParameterSelection Component', () => {
+describe('parameterSelection Component', () => {
   beforeEach(() => {
-    global.fetch = vi.fn()
+    globalThis.fetch = vi.fn()
   })
 
   it('renders the component', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
     )
 
@@ -23,7 +23,7 @@ describe('ParameterSelection Component', () => {
   })
 
   it('disables dependent selects when previous not selected', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
     )
 
@@ -38,7 +38,7 @@ describe('ParameterSelection Component', () => {
   })
 
   it('emits update when parameters change', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
     )
 
@@ -55,13 +55,13 @@ describe('ParameterSelection Component', () => {
     })
 
     await wrapper.vm.$nextTick()
-    
+
     const emitted = wrapper.emitted('update:modelValue')
     expect(emitted).toBeDefined()
   })
 
   it('initializes with provided model value', async () => {
-    vi.mocked(global.fetch)
+    vi.mocked(globalThis.fetch)
       .mockResolvedValue(
         new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
       )
@@ -81,13 +81,13 @@ describe('ParameterSelection Component', () => {
     })
 
     expect(wrapper.exists()).toBe(true)
-    
+
     const emitted = wrapper.emitted('update:modelValue')
     expect(emitted).toBeDefined()
   })
 
   it('clears dependent fields when parent field changes', async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
+    vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({ dwd: ['observation'], noaa: ['ghcn'] }), { status: 200 }),
     )
 
@@ -104,7 +104,7 @@ describe('ParameterSelection Component', () => {
     })
 
     const vm = wrapper.vm as any
-    
+
     vm.provider = 'noaa'
     await wrapper.vm.$nextTick()
 
@@ -115,7 +115,7 @@ describe('ParameterSelection Component', () => {
   })
 
   it('supports select all parameters', async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
+    vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
     )
 
@@ -137,7 +137,7 @@ describe('ParameterSelection Component', () => {
   })
 
   it('supports clear parameters', async () => {
-    vi.mocked(global.fetch)
+    vi.mocked(globalThis.fetch)
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
       )
