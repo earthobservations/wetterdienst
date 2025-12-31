@@ -134,15 +134,10 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps firefox
       
-      - name: Setup Python for backend
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.12'
+          python-version: '3.14'
       
       - name: Install backend dependencies
         working-directory: .
