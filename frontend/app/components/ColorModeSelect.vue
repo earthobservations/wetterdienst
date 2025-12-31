@@ -21,15 +21,10 @@ function cycleMode() {
 </script>
 
 <template>
-  <ClientOnly>
-    <UButton
-      :icon="currentIcon"
-      color="neutral"
-      variant="ghost"
-      @click="cycleMode"
-    />
-    <template #fallback>
-      <UButton icon="i-lucide-monitor" color="neutral" variant="ghost" />
-    </template>
-  </ClientOnly>
+  <UButton
+    :icon="currentIcon"
+    color="neutral"
+    variant="ghost"
+    @click="cycleMode"
+  />
 </template>

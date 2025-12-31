@@ -5,6 +5,7 @@ import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import { h } from 'vue'
+import { formatDate } from '~/utils/format'
 
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
@@ -117,12 +118,6 @@ const { data: valuesData, pending: valuesPending, refresh: refreshValues } = use
 )
 
 const allValues = computed(() => valuesData.value?.values ?? [])
-
-function formatDate(dateStr: string) {
-  // Remove unnecessary microseconds (.000000) and simplify timezone
-  // 1934-01-01T00:00:00.000000+00:00 -> 1934-01-01T00:00:00Z
-  return dateStr.replace(/\.0+([+-])/, '$1').replace(/[+-]00:00$/, 'Z')
-}
 
 const columnDefinitions: { key: keyof Value, column: TableColumn<Value> }[] = [
   { key: 'station_id', column: { accessorKey: 'station_id', header: 'station_id' } },

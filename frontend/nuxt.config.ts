@@ -28,6 +28,7 @@ export default defineNuxtConfig({
     '@nuxtjs/mdc',
     '@vueuse/nuxt',
     'nuxt-security',
+    '@nuxt/test-utils/module',
   ],
 
   devtools: { enabled: true },
