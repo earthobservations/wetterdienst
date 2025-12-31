@@ -1,30 +1,34 @@
-# Build Stage 1
+# Build Stage
 FROM node:22-alpine AS build
 WORKDIR /app
 
 RUN corepack enable
 
-# Copy package.json and your lockfile, here we add pnpm-lock.yaml for illustration
+# Copy package files
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 
 # Install dependencies
 RUN pnpm i
 
-# Copy the entire project
-COPY frontend ./
+# Copy only necessary source files and configs
+COPY frontend/app ./app
+COPY frontend/public ./public
+COPY frontend/server ./server
+COPY frontend/types ./types
+COPY frontend/nuxt.config.ts ./
+COPY frontend/tsconfig.json ./
 
 # Build the project
 RUN pnpm run build
 
-# Build Stage 2
-
+# Production Stage
 FROM node:22-alpine
 WORKDIR /app
 
-# Only `.output` folder is needed from the build stage
+# Only copy the built output
 COPY --from=build /app/.output/ ./
 
-# Change the port and host
+# Set environment variables
 ENV HOST=0.0.0.0
 ENV PORT=4000
 
