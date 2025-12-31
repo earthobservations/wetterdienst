@@ -30,7 +30,6 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@nuxtjs/leaflet',
     '@nuxtjs/mdc',
-    '@vueuse/nuxt',
     'nuxt-security',
     '@nuxt/test-utils/module',
   ],
