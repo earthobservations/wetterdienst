@@ -75,11 +75,22 @@ or the [table](https://bookdown.org/brry/rdwd/available-datasets.html) provided 
 - Define your request by arguments such as `parameters`, `periods`, `start date`, `end date`
 - Define general settings in Settings context
 - Command line interfaced
-- Web-API via FastAPI, hosted on [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
+- Modern web frontend with interactive data explorer, settings interface, visualization and separate REST API, hosted on [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
 - Run SQL queries on the results
 - Export results to databases and other data sinks
 - Public Docker image
 - Interpolation and Summary of station values
+
+## Web Frontend
+
+The modern web frontend provides an interactive interface for exploring weather data:
+
+- **Explorer**: Interactive data exploration with map-based station selection, parameter filtering, and real-time data visualization
+- **Settings Interface**: Comprehensive controls for all backend API parameters including unit conversion, data shape, interpolation options, and more
+- **Climate Stripes**: Visual representation of temperature trends over time
+- **Customization**: Theme color picker and dark mode support
+
+Visit the live instance at [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
 
 ## Setup
 
