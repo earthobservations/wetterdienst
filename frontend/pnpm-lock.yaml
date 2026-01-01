@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@types/plotly.js-dist-min': npm:@types/plotly.js
-
 importers:
 
   .:
