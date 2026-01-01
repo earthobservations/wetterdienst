@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 // Accept initial values from parent via v-model
 const props = defineProps<{
   modelValue?: {

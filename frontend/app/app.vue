@@ -43,7 +43,17 @@ const items = computed<NavigationMenuItem[]>(() =>
   <UApp>
     <UHeader>
       <template #left>
-        <div />
+        <div class="flex items-center gap-3">
+          <div class="text-xs font-medium tracking-wide">
+            <div class="text-gray-700 dark:text-gray-300">
+              Open earth data
+            </div>
+            <div class="text-primary-600 dark:text-primary-400">
+              for humans
+            </div>
+          </div>
+          <img src="/favicon.ico" alt="Wetterdienst" class="w-7 h-7">
+        </div>
       </template>
       <UNavigationMenu :items="items" />
       <template #body>
@@ -81,7 +91,12 @@ const items = computed<NavigationMenuItem[]>(() =>
               aria-label="PyPI"
             />
           </UTooltip>
-          <ColorModeSelect />
+          <UTooltip text="Primary Color">
+            <PrimaryColorSelect />
+          </UTooltip>
+          <UTooltip text="Color Mode">
+            <ColorModeSelect />
+          </UTooltip>
         </div>
       </template>
     </UHeader>

@@ -19,10 +19,9 @@
     "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
-    "@nuxt/icon": "2.1.0",
+    "@nuxt/icon": "^2.1.0",
     "@nuxt/ui": "^4.1.0",
     "@nuxtjs/leaflet": "^1.3.2",
-    "@nuxtjs/mdc": "^0.18.3",
     "@tailwindcss/vite": "^4.1.17",
     "leaflet.markercluster": "^1.5.3",
     "nuxt": "^4.2.0",

@@ -26,7 +26,6 @@ export default defineNuxtConfig({
     '@nuxt/icon',
     '@nuxt/ui',
     '@nuxtjs/leaflet',
-    '@nuxtjs/mdc',
     'nuxt-security',
     '@nuxt/test-utils/module',
   ],
@@ -86,9 +85,5 @@ export default defineNuxtConfig({
         'object-src': ['\'none\''],
       },
     },
-  },
-
-  ui: {
-    mdc: true,
   },
 })

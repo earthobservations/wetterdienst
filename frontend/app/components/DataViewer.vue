@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-dist-min'
+import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import { h } from 'vue'
@@ -9,6 +10,7 @@ import { formatDate } from '~/utils/format'
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
   stationSelection: StationSelectionState
+  settings: DataSettings
 }>()
 
 // Safe accessors for props to prevent reactivity issues
@@ -56,10 +58,6 @@ const facetByParameter = ref(false)
 // Trendline option
 const showTrendline = ref(false)
 
-// Data settings (API options)
-const humanize = ref(true)
-const convertUnits = ref(true)
-
 const isInterpolationMode = computed(() => stationSelection.value.mode === 'interpolation')
 const isSummaryMode = computed(() => stationSelection.value.mode === 'summary')
 
@@ -74,12 +72,21 @@ const apiEndpoint = computed(() => {
 const apiQuery = computed(() => {
   const ps = parameterSelection.value
   const ss = stationSelection.value
-  const base: Record<string, string | number | boolean | undefined> = {
+  const base: Record<string, any> = {
     provider: ps.provider,
     network: ps.network,
     parameters: ps.parameters.map(parameter => `${ps.resolution}/${ps.dataset}/${parameter}`).join(','),
-    humanize: humanize.value,
-    convert_units: convertUnits.value,
+    humanize: props.settings.humanize,
+    convert_units: props.settings.convertUnits,
+  }
+
+  // Add unit targets if provided (filter out empty values)
+  const unitTargets = Object.entries(props.settings.unitTargets)
+    .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+    .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+
+  if (Object.keys(unitTargets).length > 0) {
+    base.unit_targets = JSON.stringify(unitTargets)
   }
 
   // Add date range if provided
@@ -92,6 +99,31 @@ const apiQuery = computed(() => {
 
   if (isInterpolationMode.value || isSummaryMode.value) {
     const interp = ss.interpolation
+    // Add interpolation-specific settings
+    if (isInterpolationMode.value) {
+      const query: Record<string, any> = {
+        ...base,
+        latitude: interp?.latitude,
+        longitude: interp?.longitude,
+        use_nearby_station_distance: props.settings.useNearbyStationDistance,
+      }
+      // Add interpolation station distance if provided (filter out empty values)
+      const stationDistance = Object.entries(props.settings.interpolationStationDistance)
+        .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+
+      if (Object.keys(stationDistance).length > 0) {
+        query.interpolation_station_distance = JSON.stringify(stationDistance)
+      }
+      // Add advanced interpolation settings if different from defaults
+      if (props.settings.minGainOfValuePairs !== 0.10) {
+        query.min_gain_of_value_pairs = props.settings.minGainOfValuePairs
+      }
+      if (props.settings.numAdditionalStations !== 3) {
+        query.num_additional_stations = props.settings.numAdditionalStations
+      }
+      return query
+    }
     return {
       ...base,
       latitude: interp?.latitude,
@@ -99,9 +131,15 @@ const apiQuery = computed(() => {
     }
   }
   else {
+    // Values mode - add values-specific settings
     return {
       ...base,
       station: ss.selection?.stations?.map(station => station.station_id).join(',') ?? '',
+      shape: props.settings.shape,
+      skip_empty: props.settings.skipEmpty,
+      skip_threshold: props.settings.skipThreshold,
+      skip_criteria: props.settings.skipCriteria,
+      drop_nulls: props.settings.dropNulls,
     }
   }
 })
@@ -380,8 +418,18 @@ watch(
       ss?.interpolation?.longitude,
       ss?.dateRange?.startDate,
       ss?.dateRange?.endDate,
-      humanize.value,
-      convertUnits.value,
+      props.settings.humanize,
+      props.settings.convertUnits,
+      JSON.stringify(props.settings.unitTargets),
+      props.settings.shape,
+      props.settings.skipEmpty,
+      props.settings.skipThreshold,
+      props.settings.skipCriteria,
+      props.settings.dropNulls,
+      props.settings.useNearbyStationDistance,
+      JSON.stringify(props.settings.interpolationStationDistance),
+      props.settings.minGainOfValuePairs,
+      props.settings.numAdditionalStations,
     ]
   },
   () => {
@@ -776,12 +824,6 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
 
 <template>
   <div class="space-y-4">
-    <!-- Data Options (applies to both table and graph) -->
-    <div class="flex justify-center gap-4">
-      <UCheckbox v-model="humanize" label="Humanize parameters" />
-      <UCheckbox v-model="convertUnits" label="Convert to SI units" />
-    </div>
-
     <!-- View mode toggle -->
     <div class="flex justify-center">
       <div class="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">

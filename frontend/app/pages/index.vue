@@ -20,10 +20,7 @@ const authors = [
         Wetterdienst
       </h1>
       <p class="text-xl text-gray-600 dark:text-gray-400 mb-2">
-        Open weather data for humans
-      </p>
-      <p class="text-gray-500 dark:text-gray-500">
-        Access to weather data in Python like a warm summer breeze
+        Open earth data for humans
       </p>
     </div>
 
@@ -34,13 +31,13 @@ const authors = [
         </h2>
       </template>
       <p class="text-gray-600 dark:text-gray-400 mb-4">
-        Wetterdienst is a Python library that provides easy access to weather and climate data from
-        multiple meteorological services. It offers a unified interface for retrieving historical
-        and current weather observations from environmental agencies worldwide, with a particular
+        Wetterdienst is a Python library that provides easy access to earth data from
+        various sources. It offers a unified interface for retrieving historical
+        and current observations from environmental agencies worldwide, with a particular
         focus on the German Weather Service (Deutscher Wetterdienst, DWD).
       </p>
       <p class="text-gray-600 dark:text-gray-400">
-        This frontend application allows you to explore weather data interactively. Select a provider,
+        This frontend application allows you to explore earth data interactively. Select a provider,
         network, and parameters to discover available stations and retrieve observation values.
       </p>
     </UCard>
