@@ -1,4 +1,3 @@
-import type { ApiErrorResponse } from '#types/api.types'
 import type { H3Event } from 'h3'
 
 type QueryValue = string | number | boolean | undefined | null

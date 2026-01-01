@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { StripesKind, StripesStation, StripesStationsResponse } from '#types/api.types'
-
 const kind = ref<StripesKind>('temperature')
 const selectedStation = ref<StripesStation | null>(null)
 const startYear = ref<number | null>(null)

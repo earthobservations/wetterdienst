@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import type { Value, ValuesResponse } from '#types/api.types'
 import type { TableColumn } from '@nuxt/ui'
 import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-dist-min'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import { h } from 'vue'
-import { formatDate } from '../utils/format'
+import { formatDate } from '~/utils/format'
 
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
@@ -621,11 +620,11 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
     autosize: true,
     margin: { l: 60, r: 20, t: 40, b: 60 },
     xaxis: {
-      title: 'Date',
+      title: { text: 'Date' },
       type: 'date',
     },
     yaxis: {
-      title: 'Value',
+      title: { text: 'Value' },
     },
     showlegend: true,
     legend: {
@@ -669,7 +668,7 @@ async function renderFacetedCharts() {
     if (el) {
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
-        yaxis: { title: facet.parameter },
+        yaxis: { title: { text: facet.parameter } },
       }
       await Plotly.react(el, facet.traces, layout, plotlyConfig)
     }

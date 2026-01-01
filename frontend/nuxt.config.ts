@@ -5,12 +5,9 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
 
-  alias: {
-    '#types': '../types',
-  },
-
-  dirs: {
-    utils: ['utils'],
+  typescript: {
+    typeCheck: true,
+    strict: true,
   },
 
   app: {
@@ -47,24 +44,12 @@ export default defineNuxtConfig({
     },
   },
 
-  typescript: {
-    typeCheck: true,
-    tsConfig: {
-      include: ['./*.d.ts', './app/types/*.d.ts', '../types/*.ts'],
-      compilerOptions: {
-        paths: {
-          '#types/*': ['../types/*'],
-        },
-      },
-    },
-  },
-
   vite: {
     plugins: [
       tailwindcss(),
     ],
     optimizeDeps: {
-      include: ['leaflet', 'leaflet.markercluster'],
+      include: ['leaflet', 'leaflet.markercluster', 'plotly.js-dist-min'],
     },
   },
 

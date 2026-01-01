@@ -1,5 +1,3 @@
-import type { Resolution } from '#types/api.types'
-
 export interface ParameterSelection {
   provider: string | undefined
   network: string | undefined

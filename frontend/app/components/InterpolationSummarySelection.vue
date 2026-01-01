@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Station, StationsResponse } from '#types/api.types'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { InterpolationSelection, InterpolationSource } from '~/types/station-selection-state.type'
 

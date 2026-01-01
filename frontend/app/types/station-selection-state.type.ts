@@ -1,5 +1,3 @@
-import type { Station } from '#types/api.types'
-
 export type StationMode = 'station' | 'interpolation' | 'summary'
 
 export type InterpolationSource = 'manual' | 'station'

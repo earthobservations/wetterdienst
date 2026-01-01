@@ -14,7 +14,7 @@ RUN pnpm i
 COPY frontend/app ./app
 COPY frontend/public ./public
 COPY frontend/server ./server
-COPY frontend/types ./types
+COPY frontend/shared/types ./types
 COPY frontend/nuxt.config.ts ./
 COPY frontend/tsconfig.json ./
 

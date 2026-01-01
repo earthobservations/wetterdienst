@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { CoverageParameter, CoverageResponse, ProviderNetworkCoverageResponse, Resolution } from '#types/api.types'
 
 // Accept initial values from parent via v-model
 const props = defineProps<{
