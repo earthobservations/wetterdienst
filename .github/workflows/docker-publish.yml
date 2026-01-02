@@ -27,7 +27,8 @@ concurrency:
 # The name for the produced image at ghcr.io.
 env:
   IMAGE_NAME: "${{ github.repository }}"
-  PYTHON: "3.13"
+  IMAGE_NAME_FRONTEND: "${{ github.repository }}-frontend"
+  PYTHON: "3.14"
 
 jobs:
   build_and_test:
@@ -189,7 +190,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ghcr.io/${{ env.IMAGE_NAME }}-frontend
+            ghcr.io/${{ env.IMAGE_NAME_FRONTEND }}
           tags: |
             type=schedule,pattern=nightly
             type=ref,event=pr
