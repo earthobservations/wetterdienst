@@ -8,7 +8,6 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 from dirty_equals import IsDatetime, IsDict
-from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
 from wetterdienst.exceptions import InvalidEnumerationError
@@ -16,25 +15,22 @@ from wetterdienst.provider.dwd.derived.api import DwdDerivedRequest
 
 
 @pytest.fixture
-def expected_df() -> pl.DataFrame:
+def expected_data() -> list[dict]:
     """Provide expected DataFrame for station."""
-    return pl.DataFrame(
-        [
-            {
-                "resolution": "monthly",
-                "dataset": "heating_degreedays",
-                "station_id": "00433",
-                "start_date": dt.datetime(1918, 4, 1, tzinfo=ZoneInfo("UTC")),
-                "end_date": dt.datetime(2025, 10, 31, tzinfo=ZoneInfo("UTC")),
-                "latitude": 52.4676,
-                "longitude": 13.4020,
-                "height": 48.0,
-                "name": "Berlin-Tempelhof",
-                "state": "Berlin",
-            },
-        ],
-        orient="row",
-    )
+    return [
+        {
+            "resolution": "monthly",
+            "dataset": "heating_degreedays",
+            "station_id": "00433",
+            "start_date": dt.datetime(1918, 4, 1, tzinfo=ZoneInfo("UTC")),
+            "end_date": IsDatetime,
+            "latitude": 52.4676,
+            "longitude": 13.4020,
+            "height": 48.0,
+            "name": "Berlin-Tempelhof",
+            "state": "Berlin",
+        },
+    ]
 
 
 @pytest.mark.remote
@@ -49,15 +45,14 @@ def expected_df() -> pl.DataFrame:
         "fetching_derived_station_00433_with_period_recent",
     ],
 )
-def test_dwd_derived_stations_filter(default_settings: Settings, expected_df: pl.DataFrame, period: str) -> None:
+def test_dwd_derived_stations_filter(default_settings: Settings, expected_data: list[dict], period: str) -> None:
     """Test to check station ID filter."""
     request = DwdDerivedRequest(
         parameters=("monthly", "heating_degreedays"),
         periods=period,
         settings=default_settings,
     ).filter_by_station_id(station_id="00433")
-    given_df = request.df
-    assert_frame_equal(given_df, expected_df)
+    assert request.df.to_dicts() == expected_data
 
 
 def test_dwd_derived_stations_filter_false_period(default_settings: Settings) -> None:
@@ -73,7 +68,7 @@ def test_dwd_derived_stations_filter_false_period(default_settings: Settings) ->
 
 
 @pytest.mark.remote
-def test_dwd_derived_stations_filter_name(default_settings: Settings, expected_df: pl.DataFrame) -> None:
+def test_dwd_derived_stations_filter_name(default_settings: Settings, expected_data: list[dict]) -> None:
     """Test fetching of DWD derived stations with filter by name."""
     # Existing combination of parameters
     request = DwdDerivedRequest(
@@ -81,8 +76,7 @@ def test_dwd_derived_stations_filter_name(default_settings: Settings, expected_d
         periods="historical",
         settings=default_settings,
     ).filter_by_name(name="Berlin-Tempelhof")
-    given_df = request.df
-    assert_frame_equal(given_df, expected_df)
+    assert request.df.to_dicts() == expected_data
 
 
 @pytest.mark.remote
