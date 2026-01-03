@@ -24,6 +24,10 @@ Types of changes:
   interface for all API parameters, climate stripes visualization, theme customization, and enhanced user experience
 - Frontend: Show version of wetterdienst backend in header
 
+### Fixed
+
+- frontend: synchronize selected stations from map
+
 ## [0.116.0] - 2025-12-09
 
 ### Changed

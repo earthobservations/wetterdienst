@@ -4,12 +4,13 @@ import type { ParameterSelectionState } from '~/types/parameter-selection-state.
 declare const L: typeof import('leaflet')
 
 const props = defineProps<{
+  modelValue?: { stations: Station[] }
   parameterSelection: ParameterSelectionState['selection']
   initialStationIds?: string[]
 }>()
 const emit = defineEmits(['update:modelValue'])
 
-const selectedStations = ref<Station[]>([])
+const selectedStations = ref<Station[]>(props.modelValue?.stations ?? [])
 
 const map = ref(null) as any
 let markerClusterGroup: any = null
@@ -23,6 +24,13 @@ watch(selectedStations, () => {
     stations: [...selectedStations.value],
   })
 })
+
+// Sync with parent's modelValue changes
+watch(() => props.modelValue, (newVal) => {
+  if (newVal && JSON.stringify(newVal.stations) !== JSON.stringify(selectedStations.value)) {
+    selectedStations.value = [...(newVal.stations ?? [])]
+  }
+}, { deep: true })
 
 // Track whether we've already restored initial stations
 const hasRestoredInitialStations = ref(false)
