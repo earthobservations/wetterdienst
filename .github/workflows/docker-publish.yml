@@ -125,7 +125,7 @@ jobs:
         uses: docker/setup-buildx-action@v3 # zizmor: ignore[cache-poisoning]
 
       - name: Cache Docker layers
-        uses: actions/cache@v4 # zizmor: ignore[cache-poisoning]
+        uses: actions/cache@v5 # zizmor: ignore[cache-poisoning]
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -212,7 +212,7 @@ jobs:
         uses: docker/setup-buildx-action@v3 # zizmor: ignore[cache-poisoning]
 
       - name: Cache Docker layers
-        uses: actions/cache@v4 # zizmor: ignore[cache-poisoning]
+        uses: actions/cache@v5 # zizmor: ignore[cache-poisoning]
         with:
           path: /tmp/.buildx-cache-frontend
           key: ${{ runner.os }}-buildx-frontend-${{ github.sha }}
