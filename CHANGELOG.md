@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Frontend: Modern Nuxt.js-based web application providing interactive data exploration, comprehensive settings 
+  interface for all API parameters, climate stripes visualization, theme customization, and enhanced user experience
+
 ## [0.116.0] - 2025-12-09
 
 ### Changed

@@ -1,0 +1,46 @@
+services:
+  backend:
+    profiles: ["backend"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wetterdienst-backend:dev
+    container_name: wetterdienst-backend
+    restart: unless-stopped
+    environment:
+      # Common development env overrides; can be overridden in .env
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "3000:3000"
+    command: ["wetterdienst", "restapi", "--listen", "0.0.0.0:3000"]
+    develop:
+      watch:
+        - path: wetterdienst/
+          action: rebuild
+
+  frontend:
+    profiles: ["frontend"]
+    build:
+      context: .
+      dockerfile: frontend.dev.Dockerfile
+    image: wetterdienst-frontend:dev
+    container_name: wetterdienst-frontend
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=4000
+    ports:
+      - "4000:4000"
+    develop:
+      watch:
+        - path: frontend/package.json
+          action: rebuild
+        - path: frontend/pnpm-lock.yaml
+          action: rebuild
+        - path: frontend/
+          action: sync
+          target: /app
+          ignore:
+            - frontend/node_modules
+            - frontend/.nuxt
+            - frontend/.output

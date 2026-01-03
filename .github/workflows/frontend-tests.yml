@@ -1,0 +1,240 @@
+name: Frontend Tests
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-tests.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-tests.yml'
+
+  # Allow job to be triggered manually
+  workflow_dispatch:
+
+# Cancel in-progress jobs when pushing to the same branch
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+permissions: {}
+
+jobs:
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: frontend
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Run type check
+        run: pnpm run typecheck
+
+  lint:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+    needs: typecheck
+    
+    defaults:
+      run:
+        working-directory: frontend
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Run linter
+        run: pnpm run lint
+
+  unit-tests:
+    name: Unit & Component Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    defaults:
+      run:
+        working-directory: frontend
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+      
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Run unit and component tests
+        run: pnpm run test:ci
+  
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    defaults:
+      run:
+        working-directory: frontend
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+      
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps firefox
+      
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.14'
+      
+      - name: Install backend dependencies
+        working-directory: .
+        run: |
+          uv sync --no-dev --extra restapi
+          uv pip list
+      
+      - name: Verify wetterdienst installation
+        working-directory: .
+        run: |
+          uv run wetterdienst --version
+          uv run wetterdienst info
+      
+      - name: Start backend
+        working-directory: .
+        run: |
+          uv run wetterdienst restapi --listen 0.0.0.0:3000 > backend.log 2>&1 &
+          echo $! > backend.pid
+          echo "Backend started with PID $(cat backend.pid)"
+      
+      - name: Wait for backend to be ready
+        run: |
+          echo "Waiting for backend to start..."
+          for i in {1..30}; do
+            if curl -f http://localhost:3000/health > /dev/null 2>&1; then
+              echo "✅ Backend is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: Backend not ready yet, waiting..."
+            sleep 2
+          done
+          echo "❌ Backend failed to start within 60 seconds"
+          echo "Backend logs:"
+          cat backend.log || echo "No backend logs found"
+          exit 1
+      
+      - name: Run E2E tests
+        run: pnpm run test:e2e
+        env:
+          BACKEND_URL: http://localhost:3000
+          CI: true
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+      
+      - name: Upload backend logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-logs
+          path: backend.log
+          retention-days: 3
+      
+      - name: Stop backend
+        if: always()
+        working-directory: .
+        run: |
+          if [ -f backend.pid ]; then
+            echo "Stopping backend process $(cat backend.pid)"
+            kill $(cat backend.pid) || true
+            rm backend.pid
+          fi
+          # Also try to kill any remaining wetterdienst processes
+          pkill -f "wetterdienst restapi" || true
