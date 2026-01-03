@@ -24,6 +24,10 @@ Types of changes:
   interface for all API parameters, climate stripes visualization, theme customization, and enhanced user experience
 - Frontend: Show version of wetterdienst backend in header
 
+### Changed
+
+- Frontend: remove redundant text from header
+
 ### Fixed
 
 - frontend: synchronize selected stations from map
