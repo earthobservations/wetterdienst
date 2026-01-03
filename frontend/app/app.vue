@@ -3,6 +3,10 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 
 const route = useRoute()
 
+const { data: versionData } = await useFetch<{ version: string }>('/api/version')
+
+const version = computed(() => versionData.value?.version ?? 'unknown')
+
 const items = computed<NavigationMenuItem[]>(() =>
   [
     {
@@ -53,6 +57,14 @@ const items = computed<NavigationMenuItem[]>(() =>
             </div>
           </div>
           <img src="/favicon.ico" alt="Wetterdienst" class="w-7 h-7">
+          <div class="text-xs font-medium tracking-wide">
+            <div class="text-gray-700 dark:text-gray-300">
+              Version
+            </div>
+            <div class="text-primary-600 dark:text-primary-400">
+              {{ version }}
+            </div>
+          </div>
         </div>
       </template>
       <UNavigationMenu :items="items" />

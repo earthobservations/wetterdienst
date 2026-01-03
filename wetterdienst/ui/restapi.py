@@ -11,9 +11,9 @@ from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
-from starlette.responses import JSONResponse, RedirectResponse
+from starlette.responses import JSONResponse
 
-from wetterdienst import Author, Info, Settings, Wetterdienst
+from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import ApiNotFoundError, StartDateEndDateError
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
@@ -206,59 +206,10 @@ def health() -> JSONResponse:
     return JSONResponse(content={"status": "OK"})
 
 
-@app.get("/favicon.ico")
-def favicon() -> RedirectResponse:
-    """Redirect to favicon."""
-    return RedirectResponse(
-        url="https://raw.githubusercontent.com/earthobservations/wetterdienst/refs/heads/main/docs/assets/logo.png",
-    )
-
-
-@app.get("/impressum")
-def impressum() -> HTMLResponse:
-    """Provide impressum page."""
-    return HTMLResponse(
-        content="""
-    <html lang="en">
-        <head>
-            <title>Impressum</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    margin: 0;
-                    padding: 20px;
-                    background-color: #f4f4f4;
-                }
-                .container {
-                    max-width: 800px;
-                    margin: 50px auto;
-                    padding: 20px;
-                    background-color: #fff;
-                    border-radius: 8px;
-                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                }
-                h1 {
-                    color: #333;
-                    border-bottom: 2px solid #0074d9;
-                    padding-bottom: 10px;
-                }
-                p {
-                    margin-bottom: 10px;
-                    line-height: 1.6;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>Impressum</h1>
-                <p>Organization: Earth Observations</p>
-                <p>Responsible: Benjamin Gutzmann</p>
-                <p>Email: <a href="mailto:info@eobs.org">info@eobs.org</a></p>
-            </div>
-        </body>
-    </html>
-    """,
-    )
+@app.get("/api/version")
+def version() -> JSONResponse:
+    """Get version information."""
+    return JSONResponse(content={"version": __version__})
 
 
 @app.get("/api/coverage")
