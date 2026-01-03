@@ -20,6 +20,7 @@ Types of changes:
 
 - Frontend: Modern Nuxt.js-based web application providing interactive data exploration, comprehensive settings 
   interface for all API parameters, climate stripes visualization, theme customization, and enhanced user experience
+- Frontend: Show version of wetterdienst backend in header
 
 ## [0.116.0] - 2025-12-09
 
