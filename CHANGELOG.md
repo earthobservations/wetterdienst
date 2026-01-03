@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.117.0] - 2026-01-03
+
 ### Added
 
 - Frontend: Modern Nuxt.js-based web application providing interactive data exploration, comprehensive settings 
@@ -1615,7 +1617,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.116.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.117.0...HEAD
+[0.117.0]: https://github.com/earthobservations/wetterdienst/compare/v0.116.0...v0.117.0
 [0.116.0]: https://github.com/earthobservations/wetterdienst/compare/v0.115.0...v0.116.0
 [0.115.0]: https://github.com/earthobservations/wetterdienst/compare/v0.114.3...v0.115.0
 [0.114.3]: https://github.com/earthobservations/wetterdienst/compare/v0.114.2...v0.114.3
