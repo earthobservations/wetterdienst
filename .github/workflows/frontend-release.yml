@@ -1,0 +1,74 @@
+name: Frontend Release
+
+on:
+  release:
+    types: [ published ]
+
+permissions: {}
+
+jobs:
+  check-release-type:
+    runs-on: ubuntu-latest
+    outputs:
+      is-frontend: ${{ steps.check.outputs.is-frontend }}
+    steps:
+      - name: Check if frontend release
+        id: check
+        run: |
+          if [[ "${{ github.event.release.tag_name }}" =~ ^frontend-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is-frontend=true" >> $GITHUB_OUTPUT
+          else
+            echo "is-frontend=false" >> $GITHUB_OUTPUT
+          fi
+
+  release:
+    needs: check-release-type
+    if: needs.check-release-type.outputs.is-frontend == 'true'
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: frontend
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build frontend
+        run: pnpm run build
+      
+      - name: Create release artifact
+        run: |
+          cd .output
+          tar -czf ../frontend-${{ github.event.release.tag_name }}.tar.gz .
+      
+      - name: Upload release artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: frontend/frontend-${{ github.event.release.tag_name }}.tar.gz
+          asset_name: frontend-${{ github.event.release.tag_name }}.tar.gz
+          asset_content_type: application/gzip
+      
+      # Optional: Trigger Railway deployment via webhook
+      # - name: Trigger Railway deployment
+      #   run: |
+      #     curl -X POST ${{ secrets.RAILWAY_WEBHOOK_URL }}
