@@ -36,8 +36,8 @@ This repository uses a **monorepo structure** with separate release workflows fo
 ### Frontend Image
 - **Triggered by**: `frontend-v*.*.*` tags
 - **Registry**: `ghcr.io/earthobservations/wetterdienst-frontend`
-- **Tags**: 
-  - `1.0.0` (specific version)
+- **Example**: Tag `frontend-v1.0.0` creates Docker tags:
+  - `1.0.0` (specific version - without "frontend-" prefix)
   - `1.0` (major.minor)
   - `nightly` (daily builds)
 
