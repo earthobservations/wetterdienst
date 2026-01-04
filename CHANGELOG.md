@@ -20,19 +20,7 @@ Types of changes:
 
 ### Added
 
-- Frontend: Modern Nuxt.js-based web application providing interactive data exploration, comprehensive settings 
-  interface for all API parameters, climate stripes visualization, theme customization, and enhanced user experience
-- Frontend: Show version of wetterdienst backend in header
-- Frontend: add Andreas Motl to authors list
-
-### Changed
-
-- Frontend: remove redundant text from header
-- Frontend: move 'Getting Started' section to explorer page
-
-### Fixed
-
-- frontend: synchronize selected stations from map
+- Restapi: Add /api/version endpoint to get current version of wetterdienst backend (used in frontend)
 
 ## [0.116.0] - 2025-12-09
 
