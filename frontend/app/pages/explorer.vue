@@ -355,6 +355,28 @@ function handleUnitTargetChange(unitType: string, value: string) {
 
 <template>
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
+    <div class="text-center mb-6">
+      <h1 class="text-3xl font-bold mb-4">
+        Explorer
+      </h1>
+    </div>
+
+    <UCard class="mb-6">
+      <template #header>
+        <h2 class="text-lg font-semibold">
+          Getting Started
+        </h2>
+      </template>
+      <ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-400">
+        <li>Select a <strong>Provider</strong> (e.g., DWD for German Weather Service)</li>
+        <li>Choose a <strong>Network</strong> (e.g., observation for historical data)</li>
+        <li>Pick a <strong>Resolution</strong> and <strong>Dataset</strong></li>
+        <li>Select the <strong>Parameters</strong> you want to retrieve</li>
+        <li>Browse and select <strong>Stations</strong> from the map or list</li>
+        <li>Explore the <strong>Values</strong></li>
+      </ol>
+    </UCard>
+
     <ParameterSelection v-model="parameterSelectionState.selection" />
 
     <!-- Mode Selection -->
