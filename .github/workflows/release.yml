@@ -1,4 +1,4 @@
-name: Release
+name: Backend Release
 
 on:
   release:
@@ -10,7 +10,24 @@ env:
 permissions: {}
 
 jobs:
+  check-release-type:
+    runs-on: ubuntu-latest
+    outputs:
+      is-backend: ${{ steps.check.outputs.is-backend }}
+    steps:
+      - name: Check if backend release
+        id: check
+        run: |
+          # Backend releases use tags like v0.117.0 (not starting with 'frontend-')
+          if [[ "${{ github.event.release.tag_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is-backend=true" >> $GITHUB_OUTPUT
+          else
+            echo "is-backend=false" >> $GITHUB_OUTPUT
+          fi
+
   release:
+    needs: check-release-type
+    if: needs.check-release-type.outputs.is-backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
