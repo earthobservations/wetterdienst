@@ -28,6 +28,7 @@ Types of changes:
 ### Changed
 
 - Frontend: remove redundant text from header
+- Frontend: move 'Getting Started' section to explorer page
 
 ### Fixed
 
