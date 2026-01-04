@@ -16,7 +16,6 @@ import os
 from itertools import chain
 
 import matplotlib.pyplot as plt
-import pytest
 import xarray as xr
 
 from wetterdienst import Settings
@@ -46,7 +45,6 @@ def plot(data: xr.Dataset) -> None:
     swp0.VRADH.plot(x="x", y="y", ax=ax2)
 
 
-@pytest.mark.remote
 def radar_scan_precip() -> None:
     """Retrieve radar sweep scan of precipitation provided by DWD."""
     request_velocity = DwdRadarValues(
