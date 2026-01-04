@@ -6,7 +6,6 @@ import datetime as dt
 import os
 from zoneinfo import ZoneInfo
 
-import numpy as np
 import polars as pl
 from sklearn.feature_selection import r_regression
 from sklearn.metrics import root_mean_squared_error
@@ -102,7 +101,7 @@ def visualize(
 
     ylabel = f"{parameter[-1].lower()} [{unit}]"
     title = (
-        f"rmse: {np.round(rmse, 2)}, corr: {np.round(corr, 2)}\n"
+        f"rmse: {round(rmse, 2)}, corr: {round(corr, 2)}\n"
         f"station_ids: {interpolated_df.get_column('taken_station_ids').to_list()[0]}"
     )
 

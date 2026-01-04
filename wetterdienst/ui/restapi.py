@@ -10,8 +10,7 @@ from textwrap import dedent
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, PlainTextResponse, Response
-from starlette.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import ApiNotFoundError, StartDateEndDateError
