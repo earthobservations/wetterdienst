@@ -209,6 +209,7 @@ dev = [
   "poethepoet>=0.27.0",
   "zizmor>=1.4.1",
   "deptry>=0.24.0",
+  "pysentry-rs>=0.3.13",
 ]
 
 docs = [
@@ -231,6 +232,7 @@ format = [ "format:fmt", "format:lint" ]
 "lint:lint" = "uv run ruff check"
 lint = [ "lint:fmt", "lint:lint" ]
 unused = "uv run deptry src/wetterdienst"
+vulnerable = "uv run pysentry-rs --sources pypa,pypi,osv"
 zizmor = "uv run zizmor ."
 # docs
 docs = "cd docs && make html"
