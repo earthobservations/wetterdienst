@@ -36,4 +36,4 @@ jobs:
         run: uv sync
 
       - name: Run code-style checks
-        run: uv run poe creosote
+        run: uv run poe zizmor
