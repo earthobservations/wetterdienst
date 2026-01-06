@@ -1,0 +1,5 @@
+rules:
+  unpinned-uses:
+    disable: true
+  dependabot-cooldown:
+    disable: true
