@@ -2,11 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Plot German weather stations."""
 
+import math
 import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib import colors
 from matplotlib.colors import ListedColormap
 
@@ -43,7 +43,7 @@ def plot_german_weather_stations() -> None:
     ax.set_title("German weather stations")
     # make Germany look like Germany by using the proper scaling between y-axis and x-axis
     # 51 is approximately the mean latitude of Germany
-    ax.set_aspect(1 / np.cos(np.deg2rad(51)))
+    ax.set_aspect(1 / math.cos(51 * math.pi / 180))
     ax.text(0.5, 0.01, "Source: Deutscher Wetterdienst", ha="center", va="bottom", transform=ax.transAxes)
     fig.tight_layout()
     if SAVE_PLOT:

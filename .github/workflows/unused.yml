@@ -20,7 +20,7 @@ env:
 permissions: {}
 
 jobs:
-  creosote:
+  unused:
     runs-on: ubuntu-latest
     steps:
       - name: Acquire sources
@@ -36,4 +36,4 @@ jobs:
         run: uv sync
 
       - name: Run code-style checks
-        run: uv run poe creosote
+        run: uv run poe unused
