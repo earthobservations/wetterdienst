@@ -65,16 +65,8 @@ jobs:
           tar -czf ../frontend-"$TAG_NAME".tar.gz .
       
       - name: Upload release artifact
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: frontend/frontend-${{ github.event.release.tag_name }}.tar.gz
-          asset_name: frontend-${{ github.event.release.tag_name }}.tar.gz
-          asset_content_type: application/gzip
-      
-      # Optional: Trigger Railway deployment via webhook
-      # - name: Trigger Railway deployment
-      #   run: |
-      #     curl -X POST ${{ secrets.RAILWAY_WEBHOOK_URL }}
+          files: frontend-"${{ github.event.release.tag_name }}".tar.gz
