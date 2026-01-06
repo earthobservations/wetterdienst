@@ -101,14 +101,12 @@ dependencies = [
   "stamina>=23,<26",
   "tabulate>=0.8,<1",
   "tqdm>=4,<5",
+  "typing-extensions>=4.15.0; python_version<'3.11'",
   "tzdata>=2024.2",
   "tzfpy>=0.15.2,<2",
 ]
 
 [project.optional-dependencies]
-benchmarks = [
-  "scikit-learn>=1.7.0"
-]
 bufr = [
   "pdbufr>=0.10.2,<1; python_version<'3.14'",
   "pybufrkit>=0.2,<1",
@@ -143,10 +141,6 @@ interpolation = [
   "scipy>=1.14.1,<2",
   "shapely>=2,<3",
   "utm>=0.7,<1",
-]
-# only used in examples for plotting radar data
-matplotlib = [
-  "matplotlib>=3.3,<4",
 ]
 mysql = [
   "mysqlclient>=2,<3",
@@ -208,6 +202,7 @@ dev = [
   "h5py>=3.1",
   "jsonschema[format-nongpl]>=4.17.3",
   "lmfit>=1.1.0",
+  "matplotlib>=3.3,<4",
   "pybufrkit>=0.2",
   "pytest>=7.2",
   "pytest-cov>=4",
@@ -239,7 +234,7 @@ format = [ "format:fmt", "format:lint" ]
 "lint:fmt" = "uv run ruff format --check"
 "lint:lint" = "uv run ruff check"
 lint = [ "lint:fmt", "lint:lint" ]
-unused = "uv run deptry wetterdienst tests benchmarks examples"
+unused = "uv run deptry wetterdienst"
 zizmor = "uv run zizmor ."
 # docs
 docs = "cd docs && make html"
@@ -306,6 +301,22 @@ known_first_party = ["wetterdienst"]
 backports-datetime-fromisoformat = "backports"
 influxdb3-python = "influxdb_client_3"
 scikit-learn = "sklearn"
+
+[tool.deptry.per_rule_ignores]
+DEP002 = [
+  "httpx",
+  "kaleido",
+  "mysqlclient",
+  "pandas",
+  "psycopg2-binary",
+  "pybufrkit",
+  "sqlalchemy-cratedb",
+  "tzdata",
+  "wradlib",
+  "xlsxwriter",
+  "xradar",
+  "zarr"
+]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3"

@@ -8,9 +8,14 @@ import json
 import typing
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, NotRequired, TypedDict
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
+
+try:
+    from typing import NotRequired, TypedDict
+except ImportError:
+    from typing_extensions import NotRequired, TypedDict
 
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.model.util import filter_by_date
