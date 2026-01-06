@@ -5983,7 +5983,7 @@ dependencies = [
     { name = "stamina" },
     { name = "tabulate" },
     { name = "tqdm" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
     { name = "tzdata" },
     { name = "tzfpy" },
 ]
@@ -6139,7 +6139,7 @@ requires-dist = [
     { name = "tabula", marker = "extra == 'radar'", specifier = ">=1.0.5" },
     { name = "tabulate", specifier = ">=0.8,<1" },
     { name = "tqdm", specifier = ">=4,<5" },
-    { name = "typing-extensions", specifier = ">=4.15.0" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.15.0" },
     { name = "tzdata", specifier = ">=2024.2" },
     { name = "tzfpy", specifier = ">=0.15.2,<2" },
     { name = "utm", marker = "extra == 'interpolation'", specifier = ">=0.7,<1" },

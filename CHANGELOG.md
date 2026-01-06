@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Move code to src directory
+
 ## [0.117.0] - 2026-01-03
 
 ### Added

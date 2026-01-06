@@ -190,10 +190,6 @@ wetterdienst = "wetterdienst.ui.cli:cli"
 requires = ["uv_build>=0.9.21,<0.10.0"]
 build-backend = "uv_build"
 
-[tool.uv.build-backend]
-module-name = "wetterdienst"
-module-root = ""
-
 [dependency-groups]
 dev = [
   # general
@@ -234,7 +230,7 @@ format = [ "format:fmt", "format:lint" ]
 "lint:fmt" = "uv run ruff format --check"
 "lint:lint" = "uv run ruff check"
 lint = [ "lint:fmt", "lint:lint" ]
-unused = "uv run deptry wetterdienst"
+unused = "uv run deptry src/wetterdienst"
 zizmor = "uv run zizmor ."
 # docs
 docs = "cd docs && make html"
@@ -343,11 +339,11 @@ reruns_delay = 5
 
 [tool.coverage.run]
 branch = true
-source = [ "wetterdienst" ]
+source = [ "src/wetterdienst" ]
 [tool.coverage.report]
 show_missing = true
 fail_under = 0
 omit = [
   "tests/*",
-  "wetterdienst/provider/dwd/radar/cli.py",
+  "src/wetterdienst/provider/dwd/radar/cli.py",
 ]
