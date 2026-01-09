@@ -7,10 +7,10 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import polars as pl
-from pydantic import BaseModel, confloat, conint, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
 from wetterdienst.metadata.period import Period
@@ -103,15 +103,15 @@ class StationsRequest(BaseModel):
     # station name
     name: str | None = None
     # latlon
-    latitude: confloat(ge=-90, le=90) | None = None
-    longitude: confloat(ge=-180, le=180) | None = None
-    rank: conint(ge=1) | None = None
-    distance: confloat(ge=0) | None = None
+    latitude: Annotated[float, Field(strict=True, ge=-90, le=90)] | None = None
+    longitude: Annotated[float, Field(strict=True, ge=-180, le=180)] | None = None
+    rank: Annotated[int, Field(strict=True, ge=1)] | None = None
+    distance: Annotated[float, Field(strict=True, ge=0)] | None = None
     # bbox
-    left: confloat(ge=-180, le=180) | None = None
-    bottom: confloat(ge=-90, le=90) | None = None
-    right: confloat(ge=-180, le=180) | None = None
-    top: confloat(ge=-90, le=90) | None = None
+    left: Annotated[float, Field(strict=True, ge=-180, le=180)] | None = None
+    bottom: Annotated[float, Field(strict=True, ge=-90, le=90)] | None = None
+    right: Annotated[float, Field(strict=True, ge=-180, le=180)] | None = None
+    top: Annotated[float, Field(strict=True, ge=-90, le=90)] | None = None
     # sql
     sql: str | None = None
 
@@ -123,9 +123,9 @@ class StationsRequest(BaseModel):
     debug: bool = False
 
     # plot settings
-    width: conint(gt=0) | None = None
-    height: conint(gt=0) | None = None
-    scale: confloat(gt=0) | None = None
+    width: Annotated[int, Field(strict=True, gt=0)] | None = None
+    height: Annotated[int, Field(strict=True, gt=0)] | None = None
+    scale: Annotated[float, Field(strict=True, gt=0)] | None = None
 
 
 class ValuesRequest(BaseModel):
@@ -198,15 +198,15 @@ class ValuesRequest(BaseModel):
     # station name
     name: str | None = None
     # latlon
-    latitude: confloat(ge=-90, le=90) | None = None
-    longitude: confloat(ge=-180, le=180) | None = None
-    rank: conint(ge=1) | None = None
-    distance: confloat(ge=0) | None = None
+    latitude: Annotated[float, Field(strict=True, ge=-90, le=90)] | None = None
+    longitude: Annotated[float, Field(strict=True, ge=-180, le=180)] | None = None
+    rank: Annotated[int, Field(strict=True, ge=1)] | None = None
+    distance: Annotated[float, Field(strict=True, ge=0)] | None = None
     # bbox
-    left: confloat(ge=-180, le=180) | None = None
-    bottom: confloat(ge=-90, le=90) | None = None
-    right: confloat(ge=-180, le=180) | None = None
-    top: confloat(ge=-90, le=90) | None = None
+    left: Annotated[float, Field(strict=True, ge=-180, le=180)] | None = None
+    bottom: Annotated[float, Field(strict=True, ge=-90, le=90)] | None = None
+    right: Annotated[float, Field(strict=True, ge=-180, le=180)] | None = None
+    top: Annotated[float, Field(strict=True, ge=-90, le=90)] | None = None
     # sql
     sql: str | None = None
 
@@ -218,9 +218,9 @@ class ValuesRequest(BaseModel):
     debug: bool = False
 
     # plot settings
-    width: conint(gt=0) | None = None
-    height: conint(gt=0) | None = None
-    scale: confloat(gt=0) | None = None
+    width: Annotated[int, Field(strict=True, gt=0)] | None = None
+    height: Annotated[int, Field(strict=True, gt=0)] | None = None
+    scale: Annotated[float, Field(strict=True, gt=0)] | None = None
 
     # values
     date: str | None = None
@@ -230,7 +230,7 @@ class ValuesRequest(BaseModel):
     convert_units: bool = True
     unit_targets: dict[str, str] | None = None
     skip_empty: bool = False
-    skip_threshold: confloat(ge=0, le=1) = 0.95
+    skip_threshold: Annotated[float, Field(strict=True, ge=0, le=1)] = 0.95
     skip_criteria: Literal["min", "mean", "max"] = "min"
     drop_nulls: bool = True
 
@@ -295,8 +295,8 @@ class InterpolationRequest(BaseModel):
     # station filter parameters
     station: str | None = None
     # latlon
-    latitude: confloat(ge=-90, le=90) | None = None
-    longitude: confloat(ge=-180, le=180) | None = None
+    latitude: Annotated[float, Field(strict=True, ge=-90, le=90)] | None = None
+    longitude: Annotated[float, Field(strict=True, ge=-180, le=180)] | None = None
     # sql
     sql_values: str | None = None
     humanize: bool = True
@@ -313,7 +313,7 @@ class InterpolationRequest(BaseModel):
             return v
         return json.loads(v)
 
-    interpolation_station_distance: dict[str, confloat(ge=0.0)] | None = None
+    interpolation_station_distance: dict[str, Annotated[float, Field(strict=True, ge=0.0)]] | None = None
 
     @field_validator("interpolation_station_distance", mode="before")
     @classmethod
@@ -325,7 +325,7 @@ class InterpolationRequest(BaseModel):
             return v
         return json.loads(v)
 
-    use_nearby_station_distance: confloat(ge=0) = 1.0
+    use_nearby_station_distance: Annotated[float, Field(strict=True, ge=0)] = 1.0
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
     with_metadata: bool = True
@@ -335,9 +335,9 @@ class InterpolationRequest(BaseModel):
     debug: bool = False
 
     # plot settings
-    width: conint(gt=0) | None = None
-    height: conint(gt=0) | None = None
-    scale: confloat(gt=0) | None = None
+    width: Annotated[int, Field(strict=True, gt=0)] | None = None
+    height: Annotated[int, Field(strict=True, gt=0)] | None = None
+    scale: Annotated[float, Field(strict=True, gt=0)] | None = None
 
 
 class SummaryRequest(BaseModel):
@@ -390,8 +390,8 @@ class SummaryRequest(BaseModel):
     # station filter parameters
     station: str | None = None
     # latlon
-    latitude: confloat(ge=-90, le=90) | None = None
-    longitude: confloat(ge=-180, le=180) | None = None
+    latitude: Annotated[float, Field(strict=True, ge=-90, le=90)] | None = None
+    longitude: Annotated[float, Field(strict=True, ge=-180, le=180)] | None = None
     # sql
     sql_values: str | None = None
     humanize: bool = True
@@ -415,9 +415,9 @@ class SummaryRequest(BaseModel):
     debug: bool = False
 
     # plot settings
-    width: conint(gt=0) | None = None
-    height: conint(gt=0) | None = None
-    scale: confloat(gt=0) | None = None
+    width: Annotated[int, Field(strict=True, gt=0)] | None = None
+    height: Annotated[int, Field(strict=True, gt=0)] | None = None
+    scale: Annotated[float, Field(strict=True, gt=0)] | None = None
 
 
 def _get_stations_request(

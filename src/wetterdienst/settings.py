@@ -9,10 +9,10 @@ import logging
 import platform
 from collections import defaultdict
 from pathlib import Path  # noqa: TC003
-from typing import Literal
+from typing import Annotated, Literal
 
 import platformdirs
-from pydantic import Field, confloat, conint, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wetterdienst.metadata.parameter import Parameter
@@ -53,15 +53,15 @@ class Settings(BaseSettings):
     )
     # this setting is used to define how far away a station can be so that no interpolation is done
     # but instead the station is used directly
-    ts_interp_use_nearby_station_distance: confloat(ge=0) | None = 1.0
+    ts_interp_use_nearby_station_distance: Annotated[float, Field(strict=True, ge=0)] | None = 1.0
     # this rather complicated setting is used in the process of figuring out how many additional stations will be used
     # the gain defines how many additional timestamps can be interpolated by adding the specific station and thus
     # getting more timestamps with the required minimum of four values
     # so basically this setting considers the extra effort against the gain of additional interpolated timestamps
-    ts_interp_min_gain_of_value_pairs: confloat(gt=0.0) = 0.10
+    ts_interp_min_gain_of_value_pairs: Annotated[float, Field(strict=True, ge=0)] = 0.10
     # this settings defines how many additional stations are used in the interpolation process independent from the gain
     # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
-    ts_interp_num_additional_stations: conint(ge=0) = 3
+    ts_interp_num_additional_stations: Annotated[int, Field(strict=True, ge=0)] = 3
 
     @field_validator("ts_unit_targets", mode="before")
     @classmethod
