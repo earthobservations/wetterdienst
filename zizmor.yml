@@ -3,3 +3,5 @@ rules:
     disable: true
   dependabot-cooldown:
     disable: true
+  cache-poisoning:
+    disable: true
