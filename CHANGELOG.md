@@ -19,6 +19,7 @@ Types of changes:
 ### Changed
 
 - Move code to src directory
+- Filter By Rank: Sort stations by distance and station id
 
 ## [0.117.0] - 2026-01-03
 
@@ -52,7 +53,9 @@ Types of changes:
 
 - Cast value in interpolate function to float
 
-  @ninjeanne reported that wetterdienst lately quirks when running interpolation. This issue is related to one of the new polars versions > 1.33.1. A shorthand fix would be to cast the value coming from the scipy interpolate function to a float.
+  @ninjeanne reported that wetterdienst lately quirks when running interpolation. This issue is related to one of the
+  new polars versions > 1.33.1. A shorthand fix would be to cast the value coming from the scipy interpolate function to
+  a float.
 
 ## [0.114.3] - 2025-11-07
 
@@ -200,7 +203,8 @@ Types of changes:
 ### Added
 
 - Add user agent to default `fsspec_client_kwargs`
-- Adjust apis to track resolution and dataset (allows querying data for different resolutions and datasets in one request)
+- Adjust apis to track resolution and dataset (allows querying data for different resolutions and datasets in one
+  request)
 
 ### Changed
 
@@ -282,7 +286,9 @@ Types of changes:
 - Add logo for restapi
 - **Breaking:** Add dedicated unit converter
 
-  Attention: Many units are changed to be more consistent with typical meteorological units. We now use `°C` for temperatures. Also, length units are now separated in `length_short`, `length_medium` and `length_long` to get more reasonable decimals. For more information, see the new units chapter (usage/units) in the documentation.
+  Attention: Many units are changed to be more consistent with typical meteorological units. We now use `°C` for
+  temperatures. Also, length units are now separated in `length_short`, `length_medium` and `length_long` to get more
+  reasonable decimals. For more information, see the new units chapter (usage/units) in the documentation.
 
 ### Changed
 
@@ -322,7 +328,8 @@ Types of changes:
 
 ### Changed
 
-- **Breaking:** Add new metadata model: Requests now use `parameters` instead of `parameter` and `resolution` e.g. `parameters=[("daily", "kl")]` instead of `parameter="kl", resolution="daily"`
+- **Breaking:** Add new metadata model: Requests now use `parameters` instead of `parameter` and `resolution` e.g.
+  `parameters=[("daily", "kl")]` instead of `parameter="kl", resolution="daily"`
 
 ### Deprecated
 
@@ -359,7 +366,8 @@ Types of changes:
 
 ### Added
 
-- DWD Road: Add new station groups, log warning if no data is available, especially if the station group is one of the temporarily unavailable ones
+- DWD Road: Add new station groups, log warning if no data is available, especially if the station group is one of the
+  temporarily unavailable ones
 
 ### Fixed
 
@@ -378,9 +386,9 @@ Types of changes:
 ### Changed
 
 - Rename parameters
-  - units in parameter names are now directly following the number
-  - temperature parameters now use meter instead of cm and also have a unit
-  - e.g. TEMPERATURE_AIR_MEAN_2M, CLOUD_COVER_BETWEEN_2KM_TO_7KM, PROBABILITY_PRECIPITATION_HEIGHT_GT_0_0MM_LAST_6H
+    - units in parameter names are now directly following the number
+    - temperature parameters now use meter instead of cm and also have a unit
+    - e.g. TEMPERATURE_AIR_MEAN_2M, CLOUD_COVER_BETWEEN_2KM_TO_7KM, PROBABILITY_PRECIPITATION_HEIGHT_GT_0_0MM_LAST_6H
 
 ### Fixed
 
@@ -776,7 +784,10 @@ Types of changes:
 
 - **Breaking:** Backend: Migrate from pandas to polars
 
-  Switching to Polars may cause breaking changes for certain user-space code heavily using pandas idioms, because Wetterdienst now returns a [Polars DataFrame](https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/). If you absolutely must use a pandas DataFrame, you can cast the Polars DataFrame to pandas by using the `.to_pandas()` method.
+  Switching to Polars may cause breaking changes for certain user-space code heavily using pandas idioms, because
+  Wetterdienst now returns a [Polars DataFrame](https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/).
+  If you absolutely must use a pandas DataFrame, you can cast the Polars DataFrame to pandas by using the `.to_pandas()`
+  method.
 
 ## [0.56.2] - 2023-05-11
 
@@ -852,7 +863,8 @@ Types of changes:
 
 ### Changed
 
-- SCALAR: Change tidy option to be set to True if multiple different entire datasets are queried (in accordance with exporting results to json where multiple DataFrames are concatenated)
+- SCALAR: Change tidy option to be set to True if multiple different entire datasets are queried (in accordance with
+  exporting results to json where multiple DataFrames are concatenated)
 - Further cleanups
 - Change Settings to be provided via initialization instead of having a singleton
 
@@ -869,7 +881,8 @@ Types of changes:
 ### Fixed
 
 - DWD MOSMIX: Fix parsing station list
-- DWD MOSMIX: Fix converting degrees minutes to decimal degrees within the stations list. The previous method did not produce correct results on negative lat/lon values.
+- DWD MOSMIX: Fix converting degrees minutes to decimal degrees within the stations list. The previous method did not
+  produce correct results on negative lat/lon values.
 
 ## [0.51.0] - 2023-01-01
 
@@ -886,7 +899,8 @@ Types of changes:
 
 ### Added
 
-- Interpolation/Summary: Now the queried point can be an existing station laying on the border of the polygon that it's being checked against
+- Interpolation/Summary: Now the queried point can be an existing station laying on the border of the polygon that it's
+  being checked against
 - UI: Add interpolate/summarize methods as subspaces
 
 ### Changed
@@ -955,7 +969,8 @@ Types of changes:
 
 ### Added
 
-- Add interpolation of multiple weather stations for a given lat/lon point (currently only works for DWDObservationRequest)
+- Add interpolation of multiple weather stations for a given lat/lon point (currently only works for
+  DWDObservationRequest)
 
 ### Fixed
 
@@ -972,14 +987,15 @@ Types of changes:
 - Slightly adapt the conversion function to satisfy linter
 - Adjust Docker images to fix build problems, now use python 3.10 as base
 - Adjust NOAA sources to AWS as NCEI sources currently are not available
-- Make explorer work again for all services setting up Period enum classes instead of single instances of Period for period base
+- Make explorer work again for all services setting up Period enum classes instead of single instances of Period for
+  period base
 
 ### Fixed
 
 - Fix parameter names:
-  - we now use consistently INDEX instead of INDICATOR
-  - index and form got mixed up with certain parameters, where actually index was measured/given but not the form
-  - global radiation was mistakenly named radiation_short_wave_direct at certain points, now it is named correctly
+    - we now use consistently INDEX instead of INDICATOR
+    - index and form got mixed up with certain parameters, where actually index was measured/given but not the form
+    - global radiation was mistakenly named radiation_short_wave_direct at certain points, now it is named correctly
 
 ## [0.43.0] - 2022-09-05
 
@@ -1251,12 +1267,14 @@ Types of changes:
 
 ### Added
 
-- Enable selecting a parameter precisely from a dataset by passing a tuple like [("precipitation_height", "kl")] or [("precipitation_height", "precipitation_more")], or for cli/restapi use "precipitation_height/kl"
+- Enable selecting a parameter precisely from a dataset by passing a tuple like [("precipitation_height", "kl")]
+  or [("precipitation_height", "precipitation_more")], or for cli/restapi use "precipitation_height/kl"
 - Rename `wetterdienst show` to `wetterdienst info`, make version accessible via CLI with `wetterdienst version`
 
 ### Fixed
 
-- Bug when querying an entire DWD dataset for 10_minutes/1_minute resolution without providing start_date/end_date, which results in the interval of the request being None
+- Bug when querying an entire DWD dataset for 10_minutes/1_minute resolution without providing start_date/end_date,
+  which results in the interval of the request being None
 - Test of restapi with recent period
 - Get rid of pandas performance warning from DWD Mosmix data
 
@@ -1313,7 +1331,8 @@ Types of changes:
 
 - Add origin and si unit mappings to services
 - Use argument "si_units" in request classes to convert origin units to si, set to default
-- Improve caching behaviour by introducing optional `WD_CACHE_DIR` and `WD_CACHE_DISABLE` environment variables. Thanks, @meteoDaniel!
+- Improve caching behaviour by introducing optional `WD_CACHE_DIR` and `WD_CACHE_DISABLE` environment variables. Thanks,
+  @meteoDaniel!
 - Add baseline test for ECCC observations
 - Add DWD Observation hourly moisture to catalogue
 
@@ -1330,7 +1349,8 @@ Types of changes:
 ### Changed
 
 - Rename station_name to name
-- Rename filter methods to .filter_by_station_id and .filter_by_name, use same convention for bbox, filter_by_rank (previously nearby_number), filter_by_distance (nearby_distance)
+- Rename filter methods to .filter_by_station_id and .filter_by_name, use same convention for bbox, filter_by_rank (
+  previously nearby_number), filter_by_distance (nearby_distance)
 
 ### Fixed
 
@@ -1430,13 +1450,16 @@ Types of changes:
 - Make dates of internal data timezone aware, set start date and end date to UTC
 - Add issue date to Mosmix class that actually refers to the Mosmix run instead of start date and end date
 - Use Result object for every data related return
-- In accordance with typical naming conventions, DWDObservationSites is renamed to DWDObservationStations, the same is applied to DWDMosmixSites
-- The name ELEMENT is removed and replaced by parameter while the actual parameter set e.g. CLIMATE_SUMMARY is now found under PARAMETER_SET
+- In accordance with typical naming conventions, DWDObservationSites is renamed to DWDObservationStations, the same is
+  applied to DWDMosmixSites
+- The name ELEMENT is removed and replaced by parameter while the actual parameter set e.g. CLIMATE_SUMMARY is now found
+  under PARAMETER_SET
 
 ### Removed
 
 - Remove StorageAdapter and its dependencies
-- Methods self.collect_data() and self.collect_safe() are replaced by self.query() and self.all() and will deprecate at some point
+- Methods self.collect_data() and self.collect_safe() are replaced by self.query() and self.all() and will deprecate at
+  some point
 
 ## [0.11.1] - 2020-12-10
 
@@ -1464,7 +1487,8 @@ Types of changes:
 - InfluxDB export: Use a batch size of 50000 to handle larger amounts of data (#235). Thanks, @wetterfrosch!
 - Update radar examples to use `wradlib>=1.9.0`. Thanks, @kmuehlbauer!
 - Fix inconsistency within 1 minute precipitation data where historical files have more columns
-- Improve DWD PDF parser to extract quality information and select language. Also, add an example at `example/dwd_describe_fields.py` as well as respective documentation.
+- Improve DWD PDF parser to extract quality information and select language. Also, add an example at
+  `example/dwd_describe_fields.py` as well as respective documentation.
 - Move intermediate storage of HDF out of data collection
 - Fix bug with date filtering for empty/no station data for a given parameter
 
@@ -1472,7 +1496,9 @@ Types of changes:
 
 ### Fixed
 
-- Upgrade to dateparser-1.0.0. Thanks, @steffen746, @noviluni and @Gallaecio! This fixes a problem with timezones on Windows. The reason is that Windows has no zoneinfo database and `tzlocal` switched from `pytz` to `tzinfo`. https://github.com/earthobservations/wetterdienst/issues/222
+- Upgrade to dateparser-1.0.0. Thanks, @steffen746, @noviluni and @Gallaecio! This fixes a problem with timezones on
+  Windows. The reason is that Windows has no zoneinfo database and `tzlocal` switched from `pytz` to
+  `tzinfo`. https://github.com/earthobservations/wetterdienst/issues/222
 
 ## [0.10.0] - 2020-10-26
 
@@ -1480,8 +1506,10 @@ Types of changes:
 
 - CLI: Obtain "--tidy" argument from command line
 - Extend MOSMIX support to equal the API of observations
-- DWDObservationData now also takes an individual parameter independent of the pre-configured DWD datasets by using DWDObservationParameter or similar names e.g. "precipitation_height"
-- Newly introduced coexistence of DWDObservationParameter and DWDObservationParameterSet to address parameter sets as well as individual parameters
+- DWDObservationData now also takes an individual parameter independent of the pre-configured DWD datasets by using
+  DWDObservationParameter or similar names e.g. "precipitation_height"
+- Newly introduced coexistence of DWDObservationParameter and DWDObservationParameterSet to address parameter sets as
+  well as individual parameters
 
 ### Changed
 
@@ -1560,7 +1588,8 @@ Types of changes:
 
 ### Added
 
-- Add option for data collection to tidy the DataFrame (properly reshape) with the "tidy_data" keyword and set it to be used as default
+- Add option for data collection to tidy the DataFrame (properly reshape) with the "tidy_data" keyword and set it to be
+  used as default
 
 ### Changed
 
@@ -1601,7 +1630,8 @@ Types of changes:
 
 ### Changed
 
-- Parameter, time resolution and period type can now also be passed as strings of the enumerations e.g. "climate_summary" or "CLIMATE_SUMMARY" for Parameter.CLIMATE_SUMMARY
+- Parameter, time resolution and period type can now also be passed as strings of the enumerations e.g. "
+  climate_summary" or "CLIMATE_SUMMARY" for Parameter.CLIMATE_SUMMARY
 - Enable selecting nearby stations by distance rather than by number of stations
 
 ### Fixed
@@ -1620,159 +1650,315 @@ Types of changes:
 - Rename library
 
 [Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.117.0...HEAD
+
 [0.117.0]: https://github.com/earthobservations/wetterdienst/compare/v0.116.0...v0.117.0
+
 [0.116.0]: https://github.com/earthobservations/wetterdienst/compare/v0.115.0...v0.116.0
+
 [0.115.0]: https://github.com/earthobservations/wetterdienst/compare/v0.114.3...v0.115.0
+
 [0.114.3]: https://github.com/earthobservations/wetterdienst/compare/v0.114.2...v0.114.3
+
 [0.114.2]: https://github.com/earthobservations/wetterdienst/compare/v0.114.1...v0.114.2
+
 [0.114.1]: https://github.com/earthobservations/wetterdienst/compare/v0.114.0...v0.114.1
+
 [0.114.0]: https://github.com/earthobservations/wetterdienst/compare/v0.113.0...v0.114.0
+
 [0.113.0]: https://github.com/earthobservations/wetterdienst/compare/v0.112.0...v0.113.0
+
 [0.112.0]: https://github.com/earthobservations/wetterdienst/compare/v0.111.0...v0.112.0
+
 [0.111.0]: https://github.com/earthobservations/wetterdienst/compare/v0.110.0...v0.111.0
+
 [0.110.0]: https://github.com/earthobservations/wetterdienst/compare/v0.109.0...v0.110.0
+
 [0.109.0]: https://github.com/earthobservations/wetterdienst/compare/v0.108.0...v0.109.0
+
 [0.108.0]: https://github.com/earthobservations/wetterdienst/compare/v0.107.0...v0.108.0
+
 [0.107.0]: https://github.com/earthobservations/wetterdienst/compare/v0.106.0...v0.107.0
+
 [0.106.0]: https://github.com/earthobservations/wetterdienst/compare/v0.105.0...v0.106.0
+
 [0.105.0]: https://github.com/earthobservations/wetterdienst/compare/v0.104.0...v0.105.0
+
 [0.104.0]: https://github.com/earthobservations/wetterdienst/compare/v0.103.0...v0.104.0
+
 [0.103.0]: https://github.com/earthobservations/wetterdienst/compare/v0.102.0...v0.103.0
+
 [0.102.0]: https://github.com/earthobservations/wetterdienst/compare/v0.101.0...v0.102.0
+
 [0.101.0]: https://github.com/earthobservations/wetterdienst/compare/v0.100.0...v0.101.0
+
 [0.100.0]: https://github.com/earthobservations/wetterdienst/compare/v0.99.0...v0.100.0
+
 [0.99.0]: https://github.com/earthobservations/wetterdienst/compare/v0.98.0...v0.99.0
+
 [0.98.0]: https://github.com/earthobservations/wetterdienst/compare/v0.97.0...v0.98.0
+
 [0.97.0]: https://github.com/earthobservations/wetterdienst/compare/v0.96.0...v0.97.0
+
 [0.96.0]: https://github.com/earthobservations/wetterdienst/compare/v0.95.1...v0.96.0
+
 [0.95.1]: https://github.com/earthobservations/wetterdienst/compare/v0.95.0...v0.95.1
+
 [0.95.0]: https://github.com/earthobservations/wetterdienst/compare/v0.94.0...v0.95.0
+
 [0.94.0]: https://github.com/earthobservations/wetterdienst/compare/v0.93.0...v0.94.0
+
 [0.93.0]: https://github.com/earthobservations/wetterdienst/compare/v0.92.0...v0.93.0
+
 [0.92.0]: https://github.com/earthobservations/wetterdienst/compare/v0.91.0...v0.92.0
+
 [0.91.0]: https://github.com/earthobservations/wetterdienst/compare/v0.90.0...v0.91.0
+
 [0.90.0]: https://github.com/earthobservations/wetterdienst/compare/v0.89.0...v0.90.0
+
 [0.89.0]: https://github.com/earthobservations/wetterdienst/compare/v0.88.0...v0.89.0
+
 [0.88.0]: https://github.com/earthobservations/wetterdienst/compare/v0.87.0...v0.88.0
+
 [0.87.0]: https://github.com/earthobservations/wetterdienst/compare/v0.86.0...v0.87.0
+
 [0.86.0]: https://github.com/earthobservations/wetterdienst/compare/v0.85.0...v0.86.0
+
 [0.85.0]: https://github.com/earthobservations/wetterdienst/compare/v0.84.0...v0.85.0
+
 [0.84.0]: https://github.com/earthobservations/wetterdienst/compare/v0.83.0...v0.84.0
+
 [0.83.0]: https://github.com/earthobservations/wetterdienst/compare/v0.82.0...v0.83.0
+
 [0.82.0]: https://github.com/earthobservations/wetterdienst/compare/v0.81.0...v0.82.0
+
 [0.81.0]: https://github.com/earthobservations/wetterdienst/compare/v0.80.0...v0.81.0
+
 [0.80.0]: https://github.com/earthobservations/wetterdienst/compare/v0.79.0...v0.80.0
+
 [0.79.0]: https://github.com/earthobservations/wetterdienst/compare/v0.78.0...v0.79.0
+
 [0.78.0]: https://github.com/earthobservations/wetterdienst/compare/v0.77.1...v0.78.0
+
 [0.77.1]: https://github.com/earthobservations/wetterdienst/compare/v0.77.0...v0.77.1
+
 [0.77.0]: https://github.com/earthobservations/wetterdienst/compare/v0.76.1...v0.77.0
+
 [0.76.1]: https://github.com/earthobservations/wetterdienst/compare/v0.76.0...v0.76.1
+
 [0.76.0]: https://github.com/earthobservations/wetterdienst/compare/v0.75.0...v0.76.0
+
 [0.75.0]: https://github.com/earthobservations/wetterdienst/compare/v0.74.0...v0.75.0
+
 [0.74.0]: https://github.com/earthobservations/wetterdienst/compare/v0.73.0...v0.74.0
+
 [0.73.0]: https://github.com/earthobservations/wetterdienst/compare/v0.72.0...v0.73.0
+
 [0.72.0]: https://github.com/earthobservations/wetterdienst/compare/v0.71.0...v0.72.0
+
 [0.71.0]: https://github.com/earthobservations/wetterdienst/compare/v0.70.0...v0.71.0
+
 [0.70.0]: https://github.com/earthobservations/wetterdienst/compare/v0.69.0...v0.70.0
+
 [0.69.0]: https://github.com/earthobservations/wetterdienst/compare/v0.68.0...v0.69.0
+
 [0.68.0]: https://github.com/earthobservations/wetterdienst/compare/v0.67.0...v0.68.0
+
 [0.67.0]: https://github.com/earthobservations/wetterdienst/compare/v0.66.1...v0.67.0
+
 [0.66.1]: https://github.com/earthobservations/wetterdienst/compare/v0.66.0...v0.66.1
+
 [0.66.0]: https://github.com/earthobservations/wetterdienst/compare/v0.65.0...v0.66.0
+
 [0.65.0]: https://github.com/earthobservations/wetterdienst/compare/v0.64.0...v0.65.0
+
 [0.64.0]: https://github.com/earthobservations/wetterdienst/compare/v0.63.0...v0.64.0
+
 [0.63.0]: https://github.com/earthobservations/wetterdienst/compare/v0.62.0...v0.63.0
+
 [0.62.0]: https://github.com/earthobservations/wetterdienst/compare/v0.61.0...v0.62.0
+
 [0.61.0]: https://github.com/earthobservations/wetterdienst/compare/v0.60.0...v0.61.0
+
 [0.60.0]: https://github.com/earthobservations/wetterdienst/compare/v0.59.3...v0.60.0
+
 [0.59.3]: https://github.com/earthobservations/wetterdienst/compare/v0.59.2...v0.59.3
+
 [0.59.2]: https://github.com/earthobservations/wetterdienst/compare/v0.59.1...v0.59.2
+
 [0.59.1]: https://github.com/earthobservations/wetterdienst/compare/v0.59.0...v0.59.1
+
 [0.59.0]: https://github.com/earthobservations/wetterdienst/compare/v0.58.1...v0.59.0
+
 [0.58.1]: https://github.com/earthobservations/wetterdienst/compare/v0.58.0...v0.58.1
+
 [0.58.0]: https://github.com/earthobservations/wetterdienst/compare/v0.57.1...v0.58.0
+
 [0.57.1]: https://github.com/earthobservations/wetterdienst/compare/v0.57.0...v0.57.1
+
 [0.57.0]: https://github.com/earthobservations/wetterdienst/compare/v0.56.2...v0.57.0
+
 [0.56.2]: https://github.com/earthobservations/wetterdienst/compare/v0.56.1...v0.56.2
+
 [0.56.1]: https://github.com/earthobservations/wetterdienst/compare/v0.56.0...v0.56.1
+
 [0.56.0]: https://github.com/earthobservations/wetterdienst/compare/v0.55.2...v0.56.0
+
 [0.55.2]: https://github.com/earthobservations/wetterdienst/compare/v0.55.1...v0.55.2
+
 [0.55.1]: https://github.com/earthobservations/wetterdienst/compare/v0.55.0...v0.55.1
+
 [0.55.0]: https://github.com/earthobservations/wetterdienst/compare/v0.54.1...v0.55.0
+
 [0.54.1]: https://github.com/earthobservations/wetterdienst/compare/v0.54.0...v0.54.1
+
 [0.54.0]: https://github.com/earthobservations/wetterdienst/compare/v0.53.0...v0.54.0
+
 [0.53.0]: https://github.com/earthobservations/wetterdienst/compare/v0.52.0...v0.53.0
+
 [0.52.0]: https://github.com/earthobservations/wetterdienst/compare/v0.51.0...v0.52.0
+
 [0.51.0]: https://github.com/earthobservations/wetterdienst/compare/v0.50.0...v0.51.0
+
 [0.50.0]: https://github.com/earthobservations/wetterdienst/compare/v0.49.0...v0.50.0
+
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/v0.48.0...v0.49.0
+
 [0.48.0]: https://github.com/earthobservations/wetterdienst/compare/v0.47.1...v0.48.0
+
 [0.47.1]: https://github.com/earthobservations/wetterdienst/compare/v0.47.0...v0.47.1
+
 [0.47.0]: https://github.com/earthobservations/wetterdienst/compare/v0.46.0...v0.47.0
+
 [0.46.0]: https://github.com/earthobservations/wetterdienst/compare/v0.45.2...v0.46.0
+
 [0.45.2]: https://github.com/earthobservations/wetterdienst/compare/v0.45.1...v0.45.2
+
 [0.45.1]: https://github.com/earthobservations/wetterdienst/compare/v0.45.0...v0.45.1
+
 [0.45.0]: https://github.com/earthobservations/wetterdienst/compare/v0.44.0...v0.45.0
+
 [0.44.0]: https://github.com/earthobservations/wetterdienst/compare/v0.43.0...v0.44.0
+
 [0.43.0]: https://github.com/earthobservations/wetterdienst/compare/v0.42.1...v0.43.0
+
 [0.42.1]: https://github.com/earthobservations/wetterdienst/compare/v0.42.0...v0.42.1
+
 [0.42.0]: https://github.com/earthobservations/wetterdienst/compare/v0.41.1...v0.42.0
+
 [0.41.1]: https://github.com/earthobservations/wetterdienst/compare/v0.41.0...v0.41.1
+
 [0.41.0]: https://github.com/earthobservations/wetterdienst/compare/v0.40.0...v0.41.0
+
 [0.40.0]: https://github.com/earthobservations/wetterdienst/compare/v0.39.0...v0.40.0
+
 [0.39.0]: https://github.com/earthobservations/wetterdienst/compare/v0.38.0...v0.39.0
+
 [0.38.0]: https://github.com/earthobservations/wetterdienst/compare/v0.37.0...v0.38.0
+
 [0.37.0]: https://github.com/earthobservations/wetterdienst/compare/v0.36.0...v0.37.0
+
 [0.36.0]: https://github.com/earthobservations/wetterdienst/compare/v0.35.0...v0.36.0
+
 [0.35.0]: https://github.com/earthobservations/wetterdienst/compare/v0.34.0...v0.35.0
+
 [0.34.0]: https://github.com/earthobservations/wetterdienst/compare/v0.33.0...v0.34.0
+
 [0.33.0]: https://github.com/earthobservations/wetterdienst/compare/v0.32.4...v0.33.0
+
 [0.32.4]: https://github.com/earthobservations/wetterdienst/compare/v0.32.3...v0.32.4
+
 [0.32.3]: https://github.com/earthobservations/wetterdienst/compare/v0.32.2...v0.32.3
+
 [0.32.2]: https://github.com/earthobservations/wetterdienst/compare/v0.32.1...v0.32.2
+
 [0.32.1]: https://github.com/earthobservations/wetterdienst/compare/v0.32.0...v0.32.1
+
 [0.32.0]: https://github.com/earthobservations/wetterdienst/compare/v0.31.1...v0.32.0
+
 [0.31.1]: https://github.com/earthobservations/wetterdienst/compare/v0.31.0...v0.31.1
+
 [0.31.0]: https://github.com/earthobservations/wetterdienst/compare/v0.30.1...v0.31.0
+
 [0.30.1]: https://github.com/earthobservations/wetterdienst/compare/v0.30.0...v0.30.1
+
 [0.30.0]: https://github.com/earthobservations/wetterdienst/compare/v0.29.0...v0.30.0
+
 [0.29.0]: https://github.com/earthobservations/wetterdienst/compare/v0.28.0...v0.29.0
+
 [0.28.0]: https://github.com/earthobservations/wetterdienst/compare/v0.27.0...v0.28.0
+
 [0.27.0]: https://github.com/earthobservations/wetterdienst/compare/v0.26.0...v0.27.0
+
 [0.26.0]: https://github.com/earthobservations/wetterdienst/compare/v0.25.1...v0.26.0
+
 [0.25.1]: https://github.com/earthobservations/wetterdienst/compare/v0.25.0...v0.25.1
+
 [0.25.0]: https://github.com/earthobservations/wetterdienst/compare/v0.24.0...v0.25.0
+
 [0.24.0]: https://github.com/earthobservations/wetterdienst/compare/v0.23.0...v0.24.0
+
 [0.23.0]: https://github.com/earthobservations/wetterdienst/compare/v0.22.0...v0.23.0
+
 [0.22.0]: https://github.com/earthobservations/wetterdienst/compare/v0.21.0...v0.22.0
+
 [0.21.0]: https://github.com/earthobservations/wetterdienst/compare/v0.20.4...v0.21.0
+
 [0.20.4]: https://github.com/earthobservations/wetterdienst/compare/v0.20.3...v0.20.4
+
 [0.20.3]: https://github.com/earthobservations/wetterdienst/compare/v0.20.2...v0.20.3
+
 [0.20.2]: https://github.com/earthobservations/wetterdienst/compare/v0.20.1...v0.20.2
+
 [0.20.1]: https://github.com/earthobservations/wetterdienst/compare/v0.20.0...v0.20.1
+
 [0.20.0]: https://github.com/earthobservations/wetterdienst/compare/v0.19.0...v0.20.0
+
 [0.19.0]: https://github.com/earthobservations/wetterdienst/compare/v0.18.0...v0.19.0
+
 [0.18.0]: https://github.com/earthobservations/wetterdienst/compare/v0.17.0...v0.18.0
+
 [0.17.0]: https://github.com/earthobservations/wetterdienst/compare/v0.16.1...v0.17.0
+
 [0.16.1]: https://github.com/earthobservations/wetterdienst/compare/v0.16.0...v0.16.1
+
 [0.16.0]: https://github.com/earthobservations/wetterdienst/compare/v0.15.0...v0.16.0
+
 [0.15.0]: https://github.com/earthobservations/wetterdienst/compare/v0.14.1...v0.15.0
+
 [0.14.1]: https://github.com/earthobservations/wetterdienst/compare/v0.14.0...v0.14.1
+
 [0.14.0]: https://github.com/earthobservations/wetterdienst/compare/v0.13.0...v0.14.0
+
 [0.13.0]: https://github.com/earthobservations/wetterdienst/compare/v0.12.1...v0.13.0
+
 [0.12.1]: https://github.com/earthobservations/wetterdienst/compare/v0.12.0...v0.12.1
+
 [0.12.0]: https://github.com/earthobservations/wetterdienst/compare/v0.11.1...v0.12.0
+
 [0.11.1]: https://github.com/earthobservations/wetterdienst/compare/v0.11.0...v0.11.1
+
 [0.11.0]: https://github.com/earthobservations/wetterdienst/compare/v0.10.1...v0.11.0
+
 [0.10.1]: https://github.com/earthobservations/wetterdienst/compare/v0.10.0...v0.10.1
+
 [0.10.0]: https://github.com/earthobservations/wetterdienst/compare/v0.9.0...v0.10.0
+
 [0.9.0]: https://github.com/earthobservations/wetterdienst/compare/v0.8.0...v0.9.0
+
 [0.8.0]: https://github.com/earthobservations/wetterdienst/compare/v0.7.0...v0.8.0
+
 [0.7.0]: https://github.com/earthobservations/wetterdienst/compare/v0.6.0...v0.7.0
+
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/v0.5.0...v0.6.0
+
 [0.5.0]: https://github.com/earthobservations/wetterdienst/compare/v0.4.0...v0.5.0
+
 [0.4.0]: https://github.com/earthobservations/wetterdienst/compare/v0.3.0...v0.4.0
+
 [0.3.0]: https://github.com/earthobservations/wetterdienst/compare/v0.2.0...v0.3.0
+
 [0.2.0]: https://github.com/earthobservations/wetterdienst/compare/v0.1.1...v0.2.0
+
 [0.1.1]: https://github.com/earthobservations/wetterdienst/compare/v0.1.0...v0.1.1
+
 [0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/v0.1.0

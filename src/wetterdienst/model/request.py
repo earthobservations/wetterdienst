@@ -404,7 +404,7 @@ class TimeseriesRequest:
         )
         # add distances and sort by distance
         df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
-        df = df.sort(by=["distance"])
+        df = df.sort(by=["distance", "station_id"])
         return StationsResult(
             stations=self,
             df=df,
