@@ -16,11 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Make backend API URL configurable via NUXT_PUBLIC_API_BASE / API_BASE; include its origin in CSP connect-src to allow
+  requests to the configured backend
+
 ## [0.1.0] - 2026-01-04
 
 ### Added
 
-- Initial release: Modern Nuxt.js-based web application providing interactive data exploration, comprehensive settings 
+- Initial release: Modern Nuxt.js-based web application providing interactive data exploration, comprehensive settings
   interface for all API parameters, climate stripes visualization, theme customization, and enhanced user experience
 - Add Andreas Motl to authors list
 
