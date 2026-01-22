@@ -30,14 +30,23 @@ const authors = [
         </h2>
       </template>
       <p class="text-gray-600 dark:text-gray-400 mb-4">
-        Wetterdienst is a Python library that provides easy access to earth data from
-        various sources. It offers a unified interface for retrieving historical
-        and current observations from environmental agencies worldwide, with a particular
-        focus on the German Weather Service (Deutscher Wetterdienst, DWD).
+        Wetterdienst began as a robust Python package that provides a consistent, well-tested
+        interface to meteorological and environmental observation data from multiple providers
+        (DWD, NOAA, and others). Over time it evolved into a full ecosystem: a command-line tool,
+        a REST API, and this web application. Together these components make Wetterdienst useful
+        both as a developer library and as a ready-to-use application for non-programmers.
+      </p>
+      <p class="text-gray-600 dark:text-gray-400 mb-2">
+        Developers use the Python package for scripted downloads, reproducible analyses, and
+        integration into data pipelines. The backend performs common data tasks — unit conversion,
+        resampling, interpolation, and summarization — so you can focus on analysis, modeling, or
+        visualization instead of low-level data wrangling.
       </p>
       <p class="text-gray-600 dark:text-gray-400">
-        This frontend application allows you to explore earth data interactively. Select a provider,
-        network, and parameters to discover available stations and retrieve observation values.
+        This web frontend includes the Explorer (a map-driven station browser) as a first-class
+        feature. The app provides interactive station discovery, map-based selection, visualizations
+        (including climate stripes), and flexible export options — ideal for exploration, teaching,
+        rapid quality checks, or producing data for downstream use without writing any code.
       </p>
     </UCard>
 

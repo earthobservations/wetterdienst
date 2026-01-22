@@ -51,9 +51,18 @@ const facetChartRefs = ref<Map<string, HTMLDivElement>>(new Map())
 const plotlyLoaded = ref(false)
 let Plotly: typeof import('plotly.js-dist-min') | null = null
 
-// Chart display options
-const showDatasetPrefix = ref(false)
+// Parameter label format options and chart display
+// Options: 'parameter' (default), 'dataset/parameter', 'resolution/dataset/parameter'
+type ParamLabelFormat = 'parameter' | 'dataset/parameter' | 'resolution/dataset/parameter'
+const paramLabelFormat = ref<ParamLabelFormat>('parameter')
 const facetByParameter = ref(false)
+
+// Available items for the parameter label selector
+const paramLabelItems = computed(() => [
+  { label: 'Parameter', value: 'parameter' },
+  { label: 'Dataset / Parameter', value: 'dataset/parameter' },
+  { label: 'Resolution / Dataset / Parameter', value: 'resolution/dataset/parameter' },
+])
 
 // Trendline option
 const showTrendline = ref(false)
@@ -356,8 +365,9 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   await Plotly.downloadImage(chartRef.value, {
     format: format === 'jpeg' ? 'jpeg' : format === 'svg' ? 'svg' : 'png',
     filename: 'chart',
-    width: null,
-    height: null,
+    // Plotly expects number | undefined for width/height; use undefined to let it auto-size
+    width: undefined,
+    height: undefined,
   })
 
   toast.add({ title: 'Downloaded', description: `Chart downloaded as ${format.toUpperCase()}`, color: 'success' })
@@ -502,9 +512,13 @@ const chartTraces = computed(() => {
   const mode = ss.mode
 
   for (const value of sortedValues.value) {
-    const parameterLabel = showDatasetPrefix.value
-      ? `${value.dataset}/${value.parameter}`
-      : value.parameter
+    let parameterLabel = value.parameter
+    if (paramLabelFormat.value === 'dataset/parameter') {
+      parameterLabel = `${value.dataset}/${value.parameter}`
+    }
+    else if (paramLabelFormat.value === 'resolution/dataset/parameter') {
+      parameterLabel = `${value.resolution}/${value.dataset}/${value.parameter}`
+    }
     const seriesKey = mode === 'station'
       ? `${value.station_id} - ${parameterLabel}`
       : parameterLabel
@@ -586,7 +600,13 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
   const mode = ss.mode
 
   for (const value of sortedValues.value) {
-    const param = value.parameter
+    let param = value.parameter
+    if (paramLabelFormat.value === 'dataset/parameter') {
+      param = `${value.dataset}/${value.parameter}`
+    }
+    else if (paramLabelFormat.value === 'resolution/dataset/parameter') {
+      param = `${value.resolution}/${value.dataset}/${value.parameter}`
+    }
     if (!parameterGroups.has(param)) {
       parameterGroups.set(param, new Map())
     }
@@ -668,11 +688,11 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
     autosize: true,
     margin: { l: 60, r: 20, t: 40, b: 60 },
     xaxis: {
-      title: { text: 'Date' },
+      title: 'Date',
       type: 'date',
     },
     yaxis: {
-      title: { text: 'Value' },
+      title: 'Value',
     },
     showlegend: true,
     legend: {
@@ -714,9 +734,19 @@ async function renderFacetedCharts() {
   for (const facet of facetedChartData.value) {
     const el = facetChartRefs.value.get(facet.parameter)
     if (el) {
+      // Ensure y-axis title does not overflow by enabling automargin and using standoff
+      // For long parameter labels (e.g., resolution/dataset/parameter) split title into multiple lines
+      // For long parameter labels (e.g., resolution/dataset/parameter) split title into multiple lines
+      const splitTitle = String(facet.parameter).split('/').join('<br>')
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
-        yaxis: { title: { text: facet.parameter } },
+        yaxis: {
+          // Plotly yaxis.title can be either string or object; ensure we pass a string for typing
+          title: splitTitle,
+          automargin: true,
+          // Use standoff via layout annotations when necessary instead of nested object to satisfy types
+        },
+        autosize: true,
       }
       await Plotly.react(el, facet.traces, layout, plotlyConfig)
     }
@@ -738,12 +768,12 @@ onMounted(async () => {
 })
 
 // Render main chart when data changes
-watch([chartTraces, chartLayout, viewMode, facetByParameter, showDatasetPrefix, showTrendline], async () => {
+watch([chartTraces, chartLayout, viewMode, facetByParameter, paramLabelFormat, showTrendline], async () => {
   await renderMainChart()
 })
 
 // Render faceted charts when data changes
-watch([facetedChartData, chartLayout, viewMode, facetByParameter, showDatasetPrefix, showTrendline], async () => {
+watch([facetedChartData, chartLayout, viewMode, facetByParameter, paramLabelFormat, showTrendline], async () => {
   await renderFacetedCharts()
 })
 
@@ -885,7 +915,10 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         <div class="pt-4 space-y-4">
           <!-- Display Options -->
           <div class="flex flex-wrap items-center gap-4">
-            <UCheckbox v-model="showDatasetPrefix" label="Dataset prefix" />
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-gray-600 dark:text-gray-300">Parameter label:</label>
+              <USelect v-model="paramLabelFormat" :items="paramLabelItems" class="w-56" />
+            </div>
             <UCheckbox v-model="facetByParameter" label="Facet by parameter" />
             <UCheckbox v-model="showTrendline" label="Trendline" />
           </div>
