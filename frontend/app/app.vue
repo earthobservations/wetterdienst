@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
+import pkg from '../package.json'
 
 const route = useRoute()
 
 const { data: versionData } = await useFetch<{ version: string }>('/api/version')
 
 const version = computed(() => versionData.value?.version ?? 'unknown')
+const frontendVersion = pkg.version || 'unknown'
 
 const items = computed<NavigationMenuItem[]>(() =>
   [
@@ -49,13 +51,17 @@ const items = computed<NavigationMenuItem[]>(() =>
       <template #left>
         <div class="flex items-center gap-3">
           <img src="/favicon.ico" alt="Wetterdienst" class="w-7 h-7">
-          <div class="text-xs font-medium tracking-wide">
-            <div class="text-gray-700 dark:text-gray-300">
-              Version
-            </div>
-            <div class="text-primary-600 dark:text-primary-400">
-              {{ version }}
-            </div>
+          <div class="ml-2 inline-flex items-center gap-2">
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+            >
+              FE {{ frontendVersion === 'unknown' ? frontendVersion : `v${frontendVersion}` }}
+            </span>
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+            >
+              BE {{ version === 'unknown' ? version : `v${version}` }}
+            </span>
           </div>
         </div>
       </template>
@@ -108,10 +114,10 @@ const items = computed<NavigationMenuItem[]>(() =>
       <NuxtPage />
     </UMain>
     <UFooter>
-      <div class="w-full flex justify-center items-center gap-4">
+      <div class="w-full flex items-center gap-4">
         <span>© {{ new Date().getFullYear() }} earthobservations</span>
         <span class="text-gray-400">|</span>
-        <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">
+        <NuxtLink to="/impressum" class="ml-auto text-gray-500 hover:text-primary-500 transition-colors">
           Legal Notice
         </NuxtLink>
       </div>

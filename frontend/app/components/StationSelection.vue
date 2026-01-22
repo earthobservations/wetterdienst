@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
-
-declare const L: typeof import('leaflet')
+import { defineAsyncComponent } from 'vue'
 
 const props = defineProps<{
   modelValue?: { stations: Station[] }
   parameterSelection: ParameterSelectionState['selection']
   initialStationIds?: string[]
+  multiple?: boolean
 }>()
-const emit = defineEmits(['update:modelValue'])
+
+const emit = defineEmits(['update:modelValue', 'update:selectedStations'])
+
+const MapStations = defineAsyncComponent(() => import('./MapStations.vue'))
+
+declare const L: typeof import('leaflet')
 
 const selectedStations = ref<Station[]>(props.modelValue?.stations ?? [])
 
@@ -16,13 +21,15 @@ const map = ref(null) as any
 let markerClusterGroup: any = null
 const markersMap: Map<string, any> = new Map() // station_id -> marker
 
-const showMap = ref(true)
+const showMap = ref(false)
 const centerOnSelectedStations = ref(false)
 
-watch(selectedStations, () => {
-  emit('update:modelValue', {
-    stations: [...selectedStations.value],
-  })
+watch(selectedStations, (newVal, oldVal) => {
+  if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+    emit('update:modelValue', {
+      stations: [...selectedStations.value],
+    })
+  }
 })
 
 // Sync with parent's modelValue changes
@@ -97,22 +104,54 @@ const stationItems = computed(() =>
 
 // Bridge between Station[] and item objects
 const selectedItems = computed({
-  get: () => selectedStations.value.map(s => ({
-    label: `${s.name} (ID: ${s.station_id}, ${s.state})`,
-    value: s.station_id,
-  })),
+  get: () => props.multiple
+    ? selectedStations.value.map(s => ({
+        label: `${s.name} (ID: ${s.station_id}, ${s.state})`,
+        value: s.station_id,
+      }))
+    : selectedStations.value[0]
+      ? [{
+          label: `${selectedStations.value[0].name} (ID: ${selectedStations.value[0].station_id}, ${selectedStations.value[0].state})`,
+          value: selectedStations.value[0].station_id,
+        }]
+      : [],
   set: (items: { label: string, value: string }[]) => {
-    selectedStations.value = items
-      .map(item => allStations.value.find(s => s.station_id === item.value))
-      .filter((s): s is Station => s !== undefined)
-      .sort((a, b) => a.station_id.localeCompare(b.station_id))
+    if (props.multiple) {
+      // Merge new selections with existing ones, avoid reset
+      const newStations = items
+        .map(item => allStations.value.find(s => s.station_id === item.value))
+        .filter((s): s is Station => s !== undefined)
+      // Only update if changed
+      if (JSON.stringify(newStations) !== JSON.stringify(selectedStations.value)) {
+        selectedStations.value = newStations
+      }
+    }
+    else {
+      // items may be undefined or empty when clearing selection; guard against that
+      const stationId = items && items[0] ? items[0].value : undefined
+      const station = stationId ? allStations.value.find(s => s.station_id === stationId) : undefined
+      if (JSON.stringify([station]) !== JSON.stringify(selectedStations.value)) {
+        selectedStations.value = station ? [station] : []
+      }
+    }
   },
 })
+
+// Handler for map selection event with explicit typing to satisfy typecheck
+function onMapSelectedStations(val: Station[]) {
+  selectedStations.value = val
+  emit('update:selectedStations', val)
+  emit('update:modelValue', { stations: val })
+}
 
 function removeStation(station: Station) {
   const index = selectedStations.value.findIndex(s => s.station_id === station.station_id)
   if (index >= 0) {
-    selectedStations.value.splice(index, 1)
+    // Replace array to trigger reactivity
+    selectedStations.value = [
+      ...selectedStations.value.slice(0, index),
+      ...selectedStations.value.slice(index + 1),
+    ]
   }
 }
 
@@ -122,7 +161,7 @@ function isSelected(stationId: string) {
   return selectedStations.value.some(s => s.station_id === stationId)
 }
 
-const mapCenter = computed<[number, number]>(() => {
+const _mapCenter = computed<[number, number]>(() => {
   if (!allStations.value.length)
     return [51.1657, 10.4515] // Center of Germany
   const latSum = allStations.value.reduce((a, s) => a + s.latitude, 0)
@@ -190,7 +229,7 @@ async function createMarkers() {
           removeStation(station)
         }
         else {
-          selectedStations.value.push(station)
+          selectedStations.value = [...selectedStations.value, station]
         }
       })
     }
@@ -229,7 +268,7 @@ function updateMarkerIcons() {
 }
 
 // When the map is ready, initialize clustering
-async function onMapReady() {
+async function _onMapReady() {
   await createMarkers()
   updateMarkerIcons()
   // Restore bounds if centering on selected stations
@@ -269,11 +308,11 @@ watch(() => selectedStations.value, () => {
     <USelectMenu
       v-model="selectedItems"
       :items="stationItems"
-      placeholder="Select stations"
-      multiple
+      :multiple="multiple"
       searchable
       color="primary"
       class="w-full"
+      :placeholder="multiple ? 'Select stations' : 'Select a station'"
     />
     <UContainer v-if="selectedStations.length > 0" class="mt-2">
       <div class="flex items-center justify-between mb-2">
@@ -304,34 +343,17 @@ watch(() => selectedStations.value, () => {
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
         block
+        @click="showMap = !showMap"
       />
       <template #content>
-        <div class="p-4 space-y-4">
-          <UButton
-            :label="centerOnSelectedStations ? 'Center on all stations' : 'Center on selected stations'"
-            variant="subtle"
-            color="neutral"
-            :disabled="!selectedStations.length"
-            block
-            @click="centerOnSelectedStations = !centerOnSelectedStations"
+        <ClientOnly>
+          <MapStations
+            :stations="allStations"
+            :selected-stations="selectedStations"
+            :multiple="multiple"
+            @update:selected-stations="onMapSelectedStations"
           />
-          <LMap
-            ref="map"
-            :zoom="6"
-            :max-zoom="18"
-            :center="mapCenter"
-            :use-global-leaflet="true"
-            style="height: 400px; width: 100%;"
-            @ready="onMapReady"
-          >
-            <LTileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="&copy; <a href='https://www.openstreetmap.org/'>OpenStreetMap</a> contributors"
-              layer-type="base"
-              name="OpenStreetMap"
-            />
-          </LMap>
-        </div>
+        </ClientOnly>
       </template>
     </UCollapsible>
   </div>

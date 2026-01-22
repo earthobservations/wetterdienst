@@ -16,10 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Add header version badge showing frontend (FE) and backend (BE) versions
+- Add parameter label format selector to `DataViewer` with support for dataset and resolution prefixes
+
 ### Changed
 
-- Make backend API URL configurable via NUXT_PUBLIC_API_BASE / API_BASE; include its origin in CSP connect-src to allow
-  requests to the configured backend
+- Sync stripes page state with URL (station, kind, options) to keep selection in address bar and enable direct linking
+- Replace Getting Started card with a collapsible section in the explorer view for a cleaner UI
+- Make backend API base URL configurable via `NUXT_PUBLIC_API_BASE` / `API_BASE` and include its origin in CSP
+  `connect-src`
+- Minor refactoring across app, explorer, and config files
 
 ## [0.1.0] - 2026-01-04
 
@@ -28,13 +36,8 @@ Types of changes:
 - Initial release: Modern Nuxt.js-based web application providing interactive data exploration, comprehensive settings
   interface for all API parameters, climate stripes visualization, theme customization, and enhanced user experience
 - Add Andreas Motl to authors list
+-
 
-### Changed
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.1.0...HEAD
 
-- Show version of wetterdienst backend in header
-- Remove redundant text from header
-- Move 'Getting Started' section to explorer page
-
-### Fixed
-
-- Synchronize selected stations from map
+[0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.1.0

@@ -28,7 +28,11 @@ const unitTypes = [
   { type: 'speed', units: ['meter_per_second', 'kilometer_per_hour', 'knots', 'beaufort'], default: 'meter_per_second' },
   { type: 'pressure', units: ['pascal', 'hectopascal', 'kilopascal'], default: 'hectopascal' },
   { type: 'precipitation', units: ['millimeter', 'liter_per_square_meter'], default: 'millimeter' },
-  { type: 'precipitation_intensity', units: ['millimeter_per_hour', 'liter_per_square_meter_per_hour'], default: 'millimeter_per_hour' },
+  {
+    type: 'precipitation_intensity',
+    units: ['millimeter_per_hour', 'liter_per_square_meter_per_hour'],
+    default: 'millimeter_per_hour',
+  },
   { type: 'length_short', units: ['millimeter', 'centimeter', 'meter'], default: 'centimeter' },
   { type: 'length_medium', units: ['millimeter', 'centimeter', 'meter', 'kilometer'], default: 'meter' },
   { type: 'length_long', units: ['meter', 'kilometer', 'mile', 'nautical_mile'], default: 'kilometer' },
@@ -184,7 +188,7 @@ watch(
 
 // Update URL when parameter or station selection changes
 watch(
-  [parameterSelectionState, stationSelectionState],
+  [parameterSelectionState, () => stationSelectionState.value.selection.stations],
   () => router.replace({ query: toQuery(parameterSelectionState.value, stationSelectionState.value) }),
   { deep: true },
 )
@@ -355,27 +359,68 @@ function handleUnitTargetChange(unitType: string, value: string) {
 
 <template>
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-6">
-      <h1 class="text-3xl font-bold mb-4">
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold mb-4">
         Explorer
       </h1>
+      <p class="text-gray-600 dark:text-gray-400">
+        Explore stations and observation data interactively
+      </p>
     </div>
 
-    <UCard class="mb-6">
-      <template #header>
-        <h2 class="text-lg font-semibold">
-          Getting Started
-        </h2>
+    <UCollapsible class="mb-6" :default-open="false">
+      <UButton
+        label="About Explorer" variant="subtle" color="neutral" trailing-icon="i-lucide-chevron-down" block
+        size="sm"
+      />
+      <template #content>
+        <div class="space-y-3 text-gray-600 dark:text-gray-400 p-4">
+          <p>
+            The Explorer is an interactive UI for discovering weather stations and retrieving observation data
+            without writing code. Use it to visually pick stations on the map, configure which parameters and
+            time ranges you need, and preview the resulting values. It supports three modes: <strong>Station</strong>
+            (download measurements from selected stations), <strong>Interpolation</strong> (estimate values for a
+            geographic point), and <strong>Summary</strong> (aggregated statistics over an area or point).
+          </p>
+
+          <div>
+            <div class="font-semibold">
+              Basic workflow
+            </div>
+            <ol class="list-decimal list-inside ml-4">
+              <li>Pick a <strong>Provider</strong> (data source) and a <strong>Network</strong>.</li>
+              <li>Choose a <strong>Resolution</strong> and <strong>Dataset</strong> and select one or more <strong>Parameters</strong>.</li>
+              <li>Switch between modes and select stations on the map or enter a manual location for interpolation/summary.</li>
+              <li>Provide a <strong>Date Range</strong> when required (interpolation, summary or high-resolution data).</li>
+              <li>Open the <strong>Data Viewer</strong> to preview, inspect stats and export results.</li>
+            </ol>
+          </div>
+
+          <div>
+            <div class="font-semibold">
+              Tips & limits
+            </div>
+            <ul class="list-disc list-inside ml-4">
+              <li>
+                High-frequency resolutions (1/5/10 minutes) produce many values — restrict the date range to keep
+                requests reasonable.
+              </li>
+              <li>Use <strong>Settings</strong> to control unit conversion, result shape (long/wide), and interpolation options.</li>
+              <li>
+                Interpolation respects nearby station distance and per-parameter distance overrides — adjust them under
+                <em>Advanced Settings</em> for better local estimates.
+              </li>
+              <li>If you plan to export, preview the result size in the Data Viewer and reduce stations/parameters or range if needed.</li>
+            </ul>
+          </div>
+
+          <p class="text-sm text-gray-500">
+            For detailed examples and API equivalents, see the documentation or the REST API page. The Explorer is meant
+            to be a convenient way to build queries visually before scripting them with the library or REST endpoints.
+          </p>
+        </div>
       </template>
-      <ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-400">
-        <li>Select a <strong>Provider</strong> (e.g., DWD for German Weather Service)</li>
-        <li>Choose a <strong>Network</strong> (e.g., observation for historical data)</li>
-        <li>Pick a <strong>Resolution</strong> and <strong>Dataset</strong></li>
-        <li>Select the <strong>Parameters</strong> you want to retrieve</li>
-        <li>Browse and select <strong>Stations</strong> from the map or list</li>
-        <li>Explore the <strong>Values</strong></li>
-      </ol>
-    </UCard>
+    </UCollapsible>
 
     <ParameterSelection v-model="parameterSelectionState.selection" />
 
@@ -466,7 +511,10 @@ function handleUnitTargetChange(unitType: string, value: string) {
           </div>
 
           <!-- Values-specific settings -->
-          <div v-if="stationSelectionState.mode === 'station'" class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30">
+          <div
+            v-if="stationSelectionState.mode === 'station'"
+            class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
+          >
             <div class="flex items-center gap-2 mb-3">
               <UIcon name="i-lucide-table" class="w-4 h-4 text-primary-500" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
@@ -524,7 +572,10 @@ function handleUnitTargetChange(unitType: string, value: string) {
           </div>
 
           <!-- Interpolation-specific settings -->
-          <div v-if="stationSelectionState.mode === 'interpolation'" class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30">
+          <div
+            v-if="stationSelectionState.mode === 'interpolation'"
+            class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
+          >
             <div class="flex items-center gap-2 mb-3">
               <UIcon name="i-lucide-locate" class="w-4 h-4 text-primary-500" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
@@ -545,7 +596,8 @@ function handleUnitTargetChange(unitType: string, value: string) {
                   <span class="text-sm text-gray-500">km</span>
                 </div>
                 <p class="text-xs text-gray-500">
-                  Maximum distance to consider nearby stations for interpolation. If a station is within this distance, its actual value will be used instead of interpolating.
+                  Maximum distance to consider nearby stations for interpolation. If a station is within this distance,
+                  its actual value will be used instead of interpolating.
                 </p>
               </div>
 
@@ -563,7 +615,8 @@ function handleUnitTargetChange(unitType: string, value: string) {
                     <div class="space-y-2">
                       <label class="text-sm font-medium">Station distance by parameter:</label>
                       <p class="text-xs text-gray-500 mb-2">
-                        Maximum distance (km) for stations used in interpolation per parameter. Backend defaults: 40km general, 20km for precipitation_height.
+                        Maximum distance (km) for stations used in interpolation per parameter. Backend defaults: 40km
+                        general, 20km for precipitation_height.
                       </p>
 
                       <!-- Default distance -->
@@ -654,7 +707,8 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         >
                       </div>
                       <p class="text-xs text-gray-500">
-                        Minimum gain threshold for adding additional stations. Considers the extra effort against the gain of additional interpolated timestamps. (Default: 0.10)
+                        Minimum gain threshold for adding additional stations. Considers the extra effort against the
+                        gain of additional interpolated timestamps. (Default: 0.10)
                       </p>
                     </div>
 
@@ -694,6 +748,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
           v-model="stationSelectionState.selection"
           :parameter-selection="parameterSelectionState.selection"
           :initial-station-ids="initialStationIds"
+          :multiple="true"
         />
         <InterpolationSummarySelection
           v-else
@@ -715,7 +770,9 @@ function handleUnitTargetChange(unitType: string, value: string) {
       </div>
     </UCard>
 
-    <UCollapsible v-if="stationSelectionState.mode === 'station' && stationSelectionState.selection.stations.length > 0">
+    <UCollapsible
+      v-if="stationSelectionState.mode === 'station' && stationSelectionState.selection.stations.length > 0"
+    >
       <UButton
         label="Stations Details"
         variant="subtle"
@@ -765,6 +822,9 @@ function handleUnitTargetChange(unitType: string, value: string) {
       </template>
     </UCollapsible>
 
-    <DataViewer v-if="showDataViewer" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection" :station-selection="stationSelectionState" :settings="dataSettings" />
+    <DataViewer
+      v-if="showDataViewer" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection"
+      :station-selection="stationSelectionState" :settings="dataSettings"
+    />
   </UContainer>
 </template>
