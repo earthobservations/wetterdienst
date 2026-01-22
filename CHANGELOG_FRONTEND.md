@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-22
+
 ### Added
 
 - Add header version badge showing frontend (FE) and backend (BE) versions
@@ -38,6 +40,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.1.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.2.0...HEAD
+
+[0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.1.0...frontend-v0.2.0
 
 [0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.1.0
