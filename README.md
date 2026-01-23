@@ -13,10 +13,6 @@
 > This library is a work in progress!
 > Breaking changes should be expected until a 1.0 release, so version pinning is recommended.
 
-> [!WARNING]
-> The explorer and stripes interactive, streamlit-based apps are deprecated. We are currently working on a new, modern 
-> web interface.
-
 ### Badges
 
 #### CI
@@ -65,7 +61,8 @@ parameters is given at the [coverage](https://wetterdienst.readthedocs.io/en/imp
 subsection. Licenses and usage requirements may differ for each provider so check this out before including the data in
 your project to be sure that you fulfill copyright requirements!
 
-For a closer look on the DWD data, you can use the [interactive map](https://bookdown.org/brry/rdwd/interactive-map.html)
+For a closer look on the DWD data, you can use
+the [interactive map](https://bookdown.org/brry/rdwd/interactive-map.html)
 or the [table](https://bookdown.org/brry/rdwd/available-datasets.html) provided by the `rdwd` package.
 
 ## Features
@@ -75,18 +72,21 @@ or the [table](https://bookdown.org/brry/rdwd/available-datasets.html) provided 
 - Define your request by arguments such as `parameters`, `periods`, `start date`, `end date`
 - Define general settings in Settings context
 - Command line interfaced
-- Modern web frontend with interactive data explorer, settings interface, visualization and separate REST API, hosted on [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
+- Modern app with interactive data explorer, settings interface, visualization and separate REST API, hosted
+  on [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
 - Run SQL queries on the results
 - Export results to databases and other data sinks
 - Public Docker image
 - Interpolation and Summary of station values
 
-## Web Frontend
+## App
 
-The modern web frontend provides an interactive interface for exploring weather data:
+The modern app provides an interactive interface for exploring weather data:
 
-- **Explorer**: Interactive data exploration with map-based station selection, parameter filtering, and real-time data visualization
-- **Settings Interface**: Comprehensive controls for all backend API parameters including unit conversion, data shape, interpolation options, and more
+- **Explorer**: Interactive data exploration with map-based station selection, parameter filtering, and real-time data
+  visualization
+- **Settings Interface**: Comprehensive controls for all backend API parameters including unit conversion, data shape,
+  interpolation options, and more
 - **Climate Stripes**: Visual representation of temperature trends over time
 - **Customization**: Theme color picker and dark mode support
 
@@ -156,6 +156,7 @@ Python 3.8.5 (default, Sep 10 2020, 16:58:22)
 
 ```python
 import wetterdienst
+
 wetterdienst.__version__
 ```
 
@@ -208,18 +209,18 @@ from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 settings = Settings(  # default
-  ts_shape="long",  # tidy data
-  ts_humanize=True,  # humanized parameters
-  ts_convert_units=True  # convert values to SI units
+    ts_shape="long",  # tidy data
+    ts_humanize=True,  # humanized parameters
+    ts_convert_units=True  # convert values to SI units
 )
 
 request = DwdObservationRequest(
-  parameters=[
-    ("daily", "climate_summary", "precipitation_height"),
-  ],
-  start_date="2002-08-11",  # if not given timezone defaulted to UTC
-  end_date="2002-08-13",  # if not given timezone defaulted to UTC
-  settings=settings
+    parameters=[
+        ("daily", "climate_summary", "precipitation_height"),
+    ],
+    start_date="2002-08-11",  # if not given timezone defaulted to UTC
+    end_date="2002-08-13",  # if not given timezone defaulted to UTC
+    settings=settings
 ).filter_by_station_id(station_id=(5779,))
 
 stations = request.df
@@ -272,7 +273,7 @@ better every day.
 
 ## Important Links
 
-- Restapi: https://wetterdienst.eobs.org/
+- App: https://wetterdienst.eobs.org/
 - Documentation: https://wetterdienst.readthedocs.io/
 
     - Usage: https://wetterdienst.readthedocs.io/en/latest/usage/
