@@ -213,8 +213,8 @@ class ImgwHydrologyValues(TimeseriesValues):
             pl.col("parameter"),
             pl.col("station_id"),
             pl.col("date").dt.replace_time_zone("UTC"),
-            pl.col("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.col("value").cast(pl.Float32),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
     def _parse_file(
@@ -280,7 +280,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             # monthly data includes extrimity column (1: min, 2: mean, 3: max)
             index = ["station_id", "date", "extremity"]
         df = df.unpivot(index=index, variable_name="parameter", value_name="value")
-        df = df.with_columns(pl.col("value").cast(pl.Float64))
+        df = df.with_columns(pl.col("value").cast(pl.Float32))
         if dataset.resolution.value == Resolution.MONTHLY:
             df = df.select(
                 pl.col("station_id"),

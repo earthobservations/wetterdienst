@@ -76,8 +76,8 @@ class TimeseriesValues(ABC):
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         }
 
     @property
@@ -184,7 +184,7 @@ class TimeseriesValues(ABC):
         ):
             lambda_ = conversion_factors[parameter.lower()]
             # round by 4 decimals to avoid long floats but keep precision
-            df_group = df_group.with_columns(pl.col("value").map_batches(lambda_, return_dtype=pl.Float64).round(4))
+            df_group = df_group.with_columns(pl.col("value").map_batches(lambda_, return_dtype=pl.Float32).round(4))
             data.append(df_group)
 
         return pl.concat(data)
@@ -398,8 +398,8 @@ class TimeseriesValues(ABC):
                 parameter_name = parameter.name_original if not self.sr.settings.ts_humanize else parameter.name
                 parameter_quality = f"qn_{parameter_name}"
                 df_wide = df_wide.with_columns(
-                    pl.lit(None, pl.Float64).alias(parameter_name),
-                    pl.lit(None, pl.Float64).alias(parameter_quality),
+                    pl.lit(None, pl.Float32).alias(parameter_name),
+                    pl.lit(None, pl.Float32).alias(parameter_quality),
                 )
 
         return df_wide
@@ -443,7 +443,7 @@ class TimeseriesValues(ABC):
         This is used to skip stations with too many missing values.
         """
         percentage = df.group_by(["parameter"]).agg(
-            (pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float64).alias("perc"),
+            (pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float32).alias("perc"),
         )
         missing = pl.DataFrame(
             [
@@ -451,7 +451,7 @@ class TimeseriesValues(ABC):
                 for parameter in self.sr.parameters
                 if parameter.name_original not in percentage.get_column("parameter")
             ],
-            schema={"parameter": pl.String, "perc": pl.Float64},
+            schema={"parameter": pl.String, "perc": pl.Float32},
         )
         percentage = pl.concat([percentage, missing])
         if self.sr.settings.ts_skip_criteria == "min":

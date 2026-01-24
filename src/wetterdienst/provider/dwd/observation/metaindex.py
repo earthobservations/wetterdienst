@@ -78,9 +78,9 @@ def create_meta_index_for_climate_observations(
         "station_id",
         pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
         pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
-        pl.col("height").cast(pl.Float64),
-        pl.col("latitude").cast(pl.Float64),
-        pl.col("longitude").cast(pl.Float64),
+        pl.col("height").cast(pl.Float32),
+        pl.col("latitude").cast(pl.Float32),
+        pl.col("longitude").cast(pl.Float32),
         "name",
         "state",
     )
