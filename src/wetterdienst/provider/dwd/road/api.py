@@ -333,8 +333,8 @@ class DwdRoadValues(TimeseriesValues):
             value_name="value",
         )
         return df.with_columns(
-            pl.col("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.col("value").cast(pl.Float32),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
 
@@ -390,9 +390,9 @@ class DwdRoadRequest(TimeseriesRequest):
         "road_type": pl.Int64,
         "road_surroundings_type": pl.Int64,
         "road_surface_type": pl.Int64,
-        "latitude": pl.Float64,
-        "longitude": pl.Float64,
-        "height": pl.Float64,
+        "latitude": pl.Float32,
+        "longitude": pl.Float32,
+        "height": pl.Float32,
         "station_group": pl.Utf8,
         "has_file": pl.Utf8,
     }

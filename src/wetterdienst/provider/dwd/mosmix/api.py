@@ -113,7 +113,7 @@ class DwdMosmixValues(TimeseriesValues):
             "parameter",
             pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_zone="UTC"),
             "value",
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
     def read_mosmix(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
@@ -256,8 +256,8 @@ class DwdMosmixRequest(TimeseriesRequest):
             pl.col("icao_id").replace("----", None),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
-            pl.col("latitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
-            pl.col("longitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
+            pl.col("latitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float32),
+            pl.col("longitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float32),
             pl.col("height").cast(int),
             pl.lit(None, pl.String).alias("state"),
         )

@@ -169,8 +169,8 @@ def test_dwd_recent_data_result_long_single_parameter(
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="col",
     )
@@ -231,8 +231,8 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "resolution": pl.String,
             "dataset": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "heating_degreedays": pl.Float64,
-            "qn_heating_degreedays": pl.Float64,
+            "heating_degreedays": pl.Float32,
+            "qn_heating_degreedays": pl.Float32,
         },
         orient="col",
     )
@@ -290,8 +290,8 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="col",
     )
@@ -346,8 +346,8 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="col",
     )
@@ -419,8 +419,8 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="col",
     )
@@ -511,8 +511,8 @@ def test_dwd_recent_data_result_long_single_dataset(
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="col",
     )
@@ -588,8 +588,8 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="col",
     )
@@ -790,7 +790,7 @@ def test_process_dataframe_to_expected_format(
             "Monatsgradtage": [12.3],
         },
         schema={
-            "Monatsgradtage": pl.Float64,
+            "Monatsgradtage": pl.Float32,
         },
         orient="col",
     )
@@ -814,8 +814,8 @@ def test_process_dataframe_to_expected_format(
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="col",
     )
