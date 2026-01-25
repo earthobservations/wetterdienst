@@ -13,11 +13,21 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import portion
+from fsspec.implementations.zip import ZipFileSystem
 from portion import Interval
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.history import (
+    History,
+    TimeseriesHistory,
+    _DeviceHistory,
+    _GeographyHistory,
+    _MissingDataHistory,
+    _NameHistory,
+    _ParameterHistory,
+)
 from wetterdienst.model.metadata import DatasetModel, ParameterSearch
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -40,6 +50,7 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.util.network import File, download_file
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
@@ -188,12 +199,342 @@ class DwdObservationValues(TimeseriesValues):
         return file_index.collect().get_column("date_range").to_list()
 
 
+class DwdObservationHistory(TimeseriesHistory):
+    """History class for DWD observation data."""
+
+    def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> History:
+        for dataset in available_datasets:
+            dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}"
+            log.info(f"Acquiring station history for {dataset_identifier}.")
+            try:
+                file_index = create_file_index_for_climate_observations(
+                    dataset,
+                    Period.HISTORICAL,
+                    self.sr.stations.settings,
+                )
+            except FileNotFoundError:
+                log.info(f"No files found for {dataset_identifier} and period {period}. Station will be skipped.")
+                continue
+            file_index = file_index.filter(pl.col("station_id").eq(station_id)).collect()
+            if file_index.is_empty():
+                log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
+                continue
+            file: File = download_file(
+                url=file_index.get_column("url").item(),
+                cache_dir=self.sr.stations.settings.cache_dir,
+                ttl=CacheExpiry.METAINDEX,
+                client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+                cache_disable=self.sr.stations.settings.cache_disable,
+            )
+            name_history = self.read_name_history(file)
+            parameter_history_list = self.read_parameter_history(file)
+            device_history_list = self.read_device_history(file)
+            geopgraphy_history_list = self.read_geography_history(file)
+            missing_data_history = self.read_missing_data_history(file)
+            print(missing_data_history.model_dump_json(indent=4))
+            return History(
+                name=name_history,
+                parameter=parameter_history_list,
+                device=device_history_list,
+                geography=geopgraphy_history_list,
+                missing_data=missing_data_history,
+            )
+
+    @staticmethod
+    def read_name_history(file: File) -> _NameHistory:
+        """Read station name and operator name history from a zip file."""
+        zfs = ZipFileSystem(file.content)
+        # find file
+        name_file = zfs.glob("Metadaten_Stationsname_Betreibername_*.txt")[0]
+        with zfs.open(name_file, "r") as f:
+            lines = f.readlines()
+        # split by empty line into station name and operator name
+        split_index = lines.index("\n")
+        # determine which part is station name and which is operator name
+        if "Stationsname" in lines[0]:
+            station_name_lines = lines[1:split_index]
+            operator_name_lines = lines[split_index + 2 : -1]
+            if operator_name_lines[-1].startswith("generiert:"):
+                operator_name_lines = operator_name_lines[:-1]
+        else:
+            operator_name_lines = lines[1:split_index]
+            station_name_lines = lines[split_index + 2 : -1]
+            if station_name_lines[-1].startswith("generiert:"):
+                station_name_lines = station_name_lines[:-1]
+
+        station_name_data = []
+        for line in station_name_lines:
+            parts = line.strip().split(";")
+            station_name_data.append(
+                {
+                    "station_id": parts[0].strip().zfill(5),
+                    "station_name": parts[1].strip(),
+                    "start_date": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
+                    "end_date": (
+                        dt.datetime.strptime(parts[3].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC"))
+                        if parts[3].strip()
+                        else None
+                    ),
+                }
+            )
+        operator_name_data = []
+        for line in operator_name_lines:
+            parts = line.strip().split(";")
+            operator_name_data.append(
+                {
+                    "station_id": parts[0].strip().zfill(5),
+                    "operator_name": parts[1].strip(),
+                    "start_date": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
+                    "end_date": (
+                        dt.datetime.strptime(parts[3].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC"))
+                        if parts[3].strip()
+                        else None
+                    ),
+                }
+            )
+        return _NameHistory(station=station_name_data, operator=operator_name_data)
+
+    def read_parameter_history(self, file: File) -> list[_ParameterHistory]:
+        """Read parameter history from a zip file.
+
+                        file name like
+        Metadaten_Parameter_klima_tag_01048.txt
+
+                        content like
+
+                        Stations_ID;Von_Datum;Bis_Datum;Stationsname;Parameter;Parameterbeschreibung;Einheit;Datenquelle (Strukturversion=SV);Zusatz-Info;Besonderheiten;Literaturhinweis;eor;
+                1048;19730101;19911031;Dresden-Klotzsche;FM;Tagesmittel der Windgeschwindigkeit m/s  Messnetz 3;m/sec;Winddaten (Stundenwerte als 10-Minutenmittel) generiert aus SYNOP-Meldungen, 36-teilige Windrose. Daten bis 1991 ¸bernommen aus dem Archiv des eMD (EMDS);arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                1048;19911122;20020430;Dresden-Klotzsche;FM;Tagesmittel der Windgeschwindigkeit m/s  Messnetz 3;m/sec;Winddaten (Stundenmittel, maximale Windspitze 00:00-23:59 MEZ) generiert aus 10-Minutenmittel von automatischen Stationen der 1.Generation (MIRIAM/AFMS2), Richtungsangaben in 36-teiliger Windrose;arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                1048;20020501;20020531;Dresden-Klotzsche;FM;Tagesmittel der Windgeschwindigkeit m/s  Messnetz 3;m/sec;Winddaten (Stundenmittel, maximale Windspitze 23:51-23:50 UTC) generiert aus SYNOP-Meldungen, Richtung als 10-Minutenmittel aus SYNOP-Termin, Richtungsangaben in 36-teiliger Windrose;arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                1048;20020601;20030831;Dresden-Klotzsche;FM;Tagesmittel der Windgeschwindigkeit m/s  Messnetz 3;m/sec;Winddaten (Stundenmittel, maximale Windspitze 00:00-23:59 MEZ) generiert aus 10-Minutenmittel von automatischen Stationen der 1.Generation (MIRIAM/AFMS2), Richtungsangaben in 36-teiliger Windrose;arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                1048;20030901;20250514;Dresden-Klotzsche;FM;Tagesmittel der Windgeschwindigkeit m/s  Messnetz 3;m/sec;Winddaten (Stundenmittel, maximale Windspitze 23:51-23:50 UTC) generiert aus 10-Minutenmittel von automatischen Stationen der 2. Generation (AMDA), Richtungsangaben in 36-teiliger Windrose;arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                1048;19730101;19911031;Dresden-Klotzsche;FX;Maximum der Windspitze Messnetz 3;m/sec;Winddaten (Stundenwerte als 10-Minutenmittel) generiert aus SYNOP-Meldungen, 36-teilige Windrose. Daten bis 1991 ¸bernommen aus dem Archiv des eMD (EMDS);22:00 MEZ V. - 22:00 MEZ;;;eor;
+                1048;19911119;20020430;Dresden-Klotzsche;FX;Maximum der Windspitze Messnetz 3;m/sec;Winddaten (Stundenmittel, maximale Windspitze 00:00-23:59 MEZ) generiert aus 10-Minutenmittel von automatischen Stationen der 1.Generation (MIRIAM/AFMS2), Richtungsangaben in 36-teiliger Windrose;00:00 - 24:00 MEZ;20.07.1992 - 31.10.1993 wurde die Windgeschwindigkeit inkl. maximaler Windspitze in 22 m Hˆhe gemessen (AFMS 2). Windwerte f¸r Messnetz 4 wurden in 10 m Hˆhe gemessen.;;eor;
+                1048;20020501;20020531;Dresden-Klotzsche;FX;Maximum der Windspitze Messnetz 3;m/sec;Winddaten (Stundenmittel, maximale Windspitze 23:51-23:50 UTC) generiert aus SYNOP-Meldungen, Richtung als 10-Minutenmittel aus SYNOP-Termin, Richtungsangaben in 36-teiliger Windrose;23:51 - 23:50 UTC;;;eor;
+                1048;20020601;20030831;Dresden-Klotzsche;FX;Maximum der Windspitze Messnetz 3;m/sec;Winddaten (Stundenmittel, maximale Windspitze 00:00-23:59 MEZ) generiert aus 10-Minutenmittel von automatischen Stationen der 1.Generation (MIRIAM/AFMS2), Richtungsangaben in 36-teiliger Windrose;00:00 - 24:00 MEZ;20.07.1992 - 31.10.1993 wurde die Windgeschwindigkeit inkl. maximaler Windspitze in 22 m Hˆhe gemessen (AFMS 2). Windwerte f¸r Messnetz 4 wurden in 10 m Hˆhe gemessen.;;eor;
+                1048;20030901;20250514;Dresden-Klotzsche;FX;Maximum der Windspitze Messnetz 3;m/sec;Winddaten (Stundenmittel, maximale Windspitze 23:51-23:50 UTC) generiert aus 10-Minutenmittel von automatischen Stationen der 2. Generation (AMDA), Richtungsangaben in 36-teiliger Windrose;23:51 - 23:50 UTC;;;eor;
+                1048;19340101;19450228;Dresden-Klotzsche;NM;Tagesmittel des Bedeckungsgrades;Achtel;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);arithm.Mittel aus 3 Terminwerten;;;eor;
+                1048;19600308;19901231;Dresden-Klotzsche;NM;Tagesmittel des Bedeckungsgrades;Achtel;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;arithm.Mittel aus 4 oder 8 Terminwerten;01.10.1960 - 31.12.1966 Berechnung Tagesmittel Bedeckungsgrad (arithmetisches Mittel)aus den Terminen 00,06,12,18 UTC, richtig w‰ren die Termine 07,14,21 MEZ gewesen.;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;NM;Tagesmittel des Bedeckungsgrades;Achtel;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);arithm.Mittel aus 3 Terminwerten;;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;NM;Tagesmittel des Bedeckungsgrades;Achtel;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                1048;19340101;19450228;Dresden-Klotzsche;PM;Tagesmittel des Luftdrucks;hpa;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);arithm.Mittel aus 3 Terminwerten;;;eor;
+                1048;19601001;19901231;Dresden-Klotzsche;PM;Tagesmittel des Luftdrucks;hpa;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;arithm.Mittel aus 4 oder 8 Terminwerten;01.10.1960 - 31.12.1966 Berechnung Tagesmittel Luftdruck (arithmetisches Mittel) aus den Terminen 00,06,12,18 UTC, richtig w‰ren die Termine 07,14,21 MEZ gewesen.;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;PM;Tagesmittel des Luftdrucks;hpa;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);arithm.Mittel aus 3 Terminwerten;;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;PM;Tagesmittel des Luftdrucks;hpa;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                1048;19340101;19450227;Dresden-Klotzsche;RSK;tgl. Niederschlagshoehe;mm;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);07:30 - 07:30 FT. MEZ (bis 1986 MOZ);;;eor;
+                1048;19601001;19901231;Dresden-Klotzsche;RSK;tgl. Niederschlagshoehe;mm;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;06:00 -06:00 FT. UTC;;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;RSK;tgl. Niederschlagshoehe;mm;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);07:30 - 07:30 FT. MEZ (bis 1986 MOZ);;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;RSK;tgl. Niederschlagshoehe;mm;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);06:00 - 06:00 FT. UTC (05:51-05:50 FT.UTC);;;eor;
+                1048;19340101;19450227;Dresden-Klotzsche;RSKF;tgl. Niederschlagsform (=Niederschlagshoehe_ind);numerischer Code;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);07:30 - 07:30 FT. MEZ (bis 1986 MOZ);;;eor;
+                1048;19601001;19901231;Dresden-Klotzsche;RSKF;tgl. Niederschlagsform (=Niederschlagshoehe_ind);numerischer Code;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;06:00 -06:00 FT. UTC;;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;RSKF;tgl. Niederschlagsform (=Niederschlagshoehe_ind);numerischer Code;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);07:30 - 07:30 FT. MEZ (bis 1986 MOZ);;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;RSKF;tgl. Niederschlagsform (=Niederschlagshoehe_ind);numerischer Code;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);06:00 - 06:00 FT. UTC (05:51-05:50 FT.UTC);;;eor;
+                1048;19350201;19441130;Dresden-Klotzsche;SDK;Sonnenscheindauer Tagessumme;Stunde;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);00:00-24:00 MEZ (bis 1986 MOZ);;;eor;
+                1048;19601001;19901231;Dresden-Klotzsche;SDK;Sonnenscheindauer Tagessumme;Stunde;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;00:00 - 24:00 UTC;;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;SDK;Sonnenscheindauer Tagessumme;Stunde;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);00:00-24:00 MEZ (bis 1986 MOZ);;;eor;
+                1048;20010401;20250513;Dresden-Klotzsche;SDK;Sonnenscheindauer Tagessumme;Stunde;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);00:00 - 24:00 UTC;;;eor;
+                1048;19340101;19450228;Dresden-Klotzsche;SHK_TAG;Schneehoehe Tageswert;cm;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);07:30 MEZ (bis 1986 MOZ);;;eor;
+                1048;19601001;19901231;Dresden-Klotzsche;SHK_TAG;Schneehoehe Tageswert;cm;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;06:00 UTC;;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;SHK_TAG;Schneehoehe Tageswert;cm;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);07:30 MEZ (bis 1986 MOZ);;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;SHK_TAG;Schneehoehe Tageswert;cm;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);06 UTC ;;;eor;
+                1048;19350901;19450228;Dresden-Klotzsche;TGK;Minimum der Lufttemperatur am Erdboden in 5cm Hoehe;∞C;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);21:30 VT. - 07:30 MEZ (bis 1986 MOZ);;;eor;
+                1048;19600213;19901231;Dresden-Klotzsche;TGK;Minimum der Lufttemperatur am Erdboden in 5cm Hoehe;∞C;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;18:00 VT. - 18:00 UTC;;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;TGK;Minimum der Lufttemperatur am Erdboden in 5cm Hoehe;∞C;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);21:30 VT. - 07:30 MEZ (bis 1986 MOZ);;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;TGK;Minimum der Lufttemperatur am Erdboden in 5cm Hoehe;∞C;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);00:00 - 24:00 UTC gemessen;;;eor;
+                1048;19340101;19450228;Dresden-Klotzsche;TMK;Tagesmittel der Temperatur;∞C;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);TMK=(TT1+TT2+(TT3*2))/4;;;eor;
+                1048;19600308;19901231;Dresden-Klotzsche;TMK;Tagesmittel der Temperatur;∞C;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;arithm.Mittel aus 4 oder 8 Terminwerten;01.10.1960 - 31.12.1966 Berechnung Tagesmittel Lufttemperatur (arithmetisches Mittel) aus den Terminen 00,06,12,18 UTC, richtig w‰ren die Termine 07,14,21 MEZ gewesen.;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;TMK;Tagesmittel der Temperatur;∞C;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);TMK=(TT1+TT2+(TT3*2))/4;;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;TMK;Tagesmittel der Temperatur;∞C;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                1048;19340101;19450228;Dresden-Klotzsche;TNK;Tagesminimum der Lufttemperatur in 2m Hoehe;∞C;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);21:30 VT. - 21:30 MEZ (bis 1986 MOZ);;;eor;
+                1048;19600105;19901231;Dresden-Klotzsche;TNK;Tagesminimum der Lufttemperatur in 2m Hoehe;∞C;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;18:00 VT. - 18:00 UTC;;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;TNK;Tagesminimum der Lufttemperatur in 2m Hoehe;∞C;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);21:30 VT. - 21:30 MEZ (bis 1986 MOZ);;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;TNK;Tagesminimum der Lufttemperatur in 2m Hoehe;∞C;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);00:00 - 24:00 UTC gemessen;;;eor;
+                1048;19340101;19450228;Dresden-Klotzsche;TXK;Tagesmaximum der Lufttemperatur in 2m Hˆhe;∞C;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);21:30 VT. - 21:30 MEZ (bis 1986 MOZ);;;eor;
+                1048;19600103;19901231;Dresden-Klotzsche;TXK;Tagesmaximum der Lufttemperatur in 2m Hˆhe;∞C;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;18:00 VT. - 18:00 UTC;;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;TXK;Tagesmaximum der Lufttemperatur in 2m Hˆhe;∞C;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);21:30 VT. - 21:30 MEZ (bis 1986 MOZ);;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;TXK;Tagesmaximum der Lufttemperatur in 2m Hˆhe;∞C;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);00:00 - 24:00 UTC gemessen;;;eor;
+                1048;19340101;19450228;Dresden-Klotzsche;UPM;Tagesmittel der Relativen Feuchte;%;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);arithm.Mittel aus 3 Terminwerten;;;eor;
+                1048;19600102;19901231;Dresden-Klotzsche;UPM;Tagesmittel der Relativen Feuchte;%;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;arithm.Mittel aus 4 oder 8 Terminwerten;01.10.1960 - 31.12.1966 Berechnung Tagesmittel relative Feuchte (arithmetisches Mittel)aus den Terminen 00,06,12,18 UTC, richtig w‰ren die Termine 07,14,21 MEZ gewesen.;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;UPM;Tagesmittel der Relativen Feuchte;%;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);arithm.Mittel aus 3 Terminwerten;;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;UPM;Tagesmittel der Relativen Feuchte;%;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                1048;19340101;19450228;Dresden-Klotzsche;VPM;Tagesmittel des Dampfdruckes;hpa;KLIDADIGI: Klimadaten nacherfasst (3 Termine:  07, 14, 21 MOZ und Tageswerte);arithm.Mittel aus 3 Terminwerten;;;eor;
+                1048;19600102;19901231;Dresden-Klotzsche;VPM;Tagesmittel des Dampfdruckes;hpa;Klimadaten aus der Klimaroutine des eMD 1967-1990, Terminwerte basierend auf Daten der synoptischen Haupttermine (00,06,12,18 UTC) und Tageswerte, sowie Klimadaten nacherfasst im Rahmen des Projektes KLIDADIGI zu unterschiedlichen Zeitr‰umen.;arithm.Mittel aus 4 oder 8 Terminwerten;01.10.1960 - 31.12.1966 Berechnung Tagesmittel Dampfdruck (arithmetisches Mittel)aus den Terminen 00,06,12,18 UTC, richtig w‰ren die Termine 07,14,21 MEZ gewesen.;;eor;
+                1048;19910101;20010331;Dresden-Klotzsche;VPM;Tagesmittel des Dampfdruckes;hpa;Klimadaten aus Klimaroutine des DWD (3 Termine: um  07, 14, 21 MOZ, ab 01.01.1987 07:30,14:30,21:30 MEZ) und Tageswerte jeweils nach Beobachteranleitung f¸r Klimastationen (BAK);arithm.Mittel aus 3 Terminwerten;;;eor;
+                1048;20010401;20250514;Dresden-Klotzsche;VPM;Tagesmittel des Dampfdruckes;hpa;Klimadaten aus der Klimaroutine nach 1.4.2001, generiert aus SYNOP-Meldungen (3 Termine 06, 12, 18 UTC und Tageswerte aus st¸ndlichen Werten oder Beobachtungen an Hauptterminen);arithm.Mittel aus mind. 21 Stundenwerten;;;eor;
+                Legende: FT  = Folgetag; GZ = Gesetzliche Zeit
+                generiert: 15.05.2025 --  Deutscher Wetterdienst  --
+
+        """
+        zfs = ZipFileSystem(file.content)
+        # find file Metadaten_Parameter_klima_tag_01048.txt, but use glob to be independent of station
+        parameter_file = zfs.glob("**/Metadaten_Parameter_*.txt")[0]
+        parameter_text = zfs.open(parameter_file).read()
+        lines = parameter_text.strip().decode(encoding="latin1").splitlines()
+        records = []
+        for line in lines[1:]:
+            if line.startswith(("Legende:", "generiert:")):
+                continue
+            parts = line.split(";")
+            if len(parts) < 8:
+                continue
+            record = {
+                "station_id": parts[0].strip(),
+                "start_date": dt.datetime.strptime(parts[1].strip(), "%Y%m%d").date(),
+                "end_date": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").date(),
+                "station_name": parts[3].strip(),
+                "parameter": parts[4].strip(),
+                "description": parts[5].strip(),
+                "unit": parts[6].strip(),
+                "data_source": parts[7].strip(),
+                "extra_info": parts[8].strip(),
+                "special": parts[9].strip(),
+                "literature": parts[10].strip(),
+            }
+            records.append(record)
+        return [_ParameterHistory.model_validate(record) for record in records]
+
+    def read_device_history(self, file: File) -> list[_DeviceHistory]:
+        """Read device history from file."""
+        """
+        Sample content of device history file:
+
+        Stations_ID;Stationsname;Geo. Laenge [Grad];Geo. Breite [Grad];Stationshoehe [m];Barometerhoehe ueber NN [m];Von_Datum;Bis_Datum;Geraetetyp Name;Messverfahren;eor;
+        1048;Dresden-Heller;13.76;51.09;152;;19340101;19350710;Stationsbarometer;Luftdruckmessung, konv.;eor;
+        1048;Dresden-Klotzsche;13.76;51.12;229;230;19350711;19450228;Stationsbarometer;Luftdruckmessung, konv.;eor;
+        1048;Dresden-Klotzsche;13.77;51.13;222;226.45;19560420;19950831;Stationsbarometer;Luftdruckmessung, konv.;eor;
+        1048;Dresden-Klotzsche;13.75;51.13;227;232.4;19950901;20081020;Digitalbarometer AIR-DB;Luftdruckmessung, elektr.;eor;
+        1048;Dresden-Klotzsche;13.75;51.13;227;232.4;20070827;20141104;Luftdrucksensor Vaisala PTB 220;Luftdruckmessung, elektr.;eor;
+        1048;Dresden-Klotzsche;13.75;51.13;227;232.4;20141105;20190813;Digitalbarometer PTB 330 (mit Anzeige, dreifach);Luftdruckmessung, elektr.;eor;
+        1048;Dresden-Klotzsche;13.75;51.13;227.57;232.4;20190814;20250506;Digitalbarometer PTB 330 (mit Anzeige, dreifach);Luftdruckmessung, elektr.;eor;
+        generiert: 15.05.2025 --  Deutscher Wetterdienst  --
+
+        """
+        zfs = ZipFileSystem(file.content)
+        # find all Metadaten_Geraete_*.txt files, but use glob to be independent of station
+        device_files = zfs.glob("**/Metadaten_Geraete_*.txt")
+        records = []
+        for device_file in device_files:
+            device_text = zfs.open(device_file).read()
+            lines = device_text.strip().decode(encoding="latin1").splitlines()
+            for line in lines[1:]:
+                if line.startswith("generiert:"):
+                    continue
+                parts = line.split(";")
+                if len(parts) < 10:
+                    continue
+                record = {
+                    "station_id": parts[0].strip(),
+                    "station_name": parts[1].strip(),
+                    "longitude": parts[2].strip(),
+                    "latitude": parts[3].strip(),
+                    "station_height": parts[4].strip(),
+                    "device_height": parts[5].strip() or None,
+                    "start_date": dt.datetime.strptime(parts[6].strip(), "%Y%m%d").date(),
+                    "end_date": dt.datetime.strptime(parts[7].strip(), "%Y%m%d").date(),
+                    "device_type": parts[8].strip(),
+                    "measurement_method": parts[9].strip(),
+                }
+                records.append(record)
+        return [_DeviceHistory.model_validate(record) for record in records]
+
+    def read_geography_history(self, file: File) -> list[_GeographyHistory]:
+        """File name like
+
+        Metadaten_Geographie_01048.txt
+
+        content like
+
+            Stations_id;Stationshoehe;Geogr.Breite;Geogr.Laenge;von_datum;bis_datum;Stationsname
+          1048;  152.00; 51.0883; 13.7601;19260501;19350710;Dresden-Klotzsche
+          1048;  229.00; 51.1246; 13.7639;19350711;19560419;Dresden-Klotzsche
+          1048;  222.00; 51.1325; 13.7721;19560420;19950831;Dresden-Klotzsche
+          1048;  227.00; 51.1280; 13.7543;19950901;20190813;Dresden-Klotzsche
+          1048;  227.57; 51.1278; 13.7543;20190814;        ;Dresden-Klotzsche
+
+        """
+        zfs = ZipFileSystem(file.content)
+        # find all Metadaten_Geographie_*.txt files, but use glob to be independent of station
+        geography_files = zfs.glob("**/Metadaten_Geographie_*.txt")
+        records = []
+        for geography_file in geography_files:
+            geography_text = zfs.open(geography_file).read()
+            lines = geography_text.strip().decode(encoding="latin1").splitlines()
+            for line in lines[1:]:
+                parts = line.split(";")
+                if len(parts) < 7:
+                    continue
+                record = {
+                    "station_id": parts[0].strip(),
+                    "station_height": float(parts[1].strip()),
+                    "latitude": float(parts[2].strip()),
+                    "longitude": float(parts[3].strip()),
+                    "start_date": dt.datetime.strptime(parts[4].strip(), "%Y%m%d").date(),
+                    "end_date": dt.datetime.strptime(parts[5].strip(), "%Y%m%d").date()
+                    if parts[5].strip()
+                    else dt.date.today(),
+                    "station_name": parts[6].strip(),
+                }
+                records.append(record)
+        return [_GeographyHistory.model_validate(record) for record in records]
+
+    def read_missing_data_history(self, file: File) -> _MissingDataHistory:
+        """Read missing data history from file."""
+        zfs = ZipFileSystem(file.content)
+        # find all Metadaten_Fehlzeiten_*.txt files, but use glob to be independent of station
+        missing_data_file = zfs.glob("**/Metadaten_Fehldaten_*.txt")[0]
+        records = []
+        missing_data_text = zfs.open(missing_data_file).read()
+        # split into summary and periods of missing data
+        # split content by line Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Anzahl_Fehlwerte;Beschreibung;eor;
+        # find line first
+        lines = missing_data_text.decode("utf-8").strip().splitlines()
+        # find line that separates summary from period
+        split_line = 0
+        count_starts_with = 0
+        for i, line in enumerate(lines):
+            if line.strip().startswith("Stations_ID"):
+                count_starts_with += 1
+                if count_starts_with == 2:
+                    split_line = i
+                    break
+        summary_lines = lines[1:split_line]
+        period_lines = lines[split_line + 1 : -1]
+        summary_records = []
+        for line in summary_lines:
+            parts = line.split(";")
+            record = {
+                "station_id": parts[0].zfill(5),
+                "station_name": parts[1],
+                "parameter": parts[2],
+                "start_date": dt.datetime.strptime(parts[3], "%d.%m.%Y").date(),
+                "end_date": dt.datetime.strptime(parts[4], "%d.%m.%Y").date(),
+                "missing_count": int(parts[5]) if parts[5] else None,
+                "description": parts[6],
+            }
+            summary_records.append(record)
+        period_records = []
+        for line in period_lines:
+            parts = line.split(";")
+            record = {
+                "station_id": parts[0].zfill(5),
+                "station_name": parts[1],
+                "parameter": parts[2],
+                "start_date": dt.datetime.strptime(parts[3], "%d.%m.%Y").date(),
+                "end_date": dt.datetime.strptime(parts[4], "%d.%m.%Y").date(),
+                "missing_count": int(parts[5]) if parts[5] else None,
+                "description": parts[6],
+            }
+            period_records.append(record)
+        return _MissingDataHistory(summary=summary_records, periods=period_records)
+
+
 @dataclass
 class DwdObservationRequest(TimeseriesRequest):
     """Request class for DWD observation data."""
 
     metadata = DwdObservationMetadata
     _values = DwdObservationValues
+    _history = DwdObservationHistory
     _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT, Period.NOW}
     periods: str | Period | set[str | Period] = None
 
