@@ -26,6 +26,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.model.metadata import (
     DatasetModel,
     MetadataModel,
@@ -76,7 +77,7 @@ class TimeseriesRequest:
         default=None,
     )
     _values: TimeseriesValues = field(init=False, repr=False, default=None)
-
+    _history: TimeseriesHistory = field(init=False, repr=False, default=None)
     # actual parameters
     parameters: _PARAMETER_TYPE
     start_date: _DATETIME_TYPE = None
