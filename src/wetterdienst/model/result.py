@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     import plotly.graph_objects as go
 
     from wetterdienst import Settings
+    from wetterdienst.model.history import History, TimeseriesHistory
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.values import TimeseriesValues
@@ -163,6 +164,17 @@ class StationsResult(ExportMixin):
     def values(self) -> TimeseriesValues:
         """Get values from the request."""
         return self.stations._values.from_stations(self)  # noqa: SLF001
+
+    @property
+    def history(self) -> TimeseriesHistory:
+        """Get history from the request."""
+        # If the request implementation does not provide a history implementation
+        # we raise a NotImplementedError so callers can handle it explicitly.
+        if not getattr(self.stations, "_history", None):
+            cls_name = self.stations.__class__.__name__
+            msg = "History not implemented for " + cls_name
+            raise NotImplementedError(msg)
+        return self.stations._history.from_stations(self)  # noqa: SLF001
 
     @property
     def start_date(self) -> datetime:
@@ -648,6 +660,14 @@ class ValuesResult(_ValuesResult):
             msg = f"Invalid format: {fmt}"
             raise KeyError(msg)
         return img
+
+
+@dataclass
+class HistoryResult:
+    """Result class for history data."""
+
+    stations: StationsResult
+    history: History
 
 
 class _InterpolatedOrSummarizedOgcFeatureProperties(TypedDict):

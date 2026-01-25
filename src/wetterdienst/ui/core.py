@@ -128,6 +128,78 @@ class StationsRequest(BaseModel):
     scale: Annotated[float, Field(gt=0)] | None = None
 
 
+class HistoryRequest(BaseModel):
+    """History request with validated parameters.
+
+    Used to get historical station metadata.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    provider: str
+    network: str
+    parameters: list[str]
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v: str | list) -> list[str]:
+        """Validate parameters."""
+        if isinstance(v, str):
+            return read_list(v)
+        parameters = []
+        for item in v:
+            if "," in item:
+                parameters.extend(read_list(item, separator=","))
+            else:
+                parameters.append(item)
+        return parameters
+
+    # allow selecting all stations
+    all: bool | None = False
+
+    # station filter parameters
+    # For history requests we accept one or more station ids (list) or 'all'.
+    station: list[str] | None = None
+
+    @field_validator("station", mode="before")
+    @classmethod
+    def validate_station(cls, v: str | list | None) -> list[str] | None:
+        """Validate station."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v)
+        stations = []
+        for item in v:
+            if "," in item:
+                stations.extend(read_list(item, separator=","))
+            else:
+                stations.append(item)
+        return stations
+
+    sections: set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None = None
+
+    @field_validator("sections", mode="before")
+    @classmethod
+    def validate_sections(cls, v: str | list) -> set[str]:
+        """Validate sections."""
+        if isinstance(v, str):
+            return set(read_list(v))
+        parameters = []
+        for item in v:
+            if "," in item:
+                parameters.extend(read_list(item, separator=","))
+            else:
+                parameters.append(item)
+        return set(parameters)
+
+    with_metadata: bool = True
+    with_stations: bool = True
+
+    pretty: bool = False
+    debug: bool = False
+
+
 class ValuesRequest(BaseModel):
     """Values request with validated parameters."""
 
@@ -422,7 +494,7 @@ class SummaryRequest(BaseModel):
 
 def _get_stations_request(
     api: type[TimeseriesRequest],
-    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
+    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
     date: str | None,
     settings: Settings,
 ) -> TimeseriesRequest:
@@ -458,7 +530,7 @@ def _get_stations_request(
         "end_date": end_date,
     }
     if any_multiple_period_dataset:
-        kwargs["periods"] = request.periods
+        kwargs["periods"] = getattr(request, "periods", None)
 
     if isinstance(api, DwdMosmixRequest):
         kwargs["issue"] = request.issue
@@ -471,7 +543,7 @@ def _get_stations_request(
 
 def get_stations(
     api: type[TimeseriesRequest],
-    request: StationsRequest | ValuesRequest | InterpolationRequest,
+    request: StationsRequest | ValuesRequest | InterpolationRequest | HistoryRequest,
     date: str | None,
     settings: Settings,
 ) -> StationsResult:

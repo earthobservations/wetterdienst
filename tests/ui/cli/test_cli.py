@@ -30,6 +30,7 @@ def test_cli_help() -> None:
         Data:
           about        Get information about the data.
           stations     Acquire stations.
+          history      Acquire station history.
           values       Acquire data.
           interpolate  Interpolate data.
           summarize    Summarize data.

@@ -67,7 +67,7 @@ or the [table](https://bookdown.org/brry/rdwd/available-datasets.html) provided 
 
 ## Features
 
-- APIs for stations and values
+- APIs for stations, values and history (station metadata changes)
 - Get stations nearby a selected location
 - Define your request by arguments such as `parameters`, `periods`, `start date`, `end date`
 - Define general settings in Settings context

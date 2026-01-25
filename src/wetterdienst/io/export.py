@@ -218,7 +218,12 @@ class ExportMixin:
                     log.info(f"File '{filepath}' exists, skipping write due to if_exists='skip'.")
                     return
 
-            if target.endswith(".xlsx"):
+            if target.endswith(".csv"):
+                log.info(f"Writing to CSV file '{filepath}'")
+                # Convert all datetime columns to ISO format.
+                df = convert_datetimes(self.df)
+                df.write_csv(filepath)
+            elif target.endswith(".xlsx"):
                 log.info(f"Writing to spreadsheet file '{filepath}'")
                 # Convert all datetime columns to ISO format.
                 df = convert_datetimes(self.df)

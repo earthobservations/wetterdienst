@@ -5,6 +5,7 @@
 
 python-api.md
 python-examples.md
+station_history.md
 cli.md
 restapi.md
 docker.md

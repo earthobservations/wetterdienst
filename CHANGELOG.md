@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Implement station history retrieval; added API and request support to query historical station
+  snapshots and lifecycle events (created, updated, decommissioned) by station id and dataset.
+
 ### Changed
 
 - Move code to src directory

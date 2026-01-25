@@ -50,6 +50,7 @@ else:
     MonkeyPatch.patch_fromisoformat()
 
 if TYPE_CHECKING:
+    from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.values import TimeseriesValues
 log = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ class TimeseriesRequest:
         default=None,
     )
     _values: TimeseriesValues = field(init=False, repr=False, default=None)
-
+    _history: TimeseriesHistory = field(init=False, repr=False, default=None)
     # actual parameters
     parameters: _PARAMETER_TYPE
     start_date: _DATETIME_TYPE = None
