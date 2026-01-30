@@ -228,6 +228,7 @@ class NetworkFilesystemManager:
             use_listings_cache=False,
             client_kwargs=client_kwargs,
             listings_expiry_time=0.0,  # not relevant for the download of files
+            listings_cache_location=cache_dir, # ensure mkdir still occurs in correct location
         )
 
         if cache_disable or cache_expiry == CacheExpiry.NO_CACHE:
