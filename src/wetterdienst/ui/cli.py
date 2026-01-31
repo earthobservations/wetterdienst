@@ -20,6 +20,7 @@ from cloup.constraints import AllSet, If, RequireExactly, accept_none
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ApiNotFoundError
 from wetterdienst.ui.core import (
+    HistoryRequest,
     InterpolationRequest,
     StationsRequest,
     SummaryRequest,
@@ -329,6 +330,12 @@ Acquire MOSMIX stations:
 
     wetterdienst stations --provider=dwd --network=mosmix --parameters=hourly/large --all
     wetterdienst stations --provider=dwd --network=mosmix --parameters=hourly/large --all --format=csv
+
+Acquire DWD Observation station history:
+
+    wetterdienst history --provider=dwd --network=observation --parameters=daily/kl --station=1048
+    # Get specific sections of station history
+    wetterdienst history --provider=dwd --network=observation --parameters=daily/kl --station=1048 --sections=name,geography
 
 Acquire observation data:
 
@@ -800,6 +807,104 @@ def stations(
         kwargs["scale"] = request.scale
 
     output = stations_.to_format(**kwargs)
+
+    print(output)  # noqa: T201
+
+    return
+
+
+# History command
+@cli.command("history", section=data_section)
+@provider_opt
+@network_opt
+@station_options_core
+@cloup.option_group(
+    "All stations",
+    click.option("--all", "all_", is_flag=True),
+)
+@cloup.option_group(
+    "Station id filtering",
+    cloup.option("--station", type=str),
+)
+@cloup.option(
+    "--sections",
+    type=click.STRING,
+    help="Comma-separated list of history sections to include. Available sections are "
+    "'name', 'parameter', 'device', 'geography', 'missing_data'",
+)
+@cloup.option("--with_metadata", type=click.BOOL, default=True)
+@cloup.option("--with_stations", type=click.BOOL, default=True)
+@cloup.option("--pretty", type=click.BOOL, default=False)
+@debug_opt
+def history(
+    provider: str,
+    network: str,
+    parameters: list[str],
+    all_: bool,  # noqa: FBT001
+    station: str,
+    sections: list[str],
+    target: str,
+    *,
+    with_metadata: bool,
+    with_stations: bool,
+    pretty: bool,
+    debug: bool,
+) -> None:
+    """Acquire station history."""
+    if target and not target.endswith(".json"):
+        msg = "--target for history endpoint must end with .json"
+        raise click.BadParameter(msg)
+
+    request = HistoryRequest.model_validate(
+        {
+            "provider": provider,
+            "network": network,
+            "parameters": parameters,
+            "all": all_,
+            "station": station,
+            "sections": sections,
+            "with_metadata": with_metadata,
+            "with_stations": with_stations,
+            "pretty": pretty,
+            "debug": debug,
+        }
+    )
+
+    set_logging_level(debug=debug)
+
+    api = get_api(provider=provider, network=network)
+
+    try:
+        stations_ = get_stations(api=api, request=request, date=None, settings=Settings())
+    except Exception:
+        log.exception("Failed to get stations for history.")
+        sys.exit(1)
+
+    try:
+        history_provider = stations_.history
+    except NotImplementedError:
+        log.exception("History not implemented for provider/network")
+        sys.exit(1)
+
+    data = {}
+    if request.with_metadata:
+        data["metadata"] = stations_.get_metadata()
+    if request.with_stations:
+        data["stations"] = stations_.to_dict(with_metadata=False)["stations"]
+    data["histories"] = []
+    try:
+        for history_result in history_provider.query():
+            data["histories"].append(history_result.history.model_dump(mode="json"))
+    except Exception:
+        log.exception("Failed to collect station history")
+        sys.exit(1)
+
+    output = json.dumps(data, indent=4 if pretty else None)
+
+    if target:
+        # write to file
+        Path(target).write_text(output)
+        return
 
     print(output)  # noqa: T201
 

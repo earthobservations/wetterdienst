@@ -97,6 +97,17 @@ def create_file_index_for_climate_observations(
     return df_files.sort(by=[pl.col("station_id"), pl.col("filename")])
 
 
+def _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata(
+    resolution: str, dataset: str, settings: Settings
+) -> pl.LazyFrame:
+    """Create metadata DataFrame for 1minute precipitation historical."""
+    url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{resolution}/{dataset}/meta_data/"
+    df_files = _create_file_index_for_dwd_server(url, settings=settings, ttl=CacheExpiry.METAINDEX)
+    return df_files.with_columns(
+        pl.col("filename").str.split("_").list.last().str.strip_suffix(".zip").alias("station_id"),
+    )
+
+
 def _create_file_index_for_dwd_server(
     url: str,
     settings: Settings,
