@@ -4,30 +4,22 @@
 
 from __future__ import annotations
 
-import datetime as dt
+import datetime as dt  # noqa: TC003
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from itertools import groupby
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
-from zoneinfo import ZoneInfo
+from typing import TYPE_CHECKING, cast
 
-import polars as pl
-from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel
-from tqdm import tqdm
-from tzfpy import get_tz
 
-from wetterdienst.metadata.resolution import DAILY_AT_MOST, Frequency, Resolution
-from wetterdienst.model.result import HistoryResult, StationsResult, ValuesResult
-from wetterdienst.model.unit import UnitConverter
-from wetterdienst.util.logging import TqdmToLogger
+from wetterdienst.model.result import HistoryResult, StationsResult
 
 if TYPE_CHECKING:
-    import datetime as dt
-    from collections.abc import Callable, Iterator
+    from collections.abc import Iterator
 
-    from wetterdienst.model.metadata import DatasetModel, ParameterModel
+    import polars as pl
+
+    from wetterdienst.model.metadata import DatasetModel
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -85,10 +77,10 @@ class _DeviceHistory(BaseModel):
 
     device_type: str | None = None
     station_id: str
-    name: str | None = None
+    station_name: str | None = None
     longitude: float | None = None
     latitude: float | None = None
-    height: float | None = None
+    station_height: float | None = None
     device_height: float | None = None
     start_date: dt.datetime
     end_date: dt.datetime
@@ -104,7 +96,7 @@ class _GeographyHistory(BaseModel):
     longitude: float | None = None
     start_date: dt.datetime
     end_date: dt.datetime | None = None
-    name: str | None = None
+    station_name: str | None = None
 
 
 class _MissingSummary(BaseModel):
@@ -165,8 +157,8 @@ class TimeseriesHistory(ABC):
             station_id = cast("str", station_id)
             available_datasets = self._get_available_datasets(df_station_meta)
             # Collect data for this station
-            history = self._collect_station_history(station_id, available_datasets)  # , available_datasets
-            yield HistoryResult(stations=self.sr, history=history)
+            for history in self._collect_station_history(station_id, available_datasets):  # , available_datasets
+                yield HistoryResult(stations=self.sr, history=history)
 
     def _get_available_datasets(self, df: pl.DataFrame) -> list[DatasetModel]:
         """Extract available datasets for the station."""
@@ -176,5 +168,5 @@ class TimeseriesHistory(ABC):
         return [self.sr.stations.metadata[pair["resolution"]][pair["dataset"]] for pair in resolution_dataset_pairs]
 
     @abstractmethod
-    def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> History:
+    def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> Iterator[History]:
         """Collect history for a specific station."""

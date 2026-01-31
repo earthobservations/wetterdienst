@@ -26,7 +26,6 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.model.metadata import (
     DatasetModel,
     MetadataModel,
@@ -51,6 +50,7 @@ else:
     MonkeyPatch.patch_fromisoformat()
 
 if TYPE_CHECKING:
+    from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.values import TimeseriesValues
 log = logging.getLogger(__name__)
 

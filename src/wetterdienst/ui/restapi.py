@@ -25,6 +25,7 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollection,
 )
 from wetterdienst.ui.core import (
+    HistoryRequest,
     InterpolationRequest,
     StationsRequest,
     SummaryRequest,
@@ -614,6 +615,75 @@ def stripes_values(
         raise HTTPException(status_code=400, detail=str(e)) from e
     media_type = f"image/{fmt}"
     return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
+
+
+@app.get("/api/history")
+def history(  # noqa: C901
+    request: Annotated[HistoryRequest, Query()],
+) -> Response:
+    """Wrap get_history to provide station history via restapi.
+
+    Support querying multiple stations or using 'all' to collect histories for
+    multiple stations.
+    """
+    set_logging_level(debug=request.debug)
+
+    try:
+        api = Wetterdienst(request.provider, request.network)
+    except ApiNotFoundError as e:
+        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        log.exception(msg)
+        raise HTTPException(status_code=404, detail=msg) from e
+
+    if not request.station and not request.all:
+        raise HTTPException(
+            status_code=400,
+            detail="Either 'station' or 'all' parameter must be provided to query history.",
+        )
+
+    try:
+        stations_ = get_stations(
+            api=api,
+            request=request,
+            date=None,
+            settings=Settings(),
+        )
+    except Exception as e:
+        log.exception("Failed to get stations for history.")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    try:
+        history_provider = stations_.history
+    except NotImplementedError as e:
+        log.exception("History not implemented for provider/network")
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except Exception as e:
+        log.exception("Failed to acquire history provider")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    data = {}
+    if request.with_metadata:
+        data["metadata"] = stations_.get_metadata()
+    if request.with_stations:
+        data["stations"] = stations_.to_dict(with_metadata=False)["stations"]
+    data["histories"] = []
+    try:
+        for history_result in history_provider.query():
+            history = history_result.history.model_dump()
+            if request.sections:
+                history = {section: history.get(section) for section in request.sections if section in history}
+            data["histories"].append(history)
+    except Exception as e:
+        log.exception("Failed to collect station history")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return Response(
+        content=json.dumps(
+            data,
+            indent=4 if request.pretty else None,
+            default=lambda o: o.isoformat() if hasattr(o, "isoformat") else str(o),
+        ),
+        media_type="application/json",
+    )
 
 
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:

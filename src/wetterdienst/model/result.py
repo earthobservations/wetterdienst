@@ -168,6 +168,12 @@ class StationsResult(ExportMixin):
     @property
     def history(self) -> TimeseriesHistory:
         """Get history from the request."""
+        # If the request implementation does not provide a history implementation
+        # we raise a NotImplementedError so callers can handle it explicitly.
+        if not getattr(self.stations, "_history", None):
+            cls_name = self.stations.__class__.__name__
+            msg = "History not implemented for " + cls_name
+            raise NotImplementedError(msg)
         return self.stations._history.from_stations(self)  # noqa: SLF001
 
     @property
