@@ -110,6 +110,7 @@ def _create_meta_index_for_climate_observations(
         ttl=CacheExpiry.METAINDEX,
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
     )
     file.raise_if_exception()
     return _read_meta_df(file)
@@ -178,6 +179,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
         ttl=CacheExpiry.METAINDEX,
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
     )
     file_fx6 = download_file(
         url=meta_file_fx6,
@@ -185,6 +187,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
         ttl=CacheExpiry.METAINDEX,
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
     )
     df_fx3 = _read_meta_df(file_fx3)
     df_fx6 = _read_meta_df(file_fx6)
@@ -210,6 +213,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
         ttl=CacheExpiry.NO_CACHE,
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
     )
     dfs = [
         _parse_geo_metadata(file=file, station_id=station_id)

@@ -382,6 +382,7 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
         )
         # skip empty lines in the csv file
         lines = payload.read().decode("latin-1").replace("\r", "").split("\n")

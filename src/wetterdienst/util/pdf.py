@@ -19,8 +19,9 @@ def read_pdf(url: str) -> str:
         url=url,
         cache_dir=default_settings.cache_dir,
         ttl=CacheExpiry.NO_CACHE,
-        client_kwargs=default_settings.client_kwargs,
+        client_kwargs=default_settings.fsspec_client_kwargs,
         cache_disable=default_settings.cache_disable,
+        use_certifi=default_settings.use_certifi,
     )
     file.raise_if_exception()
     pdf = pypdf.PdfReader(file.content)

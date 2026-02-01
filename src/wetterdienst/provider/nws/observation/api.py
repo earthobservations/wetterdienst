@@ -290,6 +290,7 @@ class NwsObservationRequest(TimeseriesRequest):
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
         )
         file.raise_if_exception()
         df = pl.read_csv(source=file.content, has_header=False, separator="\t", infer_schema_length=0).lazy()

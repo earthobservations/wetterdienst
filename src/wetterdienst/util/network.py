@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import ssl
 from collections.abc import Generator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -24,6 +25,24 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+
+def _create_ssl_context(*, use_certifi: bool) -> ssl.SSLContext | None:
+    """Create an SSL context optionally using certifi certificates.
+
+    Args:
+        use_certifi: If True, use certifi certificate bundle instead of system certificates.
+
+    Returns:
+        An SSL context configured with certifi certificates if requested, None otherwise.
+
+    """
+    if not use_certifi:
+        return None
+
+    import certifi  # noqa: PLC0415
+
+    return ssl.create_default_context(cafile=certifi.where())
 
 
 @dataclass
@@ -154,6 +173,7 @@ class HTTPFileSystem(_HTTPFileSystem):
         use_listings_cache: bool,
         listings_expiry_time: float,
         listings_cache_location: Path | None = None,
+        use_certifi: bool = False,
         **kwargs,  # noqa: ANN003
     ) -> None:
         """Initialize the HTTPFileSystem.
@@ -162,10 +182,27 @@ class HTTPFileSystem(_HTTPFileSystem):
             use_listings_cache: If False, this cache never returns items, but always reports KeyError,
             listings_expiry_time: Time in seconds that a listing is considered valid. If None,
             listings_cache_location: Directory path at which the listings cache file is stored. If None,
+            use_certifi: If True, use certifi certificate bundle instead of system certificates.
             *args: Additional arguments.
             **kwargs: Additional keyword arguments.
 
         """
+        # Store use_certifi for later use
+        self._use_certifi = use_certifi
+
+        # Create a custom get_client function that will create a session with our SSL context
+        if use_certifi:
+
+            async def get_client_with_certifi(**client_kwargs):  # noqa: ANN202, ANN003
+                """Create an aiohttp ClientSession with certifi SSL context."""
+                import aiohttp  # noqa: PLC0415
+
+                ssl_context = _create_ssl_context(use_certifi=True)
+                connector = aiohttp.TCPConnector(ssl=ssl_context)
+                return aiohttp.ClientSession(connector=connector, **client_kwargs)
+
+            kwargs["get_client"] = get_client_with_certifi
+
         kwargs.update(
             {
                 "use_listings_cache": use_listings_cache,
@@ -209,6 +246,7 @@ class NetworkFilesystemManager:
         client_kwargs: dict | None = None,
         *,
         cache_disable: bool,
+        use_certifi: bool = False,
     ) -> None:
         """Register a new filesystem instance for a given cache expiration time.
 
@@ -217,6 +255,7 @@ class NetworkFilesystemManager:
             cache_expiry: The cache expiration time.
             client_kwargs: Additional keyword arguments for the client.
             cache_disable: If True, the cache is disabled.
+            use_certifi: If True, use certifi certificate bundle instead of system certificates.
 
         Returns:
             None
@@ -228,7 +267,8 @@ class NetworkFilesystemManager:
             use_listings_cache=False,
             client_kwargs=client_kwargs,
             listings_expiry_time=0.0,  # not relevant for the download of files
-            listings_cache_location=cache_dir, # ensure mkdir still occurs in correct location
+            listings_cache_location=cache_dir,  # ensure mkdir still occurs in correct location
+            use_certifi=use_certifi,
         )
 
         if cache_disable or cache_expiry == CacheExpiry.NO_CACHE:
@@ -250,6 +290,7 @@ class NetworkFilesystemManager:
         client_kwargs: dict | None = None,
         *,
         cache_disable: bool,
+        use_certifi: bool = False,
     ) -> HTTPFileSystem | WholeFileCacheFileSystem:
         """Get a filesystem instance for a given cache expiration time.
 
@@ -258,6 +299,7 @@ class NetworkFilesystemManager:
             cache_expiry: The cache expiration time.
             client_kwargs: Additional keyword arguments for the client.
             cache_disable: If True, the cache is disabled
+            use_certifi: If True, use certifi certificate bundle instead of system certificates.
 
         Returns:
             The filesystem instance.
@@ -271,6 +313,7 @@ class NetworkFilesystemManager:
                 cache_expiry=cache_expiry,
                 client_kwargs=client_kwargs,
                 cache_disable=cache_disable,
+                use_certifi=use_certifi,
             )
         return cls.filesystems[key]
 
@@ -298,6 +341,7 @@ def list_remote_files_fsspec(
         listings_expiry_time=not settings.cache_disable and cache_expiry.value,
         listings_cache_location=settings.cache_dir,
         client_kwargs=settings.fsspec_client_kwargs,
+        use_certifi=settings.use_certifi,
     )
     return fs.find(url)
 
@@ -314,6 +358,7 @@ def download_file(
     client_kwargs: dict | None = None,
     *,
     cache_disable: bool = False,
+    use_certifi: bool = False,
 ) -> File:
     """Download a specified file from the server.
 
@@ -323,6 +368,7 @@ def download_file(
         ttl: The cache expiration time.
         client_kwargs: Additional keyword arguments for the client.
         cache_disable: If True, the cache is disabled.
+        use_certifi: If True, use certifi certificate bundle instead of system certificates.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -333,6 +379,7 @@ def download_file(
         cache_expiry=ttl,
         client_kwargs=client_kwargs,
         cache_disable=cache_disable,
+        use_certifi=use_certifi,
     )
     log.info(f"Downloading file {url}")
     try:
@@ -361,6 +408,7 @@ def download_files(
     client_kwargs: dict | None = None,
     *,
     cache_disable: bool = False,
+    use_certifi: bool = False,
 ) -> list[File]:
     """Download multiple files from the server concurrently."""
     log.info(f"Downloading {len(urls)} files.")
@@ -373,6 +421,7 @@ def download_files(
                     ttl=ttl,
                     client_kwargs=client_kwargs,
                     cache_disable=cache_disable,
+                    use_certifi=use_certifi,
                 ),
                 urls,
             ),

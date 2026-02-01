@@ -83,6 +83,7 @@ requires-python = ">=3.10"
 dependencies = [
     "aiohttp>=3.13.2,<4",
     "backports-datetime-fromisoformat>=2; python_version<'3.11'",
+    "certifi>=2024.2.2",
     "click>=8,<9",
     "cloup>=3.0.1,<4",
     "diskcache>=5.4,<6",

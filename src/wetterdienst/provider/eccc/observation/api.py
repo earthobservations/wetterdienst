@@ -263,6 +263,7 @@ class EcccObservationRequest(TimeseriesRequest):
                 ttl=CacheExpiry.METAINDEX,
                 client_kwargs=self.settings.fsspec_client_kwargs,
                 cache_disable=self.settings.cache_disable,
+                use_certifi=self.settings.use_certifi,
             )
             file.raise_if_exception()
             source = 0
@@ -276,6 +277,7 @@ class EcccObservationRequest(TimeseriesRequest):
                     ttl=CacheExpiry.METAINDEX,
                     client_kwargs=self.settings.fsspec_client_kwargs,
                     cache_disable=self.settings.cache_disable,
+                    use_certifi=self.settings.use_certifi,
                 )
                 file.raise_if_exception()
                 with gzip.open(file.content, mode="rb") as f:

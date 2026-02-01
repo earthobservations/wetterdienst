@@ -245,6 +245,7 @@ class DwdObservationHistory(TimeseriesHistory):
                         ttl=CacheExpiry.METAINDEX,
                         client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
                         cache_disable=self.sr.stations.settings.cache_disable,
+                        use_certifi=self.sr.stations.settings.use_certifi,
                     )
                     name_history = self.read_name_history(file)
                     name_histories.append(name_history)
@@ -275,6 +276,7 @@ class DwdObservationHistory(TimeseriesHistory):
                 ttl=CacheExpiry.METAINDEX,
                 client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
                 cache_disable=self.sr.stations.settings.cache_disable,
+                use_certifi=self.sr.stations.settings.use_certifi,
             )
             name_history = self.read_name_history(file)
             parameter_history_list = self.read_parameter_history(file)

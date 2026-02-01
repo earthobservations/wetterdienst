@@ -202,6 +202,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
         )
         file.raise_if_exception()
         df = pl.read_csv(
@@ -268,6 +269,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             ttl=CacheExpiry.TWELVE_HOURS,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
         )
         listings_file.raise_if_exception()
         lines = listings_file.content.read().decode("utf8").splitlines()
@@ -291,6 +293,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             ttl=CacheExpiry.TWELVE_HOURS,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
         )
         inventory_file.raise_if_exception()
         inventory_df = pl.read_csv(inventory_file.content, has_header=False, truncate_ragged_lines=True)

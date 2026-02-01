@@ -117,8 +117,9 @@ class OperaRadarSitesGenerator:
             url=self.url,
             cache_dir=default_settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=default_settings.client_kwargs,
+            client_kwargs=default_settings.fsspec_client_kwargs,
             cache_disable=default_settings.cache_disable,
+            use_certifi=default_settings.use_certifi,
         )
         data = json.load(payload)
 

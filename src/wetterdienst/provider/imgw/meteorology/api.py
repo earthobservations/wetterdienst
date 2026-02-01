@@ -727,6 +727,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
         )
         file.raise_if_exception()
         df = pl.read_csv(file.content, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)

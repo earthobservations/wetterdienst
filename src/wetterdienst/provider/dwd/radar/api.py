@@ -445,6 +445,7 @@ class DwdRadarValues:  # noqa: PLW1641
             ttl=ttl,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
         )
         file.raise_if_exception()
         # RadarParameter.FX_REFLECTIVITY
@@ -516,6 +517,7 @@ class DwdRadarValues:  # noqa: PLW1641
             ttl=CacheExpiry.TWELVE_HOURS,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
         )
         file.raise_if_exception()
         for result in self._extract_radolan_data(file.content):
