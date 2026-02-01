@@ -20,6 +20,7 @@ Types of changes:
 
 - Move code to src directory
 - Filter By Rank: Sort stations by distance and station id
+- Soften validation for numbers and intergers in UI core request models
 
 ## [0.117.0] - 2026-01-03
 
