@@ -20,6 +20,9 @@ Types of changes:
 
 - Implement station history retrieval; added API and request support to query historical station
   snapshots and lifecycle events (created, updated, decommissioned) by station id and dataset.
+- Add `use_certifi` setting to use certifi certificate bundle instead of system certificates for 
+  HTTPS connections. Default is `False` for backward compatibility. Can be enabled via 
+  `Settings(use_certifi=True)` or environment variable `WD_USE_CERTIFI=true`.
 
 ### Changed
 

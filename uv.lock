@@ -6147,6 +6147,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'" },
+    { name = "certifi" },
     { name = "click" },
     { name = "cloup" },
     { name = "diskcache" },
@@ -6280,6 +6281,7 @@ docs = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.13.2,<4" },
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'", specifier = ">=2" },
+    { name = "certifi", specifier = ">=2024.2.2" },
     { name = "click", specifier = ">=8,<9" },
     { name = "cloup", specifier = ">=3.0.1,<4" },
     { name = "diskcache", specifier = ">=5.4,<6" },

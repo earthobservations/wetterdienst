@@ -30,6 +30,7 @@ The following settings are available:
 | cache_disable        | switch of caching                                                     | False                              |
 | cache_dir            | set the directory where the cache is stored                           | platform specific / "wetterdienst" |
 | fsspec_client_kwargs | pass arguments to fsspec, especially for querying data behind a proxy | {}                                 |
+| use_certifi          | use certifi certificate bundle instead of system certificates         | False                              |
 
 **Timeseries**
 
@@ -93,3 +94,21 @@ settings
 ```
 
 to allow requesting through a proxy.
+
+If you're experiencing SSL certificate verification issues, especially in corporate environments or
+when system certificates are outdated, you can enable the certifi certificate bundle:
+
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst import Settings
+
+settings = Settings(use_certifi=True)
+settings
+```
+
+This uses the [certifi](https://pypi.org/project/certifi/) package which provides Mozilla's
+carefully curated collection of Root Certificates for validating the trustworthiness of SSL
+certificates while verifying the identity of TLS hosts.

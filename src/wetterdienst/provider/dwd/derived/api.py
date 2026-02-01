@@ -521,6 +521,7 @@ class DwdDerivedValues(TimeseriesValues):
                     ttl=CacheExpiry.FIVE_MINUTES,
                     client_kwargs=self.sr.settings.fsspec_client_kwargs,
                     cache_disable=self.sr.settings.cache_disable,
+                    use_certifi=self.sr.settings.use_certifi,
                 )
 
                 if downloaded_file.status == 404:
@@ -637,6 +638,7 @@ class DwdDerivedRequest(TimeseriesRequest):
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=self.settings.fsspec_client_kwargs,
             cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
         )
         downloaded_file.raise_if_exception()
         return _read_meta_df(file=downloaded_file)

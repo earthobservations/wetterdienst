@@ -36,6 +36,7 @@ def test_default_settings(caplog: pytest.LogCaptureFixture) -> None:
     # default dict returns 40.0 for any other key
     assert default_settings.ts_interp_station_distance["foo"] == 40.0
     assert default_settings.ts_interp_use_nearby_station_distance == 1
+    assert not default_settings.use_certifi
     assert (
         caplog.messages[0]
         == "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and is thus ignored in this request."  # noqa: E501
@@ -105,3 +106,23 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     }
     # default dict returns 40.0 for any other key
     assert settings.ts_interp_station_distance["foo"] == 40.0
+
+
+def test_use_certifi_setting() -> None:
+    """Test use_certifi setting."""
+    # Test default value
+    settings = Settings()
+    assert not settings.use_certifi
+
+    # Test explicit value
+    settings = Settings(use_certifi=True)
+    assert settings.use_certifi
+
+    # Test from environment
+    with mock.patch.dict(os.environ, {"WD_USE_CERTIFI": "true"}):
+        settings = Settings()
+        assert settings.use_certifi
+
+    with mock.patch.dict(os.environ, {"WD_USE_CERTIFI": "false"}):
+        settings = Settings()
+        assert not settings.use_certifi

@@ -18,3 +18,29 @@ wetterdienst.info()
 ```
 
 will guide you the path to your caching folder.
+
+## SSL Certificate Verification Issues
+
+If you encounter SSL certificate verification errors, especially in corporate environments with custom
+certificates or when your system certificates are outdated, you may see errors like:
+
+- `SSLError: [SSL: CERTIFICATE_VERIFY_FAILED]`
+- Connection failures when downloading data
+
+You can resolve this by enabling the certifi certificate bundle:
+
+```python
+from wetterdienst import Settings
+
+settings = Settings(use_certifi=True)
+# Use this settings object with your requests
+```
+
+Or via environment variable:
+
+```bash
+export WD_USE_CERTIFI=true
+```
+
+This uses Mozilla's curated collection of root certificates instead of your system certificates.
+For more information, see the [settings documentation](usage/settings.md).
