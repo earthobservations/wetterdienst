@@ -16,19 +16,21 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.118.0] - 2026-02-01
+
 ### Added
 
 - Implement station history retrieval; added API and request support to query historical station
   snapshots and lifecycle events (created, updated, decommissioned) by station id and dataset.
-- Add `use_certifi` setting to use certifi certificate bundle instead of system certificates for 
-  HTTPS connections. Default is `False` for backward compatibility. Can be enabled via 
+- Add `use_certifi` setting to use certifi certificate bundle instead of system certificates for
+  HTTPS connections. Default is `False` for backward compatibility. Can be enabled via
   `Settings(use_certifi=True)` or environment variable `WD_USE_CERTIFI=true`.
 
 ### Changed
 
 - Move code to src directory
 - Filter By Rank: Sort stations by distance and station id
-- Soften validation for numbers and intergers in UI core request models
+- Soften validation for numbers and integers in UI core request models
 
 ## [0.117.0] - 2026-01-03
 
@@ -1658,7 +1660,9 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.117.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.118.0...HEAD
+
+[0.118.0]: https://github.com/earthobservations/wetterdienst/compare/v0.117.0...v0.118.0
 
 [0.117.0]: https://github.com/earthobservations/wetterdienst/compare/v0.116.0...v0.117.0
 
