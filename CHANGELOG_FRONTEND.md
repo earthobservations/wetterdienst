@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Fix setting interpolation and summary settings
+
 ## [0.2.0] - 2026-01-22
 
 ### Added
