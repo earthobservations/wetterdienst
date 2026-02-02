@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Improve interpolation and summary
+
 ## [0.118.0] - 2026-02-01
 
 ### Added

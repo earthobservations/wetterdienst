@@ -398,6 +398,8 @@ class InterpolationRequest(BaseModel):
         return json.loads(v)
 
     use_nearby_station_distance: Annotated[float, Field(ge=0)] = 1.0
+    min_gain_of_value_pairs: Annotated[float, Field(ge=0)] = 0.10
+    num_additional_stations: Annotated[int, Field(ge=0)] = 3
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
     with_metadata: bool = True
@@ -478,6 +480,21 @@ class SummaryRequest(BaseModel):
             return None
         return json.loads(v)
 
+    summary_station_distance: dict[str, Annotated[float, Field(ge=0.0)]] | None = None
+
+    @field_validator("summary_station_distance", mode="before")
+    @classmethod
+    def validate_summary_station_distance(cls, v: str | None) -> dict[str, float] | None:
+        """Validate summary station distance."""
+        if not v:
+            return None
+        if isinstance(v, dict):
+            return v
+        return json.loads(v)
+
+    use_nearby_station_distance: Annotated[float, Field(ge=0)] = 1.0
+    min_gain_of_value_pairs: Annotated[float, Field(ge=0)] = 0.10
+    num_additional_stations: Annotated[int, Field(ge=0)] = 3
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
     with_metadata: bool = True

@@ -49,20 +49,20 @@ class Settings(BaseSettings):
     # the default is 40km, but for precipitation height it is 20km
     # parameters such as precipitation height are more local and thus need a smaller distance, while parameters such as
     # temperature can be interpolated over a larger distance
-    ts_interp_station_distance: defaultdict[str, float] = Field(
+    ts_geo_station_distance: defaultdict[str, float] = Field(
         default_factory=lambda: defaultdict(lambda: 40) | {Parameter.PRECIPITATION_HEIGHT.value.lower(): 20}
     )
     # this setting is used to define how far away a station can be so that no interpolation is done
     # but instead the station is used directly
-    ts_interp_use_nearby_station_distance: Annotated[float, Field(strict=True, ge=0)] | None = 1.0
+    ts_geo_use_nearby_station_distance: Annotated[float, Field(strict=True, ge=0)] | None = 1.0
     # this rather complicated setting is used in the process of figuring out how many additional stations will be used
     # the gain defines how many additional timestamps can be interpolated by adding the specific station and thus
     # getting more timestamps with the required minimum of four values
     # so basically this setting considers the extra effort against the gain of additional interpolated timestamps
-    ts_interp_min_gain_of_value_pairs: Annotated[float, Field(strict=True, ge=0)] = 0.10
-    # this settings defines how many additional stations are used in the interpolation process independent from the gain
+    ts_geo_min_gain_of_value_pairs: Annotated[float, Field(strict=True, ge=0)] = 0.10
+    # this setting defines how many additional stations are used in the interpolation process independent of the gain
     # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
-    ts_interp_num_additional_stations: Annotated[int, Field(strict=True, ge=0)] = 3
+    ts_geo_num_additional_stations: Annotated[int, Field(strict=True, ge=0)] = 3
 
     @field_validator("ts_unit_targets", mode="before")
     @classmethod
@@ -79,14 +79,18 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         return values
 
-    # make ts_interp_station_distance update but not replace the default values
-    @field_validator("ts_interp_station_distance", mode="before")
+    # make ts_geo_station_distance update but not replace the default values
+    @field_validator("ts_geo_station_distance", mode="before")
     @classmethod
-    def validate_ts_interp_station_distance(cls, values: dict[str, float] | None) -> dict[str, float]:
+    def validate_ts_geo_station_distance(cls, values: dict[str, float] | None) -> dict[str, float]:
         """Validate the interpolation station distance settings."""
-        default = cls.model_fields["ts_interp_station_distance"].default_factory()
+        default: defaultdict = cls.model_fields["ts_geo_station_distance"].default_factory()
         if not values:
             return default
+        default_from_values = values.get("default")
+        # rebuild the defaultdict with new default if provided
+        if default_from_values is not None:
+            default = defaultdict(lambda: default_from_values)
         return default | values
 
     @property
