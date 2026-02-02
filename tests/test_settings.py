@@ -30,12 +30,12 @@ def test_default_settings(caplog: pytest.LogCaptureFixture) -> None:
     assert not default_settings.ts_skip_empty
     assert default_settings.ts_skip_threshold == 0.95
     assert default_settings.ts_drop_nulls
-    assert default_settings.ts_interp_station_distance == {
+    assert default_settings.ts_geo_station_distance == {
         "precipitation_height": 20.0,
     }
     # default dict returns 40.0 for any other key
-    assert default_settings.ts_interp_station_distance["foo"] == 40.0
-    assert default_settings.ts_interp_use_nearby_station_distance == 1
+    assert default_settings.ts_geo_station_distance["foo"] == 40.0
+    assert default_settings.ts_geo_use_nearby_station_distance == 1
     assert not default_settings.use_certifi
     assert (
         caplog.messages[0]
@@ -66,12 +66,12 @@ def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     )
     assert caplog.messages[2] == "Wetterdienst cache is disabled"
     assert settings.ts_shape == "wide"
-    assert settings.ts_interp_station_distance == {
+    assert settings.ts_geo_station_distance == {
         "precipitation_height": 40.0,
         "other": 42.0,
     }
     # default dict returns 40.0 for any other key
-    assert settings.ts_interp_station_distance["foo"] == 40.0
+    assert settings.ts_geo_station_distance["foo"] == 40.0
 
 
 @mock.patch.dict(os.environ, {})
@@ -84,7 +84,7 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     settings = Settings(
         ts_skip_threshold=0.81,
         ts_convert_units=False,
-        ts_interp_station_distance={"just_another": 43},
+        ts_geo_station_distance={"just_another": 43},
     )
     assert settings.cache_disable
     assert (
@@ -99,13 +99,13 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     assert settings.ts_shape  # default variable
     assert settings.ts_skip_threshold == 0.81  # argument variable overrules env variable
     assert not settings.ts_convert_units  # argument variable
-    assert settings.ts_interp_station_distance == {
+    assert settings.ts_geo_station_distance == {
         "precipitation_height": 40.0,
         "other": 42.0,
         "just_another": 43.0,
     }
     # default dict returns 40.0 for any other key
-    assert settings.ts_interp_station_distance["foo"] == 40.0
+    assert settings.ts_geo_station_distance["foo"] == 40.0
 
 
 def test_use_certifi_setting() -> None:

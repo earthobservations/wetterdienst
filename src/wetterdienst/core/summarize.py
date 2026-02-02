@@ -41,7 +41,7 @@ def request_stations(request: TimeseriesRequest, latitude: float, longitude: flo
     """Request stations."""
     param_dict = {}
     stations_dict = {}
-    distance = max(request.settings.ts_interp_station_distance.values())
+    distance = max(request.settings.ts_geo_station_distance.values())
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance)
     df_stations_ranked = stations_ranked.df
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
@@ -73,7 +73,7 @@ def apply_station_values_per_parameter(
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
-        ts_interpolation_station_distance = stations_ranked.stations.settings.ts_interp_station_distance
+        ts_interpolation_station_distance = stations_ranked.stations.settings.ts_geo_station_distance
         if station["distance"] > ts_interpolation_station_distance.get(
             parameter.name,
             ts_interpolation_station_distance["default"],
@@ -118,8 +118,8 @@ def apply_station_values_per_parameter(
         extract_station_values(
             param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name],
             result_series_param,
-            min_gain_of_value_pairs=stations_ranked.stations.settings.ts_interp_min_gain_of_value_pairs,
-            num_additional_stations=stations_ranked.stations.settings.ts_interp_num_additional_stations,
+            min_gain_of_value_pairs=stations_ranked.stations.settings.ts_geo_min_gain_of_value_pairs,
+            num_additional_stations=stations_ranked.stations.settings.ts_geo_num_additional_stations,
             valid_station_groups_exists=True,
         )
 

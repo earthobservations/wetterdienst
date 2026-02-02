@@ -33,7 +33,7 @@ def get_interpolated_df(request: TimeseriesRequest, latitude: float, longitude: 
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
     return calculate_interpolation(
-        utm_x, utm_y, stations_dict, param_dict, request.settings.ts_interp_use_nearby_station_distance
+        utm_x, utm_y, stations_dict, param_dict, request.settings.ts_geo_use_nearby_station_distance
     )
 
 
@@ -61,7 +61,7 @@ def request_stations(
     stations_dict = {}
     parameter_names = {parameter.name for parameter in request.parameters}
     max_interp_distance = max(
-        request.settings.ts_interp_station_distance[parameter_name] for parameter_name in parameter_names
+        request.settings.ts_geo_station_distance[parameter_name] for parameter_name in parameter_names
     )
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=max_interp_distance)
     df_stations_ranked = stations_ranked.df
@@ -118,7 +118,7 @@ def apply_station_values_per_parameter(
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
-        ts_interpolation_station_distance = stations_ranked.stations.settings.ts_interp_station_distance
+        ts_interpolation_station_distance = stations_ranked.stations.settings.ts_geo_station_distance
         if station["distance"] > ts_interpolation_station_distance[parameter.name.lower()]:
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
@@ -161,8 +161,8 @@ def apply_station_values_per_parameter(
         extract_station_values(
             param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name],
             result_series_param,
-            min_gain_of_value_pairs=stations_ranked.settings.ts_interp_min_gain_of_value_pairs,
-            num_additional_stations=stations_ranked.settings.ts_interp_num_additional_stations,
+            min_gain_of_value_pairs=stations_ranked.settings.ts_geo_min_gain_of_value_pairs,
+            num_additional_stations=stations_ranked.settings.ts_geo_num_additional_stations,
             valid_station_groups_exists=valid_station_groups_exists,
         )
 

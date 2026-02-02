@@ -229,7 +229,7 @@ def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_se
 
 def test_interpolation_increased_station_distance() -> None:
     """Test that the interpolation works with increased station distance."""
-    settings = Settings(ts_interp_station_distance={"precipitation_height": 25})
+    settings = Settings(ts_geo_station_distance={"precipitation_height": 25})
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_height")],
         start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),

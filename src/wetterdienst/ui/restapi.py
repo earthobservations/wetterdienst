@@ -426,8 +426,10 @@ def interpolate(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
         ts_unit_targets=request.unit_targets,
-        ts_interp_station_distance=request.interpolation_station_distance,
-        ts_interp_use_nearby_station_distance=request.use_nearby_station_distance,
+        ts_geo_station_distance=request.interpolation_station_distance,
+        ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
+        ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+        ts_geo_num_additional_stations=request.num_additional_stations,
     )
 
     try:
@@ -497,6 +499,10 @@ def summarize(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
         ts_unit_targets=request.unit_targets,
+        ts_geo_station_distance=request.summary_station_distance,
+        ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
+        ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+        ts_geo_num_additional_stations=request.num_additional_stations,
     )
 
     try:

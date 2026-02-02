@@ -8,9 +8,9 @@ kernelspec:
 
 ## Introduction
 
-The API offers access to different data products. They are outlined in more detail within the 
+The API offers access to different data products. They are outlined in more detail within the
 [data](../data/overview.md) chapter.
-Please also check out complete examples about how to use the API in the 
+Please also check out complete examples about how to use the API in the
 [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) folder. In order to explore all
 features interactively, you might want to try the [cli](cli.md). For managing general settings, please refer to the
 [settings](settings.md) chapter.
@@ -159,6 +159,7 @@ Period.HISTORICAL
 ```python
 "historical" or "HISTORICAL"
 ```
+
 If a weather service has periods, the period argument typically can be used as replacement
 for the start_date and end_date arguments. In case both arguments are given they are used
 as a filter for the data.
@@ -382,7 +383,7 @@ once, parsed nicely into column structure with improved parameter names. Instead
 ``start_date`` and ``end_date`` you may as well want to use ``period`` to update your
 database once in a while with a fixed set of records.
 
-In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from 
+In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from
 [settings](settings.md) to achieve that:
 
 ```{code-cell}
@@ -414,7 +415,8 @@ Occasionally, you may require data specific to your precise location rather than
 station's location. To address this need, we have introduced an interpolation feature, enabling you to interpolate data
 from nearby stations to your exact coordinates. The function leverages the four closest stations to your specified
 latitude and longitude and employs the bilinear interpolation method provided by the scipy package (interp2d) to
-interpolate the given parameter values. Currently, this interpolation feature is exclusive to the parameters 
+interpolate the given parameter values. Currently, this interpolation feature is exclusive to the parameters
+
 - ``temperature_air_mean_2m``
 - ``temperature_air_max_2m``
 - ``temperature_air_min_2m``
@@ -424,14 +426,15 @@ interpolate the given parameter values. Currently, this interpolation feature is
 
 There are several settings that can be used to control the interpolation behavior:
 
-| Name                                  | Type             | Default                                      | Description                                                                                                                                                                                                             |
-|---------------------------------------|------------------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| ts_interp_station_distance            | dict[str, float] | 20.0 (precipitation_height)<br/>40.0 (other) | Max distance for stations used for interpolation (in km)                                                                                                                                                                |
-| ts_interp_use_nearby_station_distance | float            | 1.0                                          | Distance (in km) until which the value of a nearby station is used instead of interpolation.                                                                                                                            |
-| ts_interp_min_gain_of_value_pairs     | float            | 0.1                                          | Minimum gain of value pairs [for an additional station] to be included in the list of stations used. This is to prevent taking all stations into account in case of a dense station network.                            |
-| ts_interp_num_additional_stations     | int              | 3                                            | Number of additional stations to be used for interpolation regardless of min_gain_of_value_pairs. This is to ensure that at least a certain number of stations are used for interpolation, even if the gain is not met. |
+| Name                               | Type             | Default                                      | Description                                                                                                                                                                                                             |
+|------------------------------------|------------------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ts_geo_station_distance            | dict[str, float] | 20.0 (precipitation_height)<br/>40.0 (other) | Max distance for stations used for interpolation (in km)                                                                                                                                                                |
+| ts_geo_use_nearby_station_distance | float            | 1.0                                          | Distance (in km) until which the value of a nearby station is used instead of interpolation.                                                                                                                            |
+| ts_geo_min_gain_of_value_pairs     | float            | 0.1                                          | Minimum gain of value pairs [for an additional station] to be included in the list of stations used. This is to prevent taking all stations into account in case of a dense station network.                            |
+| ts_geo_num_additional_stations     | int              | 3                                            | Number of additional stations to be used for interpolation regardless of min_gain_of_value_pairs. This is to ensure that at least a certain number of stations are used for interpolation, even if the gain is not met. |
 
-The graphic below shows values of the parameter ``temperature_air_mean_2m`` from multiple stations measured at the same time.
+The graphic below shows values of the parameter ``temperature_air_mean_2m`` from multiple stations measured at the same
+time.
 The blue points represent the position of a station and includes the measured value.
 The red point represents the position of the interpolation and includes the interpolated value.
 
@@ -514,7 +517,7 @@ df = values.df
 df
 ```
 
-Interpolation is still in its early stages, we welcome feedback to enhance and refine its functionality. 
+Interpolation is still in its early stages, we welcome feedback to enhance and refine its functionality.
 
 ### Summary
 
@@ -525,8 +528,10 @@ following figure visualizes how summary works. The first graph shows the summari
 
 ![summary example](../assets/summary.png)
 
-The code to execute the summary is given below. It currently only works for ``DwdObservationRequest`` and individual parameters.
-Currently, the following parameters are supported (more will be added if useful): ``temperature_air_mean_2m``, ``wind_speed``, ``precipitation_height``.
+The code to execute the summary is given below. It currently only works for ``DwdObservationRequest`` and individual
+parameters.
+Currently, the following parameters are supported (more will be added if useful): ``temperature_air_mean_2m``,
+``wind_speed``, ``precipitation_height``.
 
 ```{code-cell}
 ---
@@ -669,7 +674,7 @@ print(values.to_csv())
 ### SQL
 
 Querying data using SQL is provided by an in-memory DuckDB_ database.
-In order to explore what is possible, please have a look at the 
+In order to explore what is possible, please have a look at the
 [DuckDB SQL introduction](https://duckdb.org/docs/sql/introduction).
 
 The result data is provided through a virtual table called ``data``.
@@ -697,7 +702,7 @@ df
 
 ### Export
 
-Data can be exported to [SQLite](https://www.sqlite.org/), [DuckDB](https://duckdb.org/docs/sql/introduction), 
+Data can be exported to [SQLite](https://www.sqlite.org/), [DuckDB](https://duckdb.org/docs/sql/introduction),
 [InfluxDB](https://github.com/influxdata/influxdb), [CrateDB](https://github.com/crate/crate) and more targets.
 A target is identified by a connection string.
 
@@ -707,7 +712,9 @@ Examples:
 - duckdb:///dwd.duckdb?table=weather
 - influxdb://localhost/?database=dwd&table=weather
 - crate://localhost/?database=dwd&table=weather
+
 # parquet, feather, zarr
+
 - file:///path/to/dwd.parquet
 - file:///path/to/dwd.feather
 - file:///path/to/dwd.zarr
@@ -717,16 +724,16 @@ from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
-  parameters=("hourly", "temperature_air"),
-  start_date="2019-01-01",
-  end_date="2020-01-01",
+    parameters=("hourly", "temperature_air"),
+    start_date="2019-01-01",
+    end_date="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
 stations.values.to_target("influxdb://localhost/?database=dwd&table=weather")
 ```
 
-The previous example uses a batch approach meaning each station is written one by one. Also, it will automatically 
-append data after the first batch. 
+The previous example uses a batch approach meaning each station is written one by one. Also, it will automatically
+append data after the first batch.
 
 You could also first collect all data and then write it at once:
 
@@ -735,9 +742,9 @@ from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
-  parameters=("hourly", "temperature_air"),
-  start_date="2019-01-01",
-  end_date="2020-01-01",
+    parameters=("hourly", "temperature_air"),
+    start_date="2019-01-01",
+    end_date="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
 stations.values.all().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
@@ -750,9 +757,9 @@ from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
-  parameters=("hourly", "temperature_air"),
-  start_date="2019-01-01",
-  end_date="2020-01-01",
+    parameters=("hourly", "temperature_air"),
+    start_date="2019-01-01",
+    end_date="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
 for station in stations.values.query():
@@ -760,6 +767,7 @@ for station in stations.values.query():
 ```
 
 The argument `if_exists` supports the following modes:
+
 - `fail`: Raise an error if the table/file already exists.
 - `replace`: Drop the table/file before inserting new values.
 - `append`: Insert new values to the existing table (not supported by files).
