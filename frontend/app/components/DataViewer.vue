@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
-import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-dist-min'
-import type { DataSettings } from '~/types/data-settings.type'
-import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
-import type { StationSelectionState } from '~/types/station-selection-state.type'
-import { h } from 'vue'
-import { formatDate } from '~/utils/format'
+import type {TableColumn} from '@nuxt/ui'
+import type {Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout} from 'plotly.js-dist-min'
+import type {DataSettings} from '~/types/data-settings.type'
+import type {ParameterSelectionState} from '~/types/parameter-selection-state.type'
+import type {StationSelectionState} from '~/types/station-selection-state.type'
+import {h} from 'vue'
+import {formatDate} from '~/utils/format'
 
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
@@ -18,9 +18,9 @@ const stationSelection = computed(() => {
   if (!props.stationSelection) {
     return {
       mode: 'station' as const,
-      selection: { stations: [] as { station_id: string }[] },
-      interpolation: { source: 'manual' as const, latitude: undefined, longitude: undefined, station: undefined },
-      dateRange: { startDate: undefined, endDate: undefined },
+      selection: {stations: [] as { station_id: string }[]},
+      interpolation: {source: 'manual' as const, latitude: undefined, longitude: undefined, station: undefined},
+      dateRange: {startDate: undefined, endDate: undefined},
     }
   }
   return props.stationSelection
@@ -59,9 +59,9 @@ const facetByParameter = ref(false)
 
 // Available items for the parameter label selector
 const paramLabelItems = computed(() => [
-  { label: 'Parameter', value: 'parameter' },
-  { label: 'Dataset / Parameter', value: 'dataset/parameter' },
-  { label: 'Resolution / Dataset / Parameter', value: 'resolution/dataset/parameter' },
+  {label: 'Parameter', value: 'parameter'},
+  {label: 'Dataset / Parameter', value: 'dataset/parameter'},
+  {label: 'Resolution / Dataset / Parameter', value: 'resolution/dataset/parameter'},
 ])
 
 // Trendline option
@@ -91,8 +91,8 @@ const apiQuery = computed(() => {
 
   // Add unit targets if provided (filter out empty values)
   const unitTargets = Object.entries(props.settings.unitTargets)
-    .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
-    .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+      .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+      .reduce((acc, [key, value]) => ({...acc, [key]: value}), {})
 
   if (Object.keys(unitTargets).length > 0) {
     base.unit_targets = JSON.stringify(unitTargets)
@@ -106,40 +106,47 @@ const apiQuery = computed(() => {
     }
   }
 
-  if (isInterpolationMode.value || isSummaryMode.value) {
+  if (isInterpolationMode.value) {
     const interp = ss.interpolation
-    // Add interpolation-specific settings
-    if (isInterpolationMode.value) {
-      const query: Record<string, any> = {
-        ...base,
-        latitude: interp?.latitude,
-        longitude: interp?.longitude,
-        use_nearby_station_distance: props.settings.useNearbyStationDistance,
-      }
-      // Add interpolation station distance if provided (filter out empty values)
-      const stationDistance = Object.entries(props.settings.interpolationStationDistance)
-        .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
-        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-
-      if (Object.keys(stationDistance).length > 0) {
-        query.interpolation_station_distance = JSON.stringify(stationDistance)
-      }
-      // Add advanced interpolation settings if different from defaults
-      if (props.settings.minGainOfValuePairs !== 0.10) {
-        query.min_gain_of_value_pairs = props.settings.minGainOfValuePairs
-      }
-      if (props.settings.numAdditionalStations !== 3) {
-        query.num_additional_stations = props.settings.numAdditionalStations
-      }
-      return query
-    }
-    return {
+    const query: Record<string, any> = {
       ...base,
       latitude: interp?.latitude,
       longitude: interp?.longitude,
+      use_nearby_station_distance: props.settings.useNearbyStationDistance,
     }
-  }
-  else {
+    // Add interpolation station distance if provided (filter out empty values)
+    const stationDistancePerParameter = Object.entries(props.settings.useStationDistancePerParameter)
+        .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+        .reduce((acc, [key, value]) => ({...acc, [key]: value}), {})
+
+    if (Object.keys(stationDistancePerParameter).length > 0) {
+      query.interpolation_station_distance = JSON.stringify(stationDistancePerParameter)
+    }
+    // Always send interpolation settings (backend has matching defaults)
+    query.min_gain_of_value_pairs = props.settings.minGainOfValuePairs
+    query.num_additional_stations = props.settings.numAdditionalStations
+    return query
+  } else if (isSummaryMode.value) {
+    const interp = ss.interpolation
+    const query: Record<string, any> = {
+      ...base,
+      latitude: interp?.latitude,
+      longitude: interp?.longitude,
+      use_nearby_station_distance: props.settings.useNearbyStationDistance,
+    }
+    // Add summary station distance if provided (filter out empty values)
+    const stationDistancePerParameter = Object.entries(props.settings.useStationDistancePerParameter)
+        .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+        .reduce((acc, [key, value]) => ({...acc, [key]: value}), {})
+
+    if (Object.keys(stationDistancePerParameter).length > 0) {
+      query.summary_station_distance = JSON.stringify(stationDistancePerParameter)
+    }
+    // Always send summary settings (backend has matching defaults)
+    query.min_gain_of_value_pairs = props.settings.minGainOfValuePairs
+    query.num_additional_stations = props.settings.numAdditionalStations
+    return query
+  } else {
     // Values mode - add values-specific settings
     return {
       ...base,
@@ -153,28 +160,28 @@ const apiQuery = computed(() => {
   }
 })
 
-const { data: valuesData, pending: valuesPending, refresh: refreshValues } = useFetch<ValuesResponse>(
-  apiEndpoint,
-  {
-    method: 'GET',
-    query: apiQuery,
-    immediate: false,
-    default: () => ({ values: [] }),
-  },
+const {data: valuesData, pending: valuesPending, refresh: refreshValues} = useFetch<ValuesResponse>(
+    apiEndpoint,
+    {
+      method: 'GET',
+      query: apiQuery,
+      immediate: false,
+      default: () => ({values: []}),
+    },
 )
 
 const allValues = computed(() => valuesData.value?.values ?? [])
 
 const columnDefinitions: { key: keyof Value, column: TableColumn<Value> }[] = [
-  { key: 'station_id', column: { accessorKey: 'station_id', header: 'station_id' } },
-  { key: 'resolution', column: { accessorKey: 'resolution', header: 'resolution' } },
-  { key: 'dataset', column: { accessorKey: 'dataset', header: 'dataset' } },
-  { key: 'parameter', column: { accessorKey: 'parameter', header: 'parameter' } },
-  { key: 'date', column: { accessorKey: 'date', header: 'date', cell: ({ row }) => formatDate(row.original.date) } },
-  { key: 'value', column: { accessorKey: 'value', header: 'value' } },
-  { key: 'quality', column: { accessorKey: 'quality', header: 'quality' } },
-  { key: 'taken_station_id', column: { accessorKey: 'taken_station_id', header: 'taken_station_id' } },
-  { key: 'taken_station_ids', column: { accessorKey: 'taken_station_ids', header: 'taken_station_ids' } },
+  {key: 'station_id', column: {accessorKey: 'station_id', header: 'station_id'}},
+  {key: 'resolution', column: {accessorKey: 'resolution', header: 'resolution'}},
+  {key: 'dataset', column: {accessorKey: 'dataset', header: 'dataset'}},
+  {key: 'parameter', column: {accessorKey: 'parameter', header: 'parameter'}},
+  {key: 'date', column: {accessorKey: 'date', header: 'date', cell: ({row}) => formatDate(row.original.date)}},
+  {key: 'value', column: {accessorKey: 'value', header: 'value'}},
+  {key: 'quality', column: {accessorKey: 'quality', header: 'quality'}},
+  {key: 'taken_station_id', column: {accessorKey: 'taken_station_id', header: 'taken_station_id'}},
+  {key: 'taken_station_ids', column: {accessorKey: 'taken_station_ids', header: 'taken_station_ids'}},
 ]
 
 // Sorting
@@ -185,13 +192,11 @@ function toggleSort(column: keyof Value) {
   if (sortColumn.value === column) {
     if (sortDirection.value === 'asc') {
       sortDirection.value = 'desc'
-    }
-    else {
+    } else {
       sortColumn.value = null
       sortDirection.value = 'asc'
     }
-  }
-  else {
+  } else {
     sortColumn.value = column
     sortDirection.value = 'asc'
   }
@@ -219,8 +224,7 @@ const sortedValues = computed(() => {
     let comparison = 0
     if (typeof aVal === 'number' && typeof bVal === 'number') {
       comparison = aVal - bVal
-    }
-    else {
+    } else {
       comparison = String(aVal).localeCompare(String(bVal))
     }
 
@@ -250,19 +254,19 @@ watch([isInterpolationMode, isSummaryMode], () => {
 })
 
 const columns = computed(() =>
-  columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map((c) => {
-    const key = c.key
-    return {
-      ...c.column,
-      header: () => h('span', {
-        class: 'cursor-pointer select-none flex items-center gap-1',
-        onClick: () => toggleSort(key),
-      }, [
-        c.key,
-        h('span', { class: sortColumn.value === key ? 'opacity-100' : 'opacity-30' }, getSortIcon(key)),
-      ]),
-    } as TableColumn<Value>
-  }),
+    columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map((c) => {
+      const key = c.key
+      return {
+        ...c.column,
+        header: () => h('span', {
+          class: 'cursor-pointer select-none flex items-center gap-1',
+          onClick: () => toggleSort(key),
+        }, [
+          c.key,
+          h('span', {class: sortColumn.value === key ? 'opacity-100' : 'opacity-30'}, getSortIcon(key)),
+        ]),
+      } as TableColumn<Value>
+    }),
 )
 
 // Pagination
@@ -292,12 +296,16 @@ function valuesToCsv(values: Value[]) {
 
 async function copyCurrentPage() {
   await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value))
-  toast.add({ title: 'Copied', description: `${paginatedValues.value.length} rows copied to clipboard`, color: 'success' })
+  toast.add({
+    title: 'Copied',
+    description: `${paginatedValues.value.length} rows copied to clipboard`,
+    color: 'success'
+  })
 }
 
 async function copyAllValues() {
   await navigator.clipboard.writeText(valuesToCsv(sortedValues.value))
-  toast.add({ title: 'Copied', description: `${sortedValues.value.length} rows copied to clipboard`, color: 'success' })
+  toast.add({title: 'Copied', description: `${sortedValues.value.length} rows copied to clipboard`, color: 'success'})
 }
 
 async function downloadValues(format: string, extension: string) {
@@ -328,8 +336,21 @@ async function downloadValues(format: string, extension: string) {
       params.set('latitude', interp.latitude.toString())
     if (interp?.longitude !== undefined)
       params.set('longitude', interp.longitude.toString())
-  }
-  else if (isSummaryMode.value) {
+    // Add interpolation settings
+    params.set('use_nearby_station_distance', props.settings.useNearbyStationDistance.toString())
+    const stationDistance = Object.entries(props.settings.useStationDistancePerParameter)
+        .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+        .reduce((acc, [key, value]) => ({...acc, [key]: value}), {})
+    if (Object.keys(stationDistance).length > 0) {
+      params.set('interpolation_station_distance', JSON.stringify(stationDistance))
+    }
+    if (props.settings.minGainOfValuePairs !== 0.10) {
+      params.set('min_gain_of_value_pairs', props.settings.minGainOfValuePairs.toString())
+    }
+    if (props.settings.numAdditionalStations !== 3) {
+      params.set('num_additional_stations', props.settings.numAdditionalStations.toString())
+    }
+  } else if (isSummaryMode.value) {
     endpoint = '/api/summary'
     filename = 'summary'
     const interp = ss.interpolation
@@ -337,15 +358,25 @@ async function downloadValues(format: string, extension: string) {
       params.set('latitude', interp.latitude.toString())
     if (interp?.longitude !== undefined)
       params.set('longitude', interp.longitude.toString())
-  }
-  else {
+    // Add summary settings (uses same settings as interpolation)
+    params.set('use_nearby_station_distance', props.settings.useNearbyStationDistance.toString())
+    const stationDistance = Object.entries(props.settings.useStationDistancePerParameter)
+        .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+        .reduce((acc, [key, value]) => ({...acc, [key]: value}), {})
+    if (Object.keys(stationDistance).length > 0) {
+      params.set('summary_station_distance', JSON.stringify(stationDistance))
+    }
+    // Always send interpolation settings (backend has matching defaults)
+    params.set('min_gain_of_value_pairs', props.settings.minGainOfValuePairs.toString())
+    params.set('num_additional_stations', props.settings.numAdditionalStations.toString())
+  } else {
     params.set('station', ss.selection?.stations?.map(station => station.station_id).join(',') ?? '')
   }
 
   const response = await fetch(`${endpoint}?${params.toString()}`)
   const data = await response.text()
 
-  const blob = new Blob([data], { type: 'application/octet-stream' })
+  const blob = new Blob([data], {type: 'application/octet-stream'})
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
@@ -355,7 +386,7 @@ async function downloadValues(format: string, extension: string) {
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 
-  toast.add({ title: 'Downloaded', description: `Values downloaded as ${format.toUpperCase()}`, color: 'success' })
+  toast.add({title: 'Downloaded', description: `Values downloaded as ${format.toUpperCase()}`, color: 'success'})
 }
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
@@ -370,24 +401,24 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
     height: undefined,
   })
 
-  toast.add({ title: 'Downloaded', description: `Chart downloaded as ${format.toUpperCase()}`, color: 'success' })
+  toast.add({title: 'Downloaded', description: `Chart downloaded as ${format.toUpperCase()}`, color: 'success'})
 }
 
 const downloadMenuItems = computed(() => {
   if (viewMode.value === 'graph') {
     return [
       [
-        { label: 'PNG', onSelect: () => downloadChartImage('png') },
-        { label: 'JPEG', onSelect: () => downloadChartImage('jpeg') },
-        { label: 'SVG', onSelect: () => downloadChartImage('svg') },
+        {label: 'PNG', onSelect: () => downloadChartImage('png')},
+        {label: 'JPEG', onSelect: () => downloadChartImage('jpeg')},
+        {label: 'SVG', onSelect: () => downloadChartImage('svg')},
       ],
     ]
   }
   return [
     [
-      { label: 'CSV', onSelect: () => downloadValues('csv', 'csv') },
-      { label: 'JSON', onSelect: () => downloadValues('json', 'json') },
-      { label: 'GeoJSON', onSelect: () => downloadValues('geojson', 'geojson') },
+      {label: 'CSV', onSelect: () => downloadValues('csv', 'csv')},
+      {label: 'JSON', onSelect: () => downloadValues('json', 'json')},
+      {label: 'GeoJSON', onSelect: () => downloadValues('geojson', 'geojson')},
     ],
   ]
 })
@@ -404,8 +435,7 @@ const canFetchData = computed(() => {
 
   if (ss.mode === 'station') {
     return (ss.selection?.stations?.length ?? 0) > 0
-  }
-  else {
+  } else {
     const interp = ss.interpolation
     return interp?.latitude !== undefined && interp?.longitude !== undefined
   }
@@ -413,44 +443,44 @@ const canFetchData = computed(() => {
 
 // Watch specific properties to trigger data fetching
 watch(
-  () => {
-    const ps = parameterSelection.value
-    const ss = stationSelection.value
-    return [
-      ps?.provider,
-      ps?.network,
-      ps?.resolution,
-      ps?.dataset,
-      ps?.parameters?.join(','),
-      ss?.mode,
-      ss?.selection?.stations?.map(s => s.station_id).join(','),
-      ss?.interpolation?.latitude,
-      ss?.interpolation?.longitude,
-      ss?.dateRange?.startDate,
-      ss?.dateRange?.endDate,
-      props.settings.humanize,
-      props.settings.convertUnits,
-      JSON.stringify(props.settings.unitTargets),
-      props.settings.shape,
-      props.settings.skipEmpty,
-      props.settings.skipThreshold,
-      props.settings.skipCriteria,
-      props.settings.dropNulls,
-      props.settings.useNearbyStationDistance,
-      JSON.stringify(props.settings.interpolationStationDistance),
-      props.settings.minGainOfValuePairs,
-      props.settings.numAdditionalStations,
-    ]
-  },
-  () => {
-    if (!canFetchData.value) {
-      valuesData.value = { values: [] }
-      return
-    }
-    refreshValues()
-    currentPage.value = 1
-  },
-  { immediate: true },
+    () => {
+      const ps = parameterSelection.value
+      const ss = stationSelection.value
+      return [
+        ps?.provider,
+        ps?.network,
+        ps?.resolution,
+        ps?.dataset,
+        ps?.parameters?.join(','),
+        ss?.mode,
+        ss?.selection?.stations?.map(s => s.station_id).join(','),
+        ss?.interpolation?.latitude,
+        ss?.interpolation?.longitude,
+        ss?.dateRange?.startDate,
+        ss?.dateRange?.endDate,
+        props.settings.humanize,
+        props.settings.convertUnits,
+        JSON.stringify(props.settings.unitTargets),
+        props.settings.shape,
+        props.settings.skipEmpty,
+        props.settings.skipThreshold,
+        props.settings.skipCriteria,
+        props.settings.dropNulls,
+        props.settings.useNearbyStationDistance,
+        JSON.stringify(props.settings.useStationDistancePerParameter),
+        props.settings.minGainOfValuePairs,
+        props.settings.numAdditionalStations,
+      ]
+    },
+    () => {
+      if (!canFetchData.value) {
+        valuesData.value = {values: []}
+        return
+      }
+      refreshValues()
+      currentPage.value = 1
+    },
+    {immediate: true},
 )
 
 // Plotly data preparation
@@ -470,7 +500,7 @@ const chartColors = [
 // Linear regression calculation
 function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[], y: number[] } {
   if (xData.length < 2)
-    return { x: [], y: [] }
+    return {x: [], y: []}
 
   const n = xData.length
   const xNums = xData.map(d => d.getTime())
@@ -515,16 +545,15 @@ const chartTraces = computed(() => {
     let parameterLabel = value.parameter
     if (paramLabelFormat.value === 'dataset/parameter') {
       parameterLabel = `${value.dataset}/${value.parameter}`
-    }
-    else if (paramLabelFormat.value === 'resolution/dataset/parameter') {
+    } else if (paramLabelFormat.value === 'resolution/dataset/parameter') {
       parameterLabel = `${value.resolution}/${value.dataset}/${value.parameter}`
     }
     const seriesKey = mode === 'station'
-      ? `${value.station_id} - ${parameterLabel}`
-      : parameterLabel
+        ? `${value.station_id} - ${parameterLabel}`
+        : parameterLabel
 
     if (!seriesMap.has(seriesKey)) {
-      seriesMap.set(seriesKey, { x: [], y: [] })
+      seriesMap.set(seriesKey, {x: [], y: []})
     }
 
     if (value.value !== null && value.value !== undefined) {
@@ -545,7 +574,7 @@ const chartTraces = computed(() => {
     const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
 
     // Sort data by time
-    const pairs = data.x.map((x, i) => ({ x, y: data.y[i]! })).sort((a, b) => a.x.getTime() - b.x.getTime())
+    const pairs = data.x.map((x, i) => ({x, y: data.y[i]!})).sort((a, b) => a.x.getTime() - b.x.getTime())
     const sortedXDates = pairs.map(p => p.x)
     const sortedY = pairs.map(p => p.y)
     // Convert to ISO strings for Plotly compatibility
@@ -558,11 +587,11 @@ const chartTraces = computed(() => {
       y: sortedY,
       type: 'scatter',
       mode: isLargeDataset ? 'lines' : 'lines+markers',
-      line: { color, width: isLargeDataset ? 1 : 2 },
+      line: {color, width: isLargeDataset ? 1 : 2},
       showlegend: true,
     }
     if (!isLargeDataset) {
-      trace.marker = { size: 6, color }
+      trace.marker = {size: 6, color}
     }
     traces.push(trace)
 
@@ -575,7 +604,7 @@ const chartTraces = computed(() => {
         y: trend.y,
         type: 'scatter',
         mode: 'lines',
-        line: { color, width: 4, dash: 'dash' },
+        line: {color, width: 4, dash: 'dash'},
         showlegend: true,
       })
     }
@@ -603,8 +632,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     let param = value.parameter
     if (paramLabelFormat.value === 'dataset/parameter') {
       param = `${value.dataset}/${value.parameter}`
-    }
-    else if (paramLabelFormat.value === 'resolution/dataset/parameter') {
+    } else if (paramLabelFormat.value === 'resolution/dataset/parameter') {
       param = `${value.resolution}/${value.dataset}/${value.parameter}`
     }
     if (!parameterGroups.has(param)) {
@@ -615,7 +643,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     const stationMap = parameterGroups.get(param)!
 
     if (!stationMap.has(stationKey)) {
-      stationMap.set(stationKey, { x: [], y: [] })
+      stationMap.set(stationKey, {x: [], y: []})
     }
 
     if (value.value !== null && value.value !== undefined) {
@@ -637,7 +665,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     for (const [stationKey, data] of stationMap) {
       const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
 
-      const pairs = data.x.map((x, i) => ({ x, y: data.y[i]! })).sort((a, b) => a.x.getTime() - b.x.getTime())
+      const pairs = data.x.map((x, i) => ({x, y: data.y[i]!})).sort((a, b) => a.x.getTime() - b.x.getTime())
       const sortedXDates = pairs.map(p => p.x)
       const sortedY = pairs.map(p => p.y)
       // Convert to ISO strings for Plotly compatibility
@@ -650,10 +678,10 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
         y: sortedY,
         type: 'scatter',
         mode: isLargeDataset ? 'lines' : 'lines+markers',
-        line: { color, width: isLargeDataset ? 1 : 2 },
+        line: {color, width: isLargeDataset ? 1 : 2},
       }
       if (!isLargeDataset) {
-        trace.marker = { size: 6, color }
+        trace.marker = {size: 6, color}
       }
       traces.push(trace)
 
@@ -666,7 +694,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
           y: trend.y,
           type: 'scatter',
           mode: 'lines',
-          line: { color, width: 4, dash: 'dash' },
+          line: {color, width: 4, dash: 'dash'},
           showlegend: true,
         })
       }
@@ -675,7 +703,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     }
 
     // Add trendlines after main traces so they render on top
-    result.push({ parameter, traces: [...traces, ...trendlineTraces] })
+    result.push({parameter, traces: [...traces, ...trendlineTraces]})
   }
 
   return result
@@ -686,7 +714,7 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
   const isLargeDataset = sortedValues.value.length > LARGE_DATASET_THRESHOLD
   return {
     autosize: true,
-    margin: { l: 60, r: 20, t: 40, b: 60 },
+    margin: {l: 60, r: 20, t: 40, b: 60},
     xaxis: {
       title: 'Date',
       type: 'date',
@@ -761,8 +789,7 @@ onMounted(async () => {
   // Initial render after Plotly loads
   if (facetByParameter.value) {
     await renderFacetedCharts()
-  }
-  else {
+  } else {
     await renderMainChart()
   }
 })
@@ -797,7 +824,7 @@ const parameterStats = computed((): ParameterStats[] => {
   for (const value of allValues.value) {
     const key = `${value.dataset}/${value.parameter}`
     if (!statsMap.has(key)) {
-      statsMap.set(key, { values: [], dataset: value.dataset })
+      statsMap.set(key, {values: [], dataset: value.dataset})
     }
     if (value.value !== null && value.value !== undefined) {
       statsMap.get(key)!.values.push(value.value)
@@ -807,18 +834,17 @@ const parameterStats = computed((): ParameterStats[] => {
   const stats: ParameterStats[] = []
   for (const [key, data] of statsMap) {
     const parameter = key.split('/').slice(1).join('/')
-    const { values, dataset } = data
+    const {values, dataset} = data
     const count = values.length
 
     if (count === 0) {
-      stats.push({ parameter, dataset, count, min: null, max: null, mean: null, sum: null })
-    }
-    else {
+      stats.push({parameter, dataset, count, min: null, max: null, mean: null, sum: null})
+    } else {
       const min = Math.min(...values)
       const max = Math.max(...values)
       const sum = values.reduce((a, b) => a + b, 0)
       const mean = sum / count
-      stats.push({ parameter, dataset, count, min, max, mean, sum })
+      stats.push({parameter, dataset, count, min, max, mean, sum})
     }
   }
 
@@ -826,13 +852,13 @@ const parameterStats = computed((): ParameterStats[] => {
 })
 
 const statsTableColumns: TableColumn<ParameterStats>[] = [
-  { accessorKey: 'dataset', header: 'Dataset' },
-  { accessorKey: 'parameter', header: 'Parameter' },
-  { accessorKey: 'count', header: 'Count' },
-  { accessorKey: 'min', header: 'Min', cell: ({ row }) => row.original.min?.toFixed(2) ?? '-' },
-  { accessorKey: 'max', header: 'Max', cell: ({ row }) => row.original.max?.toFixed(2) ?? '-' },
-  { accessorKey: 'mean', header: 'Mean', cell: ({ row }) => row.original.mean?.toFixed(2) ?? '-' },
-  { accessorKey: 'sum', header: 'Sum', cell: ({ row }) => row.original.sum?.toFixed(2) ?? '-' },
+  {accessorKey: 'dataset', header: 'Dataset'},
+  {accessorKey: 'parameter', header: 'Parameter'},
+  {accessorKey: 'count', header: 'Count'},
+  {accessorKey: 'min', header: 'Min', cell: ({row}) => row.original.min?.toFixed(2) ?? '-'},
+  {accessorKey: 'max', header: 'Max', cell: ({row}) => row.original.max?.toFixed(2) ?? '-'},
+  {accessorKey: 'mean', header: 'Mean', cell: ({row}) => row.original.mean?.toFixed(2) ?? '-'},
+  {accessorKey: 'sum', header: 'Sum', cell: ({row}) => row.original.sum?.toFixed(2) ?? '-'},
 ]
 
 // Expose stats for parent component
@@ -845,8 +871,7 @@ defineExpose({
 function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
   if (el) {
     facetChartRefs.value.set(parameter, el)
-  }
-  else {
+  } else {
     facetChartRefs.value.delete(parameter)
   }
 }
@@ -858,18 +883,18 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
     <div class="flex justify-center">
       <div class="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
         <UButton
-          icon="i-lucide-table"
-          size="md"
-          :variant="viewMode === 'table' ? 'solid' : 'ghost'"
-          :color="viewMode === 'table' ? 'primary' : 'neutral'"
-          @click="viewMode = 'table'"
+            icon="i-lucide-table"
+            size="md"
+            :variant="viewMode === 'table' ? 'solid' : 'ghost'"
+            :color="viewMode === 'table' ? 'primary' : 'neutral'"
+            @click="viewMode = 'table'"
         />
         <UButton
-          icon="i-lucide-chart-line"
-          size="md"
-          :variant="viewMode === 'graph' ? 'solid' : 'ghost'"
-          :color="viewMode === 'graph' ? 'primary' : 'neutral'"
-          @click="viewMode = 'graph'"
+            icon="i-lucide-chart-line"
+            size="md"
+            :variant="viewMode === 'graph' ? 'solid' : 'ghost'"
+            :color="viewMode === 'graph' ? 'primary' : 'neutral'"
+            @click="viewMode = 'graph'"
         />
       </div>
     </div>
@@ -883,19 +908,21 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <div class="flex items-center gap-4">
         <div v-if="viewMode === 'table'" class="flex items-center gap-2">
           <span class="text-sm">Columns:</span>
-          <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40" />
+          <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40"/>
         </div>
         <div class="flex items-center gap-1">
           <template v-if="viewMode === 'table'">
             <UTooltip text="Copy current page">
-              <UButton size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending" @click="copyCurrentPage" />
+              <UButton size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending"
+                       @click="copyCurrentPage"/>
             </UTooltip>
             <UTooltip text="Copy all values">
-              <UButton size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending" @click="copyAllValues" />
+              <UButton size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending"
+                       @click="copyAllValues"/>
             </UTooltip>
           </template>
           <UDropdownMenu :items="downloadMenuItems">
-            <UButton size="xs" variant="ghost" icon="i-lucide-download" :disabled="valuesPending" />
+            <UButton size="xs" variant="ghost" icon="i-lucide-download" :disabled="valuesPending"/>
           </UDropdownMenu>
         </div>
       </div>
@@ -904,12 +931,12 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
     <!-- Chart Settings (only in graph mode) -->
     <UCollapsible v-if="viewMode === 'graph'" :default-open="true">
       <UButton
-        label="Chart Settings"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        size="sm"
+          label="Chart Settings"
+          variant="subtle"
+          color="neutral"
+          trailing-icon="i-lucide-chevron-down"
+          block
+          size="sm"
       />
       <template #content>
         <div class="pt-4 space-y-4">
@@ -917,10 +944,10 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           <div class="flex flex-wrap items-center gap-4">
             <div class="flex items-center gap-2">
               <label class="text-sm text-gray-600 dark:text-gray-300">Parameter label:</label>
-              <USelect v-model="paramLabelFormat" :items="paramLabelItems" class="w-56" />
+              <USelect v-model="paramLabelFormat" :items="paramLabelItems" class="w-56"/>
             </div>
-            <UCheckbox v-model="facetByParameter" label="Facet by parameter" />
-            <UCheckbox v-model="showTrendline" label="Trendline" />
+            <UCheckbox v-model="facetByParameter" label="Facet by parameter"/>
+            <UCheckbox v-model="showTrendline" label="Trendline"/>
           </div>
         </div>
       </template>
@@ -929,34 +956,38 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
     <!-- Content -->
     <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
       <div v-if="valuesPending" class="flex items-center justify-center py-12">
-        <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
+        <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500"/>
       </div>
       <template v-else>
-        <UTable v-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }" />
+        <UTable v-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky
+                :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"/>
         <div v-else class="py-4">
-          <div v-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)" class="flex items-center justify-center py-12 text-gray-500">
+          <div v-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)"
+               class="flex items-center justify-center py-12 text-gray-500">
             No data available for chart
           </div>
           <!-- Faceted charts (one per parameter) -->
           <div v-else-if="facetByParameter" class="space-y-6">
-            <div v-for="facet in facetedChartData" :key="facet.parameter" class="border rounded-lg p-4 dark:border-gray-700">
+            <div v-for="facet in facetedChartData" :key="facet.parameter"
+                 class="border rounded-lg p-4 dark:border-gray-700">
               <h4 class="text-sm font-medium mb-2">
                 {{ facet.parameter }}
               </h4>
-              <div :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" class="w-full" style="height: 300px;" />
+              <div :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" class="w-full"
+                   style="height: 300px;"/>
             </div>
           </div>
           <!-- Single combined chart -->
-          <div v-else ref="chartRef" class="w-full overflow-visible" style="height: 400px;" />
+          <div v-else ref="chartRef" class="w-full overflow-visible" style="height: 400px;"/>
         </div>
       </template>
       <template v-if="viewMode === 'table'" #footer>
         <div class="flex items-center justify-center gap-4">
           <div class="flex items-center gap-2">
             <span class="text-sm">Rows per page:</span>
-            <USelect v-model="pageSize" :items="pageSizeOptions" class="w-20" />
+            <USelect v-model="pageSize" :items="pageSizeOptions" class="w-20"/>
           </div>
-          <UPagination v-model:page="currentPage" :total="allValues.length" :items-per-page="pageSize" />
+          <UPagination v-model:page="currentPage" :total="allValues.length" :items-per-page="pageSize"/>
         </div>
       </template>
     </UCard>
