@@ -48,6 +48,7 @@ export interface Station {
   state: string
   latitude: number
   longitude: number
+  height: number
   start_date?: string
   end_date?: string
 }
