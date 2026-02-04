@@ -280,17 +280,117 @@ const isDateRangeValid = computed(() => {
   return true
 })
 
-// Show data viewer when everything is valid
-const showDataViewer = computed(() => {
+// Reference to DataViewer for accessing exposed stats
+const dataViewerRef = ref<InstanceType<typeof DataViewer> | null>(null)
+
+// Track last fetched parameters to prevent redundant fetches
+const lastFetchedParams = ref<{
+  provider?: string
+  network?: string
+  resolution?: string
+  dataset?: string
+  parameters: string
+  mode: string
+  stations: string
+  interpolationLat?: number
+  interpolationLon?: number
+  startDate?: string
+  endDate?: string
+  settings: string
+} | null>(null)
+
+// Check if we can fetch
+const canFetch = computed(() => {
+  if (!dataViewerRef.value?.canFetchData)
+    return false
+
+  // Check minimum requirements
   if (!hasLocationSelection.value)
     return false
   if (dateRangeRequired.value && !isDateRangeValid.value)
     return false
+
+  // Check if parameters have changed since last fetch
+  if (lastFetchedParams.value) {
+    const ps = parameterSelectionState.value.selection
+    const ss = stationSelectionState.value
+
+    const currentParams = {
+      provider: ps.provider,
+      network: ps.network,
+      resolution: ps.resolution,
+      dataset: ps.dataset,
+      parameters: ps.parameters.join(','),
+      mode: ss.mode,
+      stations: ss.mode === 'station'
+        ? ss.selection.stations.map(s => s.station_id).join(',')
+        : '',
+      interpolationLat: ss.interpolation.latitude,
+      interpolationLon: ss.interpolation.longitude,
+      startDate: ss.dateRange.startDate,
+      endDate: ss.dateRange.endDate,
+      settings: JSON.stringify(dataSettings.value),
+    }
+
+    const unchanged
+      = currentParams.provider === lastFetchedParams.value.provider
+        && currentParams.network === lastFetchedParams.value.network
+        && currentParams.resolution === lastFetchedParams.value.resolution
+        && currentParams.dataset === lastFetchedParams.value.dataset
+        && currentParams.parameters === lastFetchedParams.value.parameters
+        && currentParams.mode === lastFetchedParams.value.mode
+        && currentParams.stations === lastFetchedParams.value.stations
+        && currentParams.interpolationLat === lastFetchedParams.value.interpolationLat
+        && currentParams.interpolationLon === lastFetchedParams.value.interpolationLon
+        && currentParams.startDate === lastFetchedParams.value.startDate
+        && currentParams.endDate === lastFetchedParams.value.endDate
+        && currentParams.settings === lastFetchedParams.value.settings
+
+    if (unchanged) {
+      return false
+    }
+  }
+
   return true
 })
 
-// Reference to DataViewer for accessing exposed stats
-const dataViewerRef = ref<InstanceType<typeof DataViewer> | null>(null)
+function fetchData() {
+  if (!canFetch.value || !dataViewerRef.value)
+    return
+
+  const ps = parameterSelectionState.value.selection
+  const ss = stationSelectionState.value
+
+  // Store current parameters
+  lastFetchedParams.value = {
+    provider: ps.provider,
+    network: ps.network,
+    resolution: ps.resolution,
+    dataset: ps.dataset,
+    parameters: ps.parameters.join(','),
+    mode: ss.mode,
+    stations: ss.mode === 'station'
+      ? ss.selection.stations.map(s => s.station_id).join(',')
+      : '',
+    interpolationLat: ss.interpolation.latitude,
+    interpolationLon: ss.interpolation.longitude,
+    startDate: ss.dateRange.startDate,
+    endDate: ss.dateRange.endDate,
+    settings: JSON.stringify(dataSettings.value),
+  }
+
+  // Trigger fetch
+  dataViewerRef.value.fetchData()
+}
+
+function clear() {
+  // Clear the fetched results
+  lastFetchedParams.value = null
+  // Clear data in DataViewer if it exists
+  if (dataViewerRef.value) {
+    dataViewerRef.value.clearData()
+  }
+}
 
 // Get list of selected parameters for validation
 const selectedParameters = computed(() => {
@@ -781,6 +881,17 @@ function handleUnitTargetChange(unitType: string, value: string) {
           :station-count="stationSelectionState.mode === 'station' ? stationSelectionState.selection.stations.length : 1"
           :parameter-count="parameterSelectionState.selection.parameters.length"
         />
+
+        <USeparator v-if="showDateRangeSelector" />
+
+        <div v-if="showDateRangeSelector" class="flex flex-col sm:flex-row gap-2">
+          <UButton label="Fetch" color="primary" :disabled="!canFetch" class="w-full" @click="fetchData" />
+          <UButton label="Clear" variant="outline" class="w-full" @click="clear" />
+        </div>
+
+        <div v-if="dataViewerRef?.valuesPending" class="text-sm text-gray-600 dark:text-gray-400">
+          Loading...
+        </div>
       </div>
     </UCard>
 
@@ -837,7 +948,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     </UCollapsible>
 
     <DataViewer
-      v-if="showDataViewer" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection"
+      v-if="hasLocationSelection" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection"
       :station-selection="stationSelectionState" :settings="dataSettings"
     />
   </UContainer>

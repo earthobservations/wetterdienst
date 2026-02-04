@@ -45,28 +45,91 @@ const selectedStationItem = computed<{ label: string, value: string } | undefine
   },
 })
 
+const showMap = ref(false)
+const showAbout = ref(false)
+const imageLoading = ref(false)
+
+// Track last fetched parameters
+const lastFetchedParams = ref<{
+  kind: string
+  stationId: string
+  format: string
+  showTitle: boolean
+  showYears: boolean
+  showDataAvailability: boolean
+  startYear: number | null
+  endYear: number | null
+} | null>(null)
+
 const stripesUrl = computed(() => {
-  if (!selectedStation.value)
+  if (!lastFetchedParams.value)
     return null
 
   const params = new URLSearchParams()
-  params.set('kind', kind.value)
-  params.set('station', selectedStation.value.station_id)
-  params.set('format', imageFormat.value)
-  params.set('show_title', String(showTitle.value))
-  params.set('show_years', String(showYears.value))
-  params.set('show_data_availability', String(showDataAvailability.value))
+  params.set('kind', lastFetchedParams.value.kind)
+  params.set('station', lastFetchedParams.value.stationId)
+  params.set('format', lastFetchedParams.value.format)
+  params.set('show_title', String(lastFetchedParams.value.showTitle))
+  params.set('show_years', String(lastFetchedParams.value.showYears))
+  params.set('show_data_availability', String(lastFetchedParams.value.showDataAvailability))
 
-  if (startYear.value)
-    params.set('start_year', String(startYear.value))
-  if (endYear.value)
-    params.set('end_year', String(endYear.value))
+  if (lastFetchedParams.value.startYear)
+    params.set('start_year', String(lastFetchedParams.value.startYear))
+  if (lastFetchedParams.value.endYear)
+    params.set('end_year', String(lastFetchedParams.value.endYear))
 
   return `/api/stripes/values?${params.toString()}`
 })
 
-const showMap = ref(false)
-const showAbout = ref(false)
+// Check if we can fetch
+const canFetch = computed(() => {
+  if (!selectedStation.value)
+    return false
+
+  // Check if parameters have changed since last fetch
+  if (lastFetchedParams.value) {
+    const unchanged
+      = lastFetchedParams.value.kind === kind.value
+        && lastFetchedParams.value.stationId === selectedStation.value.station_id
+        && lastFetchedParams.value.format === imageFormat.value
+        && lastFetchedParams.value.showTitle === showTitle.value
+        && lastFetchedParams.value.showYears === showYears.value
+        && lastFetchedParams.value.showDataAvailability === showDataAvailability.value
+        && lastFetchedParams.value.startYear === startYear.value
+        && lastFetchedParams.value.endYear === endYear.value
+
+    if (unchanged) {
+      return false
+    }
+  }
+
+  return true
+})
+
+function fetchStripes() {
+  if (!canFetch.value || !selectedStation.value)
+    return
+
+  // Store current parameters
+  lastFetchedParams.value = {
+    kind: kind.value,
+    stationId: selectedStation.value.station_id,
+    format: imageFormat.value,
+    showTitle: showTitle.value,
+    showYears: showYears.value,
+    showDataAvailability: showDataAvailability.value,
+    startYear: startYear.value,
+    endYear: endYear.value,
+  }
+
+  imageLoading.value = true
+}
+
+function clearStripes() {
+  // Only clear the fetched image, keep all form inputs
+  lastFetchedParams.value = null
+  imageLoading.value = false
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -99,16 +162,9 @@ function onSelectMenuUpdate(val: any) {
   selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
 }
 
-const imageLoading = ref(false)
 function onImageLoad() {
   imageLoading.value = false
 }
-
-watch(stripesUrl, () => {
-  if (stripesUrl.value) {
-    imageLoading.value = true
-  }
-})
 
 watch(kind, () => {
   selectedStation.value = null
@@ -312,6 +368,13 @@ watch(selectedStationItem, (item) => {
           <label class="block text-sm font-medium mb-1">Format</label>
           <USelect v-model="imageFormat" :items="['png', 'svg']" />
         </div>
+
+        <USeparator />
+
+        <div class="flex flex-col sm:flex-row gap-2">
+          <UButton label="Fetch" color="primary" :disabled="!canFetch" class="w-full" @click="fetchStripes" />
+          <UButton label="Clear" variant="outline" class="w-full" @click="clearStripes" />
+        </div>
       </div>
     </UCard>
     <UCard class="mb-6">
@@ -326,15 +389,15 @@ watch(selectedStationItem, (item) => {
         </div>
       </template>
 
-      <div v-if="!selectedStation" class="flex items-center justify-center h-64 text-gray-500">
-        Select a station to generate climate stripes
+      <div v-if="!stripesUrl" class="flex items-center justify-center h-64 text-gray-500">
+        Select a station and click Fetch to generate climate stripes
       </div>
       <div v-else class="flex flex-col items-center justify-center">
         <div v-if="imageLoading" class="flex items-center gap-2 text-gray-500 mb-4">
           <UIcon name="i-lucide-loader-2" class="animate-spin" />
           Loading stripes...
         </div>
-        <img :src="stripesUrl!" :alt="`Climate stripes for ${selectedStation.name}`" class="max-w-full h-auto" @load="onImageLoad">
+        <img v-if="stripesUrl" :src="stripesUrl" alt="Climate stripes" class="max-w-full h-auto" @load="onImageLoad">
       </div>
     </UCard>
   </UContainer>
