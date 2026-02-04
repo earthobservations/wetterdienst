@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Add station history page
+
 ### Changed
 
 - Fix setting interpolation and summary settings

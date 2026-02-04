@@ -30,6 +30,12 @@ const items = computed<NavigationMenuItem[]>(() =>
       active: route.path.startsWith('/stripes'),
     },
     {
+      label: 'History',
+      icon: 'i-lucide-clock',
+      to: '/history',
+      active: route.path.startsWith('/history'),
+    },
+    {
       label: 'API',
       icon: 'i-lucide-code',
       to: '/api',
@@ -41,12 +47,7 @@ const items = computed<NavigationMenuItem[]>(() =>
       to: '/support',
       active: route.path.startsWith('/support'),
     },
-    {
-      label: 'History',
-      icon: 'i-lucide-clock',
-      to: '/history',
-      active: route.path.startsWith('/history'),
-    },
+
   ],
 )
 </script>

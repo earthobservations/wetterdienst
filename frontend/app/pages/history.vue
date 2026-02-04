@@ -11,14 +11,26 @@ const resolution = ref<string>('')
 const dataset = ref<string>('')
 
 const stationSelectionState = ref<StationSelectionState>({
-  mode: 'by_id',
+  mode: 'station',
   selection: {
     stations: [],
   },
+  interpolation: {
+    source: 'station',
+  },
+  dateRange: {},
 })
 
 const availableSections = ['name', 'parameter', 'device', 'geography', 'missing_data']
 const selectedSections = ref<Array<string>>([])
+
+// Track last fetched parameters to prevent redundant fetches
+const lastFetchedParams = ref<{
+  resolution: string
+  dataset: string
+  stationIds: string
+  sections: string
+} | null>(null)
 
 // Fetch available datasets for DWD observation
 const { data: datasetsData, refresh: refreshDatasets } = useFetch<Record<string, Record<string, any>>>('/api/coverage', {
@@ -69,12 +81,44 @@ const stationIds = computed(() => {
   return stations.map(s => s.station_id).join(',')
 })
 
+// Helper function to extract station_id from history object
+function getStationId(history: any): string | null {
+  // Try to get station_id from different sections
+  if (history.parameter && history.parameter.length > 0 && history.parameter[0].station_id) {
+    return history.parameter[0].station_id
+  }
+  if (history.device && history.device.length > 0 && history.device[0].station_id) {
+    return history.device[0].station_id
+  }
+  if (history.geography && history.geography.length > 0 && history.geography[0].station_id) {
+    return history.geography[0].station_id
+  }
+  return null
+}
+
+// Helper function to extract station_name from history object
+function getStationName(history: any): string | null {
+  if (history.name && history.name.station && history.name.station.length > 0) {
+    return history.name.station[0].name || null
+  }
+  if (history.parameter && history.parameter.length > 0 && history.parameter[0].station_name) {
+    return history.parameter[0].station_name
+  }
+  if (history.device && history.device.length > 0 && history.device[0].station_name) {
+    return history.device[0].station_name
+  }
+  if (history.geography && history.geography.length > 0 && history.geography[0].station_name) {
+    return history.geography[0].station_name
+  }
+  return null
+}
+
 // Parameter selection for StationSelection component
 // Note: For history, we pass a dummy parameter to trigger station fetch
 const parameterSelection = computed(() => ({
   provider,
   network,
-  resolution: resolution.value,
+  resolution: resolution.value as Resolution,
   dataset: dataset.value,
   parameters: ['_all'], // Dummy parameter to trigger station fetch
 }))
@@ -83,13 +127,39 @@ const parameterSelection = computed(() => ({
 const canFetch = computed(() => {
   const hasParameters = resolution.value && dataset.value
   const hasStations = stationIds.value.length > 0
-  return hasParameters && hasStations
+
+  if (!hasParameters || !hasStations) {
+    return false
+  }
+
+  // Check if parameters have changed since last fetch
+  if (lastFetchedParams.value) {
+    const currentParams = {
+      resolution: resolution.value,
+      dataset: dataset.value,
+      stationIds: stationIds.value,
+      sections: [...selectedSections.value].sort().join(','),
+    }
+
+    const unchanged
+      = currentParams.resolution === lastFetchedParams.value.resolution
+        && currentParams.dataset === lastFetchedParams.value.dataset
+        && currentParams.stationIds === lastFetchedParams.value.stationIds
+        && currentParams.sections === lastFetchedParams.value.sections
+
+    if (unchanged) {
+      return false
+    }
+  }
+
+  return true
 })
 
 // lazy fetch - trigger with refresh()
 const { data, pending, refresh, error } = useFetch<any>('/api/history', {
   lazy: true,
   immediate: false,
+  watch: false, // Prevent automatic refetch when query changes
   query: computed(() => ({
     provider,
     network,
@@ -104,6 +174,13 @@ function run() {
   if (!canFetch.value) {
     return
   }
+  // Store current parameters
+  lastFetchedParams.value = {
+    resolution: resolution.value,
+    dataset: dataset.value,
+    stationIds: stationIds.value,
+    sections: selectedSections.value.sort().join(','),
+  }
   // trigger fetch
   refresh()
 }
@@ -113,6 +190,7 @@ function clear() {
   dataset.value = ''
   selectedSections.value = []
   stationSelectionState.value.selection.stations = []
+  lastFetchedParams.value = null
 }
 </script>
 
@@ -123,7 +201,7 @@ function clear() {
         Station History
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
-        Retrieve historical station metadata (currently available for DWD observation).
+        Retrieve station history like name, operator, devices and parameters.
       </p>
     </div>
 
@@ -215,9 +293,9 @@ function clear() {
 
         <UDivider />
 
-        <div class="flex gap-2">
-          <UButton label="Fetch History" color="primary" :disabled="!canFetch" @click="run" />
-          <UButton label="Clear" variant="outline" @click="clear" />
+        <div class="flex flex-col sm:flex-row gap-2">
+          <UButton label="Fetch" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
+          <UButton label="Clear" variant="outline" class="w-full" @click="clear" />
         </div>
 
         <div v-if="pending" class="text-sm text-gray-600 dark:text-gray-400">
@@ -235,13 +313,12 @@ function clear() {
           <h2 class="text-lg font-semibold">
             Results
           </h2>
-          <UButton v-if="data && data.histories" label="Refresh" size="xs" variant="outline" @click="run" />
         </div>
       </template>
 
       <div class="p-4">
         <div v-if="!data || (data.histories && data.histories.length === 0)" class="text-sm text-gray-600">
-          No histories loaded. Click "Fetch History" to query the backend.
+          No histories loaded. Click "Fetch" to query the backend.
         </div>
         <div v-else class="space-y-6">
           <!-- Selected Stations Overview -->
@@ -311,9 +388,12 @@ function clear() {
                   <template #header>
                     <div class="flex items-center justify-between">
                       <h3 class="font-semibold">
-                        Station ID: {{ history.station_id || `Station ${idx + 1}` }}
-                        <span v-if="history.station_name" class="text-sm text-gray-600 dark:text-gray-400 font-normal ml-2">
-                          {{ history.station_name }}
+                        Station ID: {{ getStationId(history) }}
+                        <span
+                          v-if="getStationName(history)"
+                          class="text-sm text-gray-600 dark:text-gray-400 font-normal ml-2"
+                        >
+                          {{ getStationName(history) }}
                         </span>
                       </h3>
                     </div>
@@ -323,54 +403,49 @@ function clear() {
                   <div class="mb-6">
                     <div class="overflow-x-auto">
                       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <tbody class="bg-white dark:bg-gray-900">
-                          <tr v-if="history.station_id" class="border-b border-gray-200 dark:border-gray-700">
-                            <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                              Station ID
-                            </td>
-                            <td class="px-4 py-2 text-sm">
-                              {{ history.station_id }}
-                            </td>
-                          </tr>
-                          <tr v-if="history.station_name" class="border-b border-gray-200 dark:border-gray-700">
-                            <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                              Station Name
-                            </td>
-                            <td class="px-4 py-2 text-sm">
-                              {{ history.station_name }}
-                            </td>
-                          </tr>
-                          <tr v-if="history.latitude != null" class="border-b border-gray-200 dark:border-gray-700">
-                            <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                              Latitude
-                            </td>
-                            <td class="px-4 py-2 text-sm">
-                              {{ history.latitude }}
-                            </td>
-                          </tr>
-                          <tr v-if="history.longitude != null" class="border-b border-gray-200 dark:border-gray-700">
-                            <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                              Longitude
-                            </td>
-                            <td class="px-4 py-2 text-sm">
-                              {{ history.longitude }}
-                            </td>
-                          </tr>
-                          <tr v-if="history.station_height != null">
-                            <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                              Station Height
-                            </td>
-                            <td class="px-4 py-2 text-sm">
-                              {{ history.station_height }} m
-                            </td>
-                          </tr>
-                        </tbody>
+                        <!--                        <tbody class="bg-white dark:bg-gray-900"> -->
+                        <tr v-if="getStationName(history)" class="border-b border-gray-200 dark:border-gray-700">
+                          <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                            Station Name
+                          </td>
+                          <td class="px-4 py-2 text-sm">
+                            {{ getStationName(history) }}
+                          </td>
+                        </tr>
+                        <tr v-if="history.latitude != null" class="border-b border-gray-200 dark:border-gray-700">
+                          <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                            Latitude
+                          </td>
+                          <td class="px-4 py-2 text-sm">
+                            {{ history.latitude }}
+                          </td>
+                        </tr>
+                        <tr v-if="history.longitude != null" class="border-b border-gray-200 dark:border-gray-700">
+                          <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                            Longitude
+                          </td>
+                          <td class="px-4 py-2 text-sm">
+                            {{ history.longitude }}
+                          </td>
+                        </tr>
+                        <tr v-if="history.station_height != null">
+                          <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                            Station Height
+                          </td>
+                          <td class="px-4 py-2 text-sm">
+                            {{ history.station_height }} m
+                          </td>
+                        </tr>
+                        <!--                        </tbody> -->
                       </table>
                     </div>
                   </div>
 
                   <!-- Name History -->
-                  <div v-if="history.name && (history.name.station?.length || history.name.operator?.length)" class="mb-6">
+                  <div
+                    v-if="history.name && (history.name.station?.length || history.name.operator?.length)"
+                    class="mb-6"
+                  >
                     <UCollapsible>
                       <UButton
                         label="Name History"
@@ -629,7 +704,9 @@ function clear() {
                   </div>
 
                   <!-- Missing Data History -->
-                  <div v-if="history.missing_data && (history.missing_data.summary?.length || history.missing_data.periods?.length)">
+                  <div
+                    v-if="history.missing_data && (history.missing_data.summary?.length || history.missing_data.periods?.length)"
+                  >
                     <UCollapsible>
                       <UButton
                         label="Missing Data History"
