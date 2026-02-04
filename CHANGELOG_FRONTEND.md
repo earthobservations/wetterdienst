@@ -23,6 +23,7 @@ Types of changes:
 ### Changed
 
 - Fix setting interpolation and summary settings
+- Unify data fetching logic across all pages
 
 ## [0.2.0] - 2026-01-22
 

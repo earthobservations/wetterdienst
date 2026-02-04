@@ -167,7 +167,9 @@ const { data: valuesData, pending: valuesPending, refresh: refreshValues } = use
   {
     method: 'GET',
     query: apiQuery,
+    lazy: true,
     immediate: false,
+    watch: false, // Prevent automatic refetch when query changes
     default: () => ({ values: [] }),
   },
 )
@@ -449,47 +451,21 @@ const canFetchData = computed(() => {
   }
 })
 
-// Watch specific properties to trigger data fetching
-watch(
-  () => {
-    const ps = parameterSelection.value
-    const ss = stationSelection.value
-    return [
-      ps?.provider,
-      ps?.network,
-      ps?.resolution,
-      ps?.dataset,
-      ps?.parameters?.join(','),
-      ss?.mode,
-      ss?.selection?.stations?.map(s => s.station_id).join(','),
-      ss?.interpolation?.latitude,
-      ss?.interpolation?.longitude,
-      ss?.dateRange?.startDate,
-      ss?.dateRange?.endDate,
-      props.settings.humanize,
-      props.settings.convertUnits,
-      JSON.stringify(props.settings.unitTargets),
-      props.settings.shape,
-      props.settings.skipEmpty,
-      props.settings.skipThreshold,
-      props.settings.skipCriteria,
-      props.settings.dropNulls,
-      props.settings.useNearbyStationDistance,
-      JSON.stringify(props.settings.useStationDistancePerParameter),
-      props.settings.minGainOfValuePairs,
-      props.settings.numAdditionalStations,
-    ]
-  },
-  () => {
-    if (!canFetchData.value) {
-      valuesData.value = { values: [] }
-      return
-    }
-    refreshValues()
-    currentPage.value = 1
-  },
-  { immediate: true },
-)
+// Manual fetch function
+function fetchData() {
+  if (!canFetchData.value) {
+    valuesData.value = { values: [] }
+    return
+  }
+  refreshValues()
+  currentPage.value = 1
+}
+
+// Clear function to reset data
+function clearData() {
+  valuesData.value = { values: [] }
+  currentPage.value = 1
+}
 
 // Plotly data preparation
 const chartColors = [
@@ -873,10 +849,14 @@ const statsTableColumns: TableColumn<ParameterStats>[] = [
   { accessorKey: 'sum', header: 'Sum', cell: ({ row }) => row.original.sum?.toFixed(2) ?? '-' },
 ]
 
-// Expose stats for parent component
+// Expose stats and fetch function for parent component
 defineExpose({
   parameterStats,
   statsTableColumns,
+  fetchData,
+  clearData,
+  canFetchData,
+  valuesPending,
 })
 
 // Set facet chart ref
@@ -976,13 +956,22 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
       </div>
       <template v-else>
+        <div v-if="allValues.length === 0" class="flex items-center justify-center py-12 text-gray-500">
+          Select parameters and stations, then click Fetch to load data
+        </div>
         <UTable
-          v-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky
+          v-else-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky
           :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
         />
         <div v-else class="py-4">
           <div
-            v-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)"
+            v-if="allValues.length === 0"
+            class="flex items-center justify-center py-12 text-gray-500"
+          >
+            Select parameters and stations, then click Fetch to load data
+          </div>
+          <div
+            v-else-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)"
             class="flex items-center justify-center py-12 text-gray-500"
           >
             No data available for chart

@@ -186,11 +186,9 @@ function run() {
 }
 
 function clear() {
-  resolution.value = ''
-  dataset.value = ''
-  selectedSections.value = []
-  stationSelectionState.value.selection.stations = []
+  // Clear the fetched results and reset tracking
   lastFetchedParams.value = null
+  data.value = { histories: [] }
 }
 </script>
 
