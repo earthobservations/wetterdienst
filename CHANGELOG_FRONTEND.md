@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-05
+
 ### Added
 
 - Add station history page
