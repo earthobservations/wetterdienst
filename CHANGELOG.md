@@ -16,10 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- New API endpoint for climate stripes data
+
 ### Changed
 
 - Improve interpolation and summary
 - DWD DMO: Remove unnecessary validation for minimum dataframe length in date extraction
+- Rename API endpoint /stripes/values to /stripes/image
 
 ## [0.118.0] - 2026-02-01
 

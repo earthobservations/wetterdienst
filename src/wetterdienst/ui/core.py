@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal, TypedDict
 
 import polars as pl
 from pydantic import BaseModel, Field, field_validator
@@ -20,6 +20,8 @@ from wetterdienst.util.datetime import parse_date
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import plotly.graph_objs as go
 
     from wetterdienst.model.request import TimeseriesRequest
@@ -689,6 +691,44 @@ def get_summarize(
     return values_
 
 
+class StripesMetadata(BaseModel):
+    """Metadata for climate stripes data."""
+
+    model_config = {"extra": "forbid"}
+
+    station: dict
+    resolution: str
+    dataset: str
+    parameter: str
+
+
+class StripesData(BaseModel):
+    """Climate stripes data with metadata and values."""
+
+    model_config = {"extra": "forbid", "arbitrary_types_allowed": True}
+
+    metadata: StripesMetadata
+    df: pl.DataFrame
+
+
+# Type definitions for CLIMATE_STRIPES_CONFIG
+StripesKind = Literal["temperature", "precipitation"]
+
+
+class StripesConfigItem(TypedDict):
+    """Configuration item for climate stripes."""
+
+    request: Callable[[Period], DwdObservationRequest]
+    color_map: str
+
+
+class StripesConfig(TypedDict):
+    """Configuration for climate stripes by kind."""
+
+    temperature: StripesConfigItem
+    precipitation: StripesConfigItem
+
+
 def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
@@ -705,7 +745,7 @@ def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> D
     )
 
 
-CLIMATE_STRIPES_CONFIG = {
+CLIMATE_STRIPES_CONFIG: StripesConfig = {
     "temperature": {
         "request": _get_stripes_temperature_request,
         "color_map": "RdBu",
@@ -717,7 +757,7 @@ CLIMATE_STRIPES_CONFIG = {
 }
 
 
-def _get_stripes_stations(kind: Literal["temperature", "precipitation"], *, active: bool = True) -> StationsResult:
+def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> StationsResult:
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]
     stations = request(periods=Period.HISTORICAL).all()
     if active:
@@ -726,21 +766,17 @@ def _get_stripes_stations(kind: Literal["temperature", "precipitation"], *, acti
     return stations
 
 
-def _plot_stripes(  # noqa: C901
-    kind: Literal["temperature", "precipitation"],
+def _get_stripes_data(  # noqa: C901
+    kind: StripesKind,
     station_id: str | None = None,
     name: str | None = None,
     start_year: int | None = None,
     end_year: int | None = None,
     name_threshold: float = 0.9,
-    *,
-    show_title: bool = True,
-    show_years: bool = True,
-    show_data_availability: bool = True,
-) -> go.Figure:
-    """Create warming stripes for station in Germany.
+) -> StripesData:
+    """Get stripes data for station in Germany.
 
-    Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
+    Returns StripesData with metadata and dataframe.
     """
     if kind not in ["temperature", "precipitation"]:
         msg = "kind must be either 'temperature' or 'precipitation'"
@@ -752,10 +788,7 @@ def _plot_stripes(  # noqa: C901
         msg = "name_threshold must be between 0.0 and 1.0"
         raise ValueError(msg)
 
-    import plotly.graph_objects as go  # noqa: PLC0415
-
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]()
-    cmap = CLIMATE_STRIPES_CONFIG[kind]["color_map"]
 
     if station_id:
         stations = request.filter_by_station_id(station_id)
@@ -770,7 +803,7 @@ def _plot_stripes(  # noqa: C901
         raise KeyError(msg)
 
     try:
-        station_dict = stations.to_dict()["stations"][0]
+        station = stations.to_dict()["stations"][0]
     except IndexError as e:
         parameter = "station_id" if station_id else "name"
         msg = f"No station with a {parameter} similar to '{station_id or name}' found"
@@ -795,6 +828,55 @@ def _plot_stripes(  # noqa: C901
     if len(df) == 1:
         msg = "At least two years are required to create warming stripes."
         raise ValueError(msg)
+
+    resolution = "annual"
+    if kind == "temperature":
+        dataset = "climate_summary"
+        parameter = "temperature_air_mean_2m"
+    else:
+        dataset = "precipitation_more"
+        parameter = "precipitation_height"
+
+    metadata = StripesMetadata(
+        station=station,
+        resolution=resolution,
+        dataset=dataset,
+        parameter=parameter,
+    )
+
+    return StripesData(metadata=metadata, df=df)
+
+
+def _plot_stripes(
+    kind: StripesKind,
+    station_id: str | None = None,
+    name: str | None = None,
+    start_year: int | None = None,
+    end_year: int | None = None,
+    name_threshold: float = 0.9,
+    *,
+    show_title: bool = True,
+    show_years: bool = True,
+    show_data_availability: bool = True,
+) -> go.Figure:
+    """Create warming stripes for station in Germany.
+
+    Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
+    """
+    import plotly.graph_objects as go  # noqa: PLC0415
+
+    stripes_data = _get_stripes_data(
+        kind=kind,
+        station_id=station_id,
+        name=name,
+        start_year=start_year,
+        end_year=end_year,
+        name_threshold=name_threshold,
+    )
+
+    df = stripes_data.df
+    station_dict = stripes_data.metadata.station
+    cmap = CLIMATE_STRIPES_CONFIG[kind]["color_map"]
 
     df_without_nulls = df.drop_nulls("value")
 

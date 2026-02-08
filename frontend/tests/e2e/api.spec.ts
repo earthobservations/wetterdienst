@@ -97,5 +97,18 @@ test.describe('API Stripes Endpoints', () => {
 
     // May return 400 (bad request), 404 (not found), or 200 with data
     expect([200, 400, 404]).toContain(response.status())
+
+    if (response.status() === 200) {
+      const data = await response.json()
+      expect(data).toHaveProperty('metadata')
+      expect(data).toHaveProperty('values')
+    }
+  })
+
+  test('should fetch stripes image', async ({ request }) => {
+    const response = await request.get(`${BACKEND_URL}/api/stripes/image?kind=temperature&station=1048`)
+
+    // May return 400 (bad request), 404 (not found), or 200 with data
+    expect([200, 400, 404]).toContain(response.status())
   })
 })

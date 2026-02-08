@@ -1154,6 +1154,15 @@ def test_stripes_values_default(client: TestClient) -> None:
     )
     assert response.status_code == 200
     assert response.content
+    data = response.json()
+    assert "metadata" in data
+    assert "values" in data
+    assert data["metadata"]["station"]["station_id"] == "01048"
+    assert data["metadata"]["resolution"] == "annual"
+    assert data["metadata"]["dataset"] == "climate_summary"
+    assert data["metadata"]["parameter"] == "temperature_air_mean_2m"
+    assert len(data["values"]) > 0
+    assert all("date" in v and "value" in v for v in data["values"])
 
 
 @pytest.mark.remote
@@ -1168,35 +1177,25 @@ def test_stripes_values_name(client: TestClient) -> None:
     )
     assert response.status_code == 200
     assert response.content
+    data = response.json()
+    assert "metadata" in data
+    assert "values" in data
 
 
 @pytest.mark.remote
-@pytest.mark.parametrize(
-    "params",
-    [
-        {"show_title": "true"},
-        {"show_years": "true"},
-        {"show_data_availability": "true"},
-        {"show_title": "false"},
-        {"show_years": "false"},
-        {"show_data_availability": "false"},
-    ],
-)
-def test_stripes_values_non_defaults(client: TestClient, params: dict) -> None:
-    """Test non-default parameters."""
+def test_stripes_values_csv_format(client: TestClient) -> None:
+    """Test CSV format."""
     response = client.get(
         "/api/stripes/values",
-        params=params
-        | {
+        params={
             "kind": "temperature",
             "station": "01048",
-            "show_title": "true",
-            "show_years": "true",
-            "show_data_availability": "true",
+            "format": "csv",
         },
     )
     assert response.status_code == 200
-    assert response.content
+    assert response.headers["content-type"] == "text/csv; charset=utf-8"
+    assert b"date,value" in response.content
 
 
 @pytest.mark.remote
@@ -1256,14 +1255,131 @@ def test_stripes_values_unknown_format(client: TestClient) -> None:
         },
     )
     assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == "Input should be 'json' or 'csv'"
+
+
+@pytest.mark.remote
+def test_stripes_image_default(client: TestClient) -> None:
+    """Test default parameters."""
+    response = client.get(
+        "/api/stripes/image",
+        params={
+            "kind": "temperature",
+            "station": "01048",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+
+
+@pytest.mark.remote
+def test_stripes_image_name(client: TestClient) -> None:
+    """Test name parameter."""
+    response = client.get(
+        "/api/stripes/image",
+        params={
+            "kind": "temperature",
+            "name": "Dresden-Klotzsche",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"show_title": "true"},
+        {"show_years": "true"},
+        {"show_data_availability": "true"},
+        {"show_title": "false"},
+        {"show_years": "false"},
+        {"show_data_availability": "false"},
+    ],
+)
+def test_stripes_image_non_defaults(client: TestClient, params: dict) -> None:
+    """Test non-default parameters."""
+    response = client.get(
+        "/api/stripes/image",
+        params=params
+        | {
+            "kind": "temperature",
+            "station": "01048",
+            "show_title": "true",
+            "show_years": "true",
+            "show_data_availability": "true",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+
+
+@pytest.mark.remote
+def test_stripes_image_start_year_ge_end_year(client: TestClient) -> None:
+    """Test start_year greater or equal to end_year."""
+    response = client.get(
+        "/api/stripes/image",
+        params={
+            "kind": "temperature",
+            "station": "01048",
+            "start_year": "2021",
+            "end_year": "2020",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Query argument 'start_year' must be less than 'end_year'"}
+
+
+@pytest.mark.remote
+def test_stripes_image_wrong_name_threshold(client: TestClient) -> None:
+    """Test wrong name_threshold value."""
+    response = client.get(
+        "/api/stripes/image",
+        params={
+            "kind": "temperature",
+            "name": "Dresden-Klotzsche",
+            "name_threshold": 1.01,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Query argument 'name_threshold' must be between 0.0 and 1.0"}
+
+
+@pytest.mark.remote
+def test_stripes_image_unknown_name(client: TestClient) -> None:
+    """Test unknown name value."""
+    response = client.get(
+        "/api/stripes/image",
+        params={
+            "kind": "temperature",
+            "name": "foobar",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "No station with a name similar to 'foobar' found"}
+
+
+@pytest.mark.remote
+def test_stripes_image_unknown_format(client: TestClient) -> None:
+    """Test wrong format value."""
+    response = client.get(
+        "/api/stripes/image",
+        params={
+            "kind": "temperature",
+            "station": "01048",
+            "format": "foobar",
+        },
+    )
+    assert response.status_code == 422
     assert response.json()["detail"][0]["msg"] == "Input should be 'png', 'jpg', 'svg' or 'pdf'"
 
 
 @pytest.mark.remote
-def test_stripes_values_wrong_dpi(client: TestClient) -> None:
+def test_stripes_image_wrong_dpi(client: TestClient) -> None:
     """Test wrong dpi value."""
     response = client.get(
-        "/api/stripes/values",
+        "/api/stripes/image",
         params={
             "kind": "temperature",
             "station": "01048",
