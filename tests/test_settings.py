@@ -53,7 +53,7 @@ def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     """Test default settings but with multiple envs set."""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SHAPE"] = "wide"
-    os.environ["WD_TS_INTERP_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
+    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
     caplog.set_level(logging.INFO)
     settings = Settings()
     assert (
@@ -79,7 +79,7 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     """Test mixed settings."""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SKIP_THRESHOLD"] = "0.89"
-    os.environ["WD_TS_INTERP_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
+    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
     caplog.set_level(logging.INFO)
     settings = Settings(
         ts_skip_threshold=0.81,
