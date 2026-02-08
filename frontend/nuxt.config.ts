@@ -92,4 +92,9 @@ export default defineNuxtConfig({
       },
     },
   },
+
+  nitro: {
+    compressPublicAssets: true,
+    serveStatic: true,
+  },
 })
