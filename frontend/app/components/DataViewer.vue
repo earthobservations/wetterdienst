@@ -91,7 +91,7 @@ const apiQuery = computed(() => {
 
   // Add unit targets if provided (filter out empty values)
   const unitTargets = Object.entries(props.settings.unitTargets)
-    .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+    .filter(([_, value]) => value != null && true && String(value).trim() !== '')
     .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
 
   if (Object.keys(unitTargets).length > 0) {
@@ -116,7 +116,7 @@ const apiQuery = computed(() => {
     }
     // Add interpolation station distance if provided (filter out empty values)
     const stationDistancePerParameter = Object.entries(props.settings.useStationDistancePerParameter)
-      .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+      .filter(([_, value]) => value != null && true && String(value).trim() !== '')
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
 
     if (Object.keys(stationDistancePerParameter).length > 0) {
@@ -137,7 +137,7 @@ const apiQuery = computed(() => {
     }
     // Add summary station distance if provided (filter out empty values)
     const stationDistancePerParameter = Object.entries(props.settings.useStationDistancePerParameter)
-      .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
+      .filter(([_, value]) => value != null && true && String(value).trim() !== '')
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
 
     if (Object.keys(stationDistancePerParameter).length > 0) {

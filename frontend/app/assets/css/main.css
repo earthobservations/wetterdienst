@@ -1,6 +1,24 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
+   Plotly layers multiple <svg class="main-svg"> that must overlap;
+   Tailwind's `svg { display: block }` causes them to stack vertically. */
+.svg-container > .main-svg {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  max-width: 100%;
+}
+
+.plot-container.plotly {
+  max-width: 100%;
+}
+
+.svg-container {
+  max-width: 100% !important;
+  overflow: hidden;
+}
 /* Sepia color mode */
 html.sepia {
   --ui-bg: #f4ecd8;

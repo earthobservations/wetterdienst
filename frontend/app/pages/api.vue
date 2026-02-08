@@ -6,7 +6,8 @@ const endpoints = [
   { name: 'interpolate', path: '/api/interpolate', description: 'Interpolate values for a specific location' },
   { name: 'summarize', path: '/api/summarize', description: 'Get summarized values for a location' },
   { name: 'stripes/stations', path: '/api/stripes/stations', description: 'Get stations for climate stripes visualization' },
-  { name: 'stripes/values', path: '/api/stripes/values', description: 'Generate climate stripes visualization' },
+  { name: 'stripes/values', path: '/api/stripes/values', description: 'Get climate stripes data values with timestamps' },
+  { name: 'stripes/image', path: '/api/stripes/image', description: 'Generate climate stripes image' },
 ]
 
 const examples = [
@@ -16,6 +17,7 @@ const examples = [
   { name: 'DWD Observation Daily Climate Summary', path: '/api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01' },
   { name: 'Climate Stripes Stations (Temperature)', path: '/api/stripes/stations?kind=temperature' },
   { name: 'Climate Stripes Values (Temperature)', path: '/api/stripes/values?kind=temperature&station=1048' },
+  { name: 'Climate Stripes Image (Temperature)', path: '/api/stripes/image?kind=temperature&station=1048' },
 ]
 </script>
 

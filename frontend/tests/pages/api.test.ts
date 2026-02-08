@@ -17,6 +17,7 @@ describe('api page', () => {
     expect(page.text()).toContain('summarize')
     expect(page.text()).toContain('stripes/stations')
     expect(page.text()).toContain('stripes/values')
+    expect(page.text()).toContain('stripes/image')
   })
 
   it('should display response formats', async () => {

@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Add timeseries and trendline overlays to stripes visualization
+- Add image download in PNG, JPG, and SVG formats for stripes
+- Add collapsible settings with toggleable display options (title, years, source, data availability)
+
+### Changed
+
+- Use new backend API endpoint for climate stripes data
+- Reorganize stripes UI with collapsible settings section
+
 ## [0.3.0] - 2026-02-05
 
 ### Added

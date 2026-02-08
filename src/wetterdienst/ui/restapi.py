@@ -30,6 +30,7 @@ from wetterdienst.ui.core import (
     StationsRequest,
     SummaryRequest,
     ValuesRequest,
+    _get_stripes_data,
     _get_stripes_stations,
     _plot_stripes,
     get_interpolate,
@@ -55,6 +56,7 @@ REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_summary": "api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01",  # noqa:E501
     "dwd_observation_daily_climate_stripes_stations": "api/stripes/stations?kind=temperature",
     "dwd_observation_daily_climate_stripes_values": "api/stripes/values?kind=temperature&station=1048",
+    "dwd_observation_daily_climate_stripes_image": "api/stripes/image?kind=temperature&station=1048",
 }
 
 
@@ -157,6 +159,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/summarize" target="_blank" rel="noopener">summary</a></li>
                     <li><a href="api/stripes/stations" target="_blank" rel="noopener">stripes stations</a></li>
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
+                    <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                 </ul>
                 <h2>Examples</h2>
                 <ul>
@@ -166,6 +169,7 @@ def index() -> HTMLResponse:
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_summary"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Summary</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_stations"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Stations</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_image"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Image</a></li>
                 </ul>
                 <h2>Producer</h2>
                 <ul>
@@ -573,6 +577,75 @@ def stripes_values(
     start_year: Annotated[int | None, Query()] = None,
     end_year: Annotated[int | None, Query()] = None,
     name_threshold: Annotated[float, Query()] = 0.9,
+    fmt: Annotated[Literal["json", "csv"], Query(alias="format")] = "json",
+    pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
+    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
+) -> Response:
+    """Get climate stripes data values with timestamps and metadata."""
+    set_logging_level(debug=debug)
+
+    if not station and not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'station' or 'name' is required",
+        )
+    if station and name:
+        raise HTTPException(
+            status_code=400,
+            detail="Query arguments 'station' and 'name' are mutually exclusive",
+        )
+    if start_year and end_year and start_year >= end_year:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'start_year' must be less than 'end_year'",
+        )
+    if name_threshold < 0 or name_threshold > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'name_threshold' must be between 0.0 and 1.0",
+        )
+
+    try:
+        stripes_data = _get_stripes_data(
+            kind=kind,
+            station_id=station,
+            name=name,
+            start_year=start_year,
+            end_year=end_year,
+            name_threshold=name_threshold,
+        )
+    except Exception as e:
+        log.exception("Failed to get stripes data")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    if fmt == "csv":
+        content = stripes_data.df.write_csv()
+        media_type = "text/csv"
+    else:
+        data = {
+            "metadata": stripes_data.metadata.model_dump(),
+            "values": [
+                {
+                    "date": row["date"].isoformat() if row["date"] else None,
+                    "value": row["value"],
+                }
+                for row in stripes_data.df.select("date", "value").iter_rows(named=True)
+            ],
+        }
+        content = json.dumps(data, indent=4 if pretty else None)
+        media_type = "application/json"
+
+    return Response(content=content, media_type=media_type)
+
+
+@app.get("/api/stripes/image")
+def stripes_image(
+    kind: Annotated[Literal["temperature", "precipitation"], Query()],
+    station: Annotated[str | None, Query()] = None,
+    name: Annotated[str | None, Query()] = None,
+    start_year: Annotated[int | None, Query()] = None,
+    end_year: Annotated[int | None, Query()] = None,
+    name_threshold: Annotated[float, Query()] = 0.9,
     show_title: Annotated[bool, Query()] = True,  # noqa: FBT002
     show_years: Annotated[bool, Query()] = True,  # noqa: FBT002
     show_data_availability: Annotated[bool, Query()] = True,  # noqa: FBT002
@@ -580,7 +653,7 @@ def stripes_values(
     dpi: Annotated[int, Query(gt=0)] = 300,
     debug: Annotated[bool, Query()] = False,  # noqa: FBT002
 ) -> Response:
-    """Wrap get_summarize to provide results via restapi."""
+    """Generate climate stripes image for a station."""
     set_logging_level(debug=debug)
 
     if not station and not name:
