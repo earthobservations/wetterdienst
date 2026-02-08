@@ -122,7 +122,7 @@ def test_dwd_observations_stations_minute_1(default_settings: Settings) -> None:
                 "resolution": "1_minute",
                 "dataset": "precipitation",
                 "station_id": "00003",
-                "start_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "start_date": dt.datetime(1829, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "end_date": dt.datetime(2012, 4, 6, tzinfo=ZoneInfo("UTC")),
                 "latitude": 50.7827,
                 "longitude": 6.0941,

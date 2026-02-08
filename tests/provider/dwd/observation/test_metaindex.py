@@ -42,7 +42,7 @@ def test_meta_index_1mph_creation(default_settings: Settings) -> None:
             "1_minute",
             "precipitation",
             "00003",
-            dt.datetime(1891, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(1829, 6, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
             dt.datetime(2012, 4, 6, 0, 0, tzinfo=ZoneInfo("UTC")),
             202.00,
             50.7827,
