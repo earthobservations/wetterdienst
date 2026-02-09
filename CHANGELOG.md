@@ -19,6 +19,7 @@ Types of changes:
 ### Changed
 
 - Improve interpolation and summary
+- DWD DMO: Remove unnecessary validation for minimum dataframe length in date extraction
 
 ## [0.118.0] - 2026-02-01
 
