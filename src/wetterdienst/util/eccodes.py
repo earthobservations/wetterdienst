@@ -25,13 +25,3 @@ def ensure_pdbufr() -> bool:
     except ImportError:
         return False
     return True
-
-
-@lru_cache
-def check_pdbufr() -> None:
-    """Ensure pdbufr is installed before doing anything else."""
-    try:
-        import pdbufr  # noqa: F401, PLC0415
-    except ImportError as e:
-        msg = "pdbufr is required for reading DWD Road Observations."
-        raise ImportError(msg) from e

@@ -24,7 +24,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
-from wetterdienst.util.eccodes import check_pdbufr
+from wetterdienst.util.eccodes import ensure_pdbufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 log = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ class DwdRoadValues(TimeseriesValues):
     def __post_init__(self) -> None:
         """Post-initialization of the DwdRoadValues class."""
         super().__post_init__()
-        check_pdbufr()
+        ensure_pdbufr()
 
     def _collect_station_parameter_or_dataset(
         self,
