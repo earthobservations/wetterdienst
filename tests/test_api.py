@@ -273,7 +273,7 @@ def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
 @pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed")
-@pytest.mark.skipif(not ensure_pdbufr(), reason="pdbufr not installed")
+@pytest.mark.skipif(not ensure_eccodes() and not ensure_pdbufr(), reason="pdbufr not installed")
 def test_api_dwd_road(default_settings: Settings) -> None:
     """Test dwd road API."""
     request = DwdRoadRequest(
