@@ -61,9 +61,6 @@ class DwdDmoLeadTime(Enum):
 
 def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.DataFrame:
     """Add date from filename."""
-    if len(df) < 2:
-        msg = "Dataframe must have at least 2 dates"
-        raise ValueError(msg)
     # get month and year from current date
     year = current_date.year
     month = current_date.month
