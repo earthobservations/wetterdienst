@@ -15,9 +15,9 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
 # Final stage
 FROM python:3.14-slim-trixie
 
-# Install chromium -> required for kaleido png export
+# Install chromium -> required for kaleido png export, and curl for health checks
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends chromium && \
+    apt-get install -y --no-install-recommends chromium curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy installed pip packages from build stage
