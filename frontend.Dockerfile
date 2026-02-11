@@ -23,6 +23,9 @@ RUN pnpm run build
 FROM node:22-alpine
 WORKDIR /app
 
+# Install curl
+RUN apk add --no-cache curl
+
 # Only copy the built output
 COPY --from=build /app/.output/ ./
 
