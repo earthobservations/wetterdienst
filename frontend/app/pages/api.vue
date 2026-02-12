@@ -22,12 +22,12 @@ const examples = [
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto py-8 px-4">
-    <div class="text-center mb-12">
+  <UContainer class="mx-auto max-w-3xl px-4 py-6">
+    <div class="text-center mb-8">
       <h1 class="text-4xl font-bold mb-4">
         REST API
       </h1>
-      <p class="text-xl text-gray-600 dark:text-gray-400">
+      <p class="text-gray-600 dark:text-gray-400">
         Access weather data programmatically
       </p>
     </div>
@@ -163,5 +163,5 @@ const examples = [
         </table>
       </div>
     </UCard>
-  </div>
+  </UContainer>
 </template>

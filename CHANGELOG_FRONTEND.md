@@ -26,6 +26,7 @@ Types of changes:
 
 - Use new backend API endpoint for climate stripes data
 - Reorganize stripes UI with collapsible settings section
+- Match layout of API page with other pages for consistency
 
 ## [0.3.0] - 2026-02-05
 
