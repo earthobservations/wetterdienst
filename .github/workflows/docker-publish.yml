@@ -12,7 +12,7 @@ on:
     branches: [ main ]
     paths:
       - 'wetterdienst/**'
-      - 'Dockerfile'
+      - 'docker/Dockerfile'
       - 'pyproject.toml'
       - '.github/workflows/docker-publish.yml'
 
@@ -141,7 +141,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile
+          file: docker/Dockerfile
           platforms: linux/amd64,linux/arm64  # TODO: add linux/arm/v7
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

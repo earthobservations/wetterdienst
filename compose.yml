@@ -3,7 +3,7 @@ services:
     profiles: ["backend"]
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
     image: wetterdienst-backend:dev
     container_name: wetterdienst-backend
     restart: unless-stopped
@@ -22,7 +22,7 @@ services:
     profiles: ["frontend"]
     build:
       context: .
-      dockerfile: frontend.dev.Dockerfile
+      dockerfile: docker/frontend.dev.Dockerfile
     image: wetterdienst-frontend:dev
     container_name: wetterdienst-frontend
     restart: unless-stopped
