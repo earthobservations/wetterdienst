@@ -24,4 +24,10 @@ def ensure_pdbufr() -> bool:
         import pdbufr  # noqa: F401, PLC0415
     except ImportError:
         return False
+    except RuntimeError as e:
+        # pdbufr may raise a RuntimeError if the underlying ecCodes library is not found, which is a common issue
+        # and should be treated as a missing dependency rather than a critical error
+        if "Cannot find the ecCodes library" in str(e):
+            return False
+        raise
     return True
