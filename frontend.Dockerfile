@@ -1,5 +1,5 @@
 # Build Stage
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 
 RUN corepack enable
@@ -20,7 +20,7 @@ COPY frontend/nuxt.config.ts ./
 RUN pnpm run build
 
 # Production Stage
-FROM node:22-alpine
+FROM node:25-alpine
 WORKDIR /app
 
 # Install curl
