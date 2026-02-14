@@ -22,7 +22,7 @@ on:
   # Allow job to be triggered manually.
   workflow_dispatch:
 
-permissions: {}
+permissions: { }
 
 # Cancel in-progress jobs when pushing to the same branch.
 concurrency:
@@ -43,27 +43,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: false
-          python-version: ${{ env.PYTHON }}
-
-      - name: Build wheel package
-        run: uv build
-
-      - name: Upload wheel package
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ runner.os }}-wheel-${{ github.sha }}
-          path: dist/wetterdienst-*.whl
-          retention-days: 7
-
       - name: Run tests
         run: |
           export DOCKER_BUILDKIT=1
           export COMPOSE_DOCKER_CLI_BUILD=1
           export BUILDKIT_PROGRESS=plain
-          docker build . -t wd
+          docker build -f docker/Dockerfile -t wd .
           docker run wd wetterdienst info
 
   docker:
@@ -79,12 +64,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
-
-      - name: Download wheel package
-        uses: actions/download-artifact@v7
-        with:
-          name: ${{ runner.os }}-wheel-${{ github.sha }}
-          path: dist
 
       - name: Docker meta
         id: meta
