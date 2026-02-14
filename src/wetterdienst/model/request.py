@@ -82,7 +82,7 @@ class TimeseriesRequest:
     parameters: _PARAMETER_TYPE
     start_date: _DATETIME_TYPE = None
     end_date: _DATETIME_TYPE = None
-    settings: Settings | dict = field(default_factory=lambda: Settings())
+    settings: Settings | dict = field(default_factory=Settings)
 
     def __post_init__(self) -> None:
         """Post init method to validate the settings and convert the timestamps."""

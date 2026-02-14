@@ -347,8 +347,9 @@ def list_remote_files_fsspec(
 
 
 @stamina.retry(
-    on=lambda response: isinstance(response, ClientResponse)
-    and (response.status == 429 or 500 <= response.status < 600),
+    on=lambda response: (
+        isinstance(response, ClientResponse) and (response.status == 429 or 500 <= response.status < 600)
+    ),
     attempts=2,
 )
 def download_file(
