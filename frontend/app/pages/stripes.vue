@@ -1,8 +1,4 @@
 <script setup lang="ts">
-import { defineAsyncComponent } from 'vue'
-
-const MapStations = defineAsyncComponent(() => import('~/components/MapStations.vue'))
-
 // Plotly instance (loaded client-side only)
 const plotlyLoaded = ref(false)
 let Plotly: typeof import('plotly.js-dist-min') | null = null
@@ -17,8 +13,6 @@ const showDataAvailability = ref(true)
 const showTimeseries = ref(false)
 const showTrendline = ref(false)
 const showSource = ref(true)
-
-const _stationSelectionModel = undefined // kept for future use
 
 const { data: stationsData, pending: stationsPending } = useFetch<StripesStationsResponse>(
   '/api/stripes/stations',
@@ -378,13 +372,19 @@ async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
   if (!plotContainer.value || !Plotly || !lastFetchedData.value)
     return
 
+  // Get the current dimensions of the plot container
+  const containerWidth = plotContainer.value.clientWidth
+  const containerHeight = plotContainer.value.clientHeight
+
+  // Use current dimensions with a scale factor for high resolution
+  // This preserves aspect ratio AND scales text/annotations proportionally
   const station = lastFetchedData.value.metadata.station
   await Plotly.downloadImage(plotContainer.value, {
     format,
     filename: `climate_stripes_${kind.value}_${station.station_id}_${station.name}`,
-    height: showTitle.value ? 700 : 600,
-    width: 1400,
-    scale: format === 'svg' ? 1 : 2,
+    height: containerHeight,
+    width: containerWidth,
+    scale: format === 'svg' ? 1 : 3, // Scale factor of 3 for high-quality raster images
   })
 }
 
