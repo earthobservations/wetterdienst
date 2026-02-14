@@ -182,19 +182,6 @@ export interface StripesValuesQuery {
   name_threshold?: number
 }
 
-export interface StripesImageQuery {
-  kind: StripesKind
-  station?: string
-  name?: string
-  format?: 'png' | 'jpg' | 'svg' | 'pdf'
-  show_title?: boolean | string
-  show_years?: boolean | string
-  show_data_availability?: boolean | string
-  start_year?: number
-  end_year?: number
-  dpi?: number
-}
-
 // ============================================================================
 // Error Response
 // ============================================================================

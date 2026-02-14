@@ -29,6 +29,10 @@ Types of changes:
 - Match layout of API page with other pages for consistency
 - Stripes: Fix dimensions for image download
 
+### Remove
+
+- Remove image response handling and related query interface
+
 ## [0.3.0] - 2026-02-05
 
 ### Added
