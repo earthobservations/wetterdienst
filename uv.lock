@@ -430,6 +430,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cachetools"
+version = "6.2.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/39/91/d9ae9a66b01102a18cd16db0cf4cd54187ffe10f0865cc80071a4104fbb3/cachetools-6.2.6.tar.gz", hash = "sha256:16c33e1f276b9a9c0b49ab5782d901e3ad3de0dd6da9bf9bcd29ac5672f2f9e6", size = 32363, upload-time = "2026-01-27T20:32:59.956Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/90/45/f458fa2c388e79dd9d8b9b0c99f1d31b568f27388f2fdba7bb66bbc0c6ed/cachetools-6.2.6-py3-none-any.whl", hash = "sha256:8c9717235b3c651603fff0076db52d6acbfd1b338b8ed50256092f7ce9c85bda", size = 11668, upload-time = "2026-01-27T20:32:58.527Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1155,15 +1164,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/30/1d/c5913ac9d6615515a00f4bdc71356d302437cb74ff2e9aaccd3c14493b78/dirty_equals-0.11.tar.gz", hash = "sha256:f4ac74ee88f2d11e2fa0f65eb30ee4f07105c5f86f4dc92b09eb1138775027c3", size = 128067, upload-time = "2025-11-17T01:51:24.451Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/8d/dbff05239043271dbeace563a7686212a3dd517864a35623fe4d4a64ca19/dirty_equals-0.11-py3-none-any.whl", hash = "sha256:b1d7093273fc2f9be12f443a8ead954ef6daaf6746fd42ef3a5616433ee85286", size = 28051, upload-time = "2025-11-17T01:51:22.849Z" },
-]
-
-[[package]]
-name = "diskcache"
-version = "5.6.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3f/21/1c1ffc1a039ddcc459db43cc108658f32c57d271d7289a2794e401d0fdb6/diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc", size = 67916, upload-time = "2023-08-31T06:12:00.316Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/27/4570e78fc0bf5ea0ca45eb1de3818a23787af9b390c0b0a0033a1b8236f9/diskcache-5.6.3-py3-none-any.whl", hash = "sha256:5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19", size = 45550, upload-time = "2023-08-31T06:11:58.822Z" },
 ]
 
 [[package]]
@@ -5182,6 +5182,18 @@ wheels = [
 ]
 
 [[package]]
+name = "shelved-cache"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cachetools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/c8/379fd1cfaa0d567917c5e90faf8df208cd5f7fe08e395237b34efe418f6d/shelved_cache-0.5.0.tar.gz", hash = "sha256:6424ad2b016081f4c979871c90e83d2982ac9c43a10e98102fa77aeea797538c", size = 6537, upload-time = "2025-12-15T00:28:35.429Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/c6/78d4c216f8e97a0b96c745ad11a084596a15547fe8035a00e3479c4b7349/shelved_cache-0.5.0-py3-none-any.whl", hash = "sha256:aa474cacc28f5891d4bdafeb95facb23c08c191a8df7daf6db5d2401bc604448", size = 8057, upload-time = "2025-12-15T00:28:34.683Z" },
+]
+
+[[package]]
 name = "simplejson"
 version = "3.20.2"
 source = { registry = "https://pypi.org/simple" }
@@ -6162,10 +6174,10 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'" },
+    { name = "cachetools" },
     { name = "certifi" },
     { name = "click" },
     { name = "cloup" },
-    { name = "diskcache" },
     { name = "fsspec", extra = ["http"] },
     { name = "lxml" },
     { name = "measurement" },
@@ -6178,6 +6190,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-dateutil" },
     { name = "rapidfuzz" },
+    { name = "shelved-cache" },
     { name = "stamina" },
     { name = "tabulate" },
     { name = "tqdm" },
@@ -6296,10 +6309,10 @@ docs = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.13.2,<4" },
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'", specifier = ">=2" },
+    { name = "cachetools", specifier = ">=6.2.6,<7" },
     { name = "certifi", specifier = ">=2024.2.2" },
     { name = "click", specifier = ">=8,<9" },
     { name = "cloup", specifier = ">=3.0.1,<4" },
-    { name = "diskcache", specifier = ">=5.4,<6" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=0.9,<2" },
     { name = "duckdb", marker = "extra == 'sql'", specifier = ">=0.9,<2" },
     { name = "eccodes", marker = "python_full_version < '3.14' and extra == 'eccodes'", specifier = ">=1.5.2,<3" },
@@ -6336,6 +6349,7 @@ requires-dist = [
     { name = "rapidfuzz", specifier = ">=3.1,<4" },
     { name = "scipy", marker = "extra == 'interpolation'", specifier = ">=1.14.1,<2" },
     { name = "shapely", marker = "extra == 'interpolation'", specifier = ">=2,<3" },
+    { name = "shelved-cache", specifier = ">=0.5.0,<1" },
     { name = "sqlalchemy", marker = "extra == 'export'", specifier = ">=2,<3" },
     { name = "sqlalchemy-cratedb", marker = "extra == 'cratedb'", specifier = "<1" },
     { name = "stamina", specifier = ">=23,<26" },

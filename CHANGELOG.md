@@ -25,6 +25,9 @@ Types of changes:
 - Improve interpolation and summary
 - DWD DMO: Remove unnecessary validation for minimum dataframe length in date extraction
 - Rename API endpoint /stripes/values to /stripes/image
+- Migrate from `diskcache` to `cachetools` and `shelved-cache` for caching functionality. The new
+  implementation uses `shelved_cache.PersistentCache` wrapping `cachetools.TTLCache` for improved
+  maintainability while preserving all existing functionality and API compatibility.
 
 ## [0.118.0] - 2026-02-01
 
