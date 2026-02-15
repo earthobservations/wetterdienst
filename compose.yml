@@ -1,6 +1,6 @@
 services:
   backend:
-    profiles: ["backend"]
+    profiles: [ "backend", "app" ]
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -10,16 +10,21 @@ services:
     environment:
       # Common development env overrides; can be overridden in .env
       - PYTHONUNBUFFERED=1
+    command: [ "wetterdienst", "restapi", "--listen", "0.0.0.0:3000" ]
     ports:
       - "3000:3000"
-    command: ["wetterdienst", "restapi", "--listen", "0.0.0.0:3000"]
     develop:
       watch:
-        - path: wetterdienst/
+        - path: src/wetterdienst
+          action: sync
+          target: /app
+        - path: ./pyproject.toml
+          action: rebuild
+        - path: ./uv.lock
           action: rebuild
 
   frontend:
-    profiles: ["frontend"]
+    profiles: [ "frontend", "app" ]
     build:
       context: .
       dockerfile: docker/frontend.dev.Dockerfile
@@ -29,6 +34,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=4000
+      - NUXT_PUBLIC_API_BASE=http://backend:3000/api
     ports:
       - "4000:4000"
     develop:
