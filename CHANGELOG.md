@@ -26,6 +26,10 @@ Types of changes:
 - DWD DMO: Remove unnecessary validation for minimum dataframe length in date extraction
 - Rename API endpoint /stripes/values to /stripes/image
 
+### Fixed
+
+- Update API endpoint for geosphere data retrieval
+
 ## [0.118.0] - 2026-02-01
 
 ### Added
