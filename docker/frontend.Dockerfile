@@ -1,8 +1,12 @@
 # Build Stage
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 
-RUN corepack enable
+# Install corepack and prepare pnpm (remove existing yarn to avoid conflicts)
+RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && \
+    npm install -g corepack && \
+    corepack enable && \
+    corepack prepare pnpm@latest --activate
 
 # Copy package files
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
