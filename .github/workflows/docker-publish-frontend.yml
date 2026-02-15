@@ -9,6 +9,8 @@ on:
     paths:
       - 'frontend/**'
       - 'docker/frontend.Dockerfile'
+      - 'frontend/package.json'
+      - 'frontend/pnpm-lock.yaml'
       - '.github/workflows/docker-publish-frontend.yml'
 
   schedule:
@@ -17,7 +19,7 @@ on:
   # Allow job to be triggered manually.
   workflow_dispatch:
 
-permissions: {}
+permissions: { }
 
 # Cancel in-progress jobs when pushing to the same branch.
 concurrency:

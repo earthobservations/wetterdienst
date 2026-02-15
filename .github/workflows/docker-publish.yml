@@ -11,9 +11,10 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - 'wetterdienst/**'
+      - 'src/wetterdienst/**'
       - 'docker/Dockerfile'
       - 'pyproject.toml'
+      - 'uv.lock'
       - '.github/workflows/docker-publish.yml'
 
   schedule:
