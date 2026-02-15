@@ -100,7 +100,8 @@ class FileDirCache(MutableMapping):
 
         """
         import platformdirs  # noqa: PLC0415
-        from diskcache import Cache  # noqa: PLC0415
+        from cachetools import TTLCache  # noqa: PLC0415
+        from shelved_cache import PersistentCache  # noqa: PLC0415
 
         listings_expiry_time = listings_expiry_time and float(listings_expiry_time)
 
@@ -120,13 +121,26 @@ class FileDirCache(MutableMapping):
 
         self.cache_location = cache_location
 
-        self._cache = Cache(directory=str(cache_location))
+        # Use a large maxsize for the cache since we rely on TTL for expiration
+        # TTLCache requires a maxsize, so we set it to a reasonable limit
+        cache_maxsize = 10000
+        # Convert ttl to None if 0 (no expiration)
+        cache_ttl = listings_expiry_time or float("inf")
+        self._cache = PersistentCache(
+            wrapped_cache_cls=TTLCache,
+            filename=str(cache_location / "cache.db"),
+            maxsize=cache_maxsize,
+            ttl=cache_ttl,
+        )
         self.use_listings_cache = use_listings_cache
         self.listings_expiry_time = listings_expiry_time
 
     def __getitem__(self, item: str) -> BytesIO:
-        """Draw item as fileobject from cache, retry if timeout occurs."""
-        return self._cache.get(key=item, read=True, retry=True)
+        """Draw item as fileobject from cache."""
+        value = self._cache.get(item)
+        if value is None:
+            raise KeyError(item)
+        return value
 
     def clear(self) -> None:
         """Clear cache."""
@@ -134,18 +148,17 @@ class FileDirCache(MutableMapping):
 
     def __len__(self) -> int:
         """Return number of items in cache."""
-        return len(list(self._cache.iterkeys()))
+        return len(self._cache)
 
     def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
-        value = self._cache.get(item, retry=True)  # None, if expired
-        return bool(value)
+        return item in self._cache
 
     def __setitem__(self, key: str, value: BytesIO) -> None:
         """Store fileobject in cache."""
         if not self.use_listings_cache:
             return
-        self._cache.set(key=key, value=value, expire=self.listings_expiry_time, retry=True)
+        self._cache[key] = value
 
     def __delitem__(self, key: str) -> None:
         """Remove item from cache."""
@@ -153,7 +166,7 @@ class FileDirCache(MutableMapping):
 
     def __iter__(self) -> Generator[bytes]:
         """Iterate over keys in cache."""
-        return (k for k in self._cache.iterkeys() if k in self)
+        return iter(self._cache)
 
     def __reduce__(self) -> tuple:
         """Return state information for pickling."""
