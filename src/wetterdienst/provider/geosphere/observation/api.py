@@ -143,7 +143,7 @@ class GeosphereObservationRequest(TimeseriesRequest):
     metadata = GeosphereObservationMetadata
     _values = GeosphereObservationValues
 
-    _endpoint = "https://dataset.api.hub.zamg.ac.at/v1/station/historical/{dataset}/metadata/stations"
+    _endpoint = "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}/metadata/stations"
 
     def _all(self) -> pl.LazyFrame:
         data = []
