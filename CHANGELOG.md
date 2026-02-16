@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.119.0] - 2026-02-17
+
 ### Added
 
 - New API endpoint for climate stripes data
@@ -1677,7 +1679,9 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.118.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.119.0...HEAD
+
+[0.119.0]: https://github.com/earthobservations/wetterdienst/compare/v0.118.0...v0.119.0
 
 [0.118.0]: https://github.com/earthobservations/wetterdienst/compare/v0.117.0...v0.118.0
 
@@ -1911,29 +1915,29 @@ Types of changes:
 
 [0.30.1]: https://github.com/earthobservations/wetterdienst/compare/v0.30.0...v0.30.1
 
-[0.30.0]: https://github.com/earthobservations/wetterdienst/compare/v0.29.0...v0.30.0
+[0.30.0]: https://github.com/earthobservations/wetterdienst/compare/v0.29.0...v0.30.
 
-[0.29.0]: https://github.com/earthobservations/wetterdienst/compare/v0.28.0...v0.29.0
+[0.29.0]: https://github.com/earthobservations/wetterdienst/compare/v0.28.0...v0.29.
 
-[0.28.0]: https://github.com/earthobservations/wetterdienst/compare/v0.27.0...v0.28.0
+[0.28.0]: https://github.com/earthobservations/wetterdienst/compare/v0.27.0...v0.28.
 
-[0.27.0]: https://github.com/earthobservations/wetterdienst/compare/v0.26.0...v0.27.0
+[0.27.0]: https://github.com/earthobservations/wetterdienst/compare/v0.26.0...v0.27.
 
-[0.26.0]: https://github.com/earthobservations/wetterdienst/compare/v0.25.1...v0.26.0
+[0.26.0]: https://github.com/earthobservations/wetterdienst/compare/v0.25.1...v0.26.
 
-[0.25.1]: https://github.com/earthobservations/wetterdienst/compare/v0.25.0...v0.25.1
+[0.25.1]: https://github.com/earthobservations/wetterdienst/compare/v0.25.0...v0.25.
 
-[0.25.0]: https://github.com/earthobservations/wetterdienst/compare/v0.24.0...v0.25.0
+[0.25.0]: https://github.com/earthobservations/wetterdienst/compare/v0.24.0...v0.25.
 
-[0.24.0]: https://github.com/earthobservations/wetterdienst/compare/v0.23.0...v0.24.0
+[0.24.0]: https://github.com/earthobservations/wetterdienst/compare/v0.23.0...v0.24.
 
-[0.23.0]: https://github.com/earthobservations/wetterdienst/compare/v0.22.0...v0.23.0
+[0.23.0]: https://github.com/earthobservations/wetterdienst/compare/v0.22.0...v0.23.
 
-[0.22.0]: https://github.com/earthobservations/wetterdienst/compare/v0.21.0...v0.22.0
+[0.22.0]: https://github.com/earthobservations/wetterdienst/compare/v0.21.0...v0.22.
 
-[0.21.0]: https://github.com/earthobservations/wetterdienst/compare/v0.20.4...v0.21.0
+[0.21.0]: https://github.com/earthobservations/wetterdienst/compare/v0.20.4...v0.21.
 
-[0.20.4]: https://github.com/earthobservations/wetterdienst/compare/v0.20.3...v0.20.4
+[0.20.4]: https://github.com/earthobservations/wetterdienst/compare/v0.20.3...v0.20.
 
 [0.20.3]: https://github.com/earthobservations/wetterdienst/compare/v0.20.2...v0.20.3
 
