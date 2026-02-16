@@ -77,9 +77,11 @@ export default defineNuxtConfig({
     headers: {
       contentSecurityPolicy: {
         'default-src': ['\'self\''],
-        'connect-src': ['\'self\'', new URL(process.env.NUXT_PUBLIC_API_BASE || 'http://0.0.0.0:3000/api').origin, 'https://api.iconify.design', 'https://code.iconify.design'],
+        'connect-src': ['\'self\'', new URL(process.env.NUXT_PUBLIC_API_BASE || 'http://0.0.0.0:3000/api').origin, 'https://api.iconify.design', 'https://code.iconify.design', 'https://cdn.jsdelivr.net'],
         'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com', 'https://avatars.githubusercontent.com', 'https://api.iconify.design', 'https://code.iconify.design'],
-        'script-src': ['\'self\'', '\'unsafe-inline\'', '\'unsafe-eval\'', 'https://api.iconify.design'],
+        'script-src': ['\'self\'', '\'unsafe-inline\'', '\'unsafe-eval\'', 'https://api.iconify.design', 'https://cdn.jsdelivr.net', 'blob:'],
+        'worker-src': ['\'self\'', 'blob:', 'https://cdn.jsdelivr.net'],
+        'child-src': ['\'self\'', 'blob:'],
         'style-src': ['\'self\'', '\'unsafe-inline\''],
         'font-src': ['\'self\'', 'https:', 'data:'],
         'base-uri': ['\'none\''],
