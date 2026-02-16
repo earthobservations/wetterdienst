@@ -21,6 +21,7 @@
     "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "1.33.1-dev18.0",
     "@nuxt/icon": "^2.2.1",
     "@nuxt/ui": "^4.4.0",
     "@nuxtjs/leaflet": "^1.3.2",
@@ -45,7 +46,6 @@
     "eslint-plugin-oxlint": "^1.46.0",
     "happy-dom": "^20.6.1",
     "oxlint": "^1.47.0",
-    "playwright": "1.57.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
     "vue-tsc": "^3.2.4"

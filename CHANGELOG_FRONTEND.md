@@ -21,6 +21,7 @@ Types of changes:
 - Add timeseries and trendline overlays to stripes visualization
 - Add image download in PNG, JPG, and SVG formats for stripes
 - Add collapsible settings with toggleable display options (title, years, source, data availability)
+- Add DuckDB query component for direct SQL querying on data
 
 ### Changed
 

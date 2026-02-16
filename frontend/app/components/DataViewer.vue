@@ -5,6 +5,7 @@ import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import { h } from 'vue'
+import QueryPanel from '~/components/QueryPanel.vue'
 import { formatDate } from '~/utils/format'
 
 const props = defineProps<{
@@ -176,6 +177,18 @@ const { data: valuesData, pending: valuesPending, refresh: refreshValues } = use
 
 const allValues = computed(() => valuesData.value?.values ?? [])
 
+// Query transformed data
+const transformedData = ref<Value[]>([])
+const isDataTransformed = ref(false)
+
+// Display data (either original or transformed)
+const displayData = computed(() => isDataTransformed.value ? transformedData.value : allValues.value)
+
+function handleDataTransformed(data: Value[]) {
+  transformedData.value = data
+  isDataTransformed.value = data.length > 0 && data !== allValues.value
+}
+
 const columnDefinitions: { key: keyof Value, column: TableColumn<Value> }[] = [
   { key: 'station_id', column: { accessorKey: 'station_id', header: 'station_id' } },
   { key: 'resolution', column: { accessorKey: 'resolution', header: 'resolution' } },
@@ -216,9 +229,9 @@ function getSortIcon(column: keyof Value) {
 
 const sortedValues = computed(() => {
   if (!sortColumn.value)
-    return allValues.value
+    return displayData.value
 
-  return [...allValues.value].sort((a, b) => {
+  return [...displayData.value].sort((a, b) => {
     const aVal = a[sortColumn.value!]
     const bVal = b[sortColumn.value!]
 
@@ -239,7 +252,27 @@ const sortedValues = computed(() => {
   })
 })
 
-const columnOptions = columnDefinitions.map(c => c.key)
+function resetTransform() {
+  isDataTransformed.value = false
+  transformedData.value = []
+}
+
+// Reset transform when new data is fetched
+watch(allValues, () => {
+  resetTransform()
+})
+
+// Column options based on mode - only show mode-specific columns when in that mode
+const columnOptions = computed(() => {
+  const base: (keyof Value)[] = ['station_id', 'resolution', 'dataset', 'parameter', 'date', 'value', 'quality']
+  if (isSummaryMode.value) {
+    return [...base, 'taken_station_id']
+  }
+  if (isInterpolationMode.value) {
+    return [...base, 'taken_station_ids']
+  }
+  return base
+})
 
 // Default columns based on mode
 const defaultColumns = computed((): (keyof Value)[] => {
@@ -803,12 +836,12 @@ interface ParameterStats {
 }
 
 const parameterStats = computed((): ParameterStats[] => {
-  if (!allValues.value.length)
+  if (!displayData.value.length)
     return []
 
   const statsMap = new Map<string, { values: number[], dataset: string }>()
 
-  for (const value of allValues.value) {
+  for (const value of displayData.value) {
     const key = `${value.dataset}/${value.parameter}`
     if (!statsMap.has(key)) {
       statsMap.set(key, { values: [], dataset: value.dataset })
@@ -872,138 +905,158 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
 
 <template>
   <div class="space-y-4">
-    <!-- View mode toggle -->
-    <div class="flex justify-center">
-      <div class="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
-        <UButton
-          icon="i-lucide-table"
-          size="md"
-          :variant="viewMode === 'table' ? 'solid' : 'ghost'"
-          :color="viewMode === 'table' ? 'primary' : 'neutral'"
-          @click="viewMode = 'table'"
-        />
-        <UButton
-          icon="i-lucide-chart-line"
-          size="md"
-          :variant="viewMode === 'graph' ? 'solid' : 'ghost'"
-          :color="viewMode === 'graph' ? 'primary' : 'neutral'"
-          @click="viewMode = 'graph'"
-        />
-      </div>
-    </div>
-
-    <!-- Options bar -->
-    <div class="flex items-center justify-between">
-      <span class="text-sm text-gray-500">
-        <template v-if="valuesPending">Loading values...</template>
-        <template v-else>{{ allValues.length }} values</template>
-      </span>
-      <div class="flex items-center gap-4">
-        <div v-if="viewMode === 'table'" class="flex items-center gap-2">
-          <span class="text-sm">Columns:</span>
-          <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40" />
-        </div>
-        <div class="flex items-center gap-1">
-          <template v-if="viewMode === 'table'">
-            <UTooltip text="Copy current page">
-              <UButton
-                size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending"
-                @click="copyCurrentPage"
-              />
-            </UTooltip>
-            <UTooltip text="Copy all values">
-              <UButton
-                size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending"
-                @click="copyAllValues"
-              />
-            </UTooltip>
-          </template>
-          <UDropdownMenu :items="downloadMenuItems">
-            <UButton size="xs" variant="ghost" icon="i-lucide-download" :disabled="valuesPending" />
-          </UDropdownMenu>
-        </div>
-      </div>
-    </div>
-
-    <!-- Chart Settings (only in graph mode) -->
-    <UCollapsible v-if="viewMode === 'graph'" :default-open="true">
-      <UButton
-        label="Chart Settings"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        size="sm"
-      />
-      <template #content>
-        <div class="pt-4 space-y-4">
-          <!-- Display Options -->
-          <div class="flex flex-wrap items-center gap-4">
-            <div class="flex items-center gap-2">
-              <label class="text-sm text-gray-600 dark:text-gray-300">Parameter label:</label>
-              <USelect v-model="paramLabelFormat" :items="paramLabelItems" class="w-56" />
-            </div>
-            <UCheckbox v-model="facetByParameter" label="Facet by parameter" />
-            <UCheckbox v-model="showTrendline" label="Trendline" />
-          </div>
+    <UCollapsible default-open>
+      <template #summary>
+        <div class="flex items-center justify-between w-full">
+          <h3 class="text-lg font-semibold">
+            Data
+          </h3>
         </div>
       </template>
-    </UCollapsible>
 
-    <!-- Content -->
-    <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
-      <div v-if="valuesPending" class="flex items-center justify-center py-12">
-        <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
-      </div>
-      <template v-else>
-        <div v-if="allValues.length === 0" class="flex items-center justify-center py-12 text-gray-500">
-          Select parameters and stations, then click Fetch to load data
+      <!-- Query Transform Panel - Inside collapsible for full width -->
+      <QueryPanel
+        v-if="allValues.length > 0"
+        :data="allValues"
+        :expected-columns="columnOptions"
+        :mode="stationSelection.mode"
+        @data-transformed="handleDataTransformed"
+      />
+
+      <!-- View mode toggle -->
+      <div class="flex justify-center">
+        <div class="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+          <UButton
+            icon="i-lucide-table"
+            size="md"
+            :variant="viewMode === 'table' ? 'solid' : 'ghost'"
+            :color="viewMode === 'table' ? 'primary' : 'neutral'"
+            @click="viewMode = 'table'"
+          />
+          <UButton
+            icon="i-lucide-chart-line"
+            size="md"
+            :variant="viewMode === 'graph' ? 'solid' : 'ghost'"
+            :color="viewMode === 'graph' ? 'primary' : 'neutral'"
+            @click="viewMode = 'graph'"
+          />
         </div>
-        <UTable
-          v-else-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky
-          :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
+      </div>
+
+      <!-- Options bar -->
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-gray-500">
+          <template v-if="valuesPending">Loading values...</template>
+          <template v-else-if="isDataTransformed">{{ displayData.length }} values (transformed from {{ allValues.length }})</template>
+          <template v-else>{{ allValues.length }} values</template>
+        </span>
+        <div class="flex items-center gap-4">
+          <div v-if="viewMode === 'table'" class="flex items-center gap-2">
+            <span class="text-sm">Columns:</span>
+            <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40" />
+          </div>
+          <div class="flex items-center gap-1">
+            <template v-if="viewMode === 'table'">
+              <UTooltip text="Copy current page">
+                <UButton
+                  size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending"
+                  @click="copyCurrentPage"
+                />
+              </UTooltip>
+              <UTooltip text="Copy all values">
+                <UButton
+                  size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending"
+                  @click="copyAllValues"
+                />
+              </UTooltip>
+            </template>
+            <UDropdownMenu :items="downloadMenuItems">
+              <UButton size="xs" variant="ghost" icon="i-lucide-download" :disabled="valuesPending" />
+            </UDropdownMenu>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Settings (only in graph mode) -->
+      <UCollapsible v-if="viewMode === 'graph'" :default-open="true">
+        <UButton
+          label="Chart Settings"
+          variant="subtle"
+          color="neutral"
+          trailing-icon="i-lucide-chevron-down"
+          block
+          size="sm"
         />
-        <div v-else class="py-4">
-          <div
-            v-if="allValues.length === 0"
-            class="flex items-center justify-center py-12 text-gray-500"
-          >
+        <template #content>
+          <div class="pt-4 space-y-4">
+            <!-- Display Options -->
+            <div class="flex flex-wrap items-center gap-4">
+              <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-600 dark:text-gray-300">Parameter label:</label>
+                <USelect v-model="paramLabelFormat" :items="paramLabelItems" class="w-56" />
+              </div>
+              <UCheckbox v-model="facetByParameter" label="Facet by parameter" />
+              <UCheckbox v-model="showTrendline" label="Trendline" />
+            </div>
+          </div>
+        </template>
+      </UCollapsible>
+
+      <!-- Content -->
+      <UCard :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
+        <div v-if="valuesPending" class="flex items-center justify-center py-12">
+          <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
+        </div>
+        <template v-else>
+          <div v-if="allValues.length === 0" class="flex items-center justify-center py-12 text-gray-500">
             Select parameters and stations, then click Fetch to load data
           </div>
-          <div
-            v-else-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)"
-            class="flex items-center justify-center py-12 text-gray-500"
-          >
-            No data available for chart
-          </div>
-          <!-- Faceted charts (one per parameter) -->
-          <div v-else-if="facetByParameter" class="space-y-6">
+          <UTable
+            v-else-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky
+            :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
+          />
+          <div v-else class="py-4">
             <div
-              v-for="facet in facetedChartData" :key="facet.parameter"
-              class="border rounded-lg p-4 dark:border-gray-700"
+              v-if="allValues.length === 0"
+              class="flex items-center justify-center py-12 text-gray-500"
             >
-              <h4 class="text-sm font-medium mb-2">
-                {{ facet.parameter }}
-              </h4>
-              <div
-                :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" class="w-full"
-                style="height: 300px;"
-              />
+              Select parameters and stations, then click Fetch to load data
             </div>
+            <div
+              v-else-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)"
+              class="flex items-center justify-center py-12 text-gray-500"
+            >
+              No data available for chart
+            </div>
+            <!-- Faceted charts (one per parameter) -->
+            <div v-else-if="facetByParameter" class="space-y-6">
+              <div
+                v-for="facet in facetedChartData" :key="facet.parameter"
+                class="border rounded-lg p-4 dark:border-gray-700"
+              >
+                <h4 class="text-sm font-medium mb-2">
+                  {{ facet.parameter }}
+                </h4>
+                <div
+                  :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" class="w-full"
+                  style="height: 300px;"
+                />
+              </div>
+            </div>
+            <!-- Single combined chart -->
+            <div v-else ref="chartRef" class="w-full overflow-visible" style="height: 400px;" />
           </div>
-          <!-- Single combined chart -->
-          <div v-else ref="chartRef" class="w-full overflow-visible" style="height: 400px;" />
-        </div>
-      </template>
-      <template v-if="viewMode === 'table'" #footer>
-        <div class="flex items-center justify-center gap-4">
-          <div class="flex items-center gap-2">
-            <span class="text-sm">Rows per page:</span>
-            <USelect v-model="pageSize" :items="pageSizeOptions" class="w-20" />
+        </template>
+        <template v-if="viewMode === 'table'" #footer>
+          <div class="flex items-center justify-center gap-4">
+            <div class="flex items-center gap-2">
+              <span class="text-sm">Rows per page:</span>
+              <USelect v-model="pageSize" :items="pageSizeOptions" class="w-20" />
+            </div>
+            <UPagination v-model:page="currentPage" :total="displayData.length" :items-per-page="pageSize" />
           </div>
-          <UPagination v-model:page="currentPage" :total="allValues.length" :items-per-page="pageSize" />
-        </div>
-      </template>
-    </UCard>
+        </template>
+      </UCard>
+    </ucollapsible>
   </div>
 </template>
