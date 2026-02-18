@@ -140,8 +140,8 @@ class DwdObservationValues(TimeseriesValues):
             "parameter",
             pl.col("station_id").str.pad_start(5, "0"),
             pl.col("date").dt.replace_time_zone("UTC"),
-            pl.col("value").cast(pl.Float64),
-            pl.col("quality").cast(pl.Float64),
+            pl.col("value").cast(pl.Float32),
+            pl.col("quality").cast(pl.Float32),
         )
 
     @staticmethod

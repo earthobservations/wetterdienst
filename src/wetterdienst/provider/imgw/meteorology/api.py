@@ -585,8 +585,8 @@ class ImgwMeteorologyValues(TimeseriesValues):
             pl.col("parameter"),
             pl.col("station_id"),
             pl.col("date").dt.replace_time_zone("UTC"),
-            pl.col("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.col("value").cast(pl.Float32),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
     def _parse_file(
@@ -634,7 +634,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             exp2 = pl.datetime("year", "month", 1).alias("date")
         df = df.select(exp1, exp2)
         df = df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name="value")
-        return df.with_columns(pl.col("value").cast(pl.Float64))
+        return df.with_columns(pl.col("value").cast(pl.Float32))
 
     def _get_urls(self, dataset: DatasetModel) -> list[str]:
         """Get URLs for the given dataset."""
@@ -744,5 +744,5 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         return df.with_columns(
             pl.col("latitude").map_batches(convert_dms_string_to_dd),
             pl.col("longitude").map_batches(convert_dms_string_to_dd),
-            pl.col("height").str.replace(" ", "").cast(pl.Float64, strict=False),
+            pl.col("height").str.replace(" ", "").cast(pl.Float32, strict=False),
         )

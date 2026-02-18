@@ -170,12 +170,12 @@ class NwsObservationValues(TimeseriesValues):
                                     "timestamp": pl.String,
                                     "temperature": pl.Struct(
                                         [
-                                            pl.Field("value", pl.Float64),
+                                            pl.Field("value", pl.Float32),
                                         ],
                                     ),
                                     "dewpoint": pl.Struct(
                                         [
-                                            pl.Field("value", pl.Float64),
+                                            pl.Field("value", pl.Float32),
                                         ],
                                     ),
                                     "windDirection": pl.Struct(
@@ -185,7 +185,7 @@ class NwsObservationValues(TimeseriesValues):
                                     ),
                                     "windSpeed": pl.Struct(
                                         [
-                                            pl.Field("value", pl.Float64),
+                                            pl.Field("value", pl.Float32),
                                         ],
                                     ),
                                     "windGust": pl.Struct(
@@ -227,12 +227,12 @@ class NwsObservationValues(TimeseriesValues):
                                     ),
                                     "relativeHumidity": pl.Struct(
                                         [
-                                            pl.Field("value", pl.Float64),
+                                            pl.Field("value", pl.Float32),
                                         ],
                                     ),
                                     "windChill": pl.Struct(
                                         [
-                                            pl.Field("value", pl.Float64),
+                                            pl.Field("value", pl.Float32),
                                         ],
                                     ),
                                 },
@@ -257,8 +257,8 @@ class NwsObservationValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%z"),
-            pl.col("value").struct.field("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.col("value").struct.field("value").cast(pl.Float32),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
 
@@ -315,8 +315,8 @@ class NwsObservationRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
             pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
-            pl.col("latitude").cast(pl.Float64),
-            pl.col("longitude").cast(pl.Float64),
-            pl.col("height").cast(pl.Float64),
+            pl.col("latitude").cast(pl.Float32),
+            pl.col("longitude").cast(pl.Float32),
+            pl.col("height").cast(pl.Float32),
         )
         return df.filter(pl.col("longitude").lt(0) & pl.col("latitude").gt(0))

@@ -28,9 +28,9 @@ def mosmix_stations_schema() -> dict:
         "icao_id": pl.String,
         "start_date": pl.Datetime(time_zone="UTC"),
         "end_date": pl.Datetime(time_zone="UTC"),
-        "latitude": pl.Float64,
-        "longitude": pl.Float64,
-        "height": pl.Float64,
+        "latitude": pl.Float32,
+        "longitude": pl.Float32,
+        "height": pl.Float32,
         "name": pl.String,
         "state": pl.String,
     }

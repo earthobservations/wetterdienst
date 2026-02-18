@@ -192,7 +192,7 @@ class EAHydrologyValues(TimeseriesValues):
                     pl.Struct(
                         {
                             "dateTime": pl.String,
-                            "value": pl.Float64,
+                            "value": pl.Float32,
                             "quality": pl.String,
                         },
                     ),
@@ -208,7 +208,7 @@ class EAHydrologyValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC").alias("date"),
             pl.col("value"),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
 
@@ -254,8 +254,8 @@ class EAHydrologyRequest(TimeseriesRequest):
                             "notation": pl.String,
                             "easting": pl.Int64,
                             "northing": pl.Int64,
-                            "lat": pl.Float64,
-                            "long": pl.Float64,
+                            "lat": pl.Float32,
+                            "long": pl.Float32,
                             "dateOpened": pl.String,
                             "dateClosed": pl.String,
                             "measures": pl.List(
@@ -318,7 +318,7 @@ class EAHydrologyRequest(TimeseriesRequest):
             pl.col("end_date").str.to_datetime(format="%Y-%m-%d"),
             "latitude",
             "longitude",
-            pl.lit(None, pl.Float64).alias("height"),
+            pl.lit(None, pl.Float32).alias("height"),
             "name",
             pl.lit(None, pl.String).alias("state"),
         )

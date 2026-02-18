@@ -89,8 +89,8 @@ def test_not_summarizable_parameter(default_settings: Settings) -> None:
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "distance": pl.Float64,
+            "value": pl.Float32,
+            "distance": pl.Float32,
             "taken_station_id": pl.String,
         },
     )

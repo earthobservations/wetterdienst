@@ -479,7 +479,7 @@ class DwdDerivedValues(TimeseriesValues):
             pl.lit(parameter.name_original).alias("parameter"),
             pl.lit(date).alias("date"),
             pl.lit(value).alias("value"),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
     def _collect_station_parameter_or_dataset(
@@ -592,9 +592,9 @@ class DwdDerivedRequest(TimeseriesRequest):
             "station_id",
             pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
             pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
-            pl.col("height").cast(pl.Float64),
-            pl.col("latitude").cast(pl.Float64),
-            pl.col("longitude").str.strip_chars().cast(pl.Float64),
+            pl.col("height").cast(pl.Float32),
+            pl.col("latitude").cast(pl.Float32),
+            pl.col("longitude").str.strip_chars().cast(pl.Float32),
             "name",
             "state",
         )
@@ -676,7 +676,7 @@ class DwdDerivedRequest(TimeseriesRequest):
             pl.lit(None, dtype=pl.String).alias("state"),
             pl.lit(None, dtype=pl.String).alias("latitude"),
             pl.lit(None, dtype=pl.String).alias("longitude"),
-            pl.lit(None, dtype=pl.Float64).alias("height"),
+            pl.lit(None, dtype=pl.Float32).alias("height"),
             pl.lit(None, dtype=pl.String).alias("start_date"),
             pl.lit(None, dtype=pl.String).alias("end_date"),
         )

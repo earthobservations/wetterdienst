@@ -253,9 +253,9 @@ class TimeseriesRequest:
         """Coerce metadata fields to the correct types."""
         return df.with_columns(
             pl.col("station_id").cast(pl.String),
-            pl.col("height").cast(pl.Float64),
-            pl.col("latitude").cast(pl.Float64),
-            pl.col("longitude").cast(pl.Float64),
+            pl.col("height").cast(pl.Float32),
+            pl.col("latitude").cast(pl.Float32),
+            pl.col("longitude").cast(pl.Float32),
             pl.col("name").cast(pl.String),
             pl.col("state").cast(pl.String),
             pl.col("start_date").cast(pl.Datetime(time_zone="UTC")),
@@ -404,7 +404,7 @@ class TimeseriesRequest:
             q_lon=q_lon,
         )
         # add distances and sort by distance
-        df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
+        df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float32)).alias("distance"))
         df = df.sort(by=["distance", "station_id"])
         return StationsResult(
             stations=self,

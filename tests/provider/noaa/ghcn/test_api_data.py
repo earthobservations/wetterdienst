@@ -53,8 +53,8 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
+            "value": pl.Float32,
+            "quality": pl.Float32,
         },
         orient="row",
     )

@@ -177,8 +177,8 @@ class HubeauValues(TimeseriesValues):
                             {
                                 "code_station": pl.String,
                                 "date_obs": pl.String,
-                                "resultat_obs": pl.Float64,
-                                "code_qualification_obs": pl.Float64,
+                                "resultat_obs": pl.Float32,
+                                "code_qualification_obs": pl.Float32,
                             },
                         ),
                     ),
@@ -238,9 +238,9 @@ class HubeauRequest(TimeseriesRequest):
                         {
                             "code_station": pl.String,
                             "libelle_station": pl.String,
-                            "longitude_station": pl.Float64,
-                            "latitude_station": pl.Float64,
-                            "altitude_ref_alti_station": pl.Float64,
+                            "longitude_station": pl.Float32,
+                            "latitude_station": pl.Float32,
+                            "altitude_ref_alti_station": pl.Float32,
                             "libelle_departement": pl.String,
                             "date_ouverture_station": pl.String,
                             "date_fermeture_station": pl.String,

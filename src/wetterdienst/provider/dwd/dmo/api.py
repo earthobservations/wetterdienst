@@ -156,7 +156,7 @@ class DwdDmoValues(TimeseriesValues):
             "parameter",
             pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.000Z", time_zone="UTC"),
             "value",
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.lit(None, dtype=pl.Float32).alias("quality"),
         )
 
     def read_dmo(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
@@ -364,8 +364,8 @@ class DwdDmoRequest(TimeseriesRequest):
         df_raw = pl.concat([df_raw, self._station_patches])
         df_raw = df_raw.with_columns(
             pl.col("icao_id").replace("----", None),
-            pl.col("latitude").str.replace(" ", "").cast(pl.Float64),
-            pl.col("longitude").str.replace(" ", "").cast(pl.Float64),
+            pl.col("latitude").str.replace(" ", "").cast(pl.Float32),
+            pl.col("longitude").str.replace(" ", "").cast(pl.Float32),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
             pl.lit(None, pl.String).alias("state"),
