@@ -5,15 +5,13 @@
 from __future__ import annotations
 
 import datetime as dt
-import itertools
 import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import partial
-from itertools import groupby
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar, Union
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -23,18 +21,20 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
-from wetterdienst.provider.dwd.observation.metaindex import _read_meta_df
+from wetterdienst.provider.dwd.derived.download import download_climate_derived_data
+from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
+from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata,TECHNICAL_DATASETS
+from wetterdienst.provider.dwd.derived.metaindex import create_meta_index_for_climate_derived
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
 from wetterdienst.util.python import to_list
+from wetterdienst.provider.dwd.derived.fileindex import create_file_index_for_climate_derived, create_file_list_for_climate_derived
 
-if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
-
-    from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from collections.abc import Iterable
+from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
 log = logging.getLogger(__name__)
+
 
 
 class CoolingDegreeHoursReferenceTemperature(Enum):
@@ -485,7 +485,7 @@ class DwdDerivedValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: ParameterModel,
+        parameter_or_dataset: Union[DatasetModel,ParameterModel],
     ) -> pl.DataFrame:
         """Fetch data for a station and a parameter.
 
@@ -496,70 +496,128 @@ class DwdDerivedValues(TimeseriesValues):
         """
         data = []
 
-        full_date_range_to_fetch = self._get_first_day_of_months_to_fetch(
-            parameter_or_dataset,
-        )
+        if ((isinstance(parameter_or_dataset,DatasetModel) and parameter_or_dataset in TECHNICAL_DATASETS) or
+            (isinstance(parameter_or_dataset,ParameterModel) and parameter_or_dataset.dataset in TECHNICAL_DATASETS)):#or parameter_or_dataset.name in [ds.name for ds in  TECHNICAL_DATASETS]:
 
-        for period in self.sr.stations.periods:
-            if period not in parameter_or_dataset.dataset.periods:
-                log.info(f"Skipping period {period} for {parameter_or_dataset.name}.")
-                continue
-            date_range_to_fetch_for_period = self._filter_date_range_for_period(
-                date_range=full_date_range_to_fetch,
-                period=period,
-                dataset=parameter_or_dataset.dataset,
+            full_date_range_to_fetch = self._get_first_day_of_months_to_fetch(
+                parameter_or_dataset,
             )
-            for first_day_of_month_to_fetch in date_range_to_fetch_for_period:
-                url = self._get_values_url(
-                    dataset=parameter_or_dataset.dataset,
+
+            for period in self.sr.stations.periods:
+                if period not in parameter_or_dataset.dataset.periods:
+                    log.info(f"Skipping period {period} for {parameter_or_dataset.name}.")
+                    continue
+                date_range_to_fetch_for_period = self._filter_date_range_for_period(
+                    date_range=full_date_range_to_fetch,
                     period=period,
-                    month_of_year=first_day_of_month_to_fetch.strftime("%Y%m"),
+                    dataset=parameter_or_dataset.dataset,
                 )
-                downloaded_file = download_file(
-                    url=url,
-                    cache_dir=self.sr.stations.settings.cache_dir,
-                    ttl=CacheExpiry.FIVE_MINUTES,
-                    client_kwargs=self.sr.settings.fsspec_client_kwargs,
-                    cache_disable=self.sr.settings.cache_disable,
-                    use_certifi=self.sr.settings.use_certifi,
-                )
-
-                if downloaded_file.status == 404:
-                    log.info(
-                        f"File {url.rsplit('/', 1)[1]} for station {station_id} not found on server {url}. Skipping."
+                for first_day_of_month_to_fetch in date_range_to_fetch_for_period:
+                    url = self._get_values_url(
+                        dataset=parameter_or_dataset.dataset,
+                        period=period,
+                        month_of_year=first_day_of_month_to_fetch.strftime("%Y%m"),
                     )
-                    continue
-                downloaded_file.raise_if_exception()
-
-                df = _get_data_from_file(
-                    downloaded_file=downloaded_file,
-                    skip_rows=DwdDerivedValues._N_ROWS_TO_SKIP.get(
-                        parameter_or_dataset.dataset.name,
-                        2,
-                    ),
-                )
-                df = df.filter(
-                    pl.col(DwdDerivedValues._STATION_ID_COLUMN_NAME[parameter_or_dataset.dataset.name]).eq(
-                        int(station_id)
+                    downloaded_file = download_file(
+                        url=url,
+                        cache_dir=self.sr.stations.settings.cache_dir,
+                        ttl=CacheExpiry.FIVE_MINUTES,
+                        client_kwargs=self.sr.settings.fsspec_client_kwargs,
+                        cache_disable=self.sr.settings.cache_disable,
+                        use_certifi=self.sr.settings.use_certifi,
                     )
-                )
 
-                if df.is_empty():
-                    log.info(f"No data found for ID {station_id} at {first_day_of_month_to_fetch.strftime('%m/%Y')}")
+                    if downloaded_file.status == 404:
+                        log.info(
+                            f"File {url.rsplit('/', 1)[1]} for station {station_id} not found on server {url}. Skipping."
+                        )
+                        continue
+                    downloaded_file.raise_if_exception()
+
+                    df = _get_data_from_file(
+                        downloaded_file=downloaded_file,
+                        skip_rows=DwdDerivedValues._N_ROWS_TO_SKIP.get(
+                            parameter_or_dataset.dataset.name,
+                            2,
+                        ),
+                    )
+                    df = df.filter(
+                        pl.col(DwdDerivedValues._STATION_ID_COLUMN_NAME[parameter_or_dataset.dataset.name]).eq(
+                            int(station_id)
+                        )
+                    )
+
+                    if df.is_empty():
+                        log.info(f"No data found for ID {station_id} at {first_day_of_month_to_fetch.strftime('%m/%Y')}")
+                        continue
+
+                    df = self._process_dataframe_to_expected_format(
+                        df=df,
+                        column_name_mapping=self._COLUMN_NAME_MAPPING.get(parameter_or_dataset.dataset.name),
+                        date=first_day_of_month_to_fetch,
+                        parameter=parameter_or_dataset,
+                    )
+
+                    data.append(df)
+        else:
+            parameter_data = []
+            for period in self.sr.stations.periods:
+                remote_files = create_file_list_for_climate_derived(station_id,parameter_or_dataset,period,self.sr.stations.settings)
+
+
+                if remote_files.is_empty():
+                    dataset_identifier = f"{parameter_or_dataset.resolution.value.name}/{parameter_or_dataset.name}/{station_id}"
+                    log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                     continue
+                filenames_and_files = download_climate_derived_data(remote_files, self.sr.stations.settings)
+                period_df = parse_climate_derived_data(filenames_and_files, parameter_or_dataset, period)
+                parameter_data.append(period_df)
 
-                df = self._process_dataframe_to_expected_format(
-                    df=df,
-                    column_name_mapping=self._COLUMN_NAME_MAPPING.get(parameter_or_dataset.dataset.name),
-                    date=first_day_of_month_to_fetch,
-                    parameter=parameter_or_dataset,
-                )
+            try:
+                parameter_df = pl.concat(parameter_data, how="align")
+            except ValueError:
+                return pl.DataFrame()
 
-                data.append(df)
+            parameter_df = parameter_df.unique(subset=["date"])
+            parameter_df = parameter_df.collect()
+            #parameter_df = parameter_df.drop(*DROPPABLE_COLUMNS, strict=False)
+            #TODO droppable_columns
 
+            df = self._tidy_up_df(parameter_df)
+            return df.select(
+                pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+                "parameter",
+                pl.col("station_id").str.pad_start(5, "0"),
+                pl.col("date").dt.replace_time_zone("UTC"),
+                pl.col("value").cast(pl.Float64),
+                pl.col("quality").cast(pl.Float64),
+            )
         if len(data) == 0:
             return pl.DataFrame()
         return pl.concat(data)
+
+
+    @staticmethod
+    def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:
+        """Tidy up the DataFrame by dropping unnecessary columns and renaming columns."""
+        q_col_list = list(filter(lambda x: x.startswith(("qn", "qualitaet")), df.collect_schema().names()))
+        q_col = q_col_list[0] if q_col_list else None
+        id_vars = ["station_id","date"]
+        if q_col is not None:
+            id_vars = id_vars + [q_col]
+        on = [col for col in df.collect_schema().names()[2:] if not col.startswith(("qn", "qualitaet"))]
+
+        df = (
+            df.unpivot(on=on, index=id_vars, variable_name="parameter", value_name="value")
+            .rename({q_col: "quality"}  if q_col else {})
+            .with_columns(
+                pl.when(pl.col("value").is_not_null()).then(pl.col("quality")) if q_col else pl.lit(None).alias("quality")
+            )
+        )
+
+
+        return df
 
 
 @dataclass
@@ -585,19 +643,21 @@ class DwdDerivedRequest(TimeseriesRequest):
         :param dataset: Dataset to which input data belongs
         :return: Processed DataFrame
         """
-        stations_data = stations_data.sort(by=["station_id"])
-        return stations_data.select(
+
+        stations_data = stations_data.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            "station_id",
-            pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
-            pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
-            pl.col("height").cast(pl.Float64),
-            pl.col("latitude").cast(pl.Float64),
-            pl.col("longitude").str.strip_chars().cast(pl.Float64),
+            pl.col("station_id"),#.str.strip_chars(" ").str.pad_start(5, "0"), #.cast(str)
+            pl.col("start_date"),#.str.to_datetime("%Y%m%d", time_zone="UTC",strict=False),
+            pl.col("end_date"),#.str.to_datetime("%Y%m%d", time_zone="UTC",strict=False),
+            pl.col("height"),#.str.strip_chars().cast(pl.Float64),
+            pl.col("latitude"),#.str.strip_chars().cast(pl.Float64),
+            pl.col("longitude"),#.str.strip_chars().cast(pl.Float64),
             "name",
             "state",
         )
+
+        return stations_data.sort(by=["station_id"])
 
     def __post_init__(self) -> None:
         """Post init method."""
@@ -627,97 +687,35 @@ class DwdDerivedRequest(TimeseriesRequest):
         }
         return periods_parsed & self._available_periods or None
 
-    def _get_raw_station_data_from_url(self) -> pl.LazyFrame:
-        """Download raw station data from DWD help directory.
-
-        :return: Raw station data as lazy DataFrame
-        """
-        downloaded_file = download_file(
-            url="https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
-            cache_dir=self.settings.cache_dir,
-            ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
-        )
-        downloaded_file.raise_if_exception()
-        return _read_meta_df(file=downloaded_file)
-
-    @staticmethod
-    def _generate_digit_combinations(number_of_digits: int = 5) -> Generator[str]:
-        """Create a generator of all possible combinations of digits 0-9.
-
-        This is mainly used to generate all possible postal codes (PLZ),
-        when setting the number of digits to 5.
-
-        :param number_of_digits: How many digits are included in the combination
-        :return: Generator of strings containing the combinations
-        """
-        return (
-            "".join(str(digit) for digit in combination_of_digits)
-            for combination_of_digits in itertools.product(range(10), repeat=number_of_digits)
-        )
-
-    def _get_raw_station_data_from_plz_generator(self) -> pl.LazyFrame:
-        """Get proxy station data containing all possible postals codes (PLZ) as station ID.
-
-        The rest of the columns required by the library are filled with NULLs.
-
-        :return: Proxy station data as lazy DataFrame
-        """
-        autogenerated_station_data = pl.DataFrame(
-            {
-                "station_id": DwdDerivedRequest._generate_digit_combinations(),
-            },
-            schema={"station_id": pl.String},
-        ).lazy()
-        return autogenerated_station_data.with_columns(
-            pl.lit(None, dtype=pl.String).alias("name"),
-            pl.lit(None, dtype=pl.String).alias("state"),
-            pl.lit(None, dtype=pl.String).alias("latitude"),
-            pl.lit(None, dtype=pl.String).alias("longitude"),
-            pl.lit(None, dtype=pl.Float64).alias("height"),
-            pl.lit(None, dtype=pl.String).alias("start_date"),
-            pl.lit(None, dtype=pl.String).alias("end_date"),
-        )
-
-    _STRATEGIES_RAW_STATION_DATA: ClassVar = {
-        DwdDerivedMetadata.monthly.heating_degreedays.name: _get_raw_station_data_from_url,
-        DwdDerivedMetadata.monthly.cooling_degreehours_13.name: _get_raw_station_data_from_url,
-        DwdDerivedMetadata.monthly.cooling_degreehours_16.name: _get_raw_station_data_from_url,
-        DwdDerivedMetadata.monthly.cooling_degreehours_18.name: _get_raw_station_data_from_url,
-        DwdDerivedMetadata.monthly.climate_correction_factor.name: _get_raw_station_data_from_plz_generator,
-    }
-
-    def _get_raw_station_data(
-        self,
-        dataset: DatasetModel,
-    ) -> pl.LazyFrame:
-        """Get raw station data for a given dataset.
-
-        :param dataset: Dataset for which station data is returned
-        :return: Raw station data as lazy DataFrame
-        """
-        strategy = DwdDerivedRequest._STRATEGIES_RAW_STATION_DATA.get(dataset.name)
-        if not strategy:
-            error_msg = f"Unknown dataset: {dataset.name}"
-            raise ValueError(error_msg)
-        return strategy(self)
-
     def _all(self) -> pl.LazyFrame:
         """Fetch station data for the given request.
 
         :return: Fetched station data.
         """
-        data = []
-        for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
-            raw_stations_data = self._get_raw_station_data(
-                dataset=dataset,
-            )
 
-            processed_stations_data = self._process_dataframe_to_expected_format(
-                stations_data=raw_stations_data,
-                dataset=dataset,
-            )
-            data.append(processed_stations_data)
-        return pl.concat(data)
+        datasets = []
+        for parameter in self.parameters:
+            if parameter.dataset not in datasets:
+                datasets.append(parameter.dataset)
+        stations = []
+        for dataset in datasets:
+            periods = set(dataset.periods) & set(self.periods) if self.periods else dataset.periods
+            for period in reversed(list(periods)):
+                df = create_meta_index_for_climate_derived(dataset, period, self.settings)
+                df = self._process_dataframe_to_expected_format(df,dataset)
+                file_index = create_file_index_for_climate_derived(dataset, period, self.settings)
+                if dataset not in TECHNICAL_DATASETS:
+                    df = df.join(
+                        other=file_index.select(pl.col("station_id")),
+                        on=["station_id"],
+                        how="inner",
+                    )
+
+                stations.append(df)
+        try:
+            stations_df = pl.concat(stations)
+
+        except ValueError:
+            return pl.LazyFrame()
+        stations_df = stations_df.unique(subset=["resolution", "dataset", "station_id"], keep="first")
+        return stations_df.sort(by=[pl.col("station_id").cast(int)])
