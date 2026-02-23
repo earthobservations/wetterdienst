@@ -4,11 +4,11 @@
 
 from __future__ import annotations
 
+import gzip
 import logging
 from io import BytesIO
 from typing import TYPE_CHECKING
 from zipfile import BadZipFile
-import gzip
 
 from fsspec.implementations.zip import ZipFileSystem
 

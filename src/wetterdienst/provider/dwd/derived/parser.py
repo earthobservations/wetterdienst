@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 import polars as pl
 from polars import selectors as cs
 
-from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.derived.metadata import (
     RADIATION_DATASETS,
@@ -21,14 +20,13 @@ from wetterdienst.provider.dwd.derived.metadata import (
 )
 
 if TYPE_CHECKING:
+    from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.util.network import File
 
-if TYPE_CHECKING:
-    from wetterdienst.model.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
 
-#TODO für derived anpassen
+# TODO für derived anpassen
 DROPPABLE_PARAMETERS = {
     # EOR
     "eor",
@@ -52,19 +50,18 @@ COLUMNS_MAPPING = {
     "mess_datum_ende": "end_date",
     # soil moisture:
     "datum": "date",
-    "stationsindex" : "station_id",
-    "monat" : "date"
+    "stationsindex": "station_id",
+    "monat": "date",
 }
 
 
 def parse_climate_derived_data(
     files: list[File],
     dataset: DatasetModel,
-    period: Period,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
     if dataset == DwdDerivedMetadata.hourly.radiation_global:
-        data = [_parse_climate_derived_data(file, dataset, period) for file in files]
+        data = [_parse_climate_derived_data(file, dataset) for file in files]
         try:
             df1, df2 = data
             df = df1.join(df2, on=["station_id", "date"], how="full", coalesce=True)
@@ -74,14 +71,13 @@ def parse_climate_derived_data(
     else:
         data = []
         for file in files:
-            data.append(_parse_climate_derived_data(file, dataset, period))
+            data.append(_parse_climate_derived_data(file, dataset))
         return pl.concat(data)
 
 
-def _parse_climate_derived_data(  # noqa: C901
+def _parse_climate_derived_data(
     file: File,
     dataset: DatasetModel,
-    period: Period,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
     if isinstance(file.content, BytesIO):
@@ -110,8 +106,7 @@ def _parse_climate_derived_data(  # noqa: C901
     df = df.rename(mapping=lambda col: COLUMNS_MAPPING.get(col, col))
     if dataset in RADIATION_DATASETS:
         df = df.with_columns(
-            (pl.col("date")
-            .cast(pl.String) + '00')
+            (pl.col("date").cast(pl.String) + "00")
             .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
             .dt.round(dt.timedelta(hours=1))
         )
@@ -120,13 +115,8 @@ def _parse_climate_derived_data(  # noqa: C901
             str_format = "%Y%m%d"
         elif dataset.resolution.value.value == "monthly":
             str_format = "%Y%m"
-        df = df.with_columns(
-            (pl.col("date")
-            .cast(pl.String))
-            .str.to_datetime(str_format, time_zone="UTC")
-
-        )
+        df = df.with_columns((pl.col("date").cast(pl.String)).str.to_datetime(str_format, time_zone="UTC"))
 
     if dataset.resolution.value in (Resolution.MONTHLY, Resolution.ANNUAL):
-        df = df.drop("end_date",strict=False)
+        df = df.drop("end_date", strict=False)
     return df

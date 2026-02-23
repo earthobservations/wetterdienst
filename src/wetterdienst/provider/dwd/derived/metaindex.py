@@ -6,20 +6,21 @@ from __future__ import annotations
 
 import itertools
 import logging
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING
 
-import polars as pl
 import pandas as pd
+import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.period import Period
-
 from wetterdienst.provider.dwd.derived.metadata import SOIL_DATASETS, DwdDerivedMetadata
 from wetterdienst.util.network import File, download_file
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
+
 
 log = logging.getLogger(__name__)
 
@@ -44,57 +45,50 @@ SOIL_COLUMN_NAMES_MAPPING = {
 }
 
 COL_SPECS = [
-    (0, 5),   # Stations_id
+    (0, 5),  # Stations_id
     (5, 15),  # von_datum
     (15, 35),  # bis_datum
     (35, 43),  # Stationshoehe
     (43, 53),  # geoBreite
     (53, 60),  # geoLaenge
-    (61, 101), # Stationsname
-    (102, 143) # Bundesland
-    #(144,1000) # Abgabe
+    (61, 101),  # Stationsname
+    (102, 143),  # Bundesland # (144,1000) # Abgabe
 ]
 
 _STATION_URL_DICT = {
-        DwdDerivedMetadata.monthly.heating_degreedays.name : "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
-        DwdDerivedMetadata.monthly.cooling_degreehours_13.name : "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
-        DwdDerivedMetadata.monthly.cooling_degreehours_16.name : "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
-        DwdDerivedMetadata.monthly.cooling_degreehours_18.name : "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
-        DwdDerivedMetadata.hourly.radiation_global.name : "https://opendata.dwd.de/climate_environment/CDC/help/fg_duett_Beschreibung_Stationen.txt",
-        DwdDerivedMetadata.hourly.sunshine_duration.name : "https://opendata.dwd.de/climate_environment/CDC/help/sd_duett_Beschreibung_Stationen.txt",
-        DwdDerivedMetadata.daily.soil.name : "https://opendata.dwd.de/climate_environment/CDC/help/stations_list_soil.txt",
-    }
-
+    DwdDerivedMetadata.monthly.heating_degreedays.name: "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
+    DwdDerivedMetadata.monthly.cooling_degreehours_13.name: "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
+    DwdDerivedMetadata.monthly.cooling_degreehours_16.name: "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
+    DwdDerivedMetadata.monthly.cooling_degreehours_18.name: "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
+    DwdDerivedMetadata.hourly.radiation_global.name: "https://opendata.dwd.de/climate_environment/CDC/help/fg_duett_Beschreibung_Stationen.txt",
+    DwdDerivedMetadata.hourly.sunshine_duration.name: "https://opendata.dwd.de/climate_environment/CDC/help/sd_duett_Beschreibung_Stationen.txt",
+    DwdDerivedMetadata.daily.soil.name: "https://opendata.dwd.de/climate_environment/CDC/help/stations_list_soil.txt",
+}
 
 
 def create_meta_index_for_climate_derived(
     dataset: DatasetModel,
-    period: Period,
     settings: Settings,
 ) -> pl.LazyFrame:
-    """Create metadata DataFrame for derived climate data"""
-
-
+    """Create metadata DataFrame for derived climate data."""
     if dataset.name == DwdDerivedMetadata.monthly.climate_correction_factor.name:
         return _get_raw_station_data_from_plz_generator()
-    else:
-        url = _STATION_URL_DICT.get(dataset.name,None)
-        if url is None:
-            error_msg = f"Unknown dataset: {dataset.name}"
-            raise ValueError(error_msg)
+    url = _STATION_URL_DICT.get(dataset.name)
+    if url is None:
+        error_msg = f"Unknown dataset: {dataset.name}"
+        raise ValueError(error_msg)
 
-        downloaded_file = download_file(
-            url=url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.METAINDEX,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        downloaded_file.raise_if_exception()
+    downloaded_file = download_file(
+        url=url,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    downloaded_file.raise_if_exception()
 
-        return _read_meta_df(dataset,file=downloaded_file)
-
+    return _read_meta_df(dataset, file=downloaded_file)
 
 
 def _generate_digit_combinations(number_of_digits: int = 5) -> Generator[str]:
@@ -110,6 +104,7 @@ def _generate_digit_combinations(number_of_digits: int = 5) -> Generator[str]:
         "".join(str(digit) for digit in combination_of_digits)
         for combination_of_digits in itertools.product(range(10), repeat=number_of_digits)
     )
+
 
 def _get_raw_station_data_from_plz_generator() -> pl.LazyFrame:
     """Get proxy station data containing all possible postals codes (PLZ) as station ID.
@@ -135,57 +130,60 @@ def _get_raw_station_data_from_plz_generator() -> pl.LazyFrame:
     )
 
 
-
-
-
-
-def _read_meta_df(dataset,file: File) -> pl.LazyFrame:
+def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
     """Read meta file into DataFrame."""
     if dataset in SOIL_DATASETS:
         df = pl.read_csv(
-                file.content,
-                separator=";",
-                has_header=True,
-                encoding="latin-1",
-                skip_rows=0,
-                new_columns =SOIL_COLUMN_NAMES_MAPPING.values(),
-                schema={"station_id" : pl.Int64,
-                            "height":pl.Float64,
-                            "latitude":pl.Float64,
-                            "longitude":pl.Float64,
-                            "name":pl.String,
-                            "state":pl.String}
-            ).lazy()
-        df = df.with_columns(pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                             pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
-                            pl.col("name").str.strip_chars(),
-                            pl.col("state").str.strip_chars(),
-                            pl.col("station_id").cast(str).str.pad_start(5, "0")
+            file.content,
+            separator=";",
+            has_header=True,
+            encoding="latin-1",
+            skip_rows=0,
+            new_columns=SOIL_COLUMN_NAMES_MAPPING.values(),
+            schema={
+                "station_id": pl.Int64,
+                "height": pl.Float64,
+                "latitude": pl.Float64,
+                "longitude": pl.Float64,
+                "name": pl.String,
+                "state": pl.String,
+            },
+        ).lazy()
+        df = df.with_columns(
+            pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
+            pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+            pl.col("name").str.strip_chars(),
+            pl.col("state").str.strip_chars(),
+            pl.col("station_id").cast(str).str.pad_start(5, "0"),
         )
     else:
-
         df = pd.read_fwf(
             file.content,
             header=None,
             encoding="latin-1",
             colspecs=COL_SPECS,
-            skiprows=[0,1],
-            )
+            skiprows=[0, 1],
+        )
         df.columns = DWD_COLUMN_NAMES_MAPPING.values()
-        df = pl.DataFrame(df,schema={
-                            "station_id" : pl.Int64,
-                            "start_date": str,
-                            "end_date":str,
-                            "height":pl.Float64,
-                            "latitude":pl.Float64,
-                            "longitude":pl.Float64,
-                            "name":str,
-                            "state":str}).lazy()
+        df = pl.DataFrame(
+            df,
+            schema={
+                "station_id": pl.Int64,
+                "start_date": str,
+                "end_date": str,
+                "height": pl.Float64,
+                "latitude": pl.Float64,
+                "longitude": pl.Float64,
+                "name": str,
+                "state": str,
+            },
+        ).lazy()
 
-        df = df.with_columns(pl.col("station_id").cast(str).str.pad_start(5, "0"),
-                            pl.col("name").str.strip_chars(),
-                            pl.col("state").str.strip_chars(),
-                            pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC",strict=False),
-                            pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC",strict=False),
-                            )
+        df = df.with_columns(
+            pl.col("station_id").cast(str).str.pad_start(5, "0"),
+            pl.col("name").str.strip_chars(),
+            pl.col("state").str.strip_chars(),
+            pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
+            pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
+        )
     return df

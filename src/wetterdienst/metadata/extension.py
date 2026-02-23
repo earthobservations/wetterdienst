@@ -17,4 +17,4 @@ class Extension(Enum):
     TAR = "tar"
     TAR_GZ = "tar.gz"
     TAR_BZ2 = "tar.bz2"
-    TXT_GZ ="txt.gz"
+    TXT_GZ = "txt.gz"

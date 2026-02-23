@@ -4,21 +4,25 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import TYPE_CHECKING
 
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
-from wetterdienst.metadata.period import Period
-from wetterdienst.provider.dwd.derived.metadata import RADIATION_DATASETS, SOIL_DATASETS, SUNSHINE_DURATION_DATASETS, TECHNICAL_DATASETS
+from wetterdienst.provider.dwd.derived.metadata import (
+    RADIATION_DATASETS,
+    SOIL_DATASETS,
+    SUNSHINE_DURATION_DATASETS,
+    TECHNICAL_DATASETS,
+)
 from wetterdienst.provider.dwd.observation.fileindex import _create_file_index_for_dwd_server
-from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    from wetterdienst.metadata.period import Period
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
+
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
 SOIL_ID_REGEX = r"_(\d{3,5})."
@@ -30,7 +34,6 @@ def create_file_list_for_climate_derived(
     dataset: DatasetModel,
     period: Period,
     settings: Settings,
-    date_ranges: list[str] | None = None,
 ) -> pl.Series:
     """Create a list of files for a given station id, dataset and period.
 
@@ -57,15 +60,14 @@ def create_file_index_for_climate_derived(
     df_files = df_files.filter(pl.col("filename").str.split("/").list.last().str.starts_with("_").not_())
 
     if dataset in SOIL_DATASETS:
-        df_files = df_files.filter((pl.col("filename").str.ends_with(Extension.TXT_GZ.value)))
+        df_files = df_files.filter(pl.col("filename").str.ends_with(Extension.TXT_GZ.value))
         station_regex = SOIL_ID_REGEX
     elif dataset in (RADIATION_DATASETS + SUNSHINE_DURATION_DATASETS):
-        df_files = df_files.filter((pl.col("filename").str.ends_with(Extension.ZIP.value)))
+        df_files = df_files.filter(pl.col("filename").str.ends_with(Extension.ZIP.value))
         station_regex = STATION_ID_REGEX
     elif dataset in TECHNICAL_DATASETS:
-        df_files = df_files.filter((pl.col("filename").str.ends_with(Extension.CSV.value)))
+        df_files = df_files.filter(pl.col("filename").str.ends_with(Extension.CSV.value))
         station_regex = STATION_ID_REGEX
-
 
     df_files = df_files.with_columns(
         pl.col("filename")
@@ -79,9 +81,6 @@ def create_file_index_for_climate_derived(
     return df_files.sort(by=[pl.col("station_id"), pl.col("filename")])
 
 
-
-
-
 def _build_url_from_dataset_and_period(
     dataset: DatasetModel,
     period: Period,
@@ -89,26 +88,23 @@ def _build_url_from_dataset_and_period(
     """Build the URL for a given dataset."""
     if dataset in RADIATION_DATASETS:
         return f"https://opendata.dwd.de/climate_environment/CDC/derived_germany/climate/hourly/duett/{dataset.name_original}/{period.value}"
-    elif dataset in TECHNICAL_DATASETS:
-        base_url = f"https://opendata.dwd.de/climate_environment/CDC/derived_germany/techn/{dataset.resolution.value.value}"
+    if dataset in TECHNICAL_DATASETS:
+        base_url = (
+            f"https://opendata.dwd.de/climate_environment/CDC/derived_germany/techn/{dataset.resolution.value.value}"
+        )
         dataset_name = dataset.name
         if dataset_name == "heating_degreedays":
             return f"{base_url}/heating_degreedays/hdd_3807/{period.value}"
-        elif dataset_name == "cooling_degreehours_13":
+        if dataset_name == "cooling_degreehours_13":
             return f"{base_url}/cooling_degreehours/cdh_13/{period.value}"
-        elif dataset_name == "cooling_degreehours_16":
+        if dataset_name == "cooling_degreehours_16":
             return f"{base_url}/cooling_degreehours/cdh_16/{period.value}"
-        elif dataset_name == "cooling_degreehours_18":
+        if dataset_name == "cooling_degreehours_18":
             return f"{base_url}/cooling_degreehours/cdh_18/{period.value}"
-        elif dataset_name == "climate_correction_factor":
+        if dataset_name == "climate_correction_factor":
             return f"{base_url}/climate_correction_factor/{period.value}"
     elif dataset in SOIL_DATASETS:
         return f"https://opendata.dwd.de/climate_environment/CDC/derived_germany/soil/{dataset.resolution.value.value}/{period.value}/"
 
-    #TODO more options
-    #if dataset in (
-    #    DwdObservationMetadata.hourly.solar,
-    #    DwdObservationMetadata.daily.solar,
-    #):
-    #    return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{dataset.resolution.value.value}/{dataset.name_original}/"
-    return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{dataset.resolution.value.value}/{dataset.name_original}/{period.value}/"
+    msg = f"Unknown dataset {dataset}."
+    raise ValueError(msg)
