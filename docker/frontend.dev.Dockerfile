@@ -1,10 +1,12 @@
-FROM node:22-alpine
+FROM node:25-alpine
 WORKDIR /app
 
-# Install curl
-RUN apk add --no-cache curl
-
-RUN corepack enable
+# Install curl and corepack (remove existing yarn to avoid conflicts)
+RUN apk add --no-cache curl && \
+    rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && \
+    npm install -g corepack && \
+    corepack enable && \
+    corepack prepare pnpm@latest --activate
 
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 

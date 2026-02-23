@@ -16,11 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-17
+
 ### Added
 
 - Add timeseries and trendline overlays to stripes visualization
 - Add image download in PNG, JPG, and SVG formats for stripes
 - Add collapsible settings with toggleable display options (title, years, source, data availability)
+- Add DuckDB query component for direct SQL querying on data
 
 ### Changed
 
@@ -68,7 +71,11 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.2.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.4.0...HEAD
+
+[0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.3.0...frontend-v0.4.0
+
+[0.3.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.2.0...frontend-v0.3.0
 
 [0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.1.0...frontend-v0.2.0
 
