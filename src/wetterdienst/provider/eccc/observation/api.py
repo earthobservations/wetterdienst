@@ -33,11 +33,13 @@ log = logging.getLogger(__name__)
 class EcccObservationValues(TimeseriesValues):
     """Values class for Environment and Climate Change Canada (ECCC) observation data."""
 
-    _base_url = (
-        "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
-        "format=csv&stationID={0}&timeframe={1}"
-        "&submit= Download+Data"
-    )
+    # _base_url = (
+    #     "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
+    #     "format=csv&stationID={0}&timeframe={1}"
+    #     "&submit= Download+Data"
+    # )
+
+    _endpoint = "https://api.weather.gc.ca"
 
     _timeframe_mapping: ClassVar = {
         Resolution.HOURLY: "1",
@@ -144,34 +146,34 @@ class EcccObservationValues(TimeseriesValues):
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
-    def _create_file_urls(
-        self,
-        station_id: str,
-        resolution: Resolution,
-        start_year: int,
-        end_year: int,
-    ) -> Iterator[str]:
-        """Create URLs for downloading data files.
-
-        The URLs are created based on the station ID, resolution, and the years
-        for which data is requested.
-        """
-        freq = "1y"
-        if resolution == Resolution.HOURLY:
-            freq = "1mo"
-        # For hourly data request only necessary data to reduce amount of data being
-        # downloaded and parsed
-        for date in pl.datetime_range(
-            dt.datetime(start_year, 1, 1, tzinfo=ZoneInfo("UTC")),
-            dt.datetime(end_year + 1, 1, 1, tzinfo=ZoneInfo("UTC")),
-            interval=freq,
-            eager=True,
-        ):
-            url = self._base_url.format(int(station_id), self._timeframe_mapping[resolution])
-            url += f"&Year={date.year}"
-            if resolution == Resolution.HOURLY:
-                url += f"&Month={date.month}"
-            yield url
+    # def _create_file_urls(
+    #     self,
+    #     station_id: str,
+    #     resolution: Resolution,
+    #     start_year: int,
+    #     end_year: int,
+    # ) -> Iterator[str]:
+    #     """Create URLs for downloading data files.
+    #
+    #     The URLs are created based on the station ID, resolution, and the years
+    #     for which data is requested.
+    #     """
+    #     freq = "1y"
+    #     if resolution == Resolution.HOURLY:
+    #         freq = "1mo"
+    #     # For hourly data request only necessary data to reduce amount of data being
+    #     # downloaded and parsed
+    #     for date in pl.datetime_range(
+    #         dt.datetime(start_year, 1, 1, tzinfo=ZoneInfo("UTC")),
+    #         dt.datetime(end_year + 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+    #         interval=freq,
+    #         eager=True,
+    #     ):
+    #         url = self._base_url.format(int(station_id), self._timeframe_mapping[resolution])
+    #         url += f"&Year={date.year}"
+    #         if resolution == Resolution.HOURLY:
+    #             url += f"&Month={date.month}"
+    #         yield url
 
 
 @dataclass
@@ -189,6 +191,18 @@ class EcccObservationRequest(TimeseriesRequest):
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
 
+    _endpoint = "https://api.weather.gc.ca"
+
+    # Mapping of Canadian timezone abbreviations to IANA timezone identifiers
+    _timezone_mapping: ClassVar[dict] = {
+        "PST": "America/Vancouver",  # Pacific Standard Time
+        "MST": "America/Edmonton",  # Mountain Standard Time
+        "CST": "America/Winnipeg",  # Central Standard Time
+        "EST": "America/Toronto",  # Eastern Standard Time
+        "AST": "America/Halifax",  # Atlantic Standard Time
+        "NST": "America/St_Johns",  # Newfoundland Standard Time
+    }
+
     _columns_mapping: ClassVar[dict] = {
         "station id": "station_id",
         "name": "name",
@@ -201,32 +215,87 @@ class EcccObservationRequest(TimeseriesRequest):
     }
 
     def _all(self) -> pl.LazyFrame:
-        # Acquire raw CSV payload.
-        csv_file, source = self._download_stations()
-        header = 2 if source else 3
-        # Read into Pandas data frame.
-        df_raw = pl.read_csv(csv_file.content, has_header=True, skip_rows=header, infer_schema_length=0).lazy()
-        df_raw = df_raw.rename(str.lower)
-        df_raw = df_raw.drop("latitude", "longitude")
-        df_raw = df_raw.rename(self._columns_mapping)
+        data = download_file(
+            url=f"{self._endpoint}/collections/climate-stations/items",
+            cache_dir=self.settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
+        )
+        df_raw = pl.read_json(
+            data.content,
+            schema=pl.Schema(
+                {
+                    "features": pl.List(
+                        pl.Struct(
+                            {
+                                "type": pl.String,
+                                "properties": pl.Struct(
+                                    {
+                                        "STN_ID": pl.Int64,
+                                        "STATION_NAME": pl.String,
+                                        "PROV_STATE_TERR_CODE": pl.String,  # alternative: ENG_PROV_NAME
+                                        # "COUNTRY": pl.String,
+                                        "LATITUDE": pl.Int64,
+                                        "LONGITUDE": pl.Int64,
+                                        "TIMEZONE": pl.String,
+                                        "ELEVATION": pl.String,
+                                        "FIRST_DATE": pl.String,
+                                        "LAST_DATE": pl.String,
+                                    }
+                                ),
+                            }
+                        )
+                    ),
+                }
+            ),
+        )
+        df_raw = df_raw.lazy()
+        df_raw = df_raw.select(pl.col("features").explode())
+        df_raw = df_raw.select(
+            pl.col("features").struct.field("properties").struct.field("STN_ID").alias("station_id"),
+            pl.col("features").struct.field("properties").struct.field("STATION_NAME").alias("name"),
+            pl.col("features").struct.field("properties").struct.field("PROV_STATE_TERR_CODE").alias("state"),
+            pl.col("features").struct.field("properties").struct.field("LATITUDE").alias("latitude"),
+            pl.col("features").struct.field("properties").struct.field("LONGITUDE").alias("longitude"),
+            pl.col("features").struct.field("properties").struct.field("ELEVATION").alias("height"),
+            pl.col("features").struct.field("properties").struct.field("FIRST_DATE").alias("start_date"),
+            pl.col("features").struct.field("properties").struct.field("LAST_DATE").alias("end_date"),
+            pl.col("features").struct.field("properties").struct.field("TIMEZONE").alias("timezone"),
+        )
+        # Map timezone abbreviations to IANA timezone names
         df_raw = df_raw.with_columns(
-            pl.when(pl.col("start_date").ne("")).then(pl.col("start_date")),
-            pl.when(pl.col("end_date").ne("")).then(pl.col("end_date")),
-            pl.when(pl.col("height").ne("")).then(pl.col("height")),
+            pl.col("timezone").replace(self._timezone_mapping, default=pl.col("timezone")),
+        )
+        # parse start_date and end_date to datetime with timezone from timezone column
+        # First parse as naive datetime, then convert to proper timezone per row
+        df_raw = df_raw.with_columns(
+            pl.col("station_id").cast(pl.String),
+            pl.col("start_date").str.to_datetime("%Y-%m-%d %H:%M:%S"),
+            pl.col("end_date").str.to_datetime("%Y-%m-%d %H:%M:%S"),
+            pl.col("height").cast(pl.Float64),
+        )
+        # Convert datetime to the timezone from the timezone column
+        df_raw = df_raw.with_columns(
+            pl.struct(["start_date", "timezone"])
+            .map_elements(
+                lambda row: row["start_date"].replace(tzinfo=ZoneInfo(row["timezone"])),
+                return_dtype=pl.Datetime(time_zone="UTC"),
+            )
+            .alias("start_date"),
+            pl.struct(["end_date", "timezone"])
+            .map_elements(
+                lambda row: row["end_date"].replace(tzinfo=ZoneInfo(row["timezone"])),
+                return_dtype=pl.Datetime(time_zone="UTC"),
+            )
+            .alias("end_date"),
         )
         df_raw = df_raw.with_columns(
-            pl.col("start_date").fill_null(pl.col("start_date").cast(int).min()),
-            pl.col("end_date").fill_null(pl.col("end_date").cast(int).max()),
+            pl.col("latitude") / 10_000_000,
+            pl.col("longitude") / 10_000_000,
         )
-        df_raw = df_raw.with_columns(
-            pl.col("start_date").str.to_datetime("%Y", time_zone="UTC"),
-            pl.col("end_date")
-            .cast(pl.Int64)
-            .add(1)
-            .cast(pl.String)
-            .str.to_datetime("%Y", time_zone="UTC")
-            .dt.offset_by("-1d"),
-        )
+        df_raw = df_raw.select(pl.all().exclude("timezone"))
         # combinations of resolution and dataset
         resolutions_and_datasets = {
             (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
@@ -240,8 +309,7 @@ class EcccObservationRequest(TimeseriesRequest):
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),
             )
-        df = pl.concat(data)
-        return df.filter(pl.col("latitude").ne("") & pl.col("longitude").ne(""))
+        return pl.concat(data)
 
     def _download_stations(self) -> tuple[File, int]:
         """Download station list from ECCC FTP server.
