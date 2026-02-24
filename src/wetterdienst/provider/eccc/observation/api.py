@@ -5,26 +5,21 @@
 from __future__ import annotations
 
 import datetime as dt
-import gzip
 import logging
 from dataclasses import dataclass
-from io import BytesIO
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from aiohttp import ClientResponseError
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
-from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from wetterdienst.model.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
@@ -33,38 +28,43 @@ log = logging.getLogger(__name__)
 class EcccObservationValues(TimeseriesValues):
     """Values class for Environment and Climate Change Canada (ECCC) observation data."""
 
-    # _base_url = (
-    #     "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
-    #     "format=csv&stationID={0}&timeframe={1}"
-    #     "&submit= Download+Data"
-    # )
-
     _endpoint = "https://api.weather.gc.ca"
 
-    _timeframe_mapping: ClassVar = {
-        Resolution.HOURLY: "1",
-        Resolution.DAILY: "2",
-        Resolution.MONTHLY: "3",
-        Resolution.ANNUAL: "4",
+    _resolution_to_dataset_mapping: ClassVar[dict[Resolution, str]] = {
+        Resolution.HOURLY: "climate-hourly",
+        Resolution.DAILY: "climate-daily",
+        Resolution.MONTHLY: "climate-monthly",
     }
 
     @staticmethod
-    def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:
-        """Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ..."""
-        data = []
-        columns = df.columns
-        for parameter_column, quality_column in zip(columns[1::2], columns[2::2], strict=False):
-            df_parameter = df.select(
-                pl.col("date"),
-                pl.lit(parameter_column).alias("parameter"),
-                pl.col(parameter_column).replace("", None).alias("value"),
-                pl.col(quality_column).replace("", None).alias("quality"),
-            )
-            data.append(df_parameter)
-        try:
-            return pl.concat(data)
-        except ValueError:
-            return pl.DataFrame()
+    def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
+        """Convert wide-format dataframe to long format, pairing value columns with their *_flag quality columns."""
+        # Normalize column names to lowercase and rename LOCAL_DATE -> date
+        flag_columns = {col for col in df.columns if col.endswith("_flag")}
+        value_columns = [col for col in df.columns if col != "local_date" and col not in flag_columns]
+        if not value_columns:
+            return pl.LazyFrame()
+        # Unpivot value columns to long format
+        df_values = df.select(["local_date", *value_columns]).unpivot(
+            on=value_columns,
+            index="local_date",
+            variable_name="parameter",
+            value_name="value",
+        )
+        # Unpivot flag columns (strip _flag suffix so parameter names align)
+        df_flags = df.select(["local_date", *flag_columns]).rename(
+            {col: col.removesuffix("_flag") for col in flag_columns}
+        )
+        flag_value_columns = [col for col in df_flags.columns if col != "local_date"]
+        df_flags = df_flags.unpivot(
+            on=flag_value_columns,
+            index="local_date",
+            variable_name="parameter",
+            value_name="quality",
+        )
+        return df_values.join(df_flags, on=["local_date", "parameter"], how="left").with_columns(
+            pl.col("value").cast(pl.Float64),
+        )
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -72,108 +72,131 @@ class EcccObservationValues(TimeseriesValues):
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station dataset."""
-        meta = self.sr.df.filter(pl.col("station_id").eq(station_id))
-        start_year, end_year = (
-            meta.select(
-                [
-                    pl.col("start_date").dt.year(),
-                    pl.col("end_date").dt.year(),
-                ],
-            )
-            .transpose()
-            .to_series()
-            .to_list()
-        )
-        # start_date and end_date from request
-        start_date = self.sr.stations.start_date
-        end_date = self.sr.stations.end_date
-        start_year = start_year and max(start_year, (start_date and start_date.year) or start_year)
-        end_year = end_year and min(end_year, (end_date and end_date.year) or end_year)
-        # Following lines may partially be based on @Zeitsperre's canada-climate-python
-        # code at https://github.com/Zeitsperre/canada-climate-python/blob/
-        # master/ECCC_stations_fulldownload.py
-        # check that station has a first and last year value
-        if not (start_year and end_year):
-            return pl.DataFrame()
-        remote_files = list(
-            self._create_file_urls(station_id, parameter_or_dataset.resolution.value, start_year, end_year),
-        )
-        files = download_files(
-            urls=remote_files,
-            cache_dir=self.sr.stations.settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-            cache_disable=self.sr.stations.settings.cache_disable,
-        )
-        files = [file for file in files if isinstance(file.content, BytesIO)]
+        station_meta = self.sr.df.filter(pl.col("station_id") == station_id).to_dicts()[0]
+        station_tz = self._get_timezone_from_station(station_id)
         data = []
-        for file in files:
-            df = pl.read_csv(file.content, infer_schema_length=0)
-            data.append(df)
-        try:
-            df = pl.concat(data)
-        except ValueError:
-            return pl.DataFrame()
-        df = df.rename(str.lower)
-        droppable_columns = [
-            "longitude (x)",
-            "latitude (y)",
-            "station name",
-            "climate id",
-            "year",
-            "month",
-            "day",
-            "time (lst)",
-            "data quality",
-        ]
-        df = df.drop(*droppable_columns, strict=False)
-        mapping = {"date/time (lst)": "date", "date/time": "date"}
-        df = df.rename(
-            mapping=lambda col: mapping.get(col, col),
-        )
-        df = self._tidy_up_df(df)
-        return df.select(
-            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            "parameter",
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("date").str.to_datetime("%Y-%m-%d", time_zone="UTC"),
-            pl.when(pl.col("value").str.starts_with("<"))
-            .then(pl.col("value").str.slice(1))
-            .otherwise(pl.col("value"))
-            .alias("value")
-            .cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
-        )
+        start_year = self.sr.start_date.year if self.sr.start_date else station_meta["start_date"].year
+        end_year = self.sr.end_date.year if self.sr.end_date else station_meta["end_date"].year
+        for year in range(start_year, end_year + 1):
+            # shamefully (almost just) copied from meteostat/meteostat
+            # source: https://github.com/meteostat/meteostat/blob/a5fd7970e41cd0e76a4cc5a1cb4e2cc2caea9c86/meteostat/providers/eccc/hourly.py#L58C1-L67C6
+            # start with buffer
+            start = (
+                (dt.datetime(year, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")))
+                .astimezone(ZoneInfo(station_tz))
+                .strftime("%Y-%m-%dT%H:%M:%S")
+            )
+            # end with buffer
+            end = (
+                (dt.datetime(year, 12, 31, 23, 59, 59, tzinfo=ZoneInfo("UTC")))
+                .astimezone(ZoneInfo(station_tz))
+                .strftime("%Y-%m-%dT%H:%M:%S")
+            )
+            url = (
+                f"{self._endpoint}/collections/"
+                f"{self._resolution_to_dataset_mapping[parameter_or_dataset.resolution.value]}/"
+                f"items?STN_ID={station_id}&datetime={start}/{end}&f=json"
+            )
+            file = download_file(
+                url=url,
+                cache_dir=self.sr.stations.settings.cache_dir,
+                ttl=CacheExpiry.FIVE_MINUTES,
+                client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
+                cache_disable=self.sr.stations.settings.cache_disable,
+                use_certifi=self.sr.stations.settings.use_certifi,
+            )
+            if parameter_or_dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
+                parameters = [
+                    "COOLING_DEGREE_DAYS",
+                    "COOLING_DEGREE_DAYS_FLAG",
+                    "DIRECTION_MAX_GUST",
+                    "DIRECTION_MAX_GUST_FLAG",
+                    "HEATING_DEGREE_DAYS",
+                    "HEATING_DEGREE_DAYS_FLAG",
+                    "MAX_REL_HUMIDITY",
+                    "MAX_REL_HUMIDITY_FLAG",
+                    "MAX_TEMPERATURE",
+                    "MAX_TEMPERATURE_FLAG",
+                    "MEAN_TEMPERATURE",
+                    "MEAN_TEMPERATURE_FLAG",
+                    "MIN_REL_HUMIDITY",
+                    "MIN_REL_HUMIDITY_FLAG",
+                    "MIN_TEMPERATURE",
+                    "MIN_TEMPERATURE_FLAG",
+                    "SNOW_ON_GROUND",
+                    "SNOW_ON_GROUND_FLAG",
+                    "SPEED_MAX_GUST",
+                    "SPEED_MAX_GUST_FLAG",
+                    "TOTAL_PRECIPITATION",
+                    "TOTAL_PRECIPITATION_FLAG",
+                    "TOTAL_RAIN",
+                    "TOTAL_RAIN_FLAG",
+                    "TOTAL_SNOW",
+                    "TOTAL_SNOW_FLAG",
+                ]
+            else:
+                parameters = [
+                    "BRIGHT_SUNSHINE",
+                    "COOLING_DEGREE_DAYS",
+                    "DAYS_WITH_PRECIP_GE_1MM",
+                    "DAYS_WITH_VALID_MAX_TEMP",
+                    "DAYS_WITH_VALID_MEAN_TEMP",
+                    "DAYS_WITH_VALID_MIN_TEMP",
+                    "DAYS_WITH_VALID_PRECIP",
+                    "DAYS_WITH_VALID_SNOWFALL",
+                    "DAYS_WITH_VALID_SUNSHINE",
+                    "HEATING_DEGREE_DAYS",
+                    "MAX_TEMPERATURE",
+                    "MEAN_TEMPERATURE",
+                    "MIN_TEMPERATURE",
+                    "NORMAL_MEAN_TEMPERATURE",
+                    "NORMAL_PRECIPITATION",
+                    "NORMAL_SNOWFALL",
+                    "NORMAL_SUNSHINE",
+                    "SNOW_ON_GROUND_LAST_DAY",
+                    "TOTAL_PRECIPITATION",
+                    "TOTAL_SNOWFALL",
+                ]
 
-    # def _create_file_urls(
-    #     self,
-    #     station_id: str,
-    #     resolution: Resolution,
-    #     start_year: int,
-    #     end_year: int,
-    # ) -> Iterator[str]:
-    #     """Create URLs for downloading data files.
-    #
-    #     The URLs are created based on the station ID, resolution, and the years
-    #     for which data is requested.
-    #     """
-    #     freq = "1y"
-    #     if resolution == Resolution.HOURLY:
-    #         freq = "1mo"
-    #     # For hourly data request only necessary data to reduce amount of data being
-    #     # downloaded and parsed
-    #     for date in pl.datetime_range(
-    #         dt.datetime(start_year, 1, 1, tzinfo=ZoneInfo("UTC")),
-    #         dt.datetime(end_year + 1, 1, 1, tzinfo=ZoneInfo("UTC")),
-    #         interval=freq,
-    #         eager=True,
-    #     ):
-    #         url = self._base_url.format(int(station_id), self._timeframe_mapping[resolution])
-    #         url += f"&Year={date.year}"
-    #         if resolution == Resolution.HOURLY:
-    #             url += f"&Month={date.month}"
-    #         yield url
+            _properties_schema = pl.Struct(
+                {
+                    "LOCAL_DATE": pl.String,
+                }
+                | {parameter: (pl.String if parameter.endswith("FLAG") else pl.Float64) for parameter in parameters}
+            )
+            df = pl.read_json(
+                file.content,
+                schema=pl.Schema(
+                    {
+                        "features": pl.List(
+                            pl.Struct(
+                                {
+                                    "properties": _properties_schema,
+                                }
+                            )
+                        ),
+                    }
+                ),
+            )
+            df = df.lazy()
+            df = df.select(pl.col("features").explode().struct.field("properties")).unnest("properties")
+            df = df.rename(str.lower)
+            df = self._tidy_up_df(df)
+            df = df.select(
+                pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+                "parameter",
+                pl.lit(station_id, dtype=pl.String).alias("station_id"),
+                pl.col("local_date")
+                .str.to_datetime("%Y-%m-%d %H:%M:%S")
+                .dt.replace_time_zone(station_tz)
+                .dt.convert_time_zone("UTC")
+                .alias("date"),
+                "value",
+                pl.lit(None, dtype=pl.Float64).alias("quality"),
+            )
+            data.append(df)
+        return pl.concat(data).collect()
 
 
 @dataclass
@@ -188,34 +211,31 @@ class EcccObservationRequest(TimeseriesRequest):
 
     """
 
+    _endpoint = "https://api.weather.gc.ca"
+
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
 
-    _endpoint = "https://api.weather.gc.ca"
-
     # Mapping of Canadian timezone abbreviations to IANA timezone identifiers
     _timezone_mapping: ClassVar[dict] = {
-        "PST": "America/Vancouver",  # Pacific Standard Time
-        "MST": "America/Edmonton",  # Mountain Standard Time
-        "CST": "America/Winnipeg",  # Central Standard Time
-        "EST": "America/Toronto",  # Eastern Standard Time
+        "ADT": "America/Halifax",  # Atlantic Daylight Time
         "AST": "America/Halifax",  # Atlantic Standard Time
+        "CDT": "America/Winnipeg",  # Central Daylight Time
+        "CST": "America/Winnipeg",  # Central Standard Time
+        "EDT": "America/Toronto",  # Eastern Daylight Time
+        "EST": "America/Toronto",  # Eastern Standard Time
+        "MDT": "America/Edmonton",  # Mountain Daylight Time
+        "MST": "America/Edmonton",  # Mountain Standard Time
+        "NDT": "America/St_Johns",  # Newfoundland Daylight Time
         "NST": "America/St_Johns",  # Newfoundland Standard Time
-    }
-
-    _columns_mapping: ClassVar[dict] = {
-        "station id": "station_id",
-        "name": "name",
-        "province": "state",
-        "latitude (decimal degrees)": "latitude",
-        "longitude (decimal degrees)": "longitude",
-        "elevation (m)": "height",
-        "first year": "start_date",
-        "last year": "end_date",
+        "PDT": "America/Vancouver",  # Pacific Daylight Time
+        "PST": "America/Vancouver",  # Pacific Standard Time
+        "YDT": "America/Whitehorse",  # Yukon Daylight Time
+        "YST": "America/Whitehorse",  # Yukon Standard Time
     }
 
     def _all(self) -> pl.LazyFrame:
-        data = download_file(
+        file = download_file(
             url=f"{self._endpoint}/collections/climate-stations/items",
             cache_dir=self.settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
@@ -224,7 +244,7 @@ class EcccObservationRequest(TimeseriesRequest):
             use_certifi=self.settings.use_certifi,
         )
         df_raw = pl.read_json(
-            data.content,
+            file.content,
             schema=pl.Schema(
                 {
                     "features": pl.List(
@@ -236,7 +256,6 @@ class EcccObservationRequest(TimeseriesRequest):
                                         "STN_ID": pl.Int64,
                                         "STATION_NAME": pl.String,
                                         "PROV_STATE_TERR_CODE": pl.String,  # alternative: ENG_PROV_NAME
-                                        # "COUNTRY": pl.String,
                                         "LATITUDE": pl.Int64,
                                         "LONGITUDE": pl.Int64,
                                         "TIMEZONE": pl.String,
@@ -310,55 +329,3 @@ class EcccObservationRequest(TimeseriesRequest):
                 ),
             )
         return pl.concat(data)
-
-    def _download_stations(self) -> tuple[File, int]:
-        """Download station list from ECCC FTP server.
-
-        :return: CSV payload, source identifier
-        """
-        gdrive_url = "https://drive.google.com/uc?id=1HDRnj41YBWpMioLPwAFiLlK4SK8NV72C"
-        http_url = (
-            "https://github.com/earthobservations/testdata/raw/main/ftp.tor.ec.gc.ca/Pub/"
-            "Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv.gz"
-        )
-
-        file = None
-        source = None
-        try:
-            file = download_file(
-                url=gdrive_url,
-                cache_dir=self.settings.cache_dir,
-                ttl=CacheExpiry.METAINDEX,
-                client_kwargs=self.settings.fsspec_client_kwargs,
-                cache_disable=self.settings.cache_disable,
-                use_certifi=self.settings.use_certifi,
-            )
-            file.raise_if_exception()
-            source = 0
-        except (FileNotFoundError, ClientResponseError):
-            log.exception(f"Unable to access Google drive server at {gdrive_url}")
-            # Fall back to different source.
-            try:
-                file = download_file(
-                    url=http_url,
-                    cache_dir=self.settings.cache_dir,
-                    ttl=CacheExpiry.METAINDEX,
-                    client_kwargs=self.settings.fsspec_client_kwargs,
-                    cache_disable=self.settings.cache_disable,
-                    use_certifi=self.settings.use_certifi,
-                )
-                file.raise_if_exception()
-                with gzip.open(file.content, mode="rb") as f:
-                    payload = BytesIO(f.read())
-                file = File(
-                    url=http_url,
-                    content=payload,
-                    status=file.status,
-                )
-                source = 1
-            except (FileNotFoundError, ClientResponseError):
-                log.exception(f"Unable to access HTTP server at {http_url}")
-        if not file:
-            msg = "Unable to acquire ECCC stations list"
-            raise FileNotFoundError(msg)
-        return file, source
