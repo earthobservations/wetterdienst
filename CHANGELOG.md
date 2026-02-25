@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- ECCC observation: migrate data retrieval from legacy CSV bulk download to
+  the `api.weather.gc.ca` OGC API. Updates parameter metadata to match new
+  column naming, rewrites wide-to-long pivoting to handle `*_flag` quality
+  columns, and expands timezone mapping to include daylight saving variants.
+
 ## [0.119.0] - 2026-02-17
 
 ### Added

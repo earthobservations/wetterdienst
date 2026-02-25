@@ -104,6 +104,9 @@ class Parameter(Enum):
     # ---- averaged ----
     HUMIDITY = "HUMIDITY"
     HUMIDITY_ABSOLUTE = "HUMIDITY_ABSOLUTE"
+    # ---- extremes ----
+    HUMIDITY_MAX = "HUMIDITY_MAX"
+    HUMIDITY_MIN = "HUMIDITY_MIN"
     # ECCC special parameter
     HUMIDEX = "HUMIDEX"
 
