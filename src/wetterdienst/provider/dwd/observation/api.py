@@ -626,6 +626,8 @@ class DwdObservationRequest(TimeseriesRequest):
             msg = f"Period {period} not available for dataset {dataset}"
             raise ValueError(msg)
         url = _build_url_from_dataset_and_period(dataset, period)
+        # Description PDFs moved from period subdirectory to dataset directory
+        url = url.removesuffix(f"{period.value}/")
         file_index = _create_file_index_for_dwd_server(
             url=url,
             settings=Settings(),
@@ -639,7 +641,7 @@ class DwdObservationRequest(TimeseriesRequest):
             msg = "Only language 'en' or 'de' supported"
             raise ValueError(msg)
         file_index = file_index.filter(pl.col("filename").str.contains(file_prefix))
-        description_file_url = str(file_index.get_column("filename").item())
+        description_file_url = str(file_index.get_column("url").item())
         log.info(f"Acquiring field information from {description_file_url}")
         return read_description(description_file_url, language=language)
 
