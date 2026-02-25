@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- DWD `describe_fields`: adapt to updated PDF location and format. Description
+  PDFs moved from the period subdirectory (e.g. `daily/kl/recent/`) to the
+  dataset directory (`daily/kl/`). The PDF content now uses a structured table
+  format with column name and description on the same line. The German section
+  header changed from `Parameter` to `CSV Inhaltsbeschreibung`.
+
 ### Changed
 
 - ECCC observation: migrate data retrieval from legacy CSV bulk download to
