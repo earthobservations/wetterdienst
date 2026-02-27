@@ -12,6 +12,10 @@ from dirty_equals import IsDatetime, IsDict
 from wetterdienst import Settings
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.provider.dwd.derived.api import DwdDerivedRequest
+from wetterdienst.provider.dwd.derived.metaindex import (
+    _generate_digit_combinations,
+    _get_raw_station_data_from_plz_generator,
+)
 
 
 @pytest.fixture
@@ -34,6 +38,84 @@ def expected_data() -> list[dict]:
 
 
 @pytest.mark.remote
+def test_dwd_derived_soil_stations_filter(default_settings: Settings) -> None:
+    """Test to check station ID filter."""
+    request = DwdDerivedRequest(
+        parameters=["monthly", "soil"],
+        start_date="2024-05-05",
+        end_date="2026-03-05",
+        settings=default_settings,
+    )
+    stations = request.filter_by_station_id(station_id=("01001", "00150"))
+    expected_data = [
+        {
+            "resolution": "monthly",
+            "dataset": "soil",
+            "station_id": "00150",
+            "start_date": None,
+            "end_date": None,
+            "latitude": 49.73,
+            "longitude": 8.12,
+            "height": 215.0,
+            "name": "Alzey",
+            "state": "Rheinland-Pfalz",
+        },
+        {
+            "resolution": "monthly",
+            "dataset": "soil",
+            "station_id": "01001",
+            "start_date": None,
+            "end_date": None,
+            "latitude": 51.65,
+            "longitude": 13.57,
+            "height": 97.0,
+            "name": "Doberlug-Kirchhain",
+            "state": "Brandenburg",
+        },
+    ]
+    assert stations.df.to_dicts() == expected_data
+
+
+@pytest.mark.remote
+def test_dwd_derived_radiation_stations_filter(default_settings: Settings) -> None:
+    """Test to check station ID filter."""
+    request = DwdDerivedRequest(
+        parameters=["hourly", "radiation_global"],
+        start_date="2024-05-05",
+        end_date="2025-03-05",
+        settings=default_settings,
+    )
+    stations = request.filter_by_station_id(station_id=("18000", "18575"))
+    expected_data = [
+        {
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "station_id": "18000",
+            "start_date": dt.datetime(2024, 4, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "end_date": IsDatetime,
+            "latitude": 47.9736,
+            "longitude": 8.5205,
+            "height": 680.0,
+            "name": "Donaueschingen (Landeplatz)_DUETT",
+            "state": "Baden-Württemberg",
+        },
+        {
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "station_id": "18575",
+            "start_date": dt.datetime(2024, 4, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "end_date": IsDatetime,
+            "latitude": 54.0246,
+            "longitude": 9.388,
+            "height": 48.0,
+            "name": "Wacken_DUETT",
+            "state": "Schleswig-Holstein",
+        },
+    ]
+    assert stations.df.to_dicts() == expected_data
+
+
+@pytest.mark.remote
 @pytest.mark.parametrize(
     "period",
     [
@@ -41,8 +123,8 @@ def expected_data() -> list[dict]:
         "recent",
     ],
     ids=[
-        "fetching_derived_station_00433_with_period_historical",
-        "fetching_derived_station_00433_with_period_recent",
+        "fetching_derived_soil_station_00433_with_period_historical",
+        "fetching_derived_soil_station_00433_with_period_recent",
     ],
 )
 def test_dwd_derived_stations_filter(default_settings: Settings, expected_data: list[dict], period: str) -> None:
@@ -195,17 +277,14 @@ def test_dwd_derived_stations_filter_misentries(
 
 def test_generate_digit_combinations() -> None:
     """Test to check digit combination generation."""
-    request = DwdDerivedRequest(
-        parameters=("monthly", "climate_correction_factor"),
-    )
-    generated_combinations = request._generate_digit_combinations(  # noqa: SLF001
+    generated_combinations = _generate_digit_combinations(
         number_of_digits=1,
     )
     assert list(generated_combinations) == ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
     for number_of_digits in range(2, 6):
         generated_combinations = list(
-            request._generate_digit_combinations(  # noqa: SLF001
+            _generate_digit_combinations(
                 number_of_digits=number_of_digits,
             )
         )
@@ -215,8 +294,5 @@ def test_generate_digit_combinations() -> None:
 
 def test_get_raw_station_data_from_plz_generator() -> None:
     """Test to check dimensions of proxy PLZ station data."""
-    request = DwdDerivedRequest(
-        parameters=("monthly", "climate_correction_factor"),
-    )
-    raw_station_data = request._get_raw_station_data_from_plz_generator().collect()  # noqa: SLF001
+    raw_station_data = _get_raw_station_data_from_plz_generator().collect()
     assert raw_station_data.shape == (10**5, 8)

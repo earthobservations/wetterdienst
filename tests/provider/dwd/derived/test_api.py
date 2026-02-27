@@ -13,7 +13,7 @@ from polars.testing import assert_frame_equal, assert_series_equal
 
 from wetterdienst import Settings
 from wetterdienst.metadata.period import Period
-from wetterdienst.provider.dwd.derived import DwdDerivedRequest
+from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
 
 
 @pytest.mark.remote
@@ -594,6 +594,123 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
         orient="col",
     )
     assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.remote
+def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
+    """Test monthly soil ztumi dataset."""
+    default_settings.ts_shape = "long"
+    request = DwdDerivedRequest(
+        parameters=[DwdDerivedMetadata.monthly.soil.ztumi],
+        settings=default_settings,
+        start_date=datetime.datetime(year=2024, month=5, day=1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2024, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        periods=["historical"],
+    ).filter_by_station_id(station_id="00150")
+
+    expected_dict = [
+        {
+            "station_id": "00150",
+            "resolution": "monthly",
+            "dataset": "soil",
+            "parameter": "ztumi",
+            "date": datetime.datetime(2024, 5, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 0.0,
+            "quality": None,
+        },
+        {
+            "station_id": "00150",
+            "resolution": "monthly",
+            "dataset": "soil",
+            "parameter": "ztumi",
+            "date": datetime.datetime(2024, 6, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 0.0,
+            "quality": None,
+        },
+        {
+            "station_id": "00150",
+            "resolution": "monthly",
+            "dataset": "soil",
+            "parameter": "ztumi",
+            "date": datetime.datetime(2024, 7, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 0.0,
+            "quality": None,
+        },
+    ]
+
+    assert request.values.all().df.to_dicts() == expected_dict
+
+
+@pytest.mark.remote
+def test_dwd_hourly_radiation_surface_irradiance_long(default_settings: Settings) -> None:
+    """Test hourly radiation surface irradiance dataset (placeholder expected_df)."""
+    default_settings.ts_shape = "long"
+    request = DwdDerivedRequest(
+        parameters=[DwdDerivedMetadata.hourly.radiation_global.surface_irradiance],
+        settings=default_settings,
+        start_date=datetime.datetime(year=2024, month=5, day=5, hour=8, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2024, month=5, day=5, hour=13, tzinfo=ZoneInfo("UTC")),
+        periods=["historical"],
+    ).filter_by_station_id(station_id="18001")
+
+    expected_dict = [
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "surface_irradiance",
+            "date": datetime.datetime(2024, 5, 5, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 103.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "surface_irradiance",
+            "date": datetime.datetime(2024, 5, 5, 9, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 114.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "surface_irradiance",
+            "date": datetime.datetime(2024, 5, 5, 10, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 74.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "surface_irradiance",
+            "date": datetime.datetime(2024, 5, 5, 11, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 42.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "surface_irradiance",
+            "date": datetime.datetime(2024, 5, 5, 12, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 26.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "surface_irradiance",
+            "date": datetime.datetime(2024, 5, 5, 13, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 84.0,
+            "quality": 503.0,
+        },
+    ]
+
+    assert request.values.all().df.to_dicts() == expected_dict
 
 
 @pytest.mark.parametrize(
