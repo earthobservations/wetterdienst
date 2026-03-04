@@ -23,11 +23,11 @@
 
 #### parameters
 
-| name                                | original name         | description                                                                | unit type     | unit           | constraints   |
-|-------------------------------------|-----------------------|----------------------------------------------------------------------------|---------------|----------------|---------------|
-| amount_days_per_month               | Anzahl Tage           | number of available values of mean daily air temperatures per month        | dimensionless | dimensionless  | >=0           |
-| heating_degreedays                  | Monatsgradtage        | sum of degree days over a month                                            | degree_day    | °Cd            | >=0           |
-| amount_heating_degreedays_per_month | Anzahl Heiztage       | number of days with daily mean air temperature less than 15 degree Celsius | dimensionless | dimensionless  | >=0           |
+| name                      | original name   | description                                                                | unit type     | unit          | constraints |
+| ------------------------- | --------------- | -------------------------------------------------------------------------- | ------------- | ------------- | ----------- |
+| number_of_days_per_month  | Anzahl Tage     | number of available values of mean daily air temperatures per month        | dimensionless | dimensionless | >=0         |
+| heating_degree_day        | Monatsgradtage  | sum of degree days over a month                                            | degree_day    | °Cd           | >=0         |
+| count_days_heating_degree | Anzahl Heiztage | number of days with daily mean air temperature less than 15 degree Celsius | dimensionless | dimensionless | >=0         |
 
 ### cooling_degreehours
 
@@ -43,12 +43,12 @@ To distinguish different base temperatures, there exist three datasets with the 
 
 #### parameters
 
-| name                 | original name           | description                                                                                                 | unit type      | unit          | constraints              |
-|----------------------|-------------------------|-------------------------------------------------------------------------------------------------------------|----------------|---------------|--------------------------|
-| amount_hours         | Anzahl Stunden          | number of hours per month                                                                                   | dimensionless  | dimensionless | >=0                      |
-| amount_cooling_hours | Anzahl Kuehlstunden     | number of hours with positive temperature differences between air temperature and reference temperature     | dimensionless  | dimensionless | >=0                      |
-| cooling_degreehours  | Kuehlgradstunden        | accumulated hourly temperature differences between air temperature and reference temperature                | degree_day     | °Cd           | >=0                      |
-| cooling_days         | Anzahl Kühltage         | number of days with at least one cooling hour                                                               | dimensionless  | dimensionless | >=0                      |
+| name                       | original name       | description                                                                                             | unit type     | unit          | constraints |
+| -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------- | ------------- | ------------- | ----------- |
+| number_of_hours_per_month  | Anzahl Stunden      | number of hours per month                                                                               | dimensionless | dimensionless | >=0         |
+| count_hours_cooling_degree | Anzahl Kuehlstunden | number of hours with positive temperature differences between air temperature and reference temperature | dimensionless | dimensionless | >=0         |
+| cooling_degree_hour        | Kuehlgradstunden    | accumulated hourly temperature differences between air temperature and reference temperature            | degree_day    | °Cd           | >=0         |
+| count_days_cooling_degree  | Anzahl Kühltage     | number of days with at least one cooling hour                                                           | dimensionless | dimensionless | >=0         |
 
 ### climate_correction_factor
 

@@ -184,7 +184,8 @@ class DwdDerivedValues(TimeseriesValues):
 
         # Proper expression filtering only possible with DataFrame.
         return (
-            date_range.to_frame("date")
+            date_range
+            .to_frame("date")
             .filter(pl.col("date").is_between(earliest_date_with_available_file, latest_date_with_available_file))
             .to_series()
         )
@@ -393,17 +394,17 @@ class DwdDerivedValues(TimeseriesValues):
 
     _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING: ClassVar = {
         "ID": "station_id",
-        "Anzahl Stunden": "amount_hours",
-        "Anzahl Kuehlstunden": "amount_cooling_hours",
-        "Kuehlgradestunden": "cooling_degreehours",
-        "Kuehltage": "cooling_days",
+        "Anzahl Stunden": "number_of_hours_per_month",
+        "Anzahl Kuehlstunden": "count_hours_cooling_degree",
+        "Kuehlgradestunden": "cooling_degree_hour",
+        "Kuehltage": "count_days_cooling_degree",
     }
 
     _HEATING_DEGREE_DAYS_COLUMN_NAME_MAPPING: ClassVar = {
         "#ID": "station_id",
-        "Anzahl Tage": "amount_days_per_month",
-        "Monatsgradtage": "heating_degreedays",
-        "Anzahl Heiztage": "amount_heating_degreedays_per_month",
+        "Anzahl Tage": "number_of_days_per_month",
+        "Monatsgradtage": "heating_degree_day",
+        "Anzahl Heiztage": "count_days_heating_degree",
     }
 
     _CLIMATE_CORRECTION_FACTOR_COLUMN_NAME_MAPPING: ClassVar = {
@@ -617,7 +618,8 @@ class DwdDerivedValues(TimeseriesValues):
         on = [col for col in df.collect_schema().names()[2:] if not col.startswith(("qn", "qualitaet"))]
 
         return (
-            df.unpivot(on=on, index=id_vars, variable_name="parameter", value_name="value")
+            df
+            .unpivot(on=on, index=id_vars, variable_name="parameter", value_name="value")
             .rename({q_col: "quality"} if q_col else {})
             .with_columns(
                 pl.when(pl.col("value").is_not_null()).then(pl.col("quality"))
@@ -653,12 +655,12 @@ class DwdDerivedRequest(TimeseriesRequest):
         stations_data = stations_data.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("station_id"),  # .str.strip_chars(" ").str.pad_start(5, "0"), #.cast(str)
-            pl.col("start_date"),  # .str.to_datetime("%Y%m%d", time_zone="UTC",strict=False),
-            pl.col("end_date"),  # .str.to_datetime("%Y%m%d", time_zone="UTC",strict=False),
-            pl.col("height"),  # .str.strip_chars().cast(pl.Float64),
-            pl.col("latitude"),  # .str.strip_chars().cast(pl.Float64),
-            pl.col("longitude"),  # .str.strip_chars().cast(pl.Float64),
+            pl.col("station_id"),
+            pl.col("start_date"),
+            pl.col("end_date"),
+            pl.col("height"),
+            pl.col("latitude"),
+            pl.col("longitude"),
             "name",
             "state",
         )
