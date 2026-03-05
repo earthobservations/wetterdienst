@@ -184,8 +184,7 @@ class DwdDerivedValues(TimeseriesValues):
 
         # Proper expression filtering only possible with DataFrame.
         return (
-            date_range
-            .to_frame("date")
+            date_range.to_frame("date")
             .filter(pl.col("date").is_between(earliest_date_with_available_file, latest_date_with_available_file))
             .to_series()
         )
@@ -618,8 +617,7 @@ class DwdDerivedValues(TimeseriesValues):
         on = [col for col in df.collect_schema().names()[2:] if not col.startswith(("qn", "qualitaet"))]
 
         return (
-            df
-            .unpivot(on=on, index=id_vars, variable_name="parameter", value_name="value")
+            df.unpivot(on=on, index=id_vars, variable_name="parameter", value_name="value")
             .rename({q_col: "quality"} if q_col else {})
             .with_columns(
                 pl.when(pl.col("value").is_not_null()).then(pl.col("quality"))

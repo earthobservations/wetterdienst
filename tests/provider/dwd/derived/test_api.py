@@ -725,40 +725,50 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
         (
             datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
             datetime.datetime(year=2014, month=10, day=13, tzinfo=ZoneInfo("UTC")),
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
         ),
         (
             datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
             datetime.datetime(year=2014, month=7, day=13, tzinfo=ZoneInfo("UTC")),
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
         ),
         (
             datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
             datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
         ),
         (
             None,
             datetime.datetime(year=2000, month=5, day=3, tzinfo=ZoneInfo("UTC")),
-            pl.Series([
-                datetime.datetime(year=2000, month=5, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2000, month=5, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
         ),
         (
             datetime.datetime(year=2000, month=5, day=3, tzinfo=ZoneInfo("UTC")),
             None,
-            pl.Series([
-                datetime.datetime(year=2000, month=5, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2000, month=5, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
         ),
     ],
 )
@@ -943,55 +953,69 @@ def test_process_dataframe_to_expected_format(
     ("input_range", "input_files_on_server", "expected_range"),
     [
         (
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
             [f"example.org/data_2014{str(i_month).zfill(2)}.csv" for i_month in range(1, 12)],
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
         ),
         (
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
             [f"example.org/data_2014{str(i_month).zfill(2)}.csv" for i_month in range(6, 8)],
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
         ),
         (
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=10, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
             [f"example.org/data_2015{str(i_month).zfill(2)}.csv" for i_month in range(6, 8)],
             pl.Series([]),
         ),
         (
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
             ["example.org/no_file_that_matches.txt"],
             pl.Series([]),
         ),
         (
-            pl.Series([
-                datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-                datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
-            ]),
+            pl.Series(
+                [
+                    datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
             [],
             pl.Series([]),
         ),

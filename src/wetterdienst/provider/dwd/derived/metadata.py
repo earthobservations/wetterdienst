@@ -156,13 +156,13 @@ DwdDerivedMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "thawing_thickness_plantstock",  # Auftauschicht am Mittag unter Bestand (BEKLIMA) (ZTKMI) in cm
+                            "name": "thawing_thickness_plantstock",  # Auftauschicht am Mittag unter Bestand (BEKLIMA)
                             "name_original": "ztkmi",
                             "unit_type": "length_short",
                             "unit": "centimeter",
                         },
                         {
-                            "name": "thawing_thickness_bare",  # Auftauschicht am Mittag unter unbewachsenem Boden (BEKLIMA) (ZTUMI) in cm
+                            "name": "thawing_thickness_bare",  # Auftauschicht am Mittag unter unbewachsenem Boden
                             "name_original": "ztumi",
                             "unit_type": "length_short",
                             "unit": "centimeter",
