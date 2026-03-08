@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Add DWD Derived data for hourly climate (duett), daily soil, and monthly soil datasets,
+  including parameters for evapotranspiration, soil moisture, soil temperature, frost/thaw depth,
+  radiation, sunshine duration, and heating/cooling degree days, thanks @mspils and @jb-at-bdr
+
 ## [0.119.0] - 2026-02-17
 
 ### Added
