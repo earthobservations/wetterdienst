@@ -1608,3 +1608,33 @@ def test_dwd_observation_datasets_low_resolution(default_settings: Settings, dat
     given_df = next(request.values.query()).df
     assert not given_df.is_empty()
     assert given_df.get_column("quality").is_not_null().mean() >= 0.99
+
+
+def test_dwd_observation_values_no_network(default_settings: Settings) -> None:
+    """Test that values query returns no results when network calls fail during file listing."""
+    from unittest.mock import patch
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+        start_date="2020-01-01",
+        end_date="2020-01-02",
+        settings=default_settings,
+    )
+    with (
+        patch(
+            "wetterdienst.provider.dwd.observation.api.create_meta_index_for_climate_observations",
+            side_effect=OSError("no network"),
+        ),
+        patch(
+            "wetterdienst.provider.dwd.observation.api.create_file_index_for_climate_observations",
+            side_effect=OSError("no network"),
+        ),
+    ):
+        station = request.filter_by_station_id("00001")
+    assert station.df.is_empty()
+    with patch(
+        "wetterdienst.provider.dwd.observation.api.create_file_list_for_climate_observations",
+        side_effect=OSError("no network"),
+    ):
+        results = list(station.values.query())
+    assert results == []

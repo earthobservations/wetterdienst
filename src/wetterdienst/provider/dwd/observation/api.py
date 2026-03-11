@@ -110,13 +110,20 @@ class DwdObservationValues(TimeseriesValues):
                 f"{parameter_or_dataset.resolution.value.name}/{parameter_or_dataset.name}/{station_id}/{period.value}"
             )
             log.info(f"Acquiring observation data for {dataset_identifier}.")
-            remote_files = create_file_list_for_climate_observations(
-                station_id,
-                parameter_or_dataset,
-                period,
-                self.sr.stations.settings,
-                date_ranges,
-            )
+            try:
+                remote_files = create_file_list_for_climate_observations(
+                    station_id,
+                    parameter_or_dataset,
+                    period,
+                    self.sr.stations.settings,
+                    date_ranges,
+                )
+            except OSError:
+                log.warning(
+                    f"Failed to retrieve file list for {dataset_identifier}. Skipping.",
+                    exc_info=True,
+                )
+                continue
             if remote_files.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
@@ -655,8 +662,16 @@ class DwdObservationRequest(TimeseriesRequest):
         for dataset in datasets:
             periods = set(dataset.periods) & set(self.periods) if self.periods else dataset.periods
             for period in reversed(list(periods)):
-                df = create_meta_index_for_climate_observations(dataset, period, self.settings)
-                file_index = create_file_index_for_climate_observations(dataset, period, self.settings)
+                dataset_identifier = f"{dataset.name}/{period.value}"
+                try:
+                    df = create_meta_index_for_climate_observations(dataset, period, self.settings)
+                    file_index = create_file_index_for_climate_observations(dataset, period, self.settings)
+                except OSError:
+                    log.warning(
+                        f"Failed to retrieve metadata for {dataset_identifier}. Skipping.",
+                        exc_info=True,
+                    )
+                    continue
                 df = df.join(
                     other=file_index.select(pl.col("station_id")),
                     on=["station_id"],
