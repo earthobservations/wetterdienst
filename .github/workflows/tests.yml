@@ -26,9 +26,13 @@ jobs:
         include:
           - os: "windows-latest"
             python-version: "3.14"
-          - os: "macos-latest" # arm64 (M1)
+          - os: "macos-latest" # arm64 (Apple Silicon, macOS 15)
             python-version: "3.14"
-          - os: "macos-15-intel" # x86 (Intel)
+          - os: "macos-15-intel" # x86_64 (Intel, macOS 15)
+            python-version: "3.14"
+          - os: "macos-26" # arm64 (Apple Silicon, macOS 26 Tahoe)
+            python-version: "3.14"
+          - os: "macos-26-intel" # x86_64 (Intel, macOS 26 Tahoe)
             python-version: "3.14"
 
     continue-on-error: true

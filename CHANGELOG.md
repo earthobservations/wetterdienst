@@ -22,6 +22,21 @@ Types of changes:
   including parameters for evapotranspiration, soil moisture, soil temperature, frost/thaw depth,
   radiation, sunshine duration, and heating/cooling degree days, thanks @mspils and @jb-at-bdr
 
+### Changed
+
+- ECCC observation: migrate data retrieval from legacy CSV bulk download to
+  the `api.weather.gc.ca` OGC API. Updates parameter metadata to match new
+  column naming, rewrites wide-to-long pivoting to handle `*_flag` quality
+  columns, and expands timezone mapping to include daylight saving variants.
+
+### Fixed
+
+- DWD `describe_fields`: adapt to updated PDF location and format. Description
+  PDFs moved from the period subdirectory (e.g. `daily/kl/recent/`) to the
+  dataset directory (`daily/kl/`). The PDF content now uses a structured table
+  format with column name and description on the same line. The German section
+  header changed from `Parameter` to `CSV Inhaltsbeschreibung`.
+
 ## [0.119.0] - 2026-02-17
 
 ### Added
