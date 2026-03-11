@@ -13,7 +13,7 @@ from polars.testing import assert_frame_equal, assert_series_equal
 
 from wetterdienst import Settings
 from wetterdienst.metadata.period import Period
-from wetterdienst.provider.dwd.derived import DwdDerivedRequest
+from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
 
 
 @pytest.mark.remote
@@ -122,7 +122,7 @@ def test_dwd_recent_data_result_long_single_parameter(
         parameters=(
             "monthly",
             "heating_degreedays",
-            "heating_degreedays",
+            "heating_degree_day",
         ),
         settings=default_settings,
         start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
@@ -146,7 +146,7 @@ def test_dwd_recent_data_result_long_single_parameter(
             "station_id": ["00044"] * 3,
             "resolution": ["monthly"] * 3,
             "dataset": ["heating_degreedays"] * 3,
-            "parameter": ["heating_degreedays"] * 3,
+            "parameter": ["heating_degree_day"] * 3,
             "date": [
                 datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
@@ -187,7 +187,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
         parameters=(
             "monthly",
             "heating_degreedays",
-            "heating_degreedays",
+            "heating_degree_day",
         ),
         settings=default_settings,
         start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
@@ -202,8 +202,8 @@ def test_dwd_recent_data_result_wide_single_parameter(
         "resolution",
         "dataset",
         "date",
-        "heating_degreedays",
-        "qn_heating_degreedays",
+        "heating_degree_day",
+        "qn_heating_degree_day",
     ]
     expected_df = pl.DataFrame(
         {
@@ -215,12 +215,12 @@ def test_dwd_recent_data_result_wide_single_parameter(
                 datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
             ],
-            "heating_degreedays": [
+            "heating_degree_day": [
                 12.3,
                 98.5,
                 93.0,
             ],
-            "qn_heating_degreedays": [
+            "qn_heating_degree_day": [
                 None,
                 None,
                 None,
@@ -231,8 +231,8 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "resolution": pl.String,
             "dataset": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
-            "heating_degreedays": pl.Float64,
-            "qn_heating_degreedays": pl.Float64,
+            "heating_degree_day": pl.Float64,
+            "qn_heating_degree_day": pl.Float64,
         },
         orient="col",
     )
@@ -249,7 +249,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
         parameters=(
             "monthly",
             "heating_degreedays",
-            "heating_degreedays",
+            "heating_degree_day",
         ),
         settings=default_settings,
         start_date=datetime.datetime(year=2023, month=3, day=1, tzinfo=ZoneInfo("UTC")),
@@ -270,7 +270,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
             "station_id": ["00044"] * 2,
             "resolution": ["monthly"] * 2,
             "dataset": ["heating_degreedays"] * 2,
-            "parameter": ["heating_degreedays"] * 2,
+            "parameter": ["heating_degree_day"] * 2,
             "date": [
                 datetime.datetime(2023, 3, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2023, 5, 1, tzinfo=ZoneInfo("UTC")),
@@ -308,7 +308,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
         parameters=(
             "monthly",
             "cooling_degreehours_13",
-            "cooling_degreehours",
+            "cooling_degree_hour",
         ),
         settings=default_settings,
         start_date=datetime.datetime(year=2014, month=6, day=1, tzinfo=ZoneInfo("UTC")),
@@ -329,7 +329,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
             "station_id": ["00044"] * 2,
             "resolution": ["monthly"] * 2,
             "dataset": ["cooling_degreehours_13"] * 2,
-            "parameter": ["cooling_degreehours"] * 2,
+            "parameter": ["cooling_degree_hour"] * 2,
             "date": [
                 datetime.datetime(2014, 6, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
@@ -393,20 +393,26 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
             "station_id": ["00071"] * 8,
             "resolution": ["monthly"] * 8,
             "dataset": ["cooling_degreehours_13"] * 4 + ["cooling_degreehours_16"] * 4,
-            "parameter": ["amount_cooling_hours", "amount_hours", "cooling_days", "cooling_degreehours"] * 2,
+            "parameter": [
+                "cooling_degree_hour",
+                "count_days_cooling_degree",
+                "count_hours_cooling_degree",
+                "number_of_hours_per_month",
+            ]
+            * 2,
             "date": [
                 datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
             ]
             * 8,
             "value": [
+                3015.2,
+                29.0,
                 624.0,
                 744.0,
-                29.0,
-                3015.2,
+                1505.7,
+                28.0,
                 350.0,
                 744.0,
-                28.0,
-                1505.7,
             ],
             "quality": [
                 None,
@@ -461,15 +467,15 @@ def test_dwd_recent_data_result_long_single_dataset(
             "resolution": ["monthly"] * 9,
             "dataset": ["heating_degreedays"] * 9,
             "parameter": [
-                "amount_days_per_month",
-                "amount_days_per_month",
-                "amount_days_per_month",
-                "amount_heating_degreedays_per_month",
-                "amount_heating_degreedays_per_month",
-                "amount_heating_degreedays_per_month",
-                "heating_degreedays",
-                "heating_degreedays",
-                "heating_degreedays",
+                "count_days_heating_degree",
+                "count_days_heating_degree",
+                "count_days_heating_degree",
+                "heating_degree_day",
+                "heating_degree_day",
+                "heating_degree_day",
+                "number_of_days_per_month",
+                "number_of_days_per_month",
+                "number_of_days_per_month",
             ],
             "date": [
                 datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
@@ -483,15 +489,15 @@ def test_dwd_recent_data_result_long_single_dataset(
                 datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
             ],
             "value": [
-                31.0,
-                31.0,
-                30.0,
                 2.0,
                 14.0,
                 15.0,
                 12.3,
                 98.5,
                 93.0,
+                31.0,
+                31.0,
+                30.0,
             ],
             "quality": [
                 None,
@@ -594,6 +600,123 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
         orient="col",
     )
     assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.remote
+def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
+    """Test monthly soil ztumi dataset."""
+    default_settings.ts_shape = "long"
+    request = DwdDerivedRequest(
+        parameters=[DwdDerivedMetadata.monthly.soil.thawing_thickness_bare_max_month],
+        settings=default_settings,
+        start_date=datetime.datetime(year=2024, month=5, day=1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2024, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        periods=["historical"],
+    ).filter_by_station_id(station_id="00150")
+
+    expected_dict = [
+        {
+            "station_id": "00150",
+            "resolution": "monthly",
+            "dataset": "soil",
+            "parameter": "thawing_thickness_bare_max_month",
+            "date": datetime.datetime(2024, 5, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 0.0,
+            "quality": None,
+        },
+        {
+            "station_id": "00150",
+            "resolution": "monthly",
+            "dataset": "soil",
+            "parameter": "thawing_thickness_bare_max_month",
+            "date": datetime.datetime(2024, 6, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 0.0,
+            "quality": None,
+        },
+        {
+            "station_id": "00150",
+            "resolution": "monthly",
+            "dataset": "soil",
+            "parameter": "thawing_thickness_bare_max_month",
+            "date": datetime.datetime(2024, 7, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 0.0,
+            "quality": None,
+        },
+    ]
+
+    assert request.values.all().df.to_dicts() == expected_dict
+
+
+@pytest.mark.remote
+def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) -> None:
+    """Test hourly radiation surface irradiance dataset (placeholder expected_df)."""
+    default_settings.ts_shape = "long"
+    request = DwdDerivedRequest(
+        parameters=[DwdDerivedMetadata.hourly.radiation_global.radiation_global],
+        settings=default_settings,
+        start_date=datetime.datetime(year=2024, month=5, day=5, hour=8, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime.datetime(year=2024, month=5, day=5, hour=13, tzinfo=ZoneInfo("UTC")),
+        periods=["historical"],
+    ).filter_by_station_id(station_id="18001")
+
+    expected_dict = [
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "radiation_global",
+            "date": datetime.datetime(2024, 5, 5, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 103.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "radiation_global",
+            "date": datetime.datetime(2024, 5, 5, 9, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 114.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "radiation_global",
+            "date": datetime.datetime(2024, 5, 5, 10, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 74.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "radiation_global",
+            "date": datetime.datetime(2024, 5, 5, 11, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 42.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "radiation_global",
+            "date": datetime.datetime(2024, 5, 5, 12, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 26.0,
+            "quality": 503.0,
+        },
+        {
+            "station_id": "18001",
+            "resolution": "hourly",
+            "dataset": "radiation_global",
+            "parameter": "radiation_global",
+            "date": datetime.datetime(2024, 5, 5, 13, 0, tzinfo=ZoneInfo(key="UTC")),
+            "value": 84.0,
+            "quality": 503.0,
+        },
+    ]
+
+    assert request.values.all().df.to_dicts() == expected_dict
 
 
 @pytest.mark.parametrize(
@@ -776,14 +899,14 @@ def test_process_dataframe_to_expected_format(
     """Test for processing df."""
     request = DwdDerivedRequest(
         parameters=[
-            ("monthly", "heating_degreedays", "heating_degreedays"),
+            ("monthly", "heating_degreedays", "heating_degree_day"),
         ],
         settings=default_settings,
     ).filter_by_station_id(station_id="00044")
 
     values = request.values
     rename_mapping = _column_name_mapping = {
-        "Monatsgradtage": "heating_degreedays",
+        "Monatsgradtage": "heating_degree_day",
     }
     input_df = pl.DataFrame(
         {
