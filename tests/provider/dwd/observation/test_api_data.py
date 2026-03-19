@@ -1611,7 +1611,7 @@ def test_dwd_observation_datasets_low_resolution(default_settings: Settings, dat
 
 
 def test_dwd_observation_values_no_network(default_settings: Settings) -> None:
-    """Test that values query returns no results when network calls fail during file listing."""
+    """Test that values query returns no results when network calls fail."""
     from unittest.mock import patch
 
     request = DwdObservationRequest(
@@ -1632,9 +1632,23 @@ def test_dwd_observation_values_no_network(default_settings: Settings) -> None:
     ):
         station = request.filter_by_station_id("00001")
     assert station.df.is_empty()
+    # Test that file-listing failure is handled gracefully
     with patch(
         "wetterdienst.provider.dwd.observation.api.create_file_list_for_climate_observations",
         side_effect=OSError("no network"),
+    ):
+        results = list(station.values.query())
+    assert results == []
+    # Test that download failure is also handled gracefully
+    with (
+        patch(
+            "wetterdienst.provider.dwd.observation.api.create_file_list_for_climate_observations",
+            return_value=pl.Series(["http://example.com/test.zip"]),
+        ),
+        patch(
+            "wetterdienst.provider.dwd.observation.api.download_climate_observations_data",
+            side_effect=OSError("no network"),
+        ),
     ):
         results = list(station.values.query())
     assert results == []

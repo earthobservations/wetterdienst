@@ -118,16 +118,16 @@ class DwdObservationValues(TimeseriesValues):
                     self.sr.stations.settings,
                     date_ranges,
                 )
+                if remote_files.is_empty():
+                    log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
+                    continue
+                filenames_and_files = download_climate_observations_data(remote_files, self.sr.stations.settings)
             except OSError:
                 log.warning(
-                    f"Failed to retrieve file list for {dataset_identifier}. Skipping.",
+                    f"Failed to retrieve data for {dataset_identifier}. Skipping.",
                     exc_info=True,
                 )
                 continue
-            if remote_files.is_empty():
-                log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
-                continue
-            filenames_and_files = download_climate_observations_data(remote_files, self.sr.stations.settings)
             period_df = parse_climate_observations_data(filenames_and_files, parameter_or_dataset, period)
             parameter_data.append(period_df)
         try:
