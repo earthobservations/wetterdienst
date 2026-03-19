@@ -205,3 +205,21 @@ def test_dwd_observation_stations() -> None:
             except Exception:  # noqa: BLE001
                 failed.append(f"{resolution} - {dataset}")
     assert not failed
+
+
+def test_dwd_observation_all_no_network(default_settings: Settings) -> None:
+    """Test that _all() returns empty LazyFrame when network calls fail."""
+    from unittest.mock import patch
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+        start_date="2020-01-01",
+        end_date="2020-01-02",
+        settings=default_settings,
+    )
+    with patch(
+        "wetterdienst.provider.dwd.observation.api.create_meta_index_for_climate_observations",
+        side_effect=OSError("no network"),
+    ):
+        result = request.all()
+    assert result.df.is_empty()
