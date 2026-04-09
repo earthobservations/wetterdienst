@@ -47,7 +47,6 @@ def test_dwd_observation_metadata_discover_parameters() -> None:
     assert json.dumps(expected)[:-1] in json.dumps(metadata)
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_kl_daily_english() -> None:
     """Test DWD observation describe fields for daily climate data."""
@@ -81,7 +80,6 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english() -> None:
     ]
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_kl_daily_german() -> None:
     """Test metadata for daily climate data."""

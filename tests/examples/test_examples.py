@@ -48,7 +48,6 @@ def test_examples_zarr() -> None:
     assert dwd_obs_climate_summary_zarr_dump.main() is None
 
 
-@pytest.mark.xfail
 @pytest.mark.cflake
 def test_examples_failing_describe_fields() -> None:
     """Test DWD observation describe fields for daily climate data."""

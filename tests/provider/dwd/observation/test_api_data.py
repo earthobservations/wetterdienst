@@ -788,7 +788,6 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
     assert_frame_equal(given_df, expected_df)
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 @pytest.mark.parametrize(
     "dataset",
