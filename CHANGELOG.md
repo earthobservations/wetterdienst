@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.120.0] - 2026-04-11
+
 ### Added
 
 - Add DWD Derived data for hourly climate (duett), daily soil, and monthly soil datasets,
@@ -1700,7 +1702,9 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.119.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.120.0...HEAD
+
+[0.120.0]: https://github.com/earthobservations/wetterdienst/compare/v0.119.0...v0.120.0
 
 [0.119.0]: https://github.com/earthobservations/wetterdienst/compare/v0.118.0...v0.119.0
 
