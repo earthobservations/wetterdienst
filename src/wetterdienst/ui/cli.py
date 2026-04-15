@@ -101,6 +101,7 @@ def station_options_extension(command: click.Command) -> click.Command:
         cloup.option_group(
             "Station name filtering",
             cloup.option("--name", type=click.STRING),
+            cloup.option("--name-threshold", "name_threshold", type=click.FloatRange(min=0, max=1), default=0.8),
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
@@ -735,6 +736,7 @@ def stations(
     all_: bool,  # noqa: FBT001
     station: list[str],
     name: str,
+    name_threshold: float,
     latitude: float,
     longitude: float,
     rank: int,
@@ -760,6 +762,7 @@ def stations(
             "all": all_,
             "station": station,
             "name": name,
+            "name_threshold": name_threshold,
             "latitude": latitude,
             "longitude": longitude,
             "rank": rank,
@@ -954,6 +957,7 @@ def values(
     all_: bool,  # noqa: FBT001
     station: list[str],
     name: str,
+    name_threshold: float,
     latitude: float,
     longitude: float,
     rank: int,
@@ -992,6 +996,7 @@ def values(
             "all": all_,
             "station": station,
             "name": name,
+            "name_threshold": name_threshold,
             "latitude": latitude,
             "longitude": longitude,
             "rank": rank,
@@ -1402,7 +1407,7 @@ def stripes_stations(
 @cloup.option("--name", type=click.STRING)
 @cloup.option("--start_year", type=click.INT)
 @cloup.option("--end_year", type=click.INT)
-@cloup.option("--name_threshold", type=click.FLOAT, default=0.90)
+@cloup.option("--name_threshold", type=click.FLOAT, default=0.80)
 @cloup.option("--show_title", type=click.BOOL, default=True)
 @cloup.option("--show_years", type=click.BOOL, default=True)
 @cloup.option("--show_data_availability", type=click.BOOL, default=True)

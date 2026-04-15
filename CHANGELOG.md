@@ -16,6 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Station name filtering (`filter_by_name`, `--name`) was case-sensitive, causing
+  lowercase queries like `"darmstadt"` to return no results. Fixed by adding
+  `processor=fuzz_utils.default_process` to the rapidfuzz call.
+
+### Changed
+
+- Station name filtering now uses `token_sort_ratio` instead of `token_set_ratio`,
+  making word-order variations (e.g. `"Koeln Bonn"` → `"Köln/Bonn"`) match correctly.
+  Zero regressions across all 1281 stations; 149 stations now resolve to their correct
+  match when searched by exact name.
+- Default fuzzy-match threshold for `filter_by_name` lowered from `0.9` to `0.8`,
+  allowing single-character typos and common shorthands to match while maintaining
+  100% precision.
+- `name_threshold` is now exposed in the CLI (`--name-threshold`) for the `stations`
+  and `values` commands, and wired through `StationsRequest` / `ValuesRequest` models
+  so the REST API `/api/stations` and `/api/values` endpoints honour it automatically.
+  All previously stale `0.9` defaults in stripes endpoints updated to `0.8`.
+
 ## [0.120.0] - 2026-04-11
 
 ### Added

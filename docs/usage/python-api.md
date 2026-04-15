@@ -221,6 +221,9 @@ df
 
 #### filter by name
 
+Station name filtering uses fuzzy matching (case-insensitive) so partial names, minor
+typos, and word-order variations are handled automatically.
+
 ```{code-cell}
 ---
 mystnb:
@@ -235,6 +238,29 @@ request = DwdObservationRequest(
     end_date=dt.datetime(2020, 1, 20)
 )
 stations = request.filter_by_name(name="Dresden-Klotzsche")
+df = stations.df
+df
+```
+
+The `threshold` parameter (0–1, default **0.8**) controls how strictly the name must
+match.  Lower values accept more typos; higher values require a closer match.  The
+`rank` parameter limits how many stations are returned (default 1).
+
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+import datetime as dt
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters=("daily", "precipitation_more"),
+    start_date=dt.datetime(2020, 1, 1),
+    end_date=dt.datetime(2020, 1, 20)
+)
+# case-insensitive, typo-tolerant, returns up to 3 matches
+stations = request.filter_by_name(name="dresden", rank=3, threshold=0.8)
 df = stations.df
 df
 ```

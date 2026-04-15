@@ -104,6 +104,7 @@ class StationsRequest(BaseModel):
 
     # station name
     name: str | None = None
+    name_threshold: Annotated[float, Field(ge=0, le=1)] = 0.8
     # latlon
     latitude: Annotated[float, Field(ge=-90, le=90)] | None = None
     longitude: Annotated[float, Field(ge=-180, le=180)] | None = None
@@ -271,6 +272,7 @@ class ValuesRequest(BaseModel):
 
     # station name
     name: str | None = None
+    name_threshold: Annotated[float, Field(ge=0, le=1)] = 0.8
     # latlon
     latitude: Annotated[float, Field(ge=-90, le=90)] | None = None
     longitude: Annotated[float, Field(ge=-180, le=180)] | None = None
@@ -576,7 +578,7 @@ def get_stations(
         return r.filter_by_station_id(request.station)
 
     if request.name:
-        return r.filter_by_name(request.name)
+        return r.filter_by_name(request.name, threshold=getattr(request, "name_threshold", 0.8))
 
     # Use coordinates twice in main if-elif to get same KeyError
     if request.latitude and request.longitude and request.rank:
@@ -772,7 +774,7 @@ def _get_stripes_data(  # noqa: C901
     name: str | None = None,
     start_year: int | None = None,
     end_year: int | None = None,
-    name_threshold: float = 0.9,
+    name_threshold: float = 0.8,
 ) -> StripesData:
     """Get stripes data for station in Germany.
 
@@ -853,7 +855,7 @@ def _plot_stripes(
     name: str | None = None,
     start_year: int | None = None,
     end_year: int | None = None,
-    name_threshold: float = 0.9,
+    name_threshold: float = 0.8,
     *,
     show_title: bool = True,
     show_years: bool = True,

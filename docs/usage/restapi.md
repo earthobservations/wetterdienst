@@ -47,6 +47,12 @@ http localhost:7890/api/coverage
 # Acquire list of DWD OBS stations.
 http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent all==true
 
+# Filter stations by name (fuzzy, case-insensitive).
+http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent name==Darmstadt
+
+# Filter by name with custom threshold (0–1, default 0.8).
+http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent name==Darmstatt name_threshold==0.85
+
 # Query list of stations with SQL.
 http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent sql=="lower(name) LIKE lower('%dresden%');"
 

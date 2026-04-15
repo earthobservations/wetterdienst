@@ -39,6 +39,40 @@ def expected_df() -> pl.DataFrame:
     )
 
 
+@pytest.fixture
+def expected_df_name() -> pl.DataFrame:
+    """Provide expected DataFrame for name-filtered stations (Aach + Aachen at threshold 0.8)."""
+    return pl.DataFrame(
+        [
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": "00001",
+                "start_date": dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "end_date": dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC")),
+                "latitude": 47.8413,
+                "longitude": 8.8493,
+                "height": 478.0,
+                "name": "Aach",
+                "state": "Baden-Württemberg",
+            },
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": "00003",
+                "start_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "end_date": dt.datetime(2011, 3, 31, tzinfo=ZoneInfo("UTC")),
+                "latitude": 50.7827,
+                "longitude": 6.0941,
+                "height": 202.0,
+                "name": "Aachen",
+                "state": "Nordrhein-Westfalen",
+            },
+        ],
+        orient="row",
+    )
+
+
 @pytest.mark.remote
 def test_dwd_observations_stations_filter(default_settings: Settings, expected_df: pl.DataFrame) -> None:
     """Test fetching of DWD observation stations with filter by station id."""
@@ -64,7 +98,7 @@ def test_dwd_observations_urban_stations(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_filter_name(default_settings: Settings, expected_df: pl.DataFrame) -> None:
+def test_dwd_observations_stations_filter_name(default_settings: Settings, expected_df_name: pl.DataFrame) -> None:
     """Test fetching of DWD observation stations with filter by name."""
     # Existing combination of parameters
     request = DwdObservationRequest(
@@ -73,7 +107,7 @@ def test_dwd_observations_stations_filter_name(default_settings: Settings, expec
         settings=default_settings,
     ).filter_by_name(name="Aach")
     given_df = request.df
-    assert_frame_equal(given_df, expected_df)
+    assert_frame_equal(given_df, expected_df_name)
 
 
 # TODO: move this test to test_io.py
