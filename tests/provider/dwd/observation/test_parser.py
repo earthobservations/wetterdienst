@@ -18,6 +18,17 @@ from wetterdienst.provider.dwd.observation.parser import parse_climate_observati
 from wetterdienst.util.network import File
 
 
+def test_parse_dwd_data_empty_files() -> None:
+    """Test that parse_climate_observations_data returns an empty LazyFrame when no files are provided."""
+    result = parse_climate_observations_data(
+        files=[],
+        dataset=DwdObservationMetadata.daily.climate_summary,
+        period=Period.HISTORICAL,
+    )
+    assert isinstance(result, pl.LazyFrame)
+    assert result.collect().is_empty()
+
+
 @pytest.mark.remote
 def test_parse_dwd_data() -> None:
     """Test parsing of DWD historical climate data."""

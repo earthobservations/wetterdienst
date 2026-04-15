@@ -36,7 +36,12 @@ def download_climate_observations_data(
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
     )
-    # filter out exceptions
+    # Re-raise any non-404 errors (e.g. connection refused, server errors).
+    # 404s are silently filtered out since the file index may occasionally be stale.
+    for file in files:
+        if isinstance(file.content, Exception) and file.status != 404:
+            raise file.content
+    # filter out 404s
     files = [file for file in files if isinstance(file.content, BytesIO)]
     # unpack the files
     return [_unpack_climate_observations_data(file) for file in files]
