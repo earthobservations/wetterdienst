@@ -18,6 +18,7 @@ from measurement.measures import Distance
 from measurement.utils import guess
 from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
+from rapidfuzz import utils as fuzz_utils
 
 from wetterdienst.exceptions import (
     NoParametersFoundError,
@@ -321,7 +322,7 @@ class TimeseriesRequest:
             stations_filter=StationsFilter.BY_STATION_ID,
         )
 
-    def filter_by_name(self, name: str, rank: int = 1, threshold: float = 0.9) -> StationsResult:
+    def filter_by_name(self, name: str, rank: int = 1, threshold: float = 0.8) -> StationsResult:
         """Filter stations by name.
 
         Args:
@@ -348,8 +349,9 @@ class TimeseriesRequest:
         station_match = process.extract(
             query=name,
             choices=df.get_column("name"),
-            scorer=fuzz.token_set_ratio,
+            scorer=fuzz.token_sort_ratio,
             score_cutoff=threshold * 100,
+            processor=fuzz_utils.default_process,
         )
 
         if station_match:
