@@ -49,6 +49,11 @@ provider_opt = cloup.option_group(
         "--provider",
         type=click.STRING,
         required=True,
+        help=(
+            "Data provider/organisation. Must be combined with --network. "
+            "Valid provider/network combinations can be listed with: wetterdienst about coverage. "
+            "Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere"
+        ),
     ),
 )
 
@@ -58,6 +63,11 @@ network_opt = cloup.option_group(
         "--network",
         type=click.STRING,
         required=True,
+        help=(
+            "Data network of the provider. Must be combined with --provider. "
+            "Valid provider/network combinations can be listed with: wetterdienst about coverage. "
+            "Examples: observation, mosmix, radar, ghcn, pegel, hydrology"
+        ),
     ),
 )
 
@@ -81,11 +91,44 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
         sys.exit(1)
 
 
+def _resolve_date(date: str | None, start_date: str | None, end_date: str | None) -> str | None:
+    """Resolve --date from either --date or the --start-date/--end-date pair.
+
+    If only --end-date is given, it is treated as a single-point date (start == end).
+    Raises click.UsageError when conflicting options are supplied.
+    """
+    if date and (start_date or end_date):
+        msg = "Use either --date or --start-date / --end-date, not both."
+        raise click.UsageError(msg)
+    if start_date or end_date:
+        start = start_date or end_date
+        end = end_date or start_date
+        return f"{start}/{end}" if start != end else start
+    return date
+
+
 def station_options_core(command: click.Command) -> click.Command:
     """Prepare station options core for cli, which can be used for stations and values endpoint."""
     arguments = [
-        cloup.option("--parameters", type=str, required=True),
-        cloup.option("--periods", type=str),
+        cloup.option(
+            "--parameters",
+            type=str,
+            required=True,
+            help=(
+                "Parameters as resolution/dataset or resolution/dataset/parameter (comma-separated for multiple). "
+                "Examples: daily/kl, daily/climate_summary/precipitation_height, "
+                "hourly/air_temperature/temperature_air_mean_2m"
+            ),
+        ),
+        cloup.option(
+            "--periods",
+            type=str,
+            help=(
+                "Dataset periods to query (comma-separated). "
+                "Inferred automatically when --date is used. "
+                "Examples: historical, recent, now"
+            ),
+        ),
     ]
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
@@ -93,22 +136,39 @@ def station_options_core(command: click.Command) -> click.Command:
 def station_options_extension(command: click.Command) -> click.Command:
     """Prepare station options extension for cli, which can be used for stations and values endpoint."""
     arguments = [
-        cloup.option_group("All stations", click.option("--all", "all_", is_flag=True)),
+        cloup.option_group(
+            "All stations",
+            click.option("--all", "all_", is_flag=True, help="Retrieve all stations."),
+        ),
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=str),
+            cloup.option("--station", type=str, help="Comma-separated list of station IDs. Example: 01048,04411"),
         ),
         cloup.option_group(
             "Station name filtering",
-            cloup.option("--name", type=click.STRING),
-            cloup.option("--name-threshold", "name_threshold", type=click.FloatRange(min=0, max=1), default=0.8),
+            cloup.option(
+                "--name",
+                type=click.STRING,
+                help="Station name filter using fuzzy matching. Example: Dresden-Klotzsche",
+            ),
+            cloup.option(
+                "--name-threshold",
+                "name_threshold",
+                type=click.FloatRange(min=0, max=1),
+                default=0.8,
+                help="Minimum fuzzy-match score for --name (0=any match, 1=exact). Default: 0.8",
+            ),
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
-            cloup.option("--latitude", type=click.FLOAT),
-            cloup.option("--longitude", type=click.FLOAT),
-            cloup.option("--rank", type=click.INT),
-            cloup.option("--distance", type=click.FLOAT),
+            cloup.option("--latitude", type=click.FLOAT, help="Latitude of the reference point."),
+            cloup.option("--longitude", type=click.FLOAT, help="Longitude of the reference point."),
+            cloup.option("--rank", type=click.INT, help="Return the N closest stations to the given lat/lon point."),
+            cloup.option(
+                "--distance",
+                type=click.FLOAT,
+                help="Return stations within this radius in km of the given lat/lon point.",
+            ),
             help="Provide --latitude and --longitude plus either --rank or --distance.",
         ),
         cloup.constraint(
@@ -117,16 +177,20 @@ def station_options_extension(command: click.Command) -> click.Command:
         ),
         cloup.option_group(
             "BBOX filtering",
-            cloup.option("--left", type=click.FLOAT),
-            cloup.option("--bottom", type=click.FLOAT),
-            cloup.option("--right", type=click.FLOAT),
-            cloup.option("--top", type=click.FLOAT),
+            cloup.option("--left", type=click.FLOAT, help="Left (west) longitude of the bounding box."),
+            cloup.option("--bottom", type=click.FLOAT, help="Bottom (south) latitude of the bounding box."),
+            cloup.option("--right", type=click.FLOAT, help="Right (east) longitude of the bounding box."),
+            cloup.option("--top", type=click.FLOAT, help="Top (north) latitude of the bounding box."),
             constraint=cloup.constraints.all_or_none,
             help="Provide --left, --bottom, --right and --top to filter by bounding box.",
         ),
         cloup.option_group(
             "SQL filtering",
-            click.option("--sql", type=click.STRING),
+            click.option(
+                "--sql",
+                type=click.STRING,
+                help="SQL WHERE clause applied to station metadata. Example: state='Sachsen'",
+            ),
         ),
         cloup.constraint(
             RequireExactly(1),
@@ -141,12 +205,16 @@ def station_options_interpolate_summarize(command: click.Command) -> click.Comma
     arguments = [
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=str),
+            cloup.option(
+                "--station",
+                type=str,
+                help="Station ID used as the reference location for interpolation/summarisation.",
+            ),
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
-            cloup.option("--latitude", type=click.FLOAT, help="Latitude of the station"),
-            cloup.option("--longitude", type=click.FLOAT, help="Longitude of the station"),
+            cloup.option("--latitude", type=click.FLOAT, help="Latitude of the reference point."),
+            cloup.option("--longitude", type=click.FLOAT, help="Longitude of the reference point."),
             constraint=cloup.constraints.all_or_none,
         ),
         cloup.constraint(
@@ -259,6 +327,13 @@ Filtering options:
                                 - https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations
                                 - https://en.wikipedia.org/wiki/ISO_8601#Time_intervals
 
+    --start-date                Alternative to --date for specifying the start of a time range.
+                                Mutually exclusive with --date.
+
+    --end-date                  End of time range. Requires --start-date.
+                                If omitted, --start-date is used as both start and end.
+                                If only --end-date is given without --start-date, it is treated as a single date.
+
     --name                      Name of station
 
     --station                   Comma-separated list of station identifiers
@@ -340,7 +415,7 @@ Acquire DWD Observation station history:
 
 Acquire observation data:
 
-    # Get daily climate summary data for specific stations, selected by name and station id
+    # Get data for a station selected by name (no prior 'stations' lookup needed)
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
         --name=Dresden-Hosterwitz
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
@@ -357,6 +432,10 @@ Acquire observation data:
     # Limit output to specific date
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=2020-05-01 \\
         --station=1048,4411
+
+    # Limit output to a date range using --start-date/--end-date (alternative to --date interval syntax)
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \\
+        --start-date=2020-05-01 --end-date=2020-05-05 --station=1048
 
     # Limit output to specified date range in ISO-8601 time interval format
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=2020-05-01/2020-05-05
@@ -722,11 +801,26 @@ def fields(
         "fmt",
         type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
         default="json",
+        help="Output format. Use json/csv/geojson for data, html/png/jpg/webp/svg/pdf for charts. Default: json",
     ),
-    cloup.option("--target", type=click.STRING),
+    cloup.option(
+        "--target",
+        type=click.STRING,
+        help="Export target URI (instead of stdout). Examples: file://data.csv, duckdb:///obs.duckdb?table=weather",
+    ),
 )
-@cloup.option("--with_metadata", type=click.BOOL, default=True)
-@cloup.option("--pretty", type=click.BOOL, default=False)
+@cloup.option(
+    "--with_metadata",
+    type=click.BOOL,
+    default=True,
+    help="Include provider metadata block in JSON/GeoJSON output. Default: true",
+)
+@cloup.option(
+    "--pretty",
+    type=click.BOOL,
+    default=False,
+    help="Pretty-print JSON with 4-space indentation. Default: false",
+)
 @debug_opt
 def stations(
     provider: str,
@@ -920,8 +1014,28 @@ def history(
 @station_options_core
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_extension
-@cloup.option("--date", type=click.STRING)
-@cloup.option("--sql_values", type=click.STRING)
+@cloup.option(
+    "--date",
+    type=click.STRING,
+    help="Single date or interval in ISO 8601 format. Examples: 2020-05-01, 2020-05-01/2020-05-05",
+)
+@cloup.option(
+    "--start-date",
+    "start_date",
+    type=click.STRING,
+    help="Start of date range. Mutually exclusive with --date.",
+)
+@cloup.option(
+    "--end-date",
+    "end_date",
+    type=click.STRING,
+    help="End of date range. If omitted, --start-date is used as both start and end.",
+)
+@cloup.option(
+    "--sql_values",
+    type=click.STRING,
+    help="SQL filter applied to values. Example: parameter='wind_gust_max' AND value > 20",
+)
 @cloup.option_group(
     "Format/Target",
     cloup.option(
@@ -929,22 +1043,82 @@ def history(
         "fmt",
         type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
         default="json",
+        help="Output format. Use json/csv/geojson for data, html/png/jpg/webp/svg/pdf for charts. Default: json",
     ),
-    cloup.option("--target", type=click.STRING),
+    cloup.option(
+        "--target",
+        type=click.STRING,
+        help="Export target URI (instead of stdout). Examples: file://data.csv, duckdb:///obs.duckdb?table=weather",
+    ),
     help="Provide either --format or --target.",
 )
-@cloup.option("--issue", type=click.STRING)
-@cloup.option("--shape", type=click.Choice(["long", "wide"]), default="long")
-@cloup.option("--convert_units", type=click.BOOL, default=True)
-@cloup.option("--unit_targets", type=click.STRING, default=None)
-@cloup.option("--humanize", type=click.BOOL, default=True)
-@cloup.option("--skip_empty", type=click.BOOL, default=False)
-@cloup.option("--skip_criteria", type=click.Choice(["min", "mean", "max"]), default="min")
-@cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
-@cloup.option("--drop_nulls", type=click.BOOL, default=True)
-@cloup.option("--with_metadata", type=click.BOOL, default=True)
-@cloup.option("--with_stations", type=click.BOOL, default=True)
-@cloup.option("--pretty", type=click.BOOL, default=False)
+@cloup.option("--issue", type=click.STRING, help="MOSMIX/DMO issue time. Defaults to the latest available run.")
+@cloup.option(
+    "--shape",
+    type=click.Choice(["long", "wide"]),
+    default="long",
+    help="Output shape: 'long' (one row per parameter, default) or 'wide' (one column per parameter).",
+)
+@cloup.option(
+    "--convert_units",
+    type=click.BOOL,
+    default=True,
+    help="Convert values to SI units (e.g. °C → K). Default: true",
+)
+@cloup.option(
+    "--unit_targets",
+    type=click.STRING,
+    default=None,
+    help='Custom unit targets as JSON map of quantity → unit. Example: {"temperature":"degree_fahrenheit"}',
+)
+@cloup.option(
+    "--humanize",
+    type=click.BOOL,
+    default=True,
+    help="Use human-readable parameter names instead of raw dataset codes. Default: true",
+)
+@cloup.option(
+    "--skip_empty",
+    type=click.BOOL,
+    default=False,
+    help="Skip stations that exceed the null-value fraction threshold (see --skip_threshold). Default: false",
+)
+@cloup.option(
+    "--skip_criteria",
+    type=click.Choice(["min", "mean", "max"]),
+    default="min",
+    help="Aggregation used to measure a station's null fraction: min, mean, or max. Default: min",
+)
+@cloup.option(
+    "--skip_threshold",
+    type=click.FloatRange(min=0, min_open=True, max=1),
+    default=0.95,
+    help="Null-value fraction above which a station is skipped (requires --skip_empty). Default: 0.95",
+)
+@cloup.option(
+    "--drop_nulls",
+    type=click.BOOL,
+    default=True,
+    help="Drop rows with null values from the output. Default: true",
+)
+@cloup.option(
+    "--with_metadata",
+    type=click.BOOL,
+    default=True,
+    help="Include provider metadata block in JSON/GeoJSON output. Default: true",
+)
+@cloup.option(
+    "--with_stations",
+    type=click.BOOL,
+    default=True,
+    help="Include station list in JSON/GeoJSON output. Default: true",
+)
+@cloup.option(
+    "--pretty",
+    type=click.BOOL,
+    default=False,
+    help="Pretty-print JSON with 4-space indentation. Default: false",
+)
 @debug_opt
 def values(
     provider: str,
@@ -953,6 +1127,8 @@ def values(
     periods: list[str],
     lead_time: Literal["short", "long"],
     date: str,
+    start_date: str,
+    end_date: str,
     issue: str,
     all_: bool,  # noqa: FBT001
     station: list[str],
@@ -984,6 +1160,7 @@ def values(
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Acquire data."""
+    date = _resolve_date(date, start_date, end_date)
     request = ValuesRequest.model_validate(
         {
             "provider": provider,
@@ -1083,7 +1260,19 @@ def values(
 @station_options_interpolate_summarize
 @cloup.option("--interpolation_station_distance", type=click.STRING, default=None)
 @cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
-@cloup.option("--date", type=click.STRING, required=True)
+@cloup.option("--date", type=click.STRING, required=False)
+@cloup.option(
+    "--start-date",
+    "start_date",
+    type=click.STRING,
+    help="Start of date range. Mutually exclusive with --date.",
+)
+@cloup.option(
+    "--end-date",
+    "end_date",
+    type=click.STRING,
+    help="End of date range. If omitted, --start-date is used as both start and end.",
+)
 @cloup.option("--sql_values", type=click.STRING)
 @cloup.option_group(
     "Format/Target",
@@ -1113,6 +1302,8 @@ def interpolate(
     interpolation_station_distance: str,
     use_nearby_station_distance: float,
     date: str,
+    start_date: str,
+    end_date: str,
     issue: str,
     station: str,
     latitude: float,
@@ -1129,6 +1320,10 @@ def interpolate(
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Interpolate data."""
+    date = _resolve_date(date, start_date, end_date)
+    if not date:
+        msg = "Provide either --date or --start-date."
+        raise click.UsageError(msg)
     request = InterpolationRequest.model_validate(
         {
             "provider": provider,
@@ -1212,7 +1407,19 @@ def interpolate(
 @station_options_core
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize
-@cloup.option("--date", type=click.STRING, required=True)
+@cloup.option("--date", type=click.STRING, required=False)
+@cloup.option(
+    "--start-date",
+    "start_date",
+    type=click.STRING,
+    help="Start of date range. Mutually exclusive with --date.",
+)
+@cloup.option(
+    "--end-date",
+    "end_date",
+    type=click.STRING,
+    help="End of date range. If omitted, --start-date is used as both start and end.",
+)
 @cloup.option("--sql_values", type=click.STRING)
 @cloup.option_group(
     "Format/Target",
@@ -1240,6 +1447,8 @@ def summarize(
     periods: list[str],
     lead_time: Literal["short", "long"],
     date: str,
+    start_date: str,
+    end_date: str,
     issue: str,
     station: str,
     latitude: float,
@@ -1256,6 +1465,10 @@ def summarize(
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Summarize data."""
+    date = _resolve_date(date, start_date, end_date)
+    if not date:
+        msg = "Provide either --date or --start-date."
+        raise click.UsageError(msg)
     request = SummaryRequest.model_validate(
         {
             "provider": provider,

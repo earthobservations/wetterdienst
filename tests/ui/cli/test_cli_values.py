@@ -619,3 +619,120 @@ def test_cli_values_image_pdf() -> None:
         fmt="pdf",
     )
     assert result.exit_code == 0
+
+
+@pytest.mark.remote
+def test_cli_values_start_date_end_date() -> None:
+    """Test --start-date/--end-date as alternative to --date interval."""
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl",
+            "--start-date=2020-06-30",
+            "--end-date=2020-06-30",
+        ],
+        station="01048",
+        fmt="json",
+    )
+    assert result.exit_code == 0
+    response = json.loads(result.output)
+    first = response["values"][0]
+    assert first["station_id"] == "01048"
+    assert first["date"].startswith("2020-06-30")
+
+
+@pytest.mark.remote
+def test_cli_values_start_date_only() -> None:
+    """Test --start-date without --end-date (single-point date)."""
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl",
+            "--start-date=2020-06-30",
+        ],
+        station="01048",
+        fmt="json",
+    )
+    assert result.exit_code == 0
+    response = json.loads(result.output)
+    assert response["values"]
+
+
+@pytest.mark.remote
+def test_cli_values_end_date_only() -> None:
+    """Test --end-date without --start-date (treated as single-point date)."""
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl",
+            "--end-date=2020-06-30",
+        ],
+        station="01048",
+        fmt="json",
+    )
+    assert result.exit_code == 0
+    response = json.loads(result.output)
+    assert response["values"][0]["date"].startswith("2020-06-30")
+
+
+@pytest.mark.remote
+def test_cli_values_name_filter() -> None:
+    """Test --name filtering in values without a prior stations lookup."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl",
+            "--name=Dresden-Klotzsche",
+            "--date=2020-06-30",
+            "--format=json",
+        ],
+    )
+    assert result.exit_code == 0
+    response = json.loads(result.output)
+    station_ids = {v["station_id"] for v in response["values"]}
+    assert "01048" in station_ids
+
+
+def test_cli_values_date_and_start_date_conflict() -> None:
+    """Test that --date and --start-date together raise an error."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl",
+            "--station=01048",
+            "--date=2020-06-30",
+            "--start-date=2020-06-30",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Use either --date or --start-date" in result.output
+
+
+def test_cli_values_date_and_end_date_conflict() -> None:
+    """Test that --date and --end-date together raise an error."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl",
+            "--station=01048",
+            "--date=2020-06-30",
+            "--end-date=2020-06-30",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Use either --date or --start-date" in result.output
