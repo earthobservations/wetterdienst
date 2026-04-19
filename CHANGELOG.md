@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- CLI: `--start-date` / `--end-date` options added to the `values`, `interpolate`, and
+  `summarize` commands as a user-friendly alternative to the `--date` ISO-8601 interval
+  syntax. Passing only `--start-date` treats it as a single-point date; passing only
+  `--end-date` likewise. `--date` and `--start-date`/`--end-date` are mutually exclusive
+  and raise a `UsageError` when combined.
+- CLI: comprehensive `help` text added to all options across the `values`, `stations`,
+  `interpolate`, and `summarize` commands, including `--provider`, `--network`,
+  `--parameters`, `--periods`, all station-filtering options, `--format`, `--target`,
+  `--shape`, `--humanize`, `--convert_units`, `--unit_targets`, `--skip_empty`,
+  `--skip_criteria`, `--skip_threshold`, `--drop_nulls`, `--with_metadata`,
+  `--with_stations`, `--pretty`, and `--issue`.
+
 ### Fixed
 
 - Station name filtering (`filter_by_name`, `--name`) was case-sensitive, causing
