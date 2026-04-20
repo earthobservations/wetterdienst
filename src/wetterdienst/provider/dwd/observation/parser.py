@@ -72,6 +72,9 @@ def parse_climate_observations_data(
     period: Period,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
+    if not files:
+        log.warning(f"No data files available for dataset {dataset.name!r}, period {period.value!r}.")
+        return pl.LazyFrame()
     if dataset == DwdObservationMetadata.subdaily.wind_extreme:
         data = [_parse_climate_observations_data(file, dataset, period) for file in files]
         try:
