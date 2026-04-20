@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import polars as pl
 
@@ -14,6 +14,9 @@ from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, bu
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
+
+if TYPE_CHECKING:
+    from wetterdienst.settings import Settings
 
 FLOAT_9_TIMES = tuple[
     float | None,
@@ -192,7 +195,7 @@ class WsvPegelValues(TimeseriesValues):
     # Used for getting frequency of timeseries
     _station_endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/"
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel,
@@ -202,16 +205,21 @@ class WsvPegelValues(TimeseriesValues):
         REST-API at https://pegelonline.wsv.de/webservices/rest-api/v2/stations/.
 
         """
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         url = self._endpoint.format(station_id=station_id, parameter=parameter_or_dataset.name_original)
         file = download_file(
             url=url,
-            cache_dir=self.sr.stations.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.NO_CACHE,
-            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-            cache_disable=self.sr.stations.settings.cache_disable,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
         )
         if isinstance(file.content, FileNotFoundError):
             return pl.DataFrame()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_json(file.content)
         df = df.rename(mapping={"timestamp": "date", "value": "value"})
         return df.with_columns(
@@ -265,15 +273,20 @@ class WsvPegelRequest(TimeseriesRequest):
         It involves reading the REST API, doing some transformations
         and adding characteristic values in extra columns if given for each station.
         """
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         file = download_file(
             url=self._endpoint,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.ONE_HOUR,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_json(
             file.content,
             schema={
@@ -315,7 +328,11 @@ class WsvPegelRequest(TimeseriesRequest):
             pl.col("water").struct.field("shortname"),
             pl.col("timeseries").list.eval(pl.element().struct.field("shortname").str.to_lowercase()).alias("ts"),
         )
-        parameters = {parameter.name_original.lower() for parameter in self.parameters}
+        parameters = {
+            parameter.name_original.lower()
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
+        }
         df = df.filter(pl.col("ts").list.set_intersection(list(parameters)).list.len() > 0)
         df = df.with_columns(
             pl.col("timeseries")
