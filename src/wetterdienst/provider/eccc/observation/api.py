@@ -21,6 +21,7 @@ from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -66,12 +67,15 @@ class EcccObservationValues(TimeseriesValues):
             pl.col("value").cast(pl.Float64),
         )
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station dataset."""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         station_meta = self.sr.df.filter(pl.col("station_id") == station_id).to_dicts()[0]
         station_tz = self._get_timezone_from_station(station_id)
         data = []
@@ -99,11 +103,11 @@ class EcccObservationValues(TimeseriesValues):
             )
             file = download_file(
                 url=url,
-                cache_dir=self.sr.stations.settings.cache_dir,
+                cache_dir=settings.cache_dir,
                 ttl=CacheExpiry.FIVE_MINUTES,
-                client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-                cache_disable=self.sr.stations.settings.cache_disable,
-                use_certifi=self.sr.stations.settings.use_certifi,
+                client_kwargs=settings.fsspec_client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
             )
             if parameter_or_dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
                 parameters = [
@@ -164,6 +168,9 @@ class EcccObservationValues(TimeseriesValues):
                 }
                 | {parameter: (pl.String if parameter.endswith("FLAG") else pl.Float64) for parameter in parameters}
             )
+            file.raise_if_exception()
+            if isinstance(file.content, Exception):
+                raise file.content
             df = pl.read_json(
                 file.content,
                 schema=pl.Schema(
@@ -235,14 +242,20 @@ class EcccObservationRequest(TimeseriesRequest):
     }
 
     def _all(self) -> pl.LazyFrame:
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         file = download_file(
             url=f"{self._endpoint}/collections/climate-stations/items",
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
+        file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df_raw = pl.read_json(
             file.content,
             schema=pl.Schema(
@@ -316,8 +329,12 @@ class EcccObservationRequest(TimeseriesRequest):
         )
         df_raw = df_raw.select(pl.all().exclude("timezone"))
         # combinations of resolution and dataset
+        from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
+
         resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+            (parameter.dataset.resolution.name, parameter.dataset.name)
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
         }
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns

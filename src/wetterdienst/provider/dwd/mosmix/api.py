@@ -28,6 +28,7 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
+    from wetterdienst.settings import Settings
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -61,10 +62,12 @@ class DwdMosmixValues(TimeseriesValues):
 
     def __post_init__(self) -> None:
         """Post-initialization of the DwdMosmixValues class."""
+        from typing import cast  # noqa: PLC0415
+
         super().__post_init__()
         self.kml = KMLReader(
             station_ids=self.sr.station_id.to_list(),
-            settings=self.sr.stations.settings,
+            settings=cast("Settings", self.sr.stations.settings),
         )
 
     @property
@@ -86,14 +89,18 @@ class DwdMosmixValues(TimeseriesValues):
         delta_hours = (datetime_.hour - regular_date.hour) % 6
         return datetime_ - dt.timedelta(hours=delta_hours)
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect MOSMIX data for a given station and parameter or dataset."""
+        from typing import cast  # noqa: PLC0415
+
+        stations = cast("DwdMosmixRequest", self.sr.stations)
         # Shift issue date to 3, 9, 15, 21 hour format
-        issue = self.sr.stations.issue
+        # After __post_init__, issue is always dt.datetime | DwdForecastDate (str is resolved)
+        issue = cast("dt.datetime | DwdForecastDate", stations.issue)
         if issue is not DwdForecastDate.LATEST and parameter_or_dataset == DwdMosmixMetadata.hourly.large:
             issue = self.adjust_datetime(issue)
         df = self.read_mosmix(station_id=station_id, dataset=parameter_or_dataset, date=issue)
@@ -138,7 +145,9 @@ class DwdMosmixValues(TimeseriesValues):
         date: DwdForecastDate | dt.datetime,
     ) -> pl.DataFrame:
         """Read single MOSMIX-L file for all stations or multiple files for single stations."""
-        if self.sr.stations.station_group == DwdMosmixStationGroup.ALL_STATIONS:
+        from typing import cast  # noqa: PLC0415
+
+        if cast("DwdMosmixRequest", self.sr.stations).station_group == DwdMosmixStationGroup.ALL_STATIONS:
             url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_PATH)
         else:
             url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH).format(station_id=station_id)
@@ -148,7 +157,9 @@ class DwdMosmixValues(TimeseriesValues):
 
     def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str:
         """Get the URL for a given date."""
-        urls = list_remote_files_fsspec(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
+        from typing import cast  # noqa: PLC0415
+
+        urls = list_remote_files_fsspec(url, cast("Settings", self.sr.stations.settings), CacheExpiry.NO_CACHE)
 
         if date == DwdForecastDate.LATEST:
             try:
@@ -220,7 +231,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         )
         issue = self.issue
         with contextlib.suppress(InvalidEnumerationError):
-            issue = parse_enumeration_from_template(issue, DwdForecastDate)
+            issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 issue = dt.datetime.fromisoformat(issue)
@@ -229,15 +240,20 @@ class DwdMosmixRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """Read the MOSMIX station catalog from the DWD server and return a DataFrame."""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         file = download_file(
             url=self._url,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         text = StringIO(file.content.read().decode(encoding="latin-1"))
         lines = text.readlines()
         header = lines.pop(0)
@@ -263,8 +279,12 @@ class DwdMosmixRequest(TimeseriesRequest):
             pl.lit(None, pl.String).alias("state"),
         )
         # combinations of resolution and dataset
+        from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
+
         resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+            (parameter.dataset.resolution.name, parameter.dataset.name)
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
         }
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns
