@@ -239,7 +239,7 @@ class StationsResult(ExportMixin):
         data["stations"] = df.to_dicts()
         return data  # ty: ignore[invalid-return-type]
 
-    def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:  # ty: ignore[invalid-method-override]
+    def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
         """Format station information as JSON.
 
         Args:
@@ -459,7 +459,7 @@ class _ValuesResult(ExportMixin):
         data["values"] = self._to_dict(self.df)
         return data  # ty: ignore[invalid-return-type]
 
-    def to_json(  # ty: ignore[invalid-method-override]
+    def to_json(
         self,
         *,
         with_metadata: bool = False,

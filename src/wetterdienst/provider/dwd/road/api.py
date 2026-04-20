@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
 from tempfile import NamedTemporaryFile
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urljoin
 
 import polars as pl
@@ -26,6 +26,9 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.util.eccodes import ensure_pdbufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
+
+if TYPE_CHECKING:
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -191,7 +194,7 @@ class DwdRoadValues(TimeseriesValues):
         super().__post_init__()
         ensure_pdbufr()
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
@@ -291,6 +294,8 @@ class DwdRoadValues(TimeseriesValues):
         first_batch = parameter_names[:10]
         second_batch = parameter_names[10:]
         with NamedTemporaryFile("w+b") as tf:
+            if isinstance(file.content, Exception):
+                raise file.content
             tf.write(file.content.read())
             tf.seek(0)
             df = pdbufr.read_bufr(
@@ -398,15 +403,20 @@ class DwdRoadRequest(TimeseriesRequest):
     }
 
     def _all(self) -> pl.LazyFrame:
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         file = download_file(
             url=self._endpoint,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_excel(source=file.content, sheet_name="Tabelle1", infer_schema_length=0)
         df = df.rename(mapping=self._column_mapping)
         df = df.select(pl.col(col) for col in self._column_mapping.values())

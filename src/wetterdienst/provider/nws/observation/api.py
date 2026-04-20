@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import polars as pl
 
@@ -14,6 +15,9 @@ from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, DatasetModel, buil
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
+
+if TYPE_CHECKING:
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -143,21 +147,26 @@ class NwsObservationValues(TimeseriesValues):
 
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         url = self._endpoint.format(station_id=station_id)
         log.info(f"acquiring data from {url}")
         file = download_file(
             url=url,
-            cache_dir=self.sr.stations.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-            cache_disable=self.sr.stations.settings.cache_disable,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_json(
             file.content,
             schema={
@@ -273,8 +282,10 @@ class NwsObservationRequest(TimeseriesRequest):
 
     def __post_init__(self) -> None:
         """Post-initialization of the request object."""
+        from typing import cast  # noqa: PLC0415
+
         super().__post_init__()
-        self.settings.fsspec_client_kwargs.update(
+        cast("Settings", self.settings).fsspec_client_kwargs.update(
             {
                 "headers": {
                     "User-Agent": "wetterdienst/0.48.0",
@@ -284,15 +295,20 @@ class NwsObservationRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         file = download_file(
             url=self._endpoint,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_csv(source=file.content, has_header=False, separator="\t", infer_schema_length=0).lazy()
         df = df.filter(pl.col("column_7").eq("US"))
         df = df.select(

@@ -23,6 +23,7 @@ from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import ParameterModel
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class GeosphereObservationValues(TimeseriesValues):
         Resolution.MONTHLY: dt.datetime(1767, 11, 30, tzinfo=ZoneInfo("UTC")),
     }
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel,
@@ -63,14 +64,19 @@ class GeosphereObservationValues(TimeseriesValues):
             start_date=start_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
             end_date=end_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
         )
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         file = download_file(
             url=url,
-            cache_dir=self.sr.stations.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=self.sr.settings.fsspec_client_kwargs,
             cache_disable=self.sr.settings.cache_disable,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_json(
             file.content,
             schema={
@@ -146,18 +152,23 @@ class GeosphereObservationRequest(TimeseriesRequest):
     _endpoint = "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}/metadata/stations"
 
     def _all(self) -> pl.LazyFrame:
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         data = []
         for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
             url = self._endpoint.format(dataset=dataset.name_original)
             file = download_file(
                 url=url,
-                cache_dir=self.settings.cache_dir,
+                cache_dir=settings.cache_dir,
                 ttl=CacheExpiry.METAINDEX,
-                client_kwargs=self.settings.fsspec_client_kwargs,
-                cache_disable=self.settings.cache_disable,
-                use_certifi=self.settings.use_certifi,
+                client_kwargs=settings.fsspec_client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
             )
             file.raise_if_exception()
+            if isinstance(file.content, Exception):
+                raise file.content
             df = pl.read_csv(file.content)
             df = df.lazy()
             df = df.drop("Sonnenschein", "Globalstrahlung")

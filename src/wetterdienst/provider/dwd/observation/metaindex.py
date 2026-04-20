@@ -99,7 +99,10 @@ def _create_meta_index_for_climate_observations(
         df_files = df_files.filter(pl.col("url").str.split("/").list.get(-2) != "2022")
     # Find the one meta file from the files listed on the server
     df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
-    df_files = df_files.collect()
+    df_files = df_files.collect(background=False)
+    if not isinstance(df_files, pl.DataFrame):
+        msg = "Expected a DataFrame after collect()"
+        raise TypeError(msg)
     if df_files.is_empty():
         msg = f"No meta file was found amongst the files at {url}."
         raise MetaFileNotFoundError(msg)
@@ -118,6 +121,8 @@ def _create_meta_index_for_climate_observations(
 
 def _read_meta_df(file: File) -> pl.LazyFrame:
     """Read meta file into DataFrame."""
+    if isinstance(file.content, Exception):
+        raise file.content
     lines = file.content.readlines()[2:]
     first = lines[0].decode("latin-1")
     if first.startswith("SP"):
@@ -161,18 +166,22 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     df_files = _create_file_index_for_dwd_server(url, settings, CacheExpiry.TWELVE_HOURS)
     df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
     # Find the one meta file from the files listed on the server
-    meta_file_fx3 = (
+    df_fx3 = (
         df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx3", literal=True))
-        .collect()
-        .get_column("url")
-        .first()
+        .collect(background=False)
     )
-    meta_file_fx6 = (
+    if not isinstance(df_fx3, pl.DataFrame):
+        msg = "Expected a DataFrame after collect()"
+        raise TypeError(msg)
+    meta_file_fx3 = df_fx3.get_column("url").to_list()[0]
+    df_fx6 = (
         df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx6", literal=True))
-        .collect()
-        .get_column("url")
-        .first()
+        .collect(background=False)
     )
+    if not isinstance(df_fx6, pl.DataFrame):
+        msg = "Expected a DataFrame after collect()"
+        raise TypeError(msg)
+    meta_file_fx6 = df_fx6.get_column("url").to_list()[0]
     file_fx3 = download_file(
         url=meta_file_fx3,
         cache_dir=settings.cache_dir,
@@ -204,7 +213,11 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     df_files = df_files.with_columns(
         pl.col("filename").str.split("_").list.last().str.split(".").list.first().alias("station_id"),
     )
-    urls_and_station_ids = df_files.select(["url", "station_id"]).collect().rows()
+    df_urls_and_station_ids = df_files.select(["url", "station_id"]).collect(background=False)
+    if not isinstance(df_urls_and_station_ids, pl.DataFrame):
+        msg = "Expected a DataFrame after collect()"
+        raise TypeError(msg)
+    urls_and_station_ids = df_urls_and_station_ids.rows()
     log.info(f"Downloading {len(urls_and_station_ids)} files for 1minute precipitation historical metadata.")
     remote_files = [url for url, _ in urls_and_station_ids]
     files = download_files(
