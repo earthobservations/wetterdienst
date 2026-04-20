@@ -28,6 +28,8 @@ from wetterdienst.util.network import download_file
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from wetterdienst.settings import Settings
+
 
 log = logging.getLogger(__name__)
 
@@ -125,15 +127,20 @@ class HubeauValues(TimeseriesValues):
         station_id: str,
         parameter: ParameterModel,
     ) -> tuple[int, Literal["m", "H"]]:
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.name_original)
         file = download_file(
             url=url,
-            cache_dir=self.sr.stations.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-            cache_disable=self.sr.stations.settings.cache_disable,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         values_dict = json.load(file.content)["data"]
         try:
             second_date = values_dict[1]["date_obs"]
@@ -144,7 +151,7 @@ class HubeauValues(TimeseriesValues):
         minutes = int(date_diff.seconds / 60)
         return minutes, "m"
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel,
@@ -153,6 +160,9 @@ class HubeauValues(TimeseriesValues):
 
         Requests are limited to 1000 units so eventually multiple requests have to be sent to get all data.
         """
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         data = []
         for start_date, end_date in self._get_hubeau_dates(station_id=station_id, parameter=parameter_or_dataset):
             url = self._endpoint.format(
@@ -163,12 +173,14 @@ class HubeauValues(TimeseriesValues):
             )
             file = download_file(
                 url=url,
-                cache_dir=self.sr.stations.settings.cache_dir,
+                cache_dir=settings.cache_dir,
                 ttl=CacheExpiry.FIVE_MINUTES,
-                client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-                cache_disable=self.sr.stations.settings.cache_disable,
+                client_kwargs=settings.fsspec_client_kwargs,
+                cache_disable=settings.cache_disable,
             )
             file.raise_if_exception()
+            if isinstance(file.content, Exception):
+                raise file.content
             df = pl.read_json(
                 file.content,
                 schema={
@@ -221,15 +233,20 @@ class HubeauRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """:return:"""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         file = download_file(
             url=self._endpoint,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df_raw = pl.read_json(
             file.content,
             schema={
@@ -274,8 +291,12 @@ class HubeauRequest(TimeseriesRequest):
             pl.col("station_id").str.slice(offset=0, length=1).map_elements(str.isalpha, return_dtype=pl.Boolean),
         )
         # combinations of resolution and dataset
+        from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
+
         resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+            (parameter.dataset.resolution.name, parameter.dataset.name)
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
         }
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns
