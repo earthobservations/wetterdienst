@@ -9,7 +9,7 @@ import logging
 import re
 from dataclasses import dataclass
 from io import BytesIO, StringIO
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -25,6 +25,9 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
+
+if TYPE_CHECKING:
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -175,19 +178,22 @@ class ImgwHydrologyValues(TimeseriesValues):
         },
     }
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect hydrological data for a single station and dataset."""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         urls = self._get_urls(parameter_or_dataset)
         files = download_files(
             urls=urls,
-            cache_dir=self.sr.stations.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-            cache_disable=self.sr.stations.settings.cache_disable,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
         )
         files = [file for file in files if isinstance(file.content, BytesIO)]
         data = []
@@ -229,12 +235,17 @@ class ImgwHydrologyValues(TimeseriesValues):
         data = []
         files = zfs.glob("*")
         for file_pattern, schema in file_schema.items():
-            file = None
+            matched_path: str | None = None
             for f in files:
                 if re.match(file_pattern, f):
-                    file = f
+                    matched_path = f
                     break
-            df = self.__parse_file(file=zfs.read_bytes(file), station_id=station_id, dataset=dataset, schema=schema)
+            df = self.__parse_file(
+                file=zfs.read_bytes(matched_path),
+                station_id=station_id,
+                dataset=dataset,
+                schema=schema,
+            )
             if not df.is_empty():
                 data.append(df)
         try:
@@ -375,17 +386,22 @@ class ImgwHydrologyRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """:return:"""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         payload = download_file(
             url=self._endpoint,
-            settings=self.settings,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
+        payload.raise_if_exception()
+        if isinstance(payload.content, Exception):
+            raise payload.content
         # skip empty lines in the csv file
-        lines = payload.read().decode("latin-1").replace("\r", "").split("\n")
+        lines = payload.content.read().decode("latin-1").replace("\r", "").split("\n")
         lines = [line for line in lines if line]
         payload = StringIO("\n".join(lines))
         df = pl.read_csv(

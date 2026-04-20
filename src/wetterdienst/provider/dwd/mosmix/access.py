@@ -134,6 +134,9 @@ class KMLReader:
                 # stop processing after head
                 # leave forecast data for iteration
                 break
+        if prod_definition is None or nsmap is None:
+            msg = "Could not find ProductDefinition in KML file"
+            raise ValueError(msg)
         self.metadata = {k: prod_definition.find(f"{{{nsmap['dwd']}}}{v}").text for k, v in prod_items.items()}
         self.metadata["issue_time"] = dt.datetime.fromisoformat(self.metadata["issue_time"])
         # Get time steps.
@@ -141,13 +144,15 @@ class KMLReader:
             "dwd:ForecastTimeSteps",
             nsmap,
         )[0]
-        self.timesteps = [i.text for i in timesteps.getchildren()]
+        self.timesteps = [i.text for i in list(timesteps)]
         # save namespace map for later iteration
         self.nsmap = nsmap
         self._store_station_forecasts()
 
     def iter_items(self) -> Iterator[Element]:
         """Iterate over station forecasts."""
+        if self.iter_elems is None or self.nsmap is None:
+            return
         clear = True
         placemark_tag = f"{{{self.nsmap['kml']}}}Placemark"
         for event, element in self.iter_elems:
@@ -178,15 +183,25 @@ class KMLReader:
 
         """
         self.data = {}
+        nsmap = self.nsmap
+        if nsmap is None:
+            return
         for station_forecast in self.iter_items():
-            station_id = station_forecast.find("kml:name", self.nsmap).text
+            station_id = station_forecast.find("kml:name", nsmap)
+            if station_id is None:
+                continue
+            station_id = station_id.text
             if station_id not in self.station_ids:
                 continue
             self.data[station_id] = {}
-            measurement_list = station_forecast.findall("kml:ExtendedData/dwd:Forecast", self.nsmap)
+            measurement_list = station_forecast.findall("kml:ExtendedData/dwd:Forecast", nsmap)
             for measurement_item in measurement_list:
-                measurement_parameter = measurement_item.get(f"{{{self.nsmap['dwd']}}}elementName")
-                measurement_string = measurement_item.getchildren()[0].text
+                measurement_parameter = measurement_item.get(f"{{{nsmap['dwd']}}}elementName")
+                if measurement_parameter is None:
+                    continue
+                measurement_string = next(iter(measurement_item)).text
+                if measurement_string is None:
+                    continue
                 measurement_values = " ".join(measurement_string.split()).split(" ")
                 measurement_values = [None if i == "-" else float(i) for i in measurement_values]
                 self.data[station_id][measurement_parameter.lower()] = measurement_values
