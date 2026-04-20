@@ -8,7 +8,7 @@ import logging
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import polars as pl
 import utm
@@ -19,11 +19,13 @@ from tqdm import tqdm
 from wetterdienst.core.util import _ParameterData, extract_station_values
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Frequency
+from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -31,9 +33,10 @@ log = logging.getLogger(__name__)
 def get_interpolated_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
     """Get the interpolated DataFrame for the given request and location."""
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
+    settings = cast("Settings", request.settings)
     stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
     return calculate_interpolation(
-        utm_x, utm_y, stations_dict, param_dict, request.settings.ts_geo_use_nearby_station_distance
+        utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance
     )
 
 
@@ -59,9 +62,10 @@ def request_stations(
     """
     param_dict = {}
     stations_dict = {}
-    parameter_names = {parameter.name for parameter in request.parameters}
+    settings = cast("Settings", request.settings)
+    parameter_names = {parameter.name for parameter in request.parameters if isinstance(parameter, ParameterModel)}
     max_interp_distance = max(
-        request.settings.ts_geo_station_distance[parameter_name] for parameter_name in parameter_names
+        settings.ts_geo_station_distance[parameter_name] for parameter_name in parameter_names
     )
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=max_interp_distance)
     df_stations_ranked = stations_ranked.df
@@ -114,30 +118,33 @@ def apply_station_values_per_parameter(
         None - the parameter data is updated in place
 
     """
+    settings = cast("Settings", stations_ranked.stations.settings)
     for parameter in stations_ranked.stations.parameters:
+        if not isinstance(parameter, ParameterModel):
+            continue
+        dataset = parameter.dataset
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
-        ts_interpolation_station_distance = stations_ranked.stations.settings.ts_geo_station_distance
+        ts_interpolation_station_distance = settings.ts_geo_station_distance
         if station["distance"] > ts_interpolation_station_distance[parameter.name.lower()]:
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
-        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) in param_dict and param_dict[
-            parameter.dataset.resolution.name,
-            parameter.dataset.name,
-            parameter.name,
-        ].finished:
+        param_key = (dataset.resolution.name, dataset.name, parameter.name)
+        if param_key in param_dict and param_dict[param_key].finished:
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
-            pl.col("resolution").eq(parameter.dataset.resolution.name),
-            pl.col("dataset").eq(parameter.dataset.name),
+            pl.col("resolution").eq(dataset.resolution.name),
+            pl.col("dataset").eq(dataset.name),
             pl.col("parameter").eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) not in param_dict:
-            frequency = Frequency[parameter.dataset.resolution.value.name].value
+        if param_key not in param_dict:
+            if stations_ranked.stations.start_date is None or stations_ranked.stations.end_date is None:
+                continue
+            frequency = Frequency[dataset.resolution.value.name].value
             df = pl.DataFrame(
                 {
                     "date": pl.datetime_range(
@@ -150,16 +157,16 @@ def apply_station_values_per_parameter(
                 },
                 orient="col",
             )
-            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name] = _ParameterData(df)
+            param_dict[param_key] = _ParameterData(df)
         result_series_param = (
-            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name]
+            param_dict[param_key]
             .values.select("date")
             .join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value")
         result_series_param = result_series_param.rename(station["station_id"])
         extract_station_values(
-            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name],
+            param_dict[param_key],
             result_series_param,
             min_gain_of_value_pairs=stations_ranked.settings.ts_geo_min_gain_of_value_pairs,
             num_additional_stations=stations_ranked.settings.ts_geo_num_additional_stations,
@@ -172,7 +179,7 @@ def calculate_interpolation(
     utm_y: float,
     stations_dict: dict,
     param_dict: dict,
-    use_nearby_station_distance: float,
+    use_nearby_station_distance: float | None,
 ) -> pl.DataFrame:
     """Calculate the interpolation for the given data.
 
@@ -202,7 +209,9 @@ def calculate_interpolation(
     ]
     valid_station_groups = get_valid_station_groups(stations_dict, utm_x, utm_y)
     nearby_stations = [
-        station_id for station_id, (_, _, distance) in stations_dict.items() if distance < use_nearby_station_distance
+        station_id
+        for station_id, (_, _, distance) in stations_dict.items()
+        if use_nearby_station_distance is not None and distance < use_nearby_station_distance
     ]
     for (resolution, dataset, parameter), param_data in param_dict.items():
         param_df = pl.DataFrame({"date": param_data.values.get_column("date")})
