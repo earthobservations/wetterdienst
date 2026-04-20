@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import polars as pl
 
@@ -19,6 +19,9 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
+
+if TYPE_CHECKING:
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -117,21 +120,26 @@ class EAHydrologyValues(TimeseriesValues):
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
         """Collect data for a station, parameter or dataset."""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         url = self._url.format(station_id=station_id)
         file = download_file(
             url=url,
-            cache_dir=self.sr.stations.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.NO_CACHE,
-            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-            cache_disable=self.sr.stations.settings.cache_disable,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df_measures = pl.read_json(
             file.content,
             schema={
@@ -179,12 +187,14 @@ class EAHydrologyValues(TimeseriesValues):
         readings_url = f"{readings_id_url}/readings.json"
         file = download_file(
             url=readings_url,
-            cache_dir=self.sr.stations.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-            cache_disable=self.sr.stations.settings.cache_disable,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_json(
             file.content,
             schema={
@@ -235,15 +245,20 @@ class EAHydrologyRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """Acquire all stations and filter for stations that have wanted resolution and parameter combinations."""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         file = download_file(
             url=self._url,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_json(
             file.content,
             schema={
@@ -301,9 +316,13 @@ class EAHydrologyRequest(TimeseriesRequest):
         resolution_parameter_pairs = {
             (parameter.dataset.resolution.name, self._parameter_core_name_map[parameter.name])
             for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
         }
-        df = df.collect()
-        df = df.filter(
+        result = df.collect(background=False)
+        if not isinstance(result, pl.DataFrame):
+            msg = "Expected DataFrame, got InProcessQuery"
+            raise TypeError(msg)
+        df = result.filter(
             pl.concat_list(["resolution", "parameter"]).map_elements(
                 lambda rp: tuple(rp) in resolution_parameter_pairs,
                 return_dtype=pl.Boolean,

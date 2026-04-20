@@ -28,6 +28,7 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
+    from wetterdienst.settings import Settings
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -82,14 +83,16 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
             pl.lit(0).alias("minute"),
         ],
     )
-    days_difference = df.get_column("day").cast(pl.Int8).max() - df.get_column("day").cast(pl.Int8).min()
+    days_difference = int(df.get_column("day").cast(pl.Int8).max() or 0) - int(  # ty: ignore[invalid-argument-type]
+        df.get_column("day").cast(pl.Int8).min() or 0  # ty: ignore[invalid-argument-type]
+    )
     if days_difference > 20:
         df = df.with_columns(
             pl.when(pl.col("day") > 25).then(month - 1 if month > 1 else 12).otherwise(month).alias("month"),
         )
     else:
         df = df.with_columns(pl.lit(month).alias("month"))
-    months_difference = df.get_column("month").max() - df.get_column("month").min()
+    months_difference = int(df.get_column("month").max() or 0) - int(df.get_column("month").min() or 0)  # ty: ignore[invalid-argument-type]
     if months_difference > 6:
         df = df.with_columns(pl.when(pl.col("month") > 6).then(year - 1).otherwise(year).alias("year"))
     else:
@@ -115,17 +118,23 @@ class DwdDmoValues(TimeseriesValues):
 
     def __post_init__(self) -> None:
         """Post-initialize the DwdDmoValues class."""
+        from typing import cast  # noqa: PLC0415
+
         super().__post_init__()
         self.kml = KMLReader(
             station_ids=self.sr.station_id.to_list(),
-            settings=self.sr.stations.settings,
+            settings=cast("Settings", self.sr.stations.settings),
         )
 
     def get_dwd_dmo_path(self, dataset: DatasetModel, station_id: str | None = None) -> str:
         """Get DWD DMO path."""
+        from typing import cast  # noqa: PLC0415
+
+        stations = cast("DwdDmoRequest", self.sr.stations)
         dataset_name = "icon-eu" if dataset.name_original == "icon_eu" else dataset.name_original
-        path = f"weather/local_forecasts/dmo/{dataset_name}/{self.sr.stations.station_group.value}"
-        if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
+        station_group = cast("DwdDmoStationGroup", stations.station_group)
+        path = f"weather/local_forecasts/dmo/{dataset_name}/{station_group.value}"
+        if station_group == DwdDmoStationGroup.ALL_STATIONS:
             return f"{path}/kmz"
         return f"{path}/{station_id}/kmz/"
 
@@ -134,12 +143,15 @@ class DwdDmoValues(TimeseriesValues):
         """Get metadata DataFrame for DMO."""
         return self.sr.df
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
-        df = self.read_dmo(station_id=station_id, dataset=parameter_or_dataset, date=self.sr.stations.issue)
+        from typing import cast  # noqa: PLC0415
+
+        issue = cast("dt.datetime | DwdForecastDate", cast("DwdDmoRequest", self.sr.stations).issue)
+        df = self.read_dmo(station_id=station_id, dataset=parameter_or_dataset, date=issue)
         if df.is_empty():
             return df
         df = df.unpivot(
@@ -167,7 +179,9 @@ class DwdDmoValues(TimeseriesValues):
 
     def read_icon_eu(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Read large icon_eu file with all stations."""
-        if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
+        from typing import cast  # noqa: PLC0415
+
+        if cast("DwdDmoRequest", self.sr.stations).station_group == DwdDmoStationGroup.ALL_STATIONS:
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon_eu)
         else:
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon_eu, station_id=station_id)
@@ -180,7 +194,9 @@ class DwdDmoValues(TimeseriesValues):
 
     def read_icon(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Read either large icon file with all stations or small single station file."""
-        if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
+        from typing import cast  # noqa: PLC0415
+
+        if cast("DwdDmoRequest", self.sr.stations).station_group == DwdDmoStationGroup.ALL_STATIONS:
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon)
         else:
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon, station_id=station_id)
@@ -193,18 +209,21 @@ class DwdDmoValues(TimeseriesValues):
 
     def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str | None:
         """Get URL for a specific date."""
-        urls = list_remote_files_fsspec(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
+        from typing import cast  # noqa: PLC0415
+
+        stations = cast("DwdDmoRequest", self.sr.stations)
+        urls = list_remote_files_fsspec(url, cast("Settings", stations.settings), CacheExpiry.NO_CACHE)
         if not urls:
             return None
         df = pl.DataFrame({"url": urls}, orient="col")
-        df = df.filter(pl.col("url").str.contains(self.sr.stations.lead_time.value))
+        df = df.filter(pl.col("url").str.contains(str(cast("DwdDmoLeadTime", stations.lead_time).value)))
         df = df.with_columns(
             pl.col("url").str.split("/").list.last().str.split("_").list.last().alias("date_str"),
         )
         df = df.with_columns(pl.col("date_str").str.slice(offset=0, length=pl.col("date_str").str.len_chars() - 4))
         df = add_date_from_filename(df, dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None))
         if date == DwdForecastDate.LATEST:
-            date = df.get_column("date").max()
+            date = cast("dt.datetime", df.get_column("date").max())
         df = df.filter(pl.col("date").eq(date))
         if df.is_empty():
             msg = f"Unable to find {date} file within {url}"
@@ -262,11 +281,12 @@ class DwdDmoRequest(TimeseriesRequest):
             or DwdDmoStationGroup.SINGLE_STATIONS
         )
         self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
+        issue: str | dt.datetime | DwdForecastDate = self.issue
         with contextlib.suppress(InvalidEnumerationError):
-            issue = parse_enumeration_from_template(self.issue, DwdForecastDate)
+            issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
-                issue = dt.datetime.fromisoformat(self.issue)
+                issue = dt.datetime.fromisoformat(issue)
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=ZoneInfo("UTC"))
             # Shift issue date to 0, 12 hour format
             issue = self.adjust_datetime(issue)
@@ -336,15 +356,20 @@ class DwdDmoRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """Get all stations from DMO."""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         file = download_file(
             url=self._url,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         text = StringIO(file.content.read().decode(encoding="latin-1"))
         lines = text.readlines()
         header = lines.pop(0)
@@ -371,8 +396,12 @@ class DwdDmoRequest(TimeseriesRequest):
             pl.lit(None, pl.String).alias("state"),
         )
         # combinations of resolution and dataset
+        from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
+
         resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name) for parameter in self.parameters
+            (parameter.dataset.resolution.name, parameter.dataset.name)
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
         }
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns
