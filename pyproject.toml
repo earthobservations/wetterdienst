@@ -212,7 +212,7 @@ dev = [
     "zizmor>=1.4.1",
     "deptry>=0.24.0",
     "pysentry-rs>=0.3.13",
-    "ty>=0.0.9",
+    "ty>=0.0.32",
 ]
 
 docs = [
@@ -250,8 +250,15 @@ coverage = [
     "_coverage:parallel",
     "_coverage:cflakes",
 ]
+typecheck = "uv run ty check src/wetterdienst"
 sync = "uv sync"
 lock = "uv lock"
+
+[tool.ty.rules]
+unresolved-import = "warn"
+
+[tool.ty.analysis]
+allowed-unresolved-imports = ["lxml.*", "tabula.*"]
 
 [tool.ruff]
 line-length = 120
