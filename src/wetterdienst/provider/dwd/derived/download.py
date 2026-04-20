@@ -48,6 +48,8 @@ def _unpack_climate_derived_data(file: File) -> File:
     # the textfile with the same name minus the trailing .gz
     if file.filename and file.filename.lower().endswith(".txt.gz"):
         try:
+            if isinstance(file.content, Exception):
+                raise file.content
             file.content.seek(0)
             with gzip.GzipFile(fileobj=file.content) as gf:
                 product_bytes = gf.read()

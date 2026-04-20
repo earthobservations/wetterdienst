@@ -8,7 +8,7 @@ import json
 import typing
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import polars as pl
 from typing_extensions import NotRequired, TypedDict
@@ -149,12 +149,12 @@ class StationsResult(ExportMixin):
     @property
     def settings(self) -> Settings:
         """Get settings for the request."""
-        return self.stations.settings
+        return cast("Settings", self.stations.settings)
 
     @property
     def parameters(self) -> list[ParameterModel]:
         """Get parameters from the request."""
-        return self.stations.parameters
+        return cast("list[ParameterModel]", self.stations.parameters)
 
     @property
     def values(self) -> TimeseriesValues:
@@ -173,14 +173,14 @@ class StationsResult(ExportMixin):
         return self.stations._history.from_stations(self)  # noqa: SLF001
 
     @property
-    def start_date(self) -> datetime:
+    def start_date(self) -> datetime | None:
         """Get start date from the request."""
-        return self.stations.start_date
+        return cast("datetime | None", self.stations.start_date)
 
     @property
-    def end_date(self) -> datetime:
+    def end_date(self) -> datetime | None:
         """Get end date from the request."""
-        return self.stations.end_date
+        return cast("datetime | None", self.stations.end_date)
 
     @property
     def station_id(self) -> pl.Series:
@@ -214,7 +214,7 @@ class StationsResult(ExportMixin):
             },
         }
 
-    def to_dict(self, *, with_metadata: bool = False) -> _StationsDict:
+    def to_dict(self, *, with_metadata: bool = False) -> _StationsDict:  # ty: ignore[invalid-method-override]
         """Format station information as dictionary.
 
         Args:
@@ -237,9 +237,9 @@ class StationsResult(ExportMixin):
                 ],
             )
         data["stations"] = df.to_dicts()
-        return data
+        return data  # ty: ignore[invalid-return-type]
 
-    def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
+    def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:  # ty: ignore[invalid-method-override]
         """Format station information as JSON.
 
         Args:
@@ -256,7 +256,7 @@ class StationsResult(ExportMixin):
             indent = None
         return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
 
-    def to_ogc_feature_collection(self, *, with_metadata: bool = False, **_kwargs) -> _StationsOgcFeatureCollection:  # noqa: ANN003
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False, **_kwargs) -> _StationsOgcFeatureCollection:  # noqa: ANN003  # ty: ignore[invalid-method-override]
         """Format station information as OGC feature collection.
 
         Will be used by ``.to_geojson()``.
@@ -306,7 +306,7 @@ class StationsResult(ExportMixin):
             "type": "FeatureCollection",
             "features": features,
         }
-        return data
+        return data  # ty: ignore[invalid-return-type]
 
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the stations DataFrame."""
@@ -324,10 +324,10 @@ class StationsResult(ExportMixin):
         if df.is_empty():
             return go.Figure()
         # Calculate bounding box
-        min_lon = self.df["longitude"].min()
-        max_lon = self.df["longitude"].max()
-        min_lat = self.df["latitude"].min()
-        max_lat = self.df["latitude"].max()
+        min_lon = cast("float", self.df["longitude"].min())
+        max_lon = cast("float", self.df["longitude"].max())
+        min_lat = cast("float", self.df["latitude"].min())
+        max_lat = cast("float", self.df["latitude"].max())
         # Calculate center of the bounding box
         center_lon = (min_lon + max_lon) / 2
         center_lat = (min_lat + max_lat) / 2
@@ -385,7 +385,7 @@ class StationsResult(ExportMixin):
             margin={"r": 10, "t": 10, "l": 10, "b": 10},
         )
 
-    def _to_image(
+    def _to_image(  # ty: ignore[invalid-method-override]
         self,
         fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
         width: int | None = None,
@@ -447,9 +447,9 @@ class _ValuesResult(ExportMixin):
             df = df.with_columns(
                 pl.col("date").dt.to_string("iso:strict"),
             )
-        return df.to_dicts()
+        return df.to_dicts()  # ty: ignore[invalid-return-type]
 
-    def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _ValuesDict:
+    def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _ValuesDict:  # ty: ignore[invalid-method-override]
         """Format values as dictionary."""
         data = {}
         if with_metadata:
@@ -457,9 +457,9 @@ class _ValuesResult(ExportMixin):
         if with_stations:
             data["stations"] = self.stations.to_dict(with_metadata=False)["stations"]
         data["values"] = self._to_dict(self.df)
-        return data
+        return data  # ty: ignore[invalid-return-type]
 
-    def to_json(
+    def to_json(  # ty: ignore[invalid-method-override]
         self,
         *,
         with_metadata: bool = False,
@@ -515,7 +515,7 @@ class ValuesResult(_ValuesResult):
         """Get DataFrame with stations."""
         return self.stations.df.filter(pl.col("station_id").is_in(self.values.stations_collected))
 
-    def to_ogc_feature_collection(self, *, with_metadata: bool = False, **_kwargs) -> _ValuesOgcFeatureCollection:  # noqa: ANN003
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False, **_kwargs) -> _ValuesOgcFeatureCollection:  # noqa: ANN003  # ty: ignore[invalid-method-override]
         """Format values as OGC feature collection."""
         data = {}
         if with_metadata:
@@ -560,7 +560,7 @@ class ValuesResult(_ValuesResult):
             "type": "FeatureCollection",
             "features": features,
         }
-        return data
+        return data  # ty: ignore[invalid-return-type]
 
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
@@ -635,7 +635,7 @@ class ValuesResult(_ValuesResult):
         )
         return fig
 
-    def _to_image(
+    def _to_image(  # ty: ignore[invalid-method-override]
         self,
         fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
         width: int | None = None,
@@ -722,20 +722,20 @@ class InterpolatedValuesResult(_ValuesResult):
 
     stations: StationsResult
     df: pl.DataFrame
-    latlon: tuple[float, float] | None
+    latlon: tuple[float, float]
 
     if typing.TYPE_CHECKING:
         # We need to override the signature of the method to_dict() from ValuesResult here
         # because we want to return a slightly different type with columns related to interpolation.
         # Those are distance_mean and station_ids.
         # https://github.com/python/typing/discussions/1015
-        def _to_dict(self, df: pl.DataFrame) -> list[_InterpolatedValuesItemDict]:
+        def _to_dict(self, df: pl.DataFrame) -> list[_InterpolatedValuesItemDict]:  # ty: ignore[invalid-method-override]
             """Format interpolated values as dictionary."""
 
-        def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict:
+        def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict:  # ty: ignore[invalid-method-override]
             """Format interpolated values as dictionary."""
 
-    def to_ogc_feature_collection(
+    def to_ogc_feature_collection(  # ty: ignore[invalid-method-override]
         self,
         *,
         with_metadata: bool = False,
@@ -771,7 +771,7 @@ class InterpolatedValuesResult(_ValuesResult):
             "type": "FeatureCollection",
             "features": [feature],
         }
-        return data
+        return data  # ty: ignore[invalid-return-type]
 
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
@@ -848,7 +848,7 @@ class InterpolatedValuesResult(_ValuesResult):
         )
         return fig
 
-    def _to_image(
+    def _to_image(  # ty: ignore[invalid-method-override]
         self,
         fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
         width: int | None = None,
@@ -927,13 +927,13 @@ class SummarizedValuesResult(_ValuesResult):
         # because we want to return a slightly different type with columns related to interpolation.
         # Those are distance and station_id.
         # https://github.com/python/typing/discussions/1015
-        def _to_dict(self, df: pl.DataFrame) -> list[_SummarizedValuesItemDict]:
+        def _to_dict(self, df: pl.DataFrame) -> list[_SummarizedValuesItemDict]:  # ty: ignore[invalid-method-override]
             """Format summarized values as dictionary."""
 
-        def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict:
+        def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict:  # ty: ignore[invalid-method-override]
             """Format summarized values as dictionary."""
 
-    def to_ogc_feature_collection(
+    def to_ogc_feature_collection(  # ty: ignore[invalid-method-override]
         self,
         *,
         with_metadata: bool = False,
@@ -969,7 +969,7 @@ class SummarizedValuesResult(_ValuesResult):
             "type": "FeatureCollection",
             "features": [feature],
         }
-        return data
+        return data  # ty: ignore[invalid-return-type]
 
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
@@ -1045,7 +1045,7 @@ class SummarizedValuesResult(_ValuesResult):
         )
         return fig
 
-    def _to_image(
+    def _to_image(  # ty: ignore[invalid-method-override]
         self,
         fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
         width: int | None = None,

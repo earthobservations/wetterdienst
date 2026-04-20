@@ -51,13 +51,13 @@ def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | 
 
     # Filter by specific date.
     else:
-        date = parse_date(date)
-        date_from, date_to = date, date
+        parsed_date = parse_date(date)
+        date_from, date_to = parsed_date, parsed_date
         if resolution in (
             Resolution.ANNUAL,
             Resolution.MONTHLY,
         ):
-            date_from, date_to = mktimerange(resolution, date)
+            date_from, date_to = mktimerange(resolution, parsed_date)
 
     return date_from, date_to
 
@@ -101,8 +101,8 @@ def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
         return df.filter(expression)
 
     # Filter by specific date.
-    date = parse_date(date)
+    parsed_date = parse_date(date)
 
-    expression = pl.col("date").eq(date)
+    expression = pl.col("date").eq(parsed_date)
 
     return df.filter(expression)

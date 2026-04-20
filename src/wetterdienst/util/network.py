@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import ssl
-from collections.abc import Generator, MutableMapping
+from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from io import BytesIO
@@ -164,7 +164,7 @@ class FileDirCache(MutableMapping):
         """Remove item from cache."""
         del self._cache[key]
 
-    def __iter__(self) -> Generator[bytes]:
+    def __iter__(self) -> Iterator[str]:
         """Iterate over keys in cache."""
         return iter(self._cache)
 
@@ -211,6 +211,9 @@ class HTTPFileSystem(_HTTPFileSystem):
                 import aiohttp  # noqa: PLC0415
 
                 ssl_context = _create_ssl_context(use_certifi=True)
+                if ssl_context is None:
+                    msg = "Failed to create SSL context with certifi"
+                    raise RuntimeError(msg)
                 connector = aiohttp.TCPConnector(ssl=ssl_context)
                 return aiohttp.ClientSession(connector=connector, **client_kwargs)
 

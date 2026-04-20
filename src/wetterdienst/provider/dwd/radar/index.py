@@ -205,6 +205,9 @@ def build_path_to_parameter(  # noqa: C901
 
     """
     if parameter == DwdRadarParameter.RADOLAN_CDC:
+        if resolution is None or period is None:
+            msg = "resolution and period must be provided for RADOLAN_CDC"
+            raise ValueError(msg)
         if resolution == Resolution.MINUTE_5:
             # See also page 4 on
             # https://opendata.dwd.de/climate_environment/CDC/help/RADOLAN/Unterstuetzungsdokumente/

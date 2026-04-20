@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class OperaRadarSites:
     """Provide information about all European OPERA radar sites."""
 
-    data_file = importlib.resources.files(__package__) / "sites.json.gz"
+    data_file = importlib.resources.files(__package__ or __name__) / "sites.json.gz"
 
     def __init__(self) -> None:
         """Initialize the radar sites."""
@@ -121,7 +121,9 @@ class OperaRadarSitesGenerator:
             cache_disable=default_settings.cache_disable,
             use_certifi=default_settings.use_certifi,
         )
-        data = json.load(payload)
+        if isinstance(payload.content, Exception):
+            raise payload.content
+        data = json.loads(payload.content.read())
 
         # Filter empty elements and convert data types.
         integer_values = ["maxrange", "number", "startyear", "status", "wmocode"]
