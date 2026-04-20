@@ -12,7 +12,7 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -65,11 +65,11 @@ class RadarResult:
     """Data class for radar data."""
 
     data: BytesIO
-    timestamp: dt.datetime = None
-    url: str = None
-    filename: str = None
+    timestamp: dt.datetime | None = None
+    url: str | None = None
+    filename: str | None = None
 
-    def __getitem__(self, index: int) -> dt.datetime | BytesIO:
+    def __getitem__(self, index: int) -> dt.datetime | BytesIO | None:
         """Backward compatibility to address this instance as a tuple.
 
         Formerly, this returned a tuple of ``(datetime, BytesIO)``.
@@ -137,8 +137,8 @@ class DwdRadarValues:  # noqa: PLW1641
         self.format = parse_enumeration_from_template(fmt, DwdRadarDataFormat)
         self.subset = parse_enumeration_from_template(subset, DwdRadarDataSubset)
         self.elevation = elevation and int(elevation)
-        self.resolution: Resolution = parse_enumeration_from_template(resolution, DwdRadarResolution, Resolution)
-        self.period: Period = parse_enumeration_from_template(period, DwdRadarPeriod, Period)
+        self.resolution: Resolution = parse_enumeration_from_template(resolution, DwdRadarResolution, Resolution)  # ty: ignore[invalid-assignment]
+        self.period: Period = parse_enumeration_from_template(period, DwdRadarPeriod, Period)  # ty: ignore[invalid-assignment]
 
         # Sanity checks.
         if self.parameter == DwdRadarParameter.RADOLAN_CDC and self.resolution not in (
@@ -212,7 +212,7 @@ class DwdRadarValues:  # noqa: PLW1641
             if end_date and isinstance(end_date, str):
                 end_date = dt.datetime.fromisoformat(end_date)
             # set timezone if not set
-            if start_date.tzinfo is None:
+            if isinstance(start_date, dt.datetime) and start_date.tzinfo is None:
                 start_date = start_date.replace(tzinfo=ZoneInfo("UTC"))
             if end_date and isinstance(end_date, dt.datetime) and end_date.tzinfo is None:
                 end_date = end_date.replace(tzinfo=ZoneInfo("UTC"))
@@ -233,7 +233,7 @@ class DwdRadarValues:  # noqa: PLW1641
             f"date={self.start_date}/{self.end_date})"
         )
 
-    def __eq__(self, other: DwdRadarValues) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Compare two DwdRadarValues objects."""
         if not isinstance(other, DwdRadarValues):
             return False
@@ -265,6 +265,8 @@ class DwdRadarValues:  # noqa: PLW1641
           https://opendata.dwd.de/weather/radar/sites/dx/boo/
 
         """
+        if not isinstance(self.start_date, dt.datetime):
+            return
         if self.parameter in (DwdRadarParameter.RADOLAN_CDC, DwdRadarParameter.SF_REFLECTIVITY):
             # Align "start_date" to the most recent 50 minute mark available.
             self.start_date = raster_minutes(self.start_date, 50)
@@ -351,14 +353,15 @@ class DwdRadarValues:  # noqa: PLW1641
                 # Filter for dates range if start_date and end_date are defined.
                 if period == Period.RECENT:
                     file_index = file_index.filter(
-                        pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),
+                        pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),  # ty: ignore[invalid-argument-type]
                     )
 
                 # This is for matching historical data, e.g. "RW-200509.tar.gz".
                 else:
+                    start_date_dt = cast("dt.datetime", self.start_date)
                     file_index = file_index.filter(
-                        pl.col("datetime").dt.year().eq(self.start_date.year)
-                        & pl.col("datetime").dt.month().eq(self.start_date.month),
+                        pl.col("datetime").dt.year().eq(start_date_dt.year)
+                        & pl.col("datetime").dt.month().eq(start_date_dt.month),
                     )
 
                 results.append(file_index)
@@ -373,7 +376,11 @@ class DwdRadarValues:  # noqa: PLW1641
             # Iterate list of files and yield "RadarResult" items.
             for row in file_index.iter_rows(named=True):
                 url = row["filename"]
-                yield from self._download_radolan_data(url, self.start_date, self.end_date)
+                yield from self._download_radolan_data(
+                    url,
+                    cast("dt.datetime", self.start_date),
+                    cast("dt.datetime", self.end_date),
+                )
 
         else:
             file_index = create_fileindex_radar(
@@ -387,7 +394,7 @@ class DwdRadarValues:  # noqa: PLW1641
 
             # Filter for dates range if start_date and end_date are defined.
             file_index = file_index.filter(
-                pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),
+                pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),  # ty: ignore[invalid-argument-type]
             )
 
             # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
@@ -448,6 +455,8 @@ class DwdRadarValues:  # noqa: PLW1641
             use_certifi=self.settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         # RadarParameter.FX_REFLECTIVITY
         if url.endswith(Extension.TAR_BZ2.value):
             tfs = TarFileSystem(file.content, compression="bz2")
@@ -520,6 +529,8 @@ class DwdRadarValues:  # noqa: PLW1641
             use_certifi=self.settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         for result in self._extract_radolan_data(file.content):
             if not result.timestamp:
                 # if result has no timestamp, take it from main url instead of files in archive
@@ -542,7 +553,10 @@ class DwdRadarValues:  # noqa: PLW1641
             for file in tfs.glob("*"):
                 datetime_string = re.findall(r"\d{10}", file)[0]
                 date_time = dt.datetime.strptime("20" + datetime_string, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo("UTC"))
-                file_in_bytes = tfs.tar.extractfile(file).read()
+                file_handle = tfs.tar.extractfile(file)
+                if file_handle is None:
+                    continue
+                file_in_bytes = file_handle.read()
 
                 yield RadarResult(
                     data=BytesIO(file_in_bytes),
@@ -556,7 +570,7 @@ class DwdRadarValues:  # noqa: PLW1641
             # Seek again for reused purpose
             archive_in_bytes.seek(0)
             with gzip.GzipFile(fileobj=archive_in_bytes, mode="rb") as gz_file:
-                yield RadarResult(data=BytesIO(gz_file.read()), timestamp=None, filename=gz_file.name)
+                yield RadarResult(data=BytesIO(gz_file.read()), timestamp=None, filename=gz_file.name or "")
 
 
 class DwdRadarSites(OperaRadarSites):

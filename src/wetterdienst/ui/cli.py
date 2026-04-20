@@ -10,7 +10,7 @@ import logging
 import sys
 from pathlib import Path
 from pprint import pformat
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import click
 import cloup
@@ -731,14 +731,14 @@ def coverage(
         print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
         return
 
-    resolutions = read_list(resolutions)
-    datasets = read_list(datasets)
+    resolutions_list = read_list(resolutions)
+    datasets_list = read_list(datasets)
 
     api = get_api(provider=provider, network=network)
 
     cov = api.discover(
-        resolutions=resolutions,
-        datasets=datasets,
+        resolutions=resolutions_list,
+        datasets=datasets_list,
     )
 
     print(json.dumps(cov, indent=2))  # noqa: T201
@@ -773,7 +773,7 @@ def fields(
         raise click.BadParameter(msg)
 
     try:
-        metadata = api.describe_fields(
+        metadata = api.describe_fields(  # ty: ignore[unresolved-attribute]
             dataset=dataset,
             resolution=resolution,
             period=period,
@@ -793,7 +793,7 @@ def fields(
 @provider_opt
 @network_opt
 @station_options_core
-@station_options_extension
+@station_options_extension  # ty: ignore[invalid-argument-type]
 @cloup.option_group(
     "Format/Target",
     click.option(
@@ -892,7 +892,7 @@ def stations(
         return
 
     # build kwargs dynamically
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "fmt": request.format,
         "with_metadata": request.with_metadata,
     }
@@ -914,7 +914,7 @@ def stations(
 @cli.command("history", section=data_section)
 @provider_opt
 @network_opt
-@station_options_core
+@station_options_core  # ty: ignore[invalid-argument-type]
 @cloup.option_group(
     "All stations",
     click.option("--all", "all_", is_flag=True),
@@ -1013,7 +1013,7 @@ def history(
 @network_opt
 @station_options_core
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
-@station_options_extension
+@station_options_extension  # ty: ignore[invalid-argument-type]
 @cloup.option(
     "--date",
     type=click.STRING,
@@ -1160,7 +1160,7 @@ def values(
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Acquire data."""
-    date = _resolve_date(date, start_date, end_date)
+    date_resolved = _resolve_date(date, start_date, end_date)
     request = ValuesRequest.model_validate(
         {
             "provider": provider,
@@ -1168,7 +1168,7 @@ def values(
             "parameters": parameters,
             "periods": periods,
             "lead_time": lead_time,
-            "date": date,
+            "date": date_resolved,
             "issue": issue,
             "all": all_,
             "station": station,
@@ -1207,7 +1207,7 @@ def values(
         ts_humanize=request.humanize,
         ts_shape=request.shape,
         ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets,
+        ts_unit_targets=request.unit_targets or {},
         ts_skip_empty=request.skip_empty,
         ts_skip_criteria=request.skip_criteria,
         ts_skip_threshold=request.skip_threshold,
@@ -1233,7 +1233,7 @@ def values(
         return
 
     # build kwargs dynamically
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "fmt": request.format,
         "with_metadata": request.with_metadata,
         "with_stations": request.with_stations,
@@ -1257,7 +1257,7 @@ def values(
 @network_opt
 @station_options_core
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
-@station_options_interpolate_summarize
+@station_options_interpolate_summarize  # ty: ignore[invalid-argument-type]
 @cloup.option("--interpolation_station_distance", type=click.STRING, default=None)
 @cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
 @cloup.option("--date", type=click.STRING, required=False)
@@ -1320,8 +1320,8 @@ def interpolate(
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Interpolate data."""
-    date = _resolve_date(date, start_date, end_date)
-    if not date:
+    date_resolved = _resolve_date(date, start_date, end_date)
+    if not date_resolved:
         msg = "Provide either --date or --start-date."
         raise click.UsageError(msg)
     request = InterpolationRequest.model_validate(
@@ -1333,7 +1333,7 @@ def interpolate(
             "lead_time": lead_time,
             "interpolation_station_distance": interpolation_station_distance,
             "use_nearby_station_distance": use_nearby_station_distance,
-            "date": date,
+            "date": date_resolved,
             "issue": issue,
             "station": station,
             "latitude": latitude,
@@ -1357,8 +1357,8 @@ def interpolate(
     settings = Settings(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets,
-        ts_geo_station_distance=request.interpolation_station_distance,
+        ts_unit_targets=request.unit_targets or {},
+        ts_geo_station_distance=request.interpolation_station_distance or {},  # ty: ignore[invalid-argument-type]
         ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
         ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
         ts_geo_num_additional_stations=request.num_additional_stations,
@@ -1382,7 +1382,7 @@ def interpolate(
         values_.to_target(target)
         return
     # build kwargs dynamically
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "fmt": request.format,
         "with_metadata": request.with_metadata,
         "with_stations": request.with_stations,
@@ -1406,7 +1406,7 @@ def interpolate(
 @network_opt
 @station_options_core
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
-@station_options_interpolate_summarize
+@station_options_interpolate_summarize  # ty: ignore[invalid-argument-type]
 @cloup.option("--date", type=click.STRING, required=False)
 @cloup.option(
     "--start-date",
@@ -1465,8 +1465,8 @@ def summarize(
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Summarize data."""
-    date = _resolve_date(date, start_date, end_date)
-    if not date:
+    date_resolved = _resolve_date(date, start_date, end_date)
+    if not date_resolved:
         msg = "Provide either --date or --start-date."
         raise click.UsageError(msg)
     request = SummaryRequest.model_validate(
@@ -1476,7 +1476,7 @@ def summarize(
             "parameters": parameters,
             "periods": periods,
             "lead_time": lead_time,
-            "date": date,
+            "date": date_resolved,
             "issue": issue,
             "station": station,
             "latitude": latitude,
@@ -1499,8 +1499,8 @@ def summarize(
     settings = Settings(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets,
-        ts_geo_station_distance=request.summary_station_distance,
+        ts_unit_targets=request.unit_targets or {},
+        ts_geo_station_distance=request.summary_station_distance or {},  # ty: ignore[invalid-argument-type]
         ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
         ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
         ts_geo_num_additional_stations=request.num_additional_stations,
@@ -1525,7 +1525,7 @@ def summarize(
         return
 
     # build kwargs dynamically
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "fmt": request.format,
         "with_metadata": request.with_metadata,
         "with_stations": request.with_stations,
@@ -1607,7 +1607,7 @@ def stripes_stations(
         msg = f"Invalid kind '{kind}'"
         raise click.ClickException(msg)
 
-    stations = _get_stripes_stations(kind=kind, active=active)
+    stations = _get_stripes_stations(kind=kind, active=active)  # ty: ignore[invalid-argument-type]
 
     output = stations.to_format(fmt, indent=pretty)
 

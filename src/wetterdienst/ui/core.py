@@ -7,7 +7,8 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from typing import TYPE_CHECKING, Annotated, Literal, TypedDict
+from collections.abc import Mapping  # noqa: TC003
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict
 
 import polars as pl
 from pydantic import BaseModel, Field, field_validator
@@ -545,7 +546,7 @@ def _get_stations_request(
 
     any_multiple_period_dataset = any(len(parameter.dataset.periods) > 1 for parameter in parameters)
 
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "parameters": parameters,
         "start_date": start_date,
         "end_date": end_date,
@@ -554,10 +555,10 @@ def _get_stations_request(
         kwargs["periods"] = getattr(request, "periods", None)
 
     if isinstance(api, DwdMosmixRequest):
-        kwargs["issue"] = request.issue
+        kwargs["issue"] = getattr(request, "issue", None)
     elif isinstance(api, DwdDmoRequest):
-        kwargs["issue"] = request.issue
-        kwargs["lead_time"] = request.lead_time
+        kwargs["issue"] = getattr(request, "issue", None)
+        kwargs["lead_time"] = getattr(request, "lead_time", None)
 
     return api(**kwargs, settings=settings)
 
@@ -571,38 +572,38 @@ def get_stations(
     """Get stations based on request."""
     r = _get_stations_request(api=api, request=request, date=date, settings=settings)
 
-    if request.all:
+    if getattr(request, "all", False):
         return r.all()
 
     if request.station:
         return r.filter_by_station_id(request.station)
 
-    if request.name:
-        return r.filter_by_name(request.name, threshold=getattr(request, "name_threshold", 0.8))
+    name: str | None = getattr(request, "name", None)
+    if name:
+        return r.filter_by_name(name, threshold=getattr(request, "name_threshold", 0.8))
+
+    latitude: float | None = getattr(request, "latitude", None)
+    longitude: float | None = getattr(request, "longitude", None)
+    rank: int | None = getattr(request, "rank", None)
+    distance: float | None = getattr(request, "distance", None)
 
     # Use coordinates twice in main if-elif to get same KeyError
-    if request.latitude and request.longitude and request.rank:
-        return r.filter_by_rank(
-            latlon=(request.latitude, request.longitude),
-            rank=request.rank,
-        )
+    if latitude is not None and longitude is not None and rank is not None:
+        return r.filter_by_rank(latlon=(latitude, longitude), rank=rank)
 
-    if request.latitude and request.longitude and request.distance:
-        return r.filter_by_distance(
-            latlon=(request.latitude, request.longitude),
-            distance=request.distance,
-        )
+    if latitude is not None and longitude is not None and distance is not None:
+        return r.filter_by_distance(latlon=(latitude, longitude), distance=distance)
 
-    if request.left and request.bottom and request.right and request.top:
-        return r.filter_by_bbox(
-            left=request.left,
-            bottom=request.bottom,
-            right=request.right,
-            top=request.top,
-        )
+    left: float | None = getattr(request, "left", None)
+    bottom: float | None = getattr(request, "bottom", None)
+    right: float | None = getattr(request, "right", None)
+    top: float | None = getattr(request, "top", None)
+    if left is not None and bottom is not None and right is not None and top is not None:
+        return r.filter_by_bbox(left=left, bottom=bottom, right=right, top=top)
 
-    if request.sql:
-        return r.filter_by_sql(request.sql)
+    sql: str | None = getattr(request, "sql", None)
+    if sql:
+        return r.filter_by_sql(sql)
 
     param_options = [
         "all (boolean)",
@@ -698,7 +699,7 @@ class StripesMetadata(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    station: dict
+    station: Mapping[str, Any]
     resolution: str
     dataset: str
     parameter: str
@@ -720,7 +721,7 @@ StripesKind = Literal["temperature", "precipitation"]
 class StripesConfigItem(TypedDict):
     """Configuration item for climate stripes."""
 
-    request: Callable[[Period], DwdObservationRequest]
+    request: Callable[..., DwdObservationRequest]
     color_map: str
 
 
@@ -761,9 +762,9 @@ CLIMATE_STRIPES_CONFIG: StripesConfig = {
 
 def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> StationsResult:
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]
-    stations = request(periods=Period.HISTORICAL).all()
+    stations = request(Period.HISTORICAL).all()
     if active:
-        station_ids_active = request(periods=Period.RECENT).all().df.select("station_id")
+        station_ids_active = request(Period.RECENT).all().df.select("station_id")
         stations.df = stations.df.join(station_ids_active, on="station_id")
     return stations
 
@@ -790,7 +791,7 @@ def _get_stripes_data(  # noqa: C901
         msg = "name_threshold must be between 0.0 and 1.0"
         raise ValueError(msg)
 
-    request = CLIMATE_STRIPES_CONFIG[kind]["request"]()
+    request = CLIMATE_STRIPES_CONFIG[kind]["request"](Period.HISTORICAL)
 
     if station_id:
         stations = request.filter_by_station_id(station_id)
@@ -931,7 +932,7 @@ def _plot_stripes(
         fig.add_annotation(
             x=0.05,
             y=-0.05,
-            text=str(df.get_column("date").min().year),
+            text=str(df.get_column("date").min().year),  # ty: ignore[unresolved-attribute]
             showarrow=False,
             xref="paper",
             yref="paper",
@@ -940,7 +941,7 @@ def _plot_stripes(
         fig.add_annotation(
             x=0.95,
             y=-0.05,
-            text=str(df.get_column("date").max().year),
+            text=str(df.get_column("date").max().year),  # ty: ignore[unresolved-attribute]
             showarrow=False,
             xref="paper",
             yref="paper",
