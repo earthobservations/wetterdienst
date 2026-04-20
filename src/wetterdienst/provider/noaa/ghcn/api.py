@@ -25,6 +25,7 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ log = logging.getLogger(__name__)
 class NoaaGhcnValues(TimeseriesValues):
     """Values class for NOAA GHCN data provider."""
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
@@ -42,16 +43,21 @@ class NoaaGhcnValues(TimeseriesValues):
         return self._collect_station_parameter_for_daily(station_id=station_id, dataset=parameter_or_dataset)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
         file = url.format(station_id=station_id)
         file = download_file(
             url=file,
-            cache_dir=self.sr.stations.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-            cache_disable=self.sr.stations.settings.cache_disable,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_csv(file.content, separator="|", has_header=True, infer_schema_length=0)
         # drop last line if it is header line
         if df.get_column("Station_ID").last() == "Station_ID":
@@ -94,16 +100,21 @@ class NoaaGhcnValues(TimeseriesValues):
         dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
         file = url.format(station_id=station_id)
         file = download_file(
             url=file,
-            cache_dir=self.sr.stations.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-            cache_disable=self.sr.stations.settings.cache_disable,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_csv(
             source=file.content,
             separator=",",
@@ -195,16 +206,21 @@ class NoaaGhcnRequest(TimeseriesRequest):
         return df.lazy()
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         file = "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv"
         file = download_file(
             url=file,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            raise file.content
         df = pl.read_csv(
             file.content,
             has_header=True,
@@ -262,16 +278,21 @@ class NoaaGhcnRequest(TimeseriesRequest):
         | FIRSTYEAR | 37-40   | INTEGER   |
         | LASTYEAR  | 42-45   | INTEGER   |
         """
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         listings_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt"
         listings_file = download_file(
             url=listings_url,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.TWELVE_HOURS,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         listings_file.raise_if_exception()
+        if isinstance(listings_file.content, Exception):
+            raise listings_file.content
         lines = listings_file.content.read().decode("utf8").splitlines()
         df = pl.DataFrame(lines)
         column_specs = ((0, 10), (12, 19), (21, 29), (31, 36), (38, 39), (41, 70), (80, 84))
@@ -289,13 +310,15 @@ class NoaaGhcnRequest(TimeseriesRequest):
         inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
         inventory_file = download_file(
             url=inventory_url,
-            cache_dir=self.settings.cache_dir,
+            cache_dir=settings.cache_dir,
             ttl=CacheExpiry.TWELVE_HOURS,
-            client_kwargs=self.settings.fsspec_client_kwargs,
-            cache_disable=self.settings.cache_disable,
-            use_certifi=self.settings.use_certifi,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         inventory_file.raise_if_exception()
+        if isinstance(inventory_file.content, Exception):
+            raise inventory_file.content
         inventory_df = pl.read_csv(inventory_file.content, has_header=False, truncate_ragged_lines=True)
         column_specs = ((0, 10), (36, 39), (41, 44))
         inventory_df = read_fwf_from_df(inventory_df, column_specs)

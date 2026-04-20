@@ -5,16 +5,49 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING
+from enum import Enum
+from typing import TypeVar, overload
 
 from wetterdienst.exceptions import InvalidEnumerationError
 
-if TYPE_CHECKING:
-    from enum import Enum
+_E = TypeVar("_E", bound=Enum)
+_B = TypeVar("_B", bound=Enum)
+
+
+@overload
+def parse_enumeration_from_template(
+    enum_: str | Enum,
+    intermediate: type[_E],
+    base: None = ...,
+) -> _E: ...
+
+
+@overload
+def parse_enumeration_from_template(
+    enum_: str | Enum,
+    intermediate: type[Enum],
+    base: type[_B],
+) -> _B: ...
+
+
+@overload
+def parse_enumeration_from_template(
+    enum_: str | Enum | None,
+    intermediate: type[_E],
+    base: None = ...,
+) -> _E | None: ...
+
+
+@overload
+def parse_enumeration_from_template(
+    enum_: str | Enum | None,
+    intermediate: type[Enum],
+    base: type[_B],
+) -> _B | None: ...
 
 
 def parse_enumeration_from_template(  # noqa: C901
-    enum_: str | Enum,
+    enum_: str | Enum | None,
     intermediate: type[Enum],
     base: type[Enum] | None = None,
 ) -> Enum | None:
