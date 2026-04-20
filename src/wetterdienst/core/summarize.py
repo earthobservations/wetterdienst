@@ -5,18 +5,20 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import polars as pl
 from tqdm import tqdm
 
 from wetterdienst.core.util import _ParameterData, extract_station_values
 from wetterdienst.metadata.resolution import Frequency
+from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +43,8 @@ def request_stations(request: TimeseriesRequest, latitude: float, longitude: flo
     """Request stations."""
     param_dict = {}
     stations_dict = {}
-    distance = max(request.settings.ts_geo_station_distance.values())
+    settings = cast("Settings", request.settings)
+    distance = max(settings.ts_geo_station_distance.values())
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance)
     df_stations_ranked = stations_ranked.df
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
@@ -69,33 +72,36 @@ def apply_station_values_per_parameter(
     station: dict,
 ) -> None:
     """Apply station values per parameter."""
+    settings = cast("Settings", stations_ranked.stations.settings)
     for parameter in stations_ranked.stations.parameters:
+        if not isinstance(parameter, ParameterModel):
+            continue
+        dataset = parameter.dataset
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
-        ts_interpolation_station_distance = stations_ranked.stations.settings.ts_geo_station_distance
+        ts_interpolation_station_distance = settings.ts_geo_station_distance
         if station["distance"] > ts_interpolation_station_distance.get(
             parameter.name,
             ts_interpolation_station_distance["default"],
         ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
-        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) in param_dict and param_dict[
-            parameter.dataset.resolution.name,
-            parameter.dataset.name,
-            parameter.name,
-        ].finished:
+        param_key = (dataset.resolution.name, dataset.name, parameter.name)
+        if param_key in param_dict and param_dict[param_key].finished:
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(
-            pl.col("resolution").eq(parameter.dataset.resolution.name),
-            pl.col("dataset").eq(parameter.dataset.name),
+            pl.col("resolution").eq(dataset.resolution.name),
+            pl.col("dataset").eq(dataset.name),
             pl.col("parameter").eq(parameter.name),
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        if (parameter.dataset.resolution.name, parameter.dataset.name, parameter.name) not in param_dict:
-            frequency = Frequency[parameter.dataset.resolution.value.name].value
+        if param_key not in param_dict:
+            if stations_ranked.stations.start_date is None or stations_ranked.stations.end_date is None:
+                continue
+            frequency = Frequency[dataset.resolution.value.name].value
             df = pl.DataFrame(
                 {
                     "date": pl.datetime_range(
@@ -108,18 +114,18 @@ def apply_station_values_per_parameter(
                 },
                 orient="col",
             )
-            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name] = _ParameterData(df)
+            param_dict[param_key] = _ParameterData(df)
         result_series_param = (
-            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name]
+            param_dict[param_key]
             .values.select("date")
             .join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value").rename(station["station_id"])
         extract_station_values(
-            param_dict[parameter.dataset.resolution.name, parameter.dataset.name, parameter.name],
+            param_dict[param_key],
             result_series_param,
-            min_gain_of_value_pairs=stations_ranked.stations.settings.ts_geo_min_gain_of_value_pairs,
-            num_additional_stations=stations_ranked.stations.settings.ts_geo_num_additional_stations,
+            min_gain_of_value_pairs=settings.ts_geo_min_gain_of_value_pairs,
+            num_additional_stations=settings.ts_geo_num_additional_stations,
             valid_station_groups_exists=True,
         )
 

@@ -39,21 +39,21 @@ class ExportMixin:
         return self.df
 
     @abstractmethod
-    def to_dict(self, *args: tuple, **kwargs: dict) -> dict:
+    def to_dict(self, *args: Any, **kwargs: Any) -> dict:  # noqa: ANN401
         """Convert station information into dictionary format."""
 
     @abstractmethod
-    def to_json(self, *args: tuple, **kwargs: dict) -> str:
+    def to_json(self, *args: Any, **kwargs: Any) -> str:  # noqa: ANN401
         """Convert station information into JSON format."""
 
     @abstractmethod
-    def to_ogc_feature_collection(self, *args: tuple, with_metadata: bool, **kwargs: dict) -> dict:
+    def to_ogc_feature_collection(self, *args: Any, with_metadata: bool, **kwargs: Any) -> dict:  # noqa: ANN401
         """Convert station information into OGC Feature Collection format.
 
         Abstract method implementation.
         """
 
-    def to_geojson(self, *, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs: dict) -> str:
+    def to_geojson(self, *, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs: Any) -> str:  # noqa: ANN401
         """Convert station information into GeoJSON format.
 
         Args:
@@ -68,10 +68,11 @@ class ExportMixin:
             indent = 4
         elif indent is False:
             indent = None
-        json_kwargs = {"indent": indent, "ensure_ascii": False}
-        return json.dumps(self.to_ogc_feature_collection(with_metadata=with_metadata), **json_kwargs)
+        return json.dumps(
+            self.to_ogc_feature_collection(with_metadata=with_metadata), indent=indent, ensure_ascii=False
+        )
 
-    def to_csv(self, **kwargs: dict) -> str:
+    def to_csv(self, **kwargs: Any) -> str:  # noqa: ANN401
         """Convert DataFrame to CSV format.
 
         Args:
@@ -91,14 +92,14 @@ class ExportMixin:
         return df.write_csv(**kwargs)
 
     @abstractmethod
-    def to_plot(self, **kwargs: dict) -> go.Figure:
+    def to_plot(self, **kwargs: Any) -> go.Figure:  # noqa: ANN401
         """Create a plotly figure from the DataFrame."""
 
     @abstractmethod
-    def _to_image(self, **kwargs: dict) -> bytes | str:
+    def _to_image(self, **kwargs: Any) -> bytes | str:  # noqa: ANN401
         """Create an image from the plotly figure."""
 
-    def to_image(self, **kwargs: dict) -> bytes | str:
+    def to_image(self, **kwargs: Any) -> bytes | str:  # noqa: ANN401
         """Create an image from the plotly figure.
 
         Args:
@@ -340,7 +341,8 @@ class ExportMixin:
                 result = connection.execute(
                     f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';",  # noqa: S608
                 )
-                exists = result.fetchone()[0] > 0
+                row = result.fetchone()
+                exists = row is not None and row[0] > 0
                 if not exists:
                     connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
                 else:
@@ -357,7 +359,8 @@ class ExportMixin:
                 result = connection.execute(
                     f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';"  # noqa: S608
                 )
-                exists = result.fetchone()[0] > 0
+                row = result.fetchone()
+                exists = row is not None and row[0] > 0
                 if not exists:
                     connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
                 else:
@@ -473,7 +476,7 @@ class ExportMixin:
 
                 ssl = protocol.endswith("s")
                 url = f"http{(ssl and 's') or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
-                client = InfluxDBClientV2(url=url, org=connspec.username, token=connspec.password)
+                client = InfluxDBClientV2(url=url, org=connspec.username or "", token=connspec.password or "")
                 write_api = client.write_api(write_options=SYNCHRONOUS)
             elif version == 3:
                 from influxdb_client_3 import (  # noqa: PLC0415
@@ -558,7 +561,7 @@ class ExportMixin:
 
             # Write to InfluxDB.
             if version == 1:
-                client.write_points(
+                client.write_points(  # ty: ignore[unresolved-attribute]
                     points=points,
                     batch_size=50000,
                 )
@@ -600,7 +603,7 @@ class ExportMixin:
             log.info(f"Writing to CrateDB. target={target}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
-            cratedb_url = connspec.url._replace(path="", query=None)
+            cratedb_url = connspec.url._replace(path="", query="")
             cratedb_target = urlunparse(cratedb_url)
 
             # Convert timezone-aware datetime fields to naive ones.

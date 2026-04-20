@@ -3,10 +3,14 @@
 """Geo utilities for the wetterdienst package."""
 
 import math
+from typing import Any
 
 import polars as pl
 import pyarrow as pa
-import pyarrow.compute as pc
+import pyarrow.compute as _pc
+
+# pyarrow.compute lacks complete type stubs for compute functions
+pc: Any = _pc
 
 EARTH_RADIUS_IN_KM = 6371
 
@@ -74,10 +78,14 @@ def convert_dms_string_to_dd(dms: pl.Series) -> pl.Series:
         Series with decimal degree
 
     """
-    dms = dms.str.split(" ").to_frame("dms")
-    dms = dms.select(
+    dms_frame = dms.str.split(" ").to_frame("dms")
+    dms_frame = dms_frame.select(
         pl.col("dms").list.get(0).cast(pl.Float64).alias("degrees"),
         pl.col("dms").list.get(1).cast(pl.Float64).alias("minutes"),
         pl.col("dms").list.get(2).cast(pl.Float64).alias("seconds"),
     )
-    return dms.get_column("degrees").rename("") + (dms.get_column("minutes") / 60) + (dms.get_column("seconds") / 3600)
+    return (
+        dms_frame.get_column("degrees").rename("")
+        + (dms_frame.get_column("minutes") / 60)
+        + (dms_frame.get_column("seconds") / 3600)
+    )
