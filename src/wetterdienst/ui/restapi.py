@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import logging
 from textwrap import dedent
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
@@ -241,22 +241,19 @@ def coverage(
         return Response(content=json.dumps(cov, indent=4), media_type="application/json")
 
     try:
-        api = Wetterdienst(provider, network)
+        api = Wetterdienst(str(provider), str(network))
     except KeyError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",
         ) from e
 
-    if resolutions:
-        resolutions = read_list(resolutions)
-
-    if datasets:
-        datasets = read_list(datasets)
+    resolutions_list: list[str] | None = read_list(resolutions) if resolutions else None
+    datasets_list: list[str] | None = read_list(datasets) if datasets else None
 
     cov = api.discover(
-        resolutions=resolutions,
-        datasets=datasets,
+        resolutions=resolutions_list,
+        datasets=datasets_list,
     )
 
     return Response(content=json.dumps(cov, indent=4 if pretty else None), media_type="application/json")
@@ -301,7 +298,7 @@ def stations(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     # build kwargs dynamically
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "fmt": request.format,
         "with_metadata": request.with_metadata,
     }
@@ -351,7 +348,7 @@ def values(
 
     settings = Settings(
         ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets,
+        ts_unit_targets=request.unit_targets or {},
         ts_shape=request.shape,
         ts_humanize=request.humanize,
         ts_skip_empty=request.skip_empty,
@@ -377,7 +374,7 @@ def values(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     # build kwargs dynamically
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "fmt": request.format,
         "with_metadata": request.with_metadata,
         "with_stations": request.with_stations,
@@ -429,8 +426,8 @@ def interpolate(
     settings = Settings(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets,
-        ts_geo_station_distance=request.interpolation_station_distance,
+        ts_unit_targets=request.unit_targets or {},
+        ts_geo_station_distance=request.interpolation_station_distance or {},  # ty: ignore[invalid-argument-type]
         ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
         ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
         ts_geo_num_additional_stations=request.num_additional_stations,
@@ -453,7 +450,7 @@ def interpolate(
         raise HTTPException(status_code=404, detail=str(e)) from e
 
     # build kwargs dynamically
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "fmt": request.format,
         "with_metadata": request.with_metadata,
         "with_stations": request.with_stations,
@@ -502,8 +499,8 @@ def summarize(
     settings = Settings(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets,
-        ts_geo_station_distance=request.summary_station_distance,
+        ts_unit_targets=request.unit_targets or {},
+        ts_geo_station_distance=request.summary_station_distance or {},  # ty: ignore[invalid-argument-type]
         ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
         ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
         ts_geo_num_additional_stations=request.num_additional_stations,
@@ -520,7 +517,7 @@ def summarize(
         raise HTTPException(status_code=404, detail=str(e)) from e
 
     # build kwargs dynamically
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "fmt": request.format,
         "with_metadata": request.with_metadata,
         "with_stations": request.with_stations,
@@ -777,4 +774,4 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     host, port = listen_address.split(":")
     port = int(port)
 
-    run(app="wetterdienst.ui.restapi:app", host=host, port=port, reload=reload)
+    run(app="wetterdienst.ui.restapi:app", host=host, port=port, reload=reload or False)

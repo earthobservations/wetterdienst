@@ -29,7 +29,7 @@ from wetterdienst.model.history import (
     _NameHistory,
     _ParameterHistory,
 )
-from wetterdienst.model.metadata import DatasetModel, ParameterSearch
+from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterSearch
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation.download import (
@@ -84,19 +84,23 @@ DROPPABLE_COLUMNS = [
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
         """Collect station data for a given dataset."""
+        from typing import cast  # noqa: PLC0415
+
+        stations = cast("DwdObservationRequest", self.sr.stations)
+        settings = cast("Settings", stations.settings)
         periods_and_date_ranges = []
-        for period in self.sr.stations.periods:
+        for period in cast("set[Period]", stations.periods):
             if parameter_or_dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(
                     station_id,
                     parameter_or_dataset,
-                    self.sr.stations.settings,
+                    settings,
                 )
                 periods_and_date_ranges.append((period, date_ranges))
             else:
@@ -114,13 +118,13 @@ class DwdObservationValues(TimeseriesValues):
                 station_id,
                 parameter_or_dataset,
                 period,
-                self.sr.stations.settings,
+                settings,
                 date_ranges,
             )
             if remote_files.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
-            filenames_and_files = download_climate_observations_data(remote_files, self.sr.stations.settings)
+            filenames_and_files = download_climate_observations_data(remote_files, settings)
             period_df = parse_climate_observations_data(filenames_and_files, parameter_or_dataset, period)
             parameter_data.append(period_df)
         try:
@@ -129,7 +133,11 @@ class DwdObservationValues(TimeseriesValues):
             return pl.DataFrame()
         # Filter out values which already are in the DataFrame
         parameter_df = parameter_df.unique(subset=["date"])
-        parameter_df = parameter_df.collect()
+        result = parameter_df.collect(background=False)
+        if not isinstance(result, pl.DataFrame):
+            msg = "Expected DataFrame from collect()"
+            raise TypeError(msg)
+        parameter_df = result
         parameter_df = parameter_df.drop(*DROPPABLE_COLUMNS, strict=False)
         if parameter_or_dataset.resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10):
             parameter_df = self._fix_timestamps(parameter_df)
@@ -190,7 +198,9 @@ class DwdObservationValues(TimeseriesValues):
         # The request interval may be None, if no start and end date
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
-        interval = self.sr.stations.interval
+        from typing import cast  # noqa: PLC0415
+
+        interval = cast("DwdObservationRequest", self.sr.stations).interval
         start_date_min, end_date_max = (interval and (interval.lower, interval.upper)) or (None, None)
         if start_date_min:
             file_index = file_index.filter(
@@ -198,13 +208,20 @@ class DwdObservationValues(TimeseriesValues):
                 & pl.col("start_date").ge(end_date_max).not_()
                 & pl.col("end_date").le(start_date_min).not_(),
             )
-        return file_index.collect().get_column("date_range").to_list()
+        result = file_index.collect(background=False)
+        if not isinstance(result, pl.DataFrame):
+            msg = "Expected DataFrame from collect()"
+            raise TypeError(msg)
+        return result.get_column("date_range").to_list()
 
 
 class DwdObservationHistory(TimeseriesHistory):
     """History class for DWD observation data."""
 
     def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> Iterator[History]:
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.sr.stations.settings)
         for dataset in available_datasets:
             dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}"
             log.info(f"Acquiring station history for {dataset_identifier}.")
@@ -213,20 +230,24 @@ class DwdObservationHistory(TimeseriesHistory):
                     file_index = _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata(
                         resolution=dataset.resolution.value.value,
                         dataset=dataset.name_original,
-                        settings=self.sr.stations.settings,
+                        settings=settings,
                     )
                 else:
                     file_index = create_file_index_for_climate_observations(
                         dataset=dataset,
                         period=Period.HISTORICAL,
-                        settings=self.sr.stations.settings,
+                        settings=settings,
                     )
             except FileNotFoundError:
                 log.info(
                     f"No files found for {dataset_identifier} and period {Period.HISTORICAL}. Station will be skipped."
                 )
                 continue
-            file_index = file_index.filter(pl.col("station_id").eq(station_id)).collect()
+            result = file_index.filter(pl.col("station_id").eq(station_id)).collect(background=False)
+            if not isinstance(result, pl.DataFrame):
+                msg = "Expected DataFrame from collect()"
+                raise TypeError(msg)
+            file_index = result
             if file_index.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
@@ -241,11 +262,11 @@ class DwdObservationHistory(TimeseriesHistory):
                 for file in file_index.get_column("url"):
                     file: File = download_file(
                         url=file,
-                        cache_dir=self.sr.stations.settings.cache_dir,
+                        cache_dir=settings.cache_dir,
                         ttl=CacheExpiry.METAINDEX,
-                        client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-                        cache_disable=self.sr.stations.settings.cache_disable,
-                        use_certifi=self.sr.stations.settings.use_certifi,
+                        client_kwargs=settings.fsspec_client_kwargs,
+                        cache_disable=settings.cache_disable,
+                        use_certifi=settings.use_certifi,
                     )
                     name_history = self.read_name_history(file)
                     name_histories.append(name_history)
@@ -272,11 +293,11 @@ class DwdObservationHistory(TimeseriesHistory):
                 )
             file: File = download_file(
                 url=file_index.get_column("url").item(),
-                cache_dir=self.sr.stations.settings.cache_dir,
+                cache_dir=settings.cache_dir,
                 ttl=CacheExpiry.METAINDEX,
-                client_kwargs=self.sr.stations.settings.fsspec_client_kwargs,
-                cache_disable=self.sr.stations.settings.cache_disable,
-                use_certifi=self.sr.stations.settings.use_certifi,
+                client_kwargs=settings.fsspec_client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
             )
             name_history = self.read_name_history(file)
             parameter_history_list = self.read_parameter_history(file)
@@ -506,16 +527,18 @@ class DwdObservationRequest(TimeseriesRequest):
     _values = DwdObservationValues
     _history = DwdObservationHistory
     _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT, Period.NOW}
-    periods: str | Period | set[str | Period] = None
+    periods: str | Period | set[Period] | None = None
 
     @property
     def interval(self) -> Interval | None:
         """Interval of the request."""
         if self.start_date:
+            from typing import cast  # noqa: PLC0415
+
             # cut of hours, seconds,...
             return portion.closed(
-                self.start_date.astimezone(ZoneInfo(self.metadata.timezone)),
-                self.end_date.astimezone(ZoneInfo(self.metadata.timezone)),
+                cast("dt.datetime", self.start_date).astimezone(ZoneInfo(self.metadata.timezone)),
+                cast("dt.datetime", self.end_date).astimezone(ZoneInfo(self.metadata.timezone)),
             )
         return None
 
@@ -556,6 +579,8 @@ class DwdObservationRequest(TimeseriesRequest):
         """Get periods based on the interval of the request."""
         periods = set()
         interval = self.interval
+        if interval is None:
+            return periods
         if interval.overlaps(self._historical_interval):
             periods.add(Period.HISTORICAL)
         if interval.overlaps(self._recent_interval):
@@ -568,7 +593,7 @@ class DwdObservationRequest(TimeseriesRequest):
     def _parse_station_id(series: pl.Series) -> pl.Series:
         return series.cast(pl.String).str.pad_start(5, "0")
 
-    def _parse_period(self, period: Period) -> set[Period] | None:
+    def _parse_period(self, period: str | Period | set[Period] | None) -> set[Period] | None:
         """Parse period from string or Period enumeration."""
         if not period:
             return None
@@ -609,7 +634,7 @@ class DwdObservationRequest(TimeseriesRequest):
         from wetterdienst.provider.dwd.observation.fields import read_description  # noqa: PLC0415
 
         if isinstance(dataset, str | Iterable):
-            parameter_template = ParameterSearch.parse(dataset)
+            parameter_template = ParameterSearch.parse(dataset)  # ty: ignore[invalid-argument-type]
         elif isinstance(dataset, DatasetModel):
             parameter_template = ParameterSearch(
                 resolution=dataset.resolution.value.value,
@@ -632,7 +657,10 @@ class DwdObservationRequest(TimeseriesRequest):
             url=url,
             settings=Settings(),
             ttl=CacheExpiry.METAINDEX,
-        ).collect()
+        ).collect(background=False)
+        if not isinstance(file_index, pl.DataFrame):
+            msg = "Expected DataFrame from collect()"
+            raise TypeError(msg)
         if language == "en":
             file_prefix = "DESCRIPTION_"
         elif language == "de":
@@ -647,16 +675,19 @@ class DwdObservationRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """:return:"""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
         datasets = []
         for parameter in self.parameters:
-            if parameter.dataset not in datasets:
+            if isinstance(parameter, ParameterModel) and parameter.dataset not in datasets:
                 datasets.append(parameter.dataset)
         stations = []
         for dataset in datasets:
-            periods = set(dataset.periods) & set(self.periods) if self.periods else dataset.periods
+            periods = set(dataset.periods) & cast("set[Period]", self.periods) if self.periods else dataset.periods
             for period in reversed(list(periods)):
-                df = create_meta_index_for_climate_observations(dataset, period, self.settings)
-                file_index = create_file_index_for_climate_observations(dataset, period, self.settings)
+                df = create_meta_index_for_climate_observations(dataset, period, settings)
+                file_index = create_file_index_for_climate_observations(dataset, period, settings)
                 df = df.join(
                     other=file_index.select(pl.col("station_id")),
                     on=["station_id"],
