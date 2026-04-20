@@ -12,9 +12,9 @@ class TqdmToLogger(io.StringIO):
     Source: https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module
     """
 
-    logger = None
-    level = None
-    buf = ""
+    logger: logging.Logger
+    level: int
+    buf: str = ""
 
     def __init__(self, logger: logging.Logger, level: int | None = None) -> None:
         """Initialize the TqdmToLogger.
@@ -28,9 +28,10 @@ class TqdmToLogger(io.StringIO):
         self.logger = logger
         self.level = level or logging.INFO
 
-    def write(self, buf: str) -> None:
+    def write(self, buf: str) -> int:
         """Overwrite write method."""
         self.buf = buf.strip("\r\n\t ")
+        return len(buf)
 
     def flush(self) -> None:
         """Overwrite flush method."""

@@ -40,9 +40,9 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
     unit_type: str
     unit: str
     description: str | None = None
-    dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)
+    dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
 
-    def __eq__(self, other: ParameterModel) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Compare two parameters."""
         if not isinstance(other, ParameterModel):
             return False
@@ -68,7 +68,7 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
     description: str | None = None
     date_required: bool
     parameters: list[ParameterModel]
-    resolution: SkipValidation[ResolutionModel] = Field(default=None, exclude=True, repr=False)
+    resolution: SkipValidation[ResolutionModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
 
     def __init__(self, **data: dict) -> None:
         """Initialize the dataset model."""
@@ -76,7 +76,7 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
         for parameter in self.parameters:
             parameter.dataset = self
 
-    def __eq__(self, other: DatasetModel) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Compare two datasets."""
         if not isinstance(other, DatasetModel):
             return False
@@ -122,7 +122,7 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
         msg = f"'{item}'. Available parameters: {', '.join(available_parameters)}"
         raise AttributeError(msg)
 
-    def __iter__(self) -> Iterator[ParameterModel]:
+    def __iter__(self) -> Iterator[ParameterModel]:  # ty: ignore[invalid-method-override]
         """Iterate over all parameters."""
         return iter(parameter for parameter in self.parameters if not parameter.name.startswith("quality"))
 
@@ -152,7 +152,7 @@ class ResolutionModel(BaseModel):
             for dataset in v:
                 if dataset.get("date_required") is None:
                     dataset["date_required"] = date_required
-        return v
+        return v  # ty: ignore[invalid-return-type]
 
     def __init__(self, **data: dict) -> None:
         """Initialize the resolution model."""
@@ -188,7 +188,7 @@ class ResolutionModel(BaseModel):
         msg = f"'{item}'. Available datasets: {', '.join(available_datasets)}"
         raise AttributeError(msg)
 
-    def __iter__(self) -> Iterator[DatasetModel]:
+    def __iter__(self) -> Iterator[DatasetModel]:  # ty: ignore[invalid-method-override]
         """Iterate over all datasets."""
         return iter(self.datasets)
 
@@ -233,9 +233,9 @@ class MetadataModel(BaseModel):
         for resolution in self.resolutions:
             if item_search in (resolution.name, resolution.name_original, resolution.value.name.lower()):
                 return resolution
-        return super().__getattr__(item)
+        return super().__getattr__(item)  # ty: ignore[unresolved-attribute]
 
-    def __iter__(self) -> Iterator[ResolutionModel]:
+    def __iter__(self) -> Iterator[ResolutionModel]:  # ty: ignore[invalid-method-override]
         """Iterate over all resolutions."""
         return iter(self.resolutions)
 
@@ -268,9 +268,9 @@ class MetadataModel(BaseModel):
 
 def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     """Build a MetadataModel from a dictionary."""
-    metadata = MetadataModel.model_validate(metadata)
-    metadata.__name__ = name
-    return metadata
+    validated = MetadataModel.model_validate(metadata)
+    validated.__name__ = name  # ty: ignore[unresolved-attribute]
+    return validated
 
 
 @dataclass
@@ -330,7 +330,7 @@ def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> li
         and all(all(sep not in p for sep in POSSIBLE_SEPARATORS) for p in parameters)
     ):
         # ("daily", "climate_summary") -> [("daily", "climate_summary")]
-        parameters = [
+        parameters = [  # ty: ignore[invalid-assignment]
             parameters,
         ]
     parameters_found = []

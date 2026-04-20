@@ -80,6 +80,8 @@ def _parse_climate_derived_data(
     dataset: DatasetModel,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
+    if isinstance(file.content, Exception):
+        return pl.LazyFrame()
     if isinstance(file.content, BytesIO):
         file.content = BytesIO(file.content.read().decode("latin1").encode("utf8"))
 

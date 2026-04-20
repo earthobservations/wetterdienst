@@ -19,7 +19,7 @@ class OrderedPeriod(Enum):
     """Enumeration for period types and values."""
 
     @property
-    def _period_type_order_mapping(self) -> dict["Period", int]:
+    def _period_type_order_mapping(self) -> dict[str, int]:
         # IMPORTANT: THIS DEPENDS ON THE NAMING CONVENTIONS USED IN THE Period
         # ENUMERATION AS SHOWN BELOW
         return {

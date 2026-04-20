@@ -61,7 +61,7 @@ class TimeseriesValues(ABC):
     # Fields for type coercion, needed for separation from fields with actual data
     # that have to be parsed differently when having data in tabular form
     @property
-    def _meta_fields(self) -> dict[str, pl.DataType]:
+    def _meta_fields(self) -> dict[str, Any]:
         """Get metadata fields for the DataFrame."""
         if not self.sr.settings.ts_tidy:
             return {
@@ -210,6 +210,9 @@ class TimeseriesValues(ABC):
             tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
         else:
             tzinfo = ZoneInfo(self.timezone_data)
+        if self.sr.start_date is None or self.sr.end_date is None:
+            msg = "start_date and end_date must be set for building complete DataFrame"
+            raise ValueError(msg)
         start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo, resolution)
         base_df = self._get_base_df(start_date, end_date, resolution)
         data = []
@@ -246,7 +249,7 @@ class TimeseriesValues(ABC):
         self.stations_counter = 0
         self.stations_collected = []
         # mapping of original to humanized parameter names is always the same
-        hpm = None
+        hpm: dict[str, str] = {}
         if self.sr.settings.ts_humanize:
             hpm = self._create_humanized_parameters_mapping()
         for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
@@ -435,7 +438,7 @@ class TimeseriesValues(ABC):
 
     def _create_humanized_parameters_mapping(self) -> dict[str, str]:
         """Create mapping of original to humanized parameter names."""
-        return {parameter.name_original: parameter.name for parameter in self.sr.stations.parameters}
+        return {parameter.name_original: parameter.name for parameter in self.sr.parameters}
 
     def _get_actual_percentage(self, df: pl.DataFrame) -> float:
         """Get the percentage of actual values in the DataFrame.
@@ -455,10 +458,10 @@ class TimeseriesValues(ABC):
         )
         percentage = pl.concat([percentage, missing])
         if self.sr.settings.ts_skip_criteria == "min":
-            return percentage.get_column("perc").min()
+            return cast("float", percentage.get_column("perc").min() or 0.0)
         if self.sr.settings.ts_skip_criteria == "mean":
-            return percentage.get_column("perc").mean()
+            return cast("float", percentage.get_column("perc").mean() or 0.0)
         if self.sr.settings.ts_skip_criteria == "max":
-            return percentage.get_column("perc").max()
+            return cast("float", percentage.get_column("perc").max() or 0.0)
         msg = "ts_skip_criteria must be one of min, mean, max"
         raise KeyError(msg)

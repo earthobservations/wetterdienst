@@ -24,22 +24,22 @@ class ConnectionString:
         return self.url.scheme
 
     @property
-    def host(self) -> str:
+    def host(self) -> str | None:
         """Get the host from the URL."""
         return self.url.hostname
 
     @property
-    def port(self) -> int:
+    def port(self) -> int | None:
         """Get the port from the URL."""
         return self.url.port
 
     @property
-    def username(self) -> str:
+    def username(self) -> str | None:
         """Get the username from the URL."""
         return self.url.username
 
     @property
-    def password(self) -> str:
+    def password(self) -> str | None:
         """Get the password from the URL."""
         return self.url.password
 

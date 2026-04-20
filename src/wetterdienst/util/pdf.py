@@ -23,7 +23,8 @@ def read_pdf(url: str) -> str:
         cache_disable=default_settings.cache_disable,
         use_certifi=default_settings.use_certifi,
     )
-    file.raise_if_exception()
+    if isinstance(file.content, Exception):
+        raise file.content
     pdf = pypdf.PdfReader(file.content)
     for page_number in range(len(pdf.pages)):
         page = pdf.pages[page_number]

@@ -71,7 +71,7 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         # Read table from PDF.
         import tabula  # noqa: PLC0415
 
-        df = tabula.read_pdf(self.url, multiple_tables=False, pages=1)[0]
+        df = tabula.read_pdf(self.url, multiple_tables=False, pages=1)[0]  # ty: ignore[unresolved-attribute]
 
         df = pl.from_pandas(df)
 

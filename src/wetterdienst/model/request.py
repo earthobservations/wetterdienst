@@ -72,15 +72,15 @@ class TimeseriesRequest:
     """Core class for timeseries information of a source."""
 
     # implementations of subclasses
-    metadata: MetadataModel = field(
+    metadata: MetadataModel = field(  # ty: ignore[invalid-assignment]
         init=False,
         repr=False,
         default=None,
     )
-    _values: TimeseriesValues = field(init=False, repr=False, default=None)
-    _history: TimeseriesHistory = field(init=False, repr=False, default=None)
+    _values: TimeseriesValues = field(init=False, repr=False, default=None)  # ty: ignore[invalid-assignment]
+    _history: TimeseriesHistory = field(init=False, repr=False, default=None)  # ty: ignore[invalid-assignment]
     # actual parameters
-    parameters: _PARAMETER_TYPE
+    parameters: _PARAMETER_TYPE  # ty: ignore[dataclass-field-order]
     start_date: _DATETIME_TYPE = None
     end_date: _DATETIME_TYPE = None
     settings: Settings | dict = field(default_factory=Settings)
@@ -180,6 +180,9 @@ class TimeseriesRequest:
             end_date = start_date
 
         # TODO: replace this with a response + logging
+        if not isinstance(start_date, dt.datetime) or not isinstance(end_date, dt.datetime):
+            msg = "start_date and end_date must be datetime objects at this point"
+            raise TypeError(msg)
         if not start_date <= end_date:
             msg = "Error: 'start_date' must be smaller or equal to 'end_date'."
             raise StartDateEndDateError(msg)
@@ -189,8 +192,8 @@ class TimeseriesRequest:
     @classmethod
     def discover(  # noqa: C901
         cls,
-        resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] = None,
-        datasets: str | DatasetModel | Sequence[str | DatasetModel] = None,
+        resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] | None = None,
+        datasets: str | DatasetModel | Sequence[str | DatasetModel] | None = None,
     ) -> dict:
         """Discover metadata for the given resolutions and datasets.
 
@@ -281,7 +284,11 @@ class TimeseriesRequest:
         """
         df = self._all()
 
-        df = df.collect()
+        result = df.collect(background=False)
+        if not isinstance(result, pl.DataFrame):
+            msg = "collect() did not return a DataFrame"
+            raise TypeError(msg)
+        df = result
 
         if not df.is_empty():
             df = df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns)
@@ -309,11 +316,11 @@ class TimeseriesRequest:
         """
         df = self.all().df
 
-        station_id = self._parse_station_id(pl.Series(name="station_id", values=to_list(station_id)))
+        station_id_series = self._parse_station_id(pl.Series(name="station_id", values=to_list(station_id)))
 
-        log.info(f"Filtering for station_id={list(station_id)}")
+        log.info(f"Filtering for station_id={list(station_id_series)}")
 
-        df_station_id = df.join(other=station_id.to_frame(), on="station_id", how="inner")
+        df_station_id = df.join(other=station_id_series.to_frame(), on="station_id", how="inner")
 
         return StationsResult(
             stations=self,
@@ -533,7 +540,11 @@ class TimeseriesRequest:
             msg = "start_date and end_date are required for interpolation"
             raise ValueError(msg)
 
-        resolutions = {parameter.dataset.resolution.value for parameter in self.parameters}
+        resolutions = {
+            parameter.dataset.resolution.value
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
+        }
 
         if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
             log.warning("Interpolation might be slow for high resolutions due to mass of data")
@@ -555,7 +566,7 @@ class TimeseriesRequest:
         df_stations_all = self.all().df
         df_stations = df_stations_all.join(
             other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
-            .explode(pl.col("station_id"))
+            .explode("station_id")
             .unique(),
             on="station_id",
         )
@@ -583,7 +594,11 @@ class TimeseriesRequest:
             msg = "start_date and end_date are required for summarization"
             raise ValueError(msg)
 
-        resolutions = {parameter.dataset.resolution.value for parameter in self.parameters}
+        resolutions = {
+            parameter.dataset.resolution.value
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
+        }
 
         if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
             log.warning("Summary might be slow for high resolutions due to mass of data")

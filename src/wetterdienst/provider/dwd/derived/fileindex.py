@@ -42,7 +42,11 @@ def create_file_list_for_climate_derived(
     """
     file_index = create_file_index_for_climate_derived(dataset, period, settings)
     file_index = file_index.filter(pl.col("station_id").eq(station_id))
-    return file_index.collect().get_column("url")
+    result = file_index.collect(background=False)
+    if not isinstance(result, pl.DataFrame):
+        msg = "Expected DataFrame from collect()"
+        raise TypeError(msg)
+    return result.get_column("url")
 
 
 def create_file_index_for_climate_derived(

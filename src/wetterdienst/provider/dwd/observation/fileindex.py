@@ -39,7 +39,11 @@ def create_file_list_for_climate_observations(
     file_index = file_index.filter(pl.col("station_id").eq(station_id))
     if date_ranges:
         file_index = file_index.filter(pl.col("date_range").is_in(date_ranges))
-    return file_index.collect().get_column("url")
+    result = file_index.collect(background=False)
+    if not isinstance(result, pl.DataFrame):
+        msg = "Expected DataFrame from collect()"
+        raise TypeError(msg)
+    return result.get_column("url")
 
 
 def create_file_index_for_climate_observations(

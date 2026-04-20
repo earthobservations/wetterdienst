@@ -8,7 +8,7 @@ import json
 import logging
 import platform
 from collections import defaultdict
-from pathlib import Path  # noqa: TC003
+from pathlib import Path
 from typing import Annotated, Literal
 
 import platformdirs
@@ -23,13 +23,19 @@ log = logging.getLogger(__name__)
 _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 
 
+def _default_geo_station_distance() -> defaultdict[str, float]:
+    d: defaultdict[str, float] = defaultdict(lambda: 40.0)
+    d[Parameter.PRECIPITATION_HEIGHT.value.lower()] = 20.0
+    return d
+
+
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
     model_config = SettingsConfigDict(env_ignore_empty=True, env_prefix="WD_")
 
     cache_disable: bool = Field(default=False)
-    cache_dir: Path = Field(default_factory=lambda: platformdirs.user_cache_dir(appname="wetterdienst"))
+    cache_dir: Path = Field(default_factory=lambda: Path(platformdirs.user_cache_dir(appname="wetterdienst")))
     fsspec_client_kwargs: dict = Field(
         default_factory=lambda: {
             "headers": {"User-Agent": f"wetterdienst/{__import__('wetterdienst').__version__} ({platform.system()})"},
@@ -49,9 +55,7 @@ class Settings(BaseSettings):
     # the default is 40km, but for precipitation height it is 20km
     # parameters such as precipitation height are more local and thus need a smaller distance, while parameters such as
     # temperature can be interpolated over a larger distance
-    ts_geo_station_distance: defaultdict[str, float] = Field(
-        default_factory=lambda: defaultdict(lambda: 40) | {Parameter.PRECIPITATION_HEIGHT.value.lower(): 20}
-    )
+    ts_geo_station_distance: defaultdict[str, float] = Field(default_factory=_default_geo_station_distance)
     # this setting is used to define how far away a station can be so that no interpolation is done
     # but instead the station is used directly
     ts_geo_use_nearby_station_distance: Annotated[float, Field(strict=True, ge=0)] | None = 1.0

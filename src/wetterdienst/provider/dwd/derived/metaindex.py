@@ -132,6 +132,8 @@ def _get_raw_station_data_from_plz_generator() -> pl.LazyFrame:
 
 def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
     """Read meta file into DataFrame."""
+    if isinstance(file.content, Exception):
+        raise file.content
     if dataset in SOIL_DATASETS:
         df = pl.read_csv(
             file.content,
@@ -139,7 +141,7 @@ def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
             has_header=True,
             encoding="latin-1",
             skip_rows=0,
-            new_columns=SOIL_COLUMN_NAMES_MAPPING.values(),
+            new_columns=list(SOIL_COLUMN_NAMES_MAPPING.values()),
             schema={
                 "station_id": pl.Int64,
                 "height": pl.Float64,
@@ -164,7 +166,7 @@ def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
             colspecs=COL_SPECS,
             skiprows=[0, 1],
         )
-        df.columns = DWD_COLUMN_NAMES_MAPPING.values()
+        df.columns = list(DWD_COLUMN_NAMES_MAPPING.values())
         df = pl.DataFrame(
             df,
             schema={
