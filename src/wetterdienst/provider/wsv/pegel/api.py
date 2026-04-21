@@ -329,9 +329,7 @@ class WsvPegelRequest(TimeseriesRequest):
             pl.col("timeseries").list.eval(pl.element().struct.field("shortname").str.to_lowercase()).alias("ts"),
         )
         parameters = {
-            parameter.name_original.lower()
-            for parameter in self.parameters
-            if isinstance(parameter, ParameterModel)
+            parameter.name_original.lower() for parameter in self.parameters if isinstance(parameter, ParameterModel)
         }
         df = df.filter(pl.col("ts").list.set_intersection(list(parameters)).list.len() > 0)
         df = df.with_columns(

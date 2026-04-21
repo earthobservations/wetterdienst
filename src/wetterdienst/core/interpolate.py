@@ -35,9 +35,7 @@ def get_interpolated_df(request: TimeseriesRequest, latitude: float, longitude: 
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     settings = cast("Settings", request.settings)
     stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
-    return calculate_interpolation(
-        utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance
-    )
+    return calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
 
 
 def request_stations(
@@ -64,9 +62,7 @@ def request_stations(
     stations_dict = {}
     settings = cast("Settings", request.settings)
     parameter_names = {parameter.name for parameter in request.parameters if isinstance(parameter, ParameterModel)}
-    max_interp_distance = max(
-        settings.ts_geo_station_distance[parameter_name] for parameter_name in parameter_names
-    )
+    max_interp_distance = max(settings.ts_geo_station_distance[parameter_name] for parameter_name in parameter_names)
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=max_interp_distance)
     df_stations_ranked = stations_ranked.df
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
@@ -159,9 +155,7 @@ def apply_station_values_per_parameter(
             )
             param_dict[param_key] = _ParameterData(df)
         result_series_param = (
-            param_dict[param_key]
-            .values.select("date")
-            .join(result_series_param, on="date", how="left")
+            param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value")
         result_series_param = result_series_param.rename(station["station_id"])
