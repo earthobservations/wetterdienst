@@ -541,9 +541,7 @@ class TimeseriesRequest:
             raise ValueError(msg)
 
         resolutions = {
-            parameter.dataset.resolution.value
-            for parameter in self.parameters
-            if isinstance(parameter, ParameterModel)
+            parameter.dataset.resolution.value for parameter in self.parameters if isinstance(parameter, ParameterModel)
         }
 
         if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
@@ -595,9 +593,7 @@ class TimeseriesRequest:
             raise ValueError(msg)
 
         resolutions = {
-            parameter.dataset.resolution.value
-            for parameter in self.parameters
-            if isinstance(parameter, ParameterModel)
+            parameter.dataset.resolution.value for parameter in self.parameters if isinstance(parameter, ParameterModel)
         }
 
         if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):

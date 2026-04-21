@@ -588,9 +588,7 @@ class DwdDerivedValues(TimeseriesValues):
             )
 
             if remote_files.is_empty():
-                dataset_identifier = (
-                    f"{dataset.resolution.value.name}/{dataset.name}/{station_id}"
-                )
+                dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}"
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
             filenames_and_files = download_climate_derived_data(remote_files, cast("Settings", stations.settings))

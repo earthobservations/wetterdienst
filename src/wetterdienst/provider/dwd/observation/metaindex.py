@@ -166,17 +166,15 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     df_files = _create_file_index_for_dwd_server(url, settings, CacheExpiry.TWELVE_HOURS)
     df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
     # Find the one meta file from the files listed on the server
-    df_fx3 = (
-        df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx3", literal=True))
-        .collect(background=False)
+    df_fx3 = df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx3", literal=True)).collect(
+        background=False
     )
     if not isinstance(df_fx3, pl.DataFrame):
         msg = "Expected a DataFrame after collect()"
         raise TypeError(msg)
     meta_file_fx3 = df_fx3.get_column("url").to_list()[0]
-    df_fx6 = (
-        df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx6", literal=True))
-        .collect(background=False)
+    df_fx6 = df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx6", literal=True)).collect(
+        background=False
     )
     if not isinstance(df_fx6, pl.DataFrame):
         msg = "Expected a DataFrame after collect()"

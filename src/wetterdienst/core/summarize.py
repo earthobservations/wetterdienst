@@ -116,9 +116,7 @@ def apply_station_values_per_parameter(
             )
             param_dict[param_key] = _ParameterData(df)
         result_series_param = (
-            param_dict[param_key]
-            .values.select("date")
-            .join(result_series_param, on="date", how="left")
+            param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value").rename(station["station_id"])
         extract_station_values(
