@@ -59,12 +59,12 @@ class NoaaGhcnValues(TimeseriesValues):
         if isinstance(file.content, Exception):
             raise file.content
         df = pl.read_csv(file.content, separator="|", has_header=True, infer_schema_length=0)
-        # drop last line if it is header line
-        if df.get_column("Station_ID").last() == "Station_ID":
+        # drop last line if it is a repeated header line
+        if df.get_column("STATION").last() == "STATION":
             df = df[:-1, :]
         df = df.rename(
             {
-                "Station_ID": "station_id",
+                "STATION": "station_id",
                 "Station_name": "name",
                 "Year": "year",
                 "Month": "month",
@@ -224,6 +224,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         df = pl.read_csv(
             file.content,
             has_header=True,
+            infer_schema_length=0,
         )
         df = df.select(
             [
