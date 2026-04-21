@@ -48,7 +48,6 @@ def test_examples_zarr() -> None:
     assert dwd_obs_climate_summary_zarr_dump.main() is None
 
 
-@pytest.mark.xfail
 @pytest.mark.cflake
 def test_examples_failing_describe_fields() -> None:
     """Test DWD observation describe fields for daily climate data."""
@@ -59,7 +58,7 @@ def test_examples_failing_describe_fields() -> None:
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="problem with storage on Windows in CI")
 @pytest.mark.skipif(IS_PYTHON_3_14 and not ENSURE_ECCODES_PDBUFR, reason="eccodes and pdbufr required")
-@pytest.mark.xfail
+@pytest.mark.xfail(reason="no data available for DWD road validation")
 def test_pdbufr_examples() -> None:
     """Test DWD observation PDBUFR examples."""
     from examples.provider.dwd.road import dwd_road_validation  # noqa: PLC0415

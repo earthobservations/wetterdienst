@@ -788,7 +788,6 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
     assert_frame_equal(given_df, expected_df)
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 @pytest.mark.parametrize(
     "dataset",
@@ -1585,7 +1584,6 @@ def test_dwd_observation_datasets_high_resolution(default_settings: Settings, da
     assert given_df.get_column("quality").is_not_null().mean() >= 0.99
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 @pytest.mark.parametrize(
     "dataset",

@@ -700,8 +700,8 @@ class ImgwMeteorologyValues(TimeseriesValues):
                 )
             df_files = df_files.select(
                 pl.col("url"),
-                pl.col("date_range").list.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                pl.col("date_range").list.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+                pl.col("date_range").arr.get(0).cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
+                pl.col("date_range").arr.get(1).cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
@@ -741,7 +741,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             raise file.content
-        df = pl.read_csv(file.content, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
+        df = pl.read_csv(file.content, encoding="utf8", separator=";", skip_rows=1, infer_schema_length=0)
         df = df[:, 1:]
         df.columns = [
             "station_id",
@@ -752,8 +752,24 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             "height",
         ]
         df = df.lazy()
-        return df.with_columns(
-            pl.col("latitude").map_batches(convert_dms_string_to_dd),
-            pl.col("longitude").map_batches(convert_dms_string_to_dd),
+        df = df.with_columns(
+            pl.col("latitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
+            pl.col("longitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
             pl.col("height").str.replace(" ", "").cast(pl.Float64, strict=False),
         )
+        from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
+
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name)
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
+        }
+        data = []
+        for resolution, dataset in resolutions_and_datasets:
+            data.append(
+                df.with_columns(
+                    pl.lit(resolution, pl.String).alias("resolution"),
+                    pl.lit(dataset, pl.String).alias("dataset"),
+                ),
+            )
+        return pl.concat(data)

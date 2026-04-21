@@ -81,7 +81,6 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
     assert_frame_equal(given_df[[0, -1], :], expected_df)
 
 
-@pytest.mark.xfail(reason="polars min currently not working as expected with strings")
 @pytest.mark.remote
 def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_stations_schema: dict) -> None:
     """Verify MOSMIX station list filtering by station identifier."""
@@ -90,6 +89,8 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
     given_df = stations.all().df
     assert not given_df.is_empty()
     assert given_df.select(pl.all().max()).to_dicts()[0] == {
+        "resolution": "hourly",
+        "dataset": "large",
         "station_id": "Z949",
         "icao_id": "ZYTX",
         "start_date": None,
@@ -101,6 +102,8 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
         "state": None,
     }
     assert given_df.select(pl.all().min()).to_dicts()[0] == {
+        "resolution": "hourly",
+        "dataset": "large",
         "station_id": "01001",
         "icao_id": "AFDU",
         "start_date": None,
@@ -126,6 +129,8 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
     expected_df = pl.DataFrame(
         [
             {
+                "resolution": "hourly",
+                "dataset": "large",
                 "station_id": "01001",
                 "icao_id": "ENJA",
                 "start_date": None,
@@ -137,6 +142,8 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
                 "state": None,
             },
             {
+                "resolution": "hourly",
+                "dataset": "large",
                 "station_id": "72306",
                 "icao_id": "KRDU",
                 "start_date": None,
@@ -148,6 +155,8 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
                 "state": None,
             },
             {
+                "resolution": "hourly",
+                "dataset": "large",
                 "station_id": "83891",
                 "icao_id": "SBLJ",
                 "start_date": None,
@@ -159,6 +168,8 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
                 "state": None,
             },
             {
+                "resolution": "hourly",
+                "dataset": "large",
                 "station_id": "94767",
                 "icao_id": "YSSY",
                 "start_date": None,
