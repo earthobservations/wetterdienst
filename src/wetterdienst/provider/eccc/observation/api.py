@@ -41,8 +41,8 @@ class EcccObservationValues(TimeseriesValues):
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
         """Convert wide-format dataframe to long format, pairing value columns with their *_flag quality columns."""
         # Normalize column names to lowercase and rename LOCAL_DATE -> date
-        flag_columns = {col for col in df.columns if col.endswith("_flag")}
-        value_columns = [col for col in df.columns if col != "local_date" and col not in flag_columns]
+        flag_columns = {col for col in df.collect_schema().names() if col.endswith("_flag")}
+        value_columns = [col for col in df.collect_schema().names() if col != "local_date" and col not in flag_columns]
         if not value_columns:
             return pl.LazyFrame()
         # Unpivot value columns to long format
@@ -56,7 +56,7 @@ class EcccObservationValues(TimeseriesValues):
         df_flags = df.select(["local_date", *flag_columns]).rename(
             {col: col.removesuffix("_flag") for col in flag_columns}
         )
-        flag_value_columns = [col for col in df_flags.columns if col != "local_date"]
+        flag_value_columns = [col for col in df_flags.collect_schema().names() if col != "local_date"]
         df_flags = df_flags.unpivot(
             on=flag_value_columns,
             index="local_date",
@@ -298,7 +298,7 @@ class EcccObservationRequest(TimeseriesRequest):
         )
         # Map timezone abbreviations to IANA timezone names
         df_raw = df_raw.with_columns(
-            pl.col("timezone").replace(self._timezone_mapping, default=pl.col("timezone")),
+            pl.col("timezone").replace_strict(self._timezone_mapping, default=pl.col("timezone")),
         )
         # parse start_date and end_date to datetime with timezone from timezone column
         # First parse as naive datetime, then convert to proper timezone per row
