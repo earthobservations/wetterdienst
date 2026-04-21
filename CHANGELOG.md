@@ -35,6 +35,10 @@ Types of changes:
 - Station name filtering (`filter_by_name`, `--name`) was case-sensitive, causing
   lowercase queries like `"darmstadt"` to return no results. Fixed by adding
   `processor=fuzz_utils.default_process` to the rapidfuzz call.
+- NOAA GHCN hourly: adapted to upstream format changes — the station list CSV now
+  contains non-integer values in the `WMO_ID` column (e.g. `"open"`), and the
+  per-station PSV files renamed the station identifier column from `Station_ID` to
+  `STATION`.
 
 ### Changed
 
