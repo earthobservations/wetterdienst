@@ -246,8 +246,12 @@ class ImgwHydrologyValues(TimeseriesValues):
                     break
             if matched_path is None:
                 continue
+            try:
+                file_bytes = zfs.read_bytes(matched_path)
+            except BadZipFile:
+                continue  # skip corrupted entries (bad CRC-32) within the zip
             df = self.__parse_file(
-                file=zfs.read_bytes(matched_path),
+                file=file_bytes,
                 station_id=station_id,
                 dataset=dataset,
                 schema=schema,
