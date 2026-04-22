@@ -258,14 +258,32 @@ class ImgwHydrologyValues(TimeseriesValues):
 
     def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
+        null_values = ["9999", "99999.999", "99.9"]
         df = pl.read_csv(
             file,
             encoding="latin-1",
             separator=",",
             has_header=False,
             infer_schema_length=0,
-            null_values=["9999", "99999.999", "99.9"],
+            null_values=null_values,
         )
+        if df.width == 1:
+            # 2024+ format: each row is wrapped in outer double quotes.
+            # Unwrap by stripping the leading/trailing quote and unescaping doubled inner quotes.
+            lines = file.decode("latin-1").splitlines()
+            unwrapped = [
+                line[1:-1].replace('""', '"') if line and line[0] == '"' and len(line) > 1 and line[1] != " " else line
+                for line in lines
+                if line.strip()
+            ]
+            df = pl.read_csv(
+                BytesIO("\n".join(unwrapped).encode("latin-1")),
+                encoding="latin-1",
+                separator=",",
+                has_header=False,
+                infer_schema_length=0,
+                null_values=null_values,
+            )
         df = df.select(list(schema.keys())).rename(schema)
         df = df.with_columns(pl.col("station_id").str.strip_chars())
         df = df.filter(pl.col("station_id").eq(station_id))

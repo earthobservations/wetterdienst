@@ -612,6 +612,8 @@ class ImgwMeteorologyValues(TimeseriesValues):
                 if re.match(file_pattern, f):
                     matched_path = f
                     break
+            if matched_path is None:
+                continue  # no file matches this pattern (e.g., k_d_t_*.csv absent in 2025+)
             df = self.__parse_file(zfs.read_bytes(matched_path), station_id, resolution, schema)
             if not df.is_empty():
                 data.append(df)
