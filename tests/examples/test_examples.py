@@ -51,6 +51,7 @@ def test_examples_zarr() -> None:
 @pytest.mark.cflake
 def test_examples_failing_describe_fields() -> None:
     """Test DWD observation describe fields for daily climate data."""
+    pytest.importorskip("pypdf")
     from examples.provider.dwd.observation import dwd_obs_climate_summary_describe_fields  # noqa: PLC0415
 
     assert dwd_obs_climate_summary_describe_fields.main() is None
