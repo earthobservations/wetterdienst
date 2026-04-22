@@ -20,7 +20,10 @@ def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> Non
     ).filter_by_station_id(
         station_id=["01001"],
     )
-    response = next(request.values.query())
+    try:
+        response = next(request.values.query())
+    except (FileNotFoundError, OSError) as e:
+        pytest.skip(f"DWD server unreachable: {e}")
 
     # Verify list of stations.
     station_names = response.stations.df.get_column("name").unique().to_list()
@@ -174,7 +177,10 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> Non
     ).filter_by_station_id(
         station_id=["01028"],
     )
-    response = next(request.values.query())
+    try:
+        response = next(request.values.query())
+    except (FileNotFoundError, OSError) as e:
+        pytest.skip(f"DWD server unreachable: {e}")
     # Verify list of stations.
     station_names = response.stations.df.get_column("name").unique().to_list()
     assert station_names == ["BJORNOYA"]
