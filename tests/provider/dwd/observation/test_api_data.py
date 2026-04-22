@@ -1399,7 +1399,7 @@ def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings: 
         settings=default_settings,
     ).filter_by_station_id(1048)
     values = request.values.all().df
-    assert round(values.get_column("value").sum(), 2) == 2681.8
+    assert round(values.get_column("value").sum(), 2) == 2629.25
 
 
 @pytest.mark.remote

@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING, ClassVar
+from zipfile import BadZipFile
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -603,7 +604,10 @@ class ImgwMeteorologyValues(TimeseriesValues):
         file_schema: dict,
     ) -> pl.DataFrame:
         """Parse the meteorological zip file."""
-        zfs = ZipFileSystem(file.content)
+        try:
+            zfs = ZipFileSystem(file.content)
+        except BadZipFile:
+            return pl.DataFrame()
         data = []
         files = zfs.glob("*")
         for file_pattern, schema in file_schema.items():

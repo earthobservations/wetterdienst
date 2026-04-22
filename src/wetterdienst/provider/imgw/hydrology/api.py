@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass
 from io import BytesIO, StringIO
 from typing import TYPE_CHECKING, ClassVar
+from zipfile import BadZipFile
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -231,7 +232,10 @@ class ImgwHydrologyValues(TimeseriesValues):
         file_schema: dict,
     ) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
-        zfs = ZipFileSystem(file.content)
+        try:
+            zfs = ZipFileSystem(file.content)
+        except BadZipFile:
+            return pl.DataFrame()
         data = []
         files = zfs.glob("*")
         for file_pattern, schema in file_schema.items():
@@ -240,6 +244,8 @@ class ImgwHydrologyValues(TimeseriesValues):
                 if re.match(file_pattern, f):
                     matched_path = f
                     break
+            if matched_path is None:
+                continue
             df = self.__parse_file(
                 file=zfs.read_bytes(matched_path),
                 station_id=station_id,
@@ -268,22 +274,37 @@ class ImgwHydrologyValues(TimeseriesValues):
             null_values=null_values,
         )
         if df.width == 1:
-            # 2024+ format: each row is wrapped in outer double quotes.
-            # Unwrap by stripping the leading/trailing quote and unescaping doubled inner quotes.
-            lines = file.decode("latin-1").splitlines()
-            unwrapped = [
-                line[1:-1].replace('""', '"') if line and line[0] == '"' and len(line) > 1 and line[1] != " " else line
-                for line in lines
-                if line.strip()
-            ]
-            df = pl.read_csv(
-                BytesIO("\n".join(unwrapped).encode("latin-1")),
-                encoding="latin-1",
-                separator=",",
-                has_header=False,
-                infer_schema_length=0,
-                null_values=null_values,
-            )
+            raw = file.lstrip(b"\xef\xbb\xbf")  # strip UTF-8 BOM if present
+            first_line = raw.split(b"\n")[0].rstrip(b"\r")
+            if b";" in first_line:
+                # 2023 format: UTF-8 with BOM, semicolon-separated
+                df = pl.read_csv(
+                    BytesIO(raw),
+                    encoding="utf-8",
+                    separator=";",
+                    has_header=False,
+                    infer_schema_length=0,
+                    null_values=null_values,
+                )
+            else:
+                # 2024+ format: each row is wrapped in outer double quotes.
+                # Unwrap by stripping the leading/trailing quote and unescaping doubled inner quotes.
+                lines = file.decode("latin-1").splitlines()
+                unwrapped = [
+                    line[1:-1].replace('""', '"')
+                    if line and line[0] == '"' and len(line) > 1 and line[1] != " "
+                    else line
+                    for line in lines
+                    if line.strip()
+                ]
+                df = pl.read_csv(
+                    BytesIO("\n".join(unwrapped).encode("latin-1")),
+                    encoding="latin-1",
+                    separator=",",
+                    has_header=False,
+                    infer_schema_length=0,
+                    null_values=null_values,
+                )
         df = df.select(list(schema.keys())).rename(schema)
         df = df.with_columns(pl.col("station_id").str.strip_chars())
         df = df.filter(pl.col("station_id").eq(station_id))
