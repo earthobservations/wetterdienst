@@ -407,13 +407,13 @@ def download_file(
             content=BytesIO(payload),
             status=200,
         )
-    except (ClientResponseError, FileNotFoundError, TypeError) as e:
+    except (ClientResponseError, FileNotFoundError, TypeError, RuntimeError) as e:
         # retrieve the status code from the exception if available
         status = e.status if isinstance(e, ClientResponseError) else 404
         log.info(f"Failed to download file {url} with status {status}.")
         return File(
             url=url,
-            content=FileNotFoundError(url) if isinstance(e, TypeError) else e,
+            content=FileNotFoundError(url) if isinstance(e, (TypeError, RuntimeError)) else e,
             status=status,
         )
 
