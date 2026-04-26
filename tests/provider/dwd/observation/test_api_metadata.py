@@ -47,10 +47,10 @@ def test_dwd_observation_metadata_discover_parameters() -> None:
     assert json.dumps(expected)[:-1] in json.dumps(metadata)
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_kl_daily_english() -> None:
     """Test DWD observation describe fields for daily climate data."""
+    pytest.importorskip("pypdf")
     metadata = DwdObservationRequest.describe_fields(
         dataset=("daily", "climate_summary"),
         period="recent",
@@ -81,10 +81,10 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english() -> None:
     ]
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_kl_daily_german() -> None:
     """Test metadata for daily climate data."""
+    pytest.importorskip("pypdf")
     metadata = DwdObservationRequest.describe_fields(
         dataset=("daily", "climate_summary"),
         period="recent",
@@ -116,10 +116,10 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german() -> None:
     ]
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_solar_hourly() -> None:
     """Test metadata for hourly solar data."""
+    pytest.importorskip("pypdf")
     metadata = DwdObservationRequest.describe_fields(
         dataset=("hourly", "solar"),
         period="recent",
@@ -135,18 +135,19 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly() -> None:
         "stations_id",
         "mess_datum",
         "qn_592",
-        "atmo_strahl",
-        "fd_strahl",
-        "fg_strahl",
-        "sd_strahl",
-        "zenith",
+        "atmo_lberg",
+        "fd_lberg",
+        "fg_lberg",
+        "sd_lberg",
+        "zenit",
+        "mess_datum_woz",
     ]
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_temperature_10minutes() -> None:
     """Test metadata for 10 minute temperature data."""
+    pytest.importorskip("pypdf")
     metadata = DwdObservationRequest.describe_fields(
         dataset=("minute_10", "temperature_air"),
         period="recent",
@@ -158,7 +159,6 @@ def test_dwd_observation_metadata_describe_fields_temperature_10minutes() -> Non
     ]
 
     assert list(metadata["parameters"].keys()) == [
-        "stations_id",
         "mess_datum",
         "qn",
         "pp_10",

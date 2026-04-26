@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass
 from io import BytesIO, StringIO
 from typing import TYPE_CHECKING, ClassVar
+from zipfile import BadZipFile
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -231,7 +232,10 @@ class ImgwHydrologyValues(TimeseriesValues):
         file_schema: dict,
     ) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
-        zfs = ZipFileSystem(file.content)
+        try:
+            zfs = ZipFileSystem(file.content)
+        except BadZipFile:
+            return pl.DataFrame()
         data = []
         files = zfs.glob("*")
         for file_pattern, schema in file_schema.items():
@@ -240,8 +244,14 @@ class ImgwHydrologyValues(TimeseriesValues):
                 if re.match(file_pattern, f):
                     matched_path = f
                     break
+            if matched_path is None:
+                continue
+            try:
+                file_bytes = zfs.read_bytes(matched_path)
+            except BadZipFile:
+                continue  # skip corrupted entries (bad CRC-32) within the zip
             df = self.__parse_file(
-                file=zfs.read_bytes(matched_path),
+                file=file_bytes,
                 station_id=station_id,
                 dataset=dataset,
                 schema=schema,
@@ -258,14 +268,47 @@ class ImgwHydrologyValues(TimeseriesValues):
 
     def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
+        null_values = ["9999", "99999.999", "99.9"]
         df = pl.read_csv(
             file,
             encoding="latin-1",
             separator=",",
             has_header=False,
             infer_schema_length=0,
-            null_values=["9999", "99999.999", "99.9"],
+            null_values=null_values,
         )
+        if df.width == 1:
+            raw = file.lstrip(b"\xef\xbb\xbf")  # strip UTF-8 BOM if present
+            first_line = raw.split(b"\n")[0].rstrip(b"\r")
+            if b";" in first_line:
+                # 2023 format: UTF-8 with BOM, semicolon-separated
+                df = pl.read_csv(
+                    BytesIO(raw),
+                    encoding="utf-8",
+                    separator=";",
+                    has_header=False,
+                    infer_schema_length=0,
+                    null_values=null_values,
+                )
+            else:
+                # 2024+ format: each row is wrapped in outer double quotes.
+                # Unwrap by stripping the leading/trailing quote and unescaping doubled inner quotes.
+                lines = file.decode("latin-1").splitlines()
+                unwrapped = [
+                    line[1:-1].replace('""', '"')
+                    if line and line[0] == '"' and len(line) > 1 and line[1] != " "
+                    else line
+                    for line in lines
+                    if line.strip()
+                ]
+                df = pl.read_csv(
+                    BytesIO("\n".join(unwrapped).encode("latin-1")),
+                    encoding="latin-1",
+                    separator=",",
+                    has_header=False,
+                    infer_schema_length=0,
+                    null_values=null_values,
+                )
         df = df.select(list(schema.keys())).rename(schema)
         df = df.with_columns(pl.col("station_id").str.strip_chars())
         df = df.filter(pl.col("station_id").eq(station_id))
@@ -320,6 +363,8 @@ class ImgwHydrologyValues(TimeseriesValues):
                 df_files = df_files.with_columns(
                     pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
                 )
+                # keep only files that have both year and month components
+                df_files = df_files.filter(pl.col("year_month").list.len() >= 2)
                 df_files = df_files.with_columns(
                     pl.col("year_month").list.first().cast(pl.Int64).alias("year"),
                     pl.col("year_month").list.last().cast(pl.Int64).alias("month"),
@@ -340,7 +385,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                             + relativedelta(months=1)
                             - relativedelta(days=1),
                         ],
-                        return_dtype=pl.Array(pl.Datetime, shape=2),
+                        return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
                     )
                     .alias("date_range"),
                 )
@@ -353,14 +398,14 @@ class ImgwHydrologyValues(TimeseriesValues):
                     .str.to_datetime("%Y", time_zone="UTC", strict=False)
                     .map_elements(
                         lambda d: [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)],
-                        return_dtype=pl.Array(pl.Datetime, shape=2),
+                        return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
                     )
                     .alias("date_range"),
                 )
             df_files = df_files.select(
                 pl.col("url"),
-                pl.col("date_range").list.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                pl.col("date_range").list.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+                pl.col("date_range").arr.get(0).cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
+                pl.col("date_range").arr.get(1).cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
@@ -401,12 +446,12 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         if isinstance(payload.content, Exception):
             raise payload.content
         # skip empty lines in the csv file
-        lines = payload.content.read().decode("latin-1").replace("\r", "").split("\n")
+        lines = payload.content.read().decode("utf-8").replace("\r", "").split("\n")
         lines = [line for line in lines if line]
         payload = StringIO("\n".join(lines))
         df = pl.read_csv(
             payload,
-            encoding="latin-1",
+            encoding="utf8",
             has_header=False,
             separator=";",
             skip_rows=1,
@@ -434,7 +479,23 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             .otherwise(pl.col("longitude")),
         )
         df = df.lazy()
-        return df.with_columns(
-            pl.col("latitude").map_batches(convert_dms_string_to_dd),
-            pl.col("longitude").map_batches(convert_dms_string_to_dd),
+        df = df.with_columns(
+            pl.col("latitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
+            pl.col("longitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
         )
+        from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
+
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name)
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
+        }
+        data = []
+        for resolution, dataset in resolutions_and_datasets:
+            data.append(
+                df.with_columns(
+                    pl.lit(resolution, pl.String).alias("resolution"),
+                    pl.lit(dataset, pl.String).alias("dataset"),
+                ),
+            )
+        return pl.concat(data)

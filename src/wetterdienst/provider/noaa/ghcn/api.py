@@ -46,7 +46,7 @@ class NoaaGhcnValues(TimeseriesValues):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.stations.settings)
-        url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
+        url = f"https://noaa-ghcnh-pds.s3.amazonaws.com/hourly/access/by-station/GHCNh_{station_id}_por.psv"
         file = url.format(station_id=station_id)
         file = download_file(
             url=file,
@@ -103,7 +103,7 @@ class NoaaGhcnValues(TimeseriesValues):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.stations.settings)
-        url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
+        url = "https://noaa-ghcn-pds.s3.amazonaws.com/csv/by_station/{station_id}.csv"
         file = url.format(station_id=station_id)
         file = download_file(
             url=file,
@@ -115,34 +115,13 @@ class NoaaGhcnValues(TimeseriesValues):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             raise file.content
-        df = pl.read_csv(
-            source=file.content,
-            separator=",",
-            has_header=True,
-        )
+        df = pl.read_csv(source=file.content, separator=",", has_header=True)
         df = df.rename(str.lower)
         df = df.select(
-            cs.exclude(
-                [
-                    pl.col("latitude"),
-                    pl.col("longitude"),
-                    pl.col("elevation"),
-                    pl.col("name"),
-                    cs.ends_with("_attributes"),
-                ],
-            ),
-        )
-        df = df.unpivot(
-            index=["station", "date"],
-            on=cs.exclude(["station", "date"]),
-            variable_name="parameter",
-            value_name="value",
-        )
-        df = df.select(
-            pl.col("station").alias("station_id"),
-            pl.col("date").str.to_date("%Y-%m-%d"),
-            pl.col("parameter").str.to_lowercase(),
-            pl.col("value").str.strip_chars().cast(float),
+            pl.col("id").alias("station_id"),
+            pl.col("date").cast(pl.String).str.to_date("%Y%m%d"),
+            pl.col("element").str.to_lowercase().alias("parameter"),
+            pl.col("data_value").cast(pl.Float64).alias("value"),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
         # Here comes a bit of magic ;)
@@ -209,7 +188,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
-        file = "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv"
+        file = "https://noaa-ghcnh-pds.s3.amazonaws.com/hourly/doc/ghcnh-station-list.csv"
         file = download_file(
             url=file,
             cache_dir=settings.cache_dir,

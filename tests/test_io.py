@@ -1171,7 +1171,6 @@ def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -
     )
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings) -> None:
     """Test export of DataFrame to influxdb v1."""
@@ -1206,7 +1205,7 @@ def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings
         points = mock_client.write_points.call_args.kwargs["points"]
         first_point = points[0]
         assert first_point["measurement"] == "weather"
-        assert first_point["time"] == "2019-01-01T00:00:00.000000+00:00"
+        assert first_point["time"] == "2019-01-01T00:00:00+00:00"
         assert first_point["tags"] == {
             "station_id": "01048",
             "dataset": "climate_summary",
