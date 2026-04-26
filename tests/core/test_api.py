@@ -68,8 +68,29 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
     When only one parameter is requested, min/mean/max fill rates are identical,
     so all three criteria must return the same station.
     """
+    settings = settings_drop_nulls_false_complete_true_skip_empty_true
+    settings.ts_skip_threshold = 0.9
 
-    def _get_values(settings: Settings) -> ValuesResult:
+    # Pin the nearest station ID once so that all three criteria calls below are
+    # guaranteed to evaluate the exact same station.  Using filter_by_rank(rank=1)
+    # for each criteria call independently would allow the skip logic to silently
+    # fall through to a *different* second-nearest station when the nearest one is
+    # skipped, making the comparison meaningless.
+    nearest_station = (
+        DwdObservationRequest(
+            parameters=[("daily", "climate_summary", "sunshine_duration")],
+            start_date="1990-01-01",
+            end_date="2021-12-31",
+            settings=settings,
+        )
+        .filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=1)
+        .df.get_column("station_id")
+        .head(1)
+        .item()
+    )
+
+    def _get_values(criteria: str) -> ValuesResult:
+        settings.ts_skip_criteria = criteria
         return (
             DwdObservationRequest(
                 parameters=[("daily", "climate_summary", "sunshine_duration")],
@@ -77,37 +98,29 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
                 end_date="2021-12-31",
                 settings=settings,
             )
-            .filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=1)
+            .filter_by_station_id(station_id=[nearest_station])
             .values.all()
         )
 
-    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_threshold = 0.9
+    values_min = _get_values("min")
+    values_mean = _get_values("mean")
+    values_max = _get_values("max")
 
-    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = "min"
-    values_min = _get_values(settings_drop_nulls_false_complete_true_skip_empty_true)
-    if values_min.df.is_empty():
+    if values_min.df.is_empty() and values_mean.df.is_empty() and values_max.df.is_empty():
         pytest.skip("No data returned from DWD, possibly a network issue on this runner")
 
-    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = "mean"
-    values_mean = _get_values(settings_drop_nulls_false_complete_true_skip_empty_true)
-    if values_mean.df.is_empty():
-        pytest.skip("No data returned from DWD, possibly a network issue on this runner")
-
-    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = "max"
-    values_max = _get_values(settings_drop_nulls_false_complete_true_skip_empty_true)
-    if values_max.df.is_empty():
-        pytest.skip("No data returned from DWD, possibly a network issue on this runner")
-
-    station_min = values_min.df.get_column("station_id").unique().to_list()
-    station_mean = values_mean.df.get_column("station_id").unique().to_list()
-    station_max = values_max.df.get_column("station_id").unique().to_list()
-
-    # with a single parameter all three criteria must yield the same station
-    assert station_min == station_mean == station_max
-    # df_stations must be consistent for each result
-    assert values_min.df_stations.get_column("station_id").to_list() == station_min
-    assert values_mean.df_stations.get_column("station_id").to_list() == station_mean
-    assert values_max.df_stations.get_column("station_id").to_list() == station_max
+    # With a single parameter min/mean/max of the fill-rate series are identical,
+    # so all three criteria must agree on whether to return or skip the station.
+    assert values_min.df.is_empty() == values_mean.df.is_empty() == values_max.df.is_empty(), (
+        f"Expected all three skip criteria to agree for station {nearest_station} with a "
+        f"single parameter, but got: min_empty={values_min.df.is_empty()}, "
+        f"mean_empty={values_mean.df.is_empty()}, max_empty={values_max.df.is_empty()}"
+    )
+    if not values_min.df.is_empty():
+        # df_stations must be consistent for each result
+        assert values_min.df_stations.get_column("station_id").to_list() == [nearest_station]
+        assert values_mean.df_stations.get_column("station_id").to_list() == [nearest_station]
+        assert values_max.df_stations.get_column("station_id").to_list() == [nearest_station]
 
 
 @pytest.mark.remote
