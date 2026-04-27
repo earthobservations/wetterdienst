@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD MOSMIX."""
 
+import asyncio
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -22,7 +23,7 @@ def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> Non
     )
     try:
         response = next(request.values.query())
-    except (FileNotFoundError, OSError) as e:
+    except (FileNotFoundError, OSError, asyncio.TimeoutError) as e:
         pytest.skip(f"DWD server unreachable: {e}")
 
     # Verify list of stations.
@@ -179,7 +180,7 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> Non
     )
     try:
         response = next(request.values.query())
-    except (FileNotFoundError, OSError) as e:
+    except (FileNotFoundError, OSError, asyncio.TimeoutError) as e:
         pytest.skip(f"DWD server unreachable: {e}")
     # Verify list of stations.
     station_names = response.stations.df.get_column("name").unique().to_list()
