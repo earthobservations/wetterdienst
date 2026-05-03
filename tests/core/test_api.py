@@ -2,7 +2,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD observation API."""
 
-import asyncio
 from typing import Literal
 
 import pytest
@@ -45,15 +44,7 @@ def test_api_skip_empty_stations(
         end_date="2021-12-31",
         settings=settings,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=2)
-    try:
-        values = request.values.all()
-    except (OSError, asyncio.TimeoutError, IndexError) as e:
-        # OSError/asyncio.TimeoutError: network failures (SSL, TCP, fsspec timeout).
-        # IndexError: DWD server returns an empty/partial file listing, causing
-        # list[0] access failures deep in the DWD parsing code.
-        pytest.skip(f"Network or DWD server error: {e}")
-    if values.df.is_empty():
-        pytest.skip("No data returned from DWD, possibly a network issue on this runner")
+    values = request.values.all()
     station_ids = values.df.get_column("station_id").unique(maintain_order=True).to_list()
     assert len(station_ids) > 0
     # df_stations must mirror the stations present in df
