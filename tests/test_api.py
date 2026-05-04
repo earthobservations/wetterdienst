@@ -4,6 +4,7 @@
 
 import zoneinfo
 
+import aiohttp
 import polars as pl
 import pytest
 from fsspec.exceptions import FSTimeoutError
@@ -336,7 +337,7 @@ def test_api_imgw_hydrology(default_settings: Settings) -> None:
         first_date = values.get_column("date").gather(0).to_list()[0]
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
         assert not values.drop_nulls(subset="value").is_empty()
-    except FSTimeoutError as e:
+    except (FSTimeoutError, aiohttp.ClientError) as e:
         pytest.xfail(f"IMGW server unreachable: {e}")
 
 
@@ -361,7 +362,7 @@ def test_api_imgw_meteorology(default_settings: Settings) -> None:
         first_date = values.get_column("date").gather(0).to_list()[0]
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
         assert not values.drop_nulls(subset="value").is_empty()
-    except FSTimeoutError as e:
+    except (FSTimeoutError, aiohttp.ClientError) as e:
         pytest.xfail(f"IMGW server unreachable: {e}")
 
 
