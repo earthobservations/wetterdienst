@@ -17,6 +17,7 @@ import portion
 from fsspec.implementations.zip import ZipFileSystem
 from portion import Interval
 
+from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -686,7 +687,11 @@ class DwdObservationRequest(TimeseriesRequest):
         for dataset in datasets:
             periods = set(dataset.periods) & cast("set[Period]", self.periods) if self.periods else dataset.periods
             for period in reversed(list(periods)):
-                df = create_meta_index_for_climate_observations(dataset, period, settings)
+                try:
+                    df = create_meta_index_for_climate_observations(dataset, period, settings)
+                except MetaFileNotFoundError:
+                    log.warning("No meta file found for %s/%s, skipping.", dataset.name, period.name)
+                    continue
                 file_index = create_file_index_for_climate_observations(dataset, period, settings)
                 df = df.join(
                     other=file_index.select(pl.col("station_id")),

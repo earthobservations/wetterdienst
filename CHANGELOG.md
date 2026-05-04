@@ -39,6 +39,9 @@ Types of changes:
   contains non-integer values in the `WMO_ID` column (e.g. `"open"`), and the
   per-station PSV files renamed the station identifier column from `Station_ID` to
   `STATION`.
+- DWD observation requests no longer raise `MetaFileNotFoundError` when a period's
+  station description file is absent on the server (e.g. `10_minutes/precipitation/now`).
+  The missing period is skipped with a warning and remaining periods are still returned.
 - No internet connection no longer raises an error; instead, an empty result is
   returned. `ClientConnectorError` (TCP/DNS failures) is caught in `download_file`
   and stored as `NoInternetError` in the `File` object. All provider call sites
