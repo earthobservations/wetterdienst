@@ -74,6 +74,8 @@ def parse_climate_observations_data(
     """Parse the climate observations data from the DWD."""
     if dataset == DwdObservationMetadata.subdaily.wind_extreme:
         data = [_parse_climate_observations_data(file, dataset, period) for file in files]
+        if not data:
+            return pl.LazyFrame()
         try:
             df1, df2 = data
             df = df1.join(df2, on=["station_id", "date"], how="full", coalesce=True)

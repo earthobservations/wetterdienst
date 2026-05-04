@@ -278,9 +278,10 @@ class DwdRoadValues(TimeseriesValues):
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """Parse the road weather station data from a given file and returns a DataFrame."""
-        return pl.concat(
-            [self.__parse_dwd_road_weather_data(file, parameters) for file in files],
-        )
+        data = [self.__parse_dwd_road_weather_data(file, parameters) for file in files]
+        if not data:
+            return pl.DataFrame()
+        return pl.concat(data)
 
     @staticmethod
     def __parse_dwd_road_weather_data(
@@ -294,8 +295,6 @@ class DwdRoadValues(TimeseriesValues):
         first_batch = parameter_names[:10]
         second_batch = parameter_names[10:]
         with NamedTemporaryFile("w+b") as tf:
-            if file.is_no_internet_error:
-                return pl.DataFrame()
             if isinstance(file.content, Exception):
                 raise file.content
             tf.write(file.content.read())

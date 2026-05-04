@@ -65,9 +65,13 @@ class File:
     """The status code of the file download, if available."""
 
     def raise_if_exception(self) -> None:
-        """Raise an exception if the content is not a BytesIO object."""
+        """Raise an exception if the content is not a BytesIO object.
+
+        For NoInternetError, logs at debug level and returns silently instead of raising,
+        allowing callers to return empty frames rather than propagating the error.
+        """
         if isinstance(self.content, NoInternetError):
-            log.warning(f"No internet connection available for {self.url}.")
+            log.debug(f"No internet connection available for {self.url}, returning empty result.")
             return
         if isinstance(self.content, Exception):
             raise self.content
