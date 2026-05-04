@@ -41,8 +41,9 @@ class EcccObservationValues(TimeseriesValues):
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
         """Convert wide-format dataframe to long format, pairing value columns with their *_flag quality columns."""
         # Normalize column names to lowercase and rename LOCAL_DATE -> date
-        flag_columns = {col for col in df.collect_schema().names() if col.endswith("_flag")}
-        value_columns = [col for col in df.collect_schema().names() if col != "local_date" and col not in flag_columns]
+        schema_names = df.collect_schema().names()
+        flag_columns = [col for col in schema_names if col.endswith("_flag")]
+        value_columns = [col for col in schema_names if col != "local_date" and col not in flag_columns]
         if not value_columns:
             return pl.LazyFrame()
         # Unpivot value columns to long format

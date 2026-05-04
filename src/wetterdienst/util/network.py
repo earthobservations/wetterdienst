@@ -411,9 +411,14 @@ def download_file(
         # retrieve the status code from the exception if available
         status = e.status if isinstance(e, ClientResponseError) else 404
         log.info(f"Failed to download file {url} with status {status}.")
+        if isinstance(e, (TypeError, RuntimeError)):
+            content: Exception = FileNotFoundError(url)
+            content.__cause__ = e
+        else:
+            content = e
         return File(
             url=url,
-            content=FileNotFoundError(url) if isinstance(e, (TypeError, RuntimeError)) else e,
+            content=content,
             status=status,
         )
 

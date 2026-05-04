@@ -1205,7 +1205,7 @@ def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings
         points = mock_client.write_points.call_args.kwargs["points"]
         first_point = points[0]
         assert first_point["measurement"] == "weather"
-        assert first_point["time"] == "2019-01-01T00:00:00+00:00"
+        assert dt.datetime.fromisoformat(first_point["time"]) == dt.datetime(2019, 1, 1, tzinfo=dt.timezone.utc)
         assert first_point["tags"] == {
             "station_id": "01048",
             "dataset": "climate_summary",

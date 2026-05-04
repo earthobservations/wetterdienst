@@ -47,9 +47,8 @@ class NoaaGhcnValues(TimeseriesValues):
 
         settings = cast("Settings", self.sr.stations.settings)
         url = f"https://noaa-ghcnh-pds.s3.amazonaws.com/hourly/access/by-station/GHCNh_{station_id}_por.psv"
-        file = url.format(station_id=station_id)
         file = download_file(
-            url=file,
+            url=url,
             cache_dir=settings.cache_dir,
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=settings.fsspec_client_kwargs,

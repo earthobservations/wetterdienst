@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import re
 from dataclasses import dataclass
 from io import BytesIO
@@ -25,6 +26,8 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
+
+log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -607,6 +610,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         try:
             zfs = ZipFileSystem(file.content)
         except BadZipFile:
+            log.warning("BadZipFile for station_id=%s url=%s", station_id, file.url)
             return pl.DataFrame()
         data = []
         files = zfs.glob("*")
@@ -775,11 +779,13 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             if isinstance(parameter, ParameterModel)
         }
         data = []
-        for resolution, dataset in resolutions_and_datasets:
+        for resolution, dataset in sorted(resolutions_and_datasets):
             data.append(
                 df.with_columns(
                     pl.lit(resolution, pl.String).alias("resolution"),
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),
             )
+        if not data:
+            return df
         return pl.concat(data)

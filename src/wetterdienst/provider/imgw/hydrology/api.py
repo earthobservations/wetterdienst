@@ -235,6 +235,7 @@ class ImgwHydrologyValues(TimeseriesValues):
         try:
             zfs = ZipFileSystem(file.content)
         except BadZipFile:
+            log.warning("BadZipFile for station_id=%s url=%s", station_id, file.url)
             return pl.DataFrame()
         data = []
         files = zfs.glob("*")
@@ -278,7 +279,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             null_values=null_values,
         )
         if df.width == 1:
-            raw = file.lstrip(b"\xef\xbb\xbf")  # strip UTF-8 BOM if present
+            raw = file.removeprefix(b"\xef\xbb\xbf")  # strip UTF-8 BOM if present
             first_line = raw.split(b"\n")[0].rstrip(b"\r")
             if b";" in first_line:
                 # 2023 format: UTF-8 with BOM, semicolon-separated
@@ -293,7 +294,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             else:
                 # 2024+ format: each row is wrapped in outer double quotes.
                 # Unwrap by stripping the leading/trailing quote and unescaping doubled inner quotes.
-                lines = file.decode("latin-1").splitlines()
+                lines = raw.decode("latin-1").splitlines()
                 unwrapped = [
                     line[1:-1].replace('""', '"')
                     if line and line[0] == '"' and len(line) > 1 and line[1] != " "
@@ -491,11 +492,13 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             if isinstance(parameter, ParameterModel)
         }
         data = []
-        for resolution, dataset in resolutions_and_datasets:
+        for resolution, dataset in sorted(resolutions_and_datasets):
             data.append(
                 df.with_columns(
                     pl.lit(resolution, pl.String).alias("resolution"),
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),
             )
+        if not data:
+            return df
         return pl.concat(data)
