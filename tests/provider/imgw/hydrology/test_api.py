@@ -5,8 +5,10 @@
 import datetime as dt
 from zoneinfo import ZoneInfo
 
+import aiohttp
 import polars as pl
 import pytest
+from fsspec.exceptions import FSTimeoutError
 from polars.testing import assert_frame_equal
 
 from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyRequest
@@ -53,7 +55,12 @@ def test_imgw_hydrology_api_daily(df_expected_station: pl.DataFrame) -> None:
         start_date="2010-08-01",
     ).filter_by_station_id("150190130")
     assert_frame_equal(request.df, df_expected_station)
-    values = request.values.all()
+    try:
+        values = request.values.all()
+    except (FSTimeoutError, aiohttp.ClientError, FileNotFoundError) as e:
+        pytest.xfail(f"IMGW server unreachable: {e}")
+    if values.df.is_empty():
+        pytest.xfail("IMGW server returned no data")
     df_expected = pl.DataFrame(
         [
             {
@@ -125,7 +132,12 @@ def test_imgw_hydrology_api_monthly() -> None:
         orient="row",
     )
     assert_frame_equal(request.df, df_expected_station)
-    values = request.values.all()
+    try:
+        values = request.values.all()
+    except (FSTimeoutError, aiohttp.ClientError, FileNotFoundError) as e:
+        pytest.xfail(f"IMGW server unreachable: {e}")
+    if values.df.is_empty():
+        pytest.xfail("IMGW server returned no data")
     df_expected_values = pl.DataFrame(
         [
             {
