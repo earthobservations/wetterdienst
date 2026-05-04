@@ -342,6 +342,7 @@ def test_api_imgw_hydrology(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
+@pytest.mark.skipif(IS_WINDOWS, reason="fsspec cache file rename race condition on Windows")
 def test_api_imgw_meteorology(default_settings: Settings) -> None:
     """Test imgw meteorology API."""
     try:
