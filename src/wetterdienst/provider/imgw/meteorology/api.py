@@ -660,7 +660,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         """Get URLs for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         files = list_remote_files_fsspec(url, self.sr.settings)
-        df_files = pl.DataFrame({"url": files})
+        df_files = pl.DataFrame({"url": files}, schema={"url": pl.String})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip"))
         if self.sr.start_date:

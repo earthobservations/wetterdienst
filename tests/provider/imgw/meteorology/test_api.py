@@ -50,7 +50,12 @@ def test_imgw_meteorology_api_daily() -> None:
         orient="row",
     )
     assert_frame_equal(request.df, df_expected_station)
-    values = request.values.all()
+    try:
+        values = request.values.all()
+    except (FSTimeoutError, aiohttp.ClientError) as e:
+        pytest.xfail(f"IMGW server unreachable: {e}")
+    if values.df.is_empty():
+        pytest.xfail("IMGW server returned no data")
     df_expected_values = pl.DataFrame(
         [
             {
@@ -189,6 +194,8 @@ def test_imgw_meteorology_api_monthly() -> None:
         values = request.values.all()
     except (FSTimeoutError, aiohttp.ClientError) as e:
         pytest.xfail(f"IMGW server unreachable: {e}")
+    if values.df.is_empty():
+        pytest.xfail("IMGW server returned no data")
     df_expected_values = pl.DataFrame(
         [
             {
