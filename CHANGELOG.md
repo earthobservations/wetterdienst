@@ -39,6 +39,10 @@ Types of changes:
   contains non-integer values in the `WMO_ID` column (e.g. `"open"`), and the
   per-station PSV files renamed the station identifier column from `Station_ID` to
   `STATION`.
+- No internet connection no longer raises an error; instead, an empty result is
+  returned. `ClientConnectorError` (TCP/DNS failures) is caught in `download_file`
+  and stored as `NoInternetError` in the `File` object. All provider call sites
+  return empty `DataFrame`/`LazyFrame` values accordingly. Fixes #1624.
 
 ### Changed
 
