@@ -6,6 +6,7 @@ import zoneinfo
 
 import polars as pl
 import pytest
+from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Parameter, Settings
@@ -321,39 +322,47 @@ def test_api_eccc_observation(default_settings: Settings) -> None:
 @pytest.mark.remote
 def test_api_imgw_hydrology(default_settings: Settings) -> None:
     """Test imgw hydrology API."""
-    request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings).all()
-    assert not request.df.is_empty()
-    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "height", "state"})
-    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
-    if first_start_date:
-        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
-    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
-    assert _is_complete_values_df(values)
-    first_date = values.get_column("date").gather(0).to_list()[0]
-    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    assert not values.drop_nulls(subset="value").is_empty()
+    try:
+        request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=default_settings).all()
+        assert not request.df.is_empty()
+        assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+        assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "height", "state"})
+        first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
+        if first_start_date:
+            assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+        values = next(request.values.query()).df
+        assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+        assert _is_complete_values_df(values)
+        first_date = values.get_column("date").gather(0).to_list()[0]
+        assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+        assert not values.drop_nulls(subset="value").is_empty()
+    except FSTimeoutError as e:
+        pytest.xfail(f"IMGW server unreachable: {e}")
 
 
 @pytest.mark.remote
 def test_api_imgw_meteorology(default_settings: Settings) -> None:
     """Test imgw meteorology API."""
-    request = ImgwMeteorologyRequest(parameters=[("daily", "climate")], settings=default_settings).filter_by_station_id(
-        "249200180",
-    )
-    assert not request.df.is_empty()
-    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date"})
-    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
-    if first_start_date:
-        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
-    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
-    assert _is_complete_values_df(values)
-    first_date = values.get_column("date").gather(0).to_list()[0]
-    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    assert not values.drop_nulls(subset="value").is_empty()
+    try:
+        request = ImgwMeteorologyRequest(
+            parameters=[("daily", "climate")], settings=default_settings
+        ).filter_by_station_id(
+            "249200180",
+        )
+        assert not request.df.is_empty()
+        assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+        assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date"})
+        first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
+        if first_start_date:
+            assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+        values = next(request.values.query()).df
+        assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+        assert _is_complete_values_df(values)
+        first_date = values.get_column("date").gather(0).to_list()[0]
+        assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+        assert not values.drop_nulls(subset="value").is_empty()
+    except FSTimeoutError as e:
+        pytest.xfail(f"IMGW server unreachable: {e}")
 
 
 def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
