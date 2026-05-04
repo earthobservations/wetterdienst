@@ -84,6 +84,8 @@ def parse_climate_observations_data(
         data = []
         for file in files:
             data.append(_parse_climate_observations_data(file, dataset, period))
+        if not data:
+            return pl.LazyFrame()
         return pl.concat(data)
 
 

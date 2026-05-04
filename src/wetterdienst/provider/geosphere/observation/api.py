@@ -76,7 +76,7 @@ class GeosphereObservationValues(TimeseriesValues):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.DataFrame()
         df = pl.read_json(
             file.content,
             schema={
@@ -168,7 +168,7 @@ class GeosphereObservationRequest(TimeseriesRequest):
             )
             file.raise_if_exception()
             if isinstance(file.content, Exception):
-                raise file.content
+                return pl.LazyFrame()
             df = pl.read_csv(file.content)
             df = df.lazy()
             df = df.drop("Sonnenschein", "Globalstrahlung")

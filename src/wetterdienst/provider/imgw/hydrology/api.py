@@ -399,7 +399,7 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         )
         payload.raise_if_exception()
         if isinstance(payload.content, Exception):
-            raise payload.content
+            return pl.LazyFrame()
         # skip empty lines in the csv file
         lines = payload.content.read().decode("latin-1").replace("\r", "").split("\n")
         lines = [line for line in lines if line]

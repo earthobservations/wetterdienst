@@ -57,7 +57,7 @@ class NoaaGhcnValues(TimeseriesValues):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.DataFrame()
         df = pl.read_csv(file.content, separator="|", has_header=True, infer_schema_length=0)
         # drop last line if it is a repeated header line
         if df.get_column("STATION").last() == "STATION":
@@ -114,7 +114,7 @@ class NoaaGhcnValues(TimeseriesValues):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.DataFrame()
         df = pl.read_csv(
             source=file.content,
             separator=",",
@@ -220,7 +220,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.LazyFrame()
         df = pl.read_csv(
             file.content,
             has_header=True,
@@ -293,7 +293,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
         listings_file.raise_if_exception()
         if isinstance(listings_file.content, Exception):
-            raise listings_file.content
+            return pl.LazyFrame()
         lines = listings_file.content.read().decode("utf8").splitlines()
         df = pl.DataFrame(lines)
         column_specs = ((0, 10), (12, 19), (21, 29), (31, 36), (38, 39), (41, 70), (80, 84))
@@ -319,7 +319,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
         inventory_file.raise_if_exception()
         if isinstance(inventory_file.content, Exception):
-            raise inventory_file.content
+            return pl.LazyFrame()
         inventory_df = pl.read_csv(inventory_file.content, has_header=False, truncate_ragged_lines=True)
         column_specs = ((0, 10), (36, 39), (41, 44))
         inventory_df = read_fwf_from_df(inventory_df, column_specs)

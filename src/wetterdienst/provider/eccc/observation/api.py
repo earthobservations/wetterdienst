@@ -170,7 +170,7 @@ class EcccObservationValues(TimeseriesValues):
             )
             file.raise_if_exception()
             if isinstance(file.content, Exception):
-                raise file.content
+                return pl.DataFrame()
             df = pl.read_json(
                 file.content,
                 schema=pl.Schema(
@@ -255,7 +255,7 @@ class EcccObservationRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.LazyFrame()
         df_raw = pl.read_json(
             file.content,
             schema=pl.Schema(

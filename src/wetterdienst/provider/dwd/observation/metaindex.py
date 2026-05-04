@@ -122,7 +122,7 @@ def _create_meta_index_for_climate_observations(
 def _read_meta_df(file: File) -> pl.LazyFrame:
     """Read meta file into DataFrame."""
     if isinstance(file.content, Exception):
-        raise file.content
+        return pl.LazyFrame()
     lines = file.content.readlines()[2:]
     first = lines[0].decode("latin-1")
     if first.startswith("SP"):

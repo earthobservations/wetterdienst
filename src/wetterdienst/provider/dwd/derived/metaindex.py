@@ -133,7 +133,7 @@ def _get_raw_station_data_from_plz_generator() -> pl.LazyFrame:
 def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
     """Read meta file into DataFrame."""
     if isinstance(file.content, Exception):
-        raise file.content
+        return pl.LazyFrame()
     if dataset in SOIL_DATASETS:
         df = pl.read_csv(
             file.content,

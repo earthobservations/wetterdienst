@@ -740,7 +740,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.LazyFrame()
         df = pl.read_csv(file.content, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
         df = df[:, 1:]
         df.columns = [

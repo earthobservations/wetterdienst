@@ -253,7 +253,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.LazyFrame()
         text = StringIO(file.content.read().decode(encoding="latin-1"))
         lines = text.readlines()
         header = lines.pop(0)

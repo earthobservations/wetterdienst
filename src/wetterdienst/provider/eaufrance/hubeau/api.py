@@ -140,7 +140,7 @@ class HubeauValues(TimeseriesValues):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return 1, "H"
         values_dict = json.load(file.content)["data"]
         try:
             second_date = values_dict[1]["date_obs"]
@@ -180,7 +180,7 @@ class HubeauValues(TimeseriesValues):
             )
             file.raise_if_exception()
             if isinstance(file.content, Exception):
-                raise file.content
+                return pl.DataFrame()
             df = pl.read_json(
                 file.content,
                 schema={
@@ -246,7 +246,7 @@ class HubeauRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.LazyFrame()
         df_raw = pl.read_json(
             file.content,
             schema={
