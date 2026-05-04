@@ -3,13 +3,16 @@
 """Tests for DWD observation meta index creation."""
 
 import datetime as dt
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
 from wetterdienst import Settings
+from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.period import Period
+from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.metaindex import (
     _create_csv_line,
@@ -93,3 +96,16 @@ def test_create_csv_line() -> None:
         )
         == """01332,19660701,20240514,471,48.4832,12.7241,"Falkenberg,Kr.Rottal-Inn",Bayern"""
     )
+
+
+def test_missing_meta_file_skipped(default_settings: Settings) -> None:
+    """When a period's meta file is absent, the period is skipped and the request returns empty."""
+    with patch(
+        "wetterdienst.provider.dwd.observation.api.create_meta_index_for_climate_observations",
+        side_effect=MetaFileNotFoundError("No meta file found"),
+    ):
+        request = DwdObservationRequest(
+            parameters=DwdObservationMetadata.minute_10.precipitation,
+            settings=default_settings,
+        ).all()
+        assert request.df.is_empty()
