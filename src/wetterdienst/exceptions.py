@@ -37,3 +37,7 @@ class StationNotFoundError(Exception):
 
 class ApiNotFoundError(Exception):
     """Raised when an API is not found in the API list."""
+
+
+class NoInternetError(OSError):
+    """Raised when no internet connection is available."""

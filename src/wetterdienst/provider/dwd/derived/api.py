@@ -62,7 +62,7 @@ def _get_data_from_file(
     :return: Parsed DataFrame
     """
     if isinstance(downloaded_file.content, Exception):
-        raise downloaded_file.content
+        return pl.DataFrame()
     df = pl.read_csv(
         downloaded_file.content,
         separator=";",
@@ -530,6 +530,8 @@ class DwdDerivedValues(TimeseriesValues):
                     )
                     continue
                 downloaded_file.raise_if_exception()
+                if isinstance(downloaded_file.content, Exception):
+                    continue
 
                 df = _get_data_from_file(
                     downloaded_file=downloaded_file,

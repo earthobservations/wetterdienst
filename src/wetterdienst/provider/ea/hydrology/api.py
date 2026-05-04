@@ -139,7 +139,7 @@ class EAHydrologyValues(TimeseriesValues):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.DataFrame()
         df_measures = pl.read_json(
             file.content,
             schema={
@@ -194,7 +194,7 @@ class EAHydrologyValues(TimeseriesValues):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.DataFrame()
         df = pl.read_json(
             file.content,
             schema={
@@ -258,7 +258,7 @@ class EAHydrologyRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.LazyFrame()
         df = pl.read_json(
             file.content,
             schema={

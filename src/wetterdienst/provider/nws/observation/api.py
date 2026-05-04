@@ -166,7 +166,7 @@ class NwsObservationValues(TimeseriesValues):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.DataFrame()
         df = pl.read_json(
             file.content,
             schema={
@@ -308,7 +308,7 @@ class NwsObservationRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.LazyFrame()
         df = pl.read_csv(source=file.content, has_header=False, separator="\t", infer_schema_length=0).lazy()
         df = df.filter(pl.col("column_7").eq("US"))
         df = df.select(

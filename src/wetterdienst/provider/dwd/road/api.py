@@ -294,6 +294,8 @@ class DwdRoadValues(TimeseriesValues):
         first_batch = parameter_names[:10]
         second_batch = parameter_names[10:]
         with NamedTemporaryFile("w+b") as tf:
+            if file.is_no_internet_error:
+                return pl.DataFrame()
             if isinstance(file.content, Exception):
                 raise file.content
             tf.write(file.content.read())
@@ -416,7 +418,7 @@ class DwdRoadRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.LazyFrame()
         df = pl.read_excel(source=file.content, sheet_name="Tabelle1", infer_schema_length=0)
         df = df.rename(mapping=self._column_mapping)
         df = df.select(pl.col(col) for col in self._column_mapping.values())

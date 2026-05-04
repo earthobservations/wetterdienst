@@ -216,6 +216,8 @@ class WsvPegelValues(TimeseriesValues):
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
         )
+        if file.is_no_internet_error:
+            return pl.DataFrame()
         if isinstance(file.content, FileNotFoundError):
             return pl.DataFrame()
         if isinstance(file.content, Exception):
@@ -286,7 +288,7 @@ class WsvPegelRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return pl.LazyFrame()
         df = pl.read_json(
             file.content,
             schema={

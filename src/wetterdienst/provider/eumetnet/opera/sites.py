@@ -121,6 +121,8 @@ class OperaRadarSitesGenerator:
             cache_disable=default_settings.cache_disable,
             use_certifi=default_settings.use_certifi,
         )
+        if payload.is_no_internet_error:
+            return []
         if isinstance(payload.content, Exception):
             raise payload.content
         data = json.loads(payload.content.read())

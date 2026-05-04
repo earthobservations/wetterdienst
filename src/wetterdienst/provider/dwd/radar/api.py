@@ -456,7 +456,7 @@ class DwdRadarValues:  # noqa: PLW1641
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return
         # RadarParameter.FX_REFLECTIVITY
         if url.endswith(Extension.TAR_BZ2.value):
             tfs = TarFileSystem(file.content, compression="bz2")
@@ -530,7 +530,7 @@ class DwdRadarValues:  # noqa: PLW1641
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            return
         for result in self._extract_radolan_data(file.content):
             if not result.timestamp:
                 # if result has no timestamp, take it from main url instead of files in archive

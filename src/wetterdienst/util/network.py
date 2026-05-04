@@ -15,10 +15,11 @@ from typing import TYPE_CHECKING, ClassVar, Literal
 from urllib.parse import urlparse
 
 import stamina
-from aiohttp import ClientResponse, ClientResponseError
+from aiohttp import ClientConnectorError, ClientResponse, ClientResponseError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 
 if TYPE_CHECKING:
@@ -65,8 +66,16 @@ class File:
 
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object."""
+        if isinstance(self.content, NoInternetError):
+            log.warning(f"No internet connection available for {self.url}.")
+            return
         if isinstance(self.content, Exception):
             raise self.content
+
+    @property
+    def is_no_internet_error(self) -> bool:
+        """Check if the content is a NoInternetError."""
+        return isinstance(self.content, NoInternetError)
 
     @property
     def nbytes(self) -> int:
@@ -415,6 +424,13 @@ def download_file(
             url=url,
             content=e,
             status=status,
+        )
+    except ClientConnectorError as e:
+        log.warning(f"No internet connection while downloading file {url}: {e}")
+        return File(
+            url=url,
+            content=NoInternetError(str(e)),
+            status=503,
         )
 
 
