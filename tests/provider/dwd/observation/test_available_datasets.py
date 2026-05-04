@@ -2,6 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD observation available datasets."""
 
+from pathlib import Path
+
 import polars as pl
 import pytest
 
@@ -28,13 +30,13 @@ SKIP_DATASETS = (
 
 
 @pytest.mark.remote
-def test_compare_available_dwd_datasets(default_settings: Settings) -> None:
+def test_compare_available_dwd_datasets(default_settings: Settings, tmp_path: Path) -> None:
     """Test to compare the datasets made available with wetterdienst with the ones actually available on the DWD CDC."""
     # similar to func list_remote_files_fsspec, but we don't want to get full depth
     fs = HTTPFileSystem(
         use_listings_cache=True,
         listings_expiry_time=CacheExpiry.TWELVE_HOURS.value,
-        listings_cache_location=default_settings.cache_dir,
+        listings_cache_location=tmp_path,
         client_kwargs=default_settings.fsspec_client_kwargs,
     )
     base_url = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"

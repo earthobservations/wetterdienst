@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import ssl
 from collections.abc import Iterator, MutableMapping
@@ -137,7 +138,11 @@ class FileDirCache(MutableMapping):
 
     def __getitem__(self, item: str) -> BytesIO:
         """Draw item as fileobject from cache."""
-        value = self._cache.get(item)
+        try:
+            value = self._cache.get(item)
+        except OSError:
+            log.warning("Cache read failed for key %r, treating as miss", item)
+            raise KeyError(item) from None
         if value is None:
             raise KeyError(item)
         return value
@@ -152,17 +157,25 @@ class FileDirCache(MutableMapping):
 
     def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
-        return item in self._cache
+        try:
+            return item in self._cache
+        except OSError:
+            log.warning("Cache lookup failed for key %r, treating as miss", item)
+            return False
 
     def __setitem__(self, key: str, value: BytesIO) -> None:
         """Store fileobject in cache."""
         if not self.use_listings_cache:
             return
-        self._cache[key] = value
+        try:
+            self._cache[key] = value
+        except OSError:
+            log.warning("Cache write failed for key %r, ignoring", key)
 
     def __delitem__(self, key: str) -> None:
         """Remove item from cache."""
-        del self._cache[key]
+        with contextlib.suppress(OSError):
+            del self._cache[key]
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over keys in cache."""
