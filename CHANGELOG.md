@@ -43,6 +43,11 @@ Types of changes:
   returned. `ClientConnectorError` (TCP/DNS failures) is caught in `download_file`
   and stored as `NoInternetError` in the `File` object. All provider call sites
   return empty `DataFrame`/`LazyFrame` values accordingly. Fixes #1624.
+- `NetworkFilesystemManager` now uses `threading.local()` instead of a class-level
+  `dict` so each thread in `ThreadPoolExecutor`-based parallel downloads gets its
+  own `WholeFileCacheFileSystem` instance, eliminating a race condition in the
+  in-memory metadata cache that caused `TypeError: cannot unpack non-iterable bool
+  object` at `fsspec/implementations/cached.py:716`.
 
 ### Changed
 

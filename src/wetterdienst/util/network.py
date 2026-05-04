@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import ssl
+import threading
 from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -250,9 +251,20 @@ class HTTPFileSystem(_HTTPFileSystem):
 
 
 class NetworkFilesystemManager:
-    """Manage multiple FSSPEC instances keyed by cache expiration time."""
+    """Manage multiple FSSPEC instances keyed by cache expiration time.
 
-    filesystems: ClassVar[dict[str, HTTPFileSystem | WholeFileCacheFileSystem]] = {}
+    Each thread gets its own set of filesystem instances to avoid thread-safety
+    issues with WholeFileCacheFileSystem's in-memory metadata cache.
+    """
+
+    _thread_local: ClassVar[threading.local] = threading.local()
+
+    @classmethod
+    def _get_filesystems(cls) -> dict[str, HTTPFileSystem | WholeFileCacheFileSystem]:
+        """Return the per-thread filesystem registry."""
+        if not hasattr(cls._thread_local, "filesystems"):
+            cls._thread_local.filesystems = {}
+        return cls._thread_local.filesystems
 
     @staticmethod
     def resolve_ttl(cache_expiry: CacheExpiry) -> tuple[str, float | int | Literal[False]]:
@@ -309,7 +321,7 @@ class NetworkFilesystemManager:
                 cache_storage=str(real_cache_dir),
                 expiry_time=int(ttl_value),
             )
-        cls.filesystems[key] = filesystem_effective
+        cls._get_filesystems()[key] = filesystem_effective
 
     @classmethod
     def get(
@@ -336,7 +348,7 @@ class NetworkFilesystemManager:
         """
         ttl_name, _ = cls.resolve_ttl(cache_expiry)
         key = f"ttl-{ttl_name}"
-        if key not in cls.filesystems:
+        if key not in cls._get_filesystems():
             cls.register(
                 cache_dir=cache_dir,
                 cache_expiry=cache_expiry,
@@ -344,7 +356,7 @@ class NetworkFilesystemManager:
                 cache_disable=cache_disable,
                 use_certifi=use_certifi,
             )
-        return cls.filesystems[key]
+        return cls._get_filesystems()[key]
 
 
 @stamina.retry(on=Exception, attempts=3)
