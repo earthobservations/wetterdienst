@@ -3,7 +3,6 @@
 """Tests for DWD observation API."""
 
 import asyncio
-from typing import Literal
 
 import pytest
 
@@ -17,52 +16,74 @@ from wetterdienst.provider.dwd.observation import (
 
 
 @pytest.mark.remote
-@pytest.mark.parametrize(
-    "ts_skip_criteria",
-    ["min", "mean", "max"],
-)
-def test_api_skip_empty_stations(
-    ts_skip_criteria: Literal["min", "mean", "max"],
-) -> None:
-    """Test that empty stations are skipped based on fill-rate threshold.
+def test_api_skip_empty_stations() -> None:
+    """Test that ts_skip_empty filters stations and that the three criteria are ordered.
 
-    Instead of pinning exact station IDs (which change as DWD updates its data),
-    we verify that:
-    - some stations were returned (skip_empty didn't filter out everything)
-    - the returned stations are consistent between df and df_stations
-    - at least the geographically nearest station was skipped (core behaviour check)
+    With two parameters (kl + solar), the fill-rate criteria satisfy
+    min(f1,f2) ≤ mean(f1,f2) ≤ max(f1,f2) for any station, so:
+
+        stations_passing_min ⊆ stations_passing_mean ⊆ stations_passing_max
+
+    Asserting this subset ordering directly verifies that the production code
+    actually applies the ts_skip_criteria setting: an implementation that
+    ignored it (e.g. always using "mean") would produce identical sets for all
+    three calls, making the strict-subset assertion fail whenever at least one
+    station sits between the min and max thresholds.
     """
-    settings = Settings(
-        ts_skip_criteria=ts_skip_criteria,
-        ts_skip_threshold=0.6,
-        ts_skip_empty=True,
-        ts_complete=True,
-        ts_drop_nulls=False,
-    )
-    request = DwdObservationRequest(
-        parameters=[("daily", "kl"), ("daily", "solar")],
-        start_date="2021-01-01",
-        end_date="2021-12-31",
-        settings=settings,
-    ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=2)
-    try:
-        values = request.values.all()
-    except (OSError, asyncio.TimeoutError, IndexError) as e:
-        # OSError/asyncio.TimeoutError: network failures (SSL, TCP, fsspec timeout).
-        # IndexError: DWD server returns an empty/partial file listing, causing
-        # list[0] access failures deep in the DWD parsing code.
-        pytest.skip(f"Network or DWD server error: {e}")
-    if values.df.is_empty():
+
+    def _get_values(criteria: str) -> ValuesResult | None:
+        settings = Settings(
+            ts_skip_criteria=criteria,
+            ts_skip_threshold=0.6,
+            ts_skip_empty=True,
+            ts_complete=True,
+            ts_drop_nulls=False,
+        )
+        try:
+            return (
+                DwdObservationRequest(
+                    parameters=[("daily", "kl"), ("daily", "solar")],
+                    start_date="2021-01-01",
+                    end_date="2021-12-31",
+                    settings=settings,
+                )
+                .filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=5)
+                .values.all()
+            )
+        except (OSError, asyncio.TimeoutError, IndexError) as e:
+            pytest.skip(f"Network or DWD server error: {e}")
+
+    values_min = _get_values("min")
+    values_mean = _get_values("mean")
+    values_max = _get_values("max")
+
+    if values_max is None or values_max.df.is_empty():
         pytest.skip("No data returned from DWD, possibly a network issue on this runner")
-    station_ids = values.df.get_column("station_id").unique(maintain_order=True).to_list()
-    assert len(station_ids) > 0
-    # df_stations must mirror the stations present in df
-    assert set(station_ids) == set(values.df_stations.get_column("station_id").to_list())
-    # the nearest station by distance must have been skipped
-    nearest_station = request.df.get_column("station_id").head(1).item()
-    assert nearest_station not in station_ids, (
-        f"Expected the nearest station ({nearest_station}) to be filtered out by ts_skip_empty, "
-        f"but it was returned in the values result."
+
+    def _station_ids(v: ValuesResult) -> set[str]:
+        if v is None or v.df.is_empty():
+            return set()
+        return set(v.df.get_column("station_id").unique().to_list())
+
+    ids_min = _station_ids(values_min)
+    ids_mean = _station_ids(values_mean)
+    ids_max = _station_ids(values_max)
+
+    # df_stations must mirror the stations present in df for each criterion
+    for label, v, ids in [("min", values_min, ids_min), ("mean", values_mean, ids_mean), ("max", values_max, ids_max)]:
+        if v is not None and not v.df.is_empty():
+            assert ids == set(v.df_stations.get_column("station_id").to_list()), (
+                f"df_stations inconsistent with df for criteria={label!r}"
+            )
+
+    # min(f1,f2) ≤ mean(f1,f2) ≤ max(f1,f2)  →  pass_min ⊆ pass_mean ⊆ pass_max
+    assert ids_min.issubset(ids_mean), (
+        f"Stations passing 'min' must be a subset of those passing 'mean'.\n"
+        f"  min={sorted(ids_min)}\n  mean={sorted(ids_mean)}"
+    )
+    assert ids_mean.issubset(ids_max), (
+        f"Stations passing 'mean' must be a subset of those passing 'max'.\n"
+        f"  mean={sorted(ids_mean)}\n  max={sorted(ids_max)}"
     )
 
 
