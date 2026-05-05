@@ -125,7 +125,8 @@ def _read_meta_df(file: File) -> pl.LazyFrame:
         return pl.LazyFrame()
     lines = file.content.readlines()[2:]
     if not lines:
-        return pl.LazyFrame()
+        msg = f"Meta file {file.url!r} has no data rows (truncated or empty response)."
+        raise MetaFileNotFoundError(msg)
     first = lines[0].decode("latin-1")
     if first.startswith("SP"):
         # Skip first line if it contains a header
