@@ -124,6 +124,8 @@ def _read_meta_df(file: File) -> pl.LazyFrame:
     if isinstance(file.content, Exception):
         return pl.LazyFrame()
     lines = file.content.readlines()[2:]
+    if not lines:
+        return pl.LazyFrame()
     first = lines[0].decode("latin-1")
     if first.startswith("SP"):
         # Skip first line if it contains a header
@@ -172,6 +174,9 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     if not isinstance(df_fx3, pl.DataFrame):
         msg = "Expected a DataFrame after collect()"
         raise TypeError(msg)
+    if df_fx3.is_empty():
+        msg = "No fx3 meta file was found for subdaily wind extreme."
+        raise MetaFileNotFoundError(msg)
     meta_file_fx3 = df_fx3.get_column("url").to_list()[0]
     df_fx6 = df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx6", literal=True)).collect(
         background=False
@@ -179,6 +184,9 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     if not isinstance(df_fx6, pl.DataFrame):
         msg = "Expected a DataFrame after collect()"
         raise TypeError(msg)
+    if df_fx6.is_empty():
+        msg = "No fx6 meta file was found for subdaily wind extreme."
+        raise MetaFileNotFoundError(msg)
     meta_file_fx6 = df_fx6.get_column("url").to_list()[0]
     file_fx3 = download_file(
         url=meta_file_fx3,
