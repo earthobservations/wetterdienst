@@ -132,7 +132,10 @@ def _read_meta_df(file: File) -> pl.LazyFrame:
         # Skip first line if it contains a header
         lines = lines[1:]
     lines = [line.decode("latin-1") for line in lines]
-    lines_split = [line.split() for line in lines]
+    lines_split = [s for line in lines if (s := line.split())]
+    if not lines_split:
+        msg = f"Meta file {file.url!r} has no valid data rows after filtering blank lines."
+        raise MetaFileNotFoundError(msg)
     # TODO: check if this is still necessary
     # drop last column if "Frei"
     lines_split = [line[:-1] if line[-1] == "Frei" else line for line in lines_split]
