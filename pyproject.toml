@@ -358,3 +358,9 @@ omit = [
     "tests/*",
     "src/wetterdienst/provider/dwd/radar/cli.py",
 ]
+
+[tool.pysentry.ignore]
+# diskcache uses pickle for serialization (CVE-2025-69872 / GHSA-w8v5-vhqr-4h9v).
+# The threat requires write access to the local user cache directory, which is not
+# a realistic attack vector for this project.
+ids = ["GHSA-w8v5-vhqr-4h9v"]
