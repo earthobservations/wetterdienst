@@ -2,89 +2,124 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD observation API."""
 
-import asyncio
+from __future__ import annotations
 
+import asyncio
+from typing import TYPE_CHECKING
+
+import polars as pl
 import pytest
 
 from wetterdienst import Settings
 from wetterdienst.exceptions import NoParametersFoundError
-from wetterdienst.model.result import ValuesResult
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
     DwdObservationRequest,
 )
 
+if TYPE_CHECKING:
+    from wetterdienst.model.result import ValuesResult
 
-@pytest.mark.remote
-def test_api_skip_empty_stations() -> None:
-    """Test that ts_skip_empty filters stations and that the three criteria are ordered.
+_SKIP_EMPTY_LATLON = (49.19780976647141, 8.135207205143768)
+# A single multi-parameter dataset keeps downloads small (one ZIP per station)
+# while still allowing min/mean/max fill rates to differ across its parameters.
+_SKIP_EMPTY_PARAMETERS = [("daily", "kl")]
+_SKIP_EMPTY_START = "2021-01-01"
+_SKIP_EMPTY_END = "2021-12-31"
+_SKIP_EMPTY_THRESHOLD = 0.6
+_SKIP_EMPTY_RANK = 3
 
-    With two parameters (kl + solar), the fill-rate criteria satisfy
-    min(f1,f2) ≤ mean(f1,f2) ≤ max(f1,f2) for any station, so:
 
-        stations_passing_min ⊆ stations_passing_mean ⊆ stations_passing_max
+def _skip_empty_get_values(criteria: str) -> ValuesResult:
+    """Collect the nearest *_SKIP_EMPTY_RANK* passing stations under *criteria*.
 
-    Asserting this subset ordering directly verifies that the production code
-    actually applies the ts_skip_criteria setting: an implementation that
-    ignored it (e.g. always using "mean") would produce identical sets for all
-    three calls, making the strict-subset assertion fail whenever at least one
-    station sits between the min and max thresholds.
+    filter_by_rank is used directly so only a handful of station ZIPs are
+    downloaded, keeping each test fast even on a cold cache.
+    ts_complete=True pads the date range with nulls so fill rates are well-defined.
     """
-
-    def _get_values(criteria: str) -> ValuesResult | None:
-        settings = Settings(
-            ts_skip_criteria=criteria,
-            ts_skip_threshold=0.6,
-            ts_skip_empty=True,
-            ts_complete=True,
-            ts_drop_nulls=False,
-        )
-        try:
-            return (
-                DwdObservationRequest(
-                    parameters=[("daily", "kl"), ("daily", "solar")],
-                    start_date="2021-01-01",
-                    end_date="2021-12-31",
-                    settings=settings,
-                )
-                .filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=5)
-                .values.all()
+    settings = Settings(
+        ts_skip_criteria=criteria,
+        ts_skip_threshold=_SKIP_EMPTY_THRESHOLD,
+        ts_skip_empty=True,
+        ts_complete=True,
+        ts_drop_nulls=False,
+    )
+    try:
+        return (
+            DwdObservationRequest(
+                parameters=_SKIP_EMPTY_PARAMETERS,
+                start_date=_SKIP_EMPTY_START,
+                end_date=_SKIP_EMPTY_END,
+                settings=settings,
             )
-        except (OSError, asyncio.TimeoutError, IndexError) as e:
-            pytest.skip(f"Network or DWD server error: {e}")
+            .filter_by_rank(latlon=_SKIP_EMPTY_LATLON, rank=_SKIP_EMPTY_RANK)
+            .values.all()
+        )
+    except (OSError, asyncio.TimeoutError, IndexError) as e:
+        pytest.skip(f"Network or DWD server error: {e}")
 
-    values_min = _get_values("min")
-    values_mean = _get_values("mean")
-    values_max = _get_values("max")
 
-    if values_max is None or values_max.df.is_empty():
+def _skip_empty_assert_fill_rate(values: ValuesResult, criteria: str, agg_expr: pl.Expr) -> None:
+    """Assert that every station in *values* satisfies the fill-rate criterion.
+
+    ts_complete pads missing dates with nulls before the skip check is applied,
+    so fill rates computed from values.df match what the production code used.
+    """
+    if values.df.is_empty():
         pytest.skip("No data returned from DWD, possibly a network issue on this runner")
 
-    def _station_ids(v: ValuesResult) -> set[str]:
-        if v is None or v.df.is_empty():
-            return set()
-        return set(v.df.get_column("station_id").unique().to_list())
-
-    ids_min = _station_ids(values_min)
-    ids_mean = _station_ids(values_mean)
-    ids_max = _station_ids(values_max)
-
-    # df_stations must mirror the stations present in df for each criterion
-    for label, v, ids in [("min", values_min, ids_min), ("mean", values_mean, ids_mean), ("max", values_max, ids_max)]:
-        if v is not None and not v.df.is_empty():
-            assert ids == set(v.df_stations.get_column("station_id").to_list()), (
-                f"df_stations inconsistent with df for criteria={label!r}"
-            )
-
-    # min(f1,f2) ≤ mean(f1,f2) ≤ max(f1,f2)  →  pass_min ⊆ pass_mean ⊆ pass_max
-    assert ids_min.issubset(ids_mean), (
-        f"Stations passing 'min' must be a subset of those passing 'mean'.\n"
-        f"  min={sorted(ids_min)}\n  mean={sorted(ids_mean)}"
+    # Verify df_stations is consistent with df.
+    returned_ids = set(values.df.get_column("station_id").unique().to_list())
+    assert returned_ids == set(values.df_stations.get_column("station_id").to_list()), (
+        f"df_stations inconsistent with df for criteria={criteria!r}"
     )
-    assert ids_mean.issubset(ids_max), (
-        f"Stations passing 'mean' must be a subset of those passing 'max'.\n"
-        f"  mean={sorted(ids_mean)}\n  max={sorted(ids_max)}"
+
+    # For each returned station compute the aggregated fill rate across all parameters.
+    fill_by_station = (
+        values.df.group_by(["station_id", "parameter"])
+        .agg((pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float64).alias("fill_rate"))
+        .group_by("station_id")
+        .agg(agg_expr.alias("criterion_fill"))
     )
+    violations = fill_by_station.filter(pl.col("criterion_fill") < _SKIP_EMPTY_THRESHOLD)
+    assert violations.is_empty(), (
+        f"ts_skip_criteria={criteria!r} returned stations whose {criteria}(fill_rate) < {_SKIP_EMPTY_THRESHOLD}:\n"
+        f"{violations}"
+    )
+
+
+@pytest.mark.remote
+def test_api_skip_empty_stations_min() -> None:
+    """Min criterion: every returned station has min(fill_rates_per_parameter) >= threshold.
+
+    The 'min' aggregation is the strictest: a station passes only when *all* its
+    parameters meet the fill-rate threshold.
+    """
+    values = _skip_empty_get_values("min")
+    _skip_empty_assert_fill_rate(values, "min", pl.col("fill_rate").min())
+
+
+@pytest.mark.remote
+def test_api_skip_empty_stations_mean() -> None:
+    """Mean criterion: every returned station has mean(fill_rates_per_parameter) >= threshold.
+
+    The 'mean' aggregation is intermediate: a station passes when the average fill
+    rate across parameters meets the threshold even if some individual parameters fall
+    below it.
+    """
+    values = _skip_empty_get_values("mean")
+    _skip_empty_assert_fill_rate(values, "mean", pl.col("fill_rate").mean())
+
+
+@pytest.mark.remote
+def test_api_skip_empty_stations_max() -> None:
+    """Max criterion: every returned station has max(fill_rates_per_parameter) >= threshold.
+
+    The 'max' aggregation is the most lenient: a station passes when *any* of its
+    parameters meets the fill-rate threshold.
+    """
+    values = _skip_empty_get_values("max")
+    _skip_empty_assert_fill_rate(values, "max", pl.col("fill_rate").max())
 
 
 @pytest.mark.remote
