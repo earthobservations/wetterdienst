@@ -51,6 +51,25 @@ Types of changes:
   own `WholeFileCacheFileSystem` instance, eliminating a race condition in the
   in-memory metadata cache that caused `TypeError: cannot unpack non-iterable bool
   object` at `fsspec/implementations/cached.py:716`.
+- Reverted the directory-listing cache from `shelved-cache` + `cachetools` back to
+  `diskcache`. `shelved-cache` wraps Python's `dbm`/`shelve`, which is not safe for
+  concurrent access; parallel pytest-xdist workers sharing the same cache directory
+  caused `_dbm.error` cascades and cascading test failures. `diskcache` uses SQLite
+  and is both thread- and process-safe.
+- `FileDirCache` mapping semantics corrected: `__getitem__` now raises `KeyError` on a
+  cache miss (previously returned `None`) and short-circuits when `use_listings_cache`
+  is `False`; `__contains__` uses a proper existence check so falsy cached values (e.g.
+  an empty directory listing `[]`) are no longer misreported as absent; `__len__`
+  delegates to the underlying cache directly instead of materialising all keys.
+
+### Security
+
+- `diskcache` advisory GHSA-w8v5-vhqr-4h9v (CVE-2025-69872, pickle deserialization)
+  acknowledged and suppressed in `pysentry` and `dependency-review`. Exploitation
+  requires write access to the local user cache directory, which is not a realistic
+  attack vector for this project.
+- `lxml` upgraded to 6.1.0, resolving GHSA-vfmq-68hx-4jfw (local file read via
+  `resolve_entities`).
 
 ### Changed
 
