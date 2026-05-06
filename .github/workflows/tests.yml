@@ -59,11 +59,13 @@ jobs:
       - name: Install project
         run: uv sync
 
+      - name: Install eccodes (Ubuntu only)
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: sudo apt-get install -y libeccodes-dev
+
       - name: Install eccodes (Mac only)
         if: ${{ startsWith(matrix.os, 'macos-') }}
-        run: |
-          brew install eccodes
-          export WD_ECCODES_DIR=$(brew --prefix eccodes)
+        run: brew install eccodes
 
       - name: Install extras for testing
         run: .github/workflows/install.sh testing
