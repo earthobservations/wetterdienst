@@ -83,7 +83,6 @@ requires-python = ">=3.10"
 dependencies = [
     "aiohttp>=3.13.2,<4",
     "backports-datetime-fromisoformat>=2; python_version<'3.11'",
-    "cachetools>=6.2.6,<7",
     "certifi>=2024.2.2",
     "click>=8,<9",
     "cloup>=3.0.1,<4",
@@ -99,7 +98,7 @@ dependencies = [
     "pydantic-settings>=2.7.0,<3",
     "python-dateutil>=2,<3",
     "rapidfuzz>=3.1,<4",
-    "shelved-cache>=0.5.0,<1",
+    "diskcache>=5.6.3,<6",
     "stamina>=23,<26",
     "tabulate>=0.8,<1",
     "tqdm>=4,<5",
