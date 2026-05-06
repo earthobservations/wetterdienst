@@ -139,7 +139,13 @@ class FileDirCache(MutableMapping):
 
     def __getitem__(self, item: str) -> BytesIO:
         """Draw item as fileobject from cache, retry if timeout occurs."""
-        return self._cache.get(key=item, read=True, retry=True)
+        if not self.use_listings_cache:
+            raise KeyError(item)
+        _missing = object()
+        value = self._cache.get(key=item, default=_missing, read=True, retry=True)
+        if value is _missing:
+            raise KeyError(item)
+        return value
 
     def clear(self) -> None:
         """Clear cache."""
@@ -147,12 +153,13 @@ class FileDirCache(MutableMapping):
 
     def __len__(self) -> int:
         """Return number of items in cache."""
-        return len(list(self._cache.iterkeys()))
+        return len(self._cache)
 
     def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
-        value = self._cache.get(item, retry=True)  # None, if expired
-        return bool(value)
+        if not self.use_listings_cache:
+            return False
+        return item in self._cache
 
     def __setitem__(self, key: str, value: BytesIO) -> None:
         """Store fileobject in cache."""
@@ -166,7 +173,9 @@ class FileDirCache(MutableMapping):
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over keys in cache."""
-        return (k for k in self._cache.iterkeys() if k in self)
+        if not self.use_listings_cache:
+            return iter([])
+        return iter(self._cache)
 
     def __reduce__(self) -> tuple:
         """Return state information for pickling."""
