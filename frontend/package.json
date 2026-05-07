@@ -33,14 +33,6 @@
     "tailwindcss": "^4.1.18",
     "vue": "^3.5.28"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@parcel/watcher",
-      "esbuild",
-      "unrs-resolver",
-      "vue-demi"
-    ]
-  },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
     "@nuxt/eslint": "^1.15.1",
@@ -57,5 +49,13 @@
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
     "vue-tsc": "^3.2.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "esbuild",
+      "unrs-resolver",
+      "vue-demi"
+    ]
   }
 }

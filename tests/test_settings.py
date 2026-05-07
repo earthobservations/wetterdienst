@@ -15,8 +15,9 @@ WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
 
 
-def test_default_settings(caplog: pytest.LogCaptureFixture) -> None:
+def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test default settings."""
+    monkeypatch.delenv("WD_CACHE_DIR", raising=False)
     caplog.set_level(logging.INFO)
     default_settings = Settings()
     assert not default_settings.cache_disable

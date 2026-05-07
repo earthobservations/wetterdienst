@@ -3,6 +3,11 @@ lockfileVersion: '9.0'
 settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
+  onlyBuiltDependencies:
+    - '@parcel/watcher'
+    - esbuild
+    - unrs-resolver
+    - vue-demi
 
 importers:
 
