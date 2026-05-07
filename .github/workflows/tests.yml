@@ -59,6 +59,12 @@ jobs:
       - name: Install project
         run: uv sync
 
+      - name: Install eccodes (Ubuntu only)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libeccodes-dev
+
       - name: Install eccodes (Mac only)
         if: ${{ startsWith(matrix.os, 'macos-') }}
         run: |
