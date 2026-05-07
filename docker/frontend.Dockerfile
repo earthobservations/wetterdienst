@@ -9,7 +9,7 @@ RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && \
     corepack prepare pnpm@latest --activate
 
 # Copy package files
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 
 # Install dependencies
 RUN pnpm i
