@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX, IS_PYTHON_3_10, IS_PYTHON_3_14, IS_WINDOWS
+from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX, IS_PYTHON_3_10, IS_WINDOWS
 
 
 @pytest.mark.xfail(IS_CI and IS_WINDOWS, reason="fails on Windows in CI")

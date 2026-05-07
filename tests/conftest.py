@@ -23,7 +23,7 @@ info = Info()
 
 
 @pytest.fixture(autouse=True, scope="session")
-def _worker_unique_cache_dir(tmp_path_factory, worker_id: str) -> None:
+def _worker_unique_cache_dir(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> None:
     """Give each pytest-xdist worker its own cache directory.
 
     Multiple workers writing to the same fsspec cache metadata file
