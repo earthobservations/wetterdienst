@@ -517,7 +517,6 @@ def test_radar_request_site_historic_pe_bufr(default_settings: Settings) -> None
     decoder.process(payload, info_only=True)
 
 
-@pytest.mark.xfail(reason="month_year not matching start_date")
 @pytest.mark.remote
 @pytest.mark.parametrize(
     "fmt",
