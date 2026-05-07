@@ -22,6 +22,25 @@ ENSURE_ECCODES_PDBUFR = ensure_eccodes() and ensure_pdbufr()
 info = Info()
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _worker_unique_cache_dir(tmp_path_factory, worker_id: str) -> None:
+    """Give each pytest-xdist worker its own cache directory.
+
+    Multiple workers writing to the same fsspec cache metadata file
+    concurrently causes PermissionError (WinError 5) on Windows because
+    os.replace() fails when the destination file is held open by another
+    process. A per-worker directory eliminates that race entirely.
+
+    The WD_CACHE_DIR env-var is honoured by pydantic-settings at
+    Settings() instantiation time, so it takes effect for every Settings()
+    created during the session.
+    """
+    cache = tmp_path_factory.mktemp(f"wd-cache-{worker_id}", numbered=False)
+    os.environ["WD_CACHE_DIR"] = str(cache)
+    yield
+    del os.environ["WD_CACHE_DIR"]
+
+
 @pytest.fixture
 def default_settings() -> Settings:
     """Provide default settings."""
