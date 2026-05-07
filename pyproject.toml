@@ -345,8 +345,14 @@ testpaths = ["tests"]
 # xfail_strict = true
 
 # Retry flaky tests, thereby improving the consistency of the test suite results.
-reruns = 0
+# Only retry on transient network errors (timeouts and 5xx from remote servers).
+reruns = 2
 reruns_delay = 5
+only_rerun = [
+    "FSTimeoutError",
+    "ConnectionTimeoutError",
+    "ClientResponseError: 5",
+]
 
 [tool.coverage.run]
 branch = true
