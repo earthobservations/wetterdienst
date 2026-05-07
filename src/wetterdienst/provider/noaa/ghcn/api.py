@@ -202,7 +202,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             else:
                 msg = f"Resolution {dataset.resolution.value} is not supported."
                 raise ValueError(msg)
-        data = [d for d in data if d.columns]
+        data = [d for d in data if d.collect_schema().names()]
         if not data:
             return pl.LazyFrame()
         df = pl.concat(data)
