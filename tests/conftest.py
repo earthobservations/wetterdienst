@@ -5,7 +5,10 @@
 import os
 import platform
 import sys
+import time
+from typing import Any
 
+import fsspec.utils as _fsspec_utils
 import pytest
 
 from wetterdienst import Info, Settings
@@ -39,6 +42,48 @@ def _worker_unique_cache_dir(tmp_path_factory: pytest.TempPathFactory, worker_id
     os.environ["WD_CACHE_DIR"] = str(cache)
     yield
     del os.environ["WD_CACHE_DIR"]
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _patch_windows_atomic_write() -> None:
+    """Retry os.replace() inside fsspec on Windows to survive PermissionError.
+
+    Tests that download hundreds of files concurrently (e.g. 1 536 files for
+    the 1-minute precipitation dataset) schedule many async tasks in the same
+    xdist worker.  All those tasks race to atomically update the single fsspec
+    TTL-cache metadata file via os.replace().  On Windows, os.replace() raises
+    PermissionError (WinError 5) when the destination is held open by another
+    thread at the same instant.
+
+    The fix proxies the ``os`` namespace visible inside ``fsspec.utils`` with
+    a thin wrapper whose ``replace()`` retries with exponential back-off
+    before re-raising.  The original binding is restored at session teardown.
+    """
+    if not IS_WINDOWS:
+        yield
+        return
+
+    _orig_os = _fsspec_utils.os
+
+    class _OsWithRetry:
+        """Proxy around the ``os`` module that retries ``replace()`` on Windows."""
+
+        def __getattr__(self, name: str) -> Any:  # noqa: ANN401
+            return getattr(_orig_os, name)
+
+        def replace(self, src: str, dst: str) -> None:
+            delays = (0.05, 0.1, 0.2, 0.4)
+            for delay in delays:
+                try:
+                    return _orig_os.replace(src, dst)
+                except PermissionError:
+                    time.sleep(delay)
+            # final attempt — let it raise naturally
+            return _orig_os.replace(src, dst)
+
+    _fsspec_utils.os = _OsWithRetry()
+    yield
+    _fsspec_utils.os = _orig_os
 
 
 @pytest.fixture
