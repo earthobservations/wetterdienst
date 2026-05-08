@@ -326,7 +326,7 @@ DEP002 = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-rsfEX -p pytester --strict-markers --verbosity=3"
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError"
 #log_cli = true
 #log_cli_level = "DEBUG"
 log_date_format = "%Y-%m-%dT%H:%M:%S"
@@ -345,14 +345,9 @@ testpaths = ["tests"]
 # xfail_strict = true
 
 # Retry flaky tests, thereby improving the consistency of the test suite results.
-# Only retry on transient network errors (timeouts and 5xx from remote servers).
+# --only-rerun flags in addopts restrict retries to transient network errors.
 reruns = 2
 reruns_delay = 5
-only_rerun = [
-    "FSTimeoutError",
-    "ConnectionTimeoutError",
-    "ClientResponseError: 5",
-]
 
 [tool.coverage.run]
 branch = true
