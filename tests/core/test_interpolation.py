@@ -279,11 +279,11 @@ def test_interpolation_sunshine_duration_daily(default_settings: Settings) -> No
     """Test that sunshine_duration can be interpolated (issue #1651)."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "sunshine_duration")],
-        start_date=dt.datetime(2025, 2, 10, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2025, 2, 20, tzinfo=ZoneInfo("UTC")),
+        start_date=dt.datetime(2021, 6, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2021, 6, 10, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
-    result = request.interpolate(latlon=(50.984768, 11.02988))
+    result = request.interpolate(latlon=(50.0, 8.9))
     assert result.df.shape[0] > 0, "Expected interpolated sunshine_duration values but got none"
     assert result.df.drop_nulls().shape[0] > 0
 
@@ -295,7 +295,7 @@ def test_interpolation_snow_depth_new_daily(default_settings: Settings) -> None:
     Result must never be negative or spuriously positive when surrounding stations had no new snow.
     """
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary", "snow_depth_new")],
+        parameters=[("daily", "precipitation_more", "snow_depth_new")],
         start_date=dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC")),
         end_date=dt.datetime(2021, 2, 10, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
