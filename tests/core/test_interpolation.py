@@ -10,6 +10,11 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
+from wetterdienst.core.interpolate import (
+    _OCCURRENCE_BASED_PARAMETERS,
+    apply_interpolation,
+    get_valid_station_groups,
+)
 from wetterdienst.exceptions import StationNotFoundError
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
@@ -19,6 +24,131 @@ from wetterdienst.provider.dwd.observation import (
 pytest.importorskip("shapely")
 
 pytestmark = pytest.mark.slow
+
+
+# ---------------------------------------------------------------------------
+# Shared geometry for occurrence-threshold unit tests
+# ---------------------------------------------------------------------------
+# Four stations forming a 20 km x 20 km square in UTM-like coordinates.
+# Station D (NW corner) is the only one that ever records a positive value.
+# The target point is placed in the SW quadrant (close to A/B, away from D)
+# so that it falls inside the Delaunay triangle whose nodes are ALL zero-value
+# stations → occurrence index < 0.5 → zeroing is triggered for the sparse case.
+# No network traffic is needed for these tests.
+_STATIONS_DICT: dict = {
+    "A": (490_000.0, 5_490_000.0, 14.14),  # SW corner
+    "B": (510_000.0, 5_490_000.0, 14.14),  # SE corner
+    "C": (510_000.0, 5_510_000.0, 14.14),  # NE corner
+    "D": (490_000.0, 5_510_000.0, 14.14),  # NW corner — positive station
+}
+# Off-centre target, inside the triangle formed by A-B-C (all zero-value):
+# occurrence index at this point ≈ 0.25 for the 1-of-4 case.
+_UTM_X = 495_000.0
+_UTM_Y = 5_495_000.0
+
+
+def test_occurrence_threshold_zeroes_sparse_precipitation() -> None:
+    """Interpolated precipitation must be zeroed when occurrence index < 0.5.
+
+    Fewer than half of surrounding stations recorded a positive value triggers zeroing.
+    """
+    valid_groups = get_valid_station_groups(_STATIONS_DICT, _UTM_X, _UTM_Y)
+    # Only 1 of 4 stations has precipitation → occurrence index ≈ 0.25 at centre
+    row = {"A": 0.0, "B": 0.0, "C": 0.0, "D": 5.0}
+    _, _, _, value, _, _ = apply_interpolation(
+        row,
+        _STATIONS_DICT,
+        valid_groups,
+        "daily",
+        "climate_summary",
+        "precipitation_height",
+        _UTM_X,
+        _UTM_Y,
+        [],
+    )
+    assert value == 0.0, "Expected zero when fewer than half of stations have precipitation"
+
+
+def test_occurrence_threshold_preserves_majority_precipitation() -> None:
+    """Interpolated precipitation must be kept when the majority of surrounding stations recorded a positive value.
+
+    Occurrence index >= 0.5 preserves the interpolated value.
+    """
+    valid_groups = get_valid_station_groups(_STATIONS_DICT, _UTM_X, _UTM_Y)
+    # 3 of 4 stations have precipitation → occurrence index ≈ 0.75 at centre
+    row = {"A": 5.0, "B": 5.0, "C": 5.0, "D": 0.0}
+    _, _, _, value, _, _ = apply_interpolation(
+        row,
+        _STATIONS_DICT,
+        valid_groups,
+        "daily",
+        "climate_summary",
+        "precipitation_height",
+        _UTM_X,
+        _UTM_Y,
+        [],
+    )
+    assert value is not None
+    assert value > 0.0, "Expected positive value when majority of stations have precipitation"
+
+
+def test_occurrence_threshold_not_applied_to_temperature() -> None:
+    """The occurrence threshold must NOT be applied to continuous parameters such as temperature.
+
+    A non-zero interpolated value must be preserved even when only one station has a positive reading.
+    """
+    valid_groups = get_valid_station_groups(_STATIONS_DICT, _UTM_X, _UTM_Y)
+    row = {"A": 0.0, "B": 0.0, "C": 0.0, "D": 5.0}
+    _, _, _, value, _, _ = apply_interpolation(
+        row,
+        _STATIONS_DICT,
+        valid_groups,
+        "daily",
+        "climate_summary",
+        "temperature_air_mean_2m",
+        _UTM_X,
+        _UTM_Y,
+        [],
+    )
+    assert value is not None
+    assert value > 0.0, "Temperature must not be zeroed by occurrence threshold"
+
+
+def test_occurrence_threshold_applies_to_snow_depth_new() -> None:
+    """The occurrence threshold must apply to snow_depth_new.
+
+    snow_depth_new shares the zero-inflated character of precipitation.
+    """
+    valid_groups = get_valid_station_groups(_STATIONS_DICT, _UTM_X, _UTM_Y)
+    row = {"A": 0.0, "B": 0.0, "C": 0.0, "D": 3.0}
+    _, _, _, value, _, _ = apply_interpolation(
+        row,
+        _STATIONS_DICT,
+        valid_groups,
+        "daily",
+        "climate_summary",
+        "snow_depth_new",
+        _UTM_X,
+        _UTM_Y,
+        [],
+    )
+    assert value == 0.0, "Expected zero for snow_depth_new when fewer than half of stations have new snow"
+
+
+def test_occurrence_based_parameters_set_contains_all_precipitation_variants() -> None:
+    """Smoke-test that _OCCURRENCE_BASED_PARAMETERS covers core precipitation and new-snow parameters."""
+    required = {
+        "precipitation_height",
+        "precipitation_height_liquid",
+        "precipitation_height_last_1h",
+        "precipitation_height_last_24h",
+        "precipitation_duration",
+        "snow_depth_new",
+        "water_equivalent_snow_depth_new",
+    }
+    assert required.issubset(_OCCURRENCE_BASED_PARAMETERS), (
+        f"Missing from _OCCURRENCE_BASED_PARAMETERS: {required - _OCCURRENCE_BASED_PARAMETERS}"
+    )
 
 
 @pytest.fixture
@@ -142,6 +272,39 @@ def test_interpolation_precipitation_height_minute_10(default_settings: Settings
         orient="row",
     )
     assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.remote
+def test_interpolation_sunshine_duration_daily(default_settings: Settings) -> None:
+    """Test that sunshine_duration can be interpolated (issue #1651)."""
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "sunshine_duration")],
+        start_date=dt.datetime(2025, 2, 10, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2025, 2, 20, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    result = request.interpolate(latlon=(50.984768, 11.02988))
+    assert result.df.shape[0] > 0, "Expected interpolated sunshine_duration values but got none"
+    assert result.df.drop_nulls().shape[0] > 0
+
+
+@pytest.mark.remote
+def test_interpolation_snow_depth_new_daily(default_settings: Settings) -> None:
+    """Test that snow_depth_new can be interpolated and that the occurrence threshold is applied.
+
+    Result must never be negative or spuriously positive when surrounding stations had no new snow.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "snow_depth_new")],
+        start_date=dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2021, 2, 10, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    result = request.interpolate(latlon=(50.0, 8.9))
+    assert result.df.shape[0] > 0, "Expected interpolated snow_depth_new values but got none"
+    # occurrence threshold must prevent negative or NaN values
+    values = result.df.drop_nulls().get_column("value")
+    assert (values >= 0).all(), "snow_depth_new interpolated values must be non-negative"
 
 
 def test_not_interpolatable_parameter(default_settings: Settings, df_interpolated_empty: pl.DataFrame) -> None:

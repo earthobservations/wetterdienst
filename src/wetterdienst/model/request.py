@@ -118,15 +118,161 @@ class TimeseriesRequest:
         "state",
     )
 
-    #   - heterogeneous parameters such as precipitation_height
-    #   - homogeneous parameters such as temperature_air_2m
+    #   - heterogeneous parameters such as precipitation_height (short distance, ~20 km)
+    #   - homogeneous parameters such as temperature_air_2m (large distance, ~40 km)
     interpolatable_parameters: ClassVar = [
+        # ---- temperature ----
+        # air temperature at 2 m — large spatial correlation, suitable for ~40 km interpolation
+        Parameter.TEMPERATURE_AIR_2M.name.lower(),
         Parameter.TEMPERATURE_AIR_MEAN_2M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MEAN_2M_LAST_24H.name.lower(),
         Parameter.TEMPERATURE_AIR_MAX_2M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MAX_2M_LAST_24H.name.lower(),
+        Parameter.TEMPERATURE_AIR_MAX_2M_MEAN.name.lower(),
+        Parameter.TEMPERATURE_AIR_MAX_2M_MULTIDAY.name.lower(),
         Parameter.TEMPERATURE_AIR_MIN_2M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MIN_2M_LAST_24H.name.lower(),
+        Parameter.TEMPERATURE_AIR_MIN_2M_MEAN.name.lower(),
+        Parameter.TEMPERATURE_AIR_MIN_2M_MULTIDAY.name.lower(),
+        # air temperature at 0.05 m (near-surface)
+        Parameter.TEMPERATURE_AIR_MEAN_0_05M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MAX_0_05M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MIN_0_05M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MIN_0_05M_LAST_12H.name.lower(),
+        # derived air temperature quantities
+        Parameter.TEMPERATURE_DEW_POINT_MEAN_2M.name.lower(),
+        Parameter.TEMPERATURE_WET_MEAN_2M.name.lower(),
+        Parameter.TEMPERATURE_WIND_CHILL.name.lower(),
+        # surface temperature
+        Parameter.TEMPERATURE_SURFACE_MEAN.name.lower(),
+        # soil temperature — depth-dependent but spatially smooth at regional scale
+        Parameter.TEMPERATURE_SOIL_MEAN_0_02M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MEAN_0_05M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MEAN_0_1M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MEAN_0_2M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MEAN_0_5M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MEAN_1M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MEAN_2M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MIN_0_1M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MIN_0_2M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MIN_0_5M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MIN_1M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MIN_2M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MAX_0_1M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MAX_0_2M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MAX_0_5M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MAX_1M.name.lower(),
+        Parameter.TEMPERATURE_SOIL_MAX_2M.name.lower(),
+        # derived temperature aggregates
+        Parameter.HEATING_DEGREE_DAY.name.lower(),
+        Parameter.COOLING_DEGREE_HOUR.name.lower(),
+        # ---- humidity ----
+        # all humidity variants are spatially smooth (~40 km)
         Parameter.HUMIDITY.name.lower(),
+        Parameter.HUMIDITY_ABSOLUTE.name.lower(),
+        Parameter.HUMIDITY_MAX.name.lower(),
+        Parameter.HUMIDITY_MIN.name.lower(),
+        Parameter.HUMIDEX.name.lower(),
+        # ---- wind ----
+        # wind speed variants — regional-scale field (~40 km)
         Parameter.WIND_SPEED.name.lower(),
+        Parameter.WIND_SPEED_ARITHMETIC.name.lower(),
+        Parameter.WIND_SPEED_MIN.name.lower(),
+        Parameter.WIND_SPEED_ROLLING_MEAN_MAX.name.lower(),
+        Parameter.WIND_FORCE_BEAUFORT.name.lower(),
+        Parameter.WIND_MOVEMENT_24H.name.lower(),
+        Parameter.WIND_MOVEMENT_MULTIDAY.name.lower(),
+        # wind gust variants — regional-scale (~40 km)
+        Parameter.WIND_GUST_MAX.name.lower(),
+        Parameter.WIND_GUST_MAX_LAST_1H.name.lower(),
+        Parameter.WIND_GUST_MAX_LAST_3H.name.lower(),
+        Parameter.WIND_GUST_MAX_LAST_6H.name.lower(),
+        Parameter.WIND_GUST_MAX_LAST_12H.name.lower(),
+        Parameter.WIND_GUST_MAX_5SEC.name.lower(),
+        Parameter.WIND_GUST_MAX_1MIN.name.lower(),
+        Parameter.WIND_GUST_MAX_2MIN.name.lower(),
+        Parameter.WIND_GUST_MAX_INSTANT.name.lower(),
+        Parameter.WIND_GUST_MAX_1MILE.name.lower(),
+        # ---- precipitation ----
+        # precipitation is heterogeneous — shorter spatial correlation length (~20 km)
         Parameter.PRECIPITATION_HEIGHT.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_DAY.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_NIGHT.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LIQUID.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_DROPLET.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_ROCKER.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LAST_1H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LAST_3H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LAST_6H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LAST_9H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LAST_12H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LAST_15H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LAST_18H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LAST_21H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LAST_24H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_MULTIDAY.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_1H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_3H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_6H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_12H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_24H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LIQUID_SIGNIFICANT_WEATHER_LAST_1H.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_MAX.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT_LIQUID_MAX.name.lower(),
+        Parameter.PRECIPITATION_DURATION.name.lower(),
+        # ---- snow ----
+        # accumulated snow depth — smooth regional field (~40 km)
+        Parameter.SNOW_DEPTH.name.lower(),
+        Parameter.SNOW_DEPTH_EXCELLED.name.lower(),
+        Parameter.SNOW_DEPTH_MANUAL.name.lower(),
+        Parameter.SNOW_DEPTH_MAX.name.lower(),
+        # new snow per period — more heterogeneous like precipitation (~20 km)
+        Parameter.SNOW_DEPTH_NEW.name.lower(),
+        Parameter.SNOW_DEPTH_NEW_MULTIDAY.name.lower(),
+        Parameter.SNOW_DEPTH_NEW_MAX.name.lower(),
+        # ---- water equivalent ----
+        # accumulated SWE — smooth regional field (~40 km)
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH.name.lower(),
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_EXCELLED.name.lower(),
+        # new SWE — heterogeneous like precipitation (~20 km)
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW.name.lower(),
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_1H.name.lower(),
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_3H.name.lower(),
+        # ---- solar / radiation ----
+        # sunshine and radiation — driven by synoptic cloud patterns, large spatial correlation (~40 km)
+        Parameter.SUNSHINE_DURATION.name.lower(),
+        Parameter.SUNSHINE_DURATION_LAST_3H.name.lower(),
+        Parameter.SUNSHINE_DURATION_YESTERDAY.name.lower(),
+        Parameter.SUNSHINE_DURATION_RELATIVE.name.lower(),
+        Parameter.SUNSHINE_DURATION_RELATIVE_LAST_24H.name.lower(),
+        Parameter.RADIATION_GLOBAL.name.lower(),
+        Parameter.RADIATION_GLOBAL_LAST_3H.name.lower(),
+        Parameter.RADIATION_SKY_SHORT_WAVE_DIFFUSE.name.lower(),
+        Parameter.RADIATION_SKY_SHORT_WAVE_DIRECT.name.lower(),
+        Parameter.RADIATION_SKY_LONG_WAVE.name.lower(),
+        Parameter.RADIATION_SKY_LONG_WAVE_LAST_3H.name.lower(),
+        # ---- pressure ----
+        # pressure — synoptic-scale field, most spatially homogeneous of all met parameters (~40 km)
+        Parameter.PRESSURE_AIR_SEA_LEVEL.name.lower(),
+        Parameter.PRESSURE_AIR_SITE.name.lower(),
+        Parameter.PRESSURE_AIR_SITE_REDUCED.name.lower(),
+        Parameter.PRESSURE_AIR_SITE_MAX.name.lower(),
+        Parameter.PRESSURE_AIR_SITE_MIN.name.lower(),
+        Parameter.PRESSURE_AIR_SITE_DELTA_LAST_3H.name.lower(),
+        Parameter.PRESSURE_VAPOR.name.lower(),
+        # ---- cloud cover ----
+        # cloud cover — regional-scale field, viable for ~40 km interpolation
+        Parameter.CLOUD_COVER_TOTAL.name.lower(),
+        Parameter.CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT.name.lower(),
+        Parameter.CLOUD_COVER_TOTAL_SUNRISE_TO_SUNSET.name.lower(),
+        Parameter.CLOUD_COVER_EFFECTIVE.name.lower(),
+        # ---- evapotranspiration ----
+        # driven by temperature, humidity, radiation — large spatial correlation (~40 km)
+        Parameter.EVAPOTRANSPIRATION_POTENTIAL_LAST_24H.name.lower(),
+        Parameter.EVAPOTRANSPIRATION_POTENTIAL_GRAS_FAO_LAST_24H.name.lower(),
+        Parameter.EVAPOTRANSPIRATION_POTENTIAL_GRAS_HAUDE_LAST_24H.name.lower(),
+        Parameter.EVAPORATION_HEIGHT.name.lower(),
+        Parameter.EVAPORATION_HEIGHT_MULTIDAY.name.lower(),
     ]
 
     @staticmethod

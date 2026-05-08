@@ -18,6 +18,34 @@ Types of changes:
 
 ### Added
 
+- Interpolation / summarize: greatly expanded the set of interpolatable parameters
+  beyond the original six. All continuous, spatially-correlated meteorological fields
+  are now supported, organised into two distance classes:
+  - **~40 km** (homogeneous / large-scale): all temperature variants at 2 m and 0.05 m
+    (mean, max, min, last-24 h, multiday, mean-of-extremes), dew point, wet-bulb,
+    wind-chill, surface temperature, soil temperatures (0.02 m – 2 m depth),
+    heating/cooling degree aggregates, all humidity variants (`humidity`,
+    `humidity_absolute`, `humidity_max`, `humidity_min`, `humidex`), all wind-speed
+    variants and gust-max variants, wind movement, Beaufort scale, all sunshine-duration
+    variants, global / diffuse / direct / long-wave radiation, all pressure variants
+    (site, sea-level, reduced, max, min, tendency, vapour), total / effective / time-
+    windowed cloud cover, and evapotranspiration / evaporation fields.
+  - **~20 km** (heterogeneous / locally variable): all precipitation-height variants
+    (including liquid, droplet, rocker, last-1 h … last-24 h, multiday, significant-
+    weather, max), precipitation duration, new-snow depth and its multiday / max
+    variants, and new-snow water-equivalent variants.
+  - Fixes #1651 (`sunshine_duration` was silently dropped by both `interpolate` and
+    `summarize` because it was absent from `interpolatable_parameters`).
+- Interpolation: occurrence-threshold zeroing (previously only applied to
+  `precipitation_height`) is now applied to **all** zero-inflated accumulation
+  parameters: every precipitation-height variant, precipitation duration, new-snow
+  depth variants, and new-snow water-equivalent variants. This prevents spurious
+  small positive values when the surrounding stations recorded no event.
+- Tests: five new unit tests for the occurrence-threshold logic in
+  `core/interpolate.py` (`test_occurrence_threshold_*`) and two new remote
+  integration tests (`test_interpolation_sunshine_duration_daily`,
+  `test_interpolation_snow_depth_new_daily`).
+
 - CLI: `--start-date` / `--end-date` options added to the `values`, `interpolate`, and
   `summarize` commands as a user-friendly alternative to the `--date` ISO-8601 interval
   syntax. Passing only `--start-date` treats it as a single-point date; passing only
