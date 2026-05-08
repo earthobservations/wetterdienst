@@ -441,20 +441,78 @@ Occasionally, you may require data specific to your precise location rather than
 station's location. To address this need, we have introduced an interpolation feature, enabling you to interpolate data
 from nearby stations to your exact coordinates. The function leverages the four closest stations to your specified
 latitude and longitude and employs the bilinear interpolation method provided by the scipy package (interp2d) to
-interpolate the given parameter values. Currently, this interpolation feature is exclusive to the parameters
+interpolate the given parameter values. Currently, this interpolation feature supports the following parameters:
 
-- ``temperature_air_mean_2m``
-- ``temperature_air_max_2m``
-- ``temperature_air_min_2m``
-- ``humidity``
-- ``wind_speed``
-- ``precipitation_height``.
+**Large spatial correlation (~40 km default search radius)** — homogeneous fields that vary slowly across regions:
+
+*Temperature:*
+``temperature_air_2m``, ``temperature_air_mean_2m``, ``temperature_air_mean_2m_last_24h``,
+``temperature_air_max_2m``, ``temperature_air_max_2m_last_24h``, ``temperature_air_max_2m_mean``, ``temperature_air_max_2m_multiday``,
+``temperature_air_min_2m``, ``temperature_air_min_2m_last_24h``, ``temperature_air_min_2m_mean``, ``temperature_air_min_2m_multiday``,
+``temperature_air_mean_0_05m``, ``temperature_air_max_0_05m``, ``temperature_air_min_0_05m``, ``temperature_air_min_0_05m_last_12h``,
+``temperature_dew_point_mean_2m``, ``temperature_wet_mean_2m``, ``temperature_wind_chill``, ``temperature_surface_mean``,
+``temperature_soil_mean_0_02m``, ``temperature_soil_mean_0_05m``, ``temperature_soil_mean_0_1m``, ``temperature_soil_mean_0_2m``,
+``temperature_soil_mean_0_5m``, ``temperature_soil_mean_1m``, ``temperature_soil_mean_2m``,
+``temperature_soil_min_0_1m``, ``temperature_soil_min_0_2m``, ``temperature_soil_min_0_5m``, ``temperature_soil_min_1m``, ``temperature_soil_min_2m``,
+``temperature_soil_max_0_1m``, ``temperature_soil_max_0_2m``, ``temperature_soil_max_0_5m``, ``temperature_soil_max_1m``, ``temperature_soil_max_2m``,
+``heating_degree_day``, ``cooling_degree_hour``
+
+*Humidity:*
+``humidity``, ``humidity_absolute``, ``humidity_max``, ``humidity_min``, ``humidex``
+
+*Wind:*
+``wind_speed``, ``wind_speed_arithmetic``, ``wind_speed_min``, ``wind_speed_rolling_mean_max``, ``wind_force_beaufort``,
+``wind_movement_24h``, ``wind_movement_multiday``,
+``wind_gust_max``, ``wind_gust_max_last_1h``, ``wind_gust_max_last_3h``, ``wind_gust_max_last_6h``, ``wind_gust_max_last_12h``,
+``wind_gust_max_5sec``, ``wind_gust_max_1min``, ``wind_gust_max_2min``, ``wind_gust_max_instant``, ``wind_gust_max_1mile``
+
+*Snow (accumulated depth):*
+``snow_depth``, ``snow_depth_excelled``, ``snow_depth_manual``, ``snow_depth_max``,
+``water_equivalent_snow_depth``, ``water_equivalent_snow_depth_excelled``
+
+*Solar / Radiation:*
+``sunshine_duration``, ``sunshine_duration_last_3h``, ``sunshine_duration_yesterday``,
+``sunshine_duration_relative``, ``sunshine_duration_relative_last_24h``,
+``radiation_global``, ``radiation_global_last_3h``,
+``radiation_sky_short_wave_diffuse``, ``radiation_sky_short_wave_direct``,
+``radiation_sky_long_wave``, ``radiation_sky_long_wave_last_3h``
+
+*Pressure:*
+``pressure_air_sea_level``, ``pressure_air_site``, ``pressure_air_site_reduced``,
+``pressure_air_site_max``, ``pressure_air_site_min``, ``pressure_air_site_delta_last_3h``, ``pressure_vapor``
+
+*Cloud cover:*
+``cloud_cover_total``, ``cloud_cover_total_midnight_to_midnight``, ``cloud_cover_total_sunrise_to_sunset``, ``cloud_cover_effective``
+
+*Evapotranspiration / Evaporation:*
+``evapotranspiration_potential_last_24h``, ``evapotranspiration_potential_gras_fao_last_24h``,
+``evapotranspiration_potential_gras_haude_last_24h``, ``evaporation_height``, ``evaporation_height_multiday``
+
+**Short spatial correlation (~20 km default search radius)** — heterogeneous fields that vary more locally:
+
+*Precipitation:*
+``precipitation_height``, ``precipitation_height_day``, ``precipitation_height_night``,
+``precipitation_height_liquid``, ``precipitation_height_droplet``, ``precipitation_height_rocker``,
+``precipitation_height_last_1h``, ``precipitation_height_last_3h``, ``precipitation_height_last_6h``,
+``precipitation_height_last_9h``, ``precipitation_height_last_12h``, ``precipitation_height_last_15h``,
+``precipitation_height_last_18h``, ``precipitation_height_last_21h``, ``precipitation_height_last_24h``,
+``precipitation_height_multiday``,
+``precipitation_height_significant_weather_last_1h``, ``precipitation_height_significant_weather_last_3h``,
+``precipitation_height_significant_weather_last_6h``, ``precipitation_height_significant_weather_last_12h``,
+``precipitation_height_significant_weather_last_24h``,
+``precipitation_height_liquid_significant_weather_last_1h``,
+``precipitation_height_max``, ``precipitation_height_liquid_max``, ``precipitation_duration``
+
+*New snow per period:*
+``snow_depth_new``, ``snow_depth_new_multiday``, ``snow_depth_new_max``,
+``water_equivalent_snow_depth_new``, ``water_equivalent_snow_depth_new_last_1h``, ``water_equivalent_snow_depth_new_last_3h``
+
 
 There are several settings that can be used to control the interpolation behavior:
 
 | Name                               | Type             | Default                                      | Description                                                                                                                                                                                                             |
 |------------------------------------|------------------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| ts_geo_station_distance            | dict[str, float] | 20.0 (precipitation_height)<br/>40.0 (other) | Max distance for stations used for interpolation (in km)                                                                                                                                                                |
+| ts_geo_station_distance            | dict[str, float] | 20.0 (precipitation and new-snow variants)<br/>40.0 (other) | Max distance for stations used for interpolation (in km)                                                                                                                                                                |
 | ts_geo_use_nearby_station_distance | float            | 1.0                                          | Distance (in km) until which the value of a nearby station is used instead of interpolation.                                                                                                                            |
 | ts_geo_min_gain_of_value_pairs     | float            | 0.1                                          | Minimum gain of value pairs [for an additional station] to be included in the list of stations used. This is to prevent taking all stations into account in case of a dense station network.                            |
 | ts_geo_num_additional_stations     | int              | 3                                            | Number of additional stations to be used for interpolation regardless of min_gain_of_value_pairs. This is to ensure that at least a certain number of stations are used for interpolation, even if the gain is not met. |

@@ -29,6 +29,54 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# Parameters for which precipitation-occurrence thresholding is applied during interpolation:
+# linear interpolation between zero-value and non-zero-value stations can produce spurious small
+# positives.  We suppress those by also interpolating a binary occurrence field and zeroing out
+# the result when fewer than half of the surrounding stations recorded a positive value.
+# This applies to all accumulation-type parameters that can legitimately be zero
+# (i.e. "it didn't rain / snow at this timestep"), but NOT to continuous fields like accumulated
+# snow depth or evaporation that are rarely exactly zero and have a different physical character.
+_OCCURRENCE_BASED_PARAMETERS: frozenset[str] = frozenset(
+    p.name.lower()
+    for p in (
+        # precipitation height — all temporal variants
+        Parameter.PRECIPITATION_HEIGHT,
+        Parameter.PRECIPITATION_HEIGHT_DAY,
+        Parameter.PRECIPITATION_HEIGHT_NIGHT,
+        Parameter.PRECIPITATION_HEIGHT_LIQUID,
+        Parameter.PRECIPITATION_HEIGHT_DROPLET,
+        Parameter.PRECIPITATION_HEIGHT_ROCKER,
+        Parameter.PRECIPITATION_HEIGHT_LAST_1H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_3H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_6H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_9H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_12H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_15H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_18H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_21H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_24H,
+        Parameter.PRECIPITATION_HEIGHT_MULTIDAY,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_1H,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_3H,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_6H,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_12H,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_24H,
+        Parameter.PRECIPITATION_HEIGHT_LIQUID_SIGNIFICANT_WEATHER_LAST_1H,
+        Parameter.PRECIPITATION_HEIGHT_MAX,
+        Parameter.PRECIPITATION_HEIGHT_LIQUID_MAX,
+        # precipitation duration — zero when no precipitation occurred
+        Parameter.PRECIPITATION_DURATION,
+        # new snow per period — heterogeneous and zero-inflated like precipitation
+        Parameter.SNOW_DEPTH_NEW,
+        Parameter.SNOW_DEPTH_NEW_MULTIDAY,
+        Parameter.SNOW_DEPTH_NEW_MAX,
+        # new snow water equivalent — same zero-inflated character
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW,
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_1H,
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_3H,
+    )
+)
+
 
 def get_interpolated_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
     """Get the interpolated DataFrame for the given request and location."""
@@ -332,7 +380,7 @@ def apply_interpolation(
     distance_mean = sum(distances) / len(distances)
     f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
     value = f(utm_x, utm_y)
-    if parameter == Parameter.PRECIPITATION_HEIGHT.name.lower():
+    if parameter in _OCCURRENCE_BASED_PARAMETERS:
         f_index = LinearNDInterpolator(points=(xs, ys), values=[float(v > 0) for v in list(vals.values())])
         value_index = f_index(utm_x, utm_y)
         value = value if value_index >= 0.5 else 0

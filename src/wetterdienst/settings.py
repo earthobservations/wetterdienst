@@ -25,7 +25,44 @@ _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 
 def _default_geo_station_distance() -> defaultdict[str, float]:
     d: defaultdict[str, float] = defaultdict(lambda: 40.0)
-    d[Parameter.PRECIPITATION_HEIGHT.value.lower()] = 20.0
+    # heterogeneous parameters: shorter spatial correlation length, use 20 km
+    # precipitation — all variants are convectively driven and spatially variable
+    for p in (
+        Parameter.PRECIPITATION_HEIGHT,
+        Parameter.PRECIPITATION_HEIGHT_DAY,
+        Parameter.PRECIPITATION_HEIGHT_NIGHT,
+        Parameter.PRECIPITATION_HEIGHT_LIQUID,
+        Parameter.PRECIPITATION_HEIGHT_DROPLET,
+        Parameter.PRECIPITATION_HEIGHT_ROCKER,
+        Parameter.PRECIPITATION_HEIGHT_LAST_1H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_3H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_6H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_9H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_12H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_15H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_18H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_21H,
+        Parameter.PRECIPITATION_HEIGHT_LAST_24H,
+        Parameter.PRECIPITATION_HEIGHT_MULTIDAY,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_1H,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_3H,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_6H,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_12H,
+        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_24H,
+        Parameter.PRECIPITATION_HEIGHT_LIQUID_SIGNIFICANT_WEATHER_LAST_1H,
+        Parameter.PRECIPITATION_HEIGHT_MAX,
+        Parameter.PRECIPITATION_HEIGHT_LIQUID_MAX,
+        Parameter.PRECIPITATION_DURATION,
+        # new snow per period — heterogeneous like precipitation
+        Parameter.SNOW_DEPTH_NEW,
+        Parameter.SNOW_DEPTH_NEW_MULTIDAY,
+        Parameter.SNOW_DEPTH_NEW_MAX,
+        # new SWE — heterogeneous like precipitation
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW,
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_1H,
+        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_3H,
+    ):
+        d[p.value.lower()] = 20.0
     return d
 
 
