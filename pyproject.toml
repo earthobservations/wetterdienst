@@ -109,7 +109,7 @@ dependencies = [
 
 [project.optional-dependencies]
 bufr = [
-    "pdbufr>=0.10.2,<1; python_version<'3.14'",
+    "pdbufr>=0.10.2,<1",
     "pybufrkit>=0.2,<1",
 ]
 cratedb = [
@@ -121,7 +121,7 @@ duckdb = [
     "pandas>=2,<3",
 ]
 eccodes = [
-    "eccodes>=1.5.2,<3; python_version<'3.14'",
+    "eccodes>=1.5.2,<3",
 ]
 excel = [
     "xlsxwriter>=3.0.9,<4",
