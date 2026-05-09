@@ -16,26 +16,28 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.121.0] - 2026-05-09
+
 ### Added
 
 - Interpolation / summarize: greatly expanded the set of interpolatable parameters
   beyond the original six. All continuous, spatially-correlated meteorological fields
   are now supported, organised into two distance classes:
-  - **~40 km** (homogeneous / large-scale): all temperature variants at 2 m and 0.05 m
-    (mean, max, min, last-24 h, multiday, mean-of-extremes), dew point, wet-bulb,
-    wind-chill, surface temperature, soil temperatures (0.02 m – 2 m depth),
-    heating/cooling degree aggregates, all humidity variants (`humidity`,
-    `humidity_absolute`, `humidity_max`, `humidity_min`, `humidex`), all wind-speed
-    variants and gust-max variants, wind movement, Beaufort scale, all sunshine-duration
-    variants, global / diffuse / direct / long-wave radiation, all pressure variants
-    (site, sea-level, reduced, max, min, tendency, vapour), total / effective / time-
-    windowed cloud cover, and evapotranspiration / evaporation fields.
-  - **~20 km** (heterogeneous / locally variable): all precipitation-height variants
-    (including liquid, droplet, rocker, last-1 h … last-24 h, multiday, significant-
-    weather, max), precipitation duration, new-snow depth and its multiday / max
-    variants, and new-snow water-equivalent variants.
-  - Fixes #1651 (`sunshine_duration` was silently dropped by both `interpolate` and
-    `summarize` because it was absent from `interpolatable_parameters`).
+    - **~40 km** (homogeneous / large-scale): all temperature variants at 2 m and 0.05 m
+      (mean, max, min, last-24 h, multiday, mean-of-extremes), dew point, wet-bulb,
+      wind-chill, surface temperature, soil temperatures (0.02 m – 2 m depth),
+      heating/cooling degree aggregates, all humidity variants (`humidity`,
+      `humidity_absolute`, `humidity_max`, `humidity_min`, `humidex`), all wind-speed
+      variants and gust-max variants, wind movement, Beaufort scale, all sunshine-duration
+      variants, global / diffuse / direct / long-wave radiation, all pressure variants
+      (site, sea-level, reduced, max, min, tendency, vapour), total / effective / time-
+      windowed cloud cover, and evapotranspiration / evaporation fields.
+    - **~20 km** (heterogeneous / locally variable): all precipitation-height variants
+      (including liquid, droplet, rocker, last-1 h … last-24 h, multiday, significant-
+      weather, max), precipitation duration, new-snow depth and its multiday / max
+      variants, and new-snow water-equivalent variants.
+    - Fixes #1651 (`sunshine_duration` was silently dropped by both `interpolate` and
+      `summarize` because it was absent from `interpolatable_parameters`).
 - Interpolation: occurrence-threshold zeroing (previously only applied to
   `precipitation_height`) is now applied to **all** zero-inflated accumulation
   parameters: every precipitation-height variant, precipitation duration, new-snow
@@ -1799,7 +1801,9 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.120.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.121.0...HEAD
+
+[0.121.0]: https://github.com/earthobservations/wetterdienst/compare/v0.120.0...v0.121.0
 
 [0.120.0]: https://github.com/earthobservations/wetterdienst/compare/v0.119.0...v0.120.0
 
