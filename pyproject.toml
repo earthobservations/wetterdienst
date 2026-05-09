@@ -7,7 +7,9 @@ authors = [
 ]
 description = "Open weather data for humans"
 readme = "README.md"
-license = { file = "LICENSE.md" }
+# Migrate license metadata to PEP 639: use SPDX expression and explicit license files
+license-expression = "MIT"
+license-files = ["LICENSE.md"]
 keywords = [
     # DWD
     "deutscher-wetterdienst",
@@ -52,7 +54,6 @@ classifiers = [
     "Intended Audience :: Information Technology",
     "Intended Audience :: Science/Research",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: POSIX",
     "Operating System :: Unix",
