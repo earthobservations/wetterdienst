@@ -11,6 +11,157 @@ const props = defineProps<{
 const chartRef = ref<HTMLDivElement | null>(null)
 let Plotly: any = null
 const plotlyLoaded = ref(false)
+let overlayCanvas: HTMLCanvasElement | null = null
+let overlayAttached = false
+let lastArrowInfos: { timeMs: number; dir: number; speed: number }[] = []
+let lastOverlayParams: { minTime: number; maxTime: number; layout: any; axisRange: [number, number]; axisDomain: [number, number] } | null = null
+
+function ensureOverlay() {
+  if (!chartRef.value)
+    return
+  if (!overlayCanvas) {
+    const c = document.createElement('canvas')
+    c.className = 'meteogram-overlay-canvas'
+    c.style.position = 'absolute'
+    c.style.left = '0'
+    c.style.top = '0'
+    c.style.width = '100%'
+    c.style.height = '100%'
+    c.style.pointerEvents = 'none'
+    c.style.zIndex = '11'
+    // ensure the parent can position absolute children
+    const el = chartRef.value
+    const cs = window.getComputedStyle(el)
+    if (cs.position === 'static')
+      el.style.position = 'relative'
+    el.appendChild(c)
+    overlayCanvas = c
+  }
+}
+
+function updateOverlaySize() {
+  if (!overlayCanvas || !chartRef.value)
+    return
+  const dpr = window.devicePixelRatio || 1
+  const w = chartRef.value.clientWidth
+  const h = chartRef.value.clientHeight
+  overlayCanvas.width = Math.round(w * dpr)
+  overlayCanvas.height = Math.round(h * dpr)
+  overlayCanvas.style.width = `${w}px`
+  overlayCanvas.style.height = `${h}px`
+  const ctx = overlayCanvas.getContext('2d')
+  if (!ctx) return
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.scale(dpr, dpr)
+  ctx.clearRect(0, 0, w, h)
+}
+
+function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom: number, speed: number) {
+  // dirFrom = wind FROM degrees; barb points TO = from + 180
+  const toDeg = (dirFrom + 180) % 360
+  const angle = (toDeg * Math.PI) / 180
+  const shaft = 18
+  const headLen = 6
+  const tailX = px - shaft * Math.cos(angle)
+  const tailY = py - shaft * Math.sin(angle)
+
+  ctx.strokeStyle = '#0f172a'
+  ctx.fillStyle = '#0f172a'
+  ctx.lineWidth = 1.5
+
+  // shaft
+  ctx.beginPath()
+  ctx.moveTo(tailX, tailY)
+  ctx.lineTo(px, py)
+  ctx.stroke()
+
+  // arrow head (triangle)
+  const baseX = px - headLen * Math.cos(angle)
+  const baseY = py - headLen * Math.sin(angle)
+  const perpX = Math.sin(angle) * (headLen * 0.9)
+  const perpY = -Math.cos(angle) * (headLen * 0.9)
+  ctx.beginPath()
+  ctx.moveTo(px, py)
+  ctx.lineTo(baseX + perpX, baseY + perpY)
+  ctx.lineTo(baseX - perpX, baseY - perpY)
+  ctx.closePath()
+  ctx.fill()
+
+  // small barbs for speed (one barb per ~2.5 m/s, cap 3 for clarity)
+  const barbCount = Math.min(3, Math.floor(speed / 2.5))
+  for (let i = 0; i < barbCount; i++) {
+    const dist = headLen + 4 + i * 6
+    const bx = px - dist * Math.cos(angle)
+    const by = py - dist * Math.sin(angle)
+    const barbLen = 6
+    const barbAngle = angle + Math.PI / 4 // 45° outward
+    const ex = bx + barbLen * Math.cos(barbAngle)
+    const ey = by + barbLen * Math.sin(barbAngle)
+    ctx.beginPath()
+    ctx.moveTo(bx, by)
+    ctx.lineTo(ex, ey)
+    ctx.stroke()
+  }
+}
+
+function drawWindBarbs(arrowInfos: { timeMs: number; dir: number; speed: number }[], minTime: number, maxTime: number, layoutObj: any, axisRange: [number, number], axisDomain: [number, number]) {
+  if (!chartRef.value) return
+  ensureOverlay()
+  updateOverlaySize()
+  if (!overlayCanvas) return
+  const ctx = overlayCanvas.getContext('2d')
+  if (!ctx) return
+
+  const rect = chartRef.value.getBoundingClientRect()
+  const margin = layoutObj?.margin ?? { l: 48, r: 8, t: 8, b: 32 }
+  const plotLeft = margin.l
+  const plotTop = margin.t
+  const plotWidth = rect.width - margin.l - margin.r
+  const plotHeight = rect.height - margin.t - margin.b
+
+  function xToPx(timeMs: number) {
+    const t = (timeMs - minTime) / Math.max(1, (maxTime - minTime))
+    return plotLeft + t * plotWidth
+  }
+
+  const domainLow = axisDomain[0]
+  const domainHigh = axisDomain[1]
+  const axisMin = axisRange[0]
+  const axisMax = axisRange[1]
+
+  function yToPx(value: number) {
+    const frac = (value - axisMin) / Math.max(1e-6, (axisMax - axisMin))
+    const paperY = domainLow + frac * (domainHigh - domainLow)
+    return plotTop + (1 - paperY) * plotHeight
+  }
+
+  // draw each barb
+  for (const a of arrowInfos) {
+    const px = xToPx(a.timeMs)
+    const py = yToPx(a.speed)
+    drawBarb(ctx, px, py, a.dir, a.speed)
+  }
+}
+
+function attachOverlayListeners(getParams: () => { arrowInfos: { timeMs: number; dir: number; speed: number }[]; minTime: number; maxTime: number; layoutObj: any; axisRange: [number, number]; axisDomain: [number, number] }) {
+  if (!chartRef.value || overlayAttached) return
+  const redraw = () => {
+    const p = getParams()
+    lastArrowInfos = p.arrowInfos
+    lastOverlayParams = { minTime: p.minTime, maxTime: p.maxTime, layout: p.layoutObj, axisRange: p.axisRange, axisDomain: p.axisDomain }
+    drawWindBarbs(p.arrowInfos, p.minTime, p.maxTime, p.layoutObj, p.axisRange, p.axisDomain)
+  }
+  // Plotly events
+  try {
+    ;(chartRef.value as any).on && (chartRef.value as any).on('plotly_relayout', redraw)
+    ;(chartRef.value as any).on && (chartRef.value as any).on('plotly_afterplot', redraw)
+  }
+  catch (e) {
+    // ignore if not available
+  }
+  window.addEventListener('resize', redraw)
+  overlayAttached = true
+}
 
 function findFirstAvailable(names: string[], available: Set<string>) {
   for (const n of names) {
@@ -425,6 +576,25 @@ async function renderChart() {
   if (chartRef.value) {
     Plotly.purge(chartRef.value)
     await Plotly.newPlot(chartRef.value, traces, layout, config)
+
+    // Setup overlay drawing of wind barbs using a canvas overlay
+    if (typeof window !== 'undefined' && windKey && chartRef.value) {
+      const arrowInfos: { timeMs: number; dir: number; speed: number }[] = []
+      if (windKey) {
+        const s = series.get(windKey)!
+        const dirSeries = windDirKey ? series.get(windDirKey) : undefined
+        for (let i = 0; i < s.x.length; i++) {
+          if (i % 3 !== 0) continue // subsample
+          const timeMs = s.x[i]!.getTime()
+          const speed = s.y[i] ?? 0
+          const dir = dirSeries ? (dirSeries.y[i] ?? dirSeries.y[0] ?? 0) : 0
+          arrowInfos.push({ timeMs, dir, speed })
+        }
+      }
+
+      const getParams = () => ({ arrowInfos, minTime, maxTime, layoutObj: layout, axisRange: [0, Math.max(1, ...((series.get(windKey)?.y) ?? [10]))] as [number, number], axisDomain: [0, windTop] as [number, number] })
+      attachOverlayListeners(getParams)
+    }
   }
 }
 
