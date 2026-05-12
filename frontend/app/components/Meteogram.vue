@@ -349,13 +349,13 @@ async function renderChart() {
     }
   }
 
-  // ── Day separators (dotted white line at midnight) ────────────────
+  // ── Day separators (subtle lines at midnight)
   const separators: any[] = getMidnights(minTime, maxTime).map(m => ({
     type: 'line',
     xref: 'x', yref: 'paper',
     x0: m.toISOString(), x1: m.toISOString(),
     y0: 0, y1: 1,
-    line: { color: 'rgba(255,255,255,0.22)', width: 1, dash: 'dot' },
+    line: { color: 'rgba(55,65,81,0.08)', width: 1, dash: 'dot' },
   }))
 
   // ── Day name annotations (just above the plot area) ───────────────
@@ -374,7 +374,7 @@ async function renderChart() {
       xref: 'x', yref: 'paper',
       text: `<b>${DAY_DE[day.getUTCDay()]}</b> ${dd}.${mm}`,
       showarrow: false,
-      font: { size: 10, color: isWeekend ? '#fbbf24' : 'rgba(255,255,255,0.80)' },
+    font: { size: 10, color: isWeekend ? '#ef4444' : '#374151' },
       xanchor: 'center',
       yanchor: 'bottom',
     })
@@ -390,19 +390,13 @@ async function renderChart() {
     tempMinY = Math.min(0, ...s.y)
     tempMaxY = Math.max(...s.y)
     const xs = s.x.map(d => d.toISOString())
-    // Wide warm glow underneath
+    // Minimal flat temperature: subtle fill + crisp red line
+    // Baseline for fill
+    traces.push({ x: xs, y: Array(xs.length).fill(tempMinY), type: 'scatter', mode: 'none', showlegend: false, yaxis: 'y3', hoverinfo: 'skip' })
     traces.push({
-      x: xs, y: s.y,
-      type: 'scatter', mode: 'lines',
-      line: { color: 'rgba(255,200,80,0.18)', width: 12, shape: 'spline', smoothing: 0.6 },
-      showlegend: false, yaxis: 'y3', hoverinfo: 'skip',
-    })
-    // Actual white line
-    traces.push({
-      name: 'Temperature °C',
-      x: xs, y: s.y,
-      type: 'scatter', mode: 'lines',
-      line: { color: '#ffffff', width: 2.5, shape: 'spline', smoothing: 0.6 },
+      name: 'Temperature °C', x: xs, y: s.y, type: 'scatter', mode: 'lines',
+      line: { color: '#ef4444', width: 2, shape: 'linear' },
+      fill: 'tonexty', fillcolor: 'rgba(239,68,68,0.06)',
       yaxis: 'y3',
       hovertemplate: '%{y:.1f}°C<extra>Temperature</extra>',
     })
@@ -415,7 +409,7 @@ async function renderChart() {
       name: 'Precip mm',
       x: s.x.map(d => d.toISOString()), y: s.y,
       type: 'bar',
-      marker: { color: 'rgba(180,225,255,0.72)', line: { color: 'rgba(220,242,255,0.9)', width: 0.5 } },
+      marker: { color: '#2563eb' },
       yaxis: 'y2',
       hovertemplate: '%{y:.2f} mm<extra>Precipitation</extra>',
     })
@@ -431,9 +425,9 @@ async function renderChart() {
       name: 'Wind m/s',
       x: s.x.map(d => d.toISOString()), y: s.y,
       type: 'scatter', mode: 'lines',
-      line: { color: 'rgba(100,235,210,0.90)', width: 2 },
+      line: { color: '#06b6d4', width: 1.8 },
       fill: 'tozeroy',
-      fillcolor: 'rgba(100,235,210,0.10)',
+      fillcolor: 'rgba(6,182,212,0.08)',
       yaxis: 'y',
       hovertemplate: '%{y:.1f} m/s<extra>Wind</extra>',
     })
