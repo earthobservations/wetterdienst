@@ -30,6 +30,7 @@
     "nuxt": "^4.3.1",
     "nuxt-security": "^2.5.1",
     "plotly.js-dist-min": "^3.3.1",
+    "suncalc": "^1.9.0",
     "tailwindcss": "^4.1.18",
     "vue": "^3.5.28"
   },

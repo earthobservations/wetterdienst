@@ -35,6 +35,9 @@ importers:
       plotly.js-dist-min:
         specifier: ^3.3.1
         version: 3.3.1
+      suncalc:
+        specifier: ^1.9.0
+        version: 1.9.0
       tailwindcss:
         specifier: ^4.1.18
         version: 4.1.18
@@ -5639,6 +5642,9 @@ packages:
     engines: {node: ^18.12.0 || ^20.9.0 || >=22.0}
     peerDependencies:
       postcss: ^8.4.32
+
+  suncalc@1.9.0:
+    resolution: {integrity: sha512-vMJ8Byp1uIPoj+wb9c1AdK4jpkSKVAywgHX0lqY7zt6+EWRRC3Z+0Ucfjy/0yxTVO1hwwchZe4uoFNqrIC24+A==}
 
   superjson@2.2.6:
     resolution: {integrity: sha512-H+ue8Zo4vJmV2nRjpx86P35lzwDT3nItnIsocgumgr0hHMQ+ZGq5vrERg9kJBo5AWGmxZDhzDo+WVIJqkB0cGA==}
@@ -12475,6 +12481,8 @@ snapshots:
       browserslist: 4.28.1
       postcss: 8.5.6
       postcss-selector-parser: 7.1.1
+
+  suncalc@1.9.0: {}
 
   superjson@2.2.6:
     dependencies:

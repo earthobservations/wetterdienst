@@ -24,6 +24,12 @@ const items = computed<NavigationMenuItem[]>(() =>
       active: route.path.startsWith('/explorer'),
     },
     {
+      label: 'Meteogram',
+      icon: 'i-lucide-sun',
+      to: '/meteogram',
+      active: route.path.startsWith('/meteogram'),
+    },
+    {
       label: 'Stripes',
       icon: 'i-lucide-bar-chart-3',
       to: '/stripes',
