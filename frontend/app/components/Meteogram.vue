@@ -329,8 +329,9 @@ async function renderChart() {
   const precipTop = 0.35
   const tempBot = precipTop + gap
 
-  // ── Shared style constants ────────────────────────────────────────
-  const W = (a: number) => `rgba(255,255,255,${a})`   // white with alpha
+  // ── Shared style constants (dark-on-light tokens)
+  // Use neutral dark base for axis/tick/grid on light background
+  const W = (a: number) => `rgba(55,65,81,${a})`   // #374151 with alpha
   const GRID = W(0.08)
   const TICK = W(0.65)
   const ZERO = W(0.20)
