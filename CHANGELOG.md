@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.121.1] - 2026-05-26
+
 ### Fixed
 
 - Propagate `Settings.use_certifi` through `NetworkFilesystemManager.get` and the
@@ -24,7 +26,6 @@ Types of changes:
   ensures provider code using these helpers respects the global `use_certifi` setting.
   Fixes #1669.
   Thanks to @KonstantinWaser for reporting the issue.
-
 
 ## [0.121.0] - 2026-05-09
 
@@ -1811,7 +1812,9 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.121.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.121.1...HEAD
+
+[0.121.1]: https://github.com/earthobservations/wetterdienst/compare/v0.121.0...v0.121.1
 
 [0.121.0]: https://github.com/earthobservations/wetterdienst/compare/v0.120.0...v0.121.0
 
