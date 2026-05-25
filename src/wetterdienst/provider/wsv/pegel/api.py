@@ -215,6 +215,7 @@ class WsvPegelValues(TimeseriesValues):
             ttl=CacheExpiry.NO_CACHE,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         if file.is_no_internet_error:
             return pl.DataFrame()

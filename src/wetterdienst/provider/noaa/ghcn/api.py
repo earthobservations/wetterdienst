@@ -54,6 +54,7 @@ class NoaaGhcnValues(TimeseriesValues):
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
@@ -111,6 +112,7 @@ class NoaaGhcnValues(TimeseriesValues):
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
