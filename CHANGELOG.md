@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Propagate `Settings.use_certifi` through `NetworkFilesystemManager.get` and the
+  download helpers (`download_file`, `download_files`, `list_remote_files_fsspec`) so
+  that fsspec's HTTP clients use the certifi certificate bundle when requested. This
+  ensures provider code using these helpers respects the global `use_certifi` setting.
+  Fixes #1669.
+  Thanks to @KonstantinWaser for reporting the issue.
+
+
 ## [0.121.0] - 2026-05-09
 
 ### Added

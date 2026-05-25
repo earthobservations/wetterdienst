@@ -64,6 +64,7 @@ class KMLReader:
             cache_expiry=CacheExpiry.FIVE_MINUTES,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
 
     def download(self, url: str) -> BytesIO:
