@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Station } from '~/shared/types/api'
-import { ref, watch, nextTick, computed, onUnmounted } from 'vue'
+import type { Station } from '#shared/types/api'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 
-const props = defineProps<{
+defineProps<{
   modelValue?: Station | null
 }>()
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Station } from '~/shared/types/api'
-import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
+import type { Station } from '#shared/types/api'
 import Meteogram from '~/components/Meteogram.vue'
+import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 
 // Auto-composed MOSMIX parameters – user never configures these
 const MOSMIX = {
@@ -9,8 +9,8 @@ const MOSMIX = {
   network: 'mosmix',
   resolution: 'hourly',
   dataset: 'large',
-  // Core meteogram parameters: temperature, wind speed, wind dir, total cloud cover, precip 1h
-  parameters: ['ttt', 'ff', 'dd', 'n', 'rr1'],
+  // Core meteogram parameters: temperature, wind, cloud cover, precipitation, significant weather, pressure, dew point, wind gusts, max temp, min temp
+  parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
 }
 
 const route = useRoute()

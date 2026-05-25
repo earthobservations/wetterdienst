@@ -1,20 +1,393 @@
 <script setup lang="ts">
-import type { Value } from '~/shared/types/api'
-import { ref, watch, nextTick } from 'vue'
+import type { Value } from '#shared/types/api'
+import { DateTime } from 'luxon'
+import tzLookup from 'tz-lookup'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { interpSeries, wetBulbApprox } from '~/utils/meteogram'
 
 const props = defineProps<{
   values: Value[]
   stationName?: string | null
-  stationCoords?: { latitude: number; longitude: number } | null
+  stationCoords?: { latitude: number, longitude: number } | null
 }>()
+
+const DAY_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let Plotly: any = null
 const plotlyLoaded = ref(false)
 let overlayCanvas: HTMLCanvasElement | null = null
 let overlayAttached = false
-let lastArrowInfos: { timeMs: number; dir: number; speed: number }[] = []
-let lastOverlayParams: { minTime: number; maxTime: number; layout: any; axisRange: [number, number]; axisDomain: [number, number] } | null = null
+
+// Color mode detection
+const colorMode = useColorMode()
+const isDark = computed(() => colorMode.value === 'dark')
+
+// Compact mode toggles a denser, lower-height rendering of the meteogram.
+const compact = ref(false)
+const chartHeight = computed(() => (compact.value ? '320px' : '540px'))
+// Limit how many days the compact view will show by default
+const MAX_COMPACT_DAYS = 7
+const LOCAL_STORAGE_KEY = 'meteogram.compact'
+
+// Interactive panel visibility controls
+const visiblePanels = ref({
+  temp: true,
+  wind: true,
+  precip: true,
+  cloud: true,
+  pressure: true,
+})
+
+// Ensure at least one panel is always active
+watch(visiblePanels, (newVal) => {
+  const anyActive = Object.values(newVal).some(v => v)
+  if (!anyActive) {
+    visiblePanels.value.temp = true
+  }
+}, { deep: true })
+
+// On mount try to restore user preference and auto-enable compact on small screens
+onMounted(() => {
+  try {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY)
+      if (stored !== null)
+        compact.value = stored === 'true'
+      else if (window.innerWidth <= 640)
+        compact.value = true
+    }
+  }
+  catch {
+    // ignore
+  }
+})
+
+// overlay redraw handler ref for attach/detach
+let overlayRedrawHandler: ((ev?: any) => void) | null = null
+
+// Expose a reset function that re-applies original Plotly layout
+function resetChart() {
+  if (!chartRef.value || !plotlyLoaded.value)
+    return
+  try {
+    const el = chartRef.value as any
+    Plotly.relayout(el, { 'xaxis.autorange': true })
+    void renderChart()
+  }
+  catch {
+    // ignore
+  }
+}
+
+function toggleCompact() {
+  compact.value = !compact.value
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_KEY, String(compact.value))
+    }
+  }
+  catch {
+    // ignore
+  }
+}
+
+onUnmounted(() => {
+  try {
+    cleanupPlotlyOverlayHandlers()
+  }
+  catch {
+    // ignore
+  }
+  try {
+    cleanupOverlay()
+  }
+  catch {
+    // ignore
+  }
+  if (Plotly && chartRef.value) {
+    try {
+      Plotly.purge(chartRef.value)
+    }
+    catch {
+      // ignore
+    }
+  }
+})
+
+const compactLabel = computed(() => compact.value ? 'Normal' : 'Compact')
+
+// Toolbar timezone label (updated when chart renders)
+const toolbarTzLabel = ref<string>('UTC')
+
+const compactDays = computed(() => {
+  const out: { date: any, emoji: string, label: string, tempLabel?: string | null, isToday: boolean }[] = []
+  if (!props.values || props.values.length === 0) {
+    return out
+  }
+  const series = buildSeries(props.values)
+  const available = new Set(series.keys())
+  const weatherKey = findFirstAvailable(['weather_significant', 'significant_weather', 'ww', 'weather'], available)
+  const precipKey = findFirstAvailable(['precipitation_height_significant_weather_last_1h', 'precipitation_height_last_1h', 'rr1', 'rr1c'], available)
+  const tempKey = findFirstAvailable(['temperature_air_mean_2m', 'ttt'], available)
+  const cloudKey = findFirstAvailable(['cloud_cover_total', 'n'], available)
+
+  // determine timezone
+  let stationTZ = 'UTC'
+  if (props.stationCoords?.latitude != null && props.stationCoords?.longitude != null) {
+    try {
+      stationTZ = tzLookup(props.stationCoords.latitude, props.stationCoords.longitude)
+    }
+    catch {
+      stationTZ = 'UTC'
+    }
+  }
+
+  const localNow = DateTime.now().setZone(stationTZ)
+
+  const allTimes = [...series.values()].flatMap(s => s.x.map(d => d.getTime()))
+  if (!allTimes.length) {
+    return out
+  }
+  const minTime = Math.min(...allTimes)
+  const maxTime = Math.max(...allTimes)
+
+  let dt = DateTime.fromMillis(minTime, { zone: stationTZ }).startOf('day')
+  const last = DateTime.fromMillis(maxTime, { zone: stationTZ }).startOf('day')
+  while (dt.toMillis() <= last.toMillis()) {
+    const startUTC = dt.toUTC().toMillis()
+    const endUTC = dt.plus({ days: 1 }).toUTC().toMillis()
+
+    let emoji = '·'
+
+    // Prefer significant weather codes when available
+    if (weatherKey && series.has(weatherKey)) {
+      const ws = series.get(weatherKey)!
+      const allCounts = new Map<number, number>()
+
+      for (let i = 0; i < ws.x.length; i++) {
+        const t = ws.x[i]!.getTime()
+        if (t >= startUTC && t < endUTC) {
+          const raw = ws.y[i]
+          const code = typeof raw === 'number' ? Math.round(raw) : Number.parseInt(String(raw))
+          if (!Number.isNaN(code)) {
+            allCounts.set(code, (allCounts.get(code) ?? 0) + 1)
+          }
+        }
+      }
+
+      if (allCounts.size > 0) {
+        // Choose best code: if any code with severity >= 3 occurs at least 2 times,
+        // we pick the one with highest severity. Otherwise, we choose the most frequent code.
+        const getWeatherSeverity = (code: number): number => {
+          if (code >= 95 && code <= 99)
+            return 9 // thunderstorm
+          if (code >= 80 && code <= 86)
+            return 8 // showers
+          if (code >= 70 && code <= 79)
+            return 7 // snow
+          if (code >= 60 && code <= 69)
+            return 6 // rain
+          if (code >= 50 && code <= 59)
+            return 5 // drizzle
+          if (code >= 40 && code <= 49)
+            return 4 // fog
+          if (code === 3)
+            return 3 // overcast / cloudy
+          if (code === 2)
+            return 2 // partly cloudy
+          if (code === 1)
+            return 1 // mostly clear
+          return 0 // clear / sunny / default
+        }
+
+        let best = -1
+        let highestSeverity = -1
+        let mostFrequent = -1
+        let maxCount = -1
+
+        for (const [c, cnt] of allCounts) {
+          if (cnt > maxCount) {
+            mostFrequent = c
+            maxCount = cnt
+          }
+          const sev = getWeatherSeverity(c)
+          if (sev >= 3 && cnt >= 2) {
+            if (sev > highestSeverity) {
+              highestSeverity = sev
+              best = c
+            }
+          }
+        }
+
+        // If no significant weather with count >= 2, fall back to most frequent
+        if (best === -1) {
+          best = mostFrequent
+        }
+
+        if (best !== -1) {
+          emoji = weatherCodeToSymbol(best)
+        }
+      }
+    }
+
+    let minT = Number.POSITIVE_INFINITY
+    let maxT = Number.NEGATIVE_INFINITY
+    if (tempKey && series.has(tempKey)) {
+      const ts = series.get(tempKey)!
+      for (let i = 0; i < ts.x.length; i++) {
+        const t = ts.x[i]!.getTime()
+        if (t >= startUTC && t < endUTC) {
+          const val = Number(ts.y[i] ?? Number.NaN)
+          if (!Number.isNaN(val)) {
+            minT = Math.min(minT, val)
+            maxT = Math.max(maxT, val)
+          }
+        }
+      }
+    }
+
+    // Fallback heuristics: precipitation, cloud
+    if (emoji === '·') {
+      let precip = 0
+
+      if (precipKey && series.has(precipKey)) {
+        const ps = series.get(precipKey)!
+        for (let i = 0; i < ps.x.length; i++) {
+          const t = ps.x[i]!.getTime()
+          if (t >= startUTC && t < endUTC) {
+            const val = Number(ps.y[i] ?? 0)
+            precip += val
+          }
+        }
+      }
+
+      let cloudSum = 0
+      let cloudCount = 0
+
+      if (cloudKey && series.has(cloudKey)) {
+        const cs = series.get(cloudKey)!
+        const nonNullY = cs.y.filter((v): v is number => v !== null && v !== undefined)
+        const maxY = nonNullY.length > 0 ? Math.max(...nonNullY) : 0
+        const scaleFactor = maxY <= 1.01 ? 100 : (maxY <= 8.01 ? 12.5 : 1)
+
+        for (let i = 0; i < cs.x.length; i++) {
+          const t = cs.x[i]!.getTime()
+          if (t >= startUTC && t < endUTC) {
+            const val = (cs.y[i] ?? 0) * scaleFactor
+            cloudSum += val
+            cloudCount++
+          }
+        }
+      }
+
+      const avgCloud = cloudCount ? (cloudSum / cloudCount) : 0
+
+      if (precip > 0.5) {
+        emoji = (Number.isFinite(minT) && minT <= 0.5) ? '🌨' : '🌧'
+      }
+      else if (avgCloud >= 70) {
+        emoji = '☁'
+      }
+      else if (avgCloud >= 30) {
+        emoji = '⛅'
+      }
+      else {
+        emoji = '☀'
+      }
+    }
+
+    const label = `${DAY_DE[dt.weekday % 7]} ${dt.toFormat('dd.MM')}`
+    const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? `${Math.round(minT)} / ${Math.round(maxT)}°C` : null
+    const isToday = dt.hasSame(localNow, 'day')
+    out.push({ date: dt, emoji, label, tempLabel, isToday })
+    dt = dt.plus({ days: 1 })
+  }
+  // Limit number of days shown in compact mode for readability
+  if (out.length > MAX_COMPACT_DAYS) {
+    return out.slice(0, MAX_COMPACT_DAYS)
+  }
+  return out
+})
+
+// Calculate summary statistics for the loaded forecast period
+const summaryStats = computed(() => {
+  if (!props.values || props.values.length === 0)
+    return null
+
+  const series = buildSeries(props.values)
+  const available = new Set(series.keys())
+
+  const tempKey = findFirstAvailable(['temperature_air_mean_2m', 'ttt'], available)
+  const precipKey = findFirstAvailable(['precipitation_height_significant_weather_last_1h', 'precipitation_height_last_1h', 'rr1', 'rr1c'], available)
+  const gustKey = findFirstAvailable(['wind_gust_max', 'wind_gust', 'ffx', 'fx', 'wind_gust_max_last_1h', 'wind_gust_max_last_3h', 'fx1', 'fx3'], available)
+  const cloudKey = findFirstAvailable(['cloud_cover_total', 'n'], available)
+  const pressureKey = findFirstAvailable(['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'], available)
+
+  let minTemp = Number.POSITIVE_INFINITY
+  let maxTemp = Number.NEGATIVE_INFINITY
+  if (tempKey && series.has(tempKey)) {
+    const s = series.get(tempKey)!
+    s.y.forEach((v) => {
+      if (v !== null && !Number.isNaN(v)) {
+        minTemp = Math.min(minTemp, v)
+        maxTemp = Math.max(maxTemp, v)
+      }
+    })
+  }
+
+  let totalPrecip = 0
+  if (precipKey && series.has(precipKey)) {
+    const s = series.get(precipKey)!
+    s.y.forEach((v) => {
+      if (v !== null && !Number.isNaN(v)) {
+        totalPrecip += v
+      }
+    })
+  }
+
+  let maxGust = 0
+  if (gustKey && series.has(gustKey)) {
+    const s = series.get(gustKey)!
+    s.y.forEach((v) => {
+      if (v !== null && !Number.isNaN(v)) {
+        maxGust = Math.max(maxGust, v)
+      }
+    })
+  }
+
+  let avgCloud = 0
+  if (cloudKey && series.has(cloudKey)) {
+    const s = series.get(cloudKey)!
+    const valid = s.y.filter(v => v !== null && !Number.isNaN(v))
+    if (valid.length > 0) {
+      const sum = valid.reduce((acc, val) => acc + val, 0)
+      const maxVal = Math.max(...valid)
+      const scale = maxVal <= 1.01 ? 100 : 1
+      avgCloud = (sum / valid.length) * scale
+    }
+  }
+
+  let minPres = Number.POSITIVE_INFINITY
+  let maxPres = Number.NEGATIVE_INFINITY
+  if (pressureKey && series.has(pressureKey)) {
+    const s = series.get(pressureKey)!
+    s.y.forEach((v) => {
+      if (v !== null && !Number.isNaN(v)) {
+        minPres = Math.min(minPres, v)
+        maxPres = Math.max(maxPres, v)
+      }
+    })
+  }
+
+  return {
+    temp: Number.isFinite(minTemp) ? { min: Math.round(minTemp), max: Math.round(maxTemp) } : null,
+    precip: totalPrecip,
+    gust: maxGust,
+    cloud: Math.round(avgCloud),
+    pressure: Number.isFinite(minPres) ? { min: Math.round(minPres), max: Math.round(maxPres) } : null,
+  }
+})
 
 function ensureOverlay() {
   if (!chartRef.value)
@@ -29,7 +402,6 @@ function ensureOverlay() {
     c.style.height = '100%'
     c.style.pointerEvents = 'none'
     c.style.zIndex = '11'
-    // ensure the parent can position absolute children
     const el = chartRef.value
     const cs = window.getComputedStyle(el)
     if (cs.position === 'static')
@@ -37,6 +409,33 @@ function ensureOverlay() {
     el.appendChild(c)
     overlayCanvas = c
   }
+}
+
+function cleanupOverlay() {
+  try {
+    if (overlayRedrawHandler && typeof window !== 'undefined') {
+      try {
+        window.removeEventListener('resize', overlayRedrawHandler)
+      }
+      catch {
+        // ignore
+      }
+    }
+  }
+  catch {
+    // ignore
+  }
+  try {
+    if (overlayCanvas && overlayCanvas.parentElement) {
+      overlayCanvas.parentElement.removeChild(overlayCanvas)
+    }
+  }
+  catch {
+    // ignore
+  }
+  overlayCanvas = null
+  overlayAttached = false
+  overlayRedrawHandler = null
 }
 
 function updateOverlaySize() {
@@ -50,24 +449,27 @@ function updateOverlaySize() {
   overlayCanvas.style.width = `${w}px`
   overlayCanvas.style.height = `${h}px`
   const ctx = overlayCanvas.getContext('2d')
-  if (!ctx) return
+  if (!ctx)
+    return
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.scale(dpr, dpr)
   ctx.clearRect(0, 0, w, h)
 }
 
 function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom: number, speed: number) {
-  // dirFrom = wind FROM degrees; barb points TO = from + 180
   const toDeg = (dirFrom + 180) % 360
   const angle = (toDeg * Math.PI) / 180
-  const shaft = 18
-  const headLen = 6
+  const scale = compact.value ? 0.78 : 1.0
+  const shaft = Math.round(18 * scale)
+  const headLen = Math.max(4, Math.round(6 * scale))
   const tailX = px - shaft * Math.cos(angle)
   const tailY = py - shaft * Math.sin(angle)
 
-  ctx.strokeStyle = '#0f172a'
-  ctx.fillStyle = '#0f172a'
-  ctx.lineWidth = 1.5
+  // Use dynamic colors adaptive to dark mode
+  const barbColor = isDark.value ? '#f4f4f5' : '#0f172a'
+  ctx.strokeStyle = barbColor
+  ctx.fillStyle = barbColor
+  ctx.lineWidth = Math.max(1, 1.5 * scale)
 
   // shaft
   ctx.beginPath()
@@ -87,13 +489,13 @@ function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom
   ctx.closePath()
   ctx.fill()
 
-  // small barbs for speed (one barb per ~2.5 m/s, cap 3 for clarity)
+  // small barbs for speed
   const barbCount = Math.min(3, Math.floor(speed / 2.5))
   for (let i = 0; i < barbCount; i++) {
-    const dist = headLen + 4 + i * 6
+    const dist = headLen + Math.round(4 * scale) + i * Math.round(6 * scale)
     const bx = px - dist * Math.cos(angle)
     const by = py - dist * Math.sin(angle)
-    const barbLen = 6
+    const barbLen = Math.max(4, Math.round(6 * scale))
     const barbAngle = angle + Math.PI / 4 // 45° outward
     const ex = bx + barbLen * Math.cos(barbAngle)
     const ey = by + barbLen * Math.sin(barbAngle)
@@ -104,13 +506,16 @@ function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom
   }
 }
 
-function drawWindBarbs(arrowInfos: { timeMs: number; dir: number; speed: number }[], minTime: number, maxTime: number, layoutObj: any, axisRange: [number, number], axisDomain: [number, number]) {
-  if (!chartRef.value) return
+function drawWindBarbs(arrowInfos: { timeMs: number, dir: number, speed: number }[], minTime: number, maxTime: number, layoutObj: any, axisRange: [number, number], axisDomain: [number, number]) {
+  if (!chartRef.value || !visiblePanels.value.wind)
+    return
   ensureOverlay()
   updateOverlaySize()
-  if (!overlayCanvas) return
+  if (!overlayCanvas)
+    return
   const ctx = overlayCanvas.getContext('2d')
-  if (!ctx) return
+  if (!ctx)
+    return
 
   const rect = chartRef.value.getBoundingClientRect()
   const margin = layoutObj?.margin ?? { l: 48, r: 8, t: 8, b: 32 }
@@ -135,7 +540,6 @@ function drawWindBarbs(arrowInfos: { timeMs: number; dir: number; speed: number 
     return plotTop + (1 - paperY) * plotHeight
   }
 
-  // draw each barb
   for (const a of arrowInfos) {
     const px = xToPx(a.timeMs)
     const py = yToPx(a.speed)
@@ -143,24 +547,63 @@ function drawWindBarbs(arrowInfos: { timeMs: number; dir: number; speed: number 
   }
 }
 
-function attachOverlayListeners(getParams: () => { arrowInfos: { timeMs: number; dir: number; speed: number }[]; minTime: number; maxTime: number; layoutObj: any; axisRange: [number, number]; axisDomain: [number, number] }) {
-  if (!chartRef.value || overlayAttached) return
+function attachOverlayListeners(getParams: () => { arrowInfos: { timeMs: number, dir: number, speed: number }[], minTime: number, maxTime: number, layoutObj: any, axisRange: [number, number], axisDomain: [number, number] }) {
+  if (!chartRef.value)
+    return
+  if (overlayAttached)
+    return
   const redraw = () => {
     const p = getParams()
-    lastArrowInfos = p.arrowInfos
-    lastOverlayParams = { minTime: p.minTime, maxTime: p.maxTime, layout: p.layoutObj, axisRange: p.axisRange, axisDomain: p.axisDomain }
     drawWindBarbs(p.arrowInfos, p.minTime, p.maxTime, p.layoutObj, p.axisRange, p.axisDomain)
   }
-  // Plotly events
   try {
-    ;(chartRef.value as any).on && (chartRef.value as any).on('plotly_relayout', redraw)
-    ;(chartRef.value as any).on && (chartRef.value as any).on('plotly_afterplot', redraw)
+    if ((chartRef.value as any).on) {
+      ;(chartRef.value as any).on('plotly_relayout', redraw)
+      ;(chartRef.value as any).on('plotly_afterplot', redraw)
+      ;(chartRef.value as any).__overlay_handlers = ((chartRef.value as any).__overlay_handlers || [])
+      ;(chartRef.value as any).__overlay_handlers.push({ name: 'plotly_relayout', fn: redraw })
+      ;(chartRef.value as any).__overlay_handlers.push({ name: 'plotly_afterplot', fn: redraw })
+    }
   }
-  catch (e) {
-    // ignore if not available
+  catch {
+    // ignore
   }
+  overlayRedrawHandler = redraw
   window.addEventListener('resize', redraw)
   overlayAttached = true
+}
+
+function cleanupPlotlyOverlayHandlers() {
+  if (!chartRef.value)
+    return
+  try {
+    const el = chartRef.value as any
+    const handlers = el.__overlay_handlers as { name: string, fn: any }[] | undefined
+    if (handlers && el.removeAllListeners) {
+      for (const h of handlers) {
+        try {
+          if (el.removeListener) {
+            el.removeListener(h.name, h.fn)
+          }
+        }
+        catch {
+          // ignore
+        }
+        try {
+          if (el.removeAllListeners) {
+            el.removeAllListeners(h.name)
+          }
+        }
+        catch {
+          // ignore
+        }
+      }
+    }
+    el.__overlay_handlers = []
+  }
+  catch {
+    // ignore
+  }
 }
 
 function findFirstAvailable(names: string[], available: Set<string>) {
@@ -190,61 +633,10 @@ function buildSeries(values: Value[]) {
   return series
 }
 
-// Wind direction FROM → arrow points TO
 function windArrow(fromDeg: number): string {
   const a = ['↓', '↙', '←', '↖', '↑', '↗', '→', '↘']
   return a[Math.round(((fromDeg % 360) + 360) % 360 / 45) % 8]!
 }
-
-/**
- * Sky colour at a given UTC hour, blended toward overcast grey by cloudFraction [0-1].
- * Keyframes calibrated for Central Europe (CEST = UTC+2):
- *   UTC 4 ≈ local sunrise, UTC 10 ≈ local noon, UTC 20 ≈ local sunset.
- */
-function skyRgb(utcHour: number, cloudFraction: number = 0): [number, number, number] {
-  const kf: [number, number, number, number][] = [
-    // [hour, r, g, b]
-    [0,  5,   8,  28],  // deep night navy
-    [3,  12,  18,  55],  // pre-dawn blue-purple
-    [4,  55,  20,  65],  // dawn purple blush
-    [5,  190, 85,  35],  // sunrise orange
-    [6,  235, 168, 62],  // golden hour
-    [7,  175, 205, 228], // morning haze
-    [10, 100, 165, 215], // morning sky blue
-    [13, 78,  148, 210], // midday blue
-    [16, 108, 172, 215], // afternoon
-    [18, 215, 155, 65],  // late-afternoon warm
-    [19, 228, 102, 38],  // sunset orange-red
-    [20, 88,  32,  78],  // dusk purple
-    [21, 18,  10,  48],  // early night
-    [24, 5,   8,   28],  // back to deep night
-  ]
-
-  const h = ((utcHour % 24) + 24) % 24
-  let r = 5, g = 8, b = 28
-  for (let i = 0; i < kf.length - 1; i++) {
-    const [h0, r0, g0, b0] = kf[i]!
-    const [h1, r1, g1, b1] = kf[i + 1]!
-    if (h >= h0 && h < h1) {
-      const t = (h - h0) / (h1 - h0)
-      r = Math.round(r0 + t * (r1 - r0))
-      g = Math.round(g0 + t * (g1 - g0))
-      b = Math.round(b0 + t * (b1 - b0))
-      break
-    }
-  }
-
-  // Blend toward overcast grey as cloud cover increases
-  const cf = Math.max(0, Math.min(1, cloudFraction))
-  const grey = 158
-  return [
-    Math.round(r + cf * (grey - r)),
-    Math.round(g + cf * (grey - g)),
-    Math.round(b + cf * (grey - b)),
-  ]
-}
-
-const DAY_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
 
 function getMidnights(startMs: number, endMs: number): Date[] {
   const result: Date[] = []
@@ -269,13 +661,114 @@ function getCalendarDays(startMs: number, endMs: number): Date[] {
   return days
 }
 
+function resampleSeries(
+  series: Map<string, { x: Date[], y: number[] }>,
+  minTime: number,
+  maxTime: number,
+): Map<string, { x: Date[], y: number[] }> {
+  const rangeHours = (maxTime - minTime) / 3_600_000
+  const cadenceMs = rangeHours > 120 ? 3 * 3_600_000 : 3_600_000
+  const resampled = new Map<string, { x: Date[], y: number[] }>()
+
+  for (const [key, s] of series) {
+    const newX: Date[] = []
+    const newY: number[] = []
+    const startTick = Math.ceil(minTime / cadenceMs) * cadenceMs
+    for (let t = startTick; t <= maxTime; t += cadenceMs) {
+      const val = interpSeries(s.x, s.y, t)
+      if (val !== null) {
+        newX.push(new Date(t))
+        newY.push(val)
+      }
+    }
+    if (newX.length > 0) {
+      resampled.set(key, { x: newX, y: newY })
+    }
+  }
+  return resampled
+}
+
+function weatherCodeToSymbol(code: number | null | undefined): string {
+  if (code === null || code === undefined)
+    return '·'
+  const c = Math.round(code)
+  if (c >= 95 && c <= 99)
+    return '⛈'
+  if (c >= 80 && c <= 84)
+    return '🌧'
+  if (c >= 85 && c <= 86)
+    return '🌨'
+  if (c >= 70 && c <= 79)
+    return '🌨'
+  if (c >= 60 && c <= 69)
+    return '🌧'
+  if (c >= 50 && c <= 59)
+    return '💧'
+  if (c >= 40 && c <= 49)
+    return '🌫'
+  if (c >= 30 && c <= 39)
+    return '⛈'
+  if (c >= 20 && c <= 29)
+    return '💨'
+  if (c >= 10 && c <= 19)
+    return '☁'
+  if (c === 3)
+    return '☁'
+  if (c === 2)
+    return '⛅'
+  if (c === 1)
+    return '⛅'
+  if (c === 0)
+    return '☀'
+  return '·'
+}
+
+let isRendering = false
+let renderPending = false
+
 async function renderChart() {
-  await nextTick()
-  if (!chartRef.value)
+  if (isRendering) {
+    renderPending = true
     return
+  }
+  isRendering = true
+  renderPending = false
+
+  try {
+    await renderChartActual()
+  }
+  finally {
+    isRendering = false
+    if (renderPending) {
+      void renderChart()
+    }
+  }
+}
+
+async function renderChartActual() {
+  await nextTick()
+  if (!chartRef.value) {
+    try {
+      cleanupPlotlyOverlayHandlers()
+    }
+    catch {}
+    try {
+      cleanupOverlay()
+    }
+    catch {}
+    return
+  }
 
   const vals = props.values ?? []
   if (!vals.length) {
+    try {
+      cleanupPlotlyOverlayHandlers()
+    }
+    catch {}
+    try {
+      cleanupOverlay()
+    }
+    catch {}
     if (Plotly && chartRef.value)
       Plotly.purge(chartRef.value)
     return
@@ -290,45 +783,157 @@ async function renderChart() {
   const available = new Set(series.keys())
 
   const tempKey = findFirstAvailable(['temperature_air_mean_2m', 'ttt'], available)
-  const precipKey = findFirstAvailable(['precipitation_height_last_1h', 'rr1', 'rr1c'], available)
+  const precipKey = findFirstAvailable(['precipitation_height_significant_weather_last_1h', 'precipitation_height_last_1h', 'rr1', 'rr1c'], available)
   const windKey = findFirstAvailable(['wind_speed', 'ff'], available)
   const windDirKey = findFirstAvailable(['wind_direction', 'dd'], available)
+  const gustKey = findFirstAvailable(['wind_gust_max', 'wind_gust', 'ffx', 'fx', 'wind_gust_max_last_1h', 'wind_gust_max_last_3h', 'fx1', 'fx3'], available)
   const cloudKey = findFirstAvailable(['cloud_cover_total', 'n'], available)
+  const cloudLowKey = findFirstAvailable(['cloud_cover_below_1000ft', 'nl'], available)
+  const cloudMidKey = findFirstAvailable(['cloud_cover_between_2km_to_7km', 'cloud_cover_2_7km', 'nm'], available)
+  const cloudHighKey = findFirstAvailable(['cloud_cover_above_7km', 'nh'], available)
+  const humidityKey = findFirstAvailable(['relative_humidity', 'rh', 'r'], available)
+  const dewKey = findFirstAvailable(['temperature_dew_point_mean_2m', 'dew_point', 'td', 'tdt', 'dew_point_2m'], available)
+  const pressureKey = findFirstAvailable(['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'], available)
+  const tempStdKey = findFirstAvailable(['temperature_standard_deviation', 'ttt_sd', 'temperature_sd', 'ttt_std', 'temperature_std', 'ttt_sigma'], available)
+  const txKey = findFirstAvailable(['temperature_air_max_2m', 'tx', 'tx12', 'tx6'], available)
+  const tnKey = findFirstAvailable(['temperature_air_min_2m', 'tn', 'tn12', 'tn6'], available)
 
   const allTimes = [...series.values()].flatMap(s => s.x.map(d => d.getTime()))
   const minTime = Math.min(...allTimes)
   const maxTime = Math.max(...allTimes)
 
-  // Build cloud fraction lookup (used to optionally tint day bands)
-  const cloudMap = new Map<number, number>()
-  if (cloudKey) {
-    const cs = series.get(cloudKey)!
-    cs.x.forEach((d, i) => cloudMap.set(d.getTime(), (cs.y[i]! ?? 0) / 100))
+  // Resample all series to fixed cadence (hourly or 3-hourly)
+  const resampledSeries = resampleSeries(series, minTime, maxTime)
+
+  // Normalize cloud fraction parameters to percentages
+  const cloudParams = [cloudKey, cloudLowKey, cloudMidKey, cloudHighKey].filter((x): x is string => !!x)
+  for (const k of cloudParams) {
+    if (!resampledSeries.has(k))
+      continue
+    const s = resampledSeries.get(k)!
+    if (!s || !s.y || s.y.length === 0)
+      continue
+    const maxY = Math.max(...s.y.map(v => (v ?? 0)))
+    if (maxY <= 1.01) {
+      s.y = s.y.map(v => (v ?? 0) * 100)
+      resampledSeries.set(k, s)
+    }
   }
 
-  // Build per-day day-band shapes using per-station sunrise/sunset if coords are available.
-  // Falls back to a proxy sunrise/sunset (UTC 04:00-20:00) when coords are missing.
+  // Build mapping of original ISO date strings
+  const isoMap = new Map<number, string>()
+  for (const v of vals) {
+    try {
+      const ms = new Date(String(v.date)).getTime()
+      if (!isoMap.has(ms))
+        isoMap.set(ms, String(v.date))
+    }
+    catch { /* ignore */ }
+  }
+  const isoMs = Array.from(isoMap.keys()).sort((a, b) => a - b)
+  const isoDates = isoMs.map(m => new Date(m))
+
+  // Determine timezone
+  let stationTZ = 'UTC'
+  if (props.stationCoords?.latitude != null && props.stationCoords?.longitude != null) {
+    try {
+      stationTZ = tzLookup(props.stationCoords.latitude, props.stationCoords.longitude)
+    }
+    catch {
+      stationTZ = 'UTC'
+    }
+  }
+
+  // Build custom tick values & labels
+  let customTickVals: string[] | undefined
+  let customTickText: string[] | undefined
+  // extra layout padding requested by annotations (top/right)
+  let extraTop = 0
+  let extraRight = 0
+  const annotations: any[] = []
+  if (isoDates.length > 0) {
+    const rangeHours = (maxTime - minTime) / 3_600_000
+    let tickMs: number
+    if (rangeHours <= 24)
+      tickMs = 1 * 3_600_000
+    else if (rangeHours <= 48)
+      tickMs = 3 * 3_600_000
+    else if (rangeHours <= 168)
+      tickMs = 6 * 3_600_000
+    else tickMs = 24 * 3_600_000
+
+    const startTick = Math.ceil(minTime / tickMs) * tickMs
+    const tickVals: string[] = []
+    const tickText: string[] = []
+    for (let t = startTick; t <= maxTime; t += tickMs) {
+      tickVals.push(new Date(t).toISOString())
+      try {
+        const utcDt = DateTime.fromMillis(t, { zone: 'UTC' })
+        const localDt = utcDt.setZone(stationTZ)
+        const label = localDt.toFormat('HH:mm')
+        tickText.push(label)
+      }
+      catch {
+        const d = new Date(t)
+        const label = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+        tickText.push(label)
+      }
+    }
+    customTickVals = tickVals
+    customTickText = tickText
+
+    // Compute a toolbar-friendly timezone label and store it for display above the chart.
+    try {
+      let tzLabel = stationTZ
+      try {
+        const offsetMin = DateTime.fromMillis(minTime, { zone: stationTZ }).offset
+        const sign = offsetMin >= 0 ? '+' : '-'
+        const h = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, '0')
+        const m = String(Math.abs(offsetMin) % 60).padStart(2, '0')
+        tzLabel = `${stationTZ} (UTC${sign}${h}:${m})`
+      }
+      catch {
+        // ignore offset formatting errors
+      }
+      toolbarTzLabel.value = tzLabel
+      // keep extraTop/extraRight at defaults (we no longer need extra plot margins)
+    }
+    catch {
+      // ignore
+    }
+  }
+
+  // Build cloud fraction lookup
+  const cloudMap = new Map<number, number>()
+  if (cloudKey) {
+    const cs = resampledSeries.get(cloudKey)!
+    cs.x.forEach((d, i) => cloudMap.set(d.getTime(), (cs.y[i] ?? 0) / 100))
+  }
+
+  // Build per-day day-band shapes
   const dayShapes: any[] = []
   const days = getCalendarDays(minTime, maxTime)
   if (props.stationCoords && props.stationCoords.latitude != null && props.stationCoords.longitude != null) {
-    // dynamic import of suncalc keeps bundle small
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const SunCalc = (await import('suncalc')) as any
     const lat = props.stationCoords.latitude
     const lon = props.stationCoords.longitude
     for (const day of days) {
-      const midday = new Date(day.getTime()); midday.setUTCHours(12, 0, 0, 0)
+      const midday = new Date(day.getTime())
+      midday.setUTCHours(12, 0, 0, 0)
       const times = SunCalc.getTimes(midday, lat, lon) as Record<string, Date | undefined>
       const sunrise = times.sunrise ?? times.sunriseEnd ?? new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 4))
       const sunset = times.sunset ?? times.sunsetStart ?? new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 20))
-      // Optionally tint day band slightly toward grey by cloud fraction at midday
       const middayCf = cloudMap.get(midday.getTime()) ?? 0
       const alpha = 0.55 - Math.min(0.35, middayCf * 0.5)
       dayShapes.push({
-        type: 'rect', xref: 'x', yref: 'paper',
-        x0: sunrise.toISOString(), x1: sunset.toISOString(),
-        y0: 0, y1: 1,
-        fillcolor: `rgba(253,244,180,${alpha})`,
+        type: 'rect',
+        xref: 'x',
+        yref: 'paper',
+        x0: sunrise.toISOString(),
+        x1: sunset.toISOString(),
+        y0: 0,
+        y1: 1,
+        fillcolor: isDark.value ? `rgba(250,204,21,${alpha * 0.15})` : `rgba(253,244,180,${alpha})`,
         line: { width: 0 },
         layer: 'below',
       })
@@ -339,30 +944,36 @@ async function renderChart() {
       const x0 = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 4))
       const x1 = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 20))
       dayShapes.push({
-        type: 'rect', xref: 'x', yref: 'paper',
-        x0: x0.toISOString(), x1: x1.toISOString(),
-        y0: 0, y1: 1,
-        fillcolor: 'rgba(253,244,180,0.55)',
+        type: 'rect',
+        xref: 'x',
+        yref: 'paper',
+        x0: x0.toISOString(),
+        x1: x1.toISOString(),
+        y0: 0,
+        y1: 1,
+        fillcolor: isDark.value ? 'rgba(250,204,21,0.08)' : 'rgba(253,244,180,0.55)',
         line: { width: 0 },
         layer: 'below',
       })
     }
   }
 
-  // ── Day separators (subtle lines at midnight)
+  // Day separators
   const separators: any[] = getMidnights(minTime, maxTime).map(m => ({
     type: 'line',
-    xref: 'x', yref: 'paper',
-    x0: m.toISOString(), x1: m.toISOString(),
-    y0: 0, y1: 1,
-    line: { color: 'rgba(55,65,81,0.08)', width: 1, dash: 'dot' },
+    xref: 'x',
+    yref: 'paper',
+    x0: m.toISOString(),
+    x1: m.toISOString(),
+    y0: 0,
+    y1: 1,
+    line: { color: isDark.value ? 'rgba(244,244,245,0.08)' : 'rgba(55,65,81,0.08)', width: 1, dash: 'dot' },
   }))
 
-  // ── Day name annotations (just above the plot area) ───────────────
-  const annotations: any[] = []
+  // Day names annotations
   for (const day of getCalendarDays(minTime, maxTime)) {
     const noon = new Date(day)
-    noon.setUTCHours(10, 0, 0, 0) // UTC 10 ≈ CEST noon
+    noon.setUTCHours(10, 0, 0, 0)
     if (noon.getTime() < minTime || noon.getTime() > maxTime)
       continue
     const dd = String(day.getUTCDate()).padStart(2, '0')
@@ -370,70 +981,302 @@ async function renderChart() {
     const isWeekend = day.getUTCDay() === 0 || day.getUTCDay() === 6
     annotations.push({
       x: noon.toISOString(),
-      y: 1.0,
-      xref: 'x', yref: 'paper',
+      y: 1.06,
+      xref: 'x',
+      yref: 'paper',
       text: `<b>${DAY_DE[day.getUTCDay()]}</b> ${dd}.${mm}`,
       showarrow: false,
-    font: { size: 10, color: isWeekend ? '#ef4444' : '#374151' },
+      font: { size: 10, color: isWeekend ? '#ef4444' : (isDark.value ? '#e4e4e7' : '#374151') },
       xanchor: 'center',
       yanchor: 'bottom',
     })
   }
 
-  // ── Traces ───────────────────────────────────────────────────────
+  // Traces
   const traces: any[] = []
 
-  // Temperature – glow halo + crisp white spline
-  let tempMinY = 0, tempMaxY = 25
-  if (tempKey) {
-    const s = series.get(tempKey)!
+  // 1. Temperature & Dew Point
+  let tempMinY = 0
+  let tempMaxY = 25
+  if (tempKey && visiblePanels.value.temp) {
+    const s = resampledSeries.get(tempKey)!
     tempMinY = Math.min(0, ...s.y)
     tempMaxY = Math.max(...s.y)
     const xs = s.x.map(d => d.toISOString())
-    // Minimal flat temperature: subtle fill + crisp red line
-    // Baseline for fill
-    traces.push({ x: xs, y: Array(xs.length).fill(tempMinY), type: 'scatter', mode: 'none', showlegend: false, yaxis: 'y3', hoverinfo: 'skip' })
+
+    const hasTxTn = !!(txKey && resampledSeries.has(txKey) && tnKey && resampledSeries.has(tnKey))
+    const sTx = hasTxTn ? resampledSeries.get(txKey)! : null
+    const sTn = hasTxTn ? resampledSeries.get(tnKey)! : null
+
+    if (tempStdKey && resampledSeries.has(tempStdKey)) {
+      const sStd = resampledSeries.get(tempStdKey)!
+      const lower: number[] = []
+      const upper: number[] = []
+      for (let i = 0; i < xs.length; i++) {
+        const tIso = xs[i]!
+        const tMs = new Date(tIso).getTime()
+        const std = interpSeries(sStd.x, sStd.y, tMs) ?? (sStd.y[0] ?? 0)
+        const base = s.y[i] ?? 0
+        lower.push(base - std)
+        upper.push(base + std)
+      }
+      tempMinY = Math.min(tempMinY, ...lower)
+      tempMaxY = Math.max(tempMaxY, ...upper)
+
+      traces.push({ x: xs, y: lower, type: 'scatter', mode: 'lines', line: { width: 0 }, showlegend: false, hoverinfo: 'skip', yaxis: 'y3' })
+      traces.push({ x: xs, y: upper, type: 'scatter', mode: 'lines', line: { width: 0 }, fill: 'tonexty', fillcolor: isDark.value ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.12)', showlegend: false, hoverinfo: 'skip', yaxis: 'y3' })
+    }
+    else {
+      traces.push({ x: xs, y: Array.from({ length: xs.length }).fill(tempMinY), type: 'scatter', mode: 'none', showlegend: false, yaxis: 'y3', hoverinfo: 'skip' })
+    }
+
+    const dewLookup = new Map<string, number>()
+    if (dewKey && resampledSeries.has(dewKey)) {
+      const ds = resampledSeries.get(dewKey)!
+      ds.x.forEach((d, i) => dewLookup.set(d.toISOString(), ds.y[i]!))
+    }
+    else if (humidityKey && resampledSeries.has(humidityKey)) {
+      const hs = resampledSeries.get(humidityKey)!
+      for (let i = 0; i < xs.length; i++) {
+        const tMs = new Date(xs[i]!).getTime()
+        const rh = interpSeries(hs.x, hs.y, tMs)
+        const T = s.y[i]
+        if (rh !== null && T !== undefined && !Number.isNaN(T)) {
+          let rhPct = rh
+          if (rhPct <= 1)
+            rhPct = rhPct * 100
+          const a = 17.27
+          const b = 237.7
+          const alpha = (a * T) / (b + T) + Math.log(rhPct / 100)
+          const td = (b * alpha) / (a - alpha)
+          dewLookup.set(xs[i]!, td)
+        }
+      }
+    }
+
+    const txLookup = new Map<string, number>()
+    const tnLookup = new Map<string, number>()
+    if (hasTxTn && sTx && sTn) {
+      sTx.x.forEach((d, i) => txLookup.set(d.toISOString(), sTx.y[i]!))
+      sTn.x.forEach((d, i) => tnLookup.set(d.toISOString(), sTn.y[i]!))
+    }
+
     traces.push({
-      name: 'Temperature °C', x: xs, y: s.y, type: 'scatter', mode: 'lines',
-      line: { color: '#ef4444', width: 2, shape: 'linear' },
-      fill: 'tonexty', fillcolor: 'rgba(239,68,68,0.06)',
+      name: hasTxTn ? 'Mean Temp °C' : 'Temperature °C',
+      x: xs,
+      y: s.y,
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: '#ef4444', width: 2, shape: 'spline' },
+      ...(tempStdKey && resampledSeries.has(tempStdKey) ? {} : { fill: 'tozeroy', fillcolor: isDark.value ? 'rgba(239,68,68,0.02)' : 'rgba(239,68,68,0.04)' }),
       yaxis: 'y3',
-      hovertemplate: '%{y:.1f}°C<extra>Temperature</extra>',
+      hovertemplate: hasTxTn
+        ? '<b>Mean Temp</b>: %{y:.1f}°C<extra></extra>'
+        : '<b>Temperature</b>: %{y:.1f}°C<extra></extra>',
     })
+
+    if (hasTxTn && sTx && sTn) {
+      traces.push({
+        name: 'Max Temp °C',
+        x: sTx.x.map(d => d.toISOString()),
+        y: sTx.y,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: isDark.value ? '#fca5a5' : '#b91c1c', width: 1.5, dash: 'dash', shape: 'spline' },
+        yaxis: 'y3',
+        hovertemplate: '<b>Max Temp</b>: %{y:.1f}°C<extra></extra>',
+        showlegend: false,
+      })
+      traces.push({
+        name: 'Min Temp °C',
+        x: sTn.x.map(d => d.toISOString()),
+        y: sTn.y,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: isDark.value ? '#93c5fd' : '#1d4ed8', width: 1.5, dash: 'dash', shape: 'spline' },
+        yaxis: 'y3',
+        hovertemplate: '<b>Min Temp</b>: %{y:.1f}°C<extra></extra>',
+        showlegend: false,
+      })
+      tempMinY = Math.min(tempMinY, ...sTn.y)
+      tempMaxY = Math.max(tempMaxY, ...sTx.y)
+    }
+
+    if (dewKey && resampledSeries.has(dewKey)) {
+      const ds = resampledSeries.get(dewKey)!
+      const dxs = ds.x.map(d => d.toISOString())
+      traces.push({
+        name: 'Dew Point',
+        x: dxs,
+        y: ds.y,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#a855f7', width: 1.6, shape: 'spline' },
+        yaxis: 'y3',
+        hovertemplate: '<b>Dew Point</b>: %{y:.1f}°C<extra></extra>',
+        showlegend: false,
+      })
+      tempMinY = Math.min(tempMinY, ...ds.y)
+      tempMaxY = Math.max(tempMaxY, ...ds.y)
+    }
+    else if (humidityKey && resampledSeries.has(humidityKey)) {
+      const hs = resampledSeries.get(humidityKey)!
+      const dewXs: string[] = []
+      const dewYs: number[] = []
+      for (let i = 0; i < xs.length; i++) {
+        const tIso = xs[i]!
+        const tMs = new Date(tIso).getTime()
+        const rh = interpSeries(hs.x, hs.y, tMs)
+        if (rh === null || rh === undefined)
+          continue
+        let rhPct = rh
+        if (rhPct <= 1)
+          rhPct = rhPct * 100
+        const a = 17.27
+        const b = 237.7
+        const T = s.y[i] ?? Number.NaN
+        if (Number.isNaN(T) || rhPct <= 0)
+          continue
+        const alpha = (a * T) / (b + T) + Math.log(rhPct / 100)
+        const td = (b * alpha) / (a - alpha)
+        dewXs.push(tIso)
+        dewYs.push(td)
+      }
+      if (dewXs.length) {
+        traces.push({
+          name: 'Dew Point',
+          x: dewXs,
+          y: dewYs,
+          type: 'scatter',
+          mode: 'lines',
+          line: { color: '#a855f7', width: 1.6, shape: 'spline' },
+          yaxis: 'y3',
+          hovertemplate: '<b>Dew Point</b>: %{y:.1f}°C<extra></extra>',
+          showlegend: false,
+        })
+        tempMinY = Math.min(tempMinY, ...dewYs)
+        tempMaxY = Math.max(tempMaxY, ...dewYs)
+      }
+    }
   }
 
-  // Precipitation – ice-blue bars
-  if (precipKey) {
-    const s = series.get(precipKey)!
+  // 2. Precipitation
+  if (precipKey && visiblePanels.value.precip) {
+    const s = resampledSeries.get(precipKey)!
+    const rainYs: number[] = []
+    const snowYs: number[] = []
+    const mixedYs: number[] = []
+    const pxs = s.x.map(d => d.toISOString())
+    for (let i = 0; i < pxs.length; i++) {
+      const tIso = pxs[i]!
+      const pVal = s.y[i] ?? 0
+      let isSnow = false
+      let isMixed = false
+      if (tempKey && resampledSeries.has(tempKey)) {
+        const tSeries = resampledSeries.get(tempKey)!
+        const tval = interpSeries(tSeries.x, tSeries.y, new Date(tIso).getTime())
+        if (tval !== null && !Number.isNaN(tval)) {
+          let tw = tval
+          if (humidityKey && resampledSeries.has(humidityKey)) {
+            const hSeries = resampledSeries.get(humidityKey)!
+            const rh = interpSeries(hSeries.x, hSeries.y, new Date(tIso).getTime())
+            if (rh !== null) {
+              let rhPct = rh
+              if (rhPct <= 1)
+                rhPct = rhPct * 100
+              tw = wetBulbApprox(tval, rhPct)
+            }
+          }
+          if (tw <= 0.5)
+            isSnow = true
+          else if (tw <= 2.0)
+            isMixed = true
+          else isSnow = false
+        }
+      }
+      if (isSnow) {
+        snowYs.push(pVal)
+        rainYs.push(0)
+        mixedYs.push(0)
+      }
+      else if (isMixed) {
+        mixedYs.push(pVal)
+        rainYs.push(0)
+        snowYs.push(0)
+      }
+      else {
+        rainYs.push(pVal)
+        snowYs.push(0)
+        mixedYs.push(0)
+      }
+    }
+
+    traces.push({ name: 'Rain', x: pxs, y: rainYs, type: 'bar', marker: { color: '#3b82f6' }, yaxis: 'y2', hovertemplate: '<b>Rain</b><br>%{y:.2f} mm<extra></extra>', visible: true })
+    traces.push({ name: 'Mixed', x: pxs, y: mixedYs, type: 'bar', marker: { color: '#0ea5e9' }, yaxis: 'y2', hovertemplate: '<b>Mixed Precip</b><br>%{y:.2f} mm<extra></extra>', visible: true })
+    traces.push({ name: 'Snow', x: pxs, y: snowYs, type: 'bar', marker: { color: isDark.value ? '#9ca3af' : '#cbd5e1' }, yaxis: 'y2', hovertemplate: '<b>Snow</b><br>%{y:.2f} mm<extra></extra>', visible: true })
+  }
+
+  // 3. Pressure
+  let pressureMin = 1000
+  let pressureMax = 1020
+  if (pressureKey && visiblePanels.value.pressure) {
+    const ps = resampledSeries.get(pressureKey)!
+    const pxs = ps.x.map(d => d.toISOString())
     traces.push({
-      name: 'Precip mm',
-      x: s.x.map(d => d.toISOString()), y: s.y,
-      type: 'bar',
-      marker: { color: '#2563eb' },
-      yaxis: 'y2',
-      hovertemplate: '%{y:.2f} mm<extra>Precipitation</extra>',
+      name: 'Pressure hPa',
+      x: pxs,
+      y: ps.y,
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: '#84cc16', width: 1.6, shape: 'spline' },
+      fill: 'tozeroy',
+      fillcolor: isDark.value ? 'rgba(132,204,22,0.02)' : 'rgba(132,204,22,0.04)',
+      yaxis: 'y4',
+      hovertemplate: '<b>Pressure</b><br>%{y:.1f} hPa<extra></extra>',
     })
+    pressureMin = Math.min(...ps.y)
+    pressureMax = Math.max(...ps.y)
   }
 
-  // Wind speed (cyan fill) + direction arrows fixed at top
+  // 4. Wind & Gusts
   let windMaxY = 10
-  if (windKey) {
-    const s = series.get(windKey)!
+  if (windKey && visiblePanels.value.wind) {
+    const s = resampledSeries.get(windKey)!
     windMaxY = Math.max(...s.y, 5)
+
+    const gustSeries = (gustKey && resampledSeries.has(gustKey)) ? resampledSeries.get(gustKey)! : undefined
+    if (gustSeries) {
+      windMaxY = Math.max(windMaxY, ...gustSeries.y)
+    }
 
     traces.push({
       name: 'Wind m/s',
-      x: s.x.map(d => d.toISOString()), y: s.y,
-      type: 'scatter', mode: 'lines',
-      line: { color: '#06b6d4', width: 1.8 },
+      x: s.x.map(d => d.toISOString()),
+      y: s.y,
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: '#06b6d4', width: 2, shape: 'spline' },
       fill: 'tozeroy',
-      fillcolor: 'rgba(6,182,212,0.08)',
+      fillcolor: isDark.value ? 'rgba(6,182,212,0.04)' : 'rgba(6,182,212,0.08)',
       yaxis: 'y',
-      hovertemplate: '%{y:.1f} m/s<extra>Wind</extra>',
+      hovertemplate: '<b>Wind speed</b><br>%{y:.1f} m/s<extra></extra>',
     })
 
+    if (gustSeries) {
+      traces.push({
+        name: 'Wind Gust m/s',
+        x: gustSeries.x.map(d => d.toISOString()),
+        y: gustSeries.y,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#06b6d4', width: 1.6, dash: 'dash', shape: 'spline' },
+        yaxis: 'y',
+        hovertemplate: '<b>Wind gust</b><br>%{y:.1f} m/s<extra></extra>',
+      })
+    }
+
     if (windDirKey) {
-      const dirS = series.get(windDirKey)!
+      const dirS = resampledSeries.get(windDirKey)!
       const dirMap = new Map<string, number>()
       dirS.x.forEach((d, i) => dirMap.set(d.toISOString(), dirS.y[i]!))
 
@@ -455,112 +1298,354 @@ async function renderChart() {
       traces.push({
         name: 'Direction',
         x: arrowX,
-        y: Array(arrowX.length).fill(windMaxY * 1.36),
+        y: Array.from({ length: arrowX.length }).fill(windMaxY * 1.36),
         customdata: arrowCustom,
         text: arrowText,
-        type: 'scatter', mode: 'text',
-        textfont: { size: 13, color: 'rgba(255,255,255,0.88)' },
-        hovertemplate: 'From %{customdata:.0f}°<extra>Wind direction</extra>',
+        type: 'scatter',
+        mode: 'text',
+        textfont: { size: 13, color: isDark.value ? 'rgba(255,255,255,0.7)' : 'rgba(15,23,42,0.85)' },
+        hovertemplate: '<b>Wind direction</b><br>From %{customdata:.0f}°<extra></extra>',
         yaxis: 'y',
         showlegend: false,
       })
     }
   }
 
-  // ── Panel geometry (bottom→top: wind | precip | temp) ────────────
-  const gap = 0.025
-  const windTop = 0.18
-  const precipBot = windTop + gap
-  const precipTop = 0.35
-  const tempBot = precipTop + gap
+  // 5. Cloud Layers (Low, Mid, High & Total)
+  if (cloudKey && visiblePanels.value.cloud) {
+    // Overlapping cloud layers by altitude
+    if (cloudHighKey && resampledSeries.has(cloudHighKey)) {
+      const s = resampledSeries.get(cloudHighKey)!
+      traces.push({
+        name: 'High Clouds %',
+        x: s.x.map(d => d.toISOString()),
+        y: s.y,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: isDark.value ? '#64748b' : '#cbd5e1', width: 1, shape: 'spline' },
+        fill: 'tozeroy',
+        fillcolor: isDark.value ? 'rgba(148,163,184,0.1)' : 'rgba(203,213,225,0.15)',
+        yaxis: 'y5',
+        hovertemplate: '<b>High Clouds</b><br>%{y:.0f}%<extra></extra>',
+      })
+    }
 
-  // ── Shared style constants (dark-on-light tokens)
-  // Use neutral dark base for axis/tick/grid on light background
-  const W = (a: number) => `rgba(55,65,81,${a})`   // #374151 with alpha
+    if (cloudMidKey && resampledSeries.has(cloudMidKey)) {
+      const s = resampledSeries.get(cloudMidKey)!
+      traces.push({
+        name: 'Mid Clouds %',
+        x: s.x.map(d => d.toISOString()),
+        y: s.y,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: isDark.value ? '#475569' : '#94a3b8', width: 1, shape: 'spline' },
+        fill: 'tozeroy',
+        fillcolor: isDark.value ? 'rgba(100,116,139,0.15)' : 'rgba(148,163,184,0.22)',
+        yaxis: 'y5',
+        hovertemplate: '<b>Mid Clouds</b><br>%{y:.0f}%<extra></extra>',
+      })
+    }
+
+    if (cloudLowKey && resampledSeries.has(cloudLowKey)) {
+      const s = resampledSeries.get(cloudLowKey)!
+      traces.push({
+        name: 'Low Clouds %',
+        x: s.x.map(d => d.toISOString()),
+        y: s.y,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: isDark.value ? '#334155' : '#64748b', width: 1, shape: 'spline' },
+        fill: 'tozeroy',
+        fillcolor: isDark.value ? 'rgba(71,85,105,0.22)' : 'rgba(100,116,139,0.3)',
+        yaxis: 'y5',
+        hovertemplate: '<b>Low Clouds</b><br>%{y:.0f}%<extra></extra>',
+      })
+    }
+
+    // Total Cloud Cover line on top
+    const s = resampledSeries.get(cloudKey)!
+    traces.push({
+      name: 'Total Cloud Cover %',
+      x: s.x.map(d => d.toISOString()),
+      y: s.y,
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: isDark.value ? '#e4e4e7' : '#334155', width: 2, shape: 'spline' },
+      yaxis: 'y5',
+      hovertemplate: '<b>Total Cloud Cover</b><br>%{y:.0f}%<extra></extra>',
+    })
+  }
+
+  // Panel geometry calculations
+  const gap = computed(() => compact.value ? 0.006 : 0.01)
+  const panelOrder = [
+    { id: 'wind', present: !!windKey && visiblePanels.value.wind },
+    { id: 'precip', present: !!precipKey && visiblePanels.value.precip },
+    { id: 'cloud', present: !!cloudKey && !compact.value && visiblePanels.value.cloud },
+    { id: 'temp', present: !!tempKey && visiblePanels.value.temp },
+    { id: 'pressure', present: !!pressureKey && visiblePanels.value.pressure },
+  ]
+
+  const panels = panelOrder.filter(p => p.present)
+  const nPanels = Math.max(1, panels.length)
+  const totalGap = gap.value * Math.max(0, nPanels - 1)
+  const panelHeight = (1 - totalGap) / nPanels
+
+  const domains: Record<string, [number, number]> = {}
+  let currentTop = 1.0
+  for (const p of panels) {
+    const top = currentTop
+    const bottom = top - panelHeight
+    domains[p.id] = [bottom, top]
+    currentTop = bottom - gap.value
+  }
+
+  // Dark-on-light or light-on-dark tokens
+  const W = (a: number) => isDark.value ? `rgba(244,244,245,${a})` : `rgba(55,65,81,${a})`
   const GRID = W(0.08)
   const TICK = W(0.65)
   const ZERO = W(0.20)
 
-  // ── Panel divider lines ──────────────────────────────────────────
-  const dividers: any[] = [
-    { type: 'line', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: windTop + gap / 2, y1: windTop + gap / 2, line: { color: W(0.18), width: 1 } },
-    { type: 'line', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: precipTop + gap / 2, y1: precipTop + gap / 2, line: { color: W(0.18), width: 1 } },
-  ]
+  // Panel divider lines
+  const dividers: any[] = []
+  const panelIds = panels.map(p => p.id)
+  for (let i = 0; i < panelIds.length - 1; i++) {
+    const id = panelIds[i]!
+    const bottom = domains[id] ? domains[id][0] : 0
+    const width = compact.value ? 0.8 : 1
+    dividers.push({ type: 'line', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: bottom, y1: bottom, line: { color: W(0.18), width } })
+  }
 
-  // ── Layout ───────────────────────────────────────────────────────
+  // Compute default axis ranges per panel
+  const axisRanges: Record<string, [number, number]> = {}
+  axisRanges.wind = [0, windMaxY * 1.60]
+
+  if (precipKey && resampledSeries.has(precipKey)) {
+    const ps = resampledSeries.get(precipKey)!
+    const pMax = Math.max(...ps.y.map(v => (v ?? 0)))
+    axisRanges.precip = [0, Math.max(1, pMax * 1.15)]
+  }
+  else {
+    axisRanges.precip = [0, 1]
+  }
+
+  axisRanges.cloud = [0, 100]
+  axisRanges.temp = [tempMinY - 1, tempMaxY + 3]
+  axisRanges.pressure = [pressureMin - 2, pressureMax + 2]
+
+  const originalRanges: Record<string, [number, number]> = {
+    wind: [0, windMaxY * 1.60],
+    precip: axisRanges.precip,
+    cloud: [0, 100],
+    temp: [tempMinY - 1, tempMaxY + 3],
+    pressure: [pressureMin - 2, pressureMax + 2],
+  }
+
+  const nticksMap: Record<string, number> = { wind: 4, precip: 3, cloud: 3, temp: 4, pressure: 3 }
+  const axisTickVals: Record<string, number[]> = {}
+
+  function niceNum(range: number, round: boolean) {
+    if (range <= 0)
+      return 1
+    const exp = Math.floor(Math.log10(range))
+    const f = range / 10 ** exp
+    let nf = 1
+    if (round) {
+      if (f < 1.5)
+        nf = 1
+      else if (f < 3)
+        nf = 2
+      else if (f < 7)
+        nf = 5
+      else nf = 10
+    }
+    else {
+      if (f <= 1)
+        nf = 1
+      else if (f <= 2)
+        nf = 2
+      else if (f <= 5)
+        nf = 5
+      else nf = 10
+    }
+    return nf * 10 ** exp
+  }
+
+  function niceTickSpacing(range: number, n: number) {
+    if (n <= 1)
+      return Math.max(1, range)
+    const raw = range / Math.max(1, n - 1)
+    return niceNum(raw, true)
+  }
+
+  for (const k of Object.keys(nticksMap)) {
+    const key = k as keyof typeof nticksMap
+    const rng = originalRanges[key as string] || [0, 1]
+    const lo = rng[0]
+    const hi = rng[1]
+    if (!(hi > lo)) {
+      axisTickVals[key] = [lo]
+      continue
+    }
+    const n = nticksMap[key]
+    if (n === undefined)
+      continue
+    const adjustedN = compact.value ? Math.max(2, Math.round(n * 0.8)) : n
+    const step = niceTickSpacing(hi - lo, adjustedN)
+    const niceHi = Math.ceil(hi / step) * step
+    const ticks: number[] = []
+    const count = Math.max(1, Math.ceil((niceHi - lo) / step) + 1)
+    for (let i = 0; i < count; i++) ticks.push(Number((lo + i * step).toFixed(6)))
+    axisTickVals[key] = ticks
+  }
+
+  for (let i = 0; i < panels.length - 1; i++) {
+    const belowId = panels[i + 1]!.id
+    const belowTicks = axisTickVals[belowId] ?? []
+    if (belowTicks.length > 0) {
+      belowTicks.pop()
+      axisTickVals[belowId] = belowTicks
+    }
+  }
+
+  for (const k of Object.keys(originalRanges)) {
+    const key = k as keyof typeof originalRanges
+    const rng = originalRanges[key as string]
+    if (!rng)
+      continue
+    const lo = rng[0]
+    const hi = rng[1]
+    if (!(hi > lo))
+      continue
+    const ticks = axisTickVals[key] ?? []
+    if (ticks.length === 0)
+      continue
+    const step = niceTickSpacing(hi - lo, Math.max(2, ticks.length))
+    const niceHi = Math.ceil(hi / step) * step
+    const newCount = Math.max(1, Math.ceil((niceHi - lo) / step) + 1)
+    const newTicks: number[] = []
+    for (let i = 0; i < newCount; i++) newTicks.push(Number((lo + i * step).toFixed(6)))
+    axisTickVals[key] = newTicks
+  }
+
+  // Filter traces dynamically depending on panel visibility
+  const axisToPanel: Record<string, string> = { y: 'wind', y2: 'precip', y3: 'temp', y4: 'pressure', y5: 'cloud' }
+  const activeTraces = traces.filter((tr) => {
+    const yaxisName = tr.yaxis || 'y'
+    const panelId = axisToPanel[yaxisName]
+    return !panelId || visiblePanels.value[panelId as keyof typeof visiblePanels.value] !== false
+  })
+
+  // Layout
   const layout: any = {
     autosize: true,
-    margin: { l: 48, r: 8, t: 8, b: 32 },
-    paper_bgcolor: '#ffffff',
-    plot_bgcolor: '#ffffff',
-    font: { family: '"Inter", system-ui, sans-serif', size: 11, color: '#374151' },
+    margin: { l: 48, r: 8 + extraRight, t: (compact.value ? 44 : 72) + extraTop, b: compact.value ? 4 : 8 },
+    paper_bgcolor: isDark.value ? '#111827' : '#ffffff',
+    plot_bgcolor: isDark.value ? '#111827' : '#ffffff',
+    font: { family: '"Inter", system-ui, sans-serif', size: 11, color: isDark.value ? '#f3f4f6' : '#374151' },
     hovermode: 'x unified',
+    hoverlabel: {
+      bgcolor: isDark.value ? '#1f2937' : '#ffffff',
+      font: { color: isDark.value ? '#f3f4f6' : '#374151', family: '"Inter", system-ui, sans-serif' },
+    },
     bargap: 0.05,
+    barmode: 'stack',
     shapes: [...dayShapes, ...separators, ...dividers],
     annotations,
-    legend: {
-      x: 0.01, y: 0.98,
-      xanchor: 'left', yanchor: 'top',
-      bgcolor: 'rgba(255,255,255,0.9)',
-      bordercolor: '#e5e7eb',
-      borderwidth: 1,
-      font: { size: 10, color: '#374151' },
-    },
+    showlegend: false,
 
     xaxis: {
       type: 'date',
       domain: [0, 1],
-      anchor: 'y',
+      anchor: 'free',
+      side: 'top',
+      position: 1.0,
       showgrid: false,
       linecolor: 'rgba(0,0,0,0)',
       tickformat: '%H',
       dtick: 6 * 3_600_000,
-      tickfont: { size: 9, color: TICK },
+      tickfont: { size: compact.value ? 7 : 9, color: TICK },
       tickcolor: W(0.25),
       range: [new Date(minTime).toISOString(), new Date(maxTime).toISOString()],
+      ...(customTickVals ? { tickvals: customTickVals, ticktext: customTickText } : {}),
     },
 
-    // Wind – bottom
     yaxis: {
-      domain: [0, windTop],
-      title: { text: 'Wind m/s', font: { size: 9, color: W(0.55) }, standoff: 2 },
+      visible: !!domains.wind,
+      domain: domains.wind ?? [0, 0],
+      title: { text: 'Wind m/s', font: { size: 9, color: '#06b6d4' }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'tozero',
-      range: [0, windMaxY * 1.60],   // headroom for arrow row
-      tickfont: { size: 9, color: TICK },
-      tickcolor: W(0.15),
+      range: originalRanges.wind,
+      tickvals: axisTickVals.wind ?? undefined,
+      tickfont: { size: compact.value ? 7 : 9, color: '#06b6d4' },
+      tickcolor: 'rgba(6,182,212,0.45)',
       nticks: 4,
       fixedrange: true,
     },
 
-    // Precipitation
     yaxis2: {
-      domain: [precipBot, precipTop],
-      title: { text: 'Precip mm', font: { size: 9, color: W(0.55) }, standoff: 2 },
+      visible: !!domains.precip,
+      domain: domains.precip ?? [0, 0],
+      title: { text: 'Precip mm', font: { size: 9, color: '#3b82f6' }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'tozero',
-      tickfont: { size: 9, color: TICK },
-      tickcolor: W(0.15),
+      range: originalRanges.precip,
+      tickvals: axisTickVals.precip ?? undefined,
+      tickfont: { size: compact.value ? 7 : 9, color: '#3b82f6' },
+      tickcolor: 'rgba(37,99,235,0.45)',
       nticks: 3,
       fixedrange: true,
     },
 
-    // Temperature – dominant top panel
+    yaxis5: {
+      visible: !!domains.cloud,
+      domain: domains.cloud ?? [0, 0],
+      title: { text: 'Cloud %', font: { size: 9, color: isDark.value ? '#9ca3af' : '#64748b' }, standoff: 2 },
+      gridcolor: GRID,
+      linecolor: 'rgba(0,0,0,0)',
+      zeroline: false,
+      range: originalRanges.cloud,
+      tickvals: axisTickVals.cloud ?? undefined,
+      tickfont: { size: compact.value ? 7 : 9, color: isDark.value ? '#9ca3af' : '#64748b' },
+      tickcolor: 'rgba(148,163,184,0.45)',
+      nticks: 3,
+      fixedrange: true,
+    },
+
     yaxis3: {
-      domain: [tempBot, 1.0],
-      title: { text: 'Temp °C', font: { size: 9, color: W(0.55) }, standoff: 2 },
+      visible: !!domains.temp,
+      domain: domains.temp ?? [0, 0],
+      title: { text: 'Temp °C', font: { size: 9, color: '#ef4444' }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: true,
       zerolinecolor: ZERO,
       zerolinewidth: 1,
-      range: [tempMinY - 1, tempMaxY + 3],
-      tickfont: { size: 9, color: TICK },
-      tickcolor: W(0.15),
+      range: originalRanges.temp,
+      tickvals: axisTickVals.temp ?? undefined,
+      tickfont: { size: compact.value ? 7 : 9, color: '#ef4444' },
+      tickcolor: 'rgba(239,68,68,0.45)',
+      fixedrange: true,
+    },
+
+    yaxis4: {
+      visible: !!domains.pressure,
+      domain: domains.pressure ?? [0, 0],
+      title: { text: 'Pressure hPa', font: { size: 9, color: '#84cc16' }, standoff: 2 },
+      gridcolor: GRID,
+      linecolor: 'rgba(0,0,0,0)',
+      zeroline: false,
+      rangemode: 'normal',
+      range: originalRanges.pressure,
+      tickvals: axisTickVals.pressure ?? undefined,
+      tickfont: { size: compact.value ? 7 : 9, color: '#84cc16' },
+      tickcolor: 'rgba(132,204,22,0.45)',
+      nticks: 3,
       fixedrange: true,
     },
   }
@@ -568,31 +1653,67 @@ async function renderChart() {
   const config = { responsive: true, displayModeBar: false }
 
   if (chartRef.value) {
+    try {
+      cleanupPlotlyOverlayHandlers()
+    }
+    catch {}
+    try {
+      cleanupOverlay()
+    }
+    catch {}
     Plotly.purge(chartRef.value)
-    await Plotly.newPlot(chartRef.value, traces, layout, config)
+    await Plotly.newPlot(chartRef.value, activeTraces, layout, config)
 
     // Setup overlay drawing of wind barbs using a canvas overlay
-    if (typeof window !== 'undefined' && windKey && chartRef.value) {
-      const arrowInfos: { timeMs: number; dir: number; speed: number }[] = []
-      if (windKey) {
-        const s = series.get(windKey)!
-        const dirSeries = windDirKey ? series.get(windDirKey) : undefined
-        for (let i = 0; i < s.x.length; i++) {
-          if (i % 3 !== 0) continue // subsample
-          const timeMs = s.x[i]!.getTime()
-          const speed = s.y[i] ?? 0
-          const dir = dirSeries ? (dirSeries.y[i] ?? dirSeries.y[0] ?? 0) : 0
-          arrowInfos.push({ timeMs, dir, speed })
-        }
+    if (typeof window !== 'undefined' && windKey && chartRef.value && visiblePanels.value.wind) {
+      const arrowInfos: { timeMs: number, dir: number, speed: number }[] = []
+      const s = resampledSeries.get(windKey)!
+      const dirSeries = windDirKey ? resampledSeries.get(windDirKey) : undefined
+      const subsample = compact.value ? 2 : 3
+      for (let i = 0; i < s.x.length; i++) {
+        if (i % subsample !== 0)
+          continue
+        const timeMs = s.x[i]!.getTime()
+        const speed = s.y[i] ?? 0
+        const dir = dirSeries ? (dirSeries.y[i] ?? dirSeries.y[0] ?? 0) : 0
+        arrowInfos.push({ timeMs, dir, speed })
       }
 
-      const getParams = () => ({ arrowInfos, minTime, maxTime, layoutObj: layout, axisRange: [0, Math.max(1, ...((series.get(windKey)?.y) ?? [10]))] as [number, number], axisDomain: [0, windTop] as [number, number] })
+      const gustSeriesY = (gustKey ? resampledSeries.get(gustKey)?.y : undefined) ?? [0]
+      const axisMax = Math.max(1, ...((resampledSeries.get(windKey)?.y) ?? [10]), ...gustSeriesY)
+      const axisDomain = domains.wind ? domains.wind : [0, 0]
+      const getParams = () => ({ arrowInfos, minTime, maxTime, layoutObj: layout, axisRange: [0, axisMax] as [number, number], axisDomain: axisDomain as [number, number] })
       attachOverlayListeners(getParams)
     }
   }
 }
 
-watch(() => props.values, () => { void renderChart() }, { immediate: true, deep: true })
+watch(
+  () => props.values,
+  () => {
+    void renderChart()
+  },
+  { immediate: true, deep: true },
+)
+watch(
+  compact,
+  () => {
+    void renderChart()
+  },
+)
+watch(
+  isDark,
+  () => {
+    void renderChart()
+  },
+)
+watch(
+  visiblePanels,
+  () => {
+    void renderChart()
+  },
+  { deep: true },
+)
 </script>
 
 <template>
@@ -600,7 +1721,238 @@ watch(() => props.values, () => { void renderChart() }, { immediate: true, deep:
     <div v-if="!values || values.length === 0" class="py-12 text-center text-gray-500">
       No data available for the selected query
     </div>
-    <!-- v-show keeps the div in DOM so chartRef is never null when values arrive -->
-    <div v-show="values && values.length > 0" ref="chartRef" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden;" />
+
+    <div v-if="values && values.length > 0" class="space-y-5">
+      <!-- Premium Overhauled Filter / Controls Toolbar -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+        <!-- Interactive Panel Selectors -->
+        <div v-if="!compact" class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mr-1.5 select-none">Panels</span>
+
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-all duration-200 cursor-pointer shadow-2xs select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+            :class="[
+              visiblePanels.temp
+                ? 'bg-red-500/10 border-red-200/60 text-red-600 dark:border-red-900/40 dark:text-red-400 font-bold ring-1 ring-red-400/10'
+                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-800 dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-700',
+            ]"
+            @click="visiblePanels.temp = !visiblePanels.temp"
+          >
+            <UIcon name="i-lucide-thermometer" class="w-3.5 h-3.5" :class="[visiblePanels.temp ? 'text-red-500' : 'text-gray-400 dark:text-gray-500']" />
+            <span>Temp</span>
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-all duration-200 cursor-pointer shadow-2xs select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+            :class="[
+              visiblePanels.wind
+                ? 'bg-cyan-500/10 border-cyan-200/60 text-cyan-600 dark:border-cyan-900/40 dark:text-cyan-400 font-bold ring-1 ring-cyan-400/10'
+                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-800 dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-700',
+            ]"
+            @click="visiblePanels.wind = !visiblePanels.wind"
+          >
+            <UIcon name="i-lucide-wind" class="w-3.5 h-3.5" :class="[visiblePanels.wind ? 'text-cyan-500' : 'text-gray-400 dark:text-gray-500']" />
+            <span>Wind</span>
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-all duration-200 cursor-pointer shadow-2xs select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+            :class="[
+              visiblePanels.precip
+                ? 'bg-blue-500/10 border-blue-200/60 text-blue-600 dark:border-blue-900/40 dark:text-blue-400 font-bold ring-1 ring-blue-400/10'
+                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-800 dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-700',
+            ]"
+            @click="visiblePanels.precip = !visiblePanels.precip"
+          >
+            <UIcon name="i-lucide-cloud-rain" class="w-3.5 h-3.5" :class="[visiblePanels.precip ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500']" />
+            <span>Precip</span>
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-all duration-200 cursor-pointer shadow-2xs select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+            :class="[
+              visiblePanels.cloud
+                ? 'bg-slate-500/10 border-slate-200/60 text-slate-700 dark:border-slate-800/60 dark:text-slate-300 font-bold ring-1 ring-slate-400/10'
+                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-800 dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-700',
+            ]"
+            :disabled="compact"
+            @click="visiblePanels.cloud = !visiblePanels.cloud"
+          >
+            <UIcon name="i-lucide-cloud" class="w-3.5 h-3.5" :class="[visiblePanels.cloud ? 'text-slate-500' : 'text-gray-400 dark:text-gray-500']" />
+            <span>Clouds</span>
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-all duration-200 cursor-pointer shadow-2xs select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+            :class="[
+              visiblePanels.pressure
+                ? 'bg-lime-500/10 border-lime-200/60 text-lime-600 dark:border-lime-900/40 dark:text-lime-400 font-bold ring-1 ring-lime-400/10'
+                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-800 dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-700',
+            ]"
+            @click="visiblePanels.pressure = !visiblePanels.pressure"
+          >
+            <UIcon name="i-lucide-gauge" class="w-3.5 h-3.5" :class="[visiblePanels.pressure ? 'text-lime-500' : 'text-gray-400 dark:text-gray-500']" />
+            <span>Pressure</span>
+          </button>
+        </div>
+
+        <!-- View Controls & Zoom Reset -->
+        <div class="flex items-center gap-2 self-end" :class="{ 'ml-auto': compact }">
+          <div v-if="!compact" class="text-xs text-gray-500 dark:text-gray-400 mr-3 select-none">{{ toolbarTzLabel }}</div>
+          <UButton
+            v-if="!compact"
+            icon="i-lucide-rotate-ccw"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            @click="resetChart"
+          >
+            Reset Zoom
+          </UButton>
+          <UButton
+            :icon="compact ? 'i-lucide-chart-line' : 'i-lucide-layout-grid'"
+            size="sm"
+            color="primary"
+            @click="toggleCompact"
+          >
+            {{ compactLabel }}
+          </UButton>
+        </div>
+      </div>
+
+      <!-- Gorgeous Summary Metrics Dashboard Cards -->
+      <div v-if="summaryStats" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
+        <!-- Temp Card -->
+        <div v-if="summaryStats.temp" class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
+          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-red-500/10 text-red-500">
+            <UIcon name="i-lucide-thermometer" class="w-5 h-5 animate-pulse" />
+          </div>
+          <div>
+            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              Min / Max Temp
+            </div>
+            <div class="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
+              <span class="text-blue-500 dark:text-blue-400">{{ summaryStats.temp.min }}°</span>
+              <span class="text-gray-300 dark:text-gray-700 font-normal">/</span>
+              <span class="text-red-500 dark:text-red-400">{{ summaryStats.temp.max }}°C</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Precip Card -->
+        <div class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
+          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500/10 text-blue-500">
+            <UIcon name="i-lucide-cloud-rain" class="w-5 h-5" />
+          </div>
+          <div>
+            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              Total Precip
+            </div>
+            <div class="text-sm font-bold text-gray-800 dark:text-gray-100">
+              {{ summaryStats.precip.toFixed(1) }} <span class="text-xs font-normal text-gray-500">mm</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wind/Gust Card -->
+        <div class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
+          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-cyan-500/10 text-cyan-500">
+            <UIcon name="i-lucide-wind" class="w-5 h-5" />
+          </div>
+          <div>
+            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              Max Gust Speed
+            </div>
+            <div class="text-sm font-bold text-gray-800 dark:text-gray-100">
+              {{ summaryStats.gust.toFixed(1) }} <span class="text-xs font-normal text-gray-400">m/s</span>
+              <span class="text-xs text-cyan-500 dark:text-cyan-400 font-medium ml-1">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cloud Card -->
+        <div class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
+          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-500/10 text-slate-500">
+            <UIcon name="i-lucide-cloud" class="w-5 h-5" />
+          </div>
+          <div>
+            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              Avg Cloud Cover
+            </div>
+            <div class="text-sm font-bold text-gray-800 dark:text-gray-100">
+              {{ summaryStats.cloud }}<span class="text-xs font-normal text-gray-400">%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pressure Card -->
+        <div v-if="summaryStats.pressure" class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs col-span-2 sm:col-span-1">
+          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-lime-500/10 text-lime-500">
+            <UIcon name="i-lucide-gauge" class="w-5 h-5" />
+          </div>
+          <div>
+            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              Pressure Range
+            </div>
+            <div class="text-sm font-bold text-gray-800 dark:text-gray-100 text-ellipsis overflow-hidden">
+              {{ summaryStats.pressure.min }} <span class="text-gray-400 font-normal">-</span> {{ summaryStats.pressure.max }} <span class="text-xs font-normal text-gray-500">hPa</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Interactive Chart Container -->
+      <div v-if="!compact" class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+        <div ref="chartRef" :style="{ width: '100%', height: chartHeight, position: 'relative' }" />
+      </div>
+
+      <!-- Premium Compact Overview Grid -->
+      <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
+        <div class="flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
+          <template v-for="(d, idx) in compactDays" :key="idx">
+            <div
+              class="inline-flex flex-col items-center justify-center text-center p-4 rounded-2xl border transition-all duration-300 min-w-[105px] flex-shrink-0" :class="[
+                d.isToday
+                  ? 'bg-blue-500/5 dark:bg-blue-500/10 border-blue-400 dark:border-blue-800 ring-1 ring-blue-400/20 shadow-md shadow-blue-500/5'
+                  : 'bg-gray-50/50 dark:bg-gray-900/30 border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/70 hover:border-gray-200 dark:hover:border-gray-700',
+              ]"
+            >
+              <div class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+                {{ d.isToday ? 'HEUTE' : d.label.split(' ')[0] }}
+              </div>
+              <div class="text-3xl my-3 filter drop-shadow-sm select-none animate-bounce-slow">
+                {{ d.emoji }}
+              </div>
+              <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
+                {{ d.date.toFormat('dd.MM') }}
+              </div>
+              <div v-if="d.tempLabel" class="text-xs font-extrabold text-gray-700 dark:text-gray-200 mt-1 bg-white dark:bg-gray-800/80 px-2 py-0.5 rounded-lg border border-gray-100 dark:border-gray-700 shadow-xs">
+                {{ d.tempLabel }}
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+/* Smooth custom bounce animation for weather emojis */
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.animate-bounce-slow {
+  animation: bounce-slow 4s ease-in-out infinite;
+}
+</style>
