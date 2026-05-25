@@ -100,7 +100,7 @@ dependencies = [
     "python-dateutil>=2,<3",
     "rapidfuzz>=3.1,<4",
     "diskcache>=5.6.3,<6",
-    "stamina>=23,<26",
+    "stamina>=23,<27",
     "tabulate>=0.8,<1",
     "tqdm>=4,<5",
     "typing-extensions>=4.15.0; python_version<'3.11'",
@@ -114,12 +114,12 @@ bufr = [
     "pybufrkit>=0.2,<1",
 ]
 cratedb = [
-    "pandas>=2,<3",
+    "pandas>=2,<4",
     "sqlalchemy-cratedb<1",
 ]
 duckdb = [
     "duckdb>=0.9,<2",
-    "pandas>=2,<3",
+    "pandas>=2,<4",
 ]
 eccodes = [
     "eccodes>=1.5.2,<3",
@@ -128,9 +128,9 @@ excel = [
     "xlsxwriter>=3.0.9,<4",
 ]
 export = [
-    "pandas>=2,<3",
+    "pandas>=2,<4",
     "sqlalchemy>=2,<3",
-    "xarray>=2023.1,<2026",
+    "xarray>=2023.1,<2027",
     "xlsxwriter>=3.0.9,<4",
     "zarr>=3.1,<4;python_version>='3.11'",
 ]
