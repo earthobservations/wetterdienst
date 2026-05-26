@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict
 from textwrap import dedent
 from typing import Annotated, Any, Literal, cast
 
