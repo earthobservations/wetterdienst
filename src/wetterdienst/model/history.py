@@ -52,8 +52,9 @@ class _OperatorName(BaseModel):
 class _NameHistory(BaseModel):
     """Model for name history."""
 
-    station: list[_StationName] = field(default_factory=list)
-    operator: list[_OperatorName] = field(default_factory=list)
+    # Use pydantic-compatible defaults instead of dataclasses.field
+    station: list[_StationName] = []
+    operator: list[_OperatorName] = []
 
 
 class _ParameterHistory(BaseModel):
@@ -126,8 +127,8 @@ class _MissingPeriod(BaseModel):
 class _MissingDataHistory(BaseModel):
     """Model for missing data history."""
 
-    summary: list[_MissingSummary] = field(default_factory=list)
-    periods: list[_MissingPeriod] = field(default_factory=list)
+    summary: list[_MissingSummary] = []
+    periods: list[_MissingPeriod] = []
 
 
 class History(BaseModel):

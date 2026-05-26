@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -20,7 +20,7 @@ from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetad
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from wetterdienst.model.metadata import DatasetModel
+    from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -68,10 +68,10 @@ class EcccObservationValues(TimeseriesValues):
             pl.col("value").cast(pl.Float64),
         )
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: DatasetModel,
+        parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
         """Collect station dataset."""
         from typing import cast  # noqa: PLC0415
@@ -79,6 +79,13 @@ class EcccObservationValues(TimeseriesValues):
         settings = cast("Settings", self.sr.stations.settings)
         station_meta = self.sr.df.filter(pl.col("station_id") == station_id).to_dicts()[0]
         station_tz = self._get_timezone_from_station(station_id)
+        # Normalize parameter_or_dataset to a DatasetModel for uniform access below.
+        from wetterdienst.model.metadata import DatasetModel as _DatasetModel  # noqa: PLC0415
+
+        if isinstance(parameter_or_dataset, _DatasetModel):
+            dataset = parameter_or_dataset
+        else:
+            dataset = parameter_or_dataset.dataset
         data = []
         start_year = self.sr.start_date.year if self.sr.start_date else station_meta["start_date"].year
         end_year = self.sr.end_date.year if self.sr.end_date else station_meta["end_date"].year
@@ -99,7 +106,7 @@ class EcccObservationValues(TimeseriesValues):
             )
             url = (
                 f"{self._endpoint}/collections/"
-                f"{self._resolution_to_dataset_mapping[parameter_or_dataset.resolution.value]}/"
+                f"{self._resolution_to_dataset_mapping[dataset.resolution.value]}/"
                 f"items?STN_ID={station_id}&datetime={start}/{end}&f=json"
             )
             file = download_file(
@@ -110,7 +117,7 @@ class EcccObservationValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
-            if parameter_or_dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
+            if dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
                 parameters = [
                     "COOLING_DEGREE_DAYS",
                     "COOLING_DEGREE_DAYS_FLAG",
@@ -191,8 +198,8 @@ class EcccObservationValues(TimeseriesValues):
             df = df.rename(str.lower)
             df = self._tidy_up_df(df)
             df = df.select(
-                pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+                pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
                 "parameter",
                 pl.lit(station_id, dtype=pl.String).alias("station_id"),
                 pl.col("local_date")
@@ -204,7 +211,10 @@ class EcccObservationValues(TimeseriesValues):
                 pl.lit(None, dtype=pl.Float64).alias("quality"),
             )
             data.append(df)
-        return pl.concat(data).collect()
+        # Cast to DataFrame to satisfy the static typechecker which may infer
+        # an intermediate InProcessQuery type from collect(). At runtime this
+        # is a pl.DataFrame.
+        return cast("pl.DataFrame", pl.concat(data).collect())
 
 
 @dataclass
@@ -222,7 +232,9 @@ class EcccObservationRequest(TimeseriesRequest):
     _endpoint = "https://api.weather.gc.ca"
 
     metadata = EcccObservationMetadata
-    _values = EcccObservationValues
+    # _values is a class object (subclass of TimeseriesValues). Use cast to
+    # satisfy the static typechecker which expects a TimeseriesValues value.
+    _values = cast("TimeseriesValues", EcccObservationValues)
 
     # Mapping of Canadian timezone abbreviations to IANA timezone identifiers
     _timezone_mapping: ClassVar[dict] = {

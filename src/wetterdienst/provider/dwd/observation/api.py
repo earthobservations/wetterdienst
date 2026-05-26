@@ -9,7 +9,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -85,22 +85,29 @@ DROPPABLE_COLUMNS = [
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: DatasetModel,
+        parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
         """Collect station data for a given dataset."""
         from typing import cast  # noqa: PLC0415
 
+        from wetterdienst.model.metadata import DatasetModel as _DatasetModel  # noqa: PLC0415
+
         stations = cast("DwdObservationRequest", self.sr.stations)
         settings = cast("Settings", stations.settings)
+        # Normalize parameter_or_dataset to a DatasetModel for uniform access below.
+        if isinstance(parameter_or_dataset, _DatasetModel):
+            dataset = parameter_or_dataset
+        else:
+            dataset = parameter_or_dataset.dataset
         periods_and_date_ranges = []
         for period in cast("set[Period]", stations.periods):
-            if parameter_or_dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
+            if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(
                     station_id,
-                    parameter_or_dataset,
+                    dataset,
                     settings,
                 )
                 periods_and_date_ranges.append((period, date_ranges))
@@ -108,16 +115,14 @@ class DwdObservationValues(TimeseriesValues):
                 periods_and_date_ranges.append((period, None))
         parameter_data = []
         for period, date_ranges in periods_and_date_ranges:
-            if period not in parameter_or_dataset.periods:
-                log.info(f"Skipping period {period} for {parameter_or_dataset.name}.")
+            if period not in dataset.periods:
+                log.info(f"Skipping period {period} for {dataset.name}.")
                 continue
-            dataset_identifier = (
-                f"{parameter_or_dataset.resolution.value.name}/{parameter_or_dataset.name}/{station_id}/{period.value}"
-            )
+            dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}/{period.value}"
             log.info(f"Acquiring observation data for {dataset_identifier}.")
             remote_files = create_file_list_for_climate_observations(
                 station_id,
-                parameter_or_dataset,
+                dataset,
                 period,
                 settings,
                 date_ranges,
@@ -126,7 +131,7 @@ class DwdObservationValues(TimeseriesValues):
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
             filenames_and_files = download_climate_observations_data(remote_files, settings)
-            period_df = parse_climate_observations_data(filenames_and_files, parameter_or_dataset, period)
+            period_df = parse_climate_observations_data(filenames_and_files, dataset, period)
             parameter_data.append(period_df)
         try:
             parameter_df = pl.concat(parameter_data, how="align")
@@ -140,12 +145,12 @@ class DwdObservationValues(TimeseriesValues):
             raise TypeError(msg)
         parameter_df = result
         parameter_df = parameter_df.drop(*DROPPABLE_COLUMNS, strict=False)
-        if parameter_or_dataset.resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10):
+        if dataset.resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10):
             parameter_df = self._fix_timestamps(parameter_df)
         df = self._tidy_up_df(parameter_df)
         return df.select(
-            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
+            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
             pl.col("station_id").str.pad_start(5, "0"),
             pl.col("date").dt.replace_time_zone("UTC"),
@@ -252,6 +257,13 @@ class DwdObservationHistory(TimeseriesHistory):
             if file_index.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
+            # initialize history variables so static typecheckers know they exist on all code paths
+            name_history: _NameHistory = _NameHistory()
+            parameter_history_list: list[_ParameterHistory] = []
+            device_history_list: list[_DeviceHistory] = []
+            geography_history_list: list[_GeographyHistory] = []
+            missing_data_history: _MissingDataHistory = _MissingDataHistory()
+
             if dataset.resolution.value in (Resolution.SUBDAILY, Resolution.DAILY) and dataset.name == "wind_extreme":
                 # subdaily extreme wind dataset has one file for FX3 and one for FX6
                 name_histories = []
@@ -260,24 +272,24 @@ class DwdObservationHistory(TimeseriesHistory):
                 geography_histories = []
                 missing_data_histories = []
 
-                for file in file_index.get_column("url"):
-                    file: File = download_file(
-                        url=file,
+                for file_url in file_index.get_column("url"):
+                    downloaded_file: File = download_file(
+                        url=file_url,
                         cache_dir=settings.cache_dir,
                         ttl=CacheExpiry.METAINDEX,
                         client_kwargs=settings.fsspec_client_kwargs,
                         cache_disable=settings.cache_disable,
                         use_certifi=settings.use_certifi,
                     )
-                    name_history = self.read_name_history(file)
+                    name_history = self.read_name_history(downloaded_file)
                     name_histories.append(name_history)
-                    parameter_history_list = self.read_parameter_history(file)
+                    parameter_history_list = self.read_parameter_history(downloaded_file)
                     parameter_histories.append(parameter_history_list)
-                    device_history_list = self.read_device_history(file)
+                    device_history_list = self.read_device_history(downloaded_file)
                     device_histories.append(device_history_list)
-                    geography_history_list = self.read_geography_history(file)
+                    geography_history_list = self.read_geography_history(downloaded_file)
                     geography_histories.append(geography_history_list)
-                    missing_data_history = self.read_missing_data_history(file, dataset.resolution.value)
+                    missing_data_history = self.read_missing_data_history(downloaded_file, dataset.resolution.value)
                     missing_data_histories.append(missing_data_history)
                 yield History(
                     name=_NameHistory(
@@ -292,19 +304,19 @@ class DwdObservationHistory(TimeseriesHistory):
                         periods=[periods for mdh in missing_data_histories for periods in mdh.periods],
                     ),
                 )
-            file: File = download_file(
-                url=file_index.get_column("url").item(),
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.METAINDEX,
-                client_kwargs=settings.fsspec_client_kwargs,
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
-            name_history = self.read_name_history(file)
-            parameter_history_list = self.read_parameter_history(file)
-            device_history_list = self.read_device_history(file)
-            geography_history_list = self.read_geography_history(file)
-            missing_data_history = self.read_missing_data_history(file, dataset.resolution.value)
+                downloaded_file: File = download_file(
+                    url=file_index.get_column("url").item(),
+                    cache_dir=settings.cache_dir,
+                    ttl=CacheExpiry.METAINDEX,
+                    client_kwargs=settings.fsspec_client_kwargs,
+                    cache_disable=settings.cache_disable,
+                    use_certifi=settings.use_certifi,
+                )
+                name_history = self.read_name_history(downloaded_file)
+                parameter_history_list = self.read_parameter_history(downloaded_file)
+                device_history_list = self.read_device_history(downloaded_file)
+                geography_history_list = self.read_geography_history(downloaded_file)
+                missing_data_history = self.read_missing_data_history(downloaded_file, dataset.resolution.value)
             yield History(
                 name=name_history,
                 parameter=parameter_history_list,
@@ -316,14 +328,16 @@ class DwdObservationHistory(TimeseriesHistory):
     @staticmethod
     def read_name_history(file: File) -> _NameHistory:
         """Read station name and operator name history from a zip file."""
-        zfs = ZipFileSystem(file.content)
+        zfs = ZipFileSystem(cast("Any", file.content))
         # find file
-        name_file = zfs.glob("Metadaten_Stationsname_Betreibername_*.txt")
-        if not name_file:
+        name_files = zfs.glob("Metadaten_Stationsname_Betreibername_*.txt")
+        if not name_files:
             return _NameHistory()
-        name_file = name_file[0]
+        name_file = cast("str", next(iter(name_files)))
         with zfs.open(name_file, "r") as f:
             lines = f.readlines()
+        # Normalize bytes to str for consistent processing regardless of file-like object behavior
+        lines = [line.decode("latin1") if isinstance(line, (bytes, bytearray)) else line for line in lines]
         # split by empty line into station name and operator name
         split_index = lines.index("\n")
         # determine which part is station name and which is operator name
@@ -368,19 +382,25 @@ class DwdObservationHistory(TimeseriesHistory):
                     ),
                 }
             )
-        return _NameHistory(station=station_name_data, operator=operator_name_data)
+        # Validate dicts into pydantic models to satisfy static typechecker and ensure
+        # consistent runtime types (pydantic v2).
+        return _NameHistory.model_validate({"station": station_name_data, "operator": operator_name_data})
 
     @staticmethod
     def read_parameter_history(file: File) -> list[_ParameterHistory]:
         """Read parameter history from file."""
-        zfs = ZipFileSystem(file.content)
+        zfs = ZipFileSystem(cast("Any", file.content))
         # find file Metadaten_Parameter_klima_tag_01048.txt, but use glob to be independent of station
-        parameter_file = zfs.glob("**/Metadaten_Parameter_*.txt")
-        if not parameter_file:
+        parameter_files = zfs.glob("**/Metadaten_Parameter_*.txt")
+        if not parameter_files:
             return []
-        parameter_file = parameter_file[0]
+        parameter_file = cast("str", next(iter(parameter_files)))
         parameter_text = zfs.open(parameter_file).read()
-        lines = parameter_text.strip().decode(encoding="latin1").splitlines()
+        if isinstance(parameter_text, (bytes, bytearray)):
+            text = parameter_text.strip().decode(encoding="latin1")
+        else:
+            text = parameter_text.strip()
+        lines = text.splitlines()
         records = []
         for line in lines[1:]:
             if line.startswith(("Legende:", "generiert:")):
@@ -407,13 +427,17 @@ class DwdObservationHistory(TimeseriesHistory):
     @staticmethod
     def read_device_history(file: File) -> list[_DeviceHistory]:
         """Read device history from file."""
-        zfs = ZipFileSystem(file.content)
+        zfs = ZipFileSystem(cast("Any", file.content))
         # find all Metadaten_Geraete_*.txt files, but use glob to be independent of station
         device_files = zfs.glob("**/Metadaten_Geraete_*.txt")
         records = []
         for device_file in device_files:
             device_text = zfs.open(device_file).read()
-            lines = device_text.strip().decode(encoding="latin1").splitlines()
+            if isinstance(device_text, (bytes, bytearray)):
+                text = device_text.strip().decode(encoding="latin1")
+            else:
+                text = device_text.strip()
+            lines = text.splitlines()
             for line in lines[1:]:
                 if line.startswith("generiert:"):
                     continue
@@ -438,13 +462,17 @@ class DwdObservationHistory(TimeseriesHistory):
     @staticmethod
     def read_geography_history(file: File) -> list[_GeographyHistory]:
         """Read geography history from file."""
-        zfs = ZipFileSystem(file.content)
+        zfs = ZipFileSystem(cast("Any", file.content))
         # find all Metadaten_Geographie_*.txt files, but use glob to be independent of station
         geography_files = zfs.glob("**/Metadaten_Geographie_*.txt")
         records = []
         for geography_file in geography_files:
             geography_text = zfs.open(geography_file).read()
-            lines = geography_text.strip().decode(encoding="latin1").splitlines()
+            if isinstance(geography_text, (bytes, bytearray)):
+                text = geography_text.strip().decode(encoding="latin1")
+            else:
+                text = geography_text.strip()
+            lines = text.splitlines()
             for line in lines[1:]:
                 parts = line.split(";")
                 if len(parts) < 7:
@@ -471,14 +499,19 @@ class DwdObservationHistory(TimeseriesHistory):
             lambda: "%d.%m.%Y", {Resolution.HOURLY: "%d.%m.%Y-%H:%M", Resolution.SUBDAILY: "%d.%m.%Y-%H:%M"}
         )
         date_format = resolution_to_date_format[resolution]
-        zfs = ZipFileSystem(file.content)
+        zfs = ZipFileSystem(cast("Any", file.content))
         # find all Metadaten_Fehlzeiten_*.txt files, but use glob to be independent of station
         missing_data_file = zfs.glob("**/Metadaten_Fehldaten_*.txt")
         if not missing_data_file:
             return _MissingDataHistory()
-        missing_data_file = missing_data_file[0]
+        missing_data_files = missing_data_file
+        missing_data_file = cast("str", next(iter(missing_data_files)))
         missing_data_text = zfs.open(missing_data_file).read()
-        lines = missing_data_text.decode("utf-8").strip().splitlines()
+        if isinstance(missing_data_text, (bytes, bytearray)):
+            text = missing_data_text.decode("utf-8")
+        else:
+            text = missing_data_text
+        lines = text.strip().splitlines()
         # find line that separates summary from period
         split_line = 0
         count_starts_with = 0
@@ -517,7 +550,9 @@ class DwdObservationHistory(TimeseriesHistory):
                 "description": parts[6],
             }
             period_records.append(record)
-        return _MissingDataHistory(summary=summary_records, periods=period_records)
+        # Validate dicts into pydantic models to satisfy static typechecker and ensure
+        # consistent runtime types (pydantic v2).
+        return _MissingDataHistory.model_validate({"summary": summary_records, "periods": period_records})
 
 
 @dataclass
@@ -525,8 +560,10 @@ class DwdObservationRequest(TimeseriesRequest):
     """Request class for DWD observation data."""
 
     metadata = DwdObservationMetadata
-    _values = DwdObservationValues
-    _history = DwdObservationHistory
+    # _values and _history are class objects (subclasses of TimeseriesValues/TimeseriesHistory).
+    # Use cast to satisfy the static typechecker which expects instances of those types.
+    _values = cast("TimeseriesValues", DwdObservationValues)
+    _history = cast("TimeseriesHistory", DwdObservationHistory)
     _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT, Period.NOW}
     periods: str | Period | set[Period] | None = None
 
@@ -634,26 +671,27 @@ class DwdObservationRequest(TimeseriesRequest):
         """Describe fields of a dataset."""
         from wetterdienst.provider.dwd.observation.fields import read_description  # noqa: PLC0415
 
-        if isinstance(dataset, str | Iterable):
-            parameter_template = ParameterSearch.parse(dataset)  # ty: ignore[invalid-argument-type]
-        elif isinstance(dataset, DatasetModel):
+        # Prefer checking DatasetModel first to avoid accidental Iterable matches
+        if isinstance(dataset, DatasetModel):
             parameter_template = ParameterSearch(
                 resolution=dataset.resolution.value.value,
                 dataset=dataset.name_original,
             )
         elif isinstance(dataset, ParameterSearch):
             parameter_template = dataset
+        elif isinstance(dataset, (str, Iterable)):
+            parameter_template = ParameterSearch.parse(dataset)
         else:
             msg = "dataset must be a string, ParameterTemplate or DatasetModel"
             raise KeyError(msg)
         dataset = DwdObservationMetadata.search_parameter(parameter_template)[0].dataset
-        period = parse_enumeration_from_template(period, Period)
-        if period not in dataset.periods or period not in cls._available_periods:
-            msg = f"Period {period} not available for dataset {dataset}"
+        period_enum = parse_enumeration_from_template(period, Period)
+        if period_enum not in dataset.periods or period_enum not in cls._available_periods:
+            msg = f"Period {period_enum} not available for dataset {dataset}"
             raise ValueError(msg)
-        url = _build_url_from_dataset_and_period(dataset, period)
+        url = _build_url_from_dataset_and_period(dataset, period_enum)
         # Description PDFs moved from period subdirectory to dataset directory
-        url = url.removesuffix(f"{period.value}/")
+        url = url.removesuffix(f"{period_enum.value}/")
         file_index = _create_file_index_for_dwd_server(
             url=url,
             settings=Settings(),
