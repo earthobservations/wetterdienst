@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import groupby
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
@@ -23,7 +24,7 @@ from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Iterable, Iterator
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
@@ -300,7 +301,12 @@ class TimeseriesValues(ABC):
         if not available_datasets:
             return pl.DataFrame()
         data = []
-        for dataset, parameters in groupby(self.sr.stations.parameters, key=lambda x: x.dataset):
+        # self.sr.stations.parameters is parsed at runtime to a list[ParameterModel],
+        # but the static type of the attribute is a union of input forms. Cast here so
+        # the typechecker understands we iterate ParameterModel instances.
+        for dataset, parameters in groupby(
+            cast("Iterable[ParameterModel]", self.sr.stations.parameters), key=lambda x: x.dataset
+        ):
             if dataset not in available_datasets:
                 continue
             df = self._process_dataset(station_id, dataset, parameters)

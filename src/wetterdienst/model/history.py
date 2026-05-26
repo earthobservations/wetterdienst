@@ -7,10 +7,10 @@ from __future__ import annotations
 import datetime as dt  # noqa: TC003
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from wetterdienst.model.result import HistoryResult, StationsResult
 
@@ -52,8 +52,9 @@ class _OperatorName(BaseModel):
 class _NameHistory(BaseModel):
     """Model for name history."""
 
-    station: list[_StationName] = field(default_factory=list)
-    operator: list[_OperatorName] = field(default_factory=list)
+    # Use pydantic-compatible defaults instead of dataclasses.field
+    station: list[_StationName] = Field(default_factory=list)
+    operator: list[_OperatorName] = Field(default_factory=list)
 
 
 class _ParameterHistory(BaseModel):
@@ -126,18 +127,18 @@ class _MissingPeriod(BaseModel):
 class _MissingDataHistory(BaseModel):
     """Model for missing data history."""
 
-    summary: list[_MissingSummary] = field(default_factory=list)
-    periods: list[_MissingPeriod] = field(default_factory=list)
+    summary: list[_MissingSummary] = Field(default_factory=list)
+    periods: list[_MissingPeriod] = Field(default_factory=list)
 
 
 class History(BaseModel):
     """Model for history data."""
 
     name: _NameHistory
-    parameter: list[_ParameterHistory] = field(default_factory=list)
-    device: list[_DeviceHistory] = field(default_factory=list)
-    geography: list[_GeographyHistory] = field(default_factory=list)
-    missing_data: _MissingDataHistory = field(default_factory=_MissingDataHistory)
+    parameter: list[_ParameterHistory] = Field(default_factory=list)
+    device: list[_DeviceHistory] = Field(default_factory=list)
+    geography: list[_GeographyHistory] = Field(default_factory=list)
+    missing_data: _MissingDataHistory = Field(default_factory=_MissingDataHistory)
 
 
 @dataclass

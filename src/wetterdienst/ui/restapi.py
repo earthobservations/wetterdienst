@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import logging
 from textwrap import dedent
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
@@ -427,7 +427,7 @@ def interpolate(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
         ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=request.interpolation_station_distance or {},  # ty: ignore[invalid-argument-type]
+        ts_geo_station_distance=cast("Any", request.interpolation_station_distance or {}),
         ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
         ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
         ts_geo_num_additional_stations=request.num_additional_stations,
@@ -500,7 +500,7 @@ def summarize(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
         ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=request.summary_station_distance or {},  # ty: ignore[invalid-argument-type]
+        ts_geo_station_distance=cast("Any", request.summary_station_distance or {}),
         ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
         ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
         ts_geo_num_additional_stations=request.num_additional_stations,
@@ -737,7 +737,7 @@ def history(  # noqa: C901
         log.exception("Failed to acquire history provider")
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    data = {}
+    data: dict[str, Any] = {}
     if request.with_metadata:
         data["metadata"] = stations_.get_metadata()
     if request.with_stations:
