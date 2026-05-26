@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime as dt  # noqa: TC003
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, Field
