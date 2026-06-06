@@ -16,7 +16,8 @@ from typing import TYPE_CHECKING, ClassVar, Literal
 from urllib.parse import urlparse
 
 import stamina
-from aiohttp import ClientConnectorError, ClientResponse, ClientResponseError
+from aiohttp import ClientConnectorError, ClientPayloadError, ClientResponseError
+from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
@@ -382,12 +383,6 @@ def list_remote_files_fsspec(
     return fs.find(url)
 
 
-@stamina.retry(
-    on=lambda response: (
-        isinstance(response, ClientResponse) and (response.status == 429 or 500 <= response.status < 600)
-    ),
-    attempts=2,
-)
 def download_file(
     url: str,
     cache_dir: Path,
@@ -420,29 +415,31 @@ def download_file(
     )
     log.info(f"Downloading file {url}")
     try:
-        payload = filesystem.cat_file(url)
-        log.info(f"Downloaded file {url}")
-        return File(
-            url=url,
-            content=BytesIO(payload),
-            status=200,
-        )
-    except (ClientResponseError, FileNotFoundError) as e:
-        # retrieve the status code from the exception if available
-        status = e.status if isinstance(e, ClientResponseError) else 404
-        log.info(f"Failed to download file {url} with status {status}.")
-        return File(
-            url=url,
-            content=e,
-            status=status,
-        )
+        for attempt in stamina.retry_context(
+            on=(FileNotFoundError, FSTimeoutError, ClientConnectorError, ClientResponseError, ClientPayloadError),
+            attempts=3,
+        ):
+            with attempt:
+                payload = filesystem.cat_file(url)
+                log.info(f"Downloaded file {url}")
+                return File(url=url, content=BytesIO(payload), status=200)
+        msg = "unreachable"
+        raise AssertionError(msg)
+    except FileNotFoundError as e:
+        log.info(f"Failed to download file {url}.")
+        return File(url=url, content=e, status=404)
+    except FSTimeoutError as e:
+        log.info(f"Failed to download file {url}.")
+        return File(url=url, content=e, status=408)
     except ClientConnectorError as e:
-        log.warning(f"No internet connection while downloading file {url}: {e}")
-        return File(
-            url=url,
-            content=NoInternetError(str(e)),
-            status=503,
-        )
+        log.info(f"No internet connection while downloading file {url}.")
+        return File(url=url, content=NoInternetError(str(e)), status=503)
+    except ClientResponseError as e:
+        log.info(f"Failed to download file {url}.")
+        return File(url=url, content=e, status=e.status or 500)
+    except ClientPayloadError as e:
+        log.info(f"Failed to download file {url}.")
+        return File(url=url, content=e, status=500)
 
 
 def download_files(
