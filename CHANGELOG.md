@@ -25,6 +25,7 @@ Types of changes:
   `FSTimeoutError`, `ClientConnectorError`, `ClientResponseError` and `ClientPayloadError`; all exhausted errors are
   returned as `File` objects rather than propagated.
 - `[DWD Dmo]` Convert latitude and longitude from degrees and minutes to decimal degrees using `convert_dm_to_dd`.
+- Fix station history parsing and add tests
 
 ## [0.121.1] - 2026-05-26
 
