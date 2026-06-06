@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.122.0] - 2026-06-07
+
 ### Fixed
 
 - Fix `download_file` retry mechanism: the previous `@stamina.retry` decorator was broken
@@ -1823,7 +1825,9 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.121.1...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.122.0...HEAD
+
+[0.122.0]: https://github.com/earthobservations/wetterdienst/compare/v0.121.1...v0.122.0
 
 [0.121.1]: https://github.com/earthobservations/wetterdienst/compare/v0.121.0...v0.121.1
 
