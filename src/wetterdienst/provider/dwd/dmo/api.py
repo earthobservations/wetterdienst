@@ -23,6 +23,7 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
 
@@ -389,8 +390,8 @@ class DwdDmoRequest(TimeseriesRequest):
         df_raw = pl.concat([df_raw, self._station_patches])
         df_raw = df_raw.with_columns(
             pl.col("icao_id").replace("----", None),
-            pl.col("latitude").str.replace(" ", "").cast(pl.Float64),
-            pl.col("longitude").str.replace(" ", "").cast(pl.Float64),
+            pl.col("latitude").str.replace(" ", "").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
+            pl.col("longitude").str.replace(" ", "").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
             pl.lit(None, pl.String).alias("state"),
