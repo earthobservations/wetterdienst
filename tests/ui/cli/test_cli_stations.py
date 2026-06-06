@@ -75,14 +75,14 @@ SETTINGS_STATIONS = (
             "icao_id": "EDDC",
             "start_date": None,
             "end_date": None,
-            "latitude": 51.08,
-            "longitude": 13.45,
+            "latitude": 51.13,
+            "longitude": 13.75,
             "height": 230.0,
             "name": "DRESDEN/FLUGHAFEN",
             "state": None,
             "distance": IsFloat(ge=0.0),
         },
-        [13.45, 51.08, 230.0],
+        [13.75, 51.13, 230.0],
     ),
 )
 
