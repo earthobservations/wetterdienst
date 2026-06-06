@@ -185,8 +185,10 @@ class HistoryRequest(BaseModel):
 
     @field_validator("sections", mode="before")
     @classmethod
-    def validate_sections(cls, v: str | list) -> set[str]:
+    def validate_sections(cls, v: str | list) -> set[str] | None:
         """Validate sections."""
+        if not v:
+            return None
         if isinstance(v, str):
             return set(read_list(v))
         parameters = []

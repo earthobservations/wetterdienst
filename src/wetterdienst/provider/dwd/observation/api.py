@@ -257,14 +257,8 @@ class DwdObservationHistory(TimeseriesHistory):
             if file_index.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
-            # initialize history variables so static typecheckers know they exist on all code paths
-            name_history: _NameHistory = _NameHistory()
-            parameter_history_list: list[_ParameterHistory] = []
-            device_history_list: list[_DeviceHistory] = []
-            geography_history_list: list[_GeographyHistory] = []
-            missing_data_history: _MissingDataHistory = _MissingDataHistory()
 
-            if dataset.resolution.value in (Resolution.SUBDAILY, Resolution.DAILY) and dataset.name == "wind_extreme":
+            if dataset.resolution.value == Resolution.SUBDAILY and dataset.name == "wind_extreme":
                 # subdaily extreme wind dataset has one file for FX3 and one for FX6
                 name_histories = []
                 parameter_histories = []
@@ -281,15 +275,20 @@ class DwdObservationHistory(TimeseriesHistory):
                         cache_disable=settings.cache_disable,
                         use_certifi=settings.use_certifi,
                     )
-                    name_history = self.read_name_history(downloaded_file)
+                    # Use a single ZipFileSystem for all reads from the same file.
+                    # ZipFileSystem.__del__ closes the underlying BytesIO via
+                    # self.of.__exit__(), so we must not create a new ZipFileSystem
+                    # per read_*_history call on the same file.content BytesIO.
+                    zfs = ZipFileSystem(cast("Any", downloaded_file.content))
+                    name_history = self.read_name_history(zfs)
                     name_histories.append(name_history)
-                    parameter_history_list = self.read_parameter_history(downloaded_file)
+                    parameter_history_list = self.read_parameter_history(zfs)
                     parameter_histories.append(parameter_history_list)
-                    device_history_list = self.read_device_history(downloaded_file)
+                    device_history_list = self.read_device_history(zfs)
                     device_histories.append(device_history_list)
-                    geography_history_list = self.read_geography_history(downloaded_file)
+                    geography_history_list = self.read_geography_history(zfs)
                     geography_histories.append(geography_history_list)
-                    missing_data_history = self.read_missing_data_history(downloaded_file, dataset.resolution.value)
+                    missing_data_history = self.read_missing_data_history(zfs, dataset.resolution.value)
                     missing_data_histories.append(missing_data_history)
                 yield History(
                     name=_NameHistory(
@@ -304,6 +303,7 @@ class DwdObservationHistory(TimeseriesHistory):
                         periods=[periods for mdh in missing_data_histories for periods in mdh.periods],
                     ),
                 )
+            else:
                 downloaded_file: File = download_file(
                     url=file_index.get_column("url").item(),
                     cache_dir=settings.cache_dir,
@@ -312,23 +312,27 @@ class DwdObservationHistory(TimeseriesHistory):
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                name_history = self.read_name_history(downloaded_file)
-                parameter_history_list = self.read_parameter_history(downloaded_file)
-                device_history_list = self.read_device_history(downloaded_file)
-                geography_history_list = self.read_geography_history(downloaded_file)
-                missing_data_history = self.read_missing_data_history(downloaded_file, dataset.resolution.value)
-            yield History(
-                name=name_history,
-                parameter=parameter_history_list,
-                device=device_history_list,
-                geography=geography_history_list,
-                missing_data=missing_data_history,
-            )
+                # Use a single ZipFileSystem for all reads from the same file.
+                # ZipFileSystem.__del__ closes the underlying BytesIO via
+                # self.of.__exit__(), so we must not create a new ZipFileSystem
+                # per read_*_history call on the same file.content BytesIO.
+                zfs = ZipFileSystem(cast("Any", downloaded_file.content))
+                name_history = self.read_name_history(zfs)
+                parameter_history_list = self.read_parameter_history(zfs)
+                device_history_list = self.read_device_history(zfs)
+                geography_history_list = self.read_geography_history(zfs)
+                missing_data_history = self.read_missing_data_history(zfs, dataset.resolution.value)
+                yield History(
+                    name=name_history,
+                    parameter=parameter_history_list,
+                    device=device_history_list,
+                    geography=geography_history_list,
+                    missing_data=missing_data_history,
+                )
 
     @staticmethod
-    def read_name_history(file: File) -> _NameHistory:
+    def read_name_history(zfs: ZipFileSystem) -> _NameHistory:
         """Read station name and operator name history from a zip file."""
-        zfs = ZipFileSystem(cast("Any", file.content))
         # find file
         name_files = zfs.glob("Metadaten_Stationsname_Betreibername_*.txt")
         if not name_files:
@@ -387,9 +391,8 @@ class DwdObservationHistory(TimeseriesHistory):
         return _NameHistory.model_validate({"station": station_name_data, "operator": operator_name_data})
 
     @staticmethod
-    def read_parameter_history(file: File) -> list[_ParameterHistory]:
+    def read_parameter_history(zfs: ZipFileSystem) -> list[_ParameterHistory]:
         """Read parameter history from file."""
-        zfs = ZipFileSystem(cast("Any", file.content))
         # find file Metadaten_Parameter_klima_tag_01048.txt, but use glob to be independent of station
         parameter_files = zfs.glob("**/Metadaten_Parameter_*.txt")
         if not parameter_files:
@@ -425,9 +428,8 @@ class DwdObservationHistory(TimeseriesHistory):
         return [_ParameterHistory.model_validate(record) for record in records]
 
     @staticmethod
-    def read_device_history(file: File) -> list[_DeviceHistory]:
+    def read_device_history(zfs: ZipFileSystem) -> list[_DeviceHistory]:
         """Read device history from file."""
-        zfs = ZipFileSystem(cast("Any", file.content))
         # find all Metadaten_Geraete_*.txt files, but use glob to be independent of station
         device_files = zfs.glob("**/Metadaten_Geraete_*.txt")
         records = []
@@ -460,9 +462,8 @@ class DwdObservationHistory(TimeseriesHistory):
         return [_DeviceHistory.model_validate(record) for record in records]
 
     @staticmethod
-    def read_geography_history(file: File) -> list[_GeographyHistory]:
+    def read_geography_history(zfs: ZipFileSystem) -> list[_GeographyHistory]:
         """Read geography history from file."""
-        zfs = ZipFileSystem(cast("Any", file.content))
         # find all Metadaten_Geographie_*.txt files, but use glob to be independent of station
         geography_files = zfs.glob("**/Metadaten_Geographie_*.txt")
         records = []
@@ -492,14 +493,13 @@ class DwdObservationHistory(TimeseriesHistory):
         return [_GeographyHistory.model_validate(record) for record in records]
 
     @staticmethod
-    def read_missing_data_history(file: File, resolution: Resolution) -> _MissingDataHistory:
+    def read_missing_data_history(zfs: ZipFileSystem, resolution: Resolution) -> _MissingDataHistory:
         """Read missing data history from file."""
         # we need to adjust date format based on resolution for period records
         resolution_to_date_format = defaultdict(
             lambda: "%d.%m.%Y", {Resolution.HOURLY: "%d.%m.%Y-%H:%M", Resolution.SUBDAILY: "%d.%m.%Y-%H:%M"}
         )
         date_format = resolution_to_date_format[resolution]
-        zfs = ZipFileSystem(cast("Any", file.content))
         # find all Metadaten_Fehlzeiten_*.txt files, but use glob to be independent of station
         missing_data_file = zfs.glob("**/Metadaten_Fehldaten_*.txt")
         if not missing_data_file:

@@ -914,7 +914,16 @@ def stations(
 @cli.command("history", section=data_section)
 @provider_opt
 @network_opt
-@station_options_core  # ty: ignore[invalid-argument-type]
+@cloup.option(
+    "--parameters",
+    type=str,
+    required=True,
+    help=(
+        "Parameters as resolution/dataset or resolution/dataset/parameter (comma-separated for multiple). "
+        "Examples: daily/kl, daily/climate_summary/precipitation_height, "
+        "hourly/air_temperature/temperature_air_mean_2m"
+    ),
+)
 @cloup.option_group(
     "All stations",
     click.option("--all", "all_", is_flag=True),
@@ -929,6 +938,21 @@ def stations(
     help="Comma-separated list of history sections to include. Available sections are "
     "'name', 'parameter', 'device', 'geography', 'missing_data'",
 )
+@cloup.option_group(
+    "Format/Target",
+    click.option(
+        "--format",
+        "fmt",
+        type=click.Choice(["json"], case_sensitive=False),
+        default="json",
+        help="Output format. Use json/csv/geojson for data, html/png/jpg/webp/svg/pdf for charts. Default: json",
+    ),
+    cloup.option(
+        "--target",
+        type=click.STRING,
+        help="Export target URI (instead of stdout). Examples: file://data.csv, duckdb:///obs.duckdb?table=weather",
+    ),
+)
 @cloup.option("--with_metadata", type=click.BOOL, default=True)
 @cloup.option("--with_stations", type=click.BOOL, default=True)
 @cloup.option("--pretty", type=click.BOOL, default=False)
@@ -940,6 +964,7 @@ def history(
     all_: bool,  # noqa: FBT001
     station: str,
     sections: list[str],
+    fmt: str,  # noqa: ARG001
     target: str,
     *,
     with_metadata: bool,
@@ -991,12 +1016,13 @@ def history(
     data["histories"] = []
     try:
         for history_result in history_provider.query():
-            data["histories"].append(history_result.history.model_dump(mode="json"))
+            history_result_data = history_result.history.model_dump(mode="python")
+            data["histories"].append(history_result_data)
     except Exception:
         log.exception("Failed to collect station history")
         sys.exit(1)
 
-    output = json.dumps(data, indent=4 if pretty else None)
+    output = json.dumps(data, indent=4 if pretty else None, default=lambda dt: dt.isoformat())
 
     if target:
         # write to file
