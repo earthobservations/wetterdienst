@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix `download_file` retry mechanism: the previous `@stamina.retry` decorator was broken
+  (the `on=` predicate checked `ClientResponse` instead of an exception, and all errors were
+  swallowed before stamina could see them). Replaced with `stamina.retry_context` wrapping the
+  `filesystem.cat_file` call directly. Retries are now triggered on `FileNotFoundError`,
+  `FSTimeoutError`, `ClientConnectorError`, `ClientResponseError` and `ClientPayloadError`; all exhausted errors are
+  returned as `File` objects rather than propagated.
+
 ## [0.121.1] - 2026-05-26
 
 ### Fixed
