@@ -42,7 +42,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       // Allow overriding the backend API base via environment (NUXT_PUBLIC_API_BASE or API_BASE)
-      apiBase: 'http://0.0.0.0:3000/api',
+      apiBase: 'http://localhost:3000/api',
     },
   },
 
