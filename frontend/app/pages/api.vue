@@ -2,16 +2,19 @@
 const endpoints = [
   { name: 'coverage', path: '/api/coverage', description: 'Discover available providers, networks, resolutions, and parameters' },
   { name: 'stations', path: '/api/stations', description: 'Query weather stations by various filters' },
+  { name: 'history', path: '/api/history', description: 'Retrieve station history (name, operator, devices, geography, missing data)' },
   { name: 'values', path: '/api/values', description: 'Retrieve observation values for selected stations and parameters' },
   { name: 'interpolate', path: '/api/interpolate', description: 'Interpolate values for a specific location' },
   { name: 'summarize', path: '/api/summarize', description: 'Get summarized values for a location' },
   { name: 'stripes/stations', path: '/api/stripes/stations', description: 'Get stations for climate stripes visualization' },
   { name: 'stripes/values', path: '/api/stripes/values', description: 'Get climate stripes data values with timestamps' },
   { name: 'stripes/image', path: '/api/stripes/image', description: 'Generate climate stripes image' },
+  { name: 'history', path: '/api/history', description: 'Retrieve station history (name, operator, devices, geography, missing data)' },
 ]
 
 const examples = [
   { name: 'DWD Observation Daily Climate Stations', path: '/api/stations?provider=dwd&network=observation&parameters=daily/kl&periods=recent&all=true' },
+  { name: 'DWD Observation Station History', path: '/api/history?provider=dwd&network=observation&parameters=daily/kl&station=00011' },
   { name: 'DWD Observation Daily Climate Values', path: '/api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&station=00011' },
   { name: 'DWD Observation Daily Climate Interpolation', path: '/api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01' },
   { name: 'DWD Observation Daily Climate Summary', path: '/api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01' },

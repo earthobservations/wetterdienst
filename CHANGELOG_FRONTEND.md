@@ -20,6 +20,7 @@ Types of changes:
 
 - Sync history page form state (resolution, dataset, stations, sections) with URL query parameters for shareable links
 - Add collapsible about section to history page explaining available history sections and DWD-only availability
+- Add history endpoint and usage example to the API reference page
 
 ### Fixed
 
