@@ -4,5 +4,5 @@ shellEmulator: true
 trustPolicy: no-downgrade
 
 overrides:
-  semver@6: "^7"
-  apache-arrow>@types/node: "^25"
+  apache-arrow>@types/node: ^25
+  semver@6: ^7

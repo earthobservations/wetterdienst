@@ -28,7 +28,9 @@ function cycleColorMode() {
 
 const mobileMenuOpen = ref(false)
 
-watch(() => route.path, () => { mobileMenuOpen.value = false })
+watch(() => route.path, () => {
+  mobileMenuOpen.value = false
+})
 
 const items = computed<NavigationMenuItem[]>(() =>
   [
