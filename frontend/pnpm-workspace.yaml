@@ -3,5 +3,5 @@ confirmModulesPurge: false
 shellEmulator: true
 trustPolicy: no-downgrade
 overrides:
-  "undici-types": "^6.21.0"
-  "semver": "^7.8.2"
+  semver: ^7.8.2
+  undici-types: ^6.21.0
