@@ -28,6 +28,12 @@ Types of changes:
 
 - Remove primary color picker from header
 - Remove `ColorModeSelect` and `PrimaryColorSelect` components, inline color mode toggle directly in header
+- Remove separate `frontend.dev.Dockerfile`; merged into a single `frontend.Dockerfile` with named `base`, `deps`, `dev`, `build`, and `prod` targets
+
+### Changed
+
+- `compose.yml` updated to use `docker/frontend.Dockerfile` with `target: dev`
+- CI workflow updated to build with `target: prod`
 
 ### Fixed
 

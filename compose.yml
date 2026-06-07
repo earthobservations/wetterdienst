@@ -27,7 +27,8 @@ services:
     profiles: [ "frontend", "app" ]
     build:
       context: .
-      dockerfile: docker/frontend.dev.Dockerfile
+      dockerfile: docker/frontend.Dockerfile
+      target: dev
     image: wetterdienst-frontend:dev
     container_name: wetterdienst-frontend
     restart: unless-stopped

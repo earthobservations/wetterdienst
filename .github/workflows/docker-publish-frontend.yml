@@ -43,7 +43,7 @@ jobs:
         run: |
           export DOCKER_BUILDKIT=1
           export BUILDKIT_PROGRESS=plain
-          docker build -f docker/frontend.Dockerfile -t wd-frontend .
+          docker build -f docker/frontend.Dockerfile --target prod -t wd-frontend .
 
   docker_frontend:
     needs: build_and_test_frontend
@@ -124,6 +124,7 @@ jobs:
         with:
           context: .
           file: docker/frontend.Dockerfile
+          target: prod
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
