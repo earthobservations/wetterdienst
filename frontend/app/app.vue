@@ -9,6 +9,27 @@ const { data: versionData } = await useFetch<{ version: string }>('/api/version'
 const version = computed(() => versionData.value?.version ?? 'unknown')
 const frontendVersion = pkg.version || 'unknown'
 
+const colorMode = useColorMode()
+
+const colorModes = [
+  { value: 'system', icon: 'i-lucide-monitor' },
+  { value: 'light', icon: 'i-lucide-sun' },
+  { value: 'dark', icon: 'i-lucide-moon' },
+] as const
+
+const colorModeIcon = computed(() =>
+  colorModes.find(m => m.value === colorMode.preference)?.icon ?? 'i-lucide-monitor',
+)
+
+function cycleColorMode() {
+  const idx = colorModes.findIndex(m => m.value === colorMode.preference)
+  colorMode.preference = colorModes[(idx + 1) % colorModes.length]!.value
+}
+
+const mobileMenuOpen = ref(false)
+
+watch(() => route.path, () => { mobileMenuOpen.value = false })
+
 const items = computed<NavigationMenuItem[]>(() =>
   [
     {
@@ -47,14 +68,13 @@ const items = computed<NavigationMenuItem[]>(() =>
       to: '/support',
       active: route.path.startsWith('/support'),
     },
-
   ],
 )
 </script>
 
 <template>
   <UApp>
-    <UHeader>
+    <UHeader :toggle="false">
       <template #left>
         <div class="flex items-center gap-3">
           <img src="/favicon.ico" alt="Wetterdienst" class="w-7 h-7">
@@ -72,12 +92,12 @@ const items = computed<NavigationMenuItem[]>(() =>
           </div>
         </div>
       </template>
+
       <UNavigationMenu :items="items" />
-      <template #body>
-        <UNavigationMenu orientation="vertical" :items="items" />
-      </template>
+
       <template #right>
-        <div class="flex items-center gap-1">
+        <!-- Desktop controls -->
+        <div class="hidden lg:flex items-center gap-1">
           <UTooltip text="Documentation">
             <UButton
               to="https://wetterdienst.readthedocs.io/"
@@ -108,15 +128,113 @@ const items = computed<NavigationMenuItem[]>(() =>
               aria-label="PyPI"
             />
           </UTooltip>
-          <UTooltip text="Primary Color">
-            <PrimaryColorSelect />
-          </UTooltip>
           <UTooltip text="Color Mode">
-            <ColorModeSelect />
+            <UButton
+              :icon="colorModeIcon"
+              color="neutral"
+              variant="ghost"
+              aria-label="Toggle color mode"
+              @click="cycleColorMode"
+            />
           </UTooltip>
         </div>
+        <!-- Mobile hamburger -->
+        <UButton
+          class="lg:hidden"
+          :icon="mobileMenuOpen ? 'i-lucide-x' : 'i-lucide-menu'"
+          color="neutral"
+          variant="ghost"
+          aria-label="Toggle menu"
+          @click="mobileMenuOpen = !mobileMenuOpen"
+        />
       </template>
     </UHeader>
+
+    <!-- Full-screen mobile overlay -->
+    <Teleport to="body">
+      <Transition name="mobile-menu">
+        <div
+          v-if="mobileMenuOpen"
+          class="fixed inset-0 z-50 lg:hidden flex flex-col bg-white dark:bg-gray-900"
+        >
+          <!-- Top bar -->
+          <div class="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
+            <div class="flex items-center gap-3">
+              <img src="/favicon.ico" alt="Wetterdienst" class="w-7 h-7">
+              <span class="font-semibold text-gray-900 dark:text-white">Wetterdienst</span>
+            </div>
+            <UButton
+              icon="i-lucide-x"
+              color="neutral"
+              variant="ghost"
+              aria-label="Close menu"
+              @click="mobileMenuOpen = false"
+            />
+          </div>
+
+          <!-- Nav items -->
+          <nav class="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-1">
+            <NuxtLink
+              v-for="item in items"
+              :key="item.to as string"
+              :to="item.to as string"
+              class="flex items-center gap-4 px-4 py-3.5 rounded-xl text-base font-medium transition-colors"
+              :class="item.active
+                ? 'bg-primary-50 dark:bg-primary-950 text-primary-600 dark:text-primary-400'
+                : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'"
+              @click="mobileMenuOpen = false"
+            >
+              <UIcon :name="item.icon as string" class="w-5 h-5 shrink-0" />
+              {{ item.label }}
+            </NuxtLink>
+          </nav>
+
+          <!-- Bottom bar: external links + theme toggle -->
+          <div class="shrink-0 border-t border-gray-200 dark:border-gray-800 px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-1">
+              <UTooltip text="Documentation">
+                <UButton
+                  to="https://wetterdienst.readthedocs.io/"
+                  target="_blank"
+                  icon="i-lucide-book-open"
+                  color="neutral"
+                  variant="ghost"
+                  aria-label="Documentation"
+                />
+              </UTooltip>
+              <UTooltip text="GitHub">
+                <UButton
+                  to="https://github.com/earthobservations/wetterdienst"
+                  target="_blank"
+                  icon="i-lucide-github"
+                  color="neutral"
+                  variant="ghost"
+                  aria-label="GitHub"
+                />
+              </UTooltip>
+              <UTooltip text="PyPI">
+                <UButton
+                  to="https://pypi.org/project/wetterdienst"
+                  target="_blank"
+                  icon="i-lucide-package"
+                  color="neutral"
+                  variant="ghost"
+                  aria-label="PyPI"
+                />
+              </UTooltip>
+            </div>
+            <UButton
+              :icon="colorModeIcon"
+              color="neutral"
+              variant="ghost"
+              aria-label="Toggle color mode"
+              @click="cycleColorMode"
+            />
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <UMain>
       <NuxtPage />
     </UMain>
@@ -139,4 +257,9 @@ const items = computed<NavigationMenuItem[]>(() =>
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
+
+.mobile-menu-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.mobile-menu-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.mobile-menu-enter-from,
+.mobile-menu-leave-to { opacity: 0; transform: translateY(-12px); }
 </style>

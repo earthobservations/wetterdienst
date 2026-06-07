@@ -21,6 +21,13 @@ Types of changes:
 - Sync history page form state (resolution, dataset, stations, sections) with URL query parameters for shareable links
 - Add collapsible about section to history page explaining available history sections and DWD-only availability
 - Add history endpoint and usage example to the API reference page
+- Add full-screen overlay mobile navigation with fade and slide transition, including nav items, external links and theme toggle
+- Set green as fixed primary color via `app.config.ts`
+
+### Removed
+
+- Remove primary color picker from header
+- Remove `ColorModeSelect` and `PrimaryColorSelect` components, inline color mode toggle directly in header
 
 ### Fixed
 
