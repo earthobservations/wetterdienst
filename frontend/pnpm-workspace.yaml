@@ -1,3 +1,4 @@
 dangerouslyAllowAllBuilds: true
+confirmModulesPurge: false
 shellEmulator: true
 trustPolicy: no-downgrade

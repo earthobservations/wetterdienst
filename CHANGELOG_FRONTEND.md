@@ -20,6 +20,10 @@ Types of changes:
 
 - Sync history page form state (resolution, dataset, stations, sections) with URL query parameters for shareable links
 
+### Fixed
+
+- Add `confirmModulesPurge: false` to `pnpm-workspace.yaml` to prevent pnpm aborting with no-TTY error when restarting the dev container
+
 ## [0.4.0] - 2026-02-17
 
 ### Added
