@@ -39,6 +39,8 @@ Types of changes:
 
 - Add `confirmModulesPurge: false` to `pnpm-workspace.yaml` to prevent pnpm aborting with no-TTY error when restarting the dev container
 - Replace `0.0.0.0` with `localhost` as default API base URL to fix Chrome blocking connections to `0.0.0.0` (Private Network Access)
+- Delete `ColorModeSelect` component tests that referenced the removed component, fixing typecheck failure
+- Override `semver@6` → `^7` and `apache-arrow>@types/node` → `^25` in `pnpm-workspace.yaml` to remove packages flagged by `trustPolicy: no-downgrade`, fixing `pnpm typecheck`
 
 ## [0.4.0] - 2026-02-17
 
