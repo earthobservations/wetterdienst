@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Sync history page form state (resolution, dataset, stations, sections) with URL query parameters for shareable links
+
 ## [0.4.0] - 2026-02-17
 
 ### Added
