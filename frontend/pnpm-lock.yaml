@@ -4,13 +4,17 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  undici-types: ^6.21.0
+  semver: ^7.8.2
+
 importers:
 
   .:
     dependencies:
       '@duckdb/duckdb-wasm':
-        specifier: 1.33.1-dev18.0
-        version: 1.33.1-dev18.0
+        specifier: 1.33.1-dev45.0
+        version: 1.33.1-dev45.0
       '@nuxt/icon':
         specifier: ^2.2.3
         version: 2.2.3(magicast@0.5.3)(vite@7.3.5(@types/node@25.9.2)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue@3.5.35(typescript@5.9.3))
@@ -61,8 +65,8 @@ importers:
         specifier: ^3.0.10
         version: 3.0.10
       '@vitest/expect':
-        specifier: 3.2.4
-        version: 3.2.4
+        specifier: ^3.2.6
+        version: 3.2.6
       '@vue/test-utils':
         specifier: ^2.4.11
         version: 2.4.11(@vue/compiler-dom@3.5.35)(@vue/server-renderer@3.5.35(vue@3.5.35(typescript@5.9.3)))(vue@3.5.35(typescript@5.9.3))
@@ -342,8 +346,8 @@ packages:
   '@colordx/core@5.4.3':
     resolution: {integrity: sha512-kIxYSfA5T8HXjav55UaaH/o/cKivF6jCCGIb8eqtcsfI46wsvlSiT8jMDyrl779qLec3c2c2oHBZo4oAhvbjrQ==}
 
-  '@duckdb/duckdb-wasm@1.33.1-dev18.0':
-    resolution: {integrity: sha512-BVF+CYmOsrMRY8rnJa0USmC5PujPs2eZovQrSEeHs85J/MZ9mSblhzDih9BPu4MgwUxK9dYbYxKkBIJ4jv3EKw==}
+  '@duckdb/duckdb-wasm@1.33.1-dev45.0':
+    resolution: {integrity: sha512-ETlrjhiGQzNdaOhpro/Y9u/RCcK+iyuczLy7uOn0kG5Mqlj8C+gTuhBXjs4JpK9ocdUgr3oT8zYYIbUnFD9AYA==}
 
   '@dxup/nuxt@0.4.1':
     resolution: {integrity: sha512-gtYffW6OfWNvoLW+XD3Mx/K8uUq08PMGLYJoDxc92EzZAWqR0FhcR5iaLm5r/OxyGTKz+P5f5Y7Aoir9+SjYaw==}
@@ -2579,9 +2583,6 @@ packages:
       vitest:
         optional: true
 
-  '@vitest/expect@3.2.4':
-    resolution: {integrity: sha512-Io0yyORnB6sikFlt8QW5K7slY4OjqNX9jmJQ02QDda8lyM6B5oNgVWoSoKPac8/kgnCUzuHQKrSLtu/uOqqrig==}
-
   '@vitest/expect@3.2.6':
     resolution: {integrity: sha512-1+7q9BtaKzEmO+fmNT3kYvoNn5Y71XWAx2Q5HRim4tTVRQVRv4uJFAQ5FbK0OPUeNP/WmVCpxYxoJdvuHVjzBQ==}
 
@@ -2596,9 +2597,6 @@ packages:
       vite:
         optional: true
 
-  '@vitest/pretty-format@3.2.4':
-    resolution: {integrity: sha512-IVNZik8IVRJRTr9fxlitMKeJeXFFFN0JaB9PHPGQ8NKQbGpfjlTx9zO4RefN8gp7eqjNy8nyK3NZmBzOPeIxtA==}
-
   '@vitest/pretty-format@3.2.6':
     resolution: {integrity: sha512-lb7XXXzmm2h2ASzFnRvQpDo6onT1NmMJA3tkGTWiBFtRJ9lxGY3d3mm/Apt36gej2bkkOVLL/yTOtufDaFa/jA==}
 
@@ -2608,14 +2606,8 @@ packages:
   '@vitest/snapshot@3.2.6':
     resolution: {integrity: sha512-H+ZjNTWGpObenh0YnlBctAPnJSI20P81PL8BPzWpx54YXLLTm8hEsWawtcYLMrwvpK48hGxLLbCS+1KRXhsKhw==}
 
-  '@vitest/spy@3.2.4':
-    resolution: {integrity: sha512-vAfasCOe6AIK70iP5UD11Ac4siNUNJ9i/9PZ3NKx07sG6sUxeag1LWdNrMWeKKYBLlzuK+Gn65Yd5nyL6ds+nw==}
-
   '@vitest/spy@3.2.6':
     resolution: {integrity: sha512-oq6BbH68WzcWmwtBrU9nqLeaXTR4XwJF7FSLkKEZo4i6eoXcrxjcwSuTvWBIRUTC6VC72nXYunzqgZA+IKdtxg==}
-
-  '@vitest/utils@3.2.4':
-    resolution: {integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==}
 
   '@vitest/utils@3.2.6':
     resolution: {integrity: sha512-lI23nIs4bnT3T8NIoh+vFaz5s2/DdP0Jgt2jxwgWljvwn82cLJtyi/If+fjFyoLMGIOz0U/fKvWE0d4jsNQEfg==}
@@ -5444,10 +5436,6 @@ packages:
   scule@1.3.0:
     resolution: {integrity: sha512-6FtHJEvt+pVMIB9IBY+IcCJ6Z5f1iQnytgyfKMhDKgmzYG+TeH/wx1y3l27rshSbLiSanrR9ffZDrEsmjlQF2g==}
 
-  semver@6.3.1:
-    resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
-    hasBin: true
-
   semver@7.8.2:
     resolution: {integrity: sha512-c8jsqUZm3omBOI66G90z1Dyw5z622G8oLG+omfsHBJf3CWQTlOcwOjvOG6wtiNfW6anKm/eA39LMwMtMez2TiQ==}
     engines: {node: '>=10'}
@@ -5812,11 +5800,8 @@ packages:
   unctx@2.5.0:
     resolution: {integrity: sha512-p+Rz9x0R7X+CYDkT+Xg8/GhpcShTlU8n+cf9OtOEf7zEQsNcCZO1dPKNRDqvUTaq+P32PMMkxWHwfrxkqfqAYg==}
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
-
-  undici-types@7.24.6:
-    resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
+  undici-types@6.26.0:
+    resolution: {integrity: sha512-anbjel3h0aEs7QuwKb3qbvApZmBE4lD0xonwP/6fOHvOj/1D3wmBWula2MOjOV2RRPOLnE9istBSlA+mqVhzMA==}
 
   unenv@2.0.0-rc.24:
     resolution: {integrity: sha512-i7qRCmY42zmCwnYlh9H2SvLEypEFGye5iRmEMKjcGi7zk9UquigRjFtTLz0TYqr0ZGLZhaMHl/foy1bZR+Cwlw==}
@@ -6441,7 +6426,7 @@ snapshots:
       debug: 4.4.3
       gensync: 1.0.0-beta.2
       json5: 2.2.3
-      semver: 6.3.1
+      semver: 7.8.2
     transitivePeerDependencies:
       - supports-color
 
@@ -6472,7 +6457,7 @@ snapshots:
       '@babel/helper-validator-option': 7.29.7
       browserslist: 4.28.2
       lru-cache: 5.1.1
-      semver: 6.3.1
+      semver: 7.8.2
 
   '@babel/helper-create-class-features-plugin@7.29.7(@babel/core@7.29.7)':
     dependencies:
@@ -6483,7 +6468,7 @@ snapshots:
       '@babel/helper-replace-supers': 7.29.7(@babel/core@7.29.7)
       '@babel/helper-skip-transparent-expression-wrappers': 7.29.7
       '@babel/traverse': 7.29.7
-      semver: 6.3.1
+      semver: 7.8.2
     transitivePeerDependencies:
       - supports-color
 
@@ -6653,7 +6638,7 @@ snapshots:
 
   '@colordx/core@5.4.3': {}
 
-  '@duckdb/duckdb-wasm@1.33.1-dev18.0':
+  '@duckdb/duckdb-wasm@1.33.1-dev45.0':
     dependencies:
       apache-arrow: 17.0.0
       qs: 6.15.2
@@ -8570,11 +8555,11 @@ snapshots:
 
   '@types/node@20.19.42':
     dependencies:
-      undici-types: 6.21.0
+      undici-types: 6.26.0
 
   '@types/node@25.9.2':
     dependencies:
-      undici-types: 7.24.6
+      undici-types: 6.26.0
 
   '@types/plotly.js@3.0.10': {}
 
@@ -8822,14 +8807,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/expect@3.2.4':
-    dependencies:
-      '@types/chai': 5.2.3
-      '@vitest/spy': 3.2.4
-      '@vitest/utils': 3.2.4
-      chai: 5.3.3
-      tinyrainbow: 2.0.0
-
   '@vitest/expect@3.2.6':
     dependencies:
       '@types/chai': 5.2.3
@@ -8845,10 +8822,6 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 7.3.5(@types/node@25.9.2)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0)
-
-  '@vitest/pretty-format@3.2.4':
-    dependencies:
-      tinyrainbow: 2.0.0
 
   '@vitest/pretty-format@3.2.6':
     dependencies:
@@ -8866,19 +8839,9 @@ snapshots:
       magic-string: 0.30.21
       pathe: 2.0.3
 
-  '@vitest/spy@3.2.4':
-    dependencies:
-      tinyspy: 4.0.4
-
   '@vitest/spy@3.2.6':
     dependencies:
       tinyspy: 4.0.4
-
-  '@vitest/utils@3.2.4':
-    dependencies:
-      '@vitest/pretty-format': 3.2.4
-      loupe: 3.2.1
-      tinyrainbow: 2.0.0
 
   '@vitest/utils@3.2.6':
     dependencies:
@@ -12259,8 +12222,6 @@ snapshots:
 
   scule@1.3.0: {}
 
-  semver@6.3.1: {}
-
   semver@7.8.2: {}
 
   send@1.2.1:
@@ -12621,9 +12582,7 @@ snapshots:
       magic-string: 0.30.21
       unplugin: 2.3.11
 
-  undici-types@6.21.0: {}
-
-  undici-types@7.24.6: {}
+  undici-types@6.26.0: {}
 
   unenv@2.0.0-rc.24:
     dependencies:

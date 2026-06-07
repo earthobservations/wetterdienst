@@ -23,6 +23,7 @@ Types of changes:
 - Add history endpoint and usage example to the API reference page
 - Add full-screen overlay mobile navigation with fade and slide transition, including nav items, external links and theme toggle
 - Set green as fixed primary color via `app.config.ts`
+- Chore: update @duckdb/duckdb-wasm and @vitest/expect versions
 
 ### Removed
 

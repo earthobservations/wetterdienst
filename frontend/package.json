@@ -21,7 +21,7 @@
     "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
-    "@duckdb/duckdb-wasm": "1.33.1-dev18.0",
+    "@duckdb/duckdb-wasm": "1.33.1-dev45.0",
     "@nuxt/icon": "^2.2.3",
     "@nuxt/ui": "^4.8.2",
     "@nuxtjs/leaflet": "^1.3.2",
@@ -40,7 +40,7 @@
     "@playwright/test": "^1.60.0",
     "@types/leaflet": "^1.9.21",
     "@types/plotly.js": "^3.0.10",
-    "@vitest/expect": "3.2.4",
+    "@vitest/expect": "^3.2.6",
     "@vue/test-utils": "^2.4.11",
     "eslint": "^9.39.4",
     "eslint-plugin-oxlint": "^1.68.0",
