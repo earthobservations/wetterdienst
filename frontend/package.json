@@ -21,33 +21,33 @@
     "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
-    "@duckdb/duckdb-wasm": "1.33.1-dev18.0",
-    "@nuxt/icon": "^2.2.1",
-    "@nuxt/ui": "^4.4.0",
+    "@duckdb/duckdb-wasm": "1.33.1-dev45.0",
+    "@nuxt/icon": "^2.2.3",
+    "@nuxt/ui": "^4.8.2",
     "@nuxtjs/leaflet": "^1.3.2",
-    "@tailwindcss/vite": "^4.1.18",
+    "@tailwindcss/vite": "^4.3.0",
     "leaflet.markercluster": "^1.5.3",
-    "nuxt": "^4.3.1",
-    "nuxt-security": "^2.5.1",
-    "plotly.js-dist-min": "^3.3.1",
-    "tailwindcss": "^4.1.18",
-    "vue": "^3.5.28"
+    "nuxt": "^4.4.7",
+    "nuxt-security": "^2.6.0",
+    "plotly.js-dist-min": "^3.6.0",
+    "tailwindcss": "^4.3.0",
+    "vue": "^3.5.35"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
-    "@nuxt/eslint": "^1.15.1",
+    "@nuxt/eslint": "^1.15.2",
     "@nuxt/test-utils": "^3.23.0",
-    "@playwright/test": "^1.58.2",
+    "@playwright/test": "^1.60.0",
     "@types/leaflet": "^1.9.21",
     "@types/plotly.js": "^3.0.10",
-    "@vitest/expect": "3.2.4",
-    "@vue/test-utils": "^2.4.6",
-    "eslint": "^9.39.2",
-    "eslint-plugin-oxlint": "^1.46.0",
-    "happy-dom": "^20.6.1",
-    "oxlint": "^1.47.0",
+    "@vitest/expect": "^4.1.8",
+    "@vue/test-utils": "^2.4.11",
+    "eslint": "^9.39.4",
+    "eslint-plugin-oxlint": "^1.68.0",
+    "happy-dom": "^20.10.2",
+    "oxlint": "^1.68.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4",
-    "vue-tsc": "^3.2.4"
+    "vitest": "^4.1.8",
+    "vue-tsc": "^3.3.3"
   }
 }

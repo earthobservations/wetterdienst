@@ -1,39 +1,48 @@
-# Build Stage
-FROM node:25-alpine AS build
+# ─── base: node + pnpm ────────────────────────────────────────────────────────
+FROM node:25-alpine AS base
 WORKDIR /app
 
-# Install corepack and prepare pnpm (remove existing yarn to avoid conflicts)
 RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && \
     npm install -g corepack && \
     corepack enable && \
     corepack prepare pnpm@latest --activate
 
-# Copy package files
+# ─── deps: install node_modules ───────────────────────────────────────────────
+FROM base AS deps
+
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 
-# Install dependencies
 RUN pnpm i
 
-# Copy only necessary source files and configs
+# ─── dev: development server ──────────────────────────────────────────────────
+FROM deps AS dev
+
+RUN apk add --no-cache curl
+
+COPY frontend ./
+
+EXPOSE 4000
+
+CMD ["pnpm", "run", "dev"]
+
+# ─── build: production build ──────────────────────────────────────────────────
+FROM deps AS build
+
 COPY frontend/app ./app
 COPY frontend/public ./public
 COPY frontend/server ./server
 COPY frontend/nuxt.config.ts ./
 
-# Build the project
 RUN pnpm run build
 
-# Production Stage
-FROM node:22-alpine
+# ─── prod: production runtime ─────────────────────────────────────────────────
+FROM node:22-alpine AS prod
 WORKDIR /app
 
-# Install curl
 RUN apk add --no-cache curl
 
-# Only copy the built output
 COPY --from=build /app/.output/ ./
 
-# Set environment variables
 ENV HOST=0.0.0.0
 ENV PORT=4000
 

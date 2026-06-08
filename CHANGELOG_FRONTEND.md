@@ -16,6 +16,33 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Sync history page form state (resolution, dataset, stations, sections) with URL query parameters for shareable links
+- Add collapsible about section to history page explaining available history sections and DWD-only availability
+- Add history endpoint and usage example to the API reference page
+- Add full-screen overlay mobile navigation with fade and slide transition, including nav items, external links and theme toggle
+- Set green as fixed primary color via `app.config.ts`
+- Chore: update @duckdb/duckdb-wasm and @vitest/expect versions
+
+### Removed
+
+- Remove primary color picker from header
+- Remove `ColorModeSelect` and `PrimaryColorSelect` components, inline color mode toggle directly in header
+- Remove separate `frontend.dev.Dockerfile`; merged into a single `frontend.Dockerfile` with named `base`, `deps`, `dev`, `build`, and `prod` targets
+
+### Changed
+
+- `compose.yml` updated to use `docker/frontend.Dockerfile` with `target: dev`
+- CI workflow updated to build with `target: prod`
+
+### Fixed
+
+- Add `confirmModulesPurge: false` to `pnpm-workspace.yaml` to prevent pnpm aborting with no-TTY error when restarting the dev container
+- Replace `0.0.0.0` with `localhost` as default API base URL to fix Chrome blocking connections to `0.0.0.0` (Private Network Access)
+- Delete `ColorModeSelect` component tests that referenced the removed component, fixing typecheck failure
+- Override `semver@6` → `^7` and `apache-arrow>@types/node` → `^25` in `pnpm-workspace.yaml` to remove packages flagged by `trustPolicy: no-downgrade`, fixing `pnpm typecheck`
+
 ## [0.4.0] - 2026-02-17
 
 ### Added

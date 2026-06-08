@@ -7,8 +7,11 @@ import StationSelection from '~/components/StationSelection.vue'
 const provider = 'dwd'
 const network = 'observation'
 
-const resolution = ref<string>('')
-const dataset = ref<string>('')
+const route = useRoute()
+const router = useRouter()
+
+const resolution = ref<string>(route.query.resolution?.toString() ?? '')
+const dataset = ref<string>(route.query.dataset?.toString() ?? '')
 
 const stationSelectionState = ref<StationSelectionState>({
   mode: 'station',
@@ -22,7 +25,15 @@ const stationSelectionState = ref<StationSelectionState>({
 })
 
 const availableSections = ['name', 'parameter', 'device', 'geography', 'missing_data']
-const selectedSections = ref<Array<string>>([])
+const selectedSections = ref<Array<string>>(
+  route.query.sections ? route.query.sections.toString().split(',').filter(Boolean) : [],
+)
+
+const initialStationIds = ref<string[]>(
+  route.query.stations ? route.query.stations.toString().split(',').filter(Boolean) : [],
+)
+
+const showAbout = ref(false)
 
 // Track last fetched parameters to prevent redundant fetches
 const lastFetchedParams = ref<{
@@ -80,6 +91,27 @@ const stationIds = computed(() => {
   const stations = stationSelectionState.value.selection?.stations || []
   return stations.map(s => s.station_id).join(',')
 })
+
+// Serialize current state to URL query params
+function historyToQuery(): Record<string, string> {
+  const q: Record<string, string> = {}
+  if (resolution.value)
+    q.resolution = resolution.value
+  if (dataset.value)
+    q.dataset = dataset.value
+  if (stationIds.value)
+    q.stations = stationIds.value
+  if (selectedSections.value.length)
+    q.sections = selectedSections.value.join(',')
+  return q
+}
+
+// Sync state → URL (replace so browser back/forward stack stays clean)
+watch(
+  [resolution, dataset, () => stationIds.value, selectedSections],
+  () => router.replace({ query: historyToQuery() }),
+  { deep: true },
+)
 
 // Helper function to extract station_id from history object
 function getStationId(history: any): string | null {
@@ -203,6 +235,36 @@ function clear() {
       </p>
     </div>
 
+    <UCollapsible v-model="showAbout" class="mb-6">
+      <UButton
+        label="About Station History"
+        variant="subtle"
+        color="neutral"
+        trailing-icon="i-lucide-chevron-down"
+        block
+        size="sm"
+      />
+      <template #content>
+        <UCard>
+          <p class="text-gray-600 dark:text-gray-400 mb-4">
+            Station history captures the administrative and physical changes a weather station has undergone over its
+            lifetime. A station may have been renamed, changed operators, relocated, had its instruments replaced, or
+            experienced periods of missing data — all of which are tracked as timestamped records.
+          </p>
+          <p class="text-gray-600 dark:text-gray-400 mb-4">
+            History is currently available for the <strong>DWD Observation</strong> network only. Select a resolution
+            and dataset to filter available stations, then choose one or more stations to retrieve their history.
+          </p>
+          <p class="text-gray-600 dark:text-gray-400">
+            The following history sections are available: <strong>name</strong> (station and operator name changes),
+            <strong>parameter</strong> (measured parameters over time), <strong>device</strong> (instrument and
+            measurement method changes), <strong>geography</strong> (location and height changes), and
+            <strong>missing data</strong> (gaps in the measurement record).
+          </p>
+        </UCard>
+      </template>
+    </UCollapsible>
+
     <UCard class="mb-6">
       <template #header>
         <h2 class="text-lg font-semibold">
@@ -266,6 +328,7 @@ function clear() {
             <StationSelection
               v-model="stationSelectionState.selection"
               :parameter-selection="parameterSelection"
+              :initial-station-ids="initialStationIds"
               :multiple="true"
             />
           </div>
