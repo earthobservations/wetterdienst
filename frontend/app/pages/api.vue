@@ -9,7 +9,6 @@ const endpoints = [
   { name: 'stripes/stations', path: '/api/stripes/stations', description: 'Get stations for climate stripes visualization' },
   { name: 'stripes/values', path: '/api/stripes/values', description: 'Get climate stripes data values with timestamps' },
   { name: 'stripes/image', path: '/api/stripes/image', description: 'Generate climate stripes image' },
-  { name: 'history', path: '/api/history', description: 'Retrieve station history (name, operator, devices, geography, missing data)' },
 ]
 
 const examples = [
