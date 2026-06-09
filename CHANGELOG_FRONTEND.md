@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-09
+
 ### Added
 
 - Sync history page form state (resolution, dataset, stations, sections) with URL query parameters for shareable links
@@ -98,7 +100,9 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.4.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.5.0...HEAD
+
+[0.5.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.4.0...frontend-v0.5.0
 
 [0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.3.0...frontend-v0.4.0
 
