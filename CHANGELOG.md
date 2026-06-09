@@ -23,6 +23,8 @@ Types of changes:
   `pl.concat(..., how="align")` caused by a schema-less `LazyFrame` being mixed with valid ones.
 - Reduce stamina retry attempts in `download_file` from 3 to 2 to limit worst-case wait time
   per file on persistent network failures.
+- Add a default `aiohttp.ClientTimeout(total=30)` to `fsspec_client_kwargs` in `Settings` so
+  HTTP connections time out after 30 seconds instead of hanging indefinitely.
 
 ## [0.122.0] - 2026-06-07
 
