@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     fsspec_client_kwargs: dict = Field(
         default_factory=lambda: {
             "headers": {"User-Agent": f"wetterdienst/{__import__('wetterdienst').__version__} ({platform.system()})"},
+            "timeout": 30,
         },
     )
     use_certifi: bool = Field(default=False)
