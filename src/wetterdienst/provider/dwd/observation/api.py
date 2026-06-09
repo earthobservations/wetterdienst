@@ -85,7 +85,7 @@ DROPPABLE_COLUMNS = [
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
-    def _collect_station_parameter_or_dataset(
+    def _collect_station_parameter_or_dataset(  # noqa: C901
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel | DatasetModel,
@@ -131,6 +131,9 @@ class DwdObservationValues(TimeseriesValues):
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
             filenames_and_files = download_climate_observations_data(remote_files, settings)
+            if not filenames_and_files:
+                log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
+                continue
             period_df = parse_climate_observations_data(filenames_and_files, dataset, period)
             parameter_data.append(period_df)
         try:

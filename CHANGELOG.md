@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[DWD Observation]` Skip periods where all file downloads fail (empty `filenames_and_files`)
+  before passing to the parser, preventing a `polars.exceptions.InvalidOperationError` from
+  `pl.concat(..., how="align")` caused by a schema-less `LazyFrame` being mixed with valid ones.
+
 ## [0.122.0] - 2026-06-07
 
 ### Fixed
