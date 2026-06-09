@@ -21,6 +21,8 @@ Types of changes:
 - `[DWD Observation]` Skip periods where all file downloads fail (empty `filenames_and_files`)
   before passing to the parser, preventing a `polars.exceptions.InvalidOperationError` from
   `pl.concat(..., how="align")` caused by a schema-less `LazyFrame` being mixed with valid ones.
+- Reduce stamina retry attempts in `download_file` from 3 to 2 to limit worst-case wait time
+  per file on persistent network failures.
 
 ## [0.122.0] - 2026-06-07
 

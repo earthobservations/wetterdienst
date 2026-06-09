@@ -417,7 +417,7 @@ def download_file(
     try:
         for attempt in stamina.retry_context(
             on=(FileNotFoundError, FSTimeoutError, ClientConnectorError, ClientResponseError, ClientPayloadError),
-            attempts=3,
+            attempts=2,
         ):
             with attempt:
                 payload = filesystem.cat_file(url)
