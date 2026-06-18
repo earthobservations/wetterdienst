@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-18
+
 ### Added
 
 - Add Meteogram page with DWD MOSMIX hourly forecast visualization (temperature & dew point, wind speed & gusts with meteorological wind barbs, precipitation by phase, cloud cover by altitude, atmospheric pressure)
@@ -110,9 +112,11 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.5.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.6.0...HEAD
 
-[0.5.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.4.0...frontend-v0.5.0
+[0.6.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.5.0...frontend-v0.6.0
+
+[0.5.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.4.0...frontend-v0.5.0
 
 [0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.3.0...frontend-v0.4.0
 
