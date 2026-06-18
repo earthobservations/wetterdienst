@@ -30,6 +30,9 @@ importers:
       leaflet.markercluster:
         specifier: ^1.5.3
         version: 1.5.3(leaflet@1.9.4)
+      luxon:
+        specifier: ^3.5.0
+        version: 3.7.2
       nuxt:
         specifier: ^4.4.7
         version: 4.4.7(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.9.2)(@vue/compiler-sfc@3.5.35)(cac@6.7.14)(db0@0.3.4)(eslint@9.39.4(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(oxlint@1.68.0)(rollup-plugin-visualizer@7.0.1(rollup@4.61.1))(rollup@4.61.1)(srvx@0.11.16)(terser@5.48.0)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.2)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.3(typescript@5.9.3))(yaml@2.9.0)
@@ -39,9 +42,15 @@ importers:
       plotly.js-dist-min:
         specifier: ^3.6.0
         version: 3.6.0
+      suncalc:
+        specifier: ^1.9.0
+        version: 1.9.0
       tailwindcss:
         specifier: ^4.3.0
         version: 4.3.0
+      tz-lookup:
+        specifier: ^6.1.25
+        version: 6.1.25
       vue:
         specifier: ^3.5.35
         version: 3.5.35(typescript@5.9.3)
@@ -61,9 +70,18 @@ importers:
       '@types/leaflet':
         specifier: ^1.9.21
         version: 1.9.21
+      '@types/luxon':
+        specifier: ^3.7.1
+        version: 3.7.1
       '@types/plotly.js':
         specifier: ^3.0.10
         version: 3.0.10
+      '@types/suncalc':
+        specifier: ^1.9.2
+        version: 1.9.2
+      '@types/tz-lookup':
+        specifier: ^6.1.2
+        version: 6.1.2
       '@vitest/expect':
         specifier: ^4.1.8
         version: 4.1.8
@@ -2324,6 +2342,9 @@ packages:
   '@types/leaflet@1.9.21':
     resolution: {integrity: sha512-TbAd9DaPGSnzp6QvtYngntMZgcRk+igFELwR2N99XZn7RXUdKgsXMR+28bUO0rPsWp8MIu/f47luLIQuSLYv/w==}
 
+  '@types/luxon@3.7.1':
+    resolution: {integrity: sha512-H3iskjFIAn5SlJU7OuxUmTEpebK6TKB8rxZShDslBMZJ5u9S//KM1sbdAisiSrqwLQncVjnpi2OK2J51h+4lsg==}
+
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
 
@@ -2341,6 +2362,12 @@ packages:
 
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
+
+  '@types/suncalc@1.9.2':
+    resolution: {integrity: sha512-ATAGBHHfA1TlE2tjfidLyTcysjoT2JHHEAmWRULh73SU9UTn++j5fqHEW16X6Y/2Li87jEQXzgu4R/OOdlDqzw==}
+
+  '@types/tz-lookup@6.1.2':
+    resolution: {integrity: sha512-9y31Xf/8FHXrCHjvVjGZLcsayAa6ABNc8bZlk6MPOQLLlr41tICSqW3TRPRIx2nodbzdKs5N7ipHWBrUsWUiAA==}
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
@@ -4501,6 +4528,10 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
+  luxon@3.7.2:
+    resolution: {integrity: sha512-vtEhXh/gNjI9Yg1u4jX/0YVPMvxzHuGgCm6tC5kZyb08yjGWGnqAjGJvcXbqQR2P3MyMEFnRbpcdFS6PBcLqew==}
+    engines: {node: '>=12'}
+
   magic-regexp@0.10.0:
     resolution: {integrity: sha512-Uly1Bu4lO1hwHUW0CQeSWuRtzCMNO00CmXtS8N6fyvB3B979GOEEeAkiTUDsmbYLAbvpUS/Kt5c4ibosAzVyVg==}
 
@@ -5603,6 +5634,9 @@ packages:
     peerDependencies:
       postcss: ^8.5.14
 
+  suncalc@1.9.0:
+    resolution: {integrity: sha512-vMJ8Byp1uIPoj+wb9c1AdK4jpkSKVAywgHX0lqY7zt6+EWRRC3Z+0Ucfjy/0yxTVO1hwwchZe4uoFNqrIC24+A==}
+
   supports-color@10.2.2:
     resolution: {integrity: sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==}
     engines: {node: '>=18'}
@@ -5755,6 +5789,9 @@ packages:
   typical@7.3.0:
     resolution: {integrity: sha512-ya4mg/30vm+DOWfBg4YK3j2WD6TWtRkCbasOJr40CseYENzCUby/7rIvXA99JGsQHeNxLbnXdyLLxKSv3tauFw==}
     engines: {node: '>=12.17'}
+
+  tz-lookup@6.1.25:
+    resolution: {integrity: sha512-fFewT9o1uDzsW1QnUU1ValqaihFnwiUiiHr1S79/fxOzKXYYvX+EHeRnpvQJ9B3Qg67wPXT6QF2Esc4pFOrvLg==}
 
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
@@ -8526,6 +8563,8 @@ snapshots:
     dependencies:
       '@types/geojson': 7946.0.16
 
+  '@types/luxon@3.7.1': {}
+
   '@types/mdast@4.0.4':
     dependencies:
       '@types/unist': 3.0.3
@@ -8543,6 +8582,10 @@ snapshots:
   '@types/plotly.js@3.0.10': {}
 
   '@types/resolve@1.20.2': {}
+
+  '@types/suncalc@1.9.2': {}
+
+  '@types/tz-lookup@6.1.2': {}
 
   '@types/unist@3.0.3': {}
 
@@ -10788,6 +10831,8 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
+  luxon@3.7.2: {}
+
   magic-regexp@0.10.0:
     dependencies:
       estree-walker: 3.0.3
@@ -12380,6 +12425,8 @@ snapshots:
       postcss: 8.5.15
       postcss-selector-parser: 7.1.1
 
+  suncalc@1.9.0: {}
+
   supports-color@10.2.2: {}
 
   supports-color@7.2.0:
@@ -12522,6 +12569,8 @@ snapshots:
   typical@4.0.0: {}
 
   typical@7.3.0: {}
+
+  tz-lookup@6.1.25: {}
 
   ufo@1.6.4: {}
 

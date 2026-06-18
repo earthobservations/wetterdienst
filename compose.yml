@@ -35,6 +35,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=4000
+      - CI=true
       - NUXT_PUBLIC_API_BASE=http://backend:3000/api
     ports:
       - "4000:4000"

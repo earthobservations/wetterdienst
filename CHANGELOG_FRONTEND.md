@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Add Meteogram page with DWD MOSMIX hourly forecast visualization (temperature & dew point, wind speed & gusts with meteorological wind barbs, precipitation by phase, cloud cover by altitude, atmospheric pressure)
+- Timezone-aware day/night bands derived from station coordinates via SunCalc and tz-lookup
+- Compact overview mode with emoji weather icons, min/max temperature and precipitation per day
+- Summary metrics cards (min/max temp, total precip, max gust, avg cloud cover, pressure range)
+- Interactive panel visibility toggles for each chart panel
+- Embeddable widget page at `/widget?station=XXXXX` with minimal chrome for iframe embedding; supports `?theme=dark|light`
+- Widget link button in meteogram chart header to open the current station as a widget in a new tab
+
 ## [0.5.0] - 2026-06-09
 
 ### Added
