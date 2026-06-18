@@ -26,10 +26,10 @@ RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
 # Final stage
 FROM python:3.14-slim-trixie
 
-# No system packages are required in the final image. Kaleido provides a
-# bundled headless binary for PNG export, and health checks are performed
-# externally by the test runners, so we keep the final image free of apt
-# operations to avoid consuming build-time disk in constrained builders.
+# Install chromium -> required for kaleido png export, and curl for health checks
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends chromium curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from build stage
 COPY --from=build /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
