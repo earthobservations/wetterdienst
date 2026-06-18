@@ -25,6 +25,8 @@ Types of changes:
   per file on persistent network failures.
 - Add a default `aiohttp.ClientTimeout(total=30)` to `fsspec_client_kwargs` in `Settings` so
   HTTP connections time out after 30 seconds instead of hanging indefinitely.
+- Wrap bare `int` timeouts in `aiohttp.ClientTimeout` inside `HTTPFileSystem.__init__` so that
+  aiohttp >= 3.9 (which rejects plain int timeouts) works correctly with `fsspec_client_kwargs`.
 
 ## [0.122.0] - 2026-06-07
 

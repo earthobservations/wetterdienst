@@ -229,6 +229,14 @@ class HTTPFileSystem(_HTTPFileSystem):
 
             kwargs["get_client"] = get_client_with_certifi
 
+        # aiohttp >= 3.9 rejects bare int timeouts; wrap in ClientTimeout
+        if "client_kwargs" in kwargs and isinstance(kwargs["client_kwargs"].get("timeout"), int):
+            import aiohttp  # noqa: PLC0415
+
+            client_kw = dict(kwargs["client_kwargs"])
+            client_kw["timeout"] = aiohttp.ClientTimeout(total=client_kw["timeout"])
+            kwargs["client_kwargs"] = client_kw
+
         kwargs.update(
             {
                 "use_listings_cache": use_listings_cache,
