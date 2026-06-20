@@ -7,12 +7,14 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from fsspec.exceptions import FSTimeoutError
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 
 
+@pytest.mark.xfail(raises=FSTimeoutError, strict=False, reason="ECCC server regularly times out")
 @pytest.mark.remote
 def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
     """Test fetching of ECCC stations."""
@@ -43,6 +45,7 @@ def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
     assert_frame_equal(given_df, expected_df)
 
 
+@pytest.mark.xfail(raises=FSTimeoutError, strict=False, reason="ECCC server regularly times out")
 @pytest.mark.remote
 def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
     """Test fetching of ECCC data."""
