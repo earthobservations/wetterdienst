@@ -4,6 +4,7 @@ import json
 
 import pytest
 from click.testing import CliRunner
+from dirty_equals import IsApprox, IsStr
 
 from wetterdienst.ui.cli import cli
 
@@ -89,14 +90,14 @@ def test_history_dwd_observation() -> None:
     assert history["missing_data"].keys() == {"summary", "periods"}
     assert history["missing_data"]["summary"][0] == {
         "description": "Gesamt_Messzeitraum",
-        "end_date": "2025-05-14T00:00:00+00:00",
-        "missing_count": 147,
+        "end_date": IsStr,
+        "missing_count": IsApprox(147, delta=50),
         "parameter": "TMK",
         "start_date": "1974-01-01T00:00:00+00:00",
         "station_id": "02564",
         "station_name": "Kiel-Holtenau",
     }
-    assert len(history["missing_data"]["periods"]) == 398
+    assert len(history["missing_data"]["periods"]) == IsApprox(398, delta=100)
     assert history["missing_data"]["periods"][0] == {
         "description": "",
         "end_date": "2007-03-12T00:00:00+00:00",

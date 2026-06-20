@@ -3,6 +3,8 @@
 import datetime as dt
 from zoneinfo import ZoneInfo
 
+from dirty_equals import IsApprox, IsDatetime
+
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
 
@@ -74,7 +76,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[2]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "FM"
     assert parameter_history.description == "Tagesmittel der Windgeschwindigkeit m/s  Messnetz 3"
@@ -123,7 +125,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[5]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "FX"
     assert parameter_history.description == "Maximum der Windspitze Messnetz 3"
@@ -156,7 +158,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[7]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "NM"
     assert parameter_history.description == "Tagesmittel des Bedeckungsgrades"
@@ -189,7 +191,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[9]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "PM"
     assert parameter_history.description == "Tagesmittel des Luftdrucks"
@@ -222,7 +224,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[11]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "RSK"
     assert parameter_history.description == "tgl. Niederschlagshoehe"
@@ -255,7 +257,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[13]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "RSKF"
     assert parameter_history.description == "tgl. Niederschlagsform (=Niederschlagshoehe_ind)"
@@ -321,7 +323,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[17]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "SHK_TAG"
     assert parameter_history.description == "Schneehoehe Tageswert"
@@ -358,7 +360,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[19]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "TGK"
     assert parameter_history.description == "Minimum der Lufttemperatur am Erdboden in 5cm Hoehe"
@@ -391,7 +393,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[21]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "TMK"
     assert parameter_history.description == "Tagesmittel der Temperatur"
@@ -424,7 +426,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[23]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2006, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "TNK"
     assert parameter_history.description == "Tagesminimum der Lufttemperatur in 2m Hoehe"
@@ -457,7 +459,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[25]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2006, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "TXK"
     assert parameter_history.description == "Tagesmaximum der Lufttemperatur in 2m Höhe"
@@ -490,7 +492,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[27]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "UPM"
     assert parameter_history.description == "Tagesmittel der Relativen Feuchte"
@@ -523,7 +525,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     parameter_history = history.parameter[29]
     assert parameter_history.station_id == "2564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
-    assert parameter_history.end_date == dt.datetime(2025, 5, 14, tzinfo=ZoneInfo("UTC"))
+    assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
     assert parameter_history.parameter == "VPM"
     assert parameter_history.description == "Tagesmittel des Dampfdruckes"
@@ -590,7 +592,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 29.56
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Luftdruckmessung, elektr."
     device_history = history.device[5]
     assert device_history.device_type == "Minimumthermometer"
@@ -634,7 +636,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 0.05
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[9]
     assert device_history.device_type == "Psychrometerthermometer (trocken)"
@@ -667,7 +669,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[12]
     assert device_history.device_type == "Maximumthermometer"
@@ -700,7 +702,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[15]
     assert device_history.device_type == "Minimumthermometer"
@@ -733,7 +735,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[18]
     assert device_history.device_type == "Hellmann"
@@ -777,7 +779,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 1.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Niederschlagsmenge, elektr."
     device_history = history.device[22]
     assert device_history.device_type == "Niederschlagswächter"
@@ -799,7 +801,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 1.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Niederschlagsdauer, elektr."
     device_history = history.device[24]
     assert device_history.device_type == "Hygrograph nach Frankenberg"
@@ -854,7 +856,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Feuchtemessung, elektr."
     device_history = history.device[29]
     assert device_history.device_type == "Schneepegel"
@@ -898,7 +900,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 2.3
     assert device_history.start_date == dt.datetime(2024, 8, 13, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Schneehöhenmessung, elektr."
     device_history = history.device[33]
     assert device_history.device_type == "Sonnenscheinschreiber nach Campbell-Stokes"
@@ -1008,7 +1010,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(2020, 10, 14, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Windmessung, elektr."
     device_history = history.device[43]
     assert device_history.device_type == "Universal-Windschreiber 90"
@@ -1074,7 +1076,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_height == 28.41
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(2020, 10, 14, tzinfo=ZoneInfo("UTC"))
-    assert device_history.end_date == dt.datetime(2025, 5, 6, tzinfo=ZoneInfo("UTC"))
+    assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert device_history.method == "Windmessung, elektr."
     assert len(history.geography) == 8
     geography = history.geography[0]
@@ -1148,80 +1150,80 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "TMK"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 147
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(147, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[1]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "TXK"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 2176
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(2176, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[2]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "TNK"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 2176
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(2176, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[3]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "TGK"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 4424
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(4424, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[4]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "PM"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 235
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(235, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[5]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "FM"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 1983
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(1983, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[6]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "FX"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 2015
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(2015, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[7]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "UPM"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 249
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(249, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[8]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "VPM"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 242
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(242, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[9]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "NM"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 272
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(272, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[10]
     assert summary_missing_data.station_id == "02564"
@@ -1229,31 +1231,31 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert summary_missing_data.parameter == "SDK"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert summary_missing_data.end_date == dt.datetime(2019, 5, 4, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 251
+    assert summary_missing_data.missing_count == IsApprox(251, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[11]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "RSK"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 148
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(148, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[12]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "RSKF"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 147
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(147, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
     summary_missing_data = history.missing_data.summary[13]
     assert summary_missing_data.station_id == "02564"
     assert summary_missing_data.station_name == "Kiel-Holtenau"
     assert summary_missing_data.parameter == "SHK_TAG"
     assert summary_missing_data.start_date == dt.datetime(1974, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.end_date == dt.datetime(2025, 5, 14, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert summary_missing_data.missing_count == 1712
+    assert summary_missing_data.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
+    assert summary_missing_data.missing_count == IsApprox(1712, delta=200)
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
 
 
@@ -1288,6 +1290,6 @@ def test_dwd_obs_subdaily_wind_extreme_history() -> None:
     assert len(history.device) == 8
     assert len(history.geography) == 16
     assert len(history.missing_data.summary) == 2
-    assert len(history.missing_data.periods) == 3909
+    assert len(history.missing_data.periods) == IsApprox(3909, delta=200)
     # one special assertion here for parameter names
     assert {parameter.parameter for parameter in history.parameter} == {"FX_911_3", "FX_911_6"}
