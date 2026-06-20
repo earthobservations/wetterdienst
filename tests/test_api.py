@@ -6,6 +6,7 @@ import zoneinfo
 
 import polars as pl
 import pytest
+from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Parameter, Settings
@@ -300,6 +301,7 @@ def test_api_dwd_road(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.xfail(raises=FSTimeoutError, strict=False, reason="ECCC server regularly times out")
 @pytest.mark.remote
 def test_api_eccc_observation(default_settings: Settings) -> None:
     """Test eccc observation API."""
