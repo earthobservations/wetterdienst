@@ -212,6 +212,7 @@ dev = [
     "zizmor>=1.4.1",
     "deptry>=0.24.0",
     "ty>=0.0.32",
+    "httpx2>=2.4.0",
 ]
 
 docs = [
@@ -243,11 +244,11 @@ docs = "cd docs && make html"
 test = ["test:parallel", "test:cflakes"]
 # For Windows CI
 test-slow = "uv run pytest"
-"_coverage:parallel" = "uv run pytest --cov-report xml --cov wetterdienst tests/ --numprocesses=auto -m 'not (explorer or cflake)'"
-"_coverage:cflakes" = "uv run pytest --cov-report xml --cov-append --cov wetterdienst tests/ -m cflake"
+"coverage:parallel" = "uv run pytest --cov-report xml --cov wetterdienst tests/ --numprocesses=auto -m 'not (explorer or cflake)' --junitxml=junit-parallel.xml"
+"coverage:cflakes" = "uv run pytest --cov-report xml --cov-append --cov wetterdienst tests/ -m cflake --junitxml=junit-cflakes.xml"
 coverage = [
-    "_coverage:parallel",
-    "_coverage:cflakes",
+    "coverage:parallel",
+    "coverage:cflakes",
 ]
 typecheck = "uv run ty check src/wetterdienst"
 sync = "uv sync"
@@ -312,6 +313,7 @@ scikit-learn = "sklearn"
 [tool.deptry.per_rule_ignores]
 DEP002 = [
     "httpx",
+    "httpx2",
     "kaleido",
     "mysqlclient",
     "pandas",
