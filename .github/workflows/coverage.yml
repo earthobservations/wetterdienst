@@ -39,19 +39,30 @@ jobs:
       - name: Install project
         run: uv sync
 
-      - name: Install project
+      - name: Install extras for testing
         run: .github/workflows/install.sh testing
 
-      - name: Run tests, with coverage
-        run: |
-          uv run poe coverage
+      - name: Run tests, with coverage (parallel)
+        run: uv run poe coverage:parallel
+
+      - name: Run tests, with coverage (cflakes)
+        if: always()
+        run: uv run poe coverage:cflakes
 
       - name: Upload coverage report to Codecov
-        uses: codecov/codecov-action@v6
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           flags: unittests
-          env_vars: OS,PYTHON
-          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./junit-parallel.xml,./junit-cflakes.xml
+          report_type: test_results
           fail_ci_if_error: false

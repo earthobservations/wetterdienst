@@ -1,9 +1,21 @@
 coverage:
+  precision: 2
+  round: down
+  range: "70...100"
   status:
     project:
       default:
         target: 75%
-
     patch:
       default:
         informational: true
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+  require_head: true
+
+ignore:
+  - "tests/**"
+  - "src/wetterdienst/provider/dwd/radar/cli.py"
