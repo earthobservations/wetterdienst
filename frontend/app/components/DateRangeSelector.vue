@@ -10,6 +10,8 @@ const props = defineProps<{
 
 const modelValue = defineModel<DateRange>({ required: true })
 
+const { t, locale } = useI18n()
+
 // High resolution thresholds (resolutions that require date filtering)
 const HIGH_RESOLUTION_THRESHOLDS: Resolution[] = ['1_minute', '5_minutes', '10_minutes']
 
@@ -69,20 +71,23 @@ const exceedsLimit = computed(() => {
 const validationError = computed(() => {
   if (requiresDateRange.value) {
     if (!modelValue.value.startDate)
-      return 'Start date is required'
+      return t('dateRange.errStartRequired')
     if (!modelValue.value.endDate)
-      return 'End date is required'
+      return t('dateRange.errEndRequired')
   }
 
   if (modelValue.value.startDate && modelValue.value.endDate) {
     const start = new Date(modelValue.value.startDate)
     const end = new Date(modelValue.value.endDate)
     if (end < start)
-      return 'End date must be after start date'
+      return t('dateRange.errEndAfterStart')
   }
 
   if (exceedsLimit.value) {
-    return `Estimated ${estimatedValues.value?.toLocaleString()} values exceeds limit of ${MAX_VALUES.toLocaleString()}. Please narrow the date range.`
+    return t('dateRange.errExceedsLimit', {
+      count: estimatedValues.value?.toLocaleString(locale.value),
+      max: MAX_VALUES.toLocaleString(locale.value),
+    })
   }
 
   return null
@@ -101,24 +106,24 @@ defineExpose({ isValid, validationError })
 <template>
   <div class="space-y-3">
     <div class="flex items-center gap-2">
-      <span class="text-sm font-medium">Date Range</span>
+      <span class="text-sm font-medium">{{ t('dateRange.label') }}</span>
       <UBadge v-if="requiresDateRange" size="xs" color="warning" variant="subtle">
-        Required
+        {{ t('dateRange.required') }}
       </UBadge>
       <UBadge v-else size="xs" color="neutral" variant="subtle">
-        Optional
+        {{ t('dateRange.optional') }}
       </UBadge>
     </div>
 
     <div class="flex gap-4">
-      <UFormField label="Start Date" class="flex-1" :error="!modelValue.startDate && requiresDateRange ? 'Required' : undefined">
+      <UFormField :label="t('dateRange.startDate')" class="flex-1" :error="!modelValue.startDate && requiresDateRange ? t('dateRange.required') : undefined">
         <UInput
           v-model="modelValue.startDate"
           type="date"
           class="w-full"
         />
       </UFormField>
-      <UFormField label="End Date" class="flex-1" :error="!modelValue.endDate && requiresDateRange ? 'Required' : undefined">
+      <UFormField :label="t('dateRange.endDate')" class="flex-1" :error="!modelValue.endDate && requiresDateRange ? t('dateRange.required') : undefined">
         <UInput
           v-model="modelValue.endDate"
           type="date"
@@ -129,8 +134,8 @@ defineExpose({ isValid, validationError })
 
     <div v-if="isHighResolution && estimatedValues !== null" class="text-sm">
       <span :class="exceedsLimit ? 'text-red-500' : 'text-gray-500'">
-        Estimated values: {{ estimatedValues.toLocaleString() }}
-        <span v-if="exceedsLimit"> (max: {{ MAX_VALUES.toLocaleString() }})</span>
+        {{ t('dateRange.estimatedValues', { count: estimatedValues.toLocaleString(locale) }) }}
+        <span v-if="exceedsLimit"> ({{ t('dateRange.max', { max: MAX_VALUES.toLocaleString(locale) }) }})</span>
       </span>
     </div>
 

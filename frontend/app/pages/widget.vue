@@ -10,6 +10,7 @@ const MOSMIX = {
   parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
 }
 
+const { t } = useI18n()
 const route = useRoute()
 const stationId = computed(() => route.query.station as string | undefined)
 const themeParam = computed(() => route.query.theme as string | undefined)
@@ -39,7 +40,7 @@ async function loadStation(id: string) {
     station.value = (res.stations ?? [])[0] ?? null
   }
   catch {
-    error.value = 'Station not found'
+    error.value = t('widget.stationNotFound')
   }
 }
 
@@ -88,7 +89,7 @@ onMounted(async () => {
       <div class="flex items-center gap-2 min-w-0">
         <img src="/favicon.ico" alt="Wetterdienst" class="w-5 h-5 shrink-0">
         <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">
-          {{ station ? station.name : 'Meteogram' }}
+          {{ station ? station.name : t('meteogram.title') }}
         </span>
         <span v-if="station" class="text-xs text-gray-400 shrink-0">({{ station.station_id }})</span>
       </div>
@@ -97,22 +98,24 @@ onMounted(async () => {
         target="_blank"
         rel="noopener"
         class="inline-flex items-center gap-1 text-xs text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 shrink-0 ml-2"
-        title="Open full forecast"
+        :title="t('widget.openFull')"
       >
-        Open
+        {{ t('common.open') }}
         <UIcon name="i-lucide-external-link" class="w-3 h-3" />
       </a>
     </div>
 
     <!-- Content -->
     <div class="flex-1 overflow-hidden">
-      <div v-if="!stationId" class="flex items-center justify-center h-full py-16 text-gray-400 text-sm">
-        No station specified. Add <code class="mx-1 px-1 bg-gray-100 dark:bg-gray-800 rounded">?station=XXXXX</code> to the URL.
-      </div>
+      <i18n-t v-if="!stationId" keypath="widget.noStation" tag="div" class="flex items-center justify-center h-full py-16 text-gray-400 text-sm" scope="global">
+        <template #param>
+          <code class="mx-1 px-1 bg-gray-100 dark:bg-gray-800 rounded">?station=XXXXX</code>
+        </template>
+      </i18n-t>
 
       <div v-else-if="pending" class="flex items-center justify-center gap-2 py-16 text-gray-400 text-sm">
         <UIcon name="i-lucide-loader-circle" class="w-4 h-4 animate-spin text-primary-500" />
-        Loading forecast…
+        {{ t('widget.loading') }}
       </div>
 
       <div v-else-if="error" class="flex items-center justify-center py-16 text-red-500 text-sm">
@@ -129,7 +132,7 @@ onMounted(async () => {
       </div>
 
       <div v-else-if="station && !pending" class="flex items-center justify-center py-16 text-gray-400 text-sm">
-        No forecast data available.
+        {{ t('widget.noData') }}
       </div>
     </div>
 
@@ -141,7 +144,7 @@ onMounted(async () => {
         rel="noopener"
         class="text-[10px] text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
       >
-        Powered by Wetterdienst · DWD MOSMIX
+        {{ t('widget.poweredBy') }}
       </a>
     </div>
   </div>

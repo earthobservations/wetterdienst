@@ -13,6 +13,7 @@ const MOSMIX = {
   parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
 }
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -92,16 +93,16 @@ onMounted(async () => {
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
       <h1 class="text-4xl font-bold mb-4">
-        Meteogram
+        {{ t('meteogram.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
-        DWD MOSMIX forecast — temperature, precipitation and wind
+        {{ t('meteogram.subtitle') }}
       </p>
     </div>
 
     <UCollapsible v-model="showAbout" class="mb-6">
       <UButton
-        label="About Meteogram"
+        :label="t('meteogram.aboutButton')"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -111,15 +112,10 @@ onMounted(async () => {
       <template #content>
         <UCard>
           <p class="text-gray-600 dark:text-gray-400 mb-4">
-            The Meteogram displays a multi-day weather forecast from <strong>DWD MOSMIX</strong>, a statistical post-processing
-            product that combines numerical weather prediction model output with station observations to produce
-            calibrated hourly forecasts at over 5000 locations across Germany and worldwide.
+            {{ t('meteogram.aboutText1') }}
           </p>
           <p class="text-gray-600 dark:text-gray-400">
-            The chart shows temperature &amp; dew point, wind speed &amp; gusts with meteorological wind barbs,
-            precipitation classified by phase (rain / mixed / snow), cloud cover by altitude, and atmospheric
-            pressure. Day/night bands are derived from the station's geographic location. Select any DWD station
-            by name or ID to load its forecast.
+            {{ t('meteogram.aboutText2') }}
           </p>
         </UCard>
       </template>
@@ -130,7 +126,7 @@ onMounted(async () => {
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-map-pin" class="text-primary-500" />
-          <span class="font-semibold">Select station</span>
+          <span class="font-semibold">{{ t('meteogram.selectStation') }}</span>
         </div>
       </template>
       <MeteogramStationSearch v-model="selectedStation" />
@@ -139,7 +135,7 @@ onMounted(async () => {
     <!-- Loading state -->
     <div v-if="pending" class="flex items-center justify-center gap-3 py-12 text-gray-500">
       <UIcon name="i-lucide-loader-circle" class="w-6 h-6 animate-spin text-primary-500" />
-      <span>Fetching MOSMIX forecast…</span>
+      <span>{{ t('meteogram.loading') }}</span>
     </div>
 
     <!-- Error state -->
@@ -165,7 +161,7 @@ onMounted(async () => {
             size="xs"
             variant="ghost"
             color="neutral"
-            title="Open as embeddable widget"
+            :title="t('meteogram.openWidget')"
             class="ml-auto"
           />
         </div>
@@ -184,7 +180,7 @@ onMounted(async () => {
     >
       <UIcon name="i-lucide-cloud-sun" class="w-12 h-12 mx-auto opacity-30" />
       <p class="text-sm">
-        Search for a station above to generate a meteogram
+        {{ t('meteogram.emptyHint') }}
       </p>
     </div>
   </UContainer>

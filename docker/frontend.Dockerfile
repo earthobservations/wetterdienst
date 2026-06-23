@@ -29,6 +29,7 @@ CMD ["pnpm", "run", "dev"]
 FROM deps AS build
 
 COPY frontend/app ./app
+COPY frontend/i18n ./i18n
 COPY frontend/public ./public
 COPY frontend/server ./server
 COPY frontend/nuxt.config.ts ./

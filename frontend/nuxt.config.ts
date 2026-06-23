@@ -27,10 +27,28 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxt/icon',
     '@nuxt/ui',
+    '@nuxtjs/i18n',
     '@nuxtjs/leaflet',
+    '@vueuse/nuxt',
     'nuxt-security',
     '@nuxt/test-utils/module',
   ],
+
+  i18n: {
+    locales: [
+      { code: 'de', language: 'de-DE', name: 'Deutsch', file: 'de.json' },
+      { code: 'en', language: 'en-US', name: 'English', file: 'en.json' },
+    ],
+    defaultLocale: 'de',
+    strategy: 'no_prefix',
+    vueI18n: 'i18n.config.ts',
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'wd_lang',
+      fallbackLocale: 'de',
+      redirectOn: 'root',
+    },
+  },
 
   devtools: { enabled: true },
 
