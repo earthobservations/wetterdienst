@@ -5,8 +5,12 @@
 
 export interface QueryValidationResult {
   valid: boolean
-  error?: string
-  warning?: string
+  /** i18n key for an error message, translated at the display site. */
+  errorKey?: string
+  /** i18n key for a warning message, translated at the display site. */
+  warningKey?: string
+  /** Interpolation params for the error/warning message. */
+  params?: Record<string, string>
 }
 
 /**
@@ -20,7 +24,7 @@ export function validateQuery(query: string): QueryValidationResult {
   if (!query || query.trim().length === 0) {
     return {
       valid: false,
-      error: 'Query cannot be empty',
+      errorKey: 'validation.queryEmpty',
     }
   }
 
@@ -36,7 +40,7 @@ export function validateQuery(query: string): QueryValidationResult {
   if (!withoutComments.startsWith('SELECT') && !withoutComments.startsWith('WITH')) {
     return {
       valid: false,
-      error: 'Only SELECT queries are allowed. Query must start with SELECT or WITH.',
+      errorKey: 'validation.onlySelect',
     }
   }
 
@@ -70,7 +74,8 @@ export function validateQuery(query: string): QueryValidationResult {
     if (pattern.test(withoutComments)) {
       return {
         valid: false,
-        error: `Query contains disallowed operation: ${pattern.source.replace(/\\b/g, '')}`,
+        errorKey: 'validation.disallowedOperation',
+        params: { op: pattern.source.replace(/\\b/g, '') },
       }
     }
   }
@@ -79,7 +84,7 @@ export function validateQuery(query: string): QueryValidationResult {
   if (!normalizedQuery.includes('LIMIT')) {
     return {
       valid: true,
-      warning: 'Query does not contain a LIMIT clause. Large result sets may impact performance.',
+      warningKey: 'validation.noLimit',
     }
   }
 
@@ -94,11 +99,11 @@ export function validateQuery(query: string): QueryValidationResult {
 export function validateColumns(
   resultColumns: string[],
   expectedColumns: string[],
-): { valid: boolean, message?: string } {
+): { valid: boolean, messageKey?: string, params?: Record<string, string> } {
   if (resultColumns.length === 0) {
     return {
       valid: false,
-      message: 'Query returned no columns',
+      messageKey: 'validation.noColumns',
     }
   }
 
@@ -108,7 +113,8 @@ export function validateColumns(
   if (missingColumns.length > 0) {
     return {
       valid: false,
-      message: `Query results are missing expected columns: ${missingColumns.join(', ')}. Expected columns: ${expectedColumns.join(', ')}`,
+      messageKey: 'validation.missingColumns',
+      params: { missing: missingColumns.join(', '), expected: expectedColumns.join(', ') },
     }
   }
 
@@ -117,7 +123,8 @@ export function validateColumns(
   if (extraColumns.length > 0) {
     return {
       valid: true,
-      message: `Query results contain additional columns: ${extraColumns.join(', ')}`,
+      messageKey: 'validation.extraColumns',
+      params: { extra: extraColumns.join(', ') },
     }
   }
 

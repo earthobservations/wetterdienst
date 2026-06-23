@@ -10,6 +10,8 @@ const props = defineProps<{
 }>()
 const emit = defineEmits(['update:selectedStations'])
 
+const { t } = useI18n()
+
 const map = ref(null) as any
 let markerClusterGroup: any = null
 const markersMap: Map<string, any> = new Map()
@@ -187,7 +189,7 @@ watch([
   <div>
     <div class="p-4 space-y-4">
       <UButton
-        :label="isCenteredOnSelected ? 'Center on all stations' : (props.selectedStations.length === 1 ? 'Center on selected station' : 'Center on selected stations')"
+        :label="isCenteredOnSelected ? t('map.centerAll') : (props.selectedStations.length === 1 ? t('map.centerSelected') : t('map.centerSelectedPlural'))"
         color="neutral"
         variant="ghost"
         size="sm"

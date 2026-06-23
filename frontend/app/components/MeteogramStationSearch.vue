@@ -10,6 +10,8 @@ const emit = defineEmits<{
   'update:modelValue': [station: Station | null]
 }>()
 
+const { t } = useI18n()
+
 const query = ref('')
 const results = ref<Station[]>([])
 const loading = ref(false)
@@ -181,7 +183,7 @@ onUnmounted(() => {
     <div ref="anchorRef">
       <UInput
         v-model="query"
-        :placeholder="modelValue ? 'Search for a different station…' : 'Search by name or station ID (e.g. München, 10738)'"
+        :placeholder="modelValue ? t('meteogram.searchPlaceholderChange') : t('meteogram.searchPlaceholder')"
         class="w-full"
         :loading="loading"
         icon="i-lucide-search"
@@ -191,7 +193,7 @@ onUnmounted(() => {
 
     <!-- Hint text -->
     <p class="text-xs text-gray-400 mt-1">
-      Type ≥ 2 characters to search. Use a numeric ID for an exact lookup.
+      {{ t('meteogram.searchHint') }}
     </p>
 
     <!-- Results dropdown teleported so it can't be clipped by sibling frames -->
@@ -220,7 +222,7 @@ onUnmounted(() => {
       v-if="!loading && noResults && query.length >= 2"
       class="text-sm text-gray-500 mt-2"
     >
-      No stations found for "{{ query }}"
+      {{ t('meteogram.noResults', { query }) }}
     </p>
   </div>
 </template>

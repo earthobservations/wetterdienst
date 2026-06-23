@@ -14,6 +14,9 @@ const props = defineProps<{
   settings: DataSettings
 }>()
 
+const { t } = useI18n()
+const { parameterLabel, datasetLabel } = useParameterLabel()
+
 // Safe accessors for props to prevent reactivity issues
 const stationSelection = computed(() => {
   if (!props.stationSelection) {
@@ -60,9 +63,9 @@ const facetByParameter = ref(false)
 
 // Available items for the parameter label selector
 const paramLabelItems = computed(() => [
-  { label: 'Parameter', value: 'parameter' },
-  { label: 'Dataset / Parameter', value: 'dataset/parameter' },
-  { label: 'Resolution / Dataset / Parameter', value: 'resolution/dataset/parameter' },
+  { label: t('dataViewer.paramLabelParameter'), value: 'parameter' },
+  { label: t('dataViewer.paramLabelDatasetParameter'), value: 'dataset/parameter' },
+  { label: t('dataViewer.paramLabelFull'), value: 'resolution/dataset/parameter' },
 ])
 
 // Trendline option
@@ -337,15 +340,15 @@ function valuesToCsv(values: Value[]) {
 async function copyCurrentPage() {
   await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value))
   toast.add({
-    title: 'Copied',
-    description: `${paginatedValues.value.length} rows copied to clipboard`,
+    title: t('dataViewer.copied'),
+    description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }),
     color: 'success',
   })
 }
 
 async function copyAllValues() {
   await navigator.clipboard.writeText(valuesToCsv(sortedValues.value))
-  toast.add({ title: 'Copied', description: `${sortedValues.value.length} rows copied to clipboard`, color: 'success' })
+  toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
 }
 
 async function downloadValues(format: string, extension: string) {
@@ -428,7 +431,7 @@ async function downloadValues(format: string, extension: string) {
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 
-  toast.add({ title: 'Downloaded', description: `Values downloaded as ${format.toUpperCase()}`, color: 'success' })
+  toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedValues', { format: format.toUpperCase() }), color: 'success' })
 }
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
@@ -443,7 +446,7 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
     height: undefined,
   })
 
-  toast.add({ title: 'Downloaded', description: `Chart downloaded as ${format.toUpperCase()}`, color: 'success' })
+  toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: format.toUpperCase() }), color: 'success' })
 }
 
 const downloadMenuItems = computed(() => {
@@ -735,11 +738,11 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
     autosize: true,
     margin: { l: 60, r: 20, t: 40, b: 60 },
     xaxis: {
-      title: 'Date',
+      title: t('dataViewer.axisDate'),
       type: 'date',
     },
     yaxis: {
-      title: 'Value',
+      title: t('dataViewer.axisValue'),
     },
     showlegend: true,
     legend: {
@@ -872,15 +875,15 @@ const parameterStats = computed((): ParameterStats[] => {
   return stats.sort((a, b) => `${a.dataset}/${a.parameter}`.localeCompare(`${b.dataset}/${b.parameter}`))
 })
 
-const statsTableColumns: TableColumn<ParameterStats>[] = [
-  { accessorKey: 'dataset', header: 'Dataset' },
-  { accessorKey: 'parameter', header: 'Parameter' },
-  { accessorKey: 'count', header: 'Count' },
-  { accessorKey: 'min', header: 'Min', cell: ({ row }) => row.original.min?.toFixed(2) ?? '-' },
-  { accessorKey: 'max', header: 'Max', cell: ({ row }) => row.original.max?.toFixed(2) ?? '-' },
-  { accessorKey: 'mean', header: 'Mean', cell: ({ row }) => row.original.mean?.toFixed(2) ?? '-' },
-  { accessorKey: 'sum', header: 'Sum', cell: ({ row }) => row.original.sum?.toFixed(2) ?? '-' },
-]
+const statsTableColumns = computed<TableColumn<ParameterStats>[]>(() => [
+  { accessorKey: 'dataset', header: t('dataViewer.statDataset'), cell: ({ row }) => datasetLabel(row.original.dataset) },
+  { accessorKey: 'parameter', header: t('dataViewer.statParameter'), cell: ({ row }) => parameterLabel(row.original.parameter) },
+  { accessorKey: 'count', header: t('dataViewer.statCount') },
+  { accessorKey: 'min', header: t('dataViewer.statMin'), cell: ({ row }) => row.original.min?.toFixed(2) ?? '-' },
+  { accessorKey: 'max', header: t('dataViewer.statMax'), cell: ({ row }) => row.original.max?.toFixed(2) ?? '-' },
+  { accessorKey: 'mean', header: t('dataViewer.statMean'), cell: ({ row }) => row.original.mean?.toFixed(2) ?? '-' },
+  { accessorKey: 'sum', header: t('dataViewer.statSum'), cell: ({ row }) => row.original.sum?.toFixed(2) ?? '-' },
+])
 
 // Expose stats and fetch function for parent component
 defineExpose({
@@ -946,24 +949,24 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <!-- Options bar -->
       <div class="flex items-center justify-between">
         <span class="text-sm text-gray-500">
-          <template v-if="valuesPending">Loading values...</template>
-          <template v-else-if="isDataTransformed">{{ displayData.length }} values (transformed from {{ allValues.length }})</template>
-          <template v-else>{{ allValues.length }} values</template>
+          <template v-if="valuesPending">{{ t('dataViewer.loadingValues') }}</template>
+          <template v-else-if="isDataTransformed">{{ t('dataViewer.valuesTransformed', { count: displayData.length, total: allValues.length }) }}</template>
+          <template v-else>{{ t('dataViewer.valuesCount', { count: allValues.length }) }}</template>
         </span>
         <div class="flex items-center gap-4">
           <div v-if="viewMode === 'table'" class="flex items-center gap-2">
-            <span class="text-sm">Columns:</span>
+            <span class="text-sm">{{ t('dataViewer.columns') }}:</span>
             <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40" />
           </div>
           <div class="flex items-center gap-1">
             <template v-if="viewMode === 'table'">
-              <UTooltip text="Copy current page">
+              <UTooltip :text="t('dataViewer.copyCurrentPage')">
                 <UButton
                   size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending"
                   @click="copyCurrentPage"
                 />
               </UTooltip>
-              <UTooltip text="Copy all values">
+              <UTooltip :text="t('dataViewer.copyAllValues')">
                 <UButton
                   size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending"
                   @click="copyAllValues"
@@ -980,7 +983,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <!-- Chart Settings (only in graph mode) -->
       <UCollapsible v-if="viewMode === 'graph'" :default-open="true">
         <UButton
-          label="Chart Settings"
+          :label="t('dataViewer.chartSettings')"
           variant="subtle"
           color="neutral"
           trailing-icon="i-lucide-chevron-down"
@@ -992,11 +995,11 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <!-- Display Options -->
             <div class="flex flex-wrap items-center gap-4">
               <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-600 dark:text-gray-300">Parameter label:</label>
+                <label class="text-sm text-gray-600 dark:text-gray-300">{{ t('dataViewer.paramLabel') }}:</label>
                 <USelect v-model="paramLabelFormat" :items="paramLabelItems" class="w-56" />
               </div>
-              <UCheckbox v-model="facetByParameter" label="Facet by parameter" />
-              <UCheckbox v-model="showTrendline" label="Trendline" />
+              <UCheckbox v-model="facetByParameter" :label="t('dataViewer.facetByParameter')" />
+              <UCheckbox v-model="showTrendline" :label="t('dataViewer.trendline')" />
             </div>
           </div>
         </template>
@@ -1009,7 +1012,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         </div>
         <template v-else>
           <div v-if="allValues.length === 0" class="flex items-center justify-center py-12 text-gray-500">
-            Select parameters and stations, then click Fetch to load data
+            {{ t('dataViewer.emptyHint') }}
           </div>
           <UTable
             v-else-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky
@@ -1026,7 +1029,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
               v-else-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)"
               class="flex items-center justify-center py-12 text-gray-500"
             >
-              No data available for chart
+              {{ t('dataViewer.noChartData') }}
             </div>
             <!-- Faceted charts (one per parameter) -->
             <div v-else-if="facetByParameter" class="space-y-6">
@@ -1050,7 +1053,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         <template v-if="viewMode === 'table'" #footer>
           <div class="flex items-center justify-center gap-4">
             <div class="flex items-center gap-2">
-              <span class="text-sm">Rows per page:</span>
+              <span class="text-sm">{{ t('dataViewer.rowsPerPage') }}:</span>
               <USelect v-model="pageSize" :items="pageSizeOptions" class="w-20" />
             </div>
             <UPagination v-model:page="currentPage" :total="displayData.length" :items-per-page="pageSize" />

@@ -12,6 +12,9 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:modelValue'])
 
+const { t } = useI18n()
+const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
+
 // STATE
 const provider = ref<string | undefined>(undefined)
 const network = ref<string | undefined>(undefined)
@@ -68,6 +71,11 @@ const params = computed<string[]>(() => {
     .map((p: CoverageParameter) => p.name)
     .sort()
 })
+
+// Friendly, locale-aware labels for the select menus (value stays the raw backend id).
+const resolutionItems = computed(() => resolutions.value.map(r => ({ label: resolutionLabel(r), value: r })))
+const datasetItems = computed(() => datasets.value.map(d => ({ label: datasetLabel(d), value: d })))
+const paramItems = computed(() => params.value.map(p => ({ label: parameterLabel(p), value: p })))
 
 // Initialize from query params and validate step by step
 async function initializeFromProps() {
@@ -206,15 +214,15 @@ watch([provider, network, resolution, dataset, parameters], () => {
 <template>
   <UCard>
     <template #header>
-      Select Parameters
+      {{ t('parameterSelection.title') }}
     </template>
     <UContainer class="flex flex-col gap-4">
-      <USelect v-model="provider" :items="providers" placeholder="Select provider" />
-      <USelect v-model="network" :items="networks" placeholder="Select network" :disabled="!provider" />
-      <USelect v-model="resolution" :items="resolutions" placeholder="Select resolution" :disabled="!network" />
-      <USelect v-model="dataset" :items="datasets" placeholder="Select dataset" :disabled="!resolution" />
+      <USelect v-model="provider" :items="providers" :placeholder="t('parameterSelection.selectProvider')" />
+      <USelect v-model="network" :items="networks" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider" />
+      <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network" />
+      <USelect v-model="dataset" :items="datasetItems" :placeholder="t('parameterSelection.selectDataset')" :disabled="!resolution" />
       <div class="flex gap-2 items-center min-w-0">
-        <USelectMenu v-model="parameters" :items="params" multiple placeholder="Select parameters" :disabled="!dataset" class="flex-1 min-w-0 overflow-hidden" />
+        <USelectMenu v-model="parameters" :items="paramItems" value-key="value" multiple :placeholder="t('parameterSelection.selectParameters')" :disabled="!dataset" class="flex-1 min-w-0 overflow-hidden" />
         <UButton
           v-if="dataset && !allSelected"
           size="xs"
@@ -223,7 +231,7 @@ watch([provider, network, resolution, dataset, parameters], () => {
           icon="i-lucide-check-check"
           @click="selectAllParameters"
         >
-          All
+          {{ t('common.all') }}
         </UButton>
         <UButton
           v-if="dataset && parameters.length > 0"
@@ -233,7 +241,7 @@ watch([provider, network, resolution, dataset, parameters], () => {
           icon="i-lucide-x"
           @click="clearParameters"
         >
-          Clear
+          {{ t('parameterSelection.clear') }}
         </UButton>
       </div>
     </UContainer>
