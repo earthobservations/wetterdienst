@@ -12,6 +12,13 @@ const emit = defineEmits<{
   dataTransformed: [results: Value[]]
 }>()
 
+const { t } = useI18n()
+
+// Translate a validator result (errorKey/warningKey/messageKey + params) to text.
+function valText(key: string | undefined, params?: Record<string, string>): string {
+  return key ? t(key, params ?? {}) : ''
+}
+
 // Track if we're in query mode
 const isQueryMode = ref(false)
 
@@ -179,7 +186,7 @@ async function validateQuerySyntax() {
   // Basic validation first (fast)
   const validation = validateQuery(query.value)
   if (!validation.valid) {
-    syntaxError.value = validation.error || 'Invalid query'
+    syntaxError.value = valText(validation.errorKey, validation.params)
     return
   }
 
@@ -220,7 +227,7 @@ async function validateQuerySyntax() {
       const columnValidation = validateColumns(resultColumns, requiredColumns.value)
 
       if (!columnValidation.valid) {
-        syntaxError.value = columnValidation.message || 'Column validation failed'
+        syntaxError.value = valText(columnValidation.messageKey, columnValidation.params)
         return
       }
     }
@@ -268,12 +275,12 @@ async function executeQuery() {
   // Validate query
   const validation = validateQuery(query.value)
   if (!validation.valid) {
-    error.value = validation.error || 'Invalid query'
+    error.value = valText(validation.errorKey, validation.params)
     return
   }
 
-  if (validation.warning) {
-    warning.value = validation.warning
+  if (validation.warningKey) {
+    warning.value = valText(validation.warningKey, validation.params)
   }
 
   // Initialize DuckDB if needed
@@ -304,12 +311,12 @@ async function executeQuery() {
       const columnValidation = validateColumns(resultColumns, requiredColumns.value)
 
       if (!columnValidation.valid) {
-        error.value = columnValidation.message || 'Column validation failed'
+        error.value = valText(columnValidation.messageKey, columnValidation.params)
         return
       }
 
-      if (columnValidation.message) {
-        columnValidationMessage.value = columnValidation.message
+      if (columnValidation.messageKey) {
+        columnValidationMessage.value = valText(columnValidation.messageKey, columnValidation.params)
       }
     }
 

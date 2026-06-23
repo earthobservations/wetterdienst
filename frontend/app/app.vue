@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
+import { de as uiDe, en as uiEn } from '@nuxt/ui/locale'
 import pkg from '../package.json'
+
+const { t, locale } = useI18n()
+
+// Keep <html lang> in sync with the active locale.
+useHead({
+  htmlAttrs: { lang: locale },
+})
+
+// Feed Nuxt UI's built-in component strings (table, select, …) the active locale.
+const uiLocale = computed(() => (locale.value === 'de' ? uiDe : uiEn))
 
 const route = useRoute()
 const isWidget = computed(() => route.path.startsWith('/widget'))
@@ -9,23 +20,6 @@ const { data: versionData } = await useFetch<{ version: string }>('/api/version'
 
 const version = computed(() => versionData.value?.version ?? 'unknown')
 const frontendVersion = pkg.version || 'unknown'
-
-const colorMode = useColorMode()
-
-const colorModes = [
-  { value: 'system', icon: 'i-lucide-monitor' },
-  { value: 'light', icon: 'i-lucide-sun' },
-  { value: 'dark', icon: 'i-lucide-moon' },
-] as const
-
-const colorModeIcon = computed(() =>
-  colorModes.find(m => m.value === colorMode.preference)?.icon ?? 'i-lucide-monitor',
-)
-
-function cycleColorMode() {
-  const idx = colorModes.findIndex(m => m.value === colorMode.preference)
-  colorMode.preference = colorModes[(idx + 1) % colorModes.length]!.value
-}
 
 const mobileMenuOpen = ref(false)
 
@@ -36,43 +30,43 @@ watch(() => route.path, () => {
 const items = computed<NavigationMenuItem[]>(() =>
   [
     {
-      label: 'Home',
+      label: t('nav.home'),
       icon: 'i-lucide-home',
       to: '/',
       active: route.path === '/',
     },
     {
-      label: 'Explorer',
-      icon: 'i-lucide-globe',
-      to: '/explorer',
-      active: route.path.startsWith('/explorer'),
-    },
-    {
-      label: 'Meteogram',
+      label: t('nav.meteogram'),
       icon: 'i-lucide-sun',
       to: '/meteogram',
       active: route.path.startsWith('/meteogram'),
     },
     {
-      label: 'Stripes',
+      label: t('nav.stripes'),
       icon: 'i-lucide-bar-chart-3',
       to: '/stripes',
       active: route.path.startsWith('/stripes'),
     },
     {
-      label: 'History',
+      label: t('nav.explorer'),
+      icon: 'i-lucide-globe',
+      to: '/explorer',
+      active: route.path.startsWith('/explorer'),
+    },
+    {
+      label: t('nav.history'),
       icon: 'i-lucide-clock',
       to: '/history',
       active: route.path.startsWith('/history'),
     },
     {
-      label: 'API',
+      label: t('nav.api'),
       icon: 'i-lucide-code',
       to: '/api',
       active: route.path.startsWith('/api'),
     },
     {
-      label: 'Support',
+      label: t('nav.support'),
       icon: 'i-lucide-heart',
       to: '/support',
       active: route.path.startsWith('/support'),
@@ -82,7 +76,7 @@ const items = computed<NavigationMenuItem[]>(() =>
 </script>
 
 <template>
-  <UApp>
+  <UApp :locale="uiLocale">
     <UHeader v-if="!isWidget" :toggle="false">
       <template #left>
         <div class="flex items-center gap-3">
@@ -107,45 +101,38 @@ const items = computed<NavigationMenuItem[]>(() =>
       <template #right>
         <!-- Desktop controls -->
         <div class="hidden lg:flex items-center gap-1">
-          <UTooltip text="Documentation">
+          <UTooltip :text="t('common.documentation')">
             <UButton
               to="https://wetterdienst.readthedocs.io/"
               target="_blank"
               icon="i-lucide-book-open"
               color="neutral"
               variant="ghost"
-              aria-label="Documentation"
+              :aria-label="t('common.documentation')"
             />
           </UTooltip>
-          <UTooltip text="GitHub">
+          <UTooltip :text="t('header.github')">
             <UButton
               to="https://github.com/earthobservations/wetterdienst"
               target="_blank"
               icon="i-lucide-github"
               color="neutral"
               variant="ghost"
-              aria-label="GitHub"
+              :aria-label="t('header.github')"
             />
           </UTooltip>
-          <UTooltip text="PyPI">
+          <UTooltip :text="t('header.pypi')">
             <UButton
               to="https://pypi.org/project/wetterdienst"
               target="_blank"
               icon="i-lucide-package"
               color="neutral"
               variant="ghost"
-              aria-label="PyPI"
+              :aria-label="t('header.pypi')"
             />
           </UTooltip>
-          <UTooltip text="Color Mode">
-            <UButton
-              :icon="colorModeIcon"
-              color="neutral"
-              variant="ghost"
-              aria-label="Toggle color mode"
-              @click="cycleColorMode"
-            />
-          </UTooltip>
+          <LanguageSwitcher class="mx-1" />
+          <SettingsMenu />
         </div>
         <!-- Mobile hamburger -->
         <UButton
@@ -153,7 +140,7 @@ const items = computed<NavigationMenuItem[]>(() =>
           :icon="mobileMenuOpen ? 'i-lucide-x' : 'i-lucide-menu'"
           color="neutral"
           variant="ghost"
-          aria-label="Toggle menu"
+          :aria-label="t('header.menu')"
           @click="mobileMenuOpen = !mobileMenuOpen"
         />
       </template>
@@ -176,7 +163,7 @@ const items = computed<NavigationMenuItem[]>(() =>
               icon="i-lucide-x"
               color="neutral"
               variant="ghost"
-              aria-label="Close menu"
+              :aria-label="t('common.close')"
               @click="mobileMenuOpen = false"
             />
           </div>
@@ -201,44 +188,41 @@ const items = computed<NavigationMenuItem[]>(() =>
           <!-- Bottom bar: external links + theme toggle -->
           <div class="shrink-0 border-t border-gray-200 dark:border-gray-800 px-4 py-4 flex items-center justify-between">
             <div class="flex items-center gap-1">
-              <UTooltip text="Documentation">
+              <UTooltip :text="t('common.documentation')">
                 <UButton
                   to="https://wetterdienst.readthedocs.io/"
                   target="_blank"
                   icon="i-lucide-book-open"
                   color="neutral"
                   variant="ghost"
-                  aria-label="Documentation"
+                  :aria-label="t('common.documentation')"
                 />
               </UTooltip>
-              <UTooltip text="GitHub">
+              <UTooltip :text="t('header.github')">
                 <UButton
                   to="https://github.com/earthobservations/wetterdienst"
                   target="_blank"
                   icon="i-lucide-github"
                   color="neutral"
                   variant="ghost"
-                  aria-label="GitHub"
+                  :aria-label="t('header.github')"
                 />
               </UTooltip>
-              <UTooltip text="PyPI">
+              <UTooltip :text="t('header.pypi')">
                 <UButton
                   to="https://pypi.org/project/wetterdienst"
                   target="_blank"
                   icon="i-lucide-package"
                   color="neutral"
                   variant="ghost"
-                  aria-label="PyPI"
+                  :aria-label="t('header.pypi')"
                 />
               </UTooltip>
             </div>
-            <UButton
-              :icon="colorModeIcon"
-              color="neutral"
-              variant="ghost"
-              aria-label="Toggle color mode"
-              @click="cycleColorMode"
-            />
+            <div class="flex items-center gap-2">
+              <LanguageSwitcher />
+              <SettingsMenu />
+            </div>
           </div>
         </div>
       </Transition>
@@ -249,10 +233,10 @@ const items = computed<NavigationMenuItem[]>(() =>
     </UMain>
     <UFooter v-if="!isWidget">
       <div class="w-full flex items-center gap-4">
-        <span>© {{ new Date().getFullYear() }} earthobservations</span>
+        <span>{{ t('footer.copyright', { year: new Date().getFullYear() }) }}</span>
         <span class="text-gray-400">|</span>
         <NuxtLink to="/impressum" class="ml-auto text-gray-500 hover:text-primary-500 transition-colors">
-          Legal Notice
+          {{ t('footer.legal') }}
         </NuxtLink>
       </div>
     </UFooter>

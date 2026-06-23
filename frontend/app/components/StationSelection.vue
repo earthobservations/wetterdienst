@@ -11,6 +11,8 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:modelValue', 'update:selectedStations'])
 
+const { t } = useI18n()
+
 const MapStations = defineAsyncComponent(() => import('./MapStations.vue'))
 
 declare const L: typeof import('leaflet')
@@ -299,10 +301,10 @@ watch(() => selectedStations.value, () => {
 
 <template>
   <div v-if="stationsPending" class="flex justify-center py-8">
-    <span class="text-gray-500">Loading stations...</span>
+    <span class="text-gray-500">{{ t('stationSelection.loading') }}</span>
   </div>
   <div v-else-if="!allStations?.length" class="flex justify-center py-8">
-    <span class="text-gray-500">No stations found for the selected parameters</span>
+    <span class="text-gray-500">{{ t('stationSelection.noneFound') }}</span>
   </div>
   <div v-else class="flex flex-col gap-4">
     <USelectMenu
@@ -312,15 +314,15 @@ watch(() => selectedStations.value, () => {
       searchable
       color="primary"
       class="w-full"
-      :placeholder="multiple ? 'Select stations' : 'Select a station'"
+      :placeholder="multiple ? t('stationSelection.selectStations') : t('stationSelection.selectStation')"
     />
     <UContainer v-if="selectedStations.length > 0" class="mt-2">
       <div class="flex items-center justify-between mb-2">
         <h4 class="text-sm font-medium">
-          Selected Stations:
+          {{ t('stationSelection.selectedStations') }}
         </h4>
         <UButton size="xs" color="neutral" variant="ghost" @click="selectedStations = []">
-          Clear all
+          {{ t('stationSelection.clearAll') }}
         </UButton>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -338,7 +340,7 @@ watch(() => selectedStations.value, () => {
     </UContainer>
     <UCollapsible v-model="showMap" class="mt-4">
       <UButton
-        label="Show map"
+        :label="t('stationSelection.showMap')"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"

@@ -8,10 +8,12 @@ const props = defineProps<{
 
 const modelValue = defineModel<InterpolationSelection>({ required: true })
 
-const sourceOptions = [
-  { value: 'manual', label: 'Manual coordinates', icon: 'i-lucide-pencil' },
-  { value: 'station', label: 'From station', icon: 'i-lucide-map-pin' },
-] as const
+const { t } = useI18n()
+
+const sourceOptions = computed(() => [
+  { value: 'manual' as InterpolationSource, label: t('interpolation.manualCoords'), icon: 'i-lucide-pencil' },
+  { value: 'station' as InterpolationSource, label: t('interpolation.fromStation'), icon: 'i-lucide-map-pin' },
+])
 
 // For manual input
 const latitudeInput = ref<string>(modelValue.value.latitude?.toString() ?? '')
@@ -101,7 +103,7 @@ const displayCoords = computed(() => {
 <template>
   <div class="space-y-4">
     <div class="flex items-center gap-2">
-      <span class="text-sm text-gray-500">Source:</span>
+      <span class="text-sm text-gray-500">{{ t('interpolation.source') }}:</span>
       <UFieldGroup>
         <UButton
           v-for="option in sourceOptions"
@@ -117,7 +119,7 @@ const displayCoords = computed(() => {
     </div>
 
     <div v-if="modelValue.source === 'manual'" class="flex gap-4">
-      <UFormField label="Latitude" class="flex-1">
+      <UFormField :label="t('interpolation.latitude')" class="flex-1">
         <UInput
           v-model="latitudeInput"
           type="number"
@@ -126,7 +128,7 @@ const displayCoords = computed(() => {
           class="w-full"
         />
       </UFormField>
-      <UFormField label="Longitude" class="flex-1">
+      <UFormField :label="t('interpolation.longitude')" class="flex-1">
         <UInput
           v-model="longitudeInput"
           type="number"
@@ -138,23 +140,23 @@ const displayCoords = computed(() => {
     </div>
 
     <div v-else>
-      <UFormField label="Select station for coordinates">
+      <UFormField :label="t('interpolation.selectStationForCoords')">
         <USelectMenu
           v-if="!stationsPending"
           v-model="selectedStationItem"
           :items="stationItems"
-          placeholder="Select a station"
+          :placeholder="t('interpolation.selectStation')"
           searchable
           class="w-full"
         />
         <div v-else class="text-sm text-gray-500">
-          Loading stations...
+          {{ t('interpolation.loadingStations') }}
         </div>
       </UFormField>
     </div>
 
     <div v-if="displayCoords" class="text-sm text-gray-500">
-      Interpolation coordinates: {{ displayCoords }}
+      {{ t('interpolation.coords', { coords: displayCoords }) }}
     </div>
   </div>
 </template>

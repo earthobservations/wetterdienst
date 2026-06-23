@@ -12,7 +12,12 @@ const props = defineProps<{
   widget?: boolean
 }>()
 
-const DAY_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+const { t, locale } = useI18n()
+
+// Short, locale-aware weekday name (e.g. "Mo"/"Mon") for the given Luxon DateTime.
+function weekdayShort(dt: DateTime): string {
+  return dt.setLocale(locale.value).toFormat('ccc')
+}
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let Plotly: any = null
@@ -118,7 +123,7 @@ onUnmounted(() => {
   }
 })
 
-const compactLabel = computed(() => compact.value ? 'Normal' : 'Compact')
+const compactLabel = computed(() => compact.value ? t('meteogram.chart.viewNormal') : t('meteogram.chart.viewCompact'))
 
 // Toolbar timezone label (updated when chart renders)
 const toolbarTzLabel = ref<string>('UTC')
@@ -285,7 +290,7 @@ const compactDays = computed(() => {
         emoji = '☀'
     }
 
-    const label = `${DAY_DE[dt.weekday % 7]} ${dt.toFormat('dd.MM')}`
+    const label = `${weekdayShort(dt)} ${dt.toFormat('dd.MM')}`
     const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? `${Math.round(minT)} / ${Math.round(maxT)}°C` : null
     const precipLabel = dayPrecip >= 0.1 ? `${dayPrecip.toFixed(1)} mm` : null
     const isToday = dt.hasSame(localNow, 'day')
@@ -1025,7 +1030,7 @@ async function renderChartActual() {
       y: 1.06,
       xref: 'x',
       yref: 'paper',
-      text: `<b>${DAY_DE[localDt.weekday % 7]}</b> ${dd}.${mm}`,
+      text: `<b>${weekdayShort(localDt)}</b> ${dd}.${mm}`,
       showarrow: false,
       font: { size: 10, color: isWeekend ? '#ef4444' : (isDark.value ? '#e4e4e7' : '#374151') },
       xanchor: 'center',
@@ -1103,7 +1108,7 @@ async function renderChartActual() {
     }
 
     traces.push({
-      name: hasTxTn ? 'Mean Temp °C' : 'Temperature °C',
+      name: hasTxTn ? t('meteogram.chart.seriesMeanTemp') : t('meteogram.chart.seriesTemperature'),
       x: xs,
       y: s.y,
       type: 'scatter',
@@ -1112,31 +1117,31 @@ async function renderChartActual() {
       ...(tempStdKey && resampledSeries.has(tempStdKey) ? {} : { fill: 'tozeroy', fillcolor: isDark.value ? 'rgba(239,68,68,0.02)' : 'rgba(239,68,68,0.04)' }),
       yaxis: 'y3',
       hovertemplate: hasTxTn
-        ? '<b>Mean Temp</b>: %{y:.1f}°C<extra></extra>'
-        : '<b>Temperature</b>: %{y:.1f}°C<extra></extra>',
+        ? `<b>${t('meteogram.chart.hoverMeanTemp')}</b>: %{y:.1f}°C<extra></extra>`
+        : `<b>${t('meteogram.chart.hoverTemperature')}</b>: %{y:.1f}°C<extra></extra>`,
     })
 
     if (hasTxTn && sTx && sTn) {
       traces.push({
-        name: 'Max Temp °C',
+        name: t('meteogram.chart.seriesMaxTemp'),
         x: sTx.x.map(d => d.toISOString()),
         y: sTx.y,
         type: 'scatter',
         mode: 'lines',
         line: { color: isDark.value ? '#fca5a5' : '#b91c1c', width: 1.5, dash: 'dash', shape: 'spline' },
         yaxis: 'y3',
-        hovertemplate: '<b>Max Temp</b>: %{y:.1f}°C<extra></extra>',
+        hovertemplate: `<b>${t('meteogram.chart.hoverMaxTemp')}</b>: %{y:.1f}°C<extra></extra>`,
         showlegend: false,
       })
       traces.push({
-        name: 'Min Temp °C',
+        name: t('meteogram.chart.seriesMinTemp'),
         x: sTn.x.map(d => d.toISOString()),
         y: sTn.y,
         type: 'scatter',
         mode: 'lines',
         line: { color: isDark.value ? '#93c5fd' : '#1d4ed8', width: 1.5, dash: 'dash', shape: 'spline' },
         yaxis: 'y3',
-        hovertemplate: '<b>Min Temp</b>: %{y:.1f}°C<extra></extra>',
+        hovertemplate: `<b>${t('meteogram.chart.hoverMinTemp')}</b>: %{y:.1f}°C<extra></extra>`,
         showlegend: false,
       })
       tempMinY = Math.min(tempMinY, ...sTn.y)
@@ -1147,14 +1152,14 @@ async function renderChartActual() {
       const ds = resampledSeries.get(dewKey)!
       const dxs = ds.x.map(d => d.toISOString())
       traces.push({
-        name: 'Dew Point',
+        name: t('meteogram.chart.seriesDewPoint'),
         x: dxs,
         y: ds.y,
         type: 'scatter',
         mode: 'lines',
         line: { color: '#a855f7', width: 1.6, shape: 'spline' },
         yaxis: 'y3',
-        hovertemplate: '<b>Dew Point</b>: %{y:.1f}°C<extra></extra>',
+        hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>: %{y:.1f}°C<extra></extra>`,
         showlegend: false,
       })
       tempMinY = Math.min(tempMinY, ...ds.y)
@@ -1185,14 +1190,14 @@ async function renderChartActual() {
       }
       if (dewXs.length) {
         traces.push({
-          name: 'Dew Point',
+          name: t('meteogram.chart.seriesDewPoint'),
           x: dewXs,
           y: dewYs,
           type: 'scatter',
           mode: 'lines',
           line: { color: '#a855f7', width: 1.6, shape: 'spline' },
           yaxis: 'y3',
-          hovertemplate: '<b>Dew Point</b>: %{y:.1f}°C<extra></extra>',
+          hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>: %{y:.1f}°C<extra></extra>`,
           showlegend: false,
         })
         tempMinY = Math.min(tempMinY, ...dewYs)
@@ -1252,9 +1257,9 @@ async function renderChartActual() {
       }
     }
 
-    traces.push({ name: 'Rain', x: pxs, y: rainYs, type: 'bar', marker: { color: '#3b82f6' }, yaxis: 'y2', hovertemplate: '<b>Rain</b><br>%{y:.2f} mm<extra></extra>', visible: true })
-    traces.push({ name: 'Mixed', x: pxs, y: mixedYs, type: 'bar', marker: { color: '#0ea5e9' }, yaxis: 'y2', hovertemplate: '<b>Mixed Precip</b><br>%{y:.2f} mm<extra></extra>', visible: true })
-    traces.push({ name: 'Snow', x: pxs, y: snowYs, type: 'bar', marker: { color: isDark.value ? '#9ca3af' : '#cbd5e1' }, yaxis: 'y2', hovertemplate: '<b>Snow</b><br>%{y:.2f} mm<extra></extra>', visible: true })
+    traces.push({ name: t('meteogram.chart.seriesRain'), x: pxs, y: rainYs, type: 'bar', marker: { color: '#3b82f6' }, yaxis: 'y2', hovertemplate: `<b>${t('meteogram.chart.hoverRain')}</b><br>%{y:.2f} mm<extra></extra>`, visible: true })
+    traces.push({ name: t('meteogram.chart.seriesMixed'), x: pxs, y: mixedYs, type: 'bar', marker: { color: '#0ea5e9' }, yaxis: 'y2', hovertemplate: `<b>${t('meteogram.chart.hoverMixed')}</b><br>%{y:.2f} mm<extra></extra>`, visible: true })
+    traces.push({ name: t('meteogram.chart.seriesSnow'), x: pxs, y: snowYs, type: 'bar', marker: { color: isDark.value ? '#9ca3af' : '#cbd5e1' }, yaxis: 'y2', hovertemplate: `<b>${t('meteogram.chart.hoverSnow')}</b><br>%{y:.2f} mm<extra></extra>`, visible: true })
   }
 
   // 3. Pressure
@@ -1264,7 +1269,7 @@ async function renderChartActual() {
     const ps = resampledSeries.get(pressureKey)!
     const pxs = ps.x.map(d => d.toISOString())
     traces.push({
-      name: 'Pressure hPa',
+      name: t('meteogram.chart.seriesPressure'),
       x: pxs,
       y: ps.y,
       type: 'scatter',
@@ -1273,7 +1278,7 @@ async function renderChartActual() {
       fill: 'tozeroy',
       fillcolor: isDark.value ? 'rgba(132,204,22,0.02)' : 'rgba(132,204,22,0.04)',
       yaxis: 'y4',
-      hovertemplate: '<b>Pressure</b><br>%{y:.1f} hPa<extra></extra>',
+      hovertemplate: `<b>${t('meteogram.chart.hoverPressure')}</b><br>%{y:.1f} hPa<extra></extra>`,
     })
     pressureMin = Math.min(...ps.y)
     pressureMax = Math.max(...ps.y)
@@ -1300,7 +1305,7 @@ async function renderChartActual() {
     const hasDir = windSpeedCustom.some(v => v !== null)
 
     traces.push({
-      name: 'Wind m/s',
+      name: t('meteogram.chart.seriesWind'),
       x: s.x.map(d => d.toISOString()),
       y: s.y,
       customdata: windSpeedCustom,
@@ -1311,20 +1316,20 @@ async function renderChartActual() {
       fillcolor: isDark.value ? 'rgba(6,182,212,0.04)' : 'rgba(6,182,212,0.08)',
       yaxis: 'y',
       hovertemplate: hasDir
-        ? '<b>Wind</b> %{y:.1f} m/s → %{customdata:.0f}°<extra></extra>'
-        : '<b>Wind speed</b> %{y:.1f} m/s<extra></extra>',
+        ? `<b>${t('meteogram.chart.hoverWind')}</b> %{y:.1f} m/s → %{customdata:.0f}°<extra></extra>`
+        : `<b>${t('meteogram.chart.hoverWindSpeed')}</b> %{y:.1f} m/s<extra></extra>`,
     })
 
     if (gustSeries) {
       traces.push({
-        name: 'Wind Gust m/s',
+        name: t('meteogram.chart.seriesWindGust'),
         x: gustSeries.x.map(d => d.toISOString()),
         y: gustSeries.y,
         type: 'scatter',
         mode: 'lines',
         line: { color: '#06b6d4', width: 1.6, dash: 'dash', shape: 'spline' },
         yaxis: 'y',
-        hovertemplate: '<b>Wind gust</b> %{y:.1f} m/s<extra></extra>',
+        hovertemplate: `<b>${t('meteogram.chart.hoverWindGust')}</b> %{y:.1f} m/s<extra></extra>`,
       })
     }
 
@@ -1346,7 +1351,7 @@ async function renderChartActual() {
       })
 
       traces.push({
-        name: 'Direction',
+        name: t('meteogram.chart.seriesDirection'),
         x: arrowX,
         y: Array.from({ length: arrowX.length }).fill(windMaxY * 1.36),
         text: arrowText,
@@ -1366,7 +1371,7 @@ async function renderChartActual() {
     if (cloudHighKey && resampledSeries.has(cloudHighKey)) {
       const s = resampledSeries.get(cloudHighKey)!
       traces.push({
-        name: 'High Clouds %',
+        name: t('meteogram.chart.seriesHighClouds'),
         x: s.x.map(d => d.toISOString()),
         y: s.y,
         type: 'scatter',
@@ -1375,14 +1380,14 @@ async function renderChartActual() {
         fill: 'tozeroy',
         fillcolor: isDark.value ? 'rgba(148,163,184,0.1)' : 'rgba(203,213,225,0.15)',
         yaxis: 'y5',
-        hovertemplate: '<b>High Clouds</b><br>%{y:.0f}%<extra></extra>',
+        hovertemplate: `<b>${t('meteogram.chart.hoverHighClouds')}</b><br>%{y:.0f}%<extra></extra>`,
       })
     }
 
     if (cloudMidKey && resampledSeries.has(cloudMidKey)) {
       const s = resampledSeries.get(cloudMidKey)!
       traces.push({
-        name: 'Mid Clouds %',
+        name: t('meteogram.chart.seriesMidClouds'),
         x: s.x.map(d => d.toISOString()),
         y: s.y,
         type: 'scatter',
@@ -1391,14 +1396,14 @@ async function renderChartActual() {
         fill: 'tozeroy',
         fillcolor: isDark.value ? 'rgba(100,116,139,0.15)' : 'rgba(148,163,184,0.22)',
         yaxis: 'y5',
-        hovertemplate: '<b>Mid Clouds</b><br>%{y:.0f}%<extra></extra>',
+        hovertemplate: `<b>${t('meteogram.chart.hoverMidClouds')}</b><br>%{y:.0f}%<extra></extra>`,
       })
     }
 
     if (cloudLowKey && resampledSeries.has(cloudLowKey)) {
       const s = resampledSeries.get(cloudLowKey)!
       traces.push({
-        name: 'Low Clouds %',
+        name: t('meteogram.chart.seriesLowClouds'),
         x: s.x.map(d => d.toISOString()),
         y: s.y,
         type: 'scatter',
@@ -1407,21 +1412,21 @@ async function renderChartActual() {
         fill: 'tozeroy',
         fillcolor: isDark.value ? 'rgba(71,85,105,0.22)' : 'rgba(100,116,139,0.3)',
         yaxis: 'y5',
-        hovertemplate: '<b>Low Clouds</b><br>%{y:.0f}%<extra></extra>',
+        hovertemplate: `<b>${t('meteogram.chart.hoverLowClouds')}</b><br>%{y:.0f}%<extra></extra>`,
       })
     }
 
     // Total Cloud Cover line on top
     const s = resampledSeries.get(cloudKey)!
     traces.push({
-      name: 'Total Cloud Cover %',
+      name: t('meteogram.chart.seriesTotalCloud'),
       x: s.x.map(d => d.toISOString()),
       y: s.y,
       type: 'scatter',
       mode: 'lines',
       line: { color: isDark.value ? '#e4e4e7' : '#334155', width: 2, shape: 'spline' },
       yaxis: 'y5',
-      hovertemplate: '<b>Total Cloud Cover</b><br>%{y:.0f}%<extra></extra>',
+      hovertemplate: `<b>${t('meteogram.chart.hoverTotalCloud')}</b><br>%{y:.0f}%<extra></extra>`,
     })
   }
 
@@ -1623,7 +1628,7 @@ async function renderChartActual() {
     yaxis: {
       visible: !!domains.wind,
       domain: domains.wind ?? [0, 0],
-      title: { text: 'Wind m/s', font: { size: 9, color: '#06b6d4' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisWind'), font: { size: 9, color: '#06b6d4' }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
@@ -1639,7 +1644,7 @@ async function renderChartActual() {
     yaxis2: {
       visible: !!domains.precip,
       domain: domains.precip ?? [0, 0],
-      title: { text: 'Precip mm', font: { size: 9, color: '#3b82f6' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisPrecip'), font: { size: 9, color: '#3b82f6' }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
@@ -1655,7 +1660,7 @@ async function renderChartActual() {
     yaxis5: {
       visible: !!domains.cloud,
       domain: domains.cloud ?? [0, 0],
-      title: { text: 'Cloud %', font: { size: 9, color: isDark.value ? '#9ca3af' : '#64748b' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisCloud'), font: { size: 9, color: isDark.value ? '#9ca3af' : '#64748b' }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
@@ -1670,7 +1675,7 @@ async function renderChartActual() {
     yaxis3: {
       visible: !!domains.temp,
       domain: domains.temp ?? [0, 0],
-      title: { text: 'Temp °C', font: { size: 9, color: '#ef4444' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisTemp'), font: { size: 9, color: '#ef4444' }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: true,
@@ -1686,7 +1691,7 @@ async function renderChartActual() {
     yaxis4: {
       visible: !!domains.pressure,
       domain: domains.pressure ?? [0, 0],
-      title: { text: 'Pressure hPa', font: { size: 9, color: '#84cc16' }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisPressure'), font: { size: 9, color: '#84cc16' }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
@@ -1769,7 +1774,7 @@ watch(
 <template>
   <div>
     <div v-if="!values || values.length === 0" class="py-12 text-center text-gray-500">
-      No data available for the selected query
+      {{ t('meteogram.chart.noData') }}
     </div>
 
     <div v-if="values && values.length > 0" class="space-y-5">
@@ -1777,11 +1782,11 @@ watch(
       <div v-if="!widget" class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
         <!-- Interactive Panel Selectors -->
         <div v-if="!compact" class="flex items-center gap-1">
-          <span class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mr-1 select-none">Panels</span>
+          <span class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mr-1 select-none">{{ t('meteogram.chart.panels') }}</span>
 
           <button
             type="button"
-            title="Temperature"
+            :title="t('meteogram.chart.panelTemperature')"
             class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
             :class="[
               visiblePanels.temp
@@ -1795,7 +1800,7 @@ watch(
 
           <button
             type="button"
-            title="Wind"
+            :title="t('meteogram.chart.panelWind')"
             class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
             :class="[
               visiblePanels.wind
@@ -1809,7 +1814,7 @@ watch(
 
           <button
             type="button"
-            title="Precipitation"
+            :title="t('meteogram.chart.panelPrecipitation')"
             class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
             :class="[
               visiblePanels.precip
@@ -1823,7 +1828,7 @@ watch(
 
           <button
             type="button"
-            title="Cloud cover"
+            :title="t('meteogram.chart.panelCloud')"
             class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
             :class="[
               visiblePanels.cloud
@@ -1838,7 +1843,7 @@ watch(
 
           <button
             type="button"
-            title="Pressure"
+            :title="t('meteogram.chart.panelPressure')"
             class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
             :class="[
               visiblePanels.pressure
@@ -1862,7 +1867,7 @@ watch(
             size="sm"
             variant="outline"
             color="neutral"
-            title="Reset zoom"
+            :title="t('meteogram.chart.resetZoom')"
             @click="resetChart"
           />
           <UButton
@@ -1885,7 +1890,7 @@ watch(
           </div>
           <div>
             <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              Min / Max Temp
+              {{ t('meteogram.chart.summaryMinMaxTemp') }}
             </div>
             <div class="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
               <span class="text-blue-500 dark:text-blue-400">{{ summaryStats.temp.min }}°</span>
@@ -1902,7 +1907,7 @@ watch(
           </div>
           <div>
             <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              Total Precip
+              {{ t('meteogram.chart.summaryTotalPrecip') }}
             </div>
             <div class="text-sm font-bold text-gray-800 dark:text-gray-100">
               {{ summaryStats.precip.toFixed(1) }} <span class="text-xs font-normal text-gray-500">mm</span>
@@ -1917,7 +1922,7 @@ watch(
           </div>
           <div>
             <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              Max Gust Speed
+              {{ t('meteogram.chart.summaryMaxGust') }}
             </div>
             <div class="text-sm font-bold text-gray-800 dark:text-gray-100">
               {{ summaryStats.gust.toFixed(1) }} <span class="text-xs font-normal text-gray-400">m/s</span>
@@ -1933,7 +1938,7 @@ watch(
           </div>
           <div>
             <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              Avg Cloud Cover
+              {{ t('meteogram.chart.summaryAvgCloud') }}
             </div>
             <div class="text-sm font-bold text-gray-800 dark:text-gray-100">
               {{ summaryStats.cloud }}<span class="text-xs font-normal text-gray-400">%</span>
@@ -1948,7 +1953,7 @@ watch(
           </div>
           <div>
             <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              Pressure Range
+              {{ t('meteogram.chart.summaryPressureRange') }}
             </div>
             <div class="text-sm font-bold text-gray-800 dark:text-gray-100 text-ellipsis overflow-hidden">
               {{ summaryStats.pressure.min }} <span class="text-gray-400 font-normal">-</span> {{ summaryStats.pressure.max }} <span class="text-xs font-normal text-gray-500">hPa</span>
@@ -1974,7 +1979,7 @@ watch(
               ]"
             >
               <div class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
-                {{ d.isToday ? 'HEUTE' : d.label.split(' ')[0] }}
+                {{ d.isToday ? t('meteogram.chart.today') : d.label.split(' ')[0] }}
               </div>
               <div class="text-3xl my-3 filter drop-shadow-sm select-none animate-bounce-slow">
                 {{ d.emoji }}

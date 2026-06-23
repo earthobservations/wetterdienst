@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n()
 </script>
 
 <template>
@@ -6,22 +7,22 @@
     <div class="flex items-center gap-3 mb-6">
       <UIcon name="i-lucide-heart" class="text-2xl text-primary-500" />
       <h1 class="text-3xl font-bold">
-        Support
+        {{ t('support.title') }}
       </h1>
     </div>
 
     <UCard class="mb-4">
       <template #header>
         <h2 class="text-lg font-semibold">
-          Report Issues
+          {{ t('support.reportTitle') }}
         </h2>
       </template>
       <p class="text-gray-600 dark:text-gray-400">
-        Found a bug? Please open an issue on GitHub with a minimal reproduction and steps to reproduce.
+        {{ t('support.reportText') }}
       </p>
       <div class="mt-3">
         <UButton size="sm" variant="ghost" color="primary" to="https://github.com/earthobservations/wetterdienst/issues" target="_blank">
-          Open an Issue
+          {{ t('support.reportButton') }}
         </UButton>
       </div>
     </UCard>
@@ -29,15 +30,15 @@
     <UCard class="mb-4">
       <template #header>
         <h2 class="text-lg font-semibold">
-          Contribute
+          {{ t('support.contributeTitle') }}
         </h2>
       </template>
       <p class="text-gray-600 dark:text-gray-400">
-        Contributions are welcome via pull requests. Please follow the contribution guidelines in the repository.
+        {{ t('support.contributeText') }}
       </p>
       <div class="mt-3">
         <UButton size="sm" variant="ghost" color="primary" to="https://github.com/earthobservations/wetterdienst/pulls" target="_blank">
-          Create a Pull Request
+          {{ t('support.contributeButton') }}
         </UButton>
       </div>
     </UCard>
@@ -45,15 +46,15 @@
     <UCard class="mb-4">
       <template #header>
         <h2 class="text-lg font-semibold">
-          Discussions
+          {{ t('support.discussionsTitle') }}
         </h2>
       </template>
       <p class="text-gray-600 dark:text-gray-400">
-        For general questions, feature requests, or community discussion, please use GitHub Discussions.
+        {{ t('support.discussionsText') }}
       </p>
       <div class="mt-3">
         <UButton size="sm" variant="ghost" color="primary" to="https://github.com/earthobservations/wetterdienst/discussions" target="_blank">
-          Go to Discussions
+          {{ t('support.discussionsButton') }}
         </UButton>
       </div>
     </UCard>
@@ -61,11 +62,11 @@
     <UCard>
       <template #header>
         <h2 class="text-lg font-semibold">
-          Support the Project
+          {{ t('support.donateTitle') }}
         </h2>
       </template>
       <p class="text-gray-600 dark:text-gray-400">
-        If you find the project useful, consider supporting us via donations or sponsorships.
+        {{ t('support.donateText') }}
       </p>
       <div class="mt-3">
         <ul class="space-y-2 text-gray-700 dark:text-gray-300">

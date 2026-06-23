@@ -9,15 +9,17 @@ import InterpolationSummarySelection from '~/components/InterpolationSummarySele
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 
-const stationTableColumns: TableColumn<Station>[] = [
-  { accessorKey: 'station_id', header: 'Station ID' },
-  { accessorKey: 'name', header: 'Name' },
-  { accessorKey: 'state', header: 'State' },
-  { accessorKey: 'latitude', header: 'Latitude' },
-  { accessorKey: 'longitude', header: 'Longitude' },
-  { accessorKey: 'start_date', header: 'Start Date' },
-  { accessorKey: 'end_date', header: 'End Date' },
-]
+const { t } = useI18n()
+
+const stationTableColumns = computed<TableColumn<Station>[]>(() => [
+  { accessorKey: 'station_id', header: t('stationTable.stationId') },
+  { accessorKey: 'name', header: t('stationTable.name') },
+  { accessorKey: 'state', header: t('stationTable.state') },
+  { accessorKey: 'latitude', header: t('stationTable.latitude') },
+  { accessorKey: 'longitude', header: t('stationTable.longitude') },
+  { accessorKey: 'start_date', header: t('stationTable.startDate') },
+  { accessorKey: 'end_date', header: t('stationTable.endDate') },
+])
 
 const route = useRoute()
 const router = useRouter()
@@ -194,11 +196,11 @@ watch(
 )
 
 // Mode options for toggle
-const modeOptions = [
-  { value: 'station', label: 'Station', icon: 'i-lucide-map-pin' },
-  { value: 'interpolation', label: 'Interpolation', icon: 'i-lucide-locate' },
-  { value: 'summary', label: 'Summary', icon: 'i-lucide-bar-chart-3' },
-] as const
+const modeOptions = computed(() => [
+  { value: 'station' as const, label: t('explorer.modeStation'), icon: 'i-lucide-map-pin' },
+  { value: 'interpolation' as const, label: t('explorer.modeInterpolation'), icon: 'i-lucide-locate' },
+  { value: 'summary' as const, label: t('explorer.modeSummary'), icon: 'i-lucide-bar-chart-3' },
+])
 
 // once parameters are selected, we have all information to continue with station/interpolation selection
 const showModeSelection = computed(() => {
@@ -461,76 +463,51 @@ function handleUnitTargetChange(unitType: string, value: string) {
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
       <h1 class="text-4xl font-bold mb-4">
-        Explorer
+        {{ t('explorer.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
-        Explore stations and observation data interactively
+        {{ t('explorer.subtitle') }}
       </p>
     </div>
 
     <UCollapsible class="mb-6" :default-open="false">
       <UButton
-        label="About Explorer" variant="subtle" color="neutral" trailing-icon="i-lucide-chevron-down" block
+        :label="t('explorer.aboutButton')" variant="subtle" color="neutral" trailing-icon="i-lucide-chevron-down" block
         size="sm"
       />
       <template #content>
         <div class="space-y-3 text-gray-600 dark:text-gray-400 p-4">
           <p>
-            The Explorer is an interactive UI for discovering weather stations and retrieving observation data
-            without writing code. Use it to visually pick stations on the map, configure which parameters and
-            time ranges you need, and preview the resulting values. It supports three modes: <strong>Station</strong>
-            (download measurements from selected stations), <strong>Interpolation</strong> (estimate values for a
-            geographic point), and <strong>Summary</strong> (aggregated statistics over an area or point).
+            {{ t('explorer.aboutIntro') }}
           </p>
 
           <div>
             <div class="font-semibold">
-              Basic workflow
+              {{ t('explorer.workflowTitle') }}
             </div>
             <ol class="list-decimal list-inside ml-4">
-              <li>Pick a <strong>Provider</strong> (data source) and a <strong>Network</strong>.</li>
-              <li>
-                Choose a <strong>Resolution</strong> and <strong>Dataset</strong> and select one or more <strong>Parameters</strong>.
-              </li>
-              <li>
-                Switch between modes and select stations on the map or enter a manual location for
-                interpolation/summary.
-              </li>
-              <li>
-                Provide a <strong>Date Range</strong> when required (interpolation, summary or high-resolution data).
-              </li>
-              <li>Open the <strong>Data Viewer</strong> to preview, inspect stats and export results.</li>
+              <li>{{ t('explorer.workflow1') }}</li>
+              <li>{{ t('explorer.workflow2') }}</li>
+              <li>{{ t('explorer.workflow3') }}</li>
+              <li>{{ t('explorer.workflow4') }}</li>
+              <li>{{ t('explorer.workflow5') }}</li>
             </ol>
           </div>
 
           <div>
             <div class="font-semibold">
-              Tips & limits
+              {{ t('explorer.tipsTitle') }}
             </div>
             <ul class="list-disc list-inside ml-4">
-              <li>
-                High-frequency resolutions (1/5/10 minutes) produce many values — restrict the date range to keep
-                requests reasonable.
-              </li>
-              <li>
-                Use <strong>Settings</strong> to control unit conversion, result shape (long/wide), and
-                interpolation/summary options.
-              </li>
-              <li>
-                Interpolation and summary both respect nearby station distance and per-parameter distance overrides —
-                adjust them under
-                <em>Advanced Settings</em> for better estimates.
-              </li>
-              <li>
-                If you plan to export, preview the result size in the Data Viewer and reduce stations/parameters or
-                range if needed.
-              </li>
+              <li>{{ t('explorer.tip1') }}</li>
+              <li>{{ t('explorer.tip2') }}</li>
+              <li>{{ t('explorer.tip3') }}</li>
+              <li>{{ t('explorer.tip4') }}</li>
             </ul>
           </div>
 
           <p class="text-sm text-gray-500">
-            For detailed examples and API equivalents, see the documentation or the REST API page. The Explorer is meant
-            to be a convenient way to build queries visually before scripting them with the library or REST endpoints.
+            {{ t('explorer.aboutFooter') }}
           </p>
         </div>
       </template>
@@ -541,7 +518,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <!-- Mode Selection -->
     <UCard v-if="showModeSelection">
       <template #header>
-        <span>Mode</span>
+        <span>{{ t('explorer.mode') }}</span>
       </template>
       <UFieldGroup>
         <UButton
@@ -560,7 +537,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <!-- Data Settings -->
     <UCollapsible v-if="showModeSelection">
       <UButton
-        label="Settings"
+        :label="t('explorer.settings')"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -574,19 +551,19 @@ function handleUnitTargetChange(unitType: string, value: string) {
             <div class="flex items-center gap-2 mb-3">
               <UIcon name="i-lucide-settings" class="w-4 h-4 text-primary-500" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                General Settings
+                {{ t('explorer.generalSettings') }}
               </div>
             </div>
             <div class="space-y-3">
               <div class="flex flex-wrap gap-4">
-                <UCheckbox v-model="dataSettings.humanize" label="Humanize parameters" />
-                <UCheckbox v-model="dataSettings.convertUnits" label="Convert to SI units" />
+                <UCheckbox v-model="dataSettings.humanize" :label="t('explorer.humanize')" />
+                <UCheckbox v-model="dataSettings.convertUnits" :label="t('explorer.convertUnits')" />
               </div>
 
               <!-- Unit Targets -->
               <UCollapsible v-if="dataSettings.convertUnits">
                 <UButton
-                  label="Unit Targets"
+                  :label="t('explorer.unitTargets')"
                   variant="ghost"
                   color="neutral"
                   trailing-icon="i-lucide-chevron-down"
@@ -595,7 +572,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                 <template #content>
                   <div class="pt-3 space-y-2">
                     <p class="text-xs text-gray-500 mb-2">
-                      Override default target units for specific unit types. Leave empty to use defaults.
+                      {{ t('explorer.unitTargetsHint') }}
                     </p>
                     <div
                       v-for="unitType in unitTypes"
@@ -611,7 +588,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         @change="handleUnitTargetChange(unitType.type, ($event.target as HTMLSelectElement).value)"
                       >
                         <option value="">
-                          Default ({{ unitType.default }})
+                          {{ t('explorer.unitDefault', { unit: unitType.default }) }}
                         </option>
                         <option v-for="unit in unitType.units" :key="unit" :value="unit">
                           {{ unit }}
@@ -632,22 +609,22 @@ function handleUnitTargetChange(unitType: string, value: string) {
             <div class="flex items-center gap-2 mb-3">
               <UIcon name="i-lucide-table" class="w-4 h-4 text-primary-500" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                Values Options
+                {{ t('explorer.valuesOptions') }}
               </div>
             </div>
             <div class="space-y-3">
               <div class="flex items-center gap-4">
-                <label class="text-sm">Shape:</label>
+                <label class="text-sm">{{ t('explorer.shape') }}:</label>
                 <UFieldGroup>
                   <UButton
-                    label="Long"
+                    :label="t('explorer.shapeLong')"
                     color="neutral"
                     :variant="dataSettings.shape === 'long' ? 'solid' : 'ghost'"
                     size="xs"
                     @click="dataSettings.shape = 'long'"
                   />
                   <UButton
-                    label="Wide"
+                    :label="t('explorer.shapeWide')"
                     color="neutral"
                     :variant="dataSettings.shape === 'wide' ? 'solid' : 'ghost'"
                     size="xs"
@@ -656,11 +633,11 @@ function handleUnitTargetChange(unitType: string, value: string) {
                 </UFieldGroup>
               </div>
               <div class="flex flex-wrap gap-4">
-                <UCheckbox v-model="dataSettings.skipEmpty" label="Skip empty stations" />
-                <UCheckbox v-model="dataSettings.dropNulls" label="Drop null values" />
+                <UCheckbox v-model="dataSettings.skipEmpty" :label="t('explorer.skipEmpty')" />
+                <UCheckbox v-model="dataSettings.dropNulls" :label="t('explorer.dropNulls')" />
               </div>
               <div v-if="dataSettings.skipEmpty" class="flex items-center gap-4">
-                <label class="text-sm">Skip criteria:</label>
+                <label class="text-sm">{{ t('explorer.skipCriteria') }}:</label>
                 <UFieldGroup>
                   <UButton
                     v-for="criteria in ['min', 'mean', 'max']"
@@ -672,7 +649,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                     @click="dataSettings.skipCriteria = criteria as 'min' | 'mean' | 'max'"
                   />
                 </UFieldGroup>
-                <label class="text-sm">Threshold:</label>
+                <label class="text-sm">{{ t('explorer.threshold') }}:</label>
                 <input
                   v-model.number="dataSettings.skipThreshold"
                   type="number"
@@ -693,13 +670,13 @@ function handleUnitTargetChange(unitType: string, value: string) {
             <div class="flex items-center gap-2 mb-3">
               <UIcon name="i-lucide-locate" class="w-4 h-4 text-primary-500" />
               <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                Interpolation Options
+                {{ t('explorer.interpolationOptions') }}
               </div>
             </div>
             <div class="space-y-3">
               <div class="space-y-2">
                 <div class="flex items-center gap-4">
-                  <label class="text-sm font-medium">Nearby station distance:</label>
+                  <label class="text-sm font-medium">{{ t('explorer.nearbyDistance') }}:</label>
                   <input
                     v-model.number="dataSettings.useNearbyStationDistance"
                     type="number"
@@ -710,14 +687,13 @@ function handleUnitTargetChange(unitType: string, value: string) {
                   <span class="text-sm text-gray-500">km</span>
                 </div>
                 <p class="text-xs text-gray-500">
-                  Maximum distance to consider nearby stations. If a station is within this distance,
-                  its actual value will be used instead of interpolating/summarizing.
+                  {{ t('explorer.nearbyDistanceHint') }}
                 </p>
               </div>
 
               <UCollapsible>
                 <UButton
-                  label="Advanced Settings"
+                  :label="t('explorer.advancedSettings')"
                   variant="ghost"
                   color="neutral"
                   trailing-icon="i-lucide-chevron-down"
@@ -727,15 +703,14 @@ function handleUnitTargetChange(unitType: string, value: string) {
                   <div class="pt-3 space-y-4">
                     <!-- Station Distance Mapping -->
                     <div class="space-y-2">
-                      <label class="text-sm font-medium">Station distance by parameter:</label>
+                      <label class="text-sm font-medium">{{ t('explorer.stationDistanceByParam') }}:</label>
                       <p class="text-xs text-gray-500 mb-2">
-                        Maximum distance (km) for stations used per parameter. Backend defaults: 40km general, 20km for
-                        precipitation_height.
+                        {{ t('explorer.stationDistanceHint') }}
                       </p>
 
                       <!-- Default distance -->
                       <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-600 w-32">Default (all):</span>
+                        <span class="text-xs text-gray-600 w-32">{{ t('explorer.defaultAll') }}:</span>
                         <input
                           v-model.number="dataSettings.useStationDistancePerParameter.default"
                           type="number"
@@ -787,7 +762,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           size="xs"
                           @click="removeParameterDistance(entry.id, entry.paramName)"
                         />
-                        <UTooltip v-if="!isValidParameter(entry.paramName)" text="Parameter not in selected parameters">
+                        <UTooltip v-if="!isValidParameter(entry.paramName)" :text="t('explorer.paramNotSelected')">
                           <UIcon name="i-lucide-alert-circle" class="text-red-500 w-4 h-4" />
                         </UTooltip>
                       </div>
@@ -795,7 +770,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                       <!-- Add new parameter button -->
                       <div class="flex items-center gap-2">
                         <UButton
-                          label="Add parameter"
+                          :label="t('explorer.addParameter')"
                           icon="i-lucide-plus"
                           color="neutral"
                           variant="ghost"
@@ -803,14 +778,14 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           @click="addParameterDistance"
                         />
                         <span v-if="selectedParameters.length > 0" class="text-xs text-gray-500">
-                          Available: {{ selectedParameters.join(', ') }}
+                          {{ t('explorer.available') }}: {{ selectedParameters.join(', ') }}
                         </span>
                       </div>
                     </div>
 
                     <div class="space-y-2">
                       <div class="flex items-center gap-4">
-                        <label class="text-sm font-medium">Min gain of value pairs:</label>
+                        <label class="text-sm font-medium">{{ t('explorer.minGain') }}:</label>
                         <input
                           v-model.number="dataSettings.minGainOfValuePairs"
                           type="number"
@@ -821,14 +796,13 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         >
                       </div>
                       <p class="text-xs text-gray-500">
-                        Minimum gain threshold for adding additional stations. Considers the extra effort against the
-                        gain of additional timestamps. (Default: 0.10)
+                        {{ t('explorer.minGainHint') }}
                       </p>
                     </div>
 
                     <div class="space-y-2">
                       <div class="flex items-center gap-4">
-                        <label class="text-sm font-medium">Additional stations:</label>
+                        <label class="text-sm font-medium">{{ t('explorer.additionalStations') }}:</label>
                         <input
                           v-model.number="dataSettings.numAdditionalStations"
                           type="number"
@@ -838,7 +812,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         >
                       </div>
                       <p class="text-xs text-gray-500">
-                        Number of additional stations to use regardless of gain threshold. (Default: 3)
+                        {{ t('explorer.additionalStationsHint') }}
                       </p>
                     </div>
                   </div>
@@ -853,7 +827,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <!-- Data Source Selection -->
     <UCard v-if="showModeSelection">
       <template #header>
-        <span>Data Source</span>
+        <span>{{ t('explorer.dataSource') }}</span>
       </template>
 
       <div class="space-y-6">
@@ -885,12 +859,12 @@ function handleUnitTargetChange(unitType: string, value: string) {
         <USeparator v-if="showDateRangeSelector" />
 
         <div v-if="showDateRangeSelector" class="flex flex-col sm:flex-row gap-2">
-          <UButton label="Fetch" color="primary" :disabled="!canFetch" class="w-full" @click="fetchData" />
-          <UButton label="Clear" variant="outline" class="w-full" @click="clear" />
+          <UButton :label="t('common.fetch')" color="primary" :disabled="!canFetch" class="w-full" @click="fetchData" />
+          <UButton :label="t('common.clear')" variant="outline" class="w-full" @click="clear" />
         </div>
 
         <div v-if="dataViewerRef?.valuesPending" class="text-sm text-gray-600 dark:text-gray-400">
-          Loading...
+          {{ t('common.loading') }}
         </div>
       </div>
     </UCard>
@@ -899,7 +873,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
       v-if="stationSelectionState.mode === 'station' && stationSelectionState.selection.stations.length > 0"
     >
       <UButton
-        label="Stations Details"
+        :label="t('explorer.stationsDetails')"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -930,7 +904,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
 
     <UCollapsible v-if="dataViewerRef?.parameterStats?.length">
       <UButton
-        label="Values Details"
+        :label="t('explorer.valuesDetails')"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"

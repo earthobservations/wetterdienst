@@ -1,25 +1,27 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 const endpoints = [
-  { name: 'coverage', path: '/api/coverage', description: 'Discover available providers, networks, resolutions, and parameters' },
-  { name: 'stations', path: '/api/stations', description: 'Query weather stations by various filters' },
-  { name: 'history', path: '/api/history', description: 'Retrieve station history (name, operator, devices, geography, missing data)' },
-  { name: 'values', path: '/api/values', description: 'Retrieve observation values for selected stations and parameters' },
-  { name: 'interpolate', path: '/api/interpolate', description: 'Interpolate values for a specific location' },
-  { name: 'summarize', path: '/api/summarize', description: 'Get summarized values for a location' },
-  { name: 'stripes/stations', path: '/api/stripes/stations', description: 'Get stations for climate stripes visualization' },
-  { name: 'stripes/values', path: '/api/stripes/values', description: 'Get climate stripes data values with timestamps' },
-  { name: 'stripes/image', path: '/api/stripes/image', description: 'Generate climate stripes image' },
+  { name: 'coverage', path: '/api/coverage', descKey: 'api.endpoints.coverage' },
+  { name: 'stations', path: '/api/stations', descKey: 'api.endpoints.stations' },
+  { name: 'history', path: '/api/history', descKey: 'api.endpoints.history' },
+  { name: 'values', path: '/api/values', descKey: 'api.endpoints.values' },
+  { name: 'interpolate', path: '/api/interpolate', descKey: 'api.endpoints.interpolate' },
+  { name: 'summarize', path: '/api/summarize', descKey: 'api.endpoints.summarize' },
+  { name: 'stripes/stations', path: '/api/stripes/stations', descKey: 'api.endpoints.stripesStations' },
+  { name: 'stripes/values', path: '/api/stripes/values', descKey: 'api.endpoints.stripesValues' },
+  { name: 'stripes/image', path: '/api/stripes/image', descKey: 'api.endpoints.stripesImage' },
 ]
 
 const examples = [
-  { name: 'DWD Observation Daily Climate Stations', path: '/api/stations?provider=dwd&network=observation&parameters=daily/kl&periods=recent&all=true' },
-  { name: 'DWD Observation Station History', path: '/api/history?provider=dwd&network=observation&parameters=daily/kl&station=00011' },
-  { name: 'DWD Observation Daily Climate Values', path: '/api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&station=00011' },
-  { name: 'DWD Observation Daily Climate Interpolation', path: '/api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01' },
-  { name: 'DWD Observation Daily Climate Summary', path: '/api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01' },
-  { name: 'Climate Stripes Stations (Temperature)', path: '/api/stripes/stations?kind=temperature' },
-  { name: 'Climate Stripes Values (Temperature)', path: '/api/stripes/values?kind=temperature&station=1048' },
-  { name: 'Climate Stripes Image (Temperature)', path: '/api/stripes/image?kind=temperature&station=1048' },
+  { nameKey: 'api.examples.stationsDwd', path: '/api/stations?provider=dwd&network=observation&parameters=daily/kl&periods=recent&all=true' },
+  { nameKey: 'api.examples.historyDwd', path: '/api/history?provider=dwd&network=observation&parameters=daily/kl&station=00011' },
+  { nameKey: 'api.examples.valuesDwd', path: '/api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&station=00011' },
+  { nameKey: 'api.examples.interpolateDwd', path: '/api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01' },
+  { nameKey: 'api.examples.summarizeDwd', path: '/api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01' },
+  { nameKey: 'api.examples.stripesStations', path: '/api/stripes/stations?kind=temperature' },
+  { nameKey: 'api.examples.stripesValues', path: '/api/stripes/values?kind=temperature&station=1048' },
+  { nameKey: 'api.examples.stripesImage', path: '/api/stripes/image?kind=temperature&station=1048' },
 ]
 </script>
 
@@ -27,17 +29,17 @@ const examples = [
   <UContainer class="mx-auto max-w-3xl px-4 py-6">
     <div class="text-center mb-8">
       <h1 class="text-4xl font-bold mb-4">
-        REST API
+        {{ t('api.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
-        Access weather data programmatically
+        {{ t('api.subtitle') }}
       </p>
     </div>
 
     <UCard class="mb-8">
       <template #header>
         <h2 class="text-lg font-semibold">
-          Endpoints
+          {{ t('api.endpointsTitle') }}
         </h2>
       </template>
       <div class="space-y-3">
@@ -51,7 +53,7 @@ const examples = [
           >
             {{ endpoint.name }}
           </UButton>
-          <span class="text-sm text-gray-600 dark:text-gray-400 pt-1">{{ endpoint.description }}</span>
+          <span class="text-sm text-gray-600 dark:text-gray-400 pt-1">{{ t(endpoint.descKey) }}</span>
         </div>
       </div>
     </UCard>
@@ -59,11 +61,11 @@ const examples = [
     <UCard class="mb-8">
       <template #header>
         <h2 class="text-lg font-semibold">
-          Examples
+          {{ t('api.examplesTitle') }}
         </h2>
       </template>
       <div class="space-y-2">
-        <div v-for="example in examples" :key="example.name">
+        <div v-for="example in examples" :key="example.nameKey">
           <UButton
             :to="example.path"
             target="_blank"
@@ -71,7 +73,7 @@ const examples = [
             variant="link"
             class="text-left"
           >
-            {{ example.name }}
+            {{ t(example.nameKey) }}
           </UButton>
         </div>
       </div>
@@ -80,24 +82,26 @@ const examples = [
     <UCard class="mb-8">
       <template #header>
         <h2 class="text-lg font-semibold">
-          Response Formats
+          {{ t('api.formatsTitle') }}
         </h2>
       </template>
-      <p class="text-gray-600 dark:text-gray-400 mb-4">
-        All endpoints support multiple output formats via the <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">format</code> query parameter:
-      </p>
+      <i18n-t keypath="api.formatsText" tag="p" class="text-gray-600 dark:text-gray-400 mb-4" scope="global">
+        <template #format>
+          <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">format</code>
+        </template>
+      </i18n-t>
       <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
-        <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">json</code> - JSON format (default)</li>
-        <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">csv</code> - CSV format</li>
-        <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">geojson</code> - GeoJSON format for mapping</li>
-        <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">html</code> - HTML table format</li>
+        <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">json</code> - {{ t('api.formatJson') }}</li>
+        <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">csv</code> - {{ t('api.formatCsv') }}</li>
+        <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">geojson</code> - {{ t('api.formatGeojson') }}</li>
+        <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">html</code> - {{ t('api.formatHtml') }}</li>
       </ul>
     </UCard>
 
     <UCard>
       <template #header>
         <h2 class="text-lg font-semibold">
-          Common Parameters
+          {{ t('api.commonParamsTitle') }}
         </h2>
       </template>
       <div class="overflow-x-auto">
@@ -105,10 +109,10 @@ const examples = [
           <thead>
             <tr class="border-b dark:border-gray-700">
               <th class="text-left py-2 pr-4">
-                Parameter
+                {{ t('api.paramHeader') }}
               </th>
               <th class="text-left py-2">
-                Description
+                {{ t('api.descHeader') }}
               </th>
             </tr>
           </thead>
@@ -118,7 +122,7 @@ const examples = [
                 <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">provider</code>
               </td>
               <td class="py-2">
-                Data provider (e.g., dwd, noaa)
+                {{ t('api.params.provider') }}
               </td>
             </tr>
             <tr class="border-b dark:border-gray-700">
@@ -126,7 +130,7 @@ const examples = [
                 <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">network</code>
               </td>
               <td class="py-2">
-                Data network (e.g., observation, forecast)
+                {{ t('api.params.network') }}
               </td>
             </tr>
             <tr class="border-b dark:border-gray-700">
@@ -134,7 +138,7 @@ const examples = [
                 <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">parameters</code>
               </td>
               <td class="py-2">
-                Parameter path (e.g., daily/kl/temperature_air_mean_2m)
+                {{ t('api.params.parameters') }}
               </td>
             </tr>
             <tr class="border-b dark:border-gray-700">
@@ -142,7 +146,7 @@ const examples = [
                 <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">station</code>
               </td>
               <td class="py-2">
-                Station ID(s), comma-separated
+                {{ t('api.params.station') }}
               </td>
             </tr>
             <tr class="border-b dark:border-gray-700">
@@ -150,7 +154,7 @@ const examples = [
                 <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">date</code>
               </td>
               <td class="py-2">
-                Date or date range (e.g., 2020-01-01/2020-12-31)
+                {{ t('api.params.date') }}
               </td>
             </tr>
             <tr>
@@ -158,7 +162,7 @@ const examples = [
                 <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">format</code>
               </td>
               <td class="py-2">
-                Output format (json, csv, geojson, html)
+                {{ t('api.params.format') }}
               </td>
             </tr>
           </tbody>

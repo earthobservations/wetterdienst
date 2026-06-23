@@ -1,9 +1,20 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 // Plotly instance (loaded client-side only)
 const plotlyLoaded = ref(false)
 let Plotly: typeof import('plotly.js-dist-min') | null = null
 
 const kind = ref<StripesKind>('temperature')
+
+const kindItems = computed(() => [
+  { label: t('stripes.typeTemperature'), value: 'temperature' },
+  { label: t('stripes.typePrecipitation'), value: 'precipitation' },
+])
+
+function kindLabel(k: StripesKind) {
+  return k === 'precipitation' ? t('stripes.typePrecipitation') : t('stripes.typeTemperature')
+}
 const selectedStation = ref<StripesStation | null>(null)
 const startYear = ref<number | null>(null)
 const endYear = ref<number | null>(null)
@@ -191,7 +202,7 @@ async function plotStripes(data: StripesValuesResponse) {
       y: -0.03,
       xref: 'x',
       yref: 'paper',
-      text: 'Data availability',
+      text: t('stripes.plotDataAvailability'),
       showarrow: false,
       xanchor: 'left',
       yanchor: 'bottom',
@@ -204,7 +215,7 @@ async function plotStripes(data: StripesValuesResponse) {
     annotations.push({
       x: 0.5,
       y: -0.05,
-      text: 'Source: Deutscher Wetterdienst',
+      text: t('stripes.plotSource'),
       showarrow: false,
       xref: 'paper',
       yref: 'paper',
@@ -297,7 +308,11 @@ async function plotStripes(data: StripesValuesResponse) {
     traces.push(trendlineTrace as Plotly.Data)
 
   // Layout configuration
-  const titleText = `Climate stripes (${kind.value}) for ${data.metadata.station.name}, Germany (${data.metadata.station.station_id})`
+  const titleText = t('stripes.plotTitle', {
+    kind: kindLabel(kind.value),
+    name: data.metadata.station.name,
+    id: data.metadata.station.station_id,
+  })
   const containerWidth = plotContainer.value.clientWidth
 
   const layout: Partial<Plotly.Layout> = {
@@ -535,16 +550,16 @@ onMounted(async () => {
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
       <h1 class="text-4xl font-bold mb-4">
-        Climate Stripes
+        {{ t('stripes.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
-        Visualize long-term climate trends with warming/cooling stripes
+        {{ t('stripes.subtitle') }}
       </p>
     </div>
 
     <UCollapsible v-model="showAbout" class="mb-6">
       <UButton
-        label="About Climate Stripes"
+        :label="t('stripes.aboutButton')"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -554,13 +569,10 @@ onMounted(async () => {
       <template #content>
         <UCard>
           <p class="text-gray-600 dark:text-gray-400 mb-4">
-            Climate stripes (also known as warming stripes) are a data visualization designed to communicate the
-            long-term increase in temperatures. Each stripe represents the average temperature for a single year, with
-            blue indicating cooler years and red indicating warmer years.
+            {{ t('stripes.aboutText1') }}
           </p>
           <p class="text-gray-600 dark:text-gray-400">
-            The visualization was created by climate scientist Ed Hawkins and has become an iconic representation of
-            climate change. This tool uses data from the German Weather Service (DWD) observation network.
+            {{ t('stripes.aboutText2') }}
           </p>
         </UCard>
       </template>
@@ -569,17 +581,17 @@ onMounted(async () => {
     <UCard class="mb-6">
       <template #header>
         <h2 class="text-lg font-semibold">
-          Request
+          {{ t('stripes.requestTitle') }}
         </h2>
       </template>
       <div class="space-y-4 p-4">
         <div>
-          <label class="block text-sm font-medium mb-1">Type</label>
-          <USelect v-model="kind" :items="['temperature', 'precipitation']" />
+          <label class="block text-sm font-medium mb-1">{{ t('stripes.type') }}</label>
+          <USelect v-model="kind" :items="kindItems" />
         </div>
 
         <div>
-          <label class="block text-sm font-medium mb-1">Station</label>
+          <label class="block text-sm font-medium mb-1">{{ t('stripes.station') }}</label>
           <USelectMenu
             v-model="selectedStationItem"
             :items="stationItems"
@@ -587,13 +599,13 @@ onMounted(async () => {
             searchable
             color="primary"
             class="w-full"
-            :placeholder="selectedStation ? `${selectedStation?.name} (ID: ${selectedStation?.station_id})` : 'Select a station'"
+            :placeholder="selectedStation ? `${selectedStation?.name} (ID: ${selectedStation?.station_id})` : t('stripes.selectStation')"
             @update:model-value="onSelectMenuUpdate"
           />
 
           <UCollapsible v-model="showMap" class="mt-3">
             <UButton
-              label="Show map"
+              :label="t('stripes.showMap')"
               variant="subtle"
               color="neutral"
               trailing-icon="i-lucide-chevron-down"
@@ -614,13 +626,13 @@ onMounted(async () => {
         </div>
 
         <div v-if="stationsPending" class="text-sm text-gray-600 dark:text-gray-400">
-          Loading stations...
+          {{ t('stripes.loadingStations') }}
         </div>
 
         <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-          <p><strong>State:</strong> {{ selectedStation.state }}</p>
+          <p><strong>{{ t('stripes.state') }}:</strong> {{ selectedStation.state }}</p>
           <p>
-            <strong>Available:</strong> {{ selectedStation.start_date?.slice(0, 4) }} -
+            <strong>{{ t('stripes.available') }}:</strong> {{ selectedStation.start_date?.slice(0, 4) }} -
             {{ selectedStation.end_date?.slice(0, 4) }}
           </p>
         </div>
@@ -629,12 +641,12 @@ onMounted(async () => {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium mb-1">Start Year</label>
-            <UInput v-model.number="startYear" type="number" placeholder="Auto" />
+            <label class="block text-sm font-medium mb-1">{{ t('stripes.startYear') }}</label>
+            <UInput v-model.number="startYear" type="number" :placeholder="t('stripes.auto')" />
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">End Year</label>
-            <UInput v-model.number="endYear" type="number" placeholder="Auto" />
+            <label class="block text-sm font-medium mb-1">{{ t('stripes.endYear') }}</label>
+            <UInput v-model.number="endYear" type="number" :placeholder="t('stripes.auto')" />
           </div>
         </div>
 
@@ -642,17 +654,17 @@ onMounted(async () => {
 
         <div class="flex flex-col sm:flex-row gap-2">
           <UButton
-            label="Fetch" color="primary" :disabled="!selectedStation || isLoading"
+            :label="t('common.fetch')" color="primary" :disabled="!selectedStation || isLoading"
             :loading="isLoading" class="w-full" @click="fetchAndPlotStripes"
           />
-          <UButton label="Clear" variant="outline" class="w-full" :disabled="!hasPlot" @click="clearStripes" />
+          <UButton :label="t('common.clear')" variant="outline" class="w-full" :disabled="!hasPlot" @click="clearStripes" />
         </div>
       </div>
     </UCard>
 
     <UCollapsible v-model="showSettings">
       <UButton
-        label="Settings"
+        :label="t('stripes.settingsTitle')"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -663,12 +675,12 @@ onMounted(async () => {
         <div
           class="flex flex-col gap-3 p-4 mt-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
         >
-          <UCheckbox v-model="showTitle" label="Show title" />
-          <UCheckbox v-model="showYears" label="Show years" />
-          <UCheckbox v-model="showSource" label="Show source" />
-          <UCheckbox v-model="showDataAvailability" label="Show data availability" />
-          <UCheckbox v-model="showTimeseries" label="Show timeseries" />
-          <UCheckbox v-model="showTrendline" :disabled="!showTimeseries" label="Show trendline" />
+          <UCheckbox v-model="showTitle" :label="t('stripes.showTitleOption')" />
+          <UCheckbox v-model="showYears" :label="t('stripes.showYears')" />
+          <UCheckbox v-model="showSource" :label="t('stripes.showSource')" />
+          <UCheckbox v-model="showDataAvailability" :label="t('stripes.showDataAvailability')" />
+          <UCheckbox v-model="showTimeseries" :label="t('stripes.showTimeseries')" />
+          <UCheckbox v-model="showTrendline" :disabled="!showTimeseries" :label="t('stripes.showTrendline')" />
         </div>
       </template>
     </UCollapsible>
@@ -677,7 +689,7 @@ onMounted(async () => {
       <template #header>
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold">
-            Visualization
+            {{ t('stripes.visualizationTitle') }}
           </h2>
         </div>
       </template>
@@ -686,11 +698,11 @@ onMounted(async () => {
         <div v-if="isLoading" class="flex items-center justify-center h-64">
           <div class="flex items-center gap-2 text-gray-500">
             <UIcon name="i-lucide-loader-2" class="animate-spin" />
-            Loading data and generating visualization...
+            {{ t('stripes.loadingViz') }}
           </div>
         </div>
         <div v-else-if="!hasPlot" class="flex items-center justify-center h-64 text-gray-500">
-          Select a station and click Fetch to create climate stripes
+          {{ t('stripes.emptyHint') }}
         </div>
         <div
           ref="plotContainer" :class="{ hidden: !hasPlot }"
@@ -700,14 +712,14 @@ onMounted(async () => {
           <UDropdownMenu
             :items="[
               [
-                { label: 'Download as PNG', onSelect: () => downloadStripes('png') },
-                { label: 'Download as JPG', onSelect: () => downloadStripes('jpeg') },
-                { label: 'Download as SVG', onSelect: () => downloadStripes('svg') },
+                { label: t('stripes.downloadPng'), onSelect: () => downloadStripes('png') },
+                { label: t('stripes.downloadJpg'), onSelect: () => downloadStripes('jpeg') },
+                { label: t('stripes.downloadSvg'), onSelect: () => downloadStripes('svg') },
               ],
             ]"
           >
             <UButton
-              label="Download Image" color="primary" variant="outline"
+              :label="t('stripes.downloadImage')" color="primary" variant="outline"
               icon="i-lucide-download" class="w-full justify-center"
             />
           </UDropdownMenu>
