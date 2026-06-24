@@ -31,7 +31,10 @@
     "feature3Desc": "Download data as CSV, JSON or GeoJSON.",
     "feature4Title": "Data analysis",
     "feature4Desc": "Interpolation, summarization and climate stripes visualization.",
-    "authorsTitle": "Authors"
+    "authorsTitle": "Authors",
+    "valuesTitle": "What we stand for",
+    "lgbtq": "We stand with the LGBTQ+ community.",
+    "antifascist": "No place for Nazis. FCKNZS."
   },
   "nav": {
     "home": "Home",
@@ -49,7 +52,9 @@
   },
   "footer": {
     "copyright": "© {year} earthobservations",
-    "legal": "Legal notice"
+    "legal": "Legal notice",
+    "lgbtq": "Love who you want",
+    "antifascist": "FCKNZS"
   },
   "language": {
     "switch": "Switch language",

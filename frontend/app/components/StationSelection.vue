@@ -314,6 +314,7 @@ watch(() => selectedStations.value, () => {
       searchable
       color="primary"
       class="w-full"
+      :class="{ 'needs-input': selectedStations.length === 0 }"
       :placeholder="multiple ? t('stationSelection.selectStations') : t('stationSelection.selectStation')"
     />
     <UContainer v-if="selectedStations.length > 0" class="mt-2">

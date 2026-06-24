@@ -19,6 +19,35 @@
   max-width: 100% !important;
   overflow: hidden;
 }
+/* Guide newcomers to the next thing they need to do: a gentle pulsing ring
+   around the input/select that is still awaiting a selection. Applied via the
+   `needs-input` class, which callers toggle off once the field has a value.
+   Honours reduced-motion by falling back to a static ring. */
+.needs-input {
+  border-radius: var(--ui-radius, 0.375rem);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .needs-input {
+    animation: needs-input-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .needs-input {
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--ui-primary) 60%, transparent);
+  }
+}
+@keyframes needs-input-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--ui-primary) 50%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--ui-primary) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--ui-primary) 0%, transparent);
+  }
+}
+
 /* Sepia color mode */
 html.sepia {
   --ui-bg: #f4ecd8;

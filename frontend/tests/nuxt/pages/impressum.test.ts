@@ -39,7 +39,7 @@ describe('impressum Page', () => {
     expect(text).toContain('Benjamin Gutzmann')
   })
 
-  it('shows the operator reminder while placeholders are unfilled', async () => {
+  it('shows the operator address with no unfilled placeholders', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     )
@@ -47,8 +47,10 @@ describe('impressum Page', () => {
     const wrapper = await mountSuspended(ImpressumPage)
     const text = wrapper.text()
 
-    // The scaffold ships with «…» placeholders for the legally required address.
-    expect(text).toContain('«')
+    // The operator details are filled in, so no «…» placeholders should remain.
+    expect(text).not.toContain('«')
+    expect(text).toContain('Falkenbergsweg 26')
+    expect(text).toContain('21149 Hamburg')
     expect(text).toContain('§ 18 (2) MStV')
   })
 
