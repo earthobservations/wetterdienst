@@ -24,6 +24,17 @@ const stationTableColumns = computed<TableColumn<Station>[]>(() => [
 const route = useRoute()
 const router = useRouter()
 
+// Friendly labels for unit types and units, reusing the shared settings/units
+// catalogs (e.g. "temperature" -> settings.unitTemperature, "degree_celsius"
+// -> units.degree_celsius).
+function unitTypeLabel(type: string): string {
+  const pascal = type.replace(/(?:^|_)(\w)/g, (_, c: string) => c.toUpperCase())
+  return t(`settings.unit${pascal}`)
+}
+function unitLabel(unit: string): string {
+  return t(`units.${unit}`)
+}
+
 // Available unit types and their possible units (from backend UnitConverter)
 const unitTypes = [
   { type: 'temperature', units: ['degree_celsius', 'degree_kelvin', 'degree_fahrenheit'], default: 'degree_celsius' },
@@ -580,7 +591,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                       class="flex items-center gap-2"
                     >
                       <label class="text-xs text-gray-600 dark:text-gray-400 w-40">
-                        {{ unitType.type }}:
+                        {{ unitTypeLabel(unitType.type) }}:
                       </label>
                       <select
                         :value="dataSettings.unitTargets[unitType.type] ?? ''"
@@ -588,10 +599,10 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         @change="handleUnitTargetChange(unitType.type, ($event.target as HTMLSelectElement).value)"
                       >
                         <option value="">
-                          {{ t('explorer.unitDefault', { unit: unitType.default }) }}
+                          {{ t('explorer.unitDefault', { unit: unitLabel(unitType.default) }) }}
                         </option>
                         <option v-for="unit in unitType.units" :key="unit" :value="unit">
-                          {{ unit }}
+                          {{ unitLabel(unit) }}
                         </option>
                       </select>
                     </div>

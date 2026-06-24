@@ -6,7 +6,7 @@ describe('query-validator', () => {
     it('should accept valid SELECT query', () => {
       const result = validateQuery('SELECT * FROM data LIMIT 100')
       expect(result.valid).toBe(true)
-      expect(result.error).toBeUndefined()
+      expect(result.errorKey).toBeUndefined()
     })
 
     it('should accept SELECT query with WHERE clause', () => {
@@ -22,43 +22,51 @@ describe('query-validator', () => {
     it('should reject empty query', () => {
       const result = validateQuery('')
       expect(result.valid).toBe(false)
-      expect(result.error).toContain('empty')
+      expect(result.errorKey).toBe('validation.queryEmpty')
     })
 
     it('should reject INSERT queries', () => {
       const result = validateQuery('INSERT INTO data VALUES (1, 2, 3)')
       expect(result.valid).toBe(false)
-      expect(result.error).toContain('SELECT')
+      // INSERT does not start with SELECT/WITH, so it is rejected up front.
+      expect(result.errorKey).toBe('validation.onlySelect')
     })
 
     it('should reject UPDATE queries', () => {
       const result = validateQuery('UPDATE data SET value = 0')
       expect(result.valid).toBe(false)
-      expect(result.error).toBeDefined()
+      expect(result.errorKey).toBeDefined()
     })
 
     it('should reject DELETE queries', () => {
       const result = validateQuery('DELETE FROM data')
       expect(result.valid).toBe(false)
-      expect(result.error).toBeDefined()
+      expect(result.errorKey).toBeDefined()
     })
 
     it('should reject DROP queries', () => {
       const result = validateQuery('DROP TABLE data')
       expect(result.valid).toBe(false)
-      expect(result.error).toBeDefined()
+      expect(result.errorKey).toBeDefined()
     })
 
     it('should reject CREATE queries', () => {
       const result = validateQuery('CREATE TABLE test (id INT)')
       expect(result.valid).toBe(false)
-      expect(result.error).toBeDefined()
+      expect(result.errorKey).toBeDefined()
+    })
+
+    it('should flag dangerous keywords with the operation name', () => {
+      const result = validateQuery('SELECT * FROM data; DROP TABLE data')
+      expect(result.valid).toBe(false)
+      expect(result.errorKey).toBe('validation.disallowedOperation')
+      expect(result.params?.op).toBe('DROP')
     })
 
     it('should warn about missing LIMIT', () => {
       const result = validateQuery('SELECT * FROM data')
       expect(result.valid).toBe(true)
-      expect(result.warning).toContain('LIMIT')
+      expect(result.warningKey).toBe('validation.noLimit')
     })
 
     it('should handle queries with comments', () => {
@@ -79,19 +87,18 @@ describe('query-validator', () => {
         ['station_id', 'value', 'date'],
       )
       expect(result.valid).toBe(true)
-      expect(result.message).toBeUndefined()
+      expect(result.messageKey).toBeUndefined()
     })
 
-    it('should accept subset of result columns when all are in expected list', () => {
-      // Query returns fewer columns but they're all valid
+    it('should reject when expected columns are missing from the result', () => {
+      // Query returns fewer columns than expected, so required columns are missing.
       const result = validateColumns(
         ['station_id', 'value'],
         ['station_id', 'value', 'date', 'quality'],
       )
-      // This should pass validation since station_id and value are both expected columns
-      // But currently fails because we require ALL expected columns
       expect(result.valid).toBe(false)
-      expect(result.message).toContain('missing')
+      expect(result.messageKey).toBe('validation.missingColumns')
+      expect(result.params?.missing).toContain('date')
     })
 
     it('should reject missing required columns', () => {
@@ -100,7 +107,7 @@ describe('query-validator', () => {
         ['station_id', 'value', 'date'],
       )
       expect(result.valid).toBe(false)
-      expect(result.message).toContain('missing')
+      expect(result.messageKey).toBe('validation.missingColumns')
     })
 
     it('should note extra columns', () => {
@@ -109,13 +116,14 @@ describe('query-validator', () => {
         ['station_id', 'value'],
       )
       expect(result.valid).toBe(true)
-      expect(result.message).toContain('additional')
+      expect(result.messageKey).toBe('validation.extraColumns')
+      expect(result.params?.extra).toContain('extra_col')
     })
 
     it('should reject empty result columns', () => {
       const result = validateColumns([], ['station_id', 'value'])
       expect(result.valid).toBe(false)
-      expect(result.message).toContain('no columns')
+      expect(result.messageKey).toBe('validation.noColumns')
     })
   })
 })

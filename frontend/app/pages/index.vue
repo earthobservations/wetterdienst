@@ -1,10 +1,39 @@
 <script setup lang="ts">
-const features = [
-  { icon: 'i-lucide-database', title: 'Multiple Data Sources', description: 'Access weather data from various meteorological services including DWD, NOAA, and more.' },
-  { icon: 'i-lucide-map-pin', title: 'Geospatial Queries', description: 'Find stations by coordinates, name, or within a specific radius.' },
-  { icon: 'i-lucide-download', title: 'Flexible Export', description: 'Export data in CSV, JSON, or GeoJSON formats.' },
-  { icon: 'i-lucide-line-chart', title: 'Data Analysis', description: 'Interpolation, summarization, and climate stripes visualization.' },
-]
+const { t } = useI18n()
+
+// Primary, consumer-facing tasks. Explorer is intentionally a first-class
+// entry point here (not hidden behind an "advanced" section) — it is made
+// approachable through the Explorer's guided Simple mode.
+const tasks = computed(() => [
+  {
+    to: '/meteogram',
+    icon: 'i-lucide-cloud-sun',
+    title: t('home.forecastTitle'),
+    description: t('home.forecastDesc'),
+    accent: 'text-amber-500',
+  },
+  {
+    to: '/stripes',
+    icon: 'i-lucide-bar-chart-big',
+    title: t('home.stripesTitle'),
+    description: t('home.stripesDesc'),
+    accent: 'text-red-500',
+  },
+  {
+    to: '/explorer',
+    icon: 'i-lucide-compass',
+    title: t('home.explorerTitle'),
+    description: t('home.explorerDesc'),
+    accent: 'text-primary-500',
+  },
+])
+
+const features = computed(() => [
+  { icon: 'i-lucide-database', title: t('home.feature1Title'), description: t('home.feature1Desc') },
+  { icon: 'i-lucide-map-pin', title: t('home.feature2Title'), description: t('home.feature2Desc') },
+  { icon: 'i-lucide-download', title: t('home.feature3Title'), description: t('home.feature3Desc') },
+  { icon: 'i-lucide-line-chart', title: t('home.feature4Title'), description: t('home.feature4Desc') },
+])
 
 const authors = [
   { name: 'Benjamin Gutzmann', email: 'benjamin@eobs.org', githubUsername: 'gutzbenj', githubAvatarId: '29654631' },
@@ -14,44 +43,63 @@ const authors = [
 
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4">
-    <div class="text-center mb-12">
-      <h1 class="text-4xl font-bold mb-4">
+    <div class="text-center mb-10">
+      <h1 class="text-4xl font-bold mb-3">
         Wetterdienst
       </h1>
-      <p class="text-xl text-gray-600 dark:text-gray-400 mb-2">
-        Open earth data for humans
+      <p class="text-xl text-gray-600 dark:text-gray-400">
+        {{ t('home.tagline') }}
       </p>
+    </div>
+
+    <!-- Primary task cards: the friendly, everyone-can-use entry points. -->
+    <h2 class="text-center text-lg font-semibold mb-1">
+      {{ t('home.tasksTitle') }}
+    </h2>
+    <p class="text-center text-sm text-gray-500 dark:text-gray-400 mb-6">
+      {{ t('home.intro') }}
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
+      <NuxtLink
+        v-for="task in tasks"
+        :key="task.to"
+        :to="task.to"
+        class="group"
+      >
+        <UCard
+          class="h-full transition-all hover:ring-2 hover:ring-primary-400 hover:-translate-y-0.5"
+          :ui="{ body: 'flex flex-col items-center text-center gap-3 h-full' }"
+        >
+          <UIcon :name="task.icon" class="text-4xl" :class="task.accent" />
+          <h3 class="font-semibold text-base">
+            {{ task.title }}
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 flex-1">
+            {{ task.description }}
+          </p>
+          <span class="text-sm font-medium text-primary-500 group-hover:underline">
+            {{ t('common.open') }} →
+          </span>
+        </UCard>
+      </NuxtLink>
     </div>
 
     <UCard class="mb-8">
       <template #header>
         <h2 class="text-lg font-semibold">
-          About
+          {{ t('home.aboutTitle') }}
         </h2>
       </template>
       <p class="text-gray-600 dark:text-gray-400 mb-4">
-        Wetterdienst began as a robust Python package that provides a consistent, well-tested
-        interface to meteorological and environmental observation data from multiple providers
-        (DWD, NOAA, and others). Over time it evolved into a full ecosystem: a command-line tool,
-        a REST API, and this web application. Together these components make Wetterdienst useful
-        both as a developer library and as a ready-to-use application for non-programmers.
-      </p>
-      <p class="text-gray-600 dark:text-gray-400 mb-2">
-        Developers use the Python package for scripted downloads, reproducible analyses, and
-        integration into data pipelines. The backend performs common data tasks — unit conversion,
-        resampling, interpolation, and summarization — so you can focus on analysis, modeling, or
-        visualization instead of low-level data wrangling.
+        {{ t('home.aboutText1') }}
       </p>
       <p class="text-gray-600 dark:text-gray-400">
-        This web frontend includes the Explorer (a map-driven station browser) as a first-class
-        feature. The app provides interactive station discovery, map-based selection, visualizations
-        (including climate stripes), and flexible export options — ideal for exploration, teaching,
-        rapid quality checks, or producing data for downstream use without writing any code.
+        {{ t('home.aboutText2') }}
       </p>
     </UCard>
 
     <h2 class="text-xl font-semibold mb-4">
-      Features
+      {{ t('home.featuresTitle') }}
     </h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
       <UCard v-for="feature in features" :key="feature.title">
@@ -72,7 +120,7 @@ const authors = [
     <UCard>
       <template #header>
         <h2 class="text-lg font-semibold">
-          Authors
+          {{ t('home.authorsTitle') }}
         </h2>
       </template>
       <div class="flex flex-wrap gap-8 justify-center">
