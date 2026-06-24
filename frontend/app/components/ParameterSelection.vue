@@ -77,13 +77,20 @@ const resolutionItems = computed(() => resolutions.value.map(r => ({ label: reso
 const datasetItems = computed(() => datasets.value.map(d => ({ label: datasetLabel(d), value: d })))
 const paramItems = computed(() => params.value.map(p => ({ label: parameterLabel(p), value: p })))
 
+// Beginner-friendly starting point used when the Explorer is opened without any
+// existing selection (no URL query): DWD observation, daily climate summary,
+// mean 2 m air temperature. Gives newcomers a working example to tweak.
+const PRESELECTION = {
+  provider: 'dwd',
+  network: 'observation',
+  resolution: 'daily',
+  dataset: 'climate_summary',
+  parameters: ['temperature_air_mean_2m'],
+}
+
 // Initialize from query params and validate step by step
 async function initializeFromProps() {
-  const initial = props.modelValue
-  if (!initial) {
-    isInitializing.value = false
-    return
-  }
+  const initial = props.modelValue?.provider ? props.modelValue : PRESELECTION
 
   // Step 1: Validate provider
   if (initial.provider && providers.value.includes(initial.provider)) {
@@ -194,6 +201,25 @@ function clearParameters() {
 
 const allSelected = computed(() => parameters.value.length === params.value.length && params.value.length > 0)
 
+// The first enabled-but-empty field in the chain — the one a newcomer should
+// fill next. Used to visually highlight that single field (see `needs-input`).
+// Returns null once every step has a value, so nothing pulses unnecessarily.
+const activeField = computed<'provider' | 'network' | 'resolution' | 'dataset' | 'parameters' | null>(() => {
+  if (isInitializing.value)
+    return null
+  if (!provider.value)
+    return 'provider'
+  if (!network.value)
+    return 'network'
+  if (!resolution.value)
+    return 'resolution'
+  if (!dataset.value)
+    return 'dataset'
+  if (parameters.value.length === 0)
+    return 'parameters'
+  return null
+})
+
 function emitUpdate() {
   emit('update:modelValue', {
     provider: provider.value,
@@ -217,12 +243,12 @@ watch([provider, network, resolution, dataset, parameters], () => {
       {{ t('parameterSelection.title') }}
     </template>
     <UContainer class="flex flex-col gap-4">
-      <USelect v-model="provider" :items="providers" :placeholder="t('parameterSelection.selectProvider')" />
-      <USelect v-model="network" :items="networks" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider" />
-      <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network" />
-      <USelect v-model="dataset" :items="datasetItems" :placeholder="t('parameterSelection.selectDataset')" :disabled="!resolution" />
+      <USelect v-model="provider" :items="providers" :placeholder="t('parameterSelection.selectProvider')" :class="{ 'needs-input': activeField === 'provider' }" />
+      <USelect v-model="network" :items="networks" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider" :class="{ 'needs-input': activeField === 'network' }" />
+      <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network" :class="{ 'needs-input': activeField === 'resolution' }" />
+      <USelect v-model="dataset" :items="datasetItems" :placeholder="t('parameterSelection.selectDataset')" :disabled="!resolution" :class="{ 'needs-input': activeField === 'dataset' }" />
       <div class="flex gap-2 items-center min-w-0">
-        <USelectMenu v-model="parameters" :items="paramItems" value-key="value" multiple :placeholder="t('parameterSelection.selectParameters')" :disabled="!dataset" class="flex-1 min-w-0 overflow-hidden" />
+        <USelectMenu v-model="parameters" :items="paramItems" value-key="value" multiple :placeholder="t('parameterSelection.selectParameters')" :disabled="!dataset" class="flex-1 min-w-0 overflow-hidden" :class="{ 'needs-input': activeField === 'parameters' }" />
         <UButton
           v-if="dataset && !allSelected"
           size="xs"

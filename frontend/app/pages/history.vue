@@ -3,6 +3,8 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { computed, ref } from 'vue'
 import StationSelection from '~/components/StationSelection.vue'
 
+const { t } = useI18n()
+
 // History is only available for DWD observation
 const provider = 'dwd'
 const network = 'observation'
@@ -228,16 +230,16 @@ function clear() {
   <UContainer class="mx-auto max-w-3xl px-4 py-6">
     <div class="text-center mb-8">
       <h1 class="text-4xl font-bold mb-4">
-        Station History
+        {{ t('history.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
-        Retrieve station history like name, operator, devices and parameters.
+        {{ t('history.subtitle') }}
       </p>
     </div>
 
     <UCollapsible v-model="showAbout" class="mb-6">
       <UButton
-        label="About Station History"
+        :label="t('history.aboutButton')"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -247,19 +249,13 @@ function clear() {
       <template #content>
         <UCard>
           <p class="text-gray-600 dark:text-gray-400 mb-4">
-            Station history captures the administrative and physical changes a weather station has undergone over its
-            lifetime. A station may have been renamed, changed operators, relocated, had its instruments replaced, or
-            experienced periods of missing data — all of which are tracked as timestamped records.
+            {{ t('history.about1') }}
           </p>
           <p class="text-gray-600 dark:text-gray-400 mb-4">
-            History is currently available for the <strong>DWD Observation</strong> network only. Select a resolution
-            and dataset to filter available stations, then choose one or more stations to retrieve their history.
+            {{ t('history.about2') }}
           </p>
           <p class="text-gray-600 dark:text-gray-400">
-            The following history sections are available: <strong>name</strong> (station and operator name changes),
-            <strong>parameter</strong> (measured parameters over time), <strong>device</strong> (instrument and
-            measurement method changes), <strong>geography</strong> (location and height changes), and
-            <strong>missing data</strong> (gaps in the measurement record).
+            {{ t('history.about3') }}
           </p>
         </UCard>
       </template>
@@ -268,49 +264,49 @@ function clear() {
     <UCard class="mb-6">
       <template #header>
         <h2 class="text-lg font-semibold">
-          Request
+          {{ t('history.requestTitle') }}
         </h2>
       </template>
       <div class="space-y-6 p-4">
         <div>
           <h3 class="text-sm font-semibold mb-3">
-            Dataset Selection
+            {{ t('history.datasetSelectionTitle') }}
           </h3>
           <p class="text-xs text-gray-500 mb-3">
-            History is available for DWD Observation datasets only
+            {{ t('history.datasetHint') }}
           </p>
           <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
-              <UFormField label="Provider" required class="w-full">
+              <UFormField :label="t('history.providerLabel')" required class="w-full">
                 <UInput
                   :model-value="provider"
                   disabled
-                  placeholder="Provider"
+                  :placeholder="t('history.providerLabel')"
                   class="w-full"
                 />
               </UFormField>
-              <UFormField label="Network" required class="w-full">
+              <UFormField :label="t('history.networkLabel')" required class="w-full">
                 <UInput
                   :model-value="network"
                   disabled
-                  placeholder="Network"
+                  :placeholder="t('history.networkLabel')"
                   class="w-full"
                 />
               </UFormField>
             </div>
-            <UFormField label="Resolution" required class="w-full">
+            <UFormField :label="t('history.resolutionLabel')" required class="w-full">
               <USelect
                 v-model="resolution"
                 :items="resolutions"
-                placeholder="Select resolution"
+                :placeholder="t('history.selectResolution')"
                 class="w-full"
               />
             </UFormField>
-            <UFormField label="Dataset" required :disabled="!resolution" class="w-full">
+            <UFormField :label="t('history.datasetLabel')" required :disabled="!resolution" class="w-full">
               <USelect
                 v-model="dataset"
                 :items="datasets"
-                placeholder="Select dataset"
+                :placeholder="t('history.selectDataset')"
                 :disabled="!resolution"
                 class="w-full"
               />
@@ -322,7 +318,7 @@ function clear() {
 
         <div>
           <h3 class="text-sm font-semibold mb-3">
-            Station Selection
+            {{ t('history.stationSelectionTitle') }}
           </h3>
           <div v-if="resolution && dataset">
             <StationSelection
@@ -333,7 +329,7 @@ function clear() {
             />
           </div>
           <div v-else class="text-sm text-gray-500">
-            Please select resolution and dataset first
+            {{ t('history.selectFirst') }}
           </div>
         </div>
 
@@ -341,13 +337,13 @@ function clear() {
 
         <div>
           <h3 class="text-sm font-semibold mb-3">
-            History Sections (optional)
+            {{ t('history.sectionsTitle') }}
           </h3>
           <USelectMenu
             v-model="selectedSections"
             :items="availableSections"
             multiple
-            placeholder="Select sections to include"
+            :placeholder="t('history.selectSections')"
             class="w-full"
           />
         </div>
@@ -355,15 +351,15 @@ function clear() {
         <UDivider />
 
         <div class="flex flex-col sm:flex-row gap-2">
-          <UButton label="Fetch" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
-          <UButton label="Clear" variant="outline" class="w-full" @click="clear" />
+          <UButton :label="t('common.fetch')" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
+          <UButton :label="t('common.clear')" variant="outline" class="w-full" @click="clear" />
         </div>
 
         <div v-if="pending" class="text-sm text-gray-600 dark:text-gray-400">
-          Loading...
+          {{ t('common.loading') }}
         </div>
         <div v-if="error" class="text-sm text-red-600">
-          Error: {{ error.message ?? error }}
+          {{ t('history.error') }}: {{ error.message ?? error }}
         </div>
       </div>
     </UCard>
@@ -372,42 +368,42 @@ function clear() {
       <template #header>
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold">
-            Results
+            {{ t('history.resultsTitle') }}
           </h2>
         </div>
       </template>
 
       <div class="p-4">
         <div v-if="!data || (data.histories && data.histories.length === 0)" class="text-sm text-gray-600">
-          No histories loaded. Click "Fetch" to query the backend.
+          {{ t('history.noHistories') }}
         </div>
         <div v-else class="space-y-6">
           <!-- Selected Stations Overview -->
           <div v-if="stationSelectionState.selection.stations.length > 0">
             <h3 class="text-md font-semibold mb-3">
-              Selected Stations
+              {{ t('history.selectedStations') }}
             </h3>
             <div class="overflow-x-auto">
               <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-800">
                   <tr>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Station ID
+                      {{ t('history.colStationId') }}
                     </th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Name
+                      {{ t('history.colName') }}
                     </th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Latitude
+                      {{ t('history.colLatitude') }}
                     </th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Longitude
+                      {{ t('history.colLongitude') }}
                     </th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Height (m)
+                      {{ t('history.colHeightM') }}
                     </th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      State
+                      {{ t('history.colState') }}
                     </th>
                   </tr>
                 </thead>
@@ -440,7 +436,7 @@ function clear() {
           <!-- History Data by Station -->
           <div v-if="data.histories && data.histories.length > 0">
             <h3 class="text-md font-semibold mb-3">
-              Station History
+              {{ t('history.stationHistoryTitle') }}
             </h3>
             <div class="space-y-4">
               <div v-for="(history, idx) in data.histories" :key="idx">
@@ -449,7 +445,7 @@ function clear() {
                   <template #header>
                     <div class="flex items-center justify-between">
                       <h3 class="font-semibold">
-                        Station ID: {{ getStationId(history) }}
+                        {{ t('history.stationIdPrefix') }}: {{ getStationId(history) }}
                         <span
                           v-if="getStationName(history)"
                           class="text-sm text-gray-600 dark:text-gray-400 font-normal ml-2"
@@ -464,10 +460,9 @@ function clear() {
                   <div class="mb-6">
                     <div class="overflow-x-auto">
                       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <!--                        <tbody class="bg-white dark:bg-gray-900"> -->
                         <tr v-if="getStationName(history)" class="border-b border-gray-200 dark:border-gray-700">
                           <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Station Name
+                            {{ t('history.rowStationName') }}
                           </td>
                           <td class="px-4 py-2 text-sm">
                             {{ getStationName(history) }}
@@ -475,7 +470,7 @@ function clear() {
                         </tr>
                         <tr v-if="history.latitude != null" class="border-b border-gray-200 dark:border-gray-700">
                           <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Latitude
+                            {{ t('history.colLatitude') }}
                           </td>
                           <td class="px-4 py-2 text-sm">
                             {{ history.latitude }}
@@ -483,7 +478,7 @@ function clear() {
                         </tr>
                         <tr v-if="history.longitude != null" class="border-b border-gray-200 dark:border-gray-700">
                           <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Longitude
+                            {{ t('history.colLongitude') }}
                           </td>
                           <td class="px-4 py-2 text-sm">
                             {{ history.longitude }}
@@ -491,13 +486,12 @@ function clear() {
                         </tr>
                         <tr v-if="history.station_height != null">
                           <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Station Height
+                            {{ t('history.rowStationHeight') }}
                           </td>
                           <td class="px-4 py-2 text-sm">
                             {{ history.station_height }} m
                           </td>
                         </tr>
-                        <!--                        </tbody> -->
                       </table>
                     </div>
                   </div>
@@ -509,7 +503,7 @@ function clear() {
                   >
                     <UCollapsible>
                       <UButton
-                        label="Name History"
+                        :label="t('history.nameHistory')"
                         variant="ghost"
                         trailing-icon="i-lucide-chevron-down"
                         block
@@ -519,20 +513,20 @@ function clear() {
                         <!-- Station Name History -->
                         <div v-if="history.name.station?.length" class="mb-4">
                           <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
-                            Station Names
+                            {{ t('history.stationNames') }}
                           </h4>
                           <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                               <thead class="bg-gray-50 dark:bg-gray-800">
                                 <tr>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Start Date
+                                    {{ t('history.colStartDate') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    End Date
+                                    {{ t('history.colEndDate') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Station Name
+                                    {{ t('history.rowStationName') }}
                                   </th>
                                 </tr>
                               </thead>
@@ -556,20 +550,20 @@ function clear() {
                         <!-- Operator Name History -->
                         <div v-if="history.name.operator?.length">
                           <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
-                            Operator Names
+                            {{ t('history.operatorNames') }}
                           </h4>
                           <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                               <thead class="bg-gray-50 dark:bg-gray-800">
                                 <tr>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Start Date
+                                    {{ t('history.colStartDate') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    End Date
+                                    {{ t('history.colEndDate') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Operator Name
+                                    {{ t('history.colOperatorName') }}
                                   </th>
                                 </tr>
                               </thead>
@@ -597,7 +591,7 @@ function clear() {
                   <div v-if="history.parameter?.length" class="mb-6">
                     <UCollapsible>
                       <UButton
-                        label="Parameter History"
+                        :label="t('history.parameterHistory')"
                         variant="ghost"
                         trailing-icon="i-lucide-chevron-down"
                         block
@@ -609,19 +603,19 @@ function clear() {
                             <thead class="bg-gray-50 dark:bg-gray-800">
                               <tr>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Start Date
+                                  {{ t('history.colStartDate') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  End Date
+                                  {{ t('history.colEndDate') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Parameter
+                                  {{ t('history.colParameter') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Description
+                                  {{ t('history.colDescription') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Unit
+                                  {{ t('history.colUnit') }}
                                 </th>
                               </tr>
                             </thead>
@@ -654,7 +648,7 @@ function clear() {
                   <div v-if="history.device?.length" class="mb-6">
                     <UCollapsible>
                       <UButton
-                        label="Device History"
+                        :label="t('history.deviceHistory')"
                         variant="ghost"
                         trailing-icon="i-lucide-chevron-down"
                         block
@@ -666,19 +660,19 @@ function clear() {
                             <thead class="bg-gray-50 dark:bg-gray-800">
                               <tr>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Start Date
+                                  {{ t('history.colStartDate') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  End Date
+                                  {{ t('history.colEndDate') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Device Type
+                                  {{ t('history.colDeviceType') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Device Height
+                                  {{ t('history.colDeviceHeight') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Method
+                                  {{ t('history.colMethod') }}
                                 </th>
                               </tr>
                             </thead>
@@ -711,7 +705,7 @@ function clear() {
                   <div v-if="history.geography?.length" class="mb-6">
                     <UCollapsible>
                       <UButton
-                        label="Geography History"
+                        :label="t('history.geographyHistory')"
                         variant="ghost"
                         trailing-icon="i-lucide-chevron-down"
                         block
@@ -723,19 +717,19 @@ function clear() {
                             <thead class="bg-gray-50 dark:bg-gray-800">
                               <tr>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Start Date
+                                  {{ t('history.colStartDate') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  End Date
+                                  {{ t('history.colEndDate') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Latitude
+                                  {{ t('history.colLatitude') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Longitude
+                                  {{ t('history.colLongitude') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  Station Height
+                                  {{ t('history.rowStationHeight') }}
                                 </th>
                               </tr>
                             </thead>
@@ -770,7 +764,7 @@ function clear() {
                   >
                     <UCollapsible>
                       <UButton
-                        label="Missing Data History"
+                        :label="t('history.missingDataHistory')"
                         variant="ghost"
                         trailing-icon="i-lucide-chevron-down"
                         block
@@ -780,23 +774,23 @@ function clear() {
                         <!-- Summary -->
                         <div v-if="history.missing_data.summary?.length" class="mb-4">
                           <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
-                            Summary
+                            {{ t('history.summary') }}
                           </h4>
                           <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                               <thead class="bg-gray-50 dark:bg-gray-800">
                                 <tr>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Start Date
+                                    {{ t('history.colStartDate') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    End Date
+                                    {{ t('history.colEndDate') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Parameter
+                                    {{ t('history.colParameter') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Missing Count
+                                    {{ t('history.colMissingCount') }}
                                   </th>
                                 </tr>
                               </thead>
@@ -823,23 +817,23 @@ function clear() {
                         <!-- Periods -->
                         <div v-if="history.missing_data.periods?.length">
                           <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
-                            Periods
+                            {{ t('history.periods') }}
                           </h4>
                           <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                               <thead class="bg-gray-50 dark:bg-gray-800">
                                 <tr>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Start Date
+                                    {{ t('history.colStartDate') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    End Date
+                                    {{ t('history.colEndDate') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Parameter
+                                    {{ t('history.colParameter') }}
                                   </th>
                                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                    Missing Count
+                                    {{ t('history.colMissingCount') }}
                                   </th>
                                 </tr>
                               </thead>

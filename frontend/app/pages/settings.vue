@@ -3,10 +3,11 @@ const { t, locale, setLocale } = useI18n()
 const colorMode = useColorMode()
 const { settings, reset } = useSettings()
 
-const languageOptions = [
-  { value: 'de', label: 'Deutsch' },
-  { value: 'en', label: 'English' },
-] as const
+const languageItems = languageSelectItems()
+const selectedLanguage = computed({
+  get: () => locale.value,
+  set: (v: string) => setLocale(v as typeof locale.value),
+})
 
 const themeOptions = computed(() => [
   { value: 'system', label: t('settings.themeSystem'), icon: 'i-lucide-monitor' },
@@ -14,17 +15,31 @@ const themeOptions = computed(() => [
   { value: 'dark', label: t('settings.themeDark'), icon: 'i-lucide-moon' },
 ])
 
-const explorerModeOptions = computed(() => [
-  { value: 'simple', label: t('settings.explorerModeSimple') },
-  { value: 'expert', label: t('settings.explorerModeExpert') },
-])
+// Available units per convertible type (mirrors the backend UnitConverter).
+// Length types share the same unit list.
+const LENGTH = ['millimeter', 'centimeter', 'meter', 'kilometer', 'mile', 'nautical_mile']
 
-// Available units per type (mirrors the backend UnitConverter).
-const unitGroups = [
+const weatherUnitGroups = [
   { key: 'temperature', label: 'settings.unitTemperature', units: ['degree_celsius', 'degree_kelvin', 'degree_fahrenheit'] },
-  { key: 'speed', label: 'settings.unitSpeed', units: ['meter_per_second', 'kilometer_per_hour', 'knots', 'beaufort'] },
-  { key: 'pressure', label: 'settings.unitPressure', units: ['pascal', 'hectopascal', 'kilopascal'] },
   { key: 'precipitation', label: 'settings.unitPrecipitation', units: ['millimeter', 'liter_per_square_meter'] },
+  { key: 'precipitation_intensity', label: 'settings.unitPrecipitationIntensity', units: ['millimeter_per_hour', 'liter_per_square_meter_per_hour'] },
+  { key: 'pressure', label: 'settings.unitPressure', units: ['pascal', 'hectopascal', 'kilopascal'] },
+  { key: 'speed', label: 'settings.unitSpeed', units: ['meter_per_second', 'kilometer_per_hour', 'knots', 'beaufort'] },
+  { key: 'angle', label: 'settings.unitAngle', units: ['degree', 'radian', 'gradian'] },
+  { key: 'fraction', label: 'settings.unitFraction', units: ['decimal', 'percent', 'one_eighth'] },
+  { key: 'length_short', label: 'settings.unitLengthShort', units: LENGTH },
+  { key: 'length_medium', label: 'settings.unitLengthMedium', units: LENGTH },
+  { key: 'length_long', label: 'settings.unitLengthLong', units: LENGTH },
+  { key: 'energy_per_area', label: 'settings.unitEnergyPerArea', units: ['joule_per_square_centimeter', 'joule_per_square_meter', 'kilojoule_per_square_meter'] },
+  { key: 'power_per_area', label: 'settings.unitPowerPerArea', units: ['watt_per_square_centimeter', 'watt_per_square_meter', 'kilowatt_per_square_meter'] },
+  { key: 'time', label: 'settings.unitTime', units: ['second', 'minute', 'hour'] },
+  { key: 'degree_day', label: 'settings.unitDegreeDay', units: ['degree_celsius_day', 'degree_kelvin_day', 'degree_fahrenheit_day'] },
+] as const
+
+const otherUnitGroups = [
+  { key: 'concentration', label: 'settings.unitConcentration', units: ['milligram_per_liter', 'gram_per_liter'] },
+  { key: 'conductivity', label: 'settings.unitConductivity', units: ['microsiemens_per_centimeter', 'microsiemens_per_meter', 'siemens_per_centimeter', 'siemens_per_meter'] },
+  { key: 'volume_per_time', label: 'settings.unitVolumePerTime', units: ['liter_per_second', 'cubic_meter_per_second'] },
 ] as const
 
 function unitItems(units: readonly string[]) {
@@ -53,16 +68,11 @@ function unitItems(units: readonly string[]) {
           {{ t('settings.language') }}
         </h2>
       </template>
-      <UFieldGroup>
-        <UButton
-          v-for="opt in languageOptions"
-          :key="opt.value"
-          :label="opt.label"
-          color="neutral"
-          :variant="locale === opt.value ? 'solid' : 'ghost'"
-          @click="setLocale(opt.value)"
-        />
-      </UFieldGroup>
+      <USelect
+        v-model="selectedLanguage"
+        :items="languageItems"
+        class="w-full sm:w-64"
+      />
     </UCard>
 
     <!-- Appearance -->
@@ -105,28 +115,6 @@ function unitItems(units: readonly string[]) {
           <USwitch v-model="settings.friendlyLabels" />
         </div>
 
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <div class="font-medium">
-              {{ t('settings.explorerMode') }}
-            </div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">
-              {{ t('settings.explorerModeHint') }}
-            </p>
-          </div>
-          <UFieldGroup>
-            <UButton
-              v-for="opt in explorerModeOptions"
-              :key="opt.value"
-              :label="opt.label"
-              size="sm"
-              color="neutral"
-              :variant="settings.explorerMode === opt.value ? 'solid' : 'ghost'"
-              @click="settings.explorerMode = opt.value as ExplorerMode"
-            />
-          </UFieldGroup>
-        </div>
-
         <USeparator />
 
         <div class="flex items-start justify-between gap-4">
@@ -141,18 +129,41 @@ function unitItems(units: readonly string[]) {
           <USwitch v-model="settings.convertUnits" />
         </div>
 
-        <div v-if="settings.convertUnits" class="space-y-3">
-          <div
-            v-for="group in unitGroups"
-            :key="group.key"
-            class="flex items-center justify-between gap-4"
-          >
-            <label class="text-sm">{{ t(group.label) }}</label>
-            <USelect
-              v-model="settings.units[group.key]"
-              :items="unitItems(group.units)"
-              class="w-56"
-            />
+        <div v-if="settings.convertUnits" class="space-y-5">
+          <div class="space-y-3">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              {{ t('settings.unitsWeather') }}
+            </div>
+            <div
+              v-for="group in weatherUnitGroups"
+              :key="group.key"
+              class="flex items-center justify-between gap-4"
+            >
+              <label class="text-sm">{{ t(group.label) }}</label>
+              <USelect
+                v-model="settings.units[group.key]"
+                :items="unitItems(group.units)"
+                class="w-56"
+              />
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              {{ t('settings.unitsOther') }}
+            </div>
+            <div
+              v-for="group in otherUnitGroups"
+              :key="group.key"
+              class="flex items-center justify-between gap-4"
+            >
+              <label class="text-sm">{{ t(group.label) }}</label>
+              <USelect
+                v-model="settings.units[group.key]"
+                :items="unitItems(group.units)"
+                class="w-56"
+              />
+            </div>
           </div>
         </div>
       </div>

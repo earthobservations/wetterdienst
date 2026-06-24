@@ -24,7 +24,7 @@ describe('stripes Page', () => {
     const wrapper = await mountSuspended(StripesPage)
     const text = wrapper.text()
 
-    expect(text).toContain('Climate Stripes')
+    expect(text).toContain('Climate stripes')
   })
 
   it('has station selection', async () => {

@@ -126,6 +126,7 @@ const displayCoords = computed(() => {
           step="0.0001"
           placeholder="e.g. 52.5200"
           class="w-full"
+          :class="{ 'needs-input': modelValue.latitude === undefined }"
         />
       </UFormField>
       <UFormField :label="t('interpolation.longitude')" class="flex-1">
@@ -135,6 +136,7 @@ const displayCoords = computed(() => {
           step="0.0001"
           placeholder="e.g. 13.4050"
           class="w-full"
+          :class="{ 'needs-input': modelValue.longitude === undefined }"
         />
       </UFormField>
     </div>
@@ -148,6 +150,7 @@ const displayCoords = computed(() => {
           :placeholder="t('interpolation.selectStation')"
           searchable
           class="w-full"
+          :class="{ 'needs-input': !modelValue.station }"
         />
         <div v-else class="text-sm text-gray-500">
           {{ t('interpolation.loadingStations') }}

@@ -131,7 +131,6 @@ const items = computed<NavigationMenuItem[]>(() =>
               :aria-label="t('header.pypi')"
             />
           </UTooltip>
-          <LanguageSwitcher class="mx-1" />
           <SettingsMenu />
         </div>
         <!-- Mobile hamburger -->
@@ -220,7 +219,6 @@ const items = computed<NavigationMenuItem[]>(() =>
               </UTooltip>
             </div>
             <div class="flex items-center gap-2">
-              <LanguageSwitcher />
               <SettingsMenu />
             </div>
           </div>
@@ -232,10 +230,20 @@ const items = computed<NavigationMenuItem[]>(() =>
       <NuxtPage />
     </UMain>
     <UFooter v-if="!isWidget">
-      <div class="w-full flex items-center gap-4">
+      <div class="w-full flex flex-wrap items-center gap-x-4 gap-y-2">
         <span>{{ t('footer.copyright', { year: new Date().getFullYear() }) }}</span>
         <span class="text-gray-400">|</span>
-        <NuxtLink to="/impressum" class="ml-auto text-gray-500 hover:text-primary-500 transition-colors">
+        <span class="flex items-center gap-1.5 font-medium">
+          <span aria-hidden="true">🏳️‍🌈</span>
+          <span>{{ t('footer.lgbtq') }}</span>
+        </span>
+        <span class="text-gray-400">|</span>
+        <span class="flex items-center gap-1.5 font-medium">
+          <span aria-hidden="true">✊</span>
+          <span>{{ t('footer.antifascist') }}</span>
+        </span>
+        <span class="text-gray-400">|</span>
+        <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">
           {{ t('footer.legal') }}
         </NuxtLink>
       </div>

@@ -912,7 +912,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <template #summary>
         <div class="flex items-center justify-between w-full">
           <h3 class="text-lg font-semibold">
-            Data
+            {{ t('dataViewer.dataTitle') }}
           </h3>
         </div>
       </template>
@@ -1023,7 +1023,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
               v-if="allValues.length === 0"
               class="flex items-center justify-center py-12 text-gray-500"
             >
-              Select parameters and stations, then click Fetch to load data
+              {{ t('dataViewer.emptyHint') }}
             </div>
             <div
               v-else-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)"

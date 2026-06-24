@@ -18,12 +18,15 @@ function kindLabel(k: StripesKind) {
 const selectedStation = ref<StripesStation | null>(null)
 const startYear = ref<number | null>(null)
 const endYear = ref<number | null>(null)
-const showTitle = ref(true)
-const showYears = ref(true)
-const showDataAvailability = ref(true)
-const showTimeseries = ref(false)
-const showTrendline = ref(false)
-const showSource = ref(true)
+// Display toggles default to the user's saved stripes preferences; an explicit
+// URL query (e.g. from a shared link) still overrides these below.
+const { settings } = useSettings()
+const showTitle = ref(settings.value.stripes.showTitle)
+const showYears = ref(settings.value.stripes.showYears)
+const showDataAvailability = ref(settings.value.stripes.showDataAvailability)
+const showTimeseries = ref(settings.value.stripes.showTimeseries)
+const showTrendline = ref(settings.value.stripes.showTrendline)
+const showSource = ref(settings.value.stripes.showSource)
 
 const { data: stationsData, pending: stationsPending } = useFetch<StripesStationsResponse>(
   '/api/stripes/stations',
@@ -599,6 +602,7 @@ onMounted(async () => {
             searchable
             color="primary"
             class="w-full"
+            :class="{ 'needs-input': !selectedStation }"
             :placeholder="selectedStation ? `${selectedStation?.name} (ID: ${selectedStation?.station_id})` : t('stripes.selectStation')"
             @update:model-value="onSelectMenuUpdate"
           />
