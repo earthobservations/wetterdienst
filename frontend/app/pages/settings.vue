@@ -3,10 +3,11 @@ const { t, locale, setLocale } = useI18n()
 const colorMode = useColorMode()
 const { settings, reset } = useSettings()
 
-const languageOptions = [
-  { value: 'de', label: 'Deutsch' },
-  { value: 'en', label: 'English' },
-] as const
+const languageItems = languageSelectItems()
+const selectedLanguage = computed({
+  get: () => locale.value,
+  set: (v: string) => setLocale(v as typeof locale.value),
+})
 
 const themeOptions = computed(() => [
   { value: 'system', label: t('settings.themeSystem'), icon: 'i-lucide-monitor' },
@@ -67,16 +68,11 @@ function unitItems(units: readonly string[]) {
           {{ t('settings.language') }}
         </h2>
       </template>
-      <UFieldGroup>
-        <UButton
-          v-for="opt in languageOptions"
-          :key="opt.value"
-          :label="opt.label"
-          color="neutral"
-          :variant="locale === opt.value ? 'solid' : 'ghost'"
-          @click="setLocale(opt.value)"
-        />
-      </UFieldGroup>
+      <USelect
+        v-model="selectedLanguage"
+        :items="languageItems"
+        class="w-full sm:w-64"
+      />
     </UCard>
 
     <!-- Appearance -->

@@ -84,6 +84,24 @@ const authors = [
       </NuxtLink>
     </div>
 
+    <!-- Values: a prominent, unmistakable stance for inclusion and against fascism. -->
+    <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
+      <h2 class="text-lg font-semibold mb-3">
+        {{ t('home.valuesTitle') }}
+      </h2>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8">
+        <p class="flex items-center gap-2 text-base font-medium">
+          <span aria-hidden="true">🏳️‍🌈</span>
+          <span aria-hidden="true">🏳️‍⚧️</span>
+          {{ t('home.lgbtq') }}
+        </p>
+        <p class="flex items-center gap-2 text-base font-medium">
+          <span aria-hidden="true">✊</span>
+          {{ t('home.antifascist') }}
+        </p>
+      </div>
+    </section>
+
     <UCard class="mb-8">
       <template #header>
         <h2 class="text-lg font-semibold">

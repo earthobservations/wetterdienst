@@ -185,6 +185,7 @@ onUnmounted(() => {
         v-model="query"
         :placeholder="modelValue ? t('meteogram.searchPlaceholderChange') : t('meteogram.searchPlaceholder')"
         class="w-full"
+        :class="{ 'needs-input': !modelValue }"
         :loading="loading"
         icon="i-lucide-search"
         @focus="showResults = results.length > 0"

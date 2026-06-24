@@ -602,6 +602,7 @@ onMounted(async () => {
             searchable
             color="primary"
             class="w-full"
+            :class="{ 'needs-input': !selectedStation }"
             :placeholder="selectedStation ? `${selectedStation?.name} (ID: ${selectedStation?.station_id})` : t('stripes.selectStation')"
             @update:model-value="onSelectMenuUpdate"
           />

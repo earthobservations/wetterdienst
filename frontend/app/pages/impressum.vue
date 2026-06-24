@@ -4,18 +4,16 @@ const { t } = useI18n()
 // Operator / provider details required by § 5 DDG (formerly § 5 TMG) and the
 // person responsible for editorial content per § 18 (2) MStV.
 //
-// IMPORTANT — fill these in before going live. The «…» tokens are placeholders;
-// a German Impressum legally requires a full name, a postal address that can
-// receive mail (no P.O. box), and a way to contact you quickly (e.g. email).
-// Name and email are pre-filled from the project authors; the postal address
-// and phone must be supplied by the operator.
+// A German Impressum legally requires a full name, a postal address that can
+// receive mail (no P.O. box), and a way to contact you quickly. A phone number
+// is optional — § 5 DDG only requires a means of "quick electronic contact",
+// which the email below satisfies, so no phone is published here.
 const operator = {
   name: 'Benjamin Gutzmann',
-  street: '«Straße und Hausnummer»',
-  city: '«PLZ und Ort»',
-  country: '«Land»',
+  street: 'Falkenbergsweg 26',
+  city: '21149 Hamburg',
+  country: 'Deutschland',
   email: 'benjamin@eobs.org',
-  phone: '«Telefon (optional)»',
   github: 'gutzbenj',
 }
 
@@ -70,9 +68,6 @@ const hasPlaceholders = computed(() =>
       <div class="space-y-2">
         <p class="text-gray-600 dark:text-gray-400">
           {{ t('impressum.emailLabel') }}: <a :href="`mailto:${operator.email}`" class="text-primary-500 hover:underline">{{ operator.email }}</a>
-        </p>
-        <p class="text-gray-600 dark:text-gray-400">
-          {{ t('impressum.phoneLabel') }}: {{ operator.phone }}
         </p>
         <p class="text-gray-600 dark:text-gray-400">
           {{ t('impressum.githubLabel') }}: <a :href="`https://github.com/${operator.github}`" target="_blank" class="text-primary-500 hover:underline">@{{ operator.github }}</a>
