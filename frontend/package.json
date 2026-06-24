@@ -37,7 +37,8 @@
     "suncalc": "^1.9.0",
     "tailwindcss": "^4.3.0",
     "tz-lookup": "^6.1.25",
-    "vue": "^3.5.35"
+    "vue": "^3.5.35",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",

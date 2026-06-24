@@ -35,7 +35,7 @@ describe('support Page', () => {
     const wrapper = await mountSuspended(SupportPage)
     const text = wrapper.text()
 
-    expect(text).toContain('Report Issues')
+    expect(text).toContain('Report issues')
     expect(text).toContain('Found a bug')
   })
 
@@ -70,7 +70,7 @@ describe('support Page', () => {
     const wrapper = await mountSuspended(SupportPage)
     const text = wrapper.text()
 
-    expect(text).toContain('Support the Project')
+    expect(text).toContain('Support the project')
   })
 
   it('contains GitHub sponsors link', async () => {

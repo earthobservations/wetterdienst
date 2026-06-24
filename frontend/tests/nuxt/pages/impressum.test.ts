@@ -24,10 +24,10 @@ describe('impressum Page', () => {
     const wrapper = await mountSuspended(ImpressumPage)
     const text = wrapper.text()
 
-    expect(text).toContain('Legal Notice')
+    expect(text).toContain('Legal notice')
   })
 
-  it('displays responsible person information', async () => {
+  it('displays provider information pursuant to § 5 DDG', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     )
@@ -35,8 +35,21 @@ describe('impressum Page', () => {
     const wrapper = await mountSuspended(ImpressumPage)
     const text = wrapper.text()
 
-    expect(text).toContain('Responsible Person')
+    expect(text).toContain('§ 5 DDG')
     expect(text).toContain('Benjamin Gutzmann')
+  })
+
+  it('shows the operator reminder while placeholders are unfilled', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(ImpressumPage)
+    const text = wrapper.text()
+
+    // The scaffold ships with «…» placeholders for the legally required address.
+    expect(text).toContain('«')
+    expect(text).toContain('§ 18 (2) MStV')
   })
 
   it('displays disclaimer section', async () => {
@@ -59,7 +72,7 @@ describe('impressum Page', () => {
     const wrapper = await mountSuspended(ImpressumPage)
     const text = wrapper.text()
 
-    expect(text).toContain('Open Source')
+    expect(text).toContain('Open source')
     expect(text).toContain('MIT License')
   })
 
