@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[DWD Observation]` Filter out schema-less `LazyFrame` results from individual file parse
+  failures in `parse_climate_observations_data` before concatenation, and skip periods where
+  parsing yields no schema in `_collect_station_parameter_or_dataset`. Also catch
+  `polars.exceptions.InvalidOperationError` (in addition to `ValueError`) from
+  `pl.concat(..., how="align")` as a safety net, preventing uncaught exceptions when a
+  schema-less frame is inadvertently mixed with a valid one.
+
 ## [0.123.0] - 2026-06-18
 
 ### Fixed

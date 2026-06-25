@@ -135,10 +135,13 @@ class DwdObservationValues(TimeseriesValues):
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue
             period_df = parse_climate_observations_data(filenames_and_files, dataset, period)
+            if not period_df.collect_schema():
+                log.info(f"No data could be parsed for {dataset_identifier}. Skipping period.")
+                continue
             parameter_data.append(period_df)
         try:
             parameter_df = pl.concat(parameter_data, how="align")
-        except ValueError:
+        except (ValueError, pl.exceptions.InvalidOperationError):
             return pl.DataFrame()
         # Filter out values which already are in the DataFrame
         parameter_df = parameter_df.unique(subset=["date"])
