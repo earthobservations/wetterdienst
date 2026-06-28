@@ -22,12 +22,14 @@ from wetterdienst.exceptions import ApiNotFoundError
 from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
+    IssuesRequest,
     StationsRequest,
     SummaryRequest,
     ValuesRequest,
     _get_stripes_stations,
     _plot_stripes,
     get_interpolate,
+    get_issues,
     get_stations,
     get_summarize,
     get_values,
@@ -274,6 +276,10 @@ Data acquisition:
 
         # Export options
         [--target=<target>]
+
+Available model-run datetimes:
+
+    wetterdienst issues --provider=<provider> --network=<network> --station=<station>
 
 Data computation:
 
@@ -908,6 +914,33 @@ def stations(
     print(output)  # noqa: T201
 
     return
+
+
+@cli.command("issues", section=data_section)
+@provider_opt
+@network_opt
+@cloup.option("--station", type=click.STRING, required=True, help="Station ID to list available issue datetimes for.")
+@debug_opt
+def issues_cmd(provider: str, network: str, station: str, debug: bool) -> None:  # noqa: FBT001
+    """List available issue (model-run) datetimes for a station.
+
+    Currently supported: --provider dwd --network mosmix|dmo
+    """
+    set_logging_level(debug=debug)
+
+    api = get_api(provider=provider, network=network)
+    request = IssuesRequest.model_validate({"provider": provider, "network": network, "station": station})
+
+    try:
+        issue_list = get_issues(api=api, request=request, settings=Settings())
+    except NotImplementedError:
+        log.exception("Issues not available for the given request.")
+        sys.exit(1)
+    except Exception:
+        log.exception("Failed to get issues.")
+        sys.exit(1)
+
+    print(json.dumps({"issues": issue_list}, indent=2))  # noqa: T201
 
 
 # History command

@@ -516,6 +516,40 @@ class SummaryRequest(BaseModel):
     scale: Annotated[float, Field(gt=0)] | None = None
 
 
+class IssuesRequest(BaseModel):
+    """Request model for listing available issue datetimes."""
+
+    model_config = {"extra": "forbid"}
+
+    provider: str
+    network: str
+    station: str
+    debug: bool = False
+
+
+def get_issues(
+    api: type[TimeseriesRequest],
+    request: IssuesRequest,
+    settings: Settings,
+) -> list[str]:
+    """Return available issue datetimes as UTC ISO strings for provider/network/station.
+
+    Supported: DWD MOSMIX (MOSMIX_L single-station) and DWD DMO (ICON single-station).
+    """
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+
+    if issubclass(api, DwdMosmixRequest):
+        issues = DwdMosmixRequest.available_issues(request.station, settings)
+    elif issubclass(api, DwdDmoRequest):
+        issues = DwdDmoRequest.available_issues(request.station, settings)
+    else:
+        msg = f"Issue listing is only supported for DWD MOSMIX and DMO (got {api.__name__})"
+        raise NotImplementedError(msg)
+
+    return [issue.isoformat() for issue in issues]
+
+
 def _get_stations_request(
     api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,

@@ -222,6 +222,25 @@ class DwdMosmixRequest(TimeseriesRequest):
         "state",
     ]
 
+    @classmethod
+    def available_issues(cls, station_id: str, settings: Settings) -> list[dt.datetime]:
+        """Return datetimes for which MOSMIX L single-station files exist on DWD's server.
+
+        The list is sorted in ascending order and contains only unique UTC datetimes.
+        Only MOSMIX_L single-station files are considered; the LATEST symlink is excluded.
+        """
+        url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH.format(station_id=station_id))
+        urls = list_remote_files_fsspec(url, settings, CacheExpiry.NO_CACHE)
+        df = pl.DataFrame({"url": urls}, orient="col")
+        df = df.with_columns(
+            pl.col("url").str.split("/").list.last().str.split("_").list.get(2).alias("date"),
+        )
+        df = df.filter(pl.col("date").ne("LATEST"))
+        df = df.with_columns(
+            pl.concat_str([pl.col("date"), pl.lit("00")]).str.to_datetime("%Y%m%d%H%M").dt.replace_time_zone("UTC"),
+        )
+        return df.get_column("date").unique().sort().to_list()
+
     def __post_init__(self) -> None:
         """Post-initialization of the DwdMosmixRequest class."""
         super().__post_init__()

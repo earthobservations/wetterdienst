@@ -9,6 +9,8 @@ and not in "Decimal Degrees".
 Source: https://www.dwd.de/EN/ourservices/met_application_mosmix/mosmix_stations.cfg?view=nasPublication&nn=495490
 """
 
+import datetime as dt
+
 import polars as pl
 import pytest
 from dirty_equals import IsInt, IsTuple
@@ -174,3 +176,13 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
         orient="row",
     )
     assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.remote
+def test_dwd_mosmix_available_issues(default_settings: Settings) -> None:
+    """Verify available_issues returns a non-empty sorted list of UTC datetimes."""
+    issues = DwdMosmixRequest.available_issues("10147", default_settings)
+    assert len(issues) > 0
+    assert all(isinstance(i, dt.datetime) for i in issues)
+    assert all(i.tzinfo is not None for i in issues)
+    assert issues == sorted(issues)
