@@ -556,11 +556,10 @@ def _get_stations_request(
     if any_multiple_period_dataset:
         kwargs["periods"] = getattr(request, "periods", None)
 
-    if isinstance(api, DwdMosmixRequest):
-        kwargs["issue"] = getattr(request, "issue", None)
-    elif isinstance(api, DwdDmoRequest):
-        kwargs["issue"] = getattr(request, "issue", None)
-        kwargs["lead_time"] = getattr(request, "lead_time", None)
+    if issubclass(api, (DwdMosmixRequest, DwdDmoRequest)) and (issue := getattr(request, "issue", None)) is not None:
+        kwargs["issue"] = issue
+    if issubclass(api, DwdDmoRequest) and (lead_time := getattr(request, "lead_time", None)) is not None:
+        kwargs["lead_time"] = lead_time
 
     return api(**kwargs, settings=settings)
 
