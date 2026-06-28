@@ -30,6 +30,7 @@ def test_cli_help() -> None:
         Data:
           about        Get information about the data.
           stations     Acquire stations.
+          issues       List available issue (model-run) datetimes for a station.
           history      Acquire station history.
           values       Acquire data.
           interpolate  Interpolate data.
@@ -132,3 +133,38 @@ def test_cli_radar_stations_dwd() -> None:
     response = json.loads(result.output)
     assert isinstance(response, list)
     assert len(response) == 20
+
+
+@pytest.mark.remote
+def test_issues_dwd_mosmix() -> None:
+    """Test issues command for DWD MOSMIX returns sorted UTC ISO datetimes."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=mosmix", "--station=10147"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "issues" in data
+    issues = data["issues"]
+    assert len(issues) > 0
+    assert issues == sorted(issues)
+    assert all(issue.endswith("+00:00") for issue in issues)
+
+
+@pytest.mark.remote
+def test_issues_dwd_dmo() -> None:
+    """Test issues command for DWD DMO returns sorted UTC ISO datetimes."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=dmo", "--station=10147"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "issues" in data
+    issues = data["issues"]
+    assert len(issues) > 0
+    assert issues == sorted(issues)
+    assert all(issue.endswith("+00:00") for issue in issues)
+
+
+def test_issues_unsupported_provider() -> None:
+    """Test issues command exits with error for unsupported providers."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=observation", "--station=00011"])
+    assert result.exit_code == 1

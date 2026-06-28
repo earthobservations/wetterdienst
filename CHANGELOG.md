@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[DWD MOSMIX / DMO]` Add `available_issues(station_id, settings)` classmethod to
+  `DwdMosmixRequest` and `DwdDmoRequest` that lists the model-run datetimes currently
+  available on DWD's OpenData server for a given station (MOSMIX_L single-station KMZ
+  files and ICON single-station KMZ files respectively).
+- `[CLI]` Add `wetterdienst issues --provider <p> --network <n> --station <id>` command
+  that prints available issue datetimes as a JSON array.
+- `[REST API]` Add `GET /api/issues?provider=<p>&network=<n>&station=<id>` endpoint
+  returning `{"issues": ["<UTC ISO datetime>", ...]}`. Currently supported:
+  `provider=dwd, network=mosmix` and `provider=dwd, network=dmo`.
+
 ### Fixed
 
 - `[DWD MOSMIX / DMO]` Fix `issue` (and DMO `lead_time`) parameters being silently

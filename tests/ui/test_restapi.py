@@ -989,10 +989,10 @@ def test_get_stations_request_mosmix_issue_is_forwarded() -> None:
     stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
 
     # issue must be resolved to the specific datetime, not LATEST
-    issue = getattr(stations_request, "issue")
+    issue = stations_request.issue
     assert issue is not DwdForecastDate.LATEST
     assert isinstance(issue, dt.datetime)
-    assert issue == dt.datetime(2026, 6, 27, 9, 0, 0)
+    assert issue == dt.datetime(2026, 6, 27, 9, 0, 0)  # noqa: DTZ001
 
 
 def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
@@ -1012,7 +1012,7 @@ def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
     )
     stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
 
-    assert getattr(stations_request, "issue") is DwdForecastDate.LATEST
+    assert stations_request.issue is DwdForecastDate.LATEST
 
 
 @pytest.mark.remote
@@ -1533,3 +1533,54 @@ def test_history_dwd_observation(client: TestClient) -> None:
         "station_id": "02564",
         "station_name": "Kiel-Holtenau",
     }
+
+
+@pytest.mark.remote
+def test_issues_dwd_mosmix(client: TestClient) -> None:
+    """Test /api/issues for DWD MOSMIX returns a non-empty sorted list of UTC ISO datetimes."""
+    response = client.get(
+        "/api/issues",
+        params={"provider": "dwd", "network": "mosmix", "station": "10147"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "issues" in data
+    issues = data["issues"]
+    assert len(issues) > 0
+    assert issues == sorted(issues)
+    assert all(issue.endswith("+00:00") for issue in issues)
+
+
+@pytest.mark.remote
+def test_issues_dwd_dmo(client: TestClient) -> None:
+    """Test /api/issues for DWD DMO returns a non-empty sorted list of UTC ISO datetimes."""
+    response = client.get(
+        "/api/issues",
+        params={"provider": "dwd", "network": "dmo", "station": "10147"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "issues" in data
+    issues = data["issues"]
+    assert len(issues) > 0
+    assert issues == sorted(issues)
+    assert all(issue.endswith("+00:00") for issue in issues)
+
+
+def test_issues_unsupported_provider(client: TestClient) -> None:
+    """Test /api/issues returns 400 for providers that don't support issue listing."""
+    response = client.get(
+        "/api/issues",
+        params={"provider": "dwd", "network": "observation", "station": "00011"},
+    )
+    assert response.status_code == 400
+    assert "supported" in response.json()["detail"].lower()
+
+
+def test_issues_unknown_provider(client: TestClient) -> None:
+    """Test /api/issues returns 404 for unknown provider/network combinations."""
+    response = client.get(
+        "/api/issues",
+        params={"provider": "unknown", "network": "unknown", "station": "00011"},
+    )
+    assert response.status_code == 404

@@ -27,6 +27,7 @@ from wetterdienst.model.result import (
 from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
+    IssuesRequest,
     StationsRequest,
     SummaryRequest,
     ValuesRequest,
@@ -34,6 +35,7 @@ from wetterdienst.ui.core import (
     _get_stripes_stations,
     _plot_stripes,
     get_interpolate,
+    get_issues,
     get_stations,
     get_summarize,
     get_values,
@@ -58,6 +60,8 @@ REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_stripes_stations": "api/stripes/stations?kind=temperature",
     "dwd_observation_daily_climate_stripes_values": "api/stripes/values?kind=temperature&station=1048",
     "dwd_observation_daily_climate_stripes_image": "api/stripes/image?kind=temperature&station=1048",
+    "dwd_mosmix_issues": "api/issues?provider=dwd&network=mosmix&station=10147",
+    "dwd_dmo_issues": "api/issues?provider=dwd&network=dmo&station=10147",
 }
 
 
@@ -325,6 +329,34 @@ def stations(
         media_type = "application/json"
 
     return Response(content=content, media_type=media_type)
+
+
+@app.get("/api/issues")
+def issues(
+    request: Annotated[IssuesRequest, Query()],
+) -> JSONResponse:
+    """Return available issue datetimes for a provider/network/station combination.
+
+    Currently supported: provider=dwd, network=mosmix|dmo.
+    """
+    set_logging_level(debug=request.debug)
+
+    try:
+        api = Wetterdienst(request.provider, request.network)
+    except ApiNotFoundError as e:
+        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        log.exception(msg)
+        raise HTTPException(status_code=404, detail=msg) from e
+
+    try:
+        issue_list = get_issues(api=api, request=request, settings=Settings())
+    except NotImplementedError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        log.exception("Failed to get issues.")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    return JSONResponse(content={"issues": issue_list})
 
 
 # response models for the different formats are

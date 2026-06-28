@@ -128,3 +128,13 @@ def test_add_date_from_filename_early_in_year(df_files_january: pl.DataFrame) ->
         dt.datetime(2020, 12, 31, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
         dt.datetime(2020, 12, 31, 12, 0, 0, tzinfo=ZoneInfo("UTC")),
     ]
+
+
+@pytest.mark.remote
+def test_dwd_dmo_available_issues(default_settings: Settings) -> None:
+    """Verify available_issues returns a non-empty sorted list of UTC datetimes."""
+    issues = DwdDmoRequest.available_issues("10147", default_settings)
+    assert len(issues) > 0
+    assert all(isinstance(i, dt.datetime) for i in issues)
+    assert all(i.tzinfo is not None for i in issues)
+    assert issues == sorted(issues)

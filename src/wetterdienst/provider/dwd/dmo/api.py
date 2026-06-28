@@ -274,6 +274,25 @@ class DwdDmoRequest(TimeseriesRequest):
             return adjusted_date.replace(hour=12)
         return adjusted_date
 
+    @classmethod
+    def available_issues(cls, station_id: str, settings: Settings) -> list[dt.datetime]:
+        """Return datetimes for which DMO ICON single-station files exist on DWD's server.
+
+        Run start times are deduplicated across lead times (078/168) and sorted in ascending UTC order.
+        """
+        url = urljoin("https://opendata.dwd.de", f"weather/local_forecasts/dmo/icon/single_stations/{station_id}/kmz/")
+        urls = list_remote_files_fsspec(url, settings, CacheExpiry.NO_CACHE)
+        df = pl.DataFrame({"url": urls}, orient="col")
+        df = df.with_columns(
+            pl.col("url").str.split("/").list.last().str.split("_").list.last().alias("date_str"),
+        )
+        df = df.with_columns(
+            pl.col("date_str").str.slice(offset=0, length=pl.col("date_str").str.len_chars() - 4),
+        )
+        now_utc = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
+        df = add_date_from_filename(df, now_utc)
+        return df.get_column("date").dt.replace_time_zone("UTC").unique().sort().to_list()
+
     def __post_init__(self) -> None:
         """Post-initialize the DwdDmoRequest class."""
         super().__post_init__()

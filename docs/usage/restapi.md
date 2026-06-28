@@ -60,6 +60,16 @@ http localhost:7890/api/stations provider==dwd network==observation parameters==
 http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/icon/temperature_air_mean_2m periods==recent all==true
 ```
 
+### Issues (available model-run datetimes)
+
+```bash
+# List available MOSMIX-L run datetimes for a station.
+http localhost:7890/api/issues provider==dwd network==mosmix station==10147
+
+# List available DMO ICON run datetimes for a station.
+http localhost:7890/api/issues provider==dwd network==dmo station==10147
+```
+
 ### Values
 
 ```bash
