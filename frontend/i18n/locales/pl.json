@@ -242,6 +242,7 @@
       "panelCloud": "Zachmurzenie",
       "panelPressure": "Ciśnienie",
       "resetZoom": "Resetuj powiększenie",
+      "horizonAll": "Wszystko",
       "viewNormal": "Normalny",
       "viewCompact": "Kompaktowy",
       "today": "DZIŚ",
@@ -287,7 +288,12 @@
       "axisCloud": "Chmury %",
       "axisTemp": "Temp. °C",
       "axisPressure": "Ciśnienie hPa"
-    }
+    },
+    "orChooseMap": "lub",
+    "chooseOnMap": "Wybierz stację na mapie",
+    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
+    "runLabel": "Uruchomienie modelu",
+    "runLatest": "Najnowsza (auto)"
   },
   "widget": {
     "noStation": "Nie określono stacji. Dodaj {param} do adresu URL.",
@@ -332,7 +338,9 @@
     "downloadSvg": "Pobierz jako SVG",
     "plotTitle": "Paski klimatyczne ({kind}) dla {name}, Niemcy ({id})",
     "plotDataAvailability": "Dostępność danych",
-    "plotSource": "Źródło: Deutscher Wetterdienst"
+    "plotSource": "Źródło: Deutscher Wetterdienst",
+    "chooseOnMap": "Wybierz na mapie",
+    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację."
   },
   "explorer": {
     "title": "Eksplorator",
@@ -413,7 +421,10 @@
     "selectStation": "Wybierz stację",
     "selectedStations": "Wybrane stacje:",
     "clearAll": "Wyczyść wszystko",
-    "showMap": "Pokaż mapę"
+    "showMap": "Pokaż mapę",
+    "chooseOnMap": "Wybierz na mapie",
+    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
+    "mapHintMultiple": "Dotykaj punktów na mapie, aby dodawać lub usuwać stacje."
   },
   "interpolation": {
     "source": "Źródło",

@@ -242,6 +242,7 @@
       "panelCloud": "Nubosidad",
       "panelPressure": "Presión",
       "resetZoom": "Restablecer zoom",
+      "horizonAll": "Todo",
       "viewNormal": "Normal",
       "viewCompact": "Compacto",
       "today": "HOY",
@@ -287,7 +288,12 @@
       "axisCloud": "Nubes %",
       "axisTemp": "Temp. °C",
       "axisPressure": "Presión hPa"
-    }
+    },
+    "orChooseMap": "o",
+    "chooseOnMap": "Elegir una estación en el mapa",
+    "mapHint": "Toca un punto en el mapa para elegir esa estación.",
+    "runLabel": "Pasada del modelo",
+    "runLatest": "Última (auto)"
   },
   "widget": {
     "noStation": "No se ha especificado ninguna estación. Añade {param} a la URL.",
@@ -332,7 +338,9 @@
     "downloadSvg": "Descargar como SVG",
     "plotTitle": "Franjas climáticas ({kind}) para {name}, Alemania ({id})",
     "plotDataAvailability": "Disponibilidad de datos",
-    "plotSource": "Fuente: Deutscher Wetterdienst"
+    "plotSource": "Fuente: Deutscher Wetterdienst",
+    "chooseOnMap": "Elegir en el mapa",
+    "mapHint": "Toca un punto en el mapa para elegir esa estación."
   },
   "explorer": {
     "title": "Explorador",
@@ -413,7 +421,10 @@
     "selectStation": "Seleccionar una estación",
     "selectedStations": "Estaciones seleccionadas:",
     "clearAll": "Borrar todo",
-    "showMap": "Mostrar el mapa"
+    "showMap": "Mostrar el mapa",
+    "chooseOnMap": "Elegir en el mapa",
+    "mapHint": "Toca un punto en el mapa para elegir esa estación.",
+    "mapHintMultiple": "Toca puntos en el mapa para añadir o quitar estaciones."
   },
   "interpolation": {
     "source": "Fuente",

@@ -242,6 +242,7 @@
       "panelCloud": "Cloud cover",
       "panelPressure": "Pressure",
       "resetZoom": "Reset zoom",
+      "horizonAll": "All",
       "viewNormal": "Normal",
       "viewCompact": "Compact",
       "today": "TODAY",
@@ -287,7 +288,12 @@
       "axisCloud": "Cloud %",
       "axisTemp": "Temp °C",
       "axisPressure": "Pressure hPa"
-    }
+    },
+    "orChooseMap": "or",
+    "chooseOnMap": "Choose a station on the map",
+    "mapHint": "Tap a marker on the map to pick that station.",
+    "runLabel": "Model run",
+    "runLatest": "Latest (auto)"
   },
   "widget": {
     "noStation": "No station specified. Add {param} to the URL.",
@@ -332,7 +338,9 @@
     "downloadSvg": "Download as SVG",
     "plotTitle": "Climate stripes ({kind}) for {name}, Germany ({id})",
     "plotDataAvailability": "Data availability",
-    "plotSource": "Source: Deutscher Wetterdienst"
+    "plotSource": "Source: Deutscher Wetterdienst",
+    "chooseOnMap": "Choose on the map",
+    "mapHint": "Tap a marker on the map to pick that station."
   },
   "explorer": {
     "title": "Explorer",
@@ -413,7 +421,10 @@
     "selectStation": "Select a station",
     "selectedStations": "Selected Stations:",
     "clearAll": "Clear all",
-    "showMap": "Show map"
+    "showMap": "Show map",
+    "chooseOnMap": "Choose on the map",
+    "mapHint": "Tap a marker on the map to pick that station.",
+    "mapHintMultiple": "Tap markers on the map to add or remove stations."
   },
   "interpolation": {
     "source": "Source",

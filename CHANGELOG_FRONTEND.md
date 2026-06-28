@@ -16,6 +16,24 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Meteogram]` Forecast horizon selector (`24h | 3d | 7d | All`) in the chart toolbar.
+  Clips the x-axis, tick labels, day annotations, midnight separators, and the "now" marker
+  to the chosen window. Resetting zoom also clears the horizon to All. Translated across
+  all 11 supported locales.
+
+### Fixed
+
+- `[Meteogram]` Fix toolbar overflow on narrow screens: panel toggles and horizon selector
+  are now grouped as a wrapping left block, and the right-side controls (timezone label,
+  reset zoom, compact toggle) gain `shrink-0` to prevent squishing. Timezone label and
+  compact toggle text hide below the `sm` breakpoint; the compact button shows icon-only
+  on mobile.
+- `[Meteogram]` Fix poor touch experience on mobile: Plotly now defaults to pan mode
+  (instead of zoom) on touch devices, preventing pinch gestures from conflicting with page
+  scroll. The horizon selector covers most zoom use cases without requiring pinch-to-zoom.
+
 ## [0.6.0] - 2026-06-18
 
 ### Added
