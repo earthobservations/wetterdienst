@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[DWD MOSMIX / DMO]` Fix `issue` (and DMO `lead_time`) parameters being silently
+  ignored when calling the REST API or `_get_stations_request` directly. The guard used
+  `isinstance(api, DwdMosmixRequest)` where `api` is the *class* itself (not an instance),
+  so the condition was always `False` and `DwdForecastDate.LATEST` was used regardless of
+  the caller's intent. Changed to `issubclass` and added a `None`-guard so that omitting
+  `issue` still falls through to the dataclass default (`DwdForecastDate.LATEST`).
+
 ## [0.123.0] - 2026-06-18
 
 ### Fixed

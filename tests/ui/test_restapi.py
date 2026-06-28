@@ -962,6 +962,59 @@ def test_stations_missing_null(client: TestClient) -> None:
     }
 
 
+def test_get_stations_request_mosmix_issue_is_forwarded() -> None:
+    """_get_stations_request must pass the `issue` kwarg to DwdMosmixRequest.
+
+    Previously, isinstance(api, DwdMosmixRequest) was used where `api` is the
+    *class* itself (not an instance), so the condition was always False and
+    `issue` was silently dropped — DwdMosmixRequest always fell back to
+    DwdForecastDate.LATEST regardless of what the caller sent.
+    """
+    import datetime as dt  # noqa: PLC0415
+
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix.api import DwdForecastDate  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.ui.core import ValuesRequest, _get_stations_request  # noqa: PLC0415
+
+    api = Wetterdienst("dwd", "mosmix")
+    settings = Settings()
+    request = ValuesRequest(
+        provider="dwd",
+        network="mosmix",
+        parameters=["hourly/large/ttt"],
+        station=["10147"],
+        issue="2026-06-27T09:00:00",
+    )
+    stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
+
+    # issue must be resolved to the specific datetime, not LATEST
+    issue = getattr(stations_request, "issue")
+    assert issue is not DwdForecastDate.LATEST
+    assert isinstance(issue, dt.datetime)
+    assert issue == dt.datetime(2026, 6, 27, 9, 0, 0)
+
+
+def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
+    """When no issue is supplied the request must default to DwdForecastDate.LATEST."""
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix.api import DwdForecastDate  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.ui.core import ValuesRequest, _get_stations_request  # noqa: PLC0415
+
+    api = Wetterdienst("dwd", "mosmix")
+    settings = Settings()
+    request = ValuesRequest(
+        provider="dwd",
+        network="mosmix",
+        parameters=["hourly/large/ttt"],
+        station=["10147"],
+    )
+    stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
+
+    assert getattr(stations_request, "issue") is DwdForecastDate.LATEST
+
+
 @pytest.mark.remote
 def test_values_dwd_mosmix(client: TestClient) -> None:
     """Test MOSMIX."""
