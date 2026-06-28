@@ -242,6 +242,7 @@
       "panelCloud": "Couverture nuageuse",
       "panelPressure": "Pression",
       "resetZoom": "Réinitialiser le zoom",
+      "horizonAll": "Tout",
       "viewNormal": "Normal",
       "viewCompact": "Compact",
       "today": "AUJOURD'HUI",
@@ -287,7 +288,12 @@
       "axisCloud": "Nuages %",
       "axisTemp": "Temp. °C",
       "axisPressure": "Pression hPa"
-    }
+    },
+    "orChooseMap": "ou",
+    "chooseOnMap": "Choisir une station sur la carte",
+    "mapHint": "Touchez un point sur la carte pour choisir cette station.",
+    "runLabel": "Prévision émise",
+    "runLatest": "Dernière (auto)"
   },
   "widget": {
     "noStation": "Aucune station spécifiée. Ajoutez {param} à l'URL.",
@@ -332,7 +338,9 @@
     "downloadSvg": "Télécharger en SVG",
     "plotTitle": "Bandes climatiques ({kind}) pour {name}, Allemagne ({id})",
     "plotDataAvailability": "Disponibilité des données",
-    "plotSource": "Source : Deutscher Wetterdienst"
+    "plotSource": "Source : Deutscher Wetterdienst",
+    "chooseOnMap": "Choisir sur la carte",
+    "mapHint": "Touchez un point sur la carte pour choisir cette station."
   },
   "explorer": {
     "title": "Explorateur",
@@ -413,7 +421,10 @@
     "selectStation": "Sélectionner une station",
     "selectedStations": "Stations sélectionnées :",
     "clearAll": "Tout effacer",
-    "showMap": "Afficher la carte"
+    "showMap": "Afficher la carte",
+    "chooseOnMap": "Choisir sur la carte",
+    "mapHint": "Touchez un point sur la carte pour choisir cette station.",
+    "mapHintMultiple": "Touchez des points sur la carte pour ajouter ou retirer des stations."
   },
   "interpolation": {
     "source": "Source",

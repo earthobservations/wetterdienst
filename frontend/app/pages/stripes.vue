@@ -609,15 +609,20 @@ onMounted(async () => {
 
           <UCollapsible v-model="showMap" class="mt-3">
             <UButton
-              :label="t('stripes.showMap')"
+              :label="t('stripes.chooseOnMap')"
+              icon="i-lucide-map-pin"
               variant="subtle"
-              color="neutral"
+              color="primary"
               trailing-icon="i-lucide-chevron-down"
               block
               size="sm"
             />
             <template #content>
               <ClientOnly>
+                <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
+                  <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+                  {{ t('stripes.mapHint') }}
+                </p>
                 <MapStations
                   :stations="stations"
                   :selected-stations="selectedStation ? [selectedStation] : []"

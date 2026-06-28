@@ -17,7 +17,6 @@ let markerClusterGroup: any = null
 const markersMap: Map<string, any> = new Map()
 
 const centerOnSelectedStations = ref(false)
-const boundsVersion = ref(0)
 
 function isSelected(stationId: string) {
   return props.selectedStations.some((s: any) => s.station_id === stationId)
@@ -52,22 +51,6 @@ const mapBounds = computed(() => {
       L.latLng(Math.max(...latitudes), Math.max(...longitudes)),
     )
   }
-})
-
-// Compute whether current map bounds are approximately equal to selected stations bounds
-const isCenteredOnSelected = computed(() => {
-  // depend on boundsVersion to re-evaluate when map moves
-  const _boundsVersion = boundsVersion.value
-  if (!map.value?.leafletObject || !mapBounds.value || !props.selectedStations?.length)
-    return false
-  const currentBounds = map.value.leafletObject.getBounds()
-  const selectedBounds = mapBounds.value
-  // small tolerance for floating point differences
-  const tol = 1e-6
-  return Math.abs(currentBounds.getWest() - selectedBounds.getWest()) < tol
-    && Math.abs(currentBounds.getEast() - selectedBounds.getEast()) < tol
-    && Math.abs(currentBounds.getNorth() - selectedBounds.getNorth()) < tol
-    && Math.abs(currentBounds.getSouth() - selectedBounds.getSouth()) < tol
 })
 
 async function createMarkers() {
@@ -144,13 +127,6 @@ function updateMarkerIcons() {
 async function onMapReady() {
   await createMarkers()
   updateMarkerIcons()
-  // update label when user pans/zooms
-  if (map.value?.leafletObject) {
-    map.value.leafletObject.on('moveend', () => {
-      // Increment boundsVersion to trigger recomputation of isCenteredOnSelected
-      boundsVersion.value++
-    })
-  }
 }
 
 function toggleCenter() {
@@ -189,7 +165,7 @@ watch([
   <div>
     <div class="p-4 space-y-4">
       <UButton
-        :label="isCenteredOnSelected ? t('map.centerAll') : (props.selectedStations.length === 1 ? t('map.centerSelected') : t('map.centerSelectedPlural'))"
+        :label="centerOnSelectedStations ? t('map.centerAll') : (props.selectedStations.length === 1 ? t('map.centerSelected') : t('map.centerSelectedPlural'))"
         color="neutral"
         variant="ghost"
         size="sm"

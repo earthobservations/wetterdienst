@@ -242,6 +242,7 @@
       "panelCloud": "Bewölkung",
       "panelPressure": "Luftdruck",
       "resetZoom": "Zoom zurücksetzen",
+      "horizonAll": "Alles",
       "viewNormal": "Normal",
       "viewCompact": "Kompakt",
       "today": "HEUTE",
@@ -287,7 +288,12 @@
       "axisCloud": "Bewölkung %",
       "axisTemp": "Temperatur °C",
       "axisPressure": "Luftdruck hPa"
-    }
+    },
+    "orChooseMap": "oder",
+    "chooseOnMap": "Station auf der Karte auswählen",
+    "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen.",
+    "runLabel": "Modellauf",
+    "runLatest": "Aktuellste (auto)"
   },
   "widget": {
     "noStation": "Keine Station angegeben. Fügen Sie {param} zur URL hinzu.",
@@ -332,7 +338,9 @@
     "downloadSvg": "Als SVG herunterladen",
     "plotTitle": "Klimastreifen ({kind}) für {name}, Deutschland ({id})",
     "plotDataAvailability": "Datenverfügbarkeit",
-    "plotSource": "Quelle: Deutscher Wetterdienst"
+    "plotSource": "Quelle: Deutscher Wetterdienst",
+    "chooseOnMap": "Auf der Karte auswählen",
+    "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen."
   },
   "explorer": {
     "title": "Explorer",
@@ -413,7 +421,10 @@
     "selectStation": "Station auswählen",
     "selectedStations": "Ausgewählte Stationen:",
     "clearAll": "Alle entfernen",
-    "showMap": "Karte anzeigen"
+    "showMap": "Karte anzeigen",
+    "chooseOnMap": "Auf der Karte auswählen",
+    "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen.",
+    "mapHintMultiple": "Tippe auf Punkte auf der Karte, um Stationen hinzuzufügen oder zu entfernen."
   },
   "interpolation": {
     "source": "Quelle",

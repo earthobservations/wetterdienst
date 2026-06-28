@@ -242,6 +242,7 @@
       "panelCloud": "Bewolking",
       "panelPressure": "Luchtdruk",
       "resetZoom": "Zoom opnieuw instellen",
+      "horizonAll": "Alles",
       "viewNormal": "Normaal",
       "viewCompact": "Compact",
       "today": "VANDAAG",
@@ -287,7 +288,12 @@
       "axisCloud": "Bewolking %",
       "axisTemp": "Temp. °C",
       "axisPressure": "Luchtdruk hPa"
-    }
+    },
+    "orChooseMap": "of",
+    "chooseOnMap": "Kies een station op de kaart",
+    "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
+    "runLabel": "Modelrun",
+    "runLatest": "Nieuwste (auto)"
   },
   "widget": {
     "noStation": "Geen station opgegeven. Voeg {param} toe aan de URL.",
@@ -332,7 +338,9 @@
     "downloadSvg": "Downloaden als SVG",
     "plotTitle": "Klimaatstrepen ({kind}) voor {name}, Duitsland ({id})",
     "plotDataAvailability": "Gegevensbeschikbaarheid",
-    "plotSource": "Bron: Deutscher Wetterdienst"
+    "plotSource": "Bron: Deutscher Wetterdienst",
+    "chooseOnMap": "Kies op de kaart",
+    "mapHint": "Tik op een punt op de kaart om dat station te kiezen."
   },
   "explorer": {
     "title": "Verkenner",
@@ -413,7 +421,10 @@
     "selectStation": "Selecteer een station",
     "selectedStations": "Geselecteerde stations:",
     "clearAll": "Alles wissen",
-    "showMap": "Kaart tonen"
+    "showMap": "Kaart tonen",
+    "chooseOnMap": "Kies op de kaart",
+    "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
+    "mapHintMultiple": "Tik op punten op de kaart om stations toe te voegen of te verwijderen."
   },
   "interpolation": {
     "source": "Bron",

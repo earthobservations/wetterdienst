@@ -242,6 +242,7 @@
       "panelCloud": "Copertura nuvolosa",
       "panelPressure": "Pressione",
       "resetZoom": "Reimposta zoom",
+      "horizonAll": "Tutto",
       "viewNormal": "Normale",
       "viewCompact": "Compatto",
       "today": "OGGI",
@@ -287,7 +288,12 @@
       "axisCloud": "Nubi %",
       "axisTemp": "Temp. °C",
       "axisPressure": "Pressione hPa"
-    }
+    },
+    "orChooseMap": "o",
+    "chooseOnMap": "Scegli una stazione sulla mappa",
+    "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione.",
+    "runLabel": "Emissione modello",
+    "runLatest": "Ultima (auto)"
   },
   "widget": {
     "noStation": "Nessuna stazione specificata. Aggiungi {param} all'URL.",
@@ -332,7 +338,9 @@
     "downloadSvg": "Scarica come SVG",
     "plotTitle": "Strisce climatiche ({kind}) per {name}, Germania ({id})",
     "plotDataAvailability": "Disponibilità dei dati",
-    "plotSource": "Fonte: Deutscher Wetterdienst"
+    "plotSource": "Fonte: Deutscher Wetterdienst",
+    "chooseOnMap": "Scegli sulla mappa",
+    "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione."
   },
   "explorer": {
     "title": "Esploratore",
@@ -413,7 +421,10 @@
     "selectStation": "Seleziona una stazione",
     "selectedStations": "Stazioni selezionate:",
     "clearAll": "Cancella tutto",
-    "showMap": "Mostra la mappa"
+    "showMap": "Mostra la mappa",
+    "chooseOnMap": "Scegli sulla mappa",
+    "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione.",
+    "mapHintMultiple": "Tocca i punti sulla mappa per aggiungere o rimuovere stazioni."
   },
   "interpolation": {
     "source": "Fonte",

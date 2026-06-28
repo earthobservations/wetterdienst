@@ -102,6 +102,10 @@ export default defineNuxtConfig({
 
   security: {
     headers: {
+      // nuxt-security defaults this to 'no-referrer', which strips the Referer
+      // header. OpenStreetMap's tile servers reject refererless requests
+      // ("Access denied, referer required"), so send the origin cross-origin.
+      referrerPolicy: 'strict-origin-when-cross-origin',
       contentSecurityPolicy: {
         'default-src': ['\'self\''],
         'connect-src': ['\'self\'', new URL(process.env.NUXT_PUBLIC_API_BASE || 'http://0.0.0.0:3000/api').origin, 'https://api.iconify.design', 'https://code.iconify.design', 'https://cdn.jsdelivr.net'],

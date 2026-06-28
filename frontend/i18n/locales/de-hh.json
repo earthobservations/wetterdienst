@@ -242,6 +242,7 @@
       "panelCloud": "Bewölkung",
       "panelPressure": "Luftdruck",
       "resetZoom": "Zoom zurücksetzen",
+      "horizonAll": "Alles",
       "viewNormal": "Normal",
       "viewCompact": "Kompakt",
       "today": "HEUTE",
@@ -287,7 +288,12 @@
       "axisCloud": "Bewölkung %",
       "axisTemp": "Temperatur °C",
       "axisPressure": "Luftdruck hPa"
-    }
+    },
+    "orChooseMap": "oder",
+    "chooseOnMap": "Such dir 'ne Station op de Koort",
+    "mapHint": "Tipp op en Punkt op de Koort, denn nimmst du die Station.",
+    "runLabel": "Modellauf",
+    "runLatest": "Aktuellste (auto)"
   },
   "widget": {
     "noStation": "Keine Station angegeben. Fügen Sie {param} zur URL hinzu.",
@@ -332,7 +338,9 @@
     "downloadSvg": "Als SVG herunterladen",
     "plotTitle": "Klimastreifen ({kind}) für {name}, Deutschland ({id})",
     "plotDataAvailability": "Datenverfügbarkeit",
-    "plotSource": "Quelle: Deutscher Wetterdienst"
+    "plotSource": "Quelle: Deutscher Wetterdienst",
+    "chooseOnMap": "Op de Koort auswählen",
+    "mapHint": "Tipp op en Punkt op de Koort, denn nimmst du die Station."
   },
   "explorer": {
     "title": "Explorer",
@@ -413,7 +421,10 @@
     "selectStation": "Station auswählen",
     "selectedStations": "Ausgewählte Stationen:",
     "clearAll": "Alle wegmachen",
-    "showMap": "Karte zeigen"
+    "showMap": "Karte zeigen",
+    "chooseOnMap": "Op de Koort auswählen",
+    "mapHint": "Tipp op en Punkt op de Koort, denn nimmst du die Station.",
+    "mapHintMultiple": "Tipp op Punkte op de Koort, denn kannst du Stationen dazunehmen oder rausschmeißen."
   },
   "interpolation": {
     "source": "Quelle",

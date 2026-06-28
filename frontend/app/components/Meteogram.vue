@@ -45,6 +45,15 @@ const visiblePanels = ref({
   pressure: true,
 })
 
+// Forecast horizon filter: null = show all data
+const horizonHours = ref<number | null>(null)
+const horizonOptions = computed(() => [
+  { label: '24h', value: 24 },
+  { label: '3d', value: 72 },
+  { label: '7d', value: 168 },
+  { label: t('meteogram.chart.horizonAll'), value: null },
+])
+
 // Ensure at least one panel is always active
 watch(visiblePanels, (newVal) => {
   const anyActive = Object.values(newVal).some(v => v)
@@ -76,6 +85,7 @@ let overlayRedrawHandler: ((ev?: any) => void) | null = null
 
 // Expose a reset function that re-applies original Plotly layout
 function resetChart() {
+  horizonHours.value = null
   if (!chartRef.value || !plotlyLoaded.value)
     return
   try {
@@ -561,11 +571,20 @@ function drawWindBarbs(arrowInfos: { timeMs: number, dir: number, speed: number 
     return plotTop + (1 - paperY) * plotHeight
   }
 
+  // Clip to the plot area so barbs outside the visible time window
+  // (e.g. after zooming) cannot bleed into the margins.
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(plotLeft, plotTop, plotWidth, plotHeight)
+  ctx.clip()
+
   for (const a of arrowInfos) {
     const px = xToPx(a.timeMs)
     const py = yToPx(a.speed)
     drawBarb(ctx, px, py, a.dir, a.speed)
   }
+
+  ctx.restore()
 }
 
 function attachOverlayListeners(getParams: () => { arrowInfos: { timeMs: number, dir: number, speed: number }[], minTime: number, maxTime: number, layoutObj: any, axisRange: [number, number], axisDomain: [number, number] }) {
@@ -573,16 +592,42 @@ function attachOverlayListeners(getParams: () => { arrowInfos: { timeMs: number,
     return
   if (overlayAttached)
     return
+  // plotly_relayout fires BEFORE _fullLayout is updated, so drawing barbs
+  // there uses a stale range and produces misplaced artefacts. Just clear
+  // the canvas immediately so the wind panel is blank while Plotly re-renders
+  // its SVG, then do the real redraw in plotly_afterplot when _fullLayout is
+  // definitively up to date.
+  const clearOnly = () => {
+    ensureOverlay()
+    updateOverlaySize() // resets canvas & clears
+  }
+
   const redraw = () => {
     const p = getParams()
-    drawWindBarbs(p.arrowInfos, p.minTime, p.maxTime, p.layoutObj, p.axisRange, p.axisDomain)
+    // Read the live zoomed range from Plotly's internal layout so barbs are
+    // positioned against the current viewport, not the full data span.
+    let minTime = p.minTime
+    let maxTime = p.maxTime
+    try {
+      const xRange = (chartRef.value as any)?._fullLayout?.xaxis?.range
+      if (xRange?.[0] != null && xRange?.[1] != null) {
+        const t0 = new Date(xRange[0]).getTime()
+        const t1 = new Date(xRange[1]).getTime()
+        if (Number.isFinite(t0) && Number.isFinite(t1) && t0 < t1) {
+          minTime = t0
+          maxTime = t1
+        }
+      }
+    }
+    catch { /* ignore */ }
+    drawWindBarbs(p.arrowInfos, minTime, maxTime, p.layoutObj, p.axisRange, p.axisDomain)
   }
   try {
     if ((chartRef.value as any).on) {
-      ;(chartRef.value as any).on('plotly_relayout', redraw)
+      ;(chartRef.value as any).on('plotly_relayout', clearOnly)
       ;(chartRef.value as any).on('plotly_afterplot', redraw)
       ;(chartRef.value as any).__overlay_handlers = ((chartRef.value as any).__overlay_handlers || [])
-      ;(chartRef.value as any).__overlay_handlers.push({ name: 'plotly_relayout', fn: redraw })
+      ;(chartRef.value as any).__overlay_handlers.push({ name: 'plotly_relayout', fn: clearOnly })
       ;(chartRef.value as any).__overlay_handlers.push({ name: 'plotly_afterplot', fn: redraw })
     }
   }
@@ -830,10 +875,13 @@ async function renderChartActual() {
   const allTimes = [...series.values()].flatMap(s => s.x.map(d => d.getTime()))
   const minTime = Math.min(...allTimes)
   const maxTime = Math.max(...allTimes)
+  const displayMaxTime = horizonHours.value !== null
+    ? Math.min(maxTime, minTime + horizonHours.value * 3_600_000)
+    : maxTime
 
   // Resample all series to fixed cadence; precipitation uses nearest-neighbor (not interpolated)
   const precipStepKeys = new Set([precipKey].filter((k): k is string => !!k))
-  const resampledSeries = resampleSeries(series, minTime, maxTime, precipStepKeys)
+  const resampledSeries = resampleSeries(series, minTime, displayMaxTime, precipStepKeys)
 
   // Normalize cloud fraction parameters to percentages
   const cloudParams = [cloudKey, cloudLowKey, cloudMidKey, cloudHighKey].filter((x): x is string => !!x)
@@ -881,21 +929,40 @@ async function renderChartActual() {
   const extraTop = 0
   const extraRight = 0
   const annotations: any[] = []
+
+  // Available plot width drives tick density — avoids overlap on narrow mobile screens.
+  const plotInnerWidth = Math.max(200, (chartRef.value?.clientWidth ?? 800) - 56)
+  const rangeHours = (displayMaxTime - minTime) / 3_600_000
+
   if (isoDates.length > 0) {
-    const rangeHours = (maxTime - minTime) / 3_600_000
+    // Each "HH:mm" label needs ~36 px minimum to avoid overlap.
+    const maxTicks = Math.floor(plotInnerWidth / 36)
     let tickMs: number
-    if (rangeHours <= 24)
+    if (rangeHours <= 24) {
       tickMs = 1 * 3_600_000
-    else if (rangeHours <= 48)
+    }
+    else if (rangeHours <= 48 && maxTicks >= 16) {
       tickMs = 3 * 3_600_000
-    else if (rangeHours <= 168)
+    }
+    else if (rangeHours <= 48) {
       tickMs = 6 * 3_600_000
-    else tickMs = 24 * 3_600_000
+    }
+    else {
+      // Pick the coarsest granularity that still fits within maxTicks.
+      const candidates = [6, 12, 24, 48]
+      tickMs = 24 * 3_600_000
+      for (const h of candidates) {
+        if (Math.ceil(rangeHours / h) <= maxTicks) {
+          tickMs = h * 3_600_000
+          break
+        }
+      }
+    }
 
     const startTick = Math.ceil(minTime / tickMs) * tickMs
     const tickVals: string[] = []
     const tickText: string[] = []
-    for (let t = startTick; t <= maxTime; t += tickMs) {
+    for (let t = startTick; t <= displayMaxTime; t += tickMs) {
       tickVals.push(new Date(t).toISOString())
       try {
         const utcDt = DateTime.fromMillis(t, { zone: 'UTC' })
@@ -942,7 +1009,7 @@ async function renderChartActual() {
 
   // Build per-day day-band shapes
   const dayShapes: any[] = []
-  const days = getCalendarDays(minTime, maxTime, stationTZ)
+  const days = getCalendarDays(minTime, displayMaxTime, stationTZ)
   if (props.stationCoords && props.stationCoords.latitude != null && props.stationCoords.longitude != null) {
     const SunCalc = (await import('suncalc')) as any
     const lat = props.stationCoords.latitude
@@ -990,7 +1057,7 @@ async function renderChartActual() {
   }
 
   // Day separators
-  const separators: any[] = getMidnights(minTime, maxTime, stationTZ).map(m => ({
+  const separators: any[] = getMidnights(minTime, displayMaxTime, stationTZ).map(m => ({
     type: 'line',
     xref: 'x',
     yref: 'paper',
@@ -1003,7 +1070,7 @@ async function renderChartActual() {
 
   // "Now" marker
   const nowMs = Date.now()
-  if (nowMs > minTime && nowMs < maxTime) {
+  if (nowMs > minTime && nowMs < displayMaxTime) {
     separators.push({
       type: 'line',
       xref: 'x',
@@ -1017,22 +1084,29 @@ async function renderChartActual() {
   }
 
   // Day names annotations (all date parts computed in station-local timezone)
-  for (const day of getCalendarDays(minTime, maxTime, stationTZ)) {
+  const totalDays = Math.max(1, rangeHours / 24)
+  const dayWidthPx = plotInnerWidth / totalDays
+  for (const day of getCalendarDays(minTime, displayMaxTime, stationTZ)) {
     const localDt = DateTime.fromMillis(day.getTime(), { zone: stationTZ })
     const tenAm = localDt.plus({ hours: 10 }).toJSDate()
-    if (tenAm.getTime() < minTime || tenAm.getTime() > maxTime)
+    if (tenAm.getTime() < minTime || tenAm.getTime() > displayMaxTime)
       continue
     const dd = String(localDt.day).padStart(2, '0')
     const mm = String(localDt.month).padStart(2, '0')
     const isWeekend = localDt.weekday >= 6 // 6=Sat, 7=Sun in Luxon
+    // On narrow screens drop the date suffix to prevent overlap; shrink font below 50 px/day.
+    const annotFontSize = dayWidthPx < 50 ? 8 : 10
+    const annotText = dayWidthPx < 44
+      ? `<b>${weekdayShort(localDt)}</b>`
+      : `<b>${weekdayShort(localDt)}</b> ${dd}.${mm}`
     annotations.push({
       x: tenAm.toISOString(),
       y: 1.06,
       xref: 'x',
       yref: 'paper',
-      text: `<b>${weekdayShort(localDt)}</b> ${dd}.${mm}`,
+      text: annotText,
       showarrow: false,
-      font: { size: 10, color: isWeekend ? '#ef4444' : (isDark.value ? '#e4e4e7' : '#374151') },
+      font: { size: annotFontSize, color: isWeekend ? '#ef4444' : (isDark.value ? '#e4e4e7' : '#374151') },
       xanchor: 'center',
       yanchor: 'bottom',
     })
@@ -1621,7 +1695,7 @@ async function renderChartActual() {
       dtick: 6 * 3_600_000,
       tickfont: { size: compact.value ? 7 : 9, color: TICK },
       tickcolor: W(0.25),
-      range: [new Date(minTime).toISOString(), new Date(maxTime).toISOString()],
+      range: [new Date(minTime).toISOString(), new Date(displayMaxTime).toISOString()],
       ...(customTickVals ? { tickvals: customTickVals, ticktext: customTickText } : {}),
     },
 
@@ -1705,7 +1779,8 @@ async function renderChartActual() {
     },
   }
 
-  const config = { responsive: true, displayModeBar: false }
+  const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches
+  const config = { responsive: true, displayModeBar: false, ...(isTouchDevice ? { dragmode: 'pan', scrollZoom: false } : {}) }
 
   if (chartRef.value) {
     try {
@@ -1737,7 +1812,7 @@ async function renderChartActual() {
       const gustSeriesY = (gustKey ? resampledSeries.get(gustKey)?.y : undefined) ?? [0]
       const axisMax = Math.max(1, ...((resampledSeries.get(windKey)?.y) ?? [10]), ...gustSeriesY)
       const axisDomain = domains.wind ? domains.wind : [0, 0]
-      const getParams = () => ({ arrowInfos, minTime, maxTime, layoutObj: layout, axisRange: [0, axisMax] as [number, number], axisDomain: axisDomain as [number, number] })
+      const getParams = () => ({ arrowInfos, minTime, maxTime: displayMaxTime, layoutObj: layout, axisRange: [0, axisMax] as [number, number], axisDomain: axisDomain as [number, number] })
       attachOverlayListeners(getParams)
     }
   }
@@ -1769,6 +1844,12 @@ watch(
   },
   { deep: true },
 )
+watch(
+  horizonHours,
+  () => {
+    void renderChart()
+  },
+)
 </script>
 
 <template>
@@ -1780,85 +1861,104 @@ watch(
     <div v-if="values && values.length > 0" class="space-y-5">
       <!-- Premium Overhauled Filter / Controls Toolbar -->
       <div v-if="!widget" class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
-        <!-- Interactive Panel Selectors -->
-        <div v-if="!compact" class="flex items-center gap-1">
-          <span class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mr-1 select-none">{{ t('meteogram.chart.panels') }}</span>
+        <!-- Left group: panel toggles + horizon selector (wraps as a unit on narrow viewports) -->
+        <div v-if="!compact" class="flex flex-wrap items-center gap-2 min-w-0">
+          <!-- Interactive Panel Selectors -->
+          <div class="flex items-center gap-1">
+            <span class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mr-1 select-none">{{ t('meteogram.chart.panels') }}</span>
 
-          <button
-            type="button"
-            :title="t('meteogram.chart.panelTemperature')"
-            class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-            :class="[
-              visiblePanels.temp
-                ? 'bg-red-500/10 border-red-200/60 text-red-600 dark:border-red-900/40 dark:text-red-400 ring-1 ring-red-400/10'
-                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-            ]"
-            @click="visiblePanels.temp = !visiblePanels.temp"
-          >
-            <UIcon name="i-lucide-thermometer" class="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              :title="t('meteogram.chart.panelTemperature')"
+              class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+              :class="[
+                visiblePanels.temp
+                  ? 'bg-red-500/10 border-red-200/60 text-red-600 dark:border-red-900/40 dark:text-red-400 ring-1 ring-red-400/10'
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+              ]"
+              @click="visiblePanels.temp = !visiblePanels.temp"
+            >
+              <UIcon name="i-lucide-thermometer" class="w-3.5 h-3.5" />
+            </button>
 
-          <button
-            type="button"
-            :title="t('meteogram.chart.panelWind')"
-            class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-            :class="[
-              visiblePanels.wind
-                ? 'bg-cyan-500/10 border-cyan-200/60 text-cyan-600 dark:border-cyan-900/40 dark:text-cyan-400 ring-1 ring-cyan-400/10'
-                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-            ]"
-            @click="visiblePanels.wind = !visiblePanels.wind"
-          >
-            <UIcon name="i-lucide-wind" class="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              :title="t('meteogram.chart.panelWind')"
+              class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+              :class="[
+                visiblePanels.wind
+                  ? 'bg-cyan-500/10 border-cyan-200/60 text-cyan-600 dark:border-cyan-900/40 dark:text-cyan-400 ring-1 ring-cyan-400/10'
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+              ]"
+              @click="visiblePanels.wind = !visiblePanels.wind"
+            >
+              <UIcon name="i-lucide-wind" class="w-3.5 h-3.5" />
+            </button>
 
-          <button
-            type="button"
-            :title="t('meteogram.chart.panelPrecipitation')"
-            class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-            :class="[
-              visiblePanels.precip
-                ? 'bg-blue-500/10 border-blue-200/60 text-blue-600 dark:border-blue-900/40 dark:text-blue-400 ring-1 ring-blue-400/10'
-                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-            ]"
-            @click="visiblePanels.precip = !visiblePanels.precip"
-          >
-            <UIcon name="i-lucide-cloud-rain" class="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              :title="t('meteogram.chart.panelPrecipitation')"
+              class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+              :class="[
+                visiblePanels.precip
+                  ? 'bg-blue-500/10 border-blue-200/60 text-blue-600 dark:border-blue-900/40 dark:text-blue-400 ring-1 ring-blue-400/10'
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+              ]"
+              @click="visiblePanels.precip = !visiblePanels.precip"
+            >
+              <UIcon name="i-lucide-cloud-rain" class="w-3.5 h-3.5" />
+            </button>
 
-          <button
-            type="button"
-            :title="t('meteogram.chart.panelCloud')"
-            class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-            :class="[
-              visiblePanels.cloud
-                ? 'bg-slate-500/10 border-slate-200/60 text-slate-600 dark:border-slate-800/60 dark:text-slate-300 ring-1 ring-slate-400/10'
-                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-            ]"
-            :disabled="compact"
-            @click="visiblePanels.cloud = !visiblePanels.cloud"
-          >
-            <UIcon name="i-lucide-cloud" class="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              :title="t('meteogram.chart.panelCloud')"
+              class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+              :class="[
+                visiblePanels.cloud
+                  ? 'bg-slate-500/10 border-slate-200/60 text-slate-600 dark:border-slate-800/60 dark:text-slate-300 ring-1 ring-slate-400/10'
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+              ]"
+              :disabled="compact"
+              @click="visiblePanels.cloud = !visiblePanels.cloud"
+            >
+              <UIcon name="i-lucide-cloud" class="w-3.5 h-3.5" />
+            </button>
 
-          <button
-            type="button"
-            :title="t('meteogram.chart.panelPressure')"
-            class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-            :class="[
-              visiblePanels.pressure
-                ? 'bg-lime-500/10 border-lime-200/60 text-lime-600 dark:border-lime-900/40 dark:text-lime-400 ring-1 ring-lime-400/10'
-                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-            ]"
-            @click="visiblePanels.pressure = !visiblePanels.pressure"
-          >
-            <UIcon name="i-lucide-gauge" class="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              :title="t('meteogram.chart.panelPressure')"
+              class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+              :class="[
+                visiblePanels.pressure
+                  ? 'bg-lime-500/10 border-lime-200/60 text-lime-600 dark:border-lime-900/40 dark:text-lime-400 ring-1 ring-lime-400/10'
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+              ]"
+              @click="visiblePanels.pressure = !visiblePanels.pressure"
+            >
+              <UIcon name="i-lucide-gauge" class="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <!-- Forecast Horizon Selector -->
+          <div class="flex items-center bg-gray-100 dark:bg-gray-800/70 rounded-lg p-0.5 gap-0.5">
+            <button
+              v-for="opt in horizonOptions"
+              :key="String(opt.value)"
+              type="button"
+              class="text-xs px-2.5 py-1 rounded-md transition-all duration-150 select-none cursor-pointer"
+              :class="horizonHours === opt.value
+                ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white font-semibold'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
+              @click="horizonHours = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
         </div>
 
         <!-- View Controls & Zoom Reset -->
-        <div class="flex items-center gap-2 ml-auto">
-          <div v-if="!compact" class="text-xs text-gray-500 dark:text-gray-400 select-none truncate max-w-[160px]">
+        <div class="flex items-center gap-2 ml-auto shrink-0">
+          <div v-if="!compact" class="hidden sm:block text-xs text-gray-500 dark:text-gray-400 select-none truncate max-w-[160px]">
             {{ toolbarTzLabel }}
           </div>
           <UButton
@@ -1874,91 +1974,42 @@ watch(
             :icon="compact ? 'i-lucide-chart-line' : 'i-lucide-layout-grid'"
             size="sm"
             color="primary"
+            :title="compactLabel"
             @click="toggleCompact"
           >
-            {{ compactLabel }}
+            <span class="hidden sm:inline">{{ compactLabel }}</span>
           </UButton>
         </div>
       </div>
 
-      <!-- Gorgeous Summary Metrics Dashboard Cards -->
-      <div v-if="summaryStats && !widget" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
-        <!-- Temp Card -->
-        <div v-if="summaryStats.temp" class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
-          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-red-500/10 text-red-500">
-            <UIcon name="i-lucide-thermometer" class="w-5 h-5 animate-pulse" />
-          </div>
-          <div>
-            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              {{ t('meteogram.chart.summaryMinMaxTemp') }}
-            </div>
-            <div class="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
-              <span class="text-blue-500 dark:text-blue-400">{{ summaryStats.temp.min }}°</span>
-              <span class="text-gray-300 dark:text-gray-700 font-normal">/</span>
-              <span class="text-red-500 dark:text-red-400">{{ summaryStats.temp.max }}°C</span>
-            </div>
-          </div>
+      <!-- Summary stats: same order as the panel toggles (temp/wind/precip/cloud/pressure) -->
+      <div v-if="summaryStats && !widget" class="flex flex-wrap gap-x-5 gap-y-2 px-1 text-sm">
+        <div v-if="summaryStats.temp" class="flex items-center gap-1.5">
+          <UIcon name="i-lucide-thermometer" class="w-4 h-4 text-red-500 shrink-0" />
+          <span class="text-blue-500 dark:text-blue-400 font-semibold">{{ summaryStats.temp.min }}°</span>
+          <span class="text-gray-400">/</span>
+          <span class="text-red-500 dark:text-red-400 font-semibold">{{ summaryStats.temp.max }}°C</span>
         </div>
-
-        <!-- Precip Card -->
-        <div class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
-          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500/10 text-blue-500">
-            <UIcon name="i-lucide-cloud-rain" class="w-5 h-5" />
-          </div>
-          <div>
-            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              {{ t('meteogram.chart.summaryTotalPrecip') }}
-            </div>
-            <div class="text-sm font-bold text-gray-800 dark:text-gray-100">
-              {{ summaryStats.precip.toFixed(1) }} <span class="text-xs font-normal text-gray-500">mm</span>
-            </div>
-          </div>
+        <div class="flex items-center gap-1.5">
+          <UIcon name="i-lucide-wind" class="w-4 h-4 text-cyan-500 shrink-0" />
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.gust.toFixed(1) }}</span>
+          <span class="text-gray-400 text-xs">m/s</span>
+          <span class="text-cyan-500 dark:text-cyan-400 text-xs">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
         </div>
-
-        <!-- Wind/Gust Card -->
-        <div class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
-          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-cyan-500/10 text-cyan-500">
-            <UIcon name="i-lucide-wind" class="w-5 h-5" />
-          </div>
-          <div>
-            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              {{ t('meteogram.chart.summaryMaxGust') }}
-            </div>
-            <div class="text-sm font-bold text-gray-800 dark:text-gray-100">
-              {{ summaryStats.gust.toFixed(1) }} <span class="text-xs font-normal text-gray-400">m/s</span>
-              <span class="text-xs text-cyan-500 dark:text-cyan-400 font-medium ml-1">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
-            </div>
-          </div>
+        <div class="flex items-center gap-1.5">
+          <UIcon name="i-lucide-cloud-rain" class="w-4 h-4 text-blue-500 shrink-0" />
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.precip.toFixed(1) }}</span>
+          <span class="text-gray-400 text-xs">mm</span>
         </div>
-
-        <!-- Cloud Card -->
-        <div class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
-          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-500/10 text-slate-500">
-            <UIcon name="i-lucide-cloud" class="w-5 h-5" />
-          </div>
-          <div>
-            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              {{ t('meteogram.chart.summaryAvgCloud') }}
-            </div>
-            <div class="text-sm font-bold text-gray-800 dark:text-gray-100">
-              {{ summaryStats.cloud }}<span class="text-xs font-normal text-gray-400">%</span>
-            </div>
-          </div>
+        <div class="flex items-center gap-1.5">
+          <UIcon name="i-lucide-cloud" class="w-4 h-4 text-slate-400 shrink-0" />
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.cloud }}</span>
+          <span class="text-gray-400 text-xs">%</span>
         </div>
-
-        <!-- Pressure Card -->
-        <div v-if="summaryStats.pressure" class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs col-span-2 sm:col-span-1">
-          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-lime-500/10 text-lime-500">
-            <UIcon name="i-lucide-gauge" class="w-5 h-5" />
-          </div>
-          <div>
-            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              {{ t('meteogram.chart.summaryPressureRange') }}
-            </div>
-            <div class="text-sm font-bold text-gray-800 dark:text-gray-100 text-ellipsis overflow-hidden">
-              {{ summaryStats.pressure.min }} <span class="text-gray-400 font-normal">-</span> {{ summaryStats.pressure.max }} <span class="text-xs font-normal text-gray-500">hPa</span>
-            </div>
-          </div>
+        <div v-if="summaryStats.pressure" class="flex items-center gap-1.5">
+          <UIcon name="i-lucide-gauge" class="w-4 h-4 text-lime-500 shrink-0" />
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.pressure.min }}–{{ summaryStats.pressure.max }}</span>
+          <span class="text-gray-400 text-xs">hPa</span>
         </div>
       </div>
 

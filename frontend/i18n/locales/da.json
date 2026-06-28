@@ -242,6 +242,7 @@
       "panelCloud": "Skydække",
       "panelPressure": "Tryk",
       "resetZoom": "Nulstil zoom",
+      "horizonAll": "Alle",
       "viewNormal": "Normal",
       "viewCompact": "Kompakt",
       "today": "I DAG",
@@ -287,7 +288,12 @@
       "axisCloud": "Skyer %",
       "axisTemp": "Temp. °C",
       "axisPressure": "Tryk hPa"
-    }
+    },
+    "orChooseMap": "eller",
+    "chooseOnMap": "Vælg en station på kortet",
+    "mapHint": "Tryk på et punkt på kortet for at vælge den station.",
+    "runLabel": "Modelkørsel",
+    "runLatest": "Seneste (auto)"
   },
   "widget": {
     "noStation": "Ingen station angivet. Tilføj {param} til URL'en.",
@@ -332,7 +338,9 @@
     "downloadSvg": "Download som SVG",
     "plotTitle": "Klimastriber ({kind}) for {name}, Tyskland ({id})",
     "plotDataAvailability": "Datatilgængelighed",
-    "plotSource": "Kilde: Deutscher Wetterdienst"
+    "plotSource": "Kilde: Deutscher Wetterdienst",
+    "chooseOnMap": "Vælg på kortet",
+    "mapHint": "Tryk på et punkt på kortet for at vælge den station."
   },
   "explorer": {
     "title": "Udforsker",
@@ -413,7 +421,10 @@
     "selectStation": "Vælg en station",
     "selectedStations": "Valgte stationer:",
     "clearAll": "Ryd alle",
-    "showMap": "Vis kort"
+    "showMap": "Vis kort",
+    "chooseOnMap": "Vælg på kortet",
+    "mapHint": "Tryk på et punkt på kortet for at vælge den station.",
+    "mapHintMultiple": "Tryk på punkter på kortet for at tilføje eller fjerne stationer."
   },
   "interpolation": {
     "source": "Kilde",

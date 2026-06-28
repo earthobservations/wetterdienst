@@ -38,6 +38,11 @@ Types of changes:
   so the condition was always `False` and `DwdForecastDate.LATEST` was used regardless of
   the caller's intent. Changed to `issubclass` and added a `None`-guard so that omitting
   `issue` still falls through to the dataclass default (`DwdForecastDate.LATEST`).
+- `[Frontend / Meteogram]` Fix x-axis tick labels overlapping massively on narrow mobile
+  screens. Tick interval is now chosen based on actual chart pixel width: a 7-day MOSMIX
+  forecast on a ~360 px phone uses 24-hour ticks instead of 6-hour ones (28 → 7 labels).
+  Day-name annotations above the chart also shorten to weekday-only (`Mo`) when a day
+  occupies fewer than 44 px, preventing header collisions on long forecasts.
 
 ## [0.123.0] - 2026-06-18
 
