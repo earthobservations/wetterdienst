@@ -7,10 +7,11 @@
     "open": "Abrir",
     "all": "Todo",
     "settings": "Ajustes",
-    "documentation": "Documentación"
+    "documentation": "Documentación",
+    "stationSearch": "Buscar por nombre o ID de estación (p. ej. München, 10738)"
   },
   "home": {
-    "tagline": "Datos meteorológicos — sencillos, para todo el mundo",
+    "tagline": "Datos meteorológicos abiertos para las personas",
     "intro": "Solo elige lo que te gustaría ver.",
     "tasksTitle": "¿Qué te gustaría hacer?",
     "forecastTitle": "Pronóstico del tiempo",
@@ -24,7 +25,7 @@
     "aboutText2": "En conjunto, hacen que Wetterdienst sea útil tanto como biblioteca para desarrolladores como aplicación lista para usar para personas que no programan. Tareas habituales como la conversión de unidades, la interpolación y el resumen las gestiona el backend.",
     "featuresTitle": "Funcionalidades",
     "feature1Title": "Múltiples fuentes de datos",
-    "feature1Desc": "Datos meteorológicos de varios servicios, incluidos DWD, NOAA y más.",
+    "feature1Desc": "Datos meteorológicos gratuitos de DWD, NOAA y más — sin clave de API ni cuenta necesaria.",
     "feature2Title": "Consultas geoespaciales",
     "feature2Desc": "Encuentra estaciones por coordenadas, nombre o dentro de un radio.",
     "feature3Title": "Exportación flexible",
@@ -229,10 +230,6 @@
     "loading": "Obteniendo el pronóstico MOSMIX …",
     "emptyHint": "Busca una estación arriba para generar un pronóstico",
     "openWidget": "Abrir como widget integrable",
-    "searchPlaceholder": "Buscar por nombre o ID de estación (p. ej. München, 10738)",
-    "searchPlaceholderChange": "Buscar otra estación …",
-    "searchHint": "Escribe ≥ 2 caracteres para buscar. Usa un ID numérico para una búsqueda exacta.",
-    "noResults": "No se encontraron estaciones para «{query}»",
     "chart": {
       "noData": "No hay datos disponibles para la consulta seleccionada",
       "panels": "Paneles",
@@ -242,6 +239,7 @@
       "panelCloud": "Nubosidad",
       "panelPressure": "Presión",
       "resetZoom": "Restablecer zoom",
+      "horizonAll": "Todo",
       "viewNormal": "Normal",
       "viewCompact": "Compacto",
       "today": "HOY",
@@ -287,7 +285,12 @@
       "axisCloud": "Nubes %",
       "axisTemp": "Temp. °C",
       "axisPressure": "Presión hPa"
-    }
+    },
+    "orChooseMap": "o",
+    "chooseOnMap": "Elegir una estación en el mapa",
+    "mapHint": "Toca un punto en el mapa para elegir esa estación.",
+    "runLabel": "Pasada del modelo",
+    "runLatest": "Última (auto)"
   },
   "widget": {
     "noStation": "No se ha especificado ninguna estación. Añade {param} a la URL.",
@@ -332,7 +335,9 @@
     "downloadSvg": "Descargar como SVG",
     "plotTitle": "Franjas climáticas ({kind}) para {name}, Alemania ({id})",
     "plotDataAvailability": "Disponibilidad de datos",
-    "plotSource": "Fuente: Deutscher Wetterdienst"
+    "plotSource": "Fuente: Deutscher Wetterdienst",
+    "chooseOnMap": "Elegir en el mapa",
+    "mapHint": "Toca un punto en el mapa para elegir esa estación."
   },
   "explorer": {
     "title": "Explorador",
@@ -413,7 +418,10 @@
     "selectStation": "Seleccionar una estación",
     "selectedStations": "Estaciones seleccionadas:",
     "clearAll": "Borrar todo",
-    "showMap": "Mostrar el mapa"
+    "showMap": "Mostrar el mapa",
+    "chooseOnMap": "Elegir en el mapa",
+    "mapHint": "Toca un punto en el mapa para elegir esa estación.",
+    "mapHintMultiple": "Toca puntos en el mapa para añadir o quitar estaciones."
   },
   "interpolation": {
     "source": "Fuente",

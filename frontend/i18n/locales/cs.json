@@ -7,10 +7,11 @@
     "open": "Otevřít",
     "all": "Vše",
     "settings": "Nastavení",
-    "documentation": "Dokumentace"
+    "documentation": "Dokumentace",
+    "stationSearch": "Hledat podle názvu nebo ID stanice (např. München, 10738)"
   },
   "home": {
-    "tagline": "Data o počasí — jednoduše, pro každého",
+    "tagline": "Otevřená meteorologická data pro lidi",
     "intro": "Stačí si vybrat, co chcete vidět.",
     "tasksTitle": "Co byste chtěli udělat?",
     "forecastTitle": "Předpověď počasí",
@@ -24,7 +25,7 @@
     "aboutText2": "Společně činí Wetterdienst užitečným jak jako knihovnu pro vývojáře, tak jako hotovou aplikaci pro neprogramátory. Běžné úlohy, jako je převod jednotek, interpolace a sumarizace, zajišťuje backend.",
     "featuresTitle": "Funkce",
     "feature1Title": "Více zdrojů dat",
-    "feature1Desc": "Data o počasí z různých služeb včetně DWD, NOAA a dalších.",
+    "feature1Desc": "Bezplatná meteorologická data z DWD, NOAA a dalších — žádný API klíč ani účet.",
     "feature2Title": "Geoprostorové dotazy",
     "feature2Desc": "Najděte stanice podle souřadnic, názvu nebo v okruhu.",
     "feature3Title": "Flexibilní export",
@@ -229,10 +230,6 @@
     "loading": "Načítání předpovědi MOSMIX …",
     "emptyHint": "Vyhledejte stanici výše a vygenerujte předpověď",
     "openWidget": "Otevřít jako vložitelný widget",
-    "searchPlaceholder": "Hledat podle názvu nebo ID stanice (např. München, 10738)",
-    "searchPlaceholderChange": "Vyhledat jinou stanici …",
-    "searchHint": "Pro vyhledávání zadejte ≥ 2 znaky. Pro přesné vyhledání použijte číselné ID.",
-    "noResults": "Pro „{query}“ nebyly nalezeny žádné stanice",
     "chart": {
       "noData": "Pro vybraný dotaz nejsou k dispozici žádná data",
       "panels": "Panely",
@@ -242,6 +239,7 @@
       "panelCloud": "Oblačnost",
       "panelPressure": "Tlak",
       "resetZoom": "Obnovit přiblížení",
+      "horizonAll": "Vše",
       "viewNormal": "Normální",
       "viewCompact": "Kompaktní",
       "today": "DNES",
@@ -287,7 +285,12 @@
       "axisCloud": "Oblačnost %",
       "axisTemp": "Teplota °C",
       "axisPressure": "Tlak hPa"
-    }
+    },
+    "orChooseMap": "nebo",
+    "chooseOnMap": "Vyberte stanici na mapě",
+    "mapHint": "Klepnutím na bod na mapě vyberte tuto stanici.",
+    "runLabel": "Spuštění modelu",
+    "runLatest": "Nejnovější (auto)"
   },
   "widget": {
     "noStation": "Nebyla zadána žádná stanice. Přidejte do URL {param}.",
@@ -332,7 +335,9 @@
     "downloadSvg": "Stáhnout jako SVG",
     "plotTitle": "Klimatické pruhy ({kind}) pro {name}, Německo ({id})",
     "plotDataAvailability": "Dostupnost dat",
-    "plotSource": "Zdroj: Deutscher Wetterdienst"
+    "plotSource": "Zdroj: Deutscher Wetterdienst",
+    "chooseOnMap": "Vyberte na mapě",
+    "mapHint": "Klepnutím na bod na mapě vyberte tuto stanici."
   },
   "explorer": {
     "title": "Průzkumník",
@@ -413,7 +418,10 @@
     "selectStation": "Vyberte stanici",
     "selectedStations": "Vybrané stanice:",
     "clearAll": "Vymazat vše",
-    "showMap": "Zobrazit mapu"
+    "showMap": "Zobrazit mapu",
+    "chooseOnMap": "Vyberte na mapě",
+    "mapHint": "Klepnutím na bod na mapě vyberte tuto stanici.",
+    "mapHintMultiple": "Klepnutím na body na mapě přidáte nebo odeberete stanice."
   },
   "interpolation": {
     "source": "Zdroj",

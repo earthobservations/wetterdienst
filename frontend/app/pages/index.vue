@@ -120,7 +120,7 @@ const authors = [
       {{ t('home.featuresTitle') }}
     </h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-      <UCard v-for="feature in features" :key="feature.title">
+      <UCard v-for="feature in features" :key="feature.title" class="transition-all hover:ring-2 hover:ring-primary-400 hover:-translate-y-0.5">
         <div class="flex items-start gap-3">
           <UIcon :name="feature.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
           <div>

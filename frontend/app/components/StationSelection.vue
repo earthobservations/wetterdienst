@@ -312,10 +312,11 @@ watch(() => selectedStations.value, () => {
       :items="stationItems"
       :multiple="multiple"
       searchable
+      virtualize
       color="primary"
       class="w-full"
       :class="{ 'needs-input': selectedStations.length === 0 }"
-      :placeholder="multiple ? t('stationSelection.selectStations') : t('stationSelection.selectStation')"
+      :placeholder="t('common.stationSearch')"
     />
     <UContainer v-if="selectedStations.length > 0" class="mt-2">
       <div class="flex items-center justify-between mb-2">
@@ -341,15 +342,20 @@ watch(() => selectedStations.value, () => {
     </UContainer>
     <UCollapsible v-model="showMap" class="mt-4">
       <UButton
-        :label="t('stationSelection.showMap')"
+        :label="t('stationSelection.chooseOnMap')"
+        icon="i-lucide-map-pin"
         variant="subtle"
-        color="neutral"
+        color="primary"
         trailing-icon="i-lucide-chevron-down"
         block
         @click="showMap = !showMap"
       />
       <template #content>
         <ClientOnly>
+          <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
+            <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
+            {{ multiple ? t('stationSelection.mapHintMultiple') : t('stationSelection.mapHint') }}
+          </p>
           <MapStations
             :stations="allStations"
             :selected-stations="selectedStations"

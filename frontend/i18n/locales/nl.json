@@ -7,10 +7,11 @@
     "open": "Openen",
     "all": "Alles",
     "settings": "Instellingen",
-    "documentation": "Documentatie"
+    "documentation": "Documentatie",
+    "stationSearch": "Zoek op naam of station-id (bijv. München, 10738)"
   },
   "home": {
-    "tagline": "Weergegevens — eenvoudig, voor iedereen",
+    "tagline": "Open weerdata voor mensen",
     "intro": "Kies gewoon wat je wilt zien.",
     "tasksTitle": "Wat wil je doen?",
     "forecastTitle": "Weersverwachting",
@@ -24,7 +25,7 @@
     "aboutText2": "Samen maken ze Wetterdienst nuttig zowel als bibliotheek voor ontwikkelaars als als kant-en-klare toepassing voor mensen die niet programmeren. Veelvoorkomende taken zoals eenheidsconversie, interpolatie en samenvatting worden door de backend afgehandeld.",
     "featuresTitle": "Functies",
     "feature1Title": "Meerdere gegevensbronnen",
-    "feature1Desc": "Weergegevens van diverse diensten, waaronder DWD, NOAA en meer.",
+    "feature1Desc": "Gratis weergegevens van DWD, NOAA en meer — geen API-sleutel of account nodig.",
     "feature2Title": "Geospatiale zoekopdrachten",
     "feature2Desc": "Vind stations op coördinaten, naam of binnen een straal.",
     "feature3Title": "Flexibele export",
@@ -229,10 +230,6 @@
     "loading": "MOSMIX-verwachting ophalen …",
     "emptyHint": "Zoek hierboven een station om een verwachting te genereren",
     "openWidget": "Openen als insluitbare widget",
-    "searchPlaceholder": "Zoek op naam of station-id (bijv. München, 10738)",
-    "searchPlaceholderChange": "Zoek een ander station …",
-    "searchHint": "Typ ≥ 2 tekens om te zoeken. Gebruik een numeriek id voor een exacte zoekopdracht.",
-    "noResults": "Geen stations gevonden voor “{query}”",
     "chart": {
       "noData": "Geen gegevens beschikbaar voor de geselecteerde zoekopdracht",
       "panels": "Panelen",
@@ -242,6 +239,7 @@
       "panelCloud": "Bewolking",
       "panelPressure": "Luchtdruk",
       "resetZoom": "Zoom opnieuw instellen",
+      "horizonAll": "Alles",
       "viewNormal": "Normaal",
       "viewCompact": "Compact",
       "today": "VANDAAG",
@@ -287,7 +285,12 @@
       "axisCloud": "Bewolking %",
       "axisTemp": "Temp. °C",
       "axisPressure": "Luchtdruk hPa"
-    }
+    },
+    "orChooseMap": "of",
+    "chooseOnMap": "Kies een station op de kaart",
+    "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
+    "runLabel": "Modelrun",
+    "runLatest": "Nieuwste (auto)"
   },
   "widget": {
     "noStation": "Geen station opgegeven. Voeg {param} toe aan de URL.",
@@ -332,7 +335,9 @@
     "downloadSvg": "Downloaden als SVG",
     "plotTitle": "Klimaatstrepen ({kind}) voor {name}, Duitsland ({id})",
     "plotDataAvailability": "Gegevensbeschikbaarheid",
-    "plotSource": "Bron: Deutscher Wetterdienst"
+    "plotSource": "Bron: Deutscher Wetterdienst",
+    "chooseOnMap": "Kies op de kaart",
+    "mapHint": "Tik op een punt op de kaart om dat station te kiezen."
   },
   "explorer": {
     "title": "Verkenner",
@@ -413,7 +418,10 @@
     "selectStation": "Selecteer een station",
     "selectedStations": "Geselecteerde stations:",
     "clearAll": "Alles wissen",
-    "showMap": "Kaart tonen"
+    "showMap": "Kaart tonen",
+    "chooseOnMap": "Kies op de kaart",
+    "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
+    "mapHintMultiple": "Tik op punten op de kaart om stations toe te voegen of te verwijderen."
   },
   "interpolation": {
     "source": "Bron",

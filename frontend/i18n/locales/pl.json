@@ -7,10 +7,11 @@
     "open": "Otwórz",
     "all": "Wszystko",
     "settings": "Ustawienia",
-    "documentation": "Dokumentacja"
+    "documentation": "Dokumentacja",
+    "stationSearch": "Szukaj według nazwy lub identyfikatora stacji (np. München, 10738)"
   },
   "home": {
-    "tagline": "Dane pogodowe — proste, dla każdego",
+    "tagline": "Otwarte dane pogodowe dla ludzi",
     "intro": "Wybierz po prostu, co chcesz zobaczyć.",
     "tasksTitle": "Co chcesz zrobić?",
     "forecastTitle": "Prognoza pogody",
@@ -24,7 +25,7 @@
     "aboutText2": "Razem sprawiają, że Wetterdienst jest użyteczny zarówno jako biblioteka dla programistów, jak i jako gotowa do użycia aplikacja dla osób nieprogramujących. Typowe zadania, takie jak konwersja jednostek, interpolacja i podsumowywanie, są obsługiwane przez backend.",
     "featuresTitle": "Funkcje",
     "feature1Title": "Wiele źródeł danych",
-    "feature1Desc": "Dane pogodowe z różnych serwisów, w tym DWD, NOAA i innych.",
+    "feature1Desc": "Bezpłatne dane pogodowe z DWD, NOAA i innych — bez klucza API ani konta.",
     "feature2Title": "Zapytania geoprzestrzenne",
     "feature2Desc": "Znajdź stacje według współrzędnych, nazwy lub w obrębie promienia.",
     "feature3Title": "Elastyczny eksport",
@@ -229,10 +230,6 @@
     "loading": "Pobieranie prognozy MOSMIX …",
     "emptyHint": "Wyszukaj stację powyżej, aby wygenerować prognozę",
     "openWidget": "Otwórz jako osadzalny widżet",
-    "searchPlaceholder": "Szukaj według nazwy lub identyfikatora stacji (np. München, 10738)",
-    "searchPlaceholderChange": "Wyszukaj inną stację …",
-    "searchHint": "Wpisz ≥ 2 znaki, aby wyszukać. Użyj identyfikatora numerycznego, aby wyszukać dokładnie.",
-    "noResults": "Nie znaleziono stacji dla „{query}”",
     "chart": {
       "noData": "Brak dostępnych danych dla wybranego zapytania",
       "panels": "Panele",
@@ -242,6 +239,7 @@
       "panelCloud": "Zachmurzenie",
       "panelPressure": "Ciśnienie",
       "resetZoom": "Resetuj powiększenie",
+      "horizonAll": "Wszystko",
       "viewNormal": "Normalny",
       "viewCompact": "Kompaktowy",
       "today": "DZIŚ",
@@ -287,7 +285,12 @@
       "axisCloud": "Chmury %",
       "axisTemp": "Temp. °C",
       "axisPressure": "Ciśnienie hPa"
-    }
+    },
+    "orChooseMap": "lub",
+    "chooseOnMap": "Wybierz stację na mapie",
+    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
+    "runLabel": "Uruchomienie modelu",
+    "runLatest": "Najnowsza (auto)"
   },
   "widget": {
     "noStation": "Nie określono stacji. Dodaj {param} do adresu URL.",
@@ -332,7 +335,9 @@
     "downloadSvg": "Pobierz jako SVG",
     "plotTitle": "Paski klimatyczne ({kind}) dla {name}, Niemcy ({id})",
     "plotDataAvailability": "Dostępność danych",
-    "plotSource": "Źródło: Deutscher Wetterdienst"
+    "plotSource": "Źródło: Deutscher Wetterdienst",
+    "chooseOnMap": "Wybierz na mapie",
+    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację."
   },
   "explorer": {
     "title": "Eksplorator",
@@ -413,7 +418,10 @@
     "selectStation": "Wybierz stację",
     "selectedStations": "Wybrane stacje:",
     "clearAll": "Wyczyść wszystko",
-    "showMap": "Pokaż mapę"
+    "showMap": "Pokaż mapę",
+    "chooseOnMap": "Wybierz na mapie",
+    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
+    "mapHintMultiple": "Dotykaj punktów na mapie, aby dodawać lub usuwać stacje."
   },
   "interpolation": {
     "source": "Źródło",
