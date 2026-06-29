@@ -18,21 +18,47 @@ Types of changes:
 
 ### Added
 
+- `[i18n]` Full internationalisation foundation: 11 locales (de, de-hh, en, fr, es, it, pl,
+  nl, cs, da, lb) covering every page and component. Language switcher in the settings panel
+  with flag icons. i18n key linting added to CI.
+- `[i18n]` Hamburg-slang German locale (Hamburgisch / `de-hh`) with regional idioms.
+- `[i18n]` Luxembourgish (`lb`), Danish (`da`), Dutch (`nl`), Czech (`cs`), Polish (`pl`),
+  Italian (`it`), Spanish (`es`), and French (`fr`) translations.
+- `[Settings]` Persistent settings store (Pinia, Zod-validated) for unit system, theme,
+  language, and climate-stripes display toggles — survives page reloads via localStorage.
+- `[Home]` Friendly task-oriented home page replacing the generic landing screen.
+- `[Explorer]` Beginner-friendly preselection flow replaces the previous Simple/Expert mode
+  toggle; the next required field is highlighted to guide users through the selection.
+- `[Explorer]` Friendly parameter glossary so users can identify what each dataset parameter
+  means without domain knowledge.
+- `[Meteogram]` Optional map-based station picker on the meteogram page (lazy-loaded station
+  list, single-select, collapsible). Visual "or choose on map" divider makes the option
+  discoverable.
+- `[Meteogram]` MOSMIX model run selector: available runs are fetched live from the
+  `/api/issues` endpoint and presented in a dropdown; defaults to the latest run.
 - `[Meteogram]` Forecast horizon selector (`24h | 3d | 7d | All`) in the chart toolbar.
   Clips the x-axis, tick labels, day annotations, midnight separators, and the "now" marker
   to the chosen window. Resetting zoom also clears the horizon to All. Translated across
-  all 11 supported locales.
+  all 11 locales.
+- `[Legal]` Legally-structured Impressum page with operator address and inclusive/
+  anti-fascist values statement.
 
 ### Fixed
 
+- `[Meteogram]` Fix x-axis tick labels overlapping on narrow mobile screens. Tick interval
+  is now chosen based on actual chart pixel width; day-name annotations shorten to
+  weekday-only when a day occupies fewer than 44 px.
+- `[Meteogram]` Fix wind barb artefacts appearing when zooming the chart.
+- `[Meteogram]` Replace overflowing summary metrics cards with a compact single-row stat
+  strip that works at all viewport widths.
+- `[Meteogram]` Fix OpenStreetMap tiles not loading due to a missing `Referer` header.
+- `[Meteogram]` Fix map centre-toggle button label not updating after the first click.
 - `[Meteogram]` Fix toolbar overflow on narrow screens: panel toggles and horizon selector
-  are now grouped as a wrapping left block, and the right-side controls (timezone label,
-  reset zoom, compact toggle) gain `shrink-0` to prevent squishing. Timezone label and
-  compact toggle text hide below the `sm` breakpoint; the compact button shows icon-only
-  on mobile.
-- `[Meteogram]` Fix poor touch experience on mobile: Plotly now defaults to pan mode
-  (instead of zoom) on touch devices, preventing pinch gestures from conflicting with page
-  scroll. The horizon selector covers most zoom use cases without requiring pinch-to-zoom.
+  are grouped as a wrapping left block; right-side controls gain `shrink-0`. Timezone label
+  and compact toggle text hide below the `sm` breakpoint.
+- `[Meteogram]` Fix poor touch experience on mobile: Plotly defaults to pan mode on touch
+  devices, preventing pinch gestures from conflicting with page scroll.
+- `[i18n]` Tag English locale as `en-GB` to match British copy and flag.
 
 ## [0.6.0] - 2026-06-18
 
