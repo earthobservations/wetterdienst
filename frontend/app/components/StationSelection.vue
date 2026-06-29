@@ -312,10 +312,11 @@ watch(() => selectedStations.value, () => {
       :items="stationItems"
       :multiple="multiple"
       searchable
+      virtualize
       color="primary"
       class="w-full"
       :class="{ 'needs-input': selectedStations.length === 0 }"
-      :placeholder="multiple ? t('stationSelection.selectStations') : t('stationSelection.selectStation')"
+      :placeholder="t('common.stationSearch')"
     />
     <UContainer v-if="selectedStations.length > 0" class="mt-2">
       <div class="flex items-center justify-between mb-2">

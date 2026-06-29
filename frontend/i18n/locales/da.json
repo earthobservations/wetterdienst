@@ -7,10 +7,11 @@
     "open": "Åbn",
     "all": "Alle",
     "settings": "Indstillinger",
-    "documentation": "Dokumentation"
+    "documentation": "Dokumentation",
+    "stationSearch": "Søg efter navn eller stations-id (f.eks. München, 10738)"
   },
   "home": {
-    "tagline": "Vejrdata — enkelt, for alle",
+    "tagline": "Åbne vejrdata for mennesker",
     "intro": "Vælg bare, hvad du gerne vil se.",
     "tasksTitle": "Hvad vil du gerne gøre?",
     "forecastTitle": "Vejrudsigt",
@@ -24,7 +25,7 @@
     "aboutText2": "Tilsammen gør de Wetterdienst nyttig både som bibliotek for udviklere og som færdig applikation for ikke-programmører. Almindelige opgaver som enhedskonvertering, interpolation og opsummering håndteres af backenden.",
     "featuresTitle": "Funktioner",
     "feature1Title": "Flere datakilder",
-    "feature1Desc": "Vejrdata fra forskellige tjenester, herunder DWD, NOAA og flere.",
+    "feature1Desc": "Gratis vejrdata fra DWD, NOAA og flere — ingen API-nøgle eller konto påkrævet.",
     "feature2Title": "Geospatiale forespørgsler",
     "feature2Desc": "Find stationer efter koordinater, navn eller inden for en radius.",
     "feature3Title": "Fleksibel eksport",
@@ -229,10 +230,6 @@
     "loading": "Henter MOSMIX-udsigt …",
     "emptyHint": "Søg efter en station ovenfor for at generere en udsigt",
     "openWidget": "Åbn som indlejrbar widget",
-    "searchPlaceholder": "Søg efter navn eller stations-id (f.eks. München, 10738)",
-    "searchPlaceholderChange": "Søg efter en anden station …",
-    "searchHint": "Skriv ≥ 2 tegn for at søge. Brug et numerisk id til et nøjagtigt opslag.",
-    "noResults": "Ingen stationer fundet for “{query}”",
     "chart": {
       "noData": "Ingen data tilgængelige for den valgte forespørgsel",
       "panels": "Paneler",

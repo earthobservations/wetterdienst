@@ -43,6 +43,14 @@ Types of changes:
 - `[Legal]` Legally-structured Impressum page with operator address and inclusive/
   anti-fascist values statement.
 
+### Changed
+
+- `[Meteogram]` Replace the custom debounced-API station search (with 2-character minimum
+  and manual portal/positioning code) with a `USelectMenu` that loads all MOSMIX stations
+  once and filters client-side. All station dropdowns (Meteogram, Explorer, Climate Stripes,
+  Interpolation/Summary) now use `virtualize` for virtual-scrolled rendering so only visible
+  rows are in the DOM regardless of list size.
+
 ### Fixed
 
 - `[Meteogram]` Fix x-axis tick labels overlapping on narrow mobile screens. Tick interval
