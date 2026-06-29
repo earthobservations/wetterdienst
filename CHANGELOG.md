@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.124.0] - 2026-06-30
+
 ### Added
 
 - `[DWD MOSMIX / DMO]` Add `available_issues(station_id, settings)` classmethod to
@@ -1860,7 +1862,9 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.123.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.124.0...HEAD
+
+[0.124.0]: https://github.com/earthobservations/wetterdienst/compare/v0.123.0...v0.124.0
 
 [0.123.0]: https://github.com/earthobservations/wetterdienst/compare/v0.122.0...v0.123.0
 
