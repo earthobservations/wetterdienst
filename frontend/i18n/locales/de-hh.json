@@ -7,10 +7,11 @@
     "open": "Aufmachen",
     "all": "Alle",
     "settings": "Einstellungen",
-    "documentation": "Dokumentation"
+    "documentation": "Dokumentation",
+    "stationSearch": "Nach Name oder Stations-ID suchen (z. B. München, 10738)"
   },
   "home": {
-    "tagline": "Wetterdaten – ganz einfach, für alle hier",
+    "tagline": "Offene Wetterdaten för de Lüüd",
     "intro": "Nu ma Butter bei die Fische: Such dir einfach aus, was du sehen möchtest.",
     "tasksTitle": "Moin! Was möchtest du machen?",
     "forecastTitle": "Wettervorhersage",
@@ -24,7 +25,7 @@
     "aboutText2": "So lässt sich Wetterdienst sowohl als Programmierbibliothek als auch als gebrauchsfertige Anwendung für Menschen ohne Programmierkenntnisse nutzen. Häufige Aufgaben wie Einheitenumrechnung, Interpolation und Zusammenfassung übernimmt der Server.",
     "featuresTitle": "Was das kann",
     "feature1Title": "Viele Datenquellen",
-    "feature1Desc": "Wetterdaten von verschiedenen Diensten wie DWD, NOAA und mehr.",
+    "feature1Desc": "Kostenlose Wetterdaten von DWD, NOAA un mehr – keen API-Schlüssel, keen Konto.",
     "feature2Title": "Suche nach Ort",
     "feature2Desc": "Stationen nach Koordinaten, Name oder in der Umgebung finden.",
     "feature3Title": "Export, wie du magst",
@@ -229,10 +230,6 @@
     "loading": "MOSMIX-Vorhersage lädt grad …",
     "emptyHint": "Such oben nach einer Station, dann gibt’s eine Vorhersage.",
     "openWidget": "Als einbettbares Widget öffnen",
-    "searchPlaceholder": "Nach Name oder Stations-ID suchen (z. B. München, 10738)",
-    "searchPlaceholderChange": "Nach einer anderen Station suchen …",
-    "searchHint": "Tipp mindestens 2 Zeichen ein. Für die genaue Suche eine Nummer-ID nehmen.",
-    "noResults": "Keine Stationen gefunden für „{query}“",
     "chart": {
       "noData": "Keine Daten für die gewählte Abfrage verfügbar",
       "panels": "Bereiche",

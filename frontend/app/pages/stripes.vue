@@ -600,10 +600,11 @@ onMounted(async () => {
             :items="stationItems"
             :multiple="false"
             searchable
+            virtualize
             color="primary"
             class="w-full"
             :class="{ 'needs-input': !selectedStation }"
-            :placeholder="selectedStation ? `${selectedStation?.name} (ID: ${selectedStation?.station_id})` : t('stripes.selectStation')"
+            :placeholder="t('common.stationSearch')"
             @update:model-value="onSelectMenuUpdate"
           />
 

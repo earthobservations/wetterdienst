@@ -7,10 +7,11 @@
     "open": "Ouvrir",
     "all": "Tout",
     "settings": "Paramètres",
-    "documentation": "Documentation"
+    "documentation": "Documentation",
+    "stationSearch": "Rechercher par nom ou identifiant de station (p. ex. München, 10738)"
   },
   "home": {
-    "tagline": "Données météo — simples, pour tout le monde",
+    "tagline": "Données météo ouvertes pour les humains",
     "intro": "Choisissez simplement ce que vous souhaitez voir.",
     "tasksTitle": "Que souhaitez-vous faire ?",
     "forecastTitle": "Prévisions météo",
@@ -24,7 +25,7 @@
     "aboutText2": "Ensemble, ces éléments rendent Wetterdienst utile aussi bien comme bibliothèque pour développeurs que comme application prête à l'emploi pour les non-programmeur·euses. Les tâches courantes telles que la conversion d'unités, l'interpolation et la synthèse sont gérées par le backend.",
     "featuresTitle": "Fonctionnalités",
     "feature1Title": "Sources de données multiples",
-    "feature1Desc": "Données météo de divers services dont DWD, NOAA et bien d'autres.",
+    "feature1Desc": "Données météo gratuites via DWD, NOAA et d'autres — aucune clé API ni compte requis.",
     "feature2Title": "Requêtes géospatiales",
     "feature2Desc": "Trouvez des stations par coordonnées, par nom ou dans un rayon donné.",
     "feature3Title": "Export flexible",
@@ -229,10 +230,6 @@
     "loading": "Récupération de la prévision MOSMIX …",
     "emptyHint": "Recherchez une station ci-dessus pour générer une prévision",
     "openWidget": "Ouvrir comme widget intégrable",
-    "searchPlaceholder": "Rechercher par nom ou identifiant de station (p. ex. München, 10738)",
-    "searchPlaceholderChange": "Rechercher une autre station …",
-    "searchHint": "Saisissez ≥ 2 caractères pour rechercher. Utilisez un identifiant numérique pour une recherche exacte.",
-    "noResults": "Aucune station trouvée pour « {query} »",
     "chart": {
       "noData": "Aucune donnée disponible pour la requête sélectionnée",
       "panels": "Panneaux",

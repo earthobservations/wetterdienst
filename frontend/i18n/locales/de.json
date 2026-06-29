@@ -7,10 +7,11 @@
     "open": "Öffnen",
     "all": "Alle",
     "settings": "Einstellungen",
-    "documentation": "Dokumentation"
+    "documentation": "Dokumentation",
+    "stationSearch": "Nach Name oder Stations-ID suchen (z. B. München, 10738)"
   },
   "home": {
-    "tagline": "Wetterdaten – einfach für alle",
+    "tagline": "Offene Wetterdaten für Menschen",
     "intro": "Wählen Sie einfach aus, was Sie sehen möchten.",
     "tasksTitle": "Was möchten Sie tun?",
     "forecastTitle": "Wettervorhersage",
@@ -24,7 +25,7 @@
     "aboutText2": "So lässt sich Wetterdienst sowohl als Programmierbibliothek als auch als gebrauchsfertige Anwendung für Menschen ohne Programmierkenntnisse nutzen. Häufige Aufgaben wie Einheitenumrechnung, Interpolation und Zusammenfassung übernimmt der Server.",
     "featuresTitle": "Funktionen",
     "feature1Title": "Viele Datenquellen",
-    "feature1Desc": "Wetterdaten von verschiedenen Diensten wie DWD, NOAA und mehr.",
+    "feature1Desc": "Kostenlose Wetterdaten von DWD, NOAA und mehr – kein API-Schlüssel oder Konto erforderlich.",
     "feature2Title": "Ortsbezogene Suche",
     "feature2Desc": "Stationen nach Koordinaten, Name oder im Umkreis finden.",
     "feature3Title": "Flexibler Export",
@@ -229,10 +230,6 @@
     "loading": "MOSMIX-Vorhersage wird geladen …",
     "emptyHint": "Suchen Sie oben nach einer Station, um eine Vorhersage zu erstellen",
     "openWidget": "Als einbettbares Widget öffnen",
-    "searchPlaceholder": "Nach Name oder Stations-ID suchen (z. B. München, 10738)",
-    "searchPlaceholderChange": "Nach einer anderen Station suchen …",
-    "searchHint": "Geben Sie mindestens 2 Zeichen ein. Für eine exakte Suche eine numerische ID verwenden.",
-    "noResults": "Keine Stationen gefunden für „{query}“",
     "chart": {
       "noData": "Keine Daten für die gewählte Abfrage verfügbar",
       "panels": "Bereiche",

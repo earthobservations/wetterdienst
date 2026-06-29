@@ -7,10 +7,11 @@
     "open": "Opmaachen",
     "all": "Alles",
     "settings": "Astellungen",
-    "documentation": "Dokumentatioun"
+    "documentation": "Dokumentatioun",
+    "stationSearch": "No Numm oder Statiouns-ID sichen (z.B. München, 10738)"
   },
   "home": {
-    "tagline": "Wiederdaten — einfach, fir jiddwereen",
+    "tagline": "Oppen Wiederdaten fir d'Mënsche",
     "intro": "Wielt einfach aus, wat Dir gesi wëllt.",
     "tasksTitle": "Wat wëllt Dir maachen?",
     "forecastTitle": "Wiederprognos",
@@ -24,7 +25,7 @@
     "aboutText2": "Zesumme maachen se Wetterdienst nëtzlech souwuel als Bibliothéik fir Entwéckler wéi och als prett Applikatioun fir Net-Programméierer. Allgemeng Aufgaben wéi Eenheetsëmrechnung, Interpolatioun a Resümee gi vum Backend iwwerholl.",
     "featuresTitle": "Funktiounen",
     "feature1Title": "Méi Datequellen",
-    "feature1Desc": "Wiederdaten vu verschiddenen Déngschter, dorënner DWD, NOAA a méi.",
+    "feature1Desc": "Gratis Wiederdaten vu DWD, NOAA a méi — kee API-Schlëssel oder Kont néideg.",
     "feature2Title": "Geospatial Ufroen",
     "feature2Desc": "Fannt Statiounen no Koordinaten, Numm oder bannent engem Radius.",
     "feature3Title": "Flexibelen Export",
@@ -229,10 +230,6 @@
     "loading": "MOSMIX-Prognos gëtt ofgeruff …",
     "emptyHint": "Sicht uewe no enger Statioun, fir eng Prognos ze generéieren",
     "openWidget": "Als anbettbar Widget opmaachen",
-    "searchPlaceholder": "No Numm oder Statiouns-ID sichen (z.B. München, 10738)",
-    "searchPlaceholderChange": "No enger anerer Statioun sichen …",
-    "searchHint": "Tippt ≥ 2 Zeechen fir ze sichen. Benotzt eng numeresch ID fir eng exakt Sich.",
-    "noResults": "Keng Statioune fonnt fir „{query}“",
     "chart": {
       "noData": "Keng Daten verfügbar fir déi ausgewielten Ufro",
       "panels": "Panelen",

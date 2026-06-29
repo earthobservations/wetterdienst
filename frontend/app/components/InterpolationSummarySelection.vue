@@ -147,8 +147,9 @@ const displayCoords = computed(() => {
           v-if="!stationsPending"
           v-model="selectedStationItem"
           :items="stationItems"
-          :placeholder="t('interpolation.selectStation')"
+          :placeholder="t('common.stationSearch')"
           searchable
+          virtualize
           class="w-full"
           :class="{ 'needs-input': !modelValue.station }"
         />
