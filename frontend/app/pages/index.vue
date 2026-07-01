@@ -104,9 +104,12 @@ const authors = [
 
     <UCard class="mb-8">
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('home.aboutTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-info" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('home.aboutTitle') }}
+          </h2>
+        </div>
       </template>
       <p class="text-gray-600 dark:text-gray-400 mb-4">
         {{ t('home.aboutText1') }}
@@ -137,9 +140,12 @@ const authors = [
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('home.authorsTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-users" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('home.authorsTitle') }}
+          </h2>
+        </div>
       </template>
       <div class="flex flex-wrap gap-8 justify-center">
         <div

@@ -241,9 +241,12 @@ watch([provider, network, resolution, dataset, parameters], () => {
 <template>
   <UCard>
     <template #header>
-      <h2 class="text-lg font-bold">
-        {{ t('parameterSelection.title') }}
-      </h2>
+      <div class="flex items-center gap-2">
+        <UIcon name="i-lucide-database" class="text-primary-500 shrink-0" />
+        <h2 class="text-lg font-bold">
+          {{ t('parameterSelection.title') }}
+        </h2>
+      </div>
     </template>
     <UContainer class="flex flex-col gap-4">
       <UFormField :label="t('parameterSelection.providerLabel')">

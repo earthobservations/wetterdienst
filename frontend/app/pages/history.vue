@@ -253,9 +253,12 @@ function clear() {
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('explorer.dataSource') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('explorer.dataSource') }}
+          </h2>
+        </div>
       </template>
       <div v-if="resolution && dataset">
         <StationSelection
@@ -272,9 +275,12 @@ function clear() {
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('history.sectionsTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-filter" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('history.sectionsTitle') }}
+          </h2>
+        </div>
       </template>
       <div class="space-y-4">
         <USelectMenu
@@ -285,13 +291,15 @@ function clear() {
           class="w-full"
         />
         <div class="flex flex-col sm:flex-row gap-2">
-          <UButton :label="t('common.fetch')" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
-          <UButton :label="t('common.clear')" variant="outline" class="w-full" @click="clear" />
+          <UButton :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
+          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" @click="clear" />
         </div>
-        <div v-if="pending" class="text-sm text-gray-600 dark:text-gray-400">
+        <div v-if="pending" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <UIcon name="i-lucide-loader-circle" class="animate-spin shrink-0" />
           {{ t('common.loading') }}
         </div>
-        <div v-if="error" class="text-sm text-red-600">
+        <div v-if="error" class="flex items-center gap-2 text-sm text-red-600">
+          <UIcon name="i-lucide-alert-circle" class="shrink-0" />
           {{ t('history.error') }}: {{ error.message ?? error }}
         </div>
       </div>
@@ -299,7 +307,8 @@ function clear() {
 
     <UCard>
       <template #header>
-        <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-table-2" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('history.resultsTitle') }}
           </h2>
@@ -376,7 +385,8 @@ function clear() {
                 <UCard>
                   <!-- Station Info Card Header displays basic station info -->
                   <template #header>
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
                       <h3 class="text-lg font-bold">
                         {{ t('history.stationIdPrefix') }}: {{ getStationId(history) }}
                         <span

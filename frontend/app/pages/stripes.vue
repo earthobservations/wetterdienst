@@ -563,6 +563,7 @@ onMounted(async () => {
     <UCollapsible v-model="showAbout">
       <UButton
         :label="t('stripes.aboutButton')"
+        icon="i-lucide-info"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -583,9 +584,12 @@ onMounted(async () => {
 
     <UCard class="mb-6">
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('explorer.dataSource') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('explorer.dataSource') }}
+          </h2>
+        </div>
       </template>
       <div class="space-y-4">
         <UFormField :label="t('stripes.type')">
@@ -662,10 +666,10 @@ onMounted(async () => {
 
         <div class="flex flex-col sm:flex-row gap-2">
           <UButton
-            :label="t('common.fetch')" color="primary" :disabled="!selectedStation || isLoading"
+            :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!selectedStation || isLoading"
             :loading="isLoading" class="w-full" @click="fetchAndPlotStripes"
           />
-          <UButton :label="t('common.clear')" variant="outline" class="w-full" :disabled="!hasPlot" @click="clearStripes" />
+          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" :disabled="!hasPlot" @click="clearStripes" />
         </div>
       </div>
     </UCard>
@@ -673,6 +677,7 @@ onMounted(async () => {
     <UCollapsible v-model="showSettings">
       <UButton
         :label="t('stripes.settingsTitle')"
+        icon="i-lucide-settings-2"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -695,7 +700,8 @@ onMounted(async () => {
 
     <UCard class="mb-6">
       <template #header>
-        <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-bar-chart-big" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
             {{ t('stripes.visualizationTitle') }}
           </h2>
@@ -705,12 +711,15 @@ onMounted(async () => {
       <div>
         <div v-if="isLoading" class="flex items-center justify-center h-64">
           <div class="flex items-center gap-2 text-gray-500">
-            <UIcon name="i-lucide-loader-2" class="animate-spin" />
+            <UIcon name="i-lucide-loader-circle" class="animate-spin" />
             {{ t('stripes.loadingViz') }}
           </div>
         </div>
-        <div v-else-if="!hasPlot" class="flex items-center justify-center h-64 text-gray-500">
-          {{ t('stripes.emptyHint') }}
+        <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
+          <UIcon name="i-lucide-bar-chart-big" class="w-12 h-12 opacity-30" />
+          <p class="text-sm">
+            {{ t('stripes.emptyHint') }}
+          </p>
         </div>
         <div
           ref="plotContainer" :class="{ hidden: !hasPlot }"
