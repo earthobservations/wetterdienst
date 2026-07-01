@@ -390,7 +390,14 @@
     "additionalStationsHint": "Anzahl zusätzlicher Stationen, die unabhängig von der Gewinnschwelle verwendet werden. (Standard: 3)",
     "dataSource": "Datenquelle",
     "stationsDetails": "Stationsdetails",
-    "valuesDetails": "Wertedetails"
+    "valuesDetails": "Wertedetails",
+    "modeStationDesc": "Beobachtungsdaten direkt von einer oder mehreren Wetterstationen abrufen.",
+    "modeInterpolationDesc": "Schätzt den Wetterwert an einem beliebigen Ort mathematisch, auch ohne dortige Messstation.",
+    "modeSummaryDesc": "Gibt für jeden Zeitpunkt den tatsächlich gemessenen Wert der nächstgelegenen Station mit Daten zurück.",
+    "modeStationHow": "Die Rohdaten werden unverändert zurückgegeben, optional mit Einheitenumrechnung und lesbaren Parameternamen. Stationen unten auswählen.",
+    "modeInterpolationHow": "Sammelt Werte von Stationen, die den Zielpunkt räumlich umschließen, und erstellt daraus eine Triangulation (Delaunay + lineare Interpolation im UTM-Raum). Pro Zeitschritt entsteht ein synthetischer Wert an den genauen Zielkoordinaten – genauer als die nächste Station, besonders bei guter Stationsdichte. Mindestens 3 einschließende Stationen sowie ein Datumsbereich sind erforderlich. Bei Niederschlagsparametern wird ein zusätzlicher Auftrittsschwellenwert angewendet, um fehlerhafte Kleinstwerte zu vermeiden.",
+    "modeSummaryHow": "Für jeden Parameter und jeden Zeitschritt wird vom Zielort ausgehend nach außen gesucht und der Wert der ersten Station mit gültigem Messwert übernommen – keine Schätzung, nur die nächste echte Messung. Die Ausgabe enthält die verwendete Stations-ID und deren Distanz, sodass die Datenherkunft immer nachvollziehbar ist. Ein Datumsbereich ist erforderlich.",
+    "modeHowItWorks": "So funktioniert es"
   },
   "stationTable": {
     "stationId": "Stations-ID",

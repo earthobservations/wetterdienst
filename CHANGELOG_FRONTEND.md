@@ -42,6 +42,12 @@ Types of changes:
   all 11 locales.
 - `[Legal]` Legally-structured Impressum page with operator address and inclusive/
   anti-fascist values statement.
+- `[Explorer]` Interpolation and summary modes now display a one-liner description beneath
+  the mode selector and a collapsible "How it works" panel. Interpolation explains the
+  Delaunay triangulation approach (synthetic estimate at exact coordinates); summary explains
+  the nearest-neighbour lookup (real measurement from the closest station with data). The
+  contrast between estimated and measured values is explicit. DE/EN translated; other locales
+  fall back to EN.
 
 ### Changed
 
