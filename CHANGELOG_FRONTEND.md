@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-02
+
 ### Added
 
 - `[i18n]` Full internationalisation foundation: 11 locales (de, de-hh, en, fr, es, it, pl,
@@ -81,6 +83,13 @@ Types of changes:
 - `[Meteogram]` Fix poor touch experience on mobile: Plotly defaults to pan mode on touch
   devices, preventing pinch gestures from conflicting with page scroll.
 - `[i18n]` Tag English locale as `en-GB` to match British copy and flag.
+- `[Meteogram]` Fix `selectedIssue` not resetting when switching stations — stale run from
+  the previous station no longer bleeds into the next fetch.
+- `[Stripes]` Fix display toggles (title, years, source, data availability, timeseries,
+  trendline) not persisting across page reloads; they are now written back to the settings
+  store on every change.
+- `[E2E]` Fix strict mode violation in Playwright navigation test — stripes link selector
+  now scoped to the navigation element to avoid matching the home page card.
 
 ## [0.6.0] - 2026-06-18
 
@@ -178,7 +187,9 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.6.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.7.0...HEAD
+
+[0.7.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.6.0...frontend-v0.7.0
 
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.5.0...frontend-v0.6.0
 
