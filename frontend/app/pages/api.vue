@@ -38,9 +38,12 @@ const examples = [
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('api.endpointsTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-code-2" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('api.endpointsTitle') }}
+          </h2>
+        </div>
       </template>
       <div class="space-y-3">
         <div v-for="endpoint in endpoints" :key="endpoint.name" class="flex items-start gap-3">
@@ -60,9 +63,12 @@ const examples = [
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('api.examplesTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-terminal" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('api.examplesTitle') }}
+          </h2>
+        </div>
       </template>
       <div class="space-y-2">
         <div v-for="example in examples" :key="example.nameKey">
@@ -81,9 +87,12 @@ const examples = [
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('api.formatsTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-file-json" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('api.formatsTitle') }}
+          </h2>
+        </div>
       </template>
       <i18n-t keypath="api.formatsText" tag="p" class="text-gray-600 dark:text-gray-400 mb-4" scope="global">
         <template #format>
@@ -100,9 +109,12 @@ const examples = [
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('api.commonParamsTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-list" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('api.commonParamsTitle') }}
+          </h2>
+        </div>
       </template>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">

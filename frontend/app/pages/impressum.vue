@@ -44,9 +44,12 @@ const hasPlaceholders = computed(() =>
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('impressum.providerTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-user" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('impressum.providerTitle') }}
+          </h2>
+        </div>
       </template>
       <div class="space-y-2">
         <p class="font-medium">
@@ -63,9 +66,12 @@ const hasPlaceholders = computed(() =>
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('impressum.contactTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-mail" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('impressum.contactTitle') }}
+          </h2>
+        </div>
       </template>
       <div class="space-y-2">
         <p class="text-gray-600 dark:text-gray-400">
@@ -79,9 +85,12 @@ const hasPlaceholders = computed(() =>
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('impressum.mstvTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-scale" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('impressum.mstvTitle') }}
+          </h2>
+        </div>
       </template>
       <div class="space-y-1 text-gray-600 dark:text-gray-400">
         <p>{{ operator.name }}</p>
@@ -92,9 +101,12 @@ const hasPlaceholders = computed(() =>
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('impressum.disclaimerTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-file-text" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('impressum.disclaimerTitle') }}
+          </h2>
+        </div>
       </template>
       <div class="space-y-4">
         <div>
@@ -118,9 +130,12 @@ const hasPlaceholders = computed(() =>
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('impressum.openSourceTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-code-2" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('impressum.openSourceTitle') }}
+          </h2>
+        </div>
       </template>
       <i18n-t keypath="impressum.openSourceText" tag="p" class="text-gray-600 dark:text-gray-400" scope="global">
         <template #link>

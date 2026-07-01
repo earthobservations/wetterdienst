@@ -484,7 +484,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
 
     <UCollapsible v-model="showAbout">
       <UButton
-        :label="t('explorer.aboutButton')" variant="subtle" color="neutral" trailing-icon="i-lucide-chevron-down" block
+        :label="t('explorer.aboutButton')" icon="i-lucide-info" variant="subtle" color="neutral" trailing-icon="i-lucide-chevron-down" block
         size="sm"
       />
       <template #content>
@@ -530,9 +530,12 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <!-- Mode Selection -->
     <UCard v-if="showModeSelection">
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('explorer.mode') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-layers" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('explorer.mode') }}
+          </h2>
+        </div>
       </template>
       <UFieldGroup>
         <UButton
@@ -552,6 +555,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <UCollapsible v-if="showModeSelection">
       <UButton
         :label="t('explorer.settings')"
+        icon="i-lucide-settings-2"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
@@ -841,9 +845,12 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <!-- Data Source Selection -->
     <UCard v-if="showModeSelection">
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('explorer.dataSource') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('explorer.dataSource') }}
+          </h2>
+        </div>
       </template>
 
       <div class="space-y-6">
@@ -875,11 +882,12 @@ function handleUnitTargetChange(unitType: string, value: string) {
         <USeparator v-if="showDateRangeSelector" />
 
         <div v-if="showDateRangeSelector" class="flex flex-col sm:flex-row gap-2">
-          <UButton :label="t('common.fetch')" color="primary" :disabled="!canFetch" class="w-full" @click="fetchData" />
-          <UButton :label="t('common.clear')" variant="outline" class="w-full" @click="clear" />
+          <UButton :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!canFetch" class="w-full" @click="fetchData" />
+          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" @click="clear" />
         </div>
 
-        <div v-if="dataViewerRef?.valuesPending" class="text-sm text-gray-600 dark:text-gray-400">
+        <div v-if="dataViewerRef?.valuesPending" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <UIcon name="i-lucide-loader-circle" class="animate-spin shrink-0" />
           {{ t('common.loading') }}
         </div>
       </div>
