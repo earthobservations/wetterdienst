@@ -537,18 +537,41 @@ function handleUnitTargetChange(unitType: string, value: string) {
           </h2>
         </div>
       </template>
-      <UFieldGroup>
-        <UButton
-          v-for="option in modeOptions"
-          :key="option.value"
-          :icon="option.icon"
-          :label="option.label"
-          color="neutral"
-          :variant="stationSelectionState.mode === option.value ? 'solid' : 'ghost'"
-          size="sm"
-          @click="stationSelectionState.mode = option.value"
-        />
-      </UFieldGroup>
+      <div class="space-y-3">
+        <UFieldGroup>
+          <UButton
+            v-for="option in modeOptions"
+            :key="option.value"
+            :icon="option.icon"
+            :label="option.label"
+            color="neutral"
+            :variant="stationSelectionState.mode === option.value ? 'solid' : 'ghost'"
+            size="sm"
+            @click="stationSelectionState.mode = option.value"
+          />
+        </UFieldGroup>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          <span v-if="stationSelectionState.mode === 'interpolation'">{{ t('explorer.modeInterpolationDesc') }}</span>
+          <span v-else-if="stationSelectionState.mode === 'summary'">{{ t('explorer.modeSummaryDesc') }}</span>
+          <span v-else>{{ t('explorer.modeStationDesc') }}</span>
+        </p>
+        <UCollapsible v-if="stationSelectionState.mode !== 'station'">
+          <UButton
+            :label="t('explorer.modeHowItWorks')"
+            icon="i-lucide-info"
+            variant="ghost"
+            color="neutral"
+            trailing-icon="i-lucide-chevron-down"
+            size="xs"
+          />
+          <template #content>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              <span v-if="stationSelectionState.mode === 'interpolation'">{{ t('explorer.modeInterpolationHow') }}</span>
+              <span v-else>{{ t('explorer.modeSummaryHow') }}</span>
+            </p>
+          </template>
+        </UCollapsible>
+      </div>
     </UCard>
 
     <!-- Data Settings -->

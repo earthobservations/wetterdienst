@@ -390,7 +390,14 @@
     "additionalStationsHint": "Número de estaciones adicionales que usar independientemente del umbral de ganancia. (Predeterminado: 3)",
     "dataSource": "Fuente de datos",
     "stationsDetails": "Detalles de las estaciones",
-    "valuesDetails": "Detalles de los valores"
+    "valuesDetails": "Detalles de los valores",
+    "modeStationDesc": "Fetch observations directly from one or more weather stations.",
+    "modeInterpolationDesc": "Mathematically estimates the weather value at any location, even without a station there.",
+    "modeSummaryDesc": "Returns the actual measured value from the nearest station that has data at each moment in time.",
+    "modeStationHow": "Raw measured values are returned as-is, with optional unit conversion and humanised parameter names. Select one or more stations below.",
+    "modeInterpolationHow": "Collects values from stations that spatially surround your target point and fits a triangulation across them (Delaunay + linear interpolation in UTM space). Each timestep produces a synthetic value at your exact coordinates — more accurate than picking the nearest station, especially where station coverage is good. Requires at least 3 enclosing stations and a date range. Precipitation parameters apply an additional occurrence check to avoid spurious near-zero values.",
+    "modeSummaryHow": "For every parameter and every timestep, scans outward from your target location and picks the first station with a valid reading — no estimation, just the closest real measurement. The output includes the contributing station ID and its distance, so you always know exactly where the data came from. A date range is required.",
+    "modeHowItWorks": "How it works"
   },
   "stationTable": {
     "stationId": "ID de estación",
