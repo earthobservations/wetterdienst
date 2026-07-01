@@ -26,9 +26,9 @@ const examples = [
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6">
+  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
-      <h1 class="text-4xl font-bold mb-4">
+      <h1 class="text-3xl font-bold mb-4">
         {{ t('api.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
@@ -36,9 +36,9 @@ const examples = [
       </p>
     </div>
 
-    <UCard class="mb-8">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('api.endpointsTitle') }}
         </h2>
       </template>
@@ -58,9 +58,9 @@ const examples = [
       </div>
     </UCard>
 
-    <UCard class="mb-8">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('api.examplesTitle') }}
         </h2>
       </template>
@@ -79,9 +79,9 @@ const examples = [
       </div>
     </UCard>
 
-    <UCard class="mb-8">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('api.formatsTitle') }}
         </h2>
       </template>
@@ -100,7 +100,7 @@ const examples = [
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('api.commonParamsTitle') }}
         </h2>
       </template>

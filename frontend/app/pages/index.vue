@@ -44,7 +44,7 @@ const authors = [
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4">
     <div class="text-center mb-10">
-      <h1 class="text-4xl font-bold mb-3">
+      <h1 class="text-3xl font-bold mb-4">
         Wetterdienst
       </h1>
       <p class="text-xl text-gray-600 dark:text-gray-400">
@@ -53,7 +53,7 @@ const authors = [
     </div>
 
     <!-- Primary task cards: the friendly, everyone-can-use entry points. -->
-    <h2 class="text-center text-lg font-semibold mb-1">
+    <h2 class="text-center text-lg font-bold mb-1">
       {{ t('home.tasksTitle') }}
     </h2>
     <p class="text-center text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -71,7 +71,7 @@ const authors = [
           :ui="{ body: 'flex flex-col items-center text-center gap-3 h-full' }"
         >
           <UIcon :name="task.icon" class="text-4xl" :class="task.accent" />
-          <h3 class="font-semibold text-base">
+          <h3 class="font-bold text-base">
             {{ task.title }}
           </h3>
           <p class="text-sm text-gray-600 dark:text-gray-400 flex-1">
@@ -86,7 +86,7 @@ const authors = [
 
     <!-- Values: a prominent, unmistakable stance for inclusion and against fascism. -->
     <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
-      <h2 class="text-lg font-semibold mb-3">
+      <h2 class="text-lg font-bold mb-3">
         {{ t('home.valuesTitle') }}
       </h2>
       <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8">
@@ -104,7 +104,7 @@ const authors = [
 
     <UCard class="mb-8">
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('home.aboutTitle') }}
         </h2>
       </template>
@@ -116,7 +116,7 @@ const authors = [
       </p>
     </UCard>
 
-    <h2 class="text-xl font-semibold mb-4">
+    <h2 class="text-lg font-bold mb-4">
       {{ t('home.featuresTitle') }}
     </h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -137,7 +137,7 @@ const authors = [
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('home.authorsTitle') }}
         </h2>
       </template>

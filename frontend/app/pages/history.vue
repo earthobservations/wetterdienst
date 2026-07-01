@@ -1,19 +1,27 @@
 <script setup lang="ts">
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import { computed, ref } from 'vue'
+import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 
 const { t } = useI18n()
 
-// History is only available for DWD observation
-const provider = 'dwd'
-const network = 'observation'
-
 const route = useRoute()
 const router = useRouter()
 
-const resolution = ref<string>(route.query.resolution?.toString() ?? '')
-const dataset = ref<string>(route.query.dataset?.toString() ?? '')
+// Parameter selection state — driven by ParameterSelection component
+const paramSel = ref({
+  provider: route.query.provider?.toString() ?? 'dwd',
+  network: route.query.network?.toString() ?? 'observation',
+  resolution: route.query.resolution?.toString() ?? '',
+  dataset: route.query.dataset?.toString() ?? '',
+  parameters: [] as string[],
+})
+
+const provider = computed(() => paramSel.value.provider ?? '')
+const network = computed(() => paramSel.value.network ?? '')
+const resolution = computed(() => paramSel.value.resolution ?? '')
+const dataset = computed(() => paramSel.value.dataset ?? '')
 
 const stationSelectionState = ref<StationSelectionState>({
   mode: 'station',
@@ -39,44 +47,19 @@ const showAbout = ref(false)
 
 // Track last fetched parameters to prevent redundant fetches
 const lastFetchedParams = ref<{
+  provider: string
+  network: string
   resolution: string
   dataset: string
   stationIds: string
   sections: string
 } | null>(null)
 
-// Fetch available datasets for DWD observation
-const { data: datasetsData, refresh: refreshDatasets } = useFetch<Record<string, Record<string, any>>>('/api/coverage', {
-  query: { provider, network },
-  immediate: false,
-  default: () => ({}),
-})
-
-// Fetch the data on component mount
-onMounted(() => {
-  refreshDatasets()
-})
-
-const resolutions = computed(() => {
-  if (!datasetsData.value)
-    return []
-  return Object.keys(datasetsData.value).sort()
-})
-
-const datasets = computed(() => {
-  if (!datasetsData.value || !resolution.value)
-    return []
-  return Object.keys(datasetsData.value[resolution.value] || {}).sort()
-})
-
-// Watch resolution changes and reset dataset
-watch(resolution, () => {
-  dataset.value = ''
+// Reset stations when resolution or dataset changes via ParameterSelection
+watch(() => paramSel.value.resolution, () => {
   stationSelectionState.value.selection.stations = []
 })
-
-// Watch dataset changes and reset stations
-watch(dataset, () => {
+watch(() => paramSel.value.dataset, () => {
   stationSelectionState.value.selection.stations = []
 })
 
@@ -97,6 +80,10 @@ const stationIds = computed(() => {
 // Serialize current state to URL query params
 function historyToQuery(): Record<string, string> {
   const q: Record<string, string> = {}
+  if (provider.value)
+    q.provider = provider.value
+  if (network.value)
+    q.network = network.value
   if (resolution.value)
     q.resolution = resolution.value
   if (dataset.value)
@@ -110,7 +97,7 @@ function historyToQuery(): Record<string, string> {
 
 // Sync state → URL (replace so browser back/forward stack stays clean)
 watch(
-  [resolution, dataset, () => stationIds.value, selectedSections],
+  [paramSel, () => stationIds.value, selectedSections],
   () => router.replace({ query: historyToQuery() }),
   { deep: true },
 )
@@ -147,14 +134,12 @@ function getStationName(history: any): string | null {
   return null
 }
 
-// Parameter selection for StationSelection component
-// Note: For history, we pass a dummy parameter to trigger station fetch
 const parameterSelection = computed(() => ({
-  provider,
-  network,
+  provider: provider.value,
+  network: network.value,
   resolution: resolution.value as Resolution,
   dataset: dataset.value,
-  parameters: ['_all'], // Dummy parameter to trigger station fetch
+  parameters: ['_all'],
 }))
 
 // Check if we have minimum required params
@@ -169,6 +154,8 @@ const canFetch = computed(() => {
   // Check if parameters have changed since last fetch
   if (lastFetchedParams.value) {
     const currentParams = {
+      provider: provider.value,
+      network: network.value,
       resolution: resolution.value,
       dataset: dataset.value,
       stationIds: stationIds.value,
@@ -176,7 +163,9 @@ const canFetch = computed(() => {
     }
 
     const unchanged
-      = currentParams.resolution === lastFetchedParams.value.resolution
+      = currentParams.provider === lastFetchedParams.value.provider
+        && currentParams.network === lastFetchedParams.value.network
+        && currentParams.resolution === lastFetchedParams.value.resolution
         && currentParams.dataset === lastFetchedParams.value.dataset
         && currentParams.stationIds === lastFetchedParams.value.stationIds
         && currentParams.sections === lastFetchedParams.value.sections
@@ -189,14 +178,13 @@ const canFetch = computed(() => {
   return true
 })
 
-// lazy fetch - trigger with refresh()
 const { data, pending, refresh, error } = useFetch<any>('/api/history', {
   lazy: true,
   immediate: false,
-  watch: false, // Prevent automatic refetch when query changes
+  watch: false,
   query: computed(() => ({
-    provider,
-    network,
+    provider: provider.value,
+    network: network.value,
     parameters: parametersString.value,
     station: stationIds.value || undefined,
     sections: selectedSections.value.length ? selectedSections.value : undefined,
@@ -208,14 +196,14 @@ function run() {
   if (!canFetch.value) {
     return
   }
-  // Store current parameters
   lastFetchedParams.value = {
+    provider: provider.value,
+    network: network.value,
     resolution: resolution.value,
     dataset: dataset.value,
     stationIds: stationIds.value,
     sections: selectedSections.value.sort().join(','),
   }
-  // trigger fetch
   refresh()
 }
 
@@ -227,9 +215,9 @@ function clear() {
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6">
+  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
-      <h1 class="text-4xl font-bold mb-4">
+      <h1 class="text-3xl font-bold mb-4">
         {{ t('history.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
@@ -237,7 +225,7 @@ function clear() {
       </p>
     </div>
 
-    <UCollapsible v-model="showAbout" class="mb-6">
+    <UCollapsible v-model="showAbout">
       <UButton
         :label="t('history.aboutButton')"
         variant="subtle"
@@ -261,100 +249,45 @@ function clear() {
       </template>
     </UCollapsible>
 
-    <UCard class="mb-6">
+    <ParameterSelection v-model="paramSel" :show-parameters="false" />
+
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
-          {{ t('history.requestTitle') }}
+        <h2 class="text-lg font-bold">
+          {{ t('explorer.dataSource') }}
         </h2>
       </template>
-      <div class="space-y-6 p-4">
-        <div>
-          <h3 class="text-sm font-semibold mb-3">
-            {{ t('history.datasetSelectionTitle') }}
-          </h3>
-          <p class="text-xs text-gray-500 mb-3">
-            {{ t('history.datasetHint') }}
-          </p>
-          <div class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-              <UFormField :label="t('history.providerLabel')" required class="w-full">
-                <UInput
-                  :model-value="provider"
-                  disabled
-                  :placeholder="t('history.providerLabel')"
-                  class="w-full"
-                />
-              </UFormField>
-              <UFormField :label="t('history.networkLabel')" required class="w-full">
-                <UInput
-                  :model-value="network"
-                  disabled
-                  :placeholder="t('history.networkLabel')"
-                  class="w-full"
-                />
-              </UFormField>
-            </div>
-            <UFormField :label="t('history.resolutionLabel')" required class="w-full">
-              <USelect
-                v-model="resolution"
-                :items="resolutions"
-                :placeholder="t('history.selectResolution')"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField :label="t('history.datasetLabel')" required :disabled="!resolution" class="w-full">
-              <USelect
-                v-model="dataset"
-                :items="datasets"
-                :placeholder="t('history.selectDataset')"
-                :disabled="!resolution"
-                class="w-full"
-              />
-            </UFormField>
-          </div>
-        </div>
+      <div v-if="resolution && dataset">
+        <StationSelection
+          v-model="stationSelectionState.selection"
+          :parameter-selection="parameterSelection"
+          :initial-station-ids="initialStationIds"
+          :multiple="true"
+        />
+      </div>
+      <div v-else class="text-sm text-gray-500">
+        {{ t('history.selectFirst') }}
+      </div>
+    </UCard>
 
-        <UDivider />
-
-        <div>
-          <h3 class="text-sm font-semibold mb-3">
-            {{ t('history.stationSelectionTitle') }}
-          </h3>
-          <div v-if="resolution && dataset">
-            <StationSelection
-              v-model="stationSelectionState.selection"
-              :parameter-selection="parameterSelection"
-              :initial-station-ids="initialStationIds"
-              :multiple="true"
-            />
-          </div>
-          <div v-else class="text-sm text-gray-500">
-            {{ t('history.selectFirst') }}
-          </div>
-        </div>
-
-        <UDivider />
-
-        <div>
-          <h3 class="text-sm font-semibold mb-3">
-            {{ t('history.sectionsTitle') }}
-          </h3>
-          <USelectMenu
-            v-model="selectedSections"
-            :items="availableSections"
-            multiple
-            :placeholder="t('history.selectSections')"
-            class="w-full"
-          />
-        </div>
-
-        <UDivider />
-
+    <UCard>
+      <template #header>
+        <h2 class="text-lg font-bold">
+          {{ t('history.sectionsTitle') }}
+        </h2>
+      </template>
+      <div class="space-y-4">
+        <USelectMenu
+          v-model="selectedSections"
+          :items="availableSections"
+          multiple
+          :placeholder="t('history.selectSections')"
+          class="w-full"
+        />
         <div class="flex flex-col sm:flex-row gap-2">
           <UButton :label="t('common.fetch')" color="primary" :disabled="!canFetch" class="w-full" @click="run" />
           <UButton :label="t('common.clear')" variant="outline" class="w-full" @click="clear" />
         </div>
-
         <div v-if="pending" class="text-sm text-gray-600 dark:text-gray-400">
           {{ t('common.loading') }}
         </div>
@@ -367,20 +300,20 @@ function clear() {
     <UCard>
       <template #header>
         <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold">
+          <h2 class="text-lg font-bold">
             {{ t('history.resultsTitle') }}
           </h2>
         </div>
       </template>
 
-      <div class="p-4">
+      <div>
         <div v-if="!data || (data.histories && data.histories.length === 0)" class="text-sm text-gray-600">
           {{ t('history.noHistories') }}
         </div>
         <div v-else class="space-y-6">
           <!-- Selected Stations Overview -->
           <div v-if="stationSelectionState.selection.stations.length > 0">
-            <h3 class="text-md font-semibold mb-3">
+            <h3 class="text-base font-bold mb-3">
               {{ t('history.selectedStations') }}
             </h3>
             <div class="overflow-x-auto">
@@ -435,7 +368,7 @@ function clear() {
 
           <!-- History Data by Station -->
           <div v-if="data.histories && data.histories.length > 0">
-            <h3 class="text-md font-semibold mb-3">
+            <h3 class="text-base font-bold mb-3">
               {{ t('history.stationHistoryTitle') }}
             </h3>
             <div class="space-y-4">
@@ -444,7 +377,7 @@ function clear() {
                   <!-- Station Info Card Header displays basic station info -->
                   <template #header>
                     <div class="flex items-center justify-between">
-                      <h3 class="font-semibold">
+                      <h3 class="text-lg font-bold">
                         {{ t('history.stationIdPrefix') }}: {{ getStationId(history) }}
                         <span
                           v-if="getStationName(history)"
@@ -512,7 +445,7 @@ function clear() {
                       <template #content>
                         <!-- Station Name History -->
                         <div v-if="history.name.station?.length" class="mb-4">
-                          <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                          <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
                             {{ t('history.stationNames') }}
                           </h4>
                           <div class="overflow-x-auto">
@@ -549,7 +482,7 @@ function clear() {
 
                         <!-- Operator Name History -->
                         <div v-if="history.name.operator?.length">
-                          <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                          <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
                             {{ t('history.operatorNames') }}
                           </h4>
                           <div class="overflow-x-auto">
@@ -773,7 +706,7 @@ function clear() {
                       <template #content>
                         <!-- Summary -->
                         <div v-if="history.missing_data.summary?.length" class="mb-4">
-                          <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                          <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
                             {{ t('history.summary') }}
                           </h4>
                           <div class="overflow-x-auto">
@@ -816,7 +749,7 @@ function clear() {
 
                         <!-- Periods -->
                         <div v-if="history.missing_data.periods?.length">
-                          <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                          <h4 class="text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
                             {{ t('history.periods') }}
                           </h4>
                           <div class="overflow-x-auto">

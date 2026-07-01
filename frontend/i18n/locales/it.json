@@ -306,7 +306,6 @@
     "aboutButton": "Informazioni sulle strisce climatiche",
     "aboutText1": "Le strisce climatiche (note anche come strisce del riscaldamento) sono una visualizzazione di dati pensata per comunicare l'aumento delle temperature a lungo termine. Ogni striscia rappresenta la temperatura media di un singolo anno: il blu indica gli anni più freddi e il rosso quelli più caldi.",
     "aboutText2": "La visualizzazione è stata creata dal climatologo Ed Hawkins ed è diventata una rappresentazione iconica del cambiamento climatico. Questo strumento utilizza i dati della rete di osservazione del Servizio Meteorologico Tedesco (DWD).",
-    "requestTitle": "Richiesta",
     "type": "Elemento meteorologico",
     "typeTemperature": "Temperatura",
     "typePrecipitation": "Precipitazioni",
@@ -409,7 +408,12 @@
     "selectResolution": "Seleziona risoluzione",
     "selectDataset": "Seleziona dataset",
     "selectParameters": "Seleziona i parametri",
-    "clear": "Cancella"
+    "clear": "Cancella",
+    "providerLabel": "Fornitore",
+    "networkLabel": "Rete",
+    "resolutionLabel": "Risoluzione",
+    "datasetLabel": "Dataset",
+    "parametersLabel": "Parametri"
   },
   "stationSelection": {
     "loading": "Caricamento delle stazioni …",
@@ -501,7 +505,6 @@
     "about1": "La cronologia di una stazione raccoglie i cambiamenti amministrativi e fisici che ha subìto nel corso della sua vita. Una stazione può essere stata rinominata, aver cambiato gestore, essere stata spostata, aver visto sostituiti i suoi strumenti o aver attraversato periodi con dati mancanti, tutti elementi tracciati come voci con marca temporale.",
     "about2": "La cronologia è attualmente disponibile solo per la rete di osservazione DWD. Seleziona una risoluzione e un dataset per filtrare le stazioni disponibili, quindi scegli una o più stazioni per recuperarne la cronologia.",
     "about3": "Sono disponibili le seguenti sezioni della cronologia: nome (cambi di nome della stazione e del gestore), parametro (parametri misurati nel tempo), dispositivo (cambi di strumenti e metodi di misurazione), geografia (cambi di posizione e altezza) e dati mancanti (lacune nel registro delle misurazioni).",
-    "requestTitle": "Richiesta",
     "datasetSelectionTitle": "Selezione del dataset",
     "datasetHint": "La cronologia è disponibile solo per i dataset di osservazione DWD",
     "providerLabel": "Fornitore",

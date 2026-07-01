@@ -112,6 +112,7 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
   return q
 }
 
+const showAbout = ref(false)
 const parameterSelectionState = ref<ParameterSelectionState>(fromQuery(route.query))
 const stationSelectionState = ref<StationSelectionState>({
   mode: modeFromQuery(route.query),
@@ -473,7 +474,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
 <template>
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
-      <h1 class="text-4xl font-bold mb-4">
+      <h1 class="text-3xl font-bold mb-4">
         {{ t('explorer.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
@@ -481,7 +482,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
       </p>
     </div>
 
-    <UCollapsible class="mb-6" :default-open="false">
+    <UCollapsible v-model="showAbout">
       <UButton
         :label="t('explorer.aboutButton')" variant="subtle" color="neutral" trailing-icon="i-lucide-chevron-down" block
         size="sm"
@@ -529,7 +530,9 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <!-- Mode Selection -->
     <UCard v-if="showModeSelection">
       <template #header>
-        <span>{{ t('explorer.mode') }}</span>
+        <h2 class="text-lg font-bold">
+          {{ t('explorer.mode') }}
+        </h2>
       </template>
       <UFieldGroup>
         <UButton
@@ -838,7 +841,9 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <!-- Data Source Selection -->
     <UCard v-if="showModeSelection">
       <template #header>
-        <span>{{ t('explorer.dataSource') }}</span>
+        <h2 class="text-lg font-bold">
+          {{ t('explorer.dataSource') }}
+        </h2>
       </template>
 
       <div class="space-y-6">

@@ -306,7 +306,6 @@
     "aboutButton": "À propos des bandes climatiques",
     "aboutText1": "Les bandes climatiques (aussi appelées bandes du réchauffement) sont une visualisation de données conçue pour communiquer l'augmentation des températures à long terme. Chaque bande représente la température moyenne d'une année, le bleu indiquant les années plus fraîches et le rouge les années plus chaudes.",
     "aboutText2": "La visualisation a été créée par le climatologue Ed Hawkins et est devenue une représentation emblématique du changement climatique. Cet outil utilise les données du réseau d'observation du service météorologique allemand (DWD).",
-    "requestTitle": "Requête",
     "type": "Élément météorologique",
     "typeTemperature": "Température",
     "typePrecipitation": "Précipitations",
@@ -409,7 +408,12 @@
     "selectResolution": "Sélectionner une résolution",
     "selectDataset": "Sélectionner un jeu de données",
     "selectParameters": "Sélectionner les paramètres",
-    "clear": "Effacer"
+    "clear": "Effacer",
+    "providerLabel": "Fournisseur",
+    "networkLabel": "Réseau",
+    "resolutionLabel": "Résolution",
+    "datasetLabel": "Jeu de données",
+    "parametersLabel": "Paramètres"
   },
   "stationSelection": {
     "loading": "Chargement des stations …",
@@ -501,7 +505,6 @@
     "about1": "L'historique d'une station retrace les changements administratifs et physiques qu'elle a connus au cours de sa vie. Une station peut avoir été renommée, avoir changé d'exploitant, avoir été déplacée, avoir vu ses instruments remplacés ou avoir connu des périodes de données manquantes — autant d'éléments suivis sous forme d'enregistrements horodatés.",
     "about2": "L'historique n'est actuellement disponible que pour le réseau d'observation DWD. Sélectionnez une résolution et un jeu de données pour filtrer les stations disponibles, puis choisissez une ou plusieurs stations pour récupérer leur historique.",
     "about3": "Les sections d'historique suivantes sont disponibles : nom (changements de nom de la station et de l'exploitant), paramètre (paramètres mesurés au fil du temps), appareil (changements d'instruments et de méthodes de mesure), géographie (changements d'emplacement et d'altitude) et données manquantes (lacunes dans les relevés).",
-    "requestTitle": "Requête",
     "datasetSelectionTitle": "Sélection du jeu de données",
     "datasetHint": "L'historique n'est disponible que pour les jeux de données d'observation DWD",
     "providerLabel": "Fournisseur",

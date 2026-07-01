@@ -306,7 +306,6 @@
     "aboutButton": "Acerca de las franjas climáticas",
     "aboutText1": "Las franjas climáticas (también conocidas como franjas del calentamiento) son una visualización de datos diseñada para comunicar el aumento de las temperaturas a largo plazo. Cada franja representa la temperatura media de un único año; el azul indica los años más fríos y el rojo, los más cálidos.",
     "aboutText2": "La visualización fue creada por el climatólogo Ed Hawkins y se ha convertido en una representación icónica del cambio climático. Esta herramienta utiliza datos de la red de observación del Servicio Meteorológico Alemán (DWD).",
-    "requestTitle": "Consulta",
     "type": "Elemento meteorológico",
     "typeTemperature": "Temperatura",
     "typePrecipitation": "Precipitación",
@@ -409,7 +408,12 @@
     "selectResolution": "Seleccionar resolución",
     "selectDataset": "Seleccionar conjunto de datos",
     "selectParameters": "Seleccionar parámetros",
-    "clear": "Borrar"
+    "clear": "Borrar",
+    "providerLabel": "Proveedor",
+    "networkLabel": "Red",
+    "resolutionLabel": "Resolución",
+    "datasetLabel": "Conjunto de datos",
+    "parametersLabel": "Parámetros"
   },
   "stationSelection": {
     "loading": "Cargando estaciones …",
@@ -501,7 +505,6 @@
     "about1": "El historial de una estación recoge los cambios administrativos y físicos que ha experimentado a lo largo de su vida. Una estación puede haber cambiado de nombre, de operador, haberse reubicado, haber sustituido sus instrumentos o haber tenido periodos con datos faltantes, todo lo cual se registra como entradas con marca de tiempo.",
     "about2": "El historial solo está disponible actualmente para la red de observación del DWD. Selecciona una resolución y un conjunto de datos para filtrar las estaciones disponibles y luego elige una o varias estaciones para obtener su historial.",
     "about3": "Están disponibles las siguientes secciones del historial: nombre (cambios de nombre de la estación y del operador), parámetro (parámetros medidos a lo largo del tiempo), dispositivo (cambios de instrumentos y métodos de medición), geografía (cambios de ubicación y altura) y datos faltantes (huecos en el registro de mediciones).",
-    "requestTitle": "Consulta",
     "datasetSelectionTitle": "Selección del conjunto de datos",
     "datasetHint": "El historial solo está disponible para los conjuntos de datos de observación del DWD",
     "providerLabel": "Proveedor",

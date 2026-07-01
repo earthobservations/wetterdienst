@@ -306,7 +306,6 @@
     "aboutButton": "Über Klimastreifen",
     "aboutText1": "Klimastreifen (auch Wärmestreifen genannt) sind eine Datenvisualisierung, die den langfristigen Anstieg der Temperaturen vermittelt. Jeder Streifen steht für die Durchschnittstemperatur eines Jahres – Blau für kühlere, Rot für wärmere Jahre.",
     "aboutText2": "Die Darstellung wurde vom Klimaforscher Ed Hawkins entwickelt und ist zu einem bekannten Sinnbild des Klimawandels geworden. Dieses Werkzeug nutzt Daten des Deutschen Wetterdienstes (DWD).",
-    "requestTitle": "Anfrage",
     "type": "Wetterelement",
     "typeTemperature": "Temperatur",
     "typePrecipitation": "Niederschlag",
@@ -409,7 +408,12 @@
     "selectResolution": "Auflösung auswählen",
     "selectDataset": "Datensatz auswählen",
     "selectParameters": "Parameter auswählen",
-    "clear": "Leeren"
+    "clear": "Leeren",
+    "providerLabel": "Anbieter",
+    "networkLabel": "Netzwerk",
+    "resolutionLabel": "Auflösung",
+    "datasetLabel": "Datensatz",
+    "parametersLabel": "Parameter"
   },
   "stationSelection": {
     "loading": "Stationen werden geladen …",
@@ -501,7 +505,6 @@
     "about1": "Der Stationsverlauf erfasst die administrativen und physischen Änderungen, die eine Wetterstation im Laufe ihrer Geschichte durchlaufen hat. Eine Station kann umbenannt worden sein, den Betreiber gewechselt, den Standort verlegt, ihre Messgeräte ausgetauscht oder Zeiträume mit fehlenden Daten gehabt haben – alles als Einträge mit Zeitstempel erfasst.",
     "about2": "Der Verlauf ist derzeit nur für das Netzwerk DWD Observation verfügbar. Wählen Sie Auflösung und Datensatz, um verfügbare Stationen zu filtern, und dann eine oder mehrere Stationen, um deren Verlauf abzurufen.",
     "about3": "Folgende Verlaufsabschnitte sind verfügbar: Name (Änderungen von Stations- und Betreibernamen), Parameter (gemessene Parameter über die Zeit), Gerät (Änderungen von Instrumenten und Messmethoden), Geografie (Änderungen von Standort und Höhe) sowie fehlende Daten (Lücken im Messverlauf).",
-    "requestTitle": "Anfrage",
     "datasetSelectionTitle": "Datensatz-Auswahl",
     "datasetHint": "Der Verlauf ist nur für DWD-Observation-Datensätze verfügbar.",
     "providerLabel": "Anbieter",
