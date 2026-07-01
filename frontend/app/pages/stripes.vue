@@ -476,8 +476,14 @@ watch(stations, () => {
   }
 })
 
-// Re-plot when display settings change
+// Re-plot when display settings change and persist toggles to settings store
 watch([showTitle, showYears, showDataAvailability, showTimeseries, showTrendline, showSource], async () => {
+  settings.value.stripes.showTitle = showTitle.value
+  settings.value.stripes.showYears = showYears.value
+  settings.value.stripes.showDataAvailability = showDataAvailability.value
+  settings.value.stripes.showTimeseries = showTimeseries.value
+  settings.value.stripes.showTrendline = showTrendline.value
+  settings.value.stripes.showSource = showSource.value
   if (lastFetchedData.value && hasPlot.value) {
     await plotStripes(lastFetchedData.value)
   }
