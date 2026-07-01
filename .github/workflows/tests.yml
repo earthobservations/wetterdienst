@@ -48,7 +48,7 @@ jobs:
     name: Python ${{ matrix.python-version }} on OS ${{ matrix.os }}
     steps:
       - name: Acquire sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
