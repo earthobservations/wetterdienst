@@ -141,6 +141,7 @@ watch(selectedIssue, () => {
 
 // Auto-fetch and sync URL whenever a station is chosen or cleared
 watch(selectedStation, (station) => {
+  selectedIssue.value = ''
   if (station) {
     void loadAvailableIssues(station.station_id)
     void fetchMeteogram(station)
