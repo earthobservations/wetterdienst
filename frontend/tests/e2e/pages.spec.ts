@@ -79,7 +79,7 @@ test.describe('Climate Stripes Page', () => {
   test('should navigate to stripes page', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('link', { name: /stripes/i }).click()
+    await page.getByRole('navigation').getByRole('link', { name: /stripes/i }).click()
 
     await expect(page).toHaveURL(/\/stripes/)
   })
