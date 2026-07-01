@@ -911,7 +911,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
     <UCollapsible default-open>
       <template #summary>
         <div class="flex items-center justify-between w-full">
-          <h3 class="text-lg font-semibold">
+          <h3 class="text-lg font-bold">
             {{ t('dataViewer.dataTitle') }}
           </h3>
         </div>

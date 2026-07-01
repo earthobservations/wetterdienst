@@ -25,10 +25,12 @@ const hasPlaceholders = computed(() =>
 </script>
 
 <template>
-  <UContainer class="max-w-3xl mx-auto py-8 px-4">
-    <h1 class="text-3xl font-bold mb-8">
-      {{ t('impressum.title') }}
-    </h1>
+  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold mb-4">
+        {{ t('impressum.title') }}
+      </h1>
+    </div>
 
     <!-- Reminder shown until the legally required placeholders are filled in. -->
     <UAlert
@@ -40,9 +42,9 @@ const hasPlaceholders = computed(() =>
       :title="t('impressum.operatorNote')"
     />
 
-    <UCard class="mb-4">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('impressum.providerTitle') }}
         </h2>
       </template>
@@ -59,9 +61,9 @@ const hasPlaceholders = computed(() =>
       </div>
     </UCard>
 
-    <UCard class="mb-4">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('impressum.contactTitle') }}
         </h2>
       </template>
@@ -75,9 +77,9 @@ const hasPlaceholders = computed(() =>
       </div>
     </UCard>
 
-    <UCard class="mb-4">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('impressum.mstvTitle') }}
         </h2>
       </template>
@@ -88,15 +90,15 @@ const hasPlaceholders = computed(() =>
       </div>
     </UCard>
 
-    <UCard class="mb-4">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('impressum.disclaimerTitle') }}
         </h2>
       </template>
       <div class="space-y-4">
         <div>
-          <h3 class="font-medium mb-2">
+          <h3 class="font-bold mb-2">
             {{ t('impressum.contentTitle') }}
           </h3>
           <p class="text-gray-600 dark:text-gray-400">
@@ -104,7 +106,7 @@ const hasPlaceholders = computed(() =>
           </p>
         </div>
         <div>
-          <h3 class="font-medium mb-2">
+          <h3 class="font-bold mb-2">
             {{ t('impressum.linksTitle') }}
           </h3>
           <p class="text-gray-600 dark:text-gray-400">
@@ -116,7 +118,7 @@ const hasPlaceholders = computed(() =>
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('impressum.openSourceTitle') }}
         </h2>
       </template>

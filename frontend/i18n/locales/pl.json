@@ -306,7 +306,6 @@
     "aboutButton": "O paskach klimatycznych",
     "aboutText1": "Paski klimatyczne (znane też jako paski ocieplenia) to wizualizacja danych zaprojektowana, aby komunikować długoterminowy wzrost temperatur. Każdy pasek przedstawia średnią temperaturę pojedynczego roku — kolor niebieski oznacza lata chłodniejsze, a czerwony cieplejsze.",
     "aboutText2": "Wizualizacja została stworzona przez klimatologa Eda Hawkinsa i stała się ikonicznym przedstawieniem zmian klimatu. To narzędzie wykorzystuje dane z sieci obserwacyjnej Niemieckiej Służby Meteorologicznej (DWD).",
-    "requestTitle": "Zapytanie",
     "type": "Element pogodowy",
     "typeTemperature": "Temperatura",
     "typePrecipitation": "Opady",
@@ -409,7 +408,12 @@
     "selectResolution": "Wybierz rozdzielczość",
     "selectDataset": "Wybierz zbiór danych",
     "selectParameters": "Wybierz parametry",
-    "clear": "Wyczyść"
+    "clear": "Wyczyść",
+    "providerLabel": "Dostawca",
+    "networkLabel": "Sieć",
+    "resolutionLabel": "Rozdzielczość",
+    "datasetLabel": "Zbiór danych",
+    "parametersLabel": "Parametry"
   },
   "stationSelection": {
     "loading": "Ładowanie stacji …",
@@ -501,7 +505,6 @@
     "about1": "Historia stacji rejestruje zmiany administracyjne i fizyczne, jakie stacja przeszła w ciągu swojego istnienia. Stacja mogła zostać przemianowana, zmienić operatora, zostać przeniesiona, mieć wymienione przyrządy lub doświadczyć okresów braku danych — wszystko to jest śledzone jako wpisy ze znacznikami czasu.",
     "about2": "Historia jest obecnie dostępna tylko dla sieci obserwacyjnej DWD. Wybierz rozdzielczość i zbiór danych, aby przefiltrować dostępne stacje, a następnie wybierz jedną lub więcej stacji, aby pobrać ich historię.",
     "about3": "Dostępne są następujące sekcje historii: nazwa (zmiany nazwy stacji i operatora), parametr (parametry mierzone w czasie), urządzenie (zmiany przyrządów i metod pomiaru), geografia (zmiany lokalizacji i wysokości) oraz brakujące dane (luki w zapisie pomiarów).",
-    "requestTitle": "Zapytanie",
     "datasetSelectionTitle": "Wybór zbioru danych",
     "datasetHint": "Historia jest dostępna tylko dla zbiorów danych obserwacji DWD",
     "providerLabel": "Dostawca",

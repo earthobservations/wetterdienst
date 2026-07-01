@@ -552,7 +552,7 @@ onMounted(async () => {
 <template>
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
-      <h1 class="text-4xl font-bold mb-4">
+      <h1 class="text-3xl font-bold mb-4">
         {{ t('stripes.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
@@ -560,7 +560,7 @@ onMounted(async () => {
       </p>
     </div>
 
-    <UCollapsible v-model="showAbout" class="mb-6">
+    <UCollapsible v-model="showAbout">
       <UButton
         :label="t('stripes.aboutButton')"
         variant="subtle"
@@ -583,30 +583,30 @@ onMounted(async () => {
 
     <UCard class="mb-6">
       <template #header>
-        <h2 class="text-lg font-semibold">
-          {{ t('stripes.requestTitle') }}
+        <h2 class="text-lg font-bold">
+          {{ t('explorer.dataSource') }}
         </h2>
       </template>
-      <div class="space-y-4 p-4">
-        <div>
-          <label class="block text-sm font-medium mb-1">{{ t('stripes.type') }}</label>
-          <USelect v-model="kind" :items="kindItems" />
-        </div>
+      <div class="space-y-4">
+        <UFormField :label="t('stripes.type')">
+          <USelect v-model="kind" :items="kindItems" class="w-full" />
+        </UFormField>
 
         <div>
-          <label class="block text-sm font-medium mb-1">{{ t('stripes.station') }}</label>
-          <USelectMenu
-            v-model="selectedStationItem"
-            :items="stationItems"
-            :multiple="false"
-            searchable
-            virtualize
-            color="primary"
-            class="w-full"
-            :class="{ 'needs-input': !selectedStation }"
-            :placeholder="t('common.stationSearch')"
-            @update:model-value="onSelectMenuUpdate"
-          />
+          <UFormField :label="t('stripes.station')">
+            <USelectMenu
+              v-model="selectedStationItem"
+              :items="stationItems"
+              :multiple="false"
+              searchable
+              virtualize
+              color="primary"
+              class="w-full"
+              :class="{ 'needs-input': !selectedStation }"
+              :placeholder="t('common.stationSearch')"
+              @update:model-value="onSelectMenuUpdate"
+            />
+          </UFormField>
 
           <UCollapsible v-model="showMap" class="mt-3">
             <UButton
@@ -650,14 +650,12 @@ onMounted(async () => {
         <USeparator />
 
         <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">{{ t('stripes.startYear') }}</label>
-            <UInput v-model.number="startYear" type="number" :placeholder="t('stripes.auto')" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">{{ t('stripes.endYear') }}</label>
-            <UInput v-model.number="endYear" type="number" :placeholder="t('stripes.auto')" />
-          </div>
+          <UFormField :label="t('stripes.startYear')">
+            <UInput v-model.number="startYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
+          </UFormField>
+          <UFormField :label="t('stripes.endYear')">
+            <UInput v-model.number="endYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
+          </UFormField>
         </div>
 
         <USeparator />
@@ -698,13 +696,13 @@ onMounted(async () => {
     <UCard class="mb-6">
       <template #header>
         <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold">
+          <h2 class="text-lg font-bold">
             {{ t('stripes.visualizationTitle') }}
           </h2>
         </div>
       </template>
 
-      <div class="p-4">
+      <div>
         <div v-if="isLoading" class="flex items-center justify-center h-64">
           <div class="flex items-center gap-2 text-gray-500">
             <UIcon name="i-lucide-loader-2" class="animate-spin" />

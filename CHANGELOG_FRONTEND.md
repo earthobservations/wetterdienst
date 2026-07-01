@@ -50,6 +50,12 @@ Types of changes:
   once and filters client-side. All station dropdowns (Meteogram, Explorer, Climate Stripes,
   Interpolation/Summary) now use `virtualize` for virtual-scrolled rendering so only visible
   rows are in the DOM regardless of list size.
+- `[History]` History page now uses the shared `ParameterSelection` component (with
+  `:show-parameters="false"`) instead of inline provider/network/resolution/dataset
+  dropdowns, ensuring consistent behaviour and styling with the Explorer.
+- `[All pages]` Unified page header structure: centred `h1` title with a gray subtitle
+  paragraph across all pages. Station selection cards renamed to "Data Source" /
+  "Datenquelle". Stripes and Support pages restructured for consistency.
 
 ### Fixed
 

@@ -48,23 +48,20 @@ function unitItems(units: readonly string[]) {
 </script>
 
 <template>
-  <UContainer class="max-w-2xl mx-auto py-8 px-4 space-y-6">
-    <div class="flex items-center gap-3">
-      <UIcon name="i-lucide-settings" class="text-2xl text-primary-500" />
-      <div>
-        <h1 class="text-3xl font-bold">
-          {{ t('settings.title') }}
-        </h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          {{ t('settings.subtitle') }}
-        </p>
-      </div>
+  <UContainer class="mx-auto max-w-2xl px-4 py-6 space-y-6">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold mb-4">
+        {{ t('settings.title') }}
+      </h1>
+      <p class="text-gray-600 dark:text-gray-400">
+        {{ t('settings.subtitle') }}
+      </p>
     </div>
 
     <!-- Language -->
     <UCard>
       <template #header>
-        <h2 class="font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('settings.language') }}
         </h2>
       </template>
@@ -78,7 +75,7 @@ function unitItems(units: readonly string[]) {
     <!-- Appearance -->
     <UCard>
       <template #header>
-        <h2 class="font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('settings.theme') }}
         </h2>
       </template>
@@ -98,7 +95,7 @@ function unitItems(units: readonly string[]) {
     <!-- Display & data -->
     <UCard>
       <template #header>
-        <h2 class="font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('settings.units') }}
         </h2>
       </template>

@@ -306,7 +306,6 @@
     "aboutButton": "Iwwer Klimasträifen",
     "aboutText1": "Klimasträifen (och bekannt als Erwiermungssträifen) sinn eng Datevisualiséierung, déi entworf gouf, fir den laangfristegen Temperaturustig ze kommunizéieren. All Sträif stellt d'Duerchschnëttstemperatur vun engem eenzege Joer duer, wou blo méi kal Joren a rout méi waarm Joren uweist.",
     "aboutText2": "D'Visualiséierung gouf vum Klimawëssenschaftler Ed Hawkins erstallt an ass eng ikonesch Duerstellung vum Klimawandel ginn. Dësen Outil benotzt Daten aus dem Observatiounsnetzwierk vum Däitsche Wiederdéngscht (DWD).",
-    "requestTitle": "Ufro",
     "type": "Wiederelement",
     "typeTemperature": "Temperatur",
     "typePrecipitation": "Néierschlag",
@@ -409,7 +408,12 @@
     "selectResolution": "Opléisung auswielen",
     "selectDataset": "Dataset auswielen",
     "selectParameters": "Parameteren auswielen",
-    "clear": "Läschen"
+    "clear": "Läschen",
+    "providerLabel": "Ubidder",
+    "networkLabel": "Netzwierk",
+    "resolutionLabel": "Opléisung",
+    "datasetLabel": "Dataset",
+    "parametersLabel": "Parameteren"
   },
   "stationSelection": {
     "loading": "Statioune ginn gelueden …",
@@ -501,7 +505,6 @@
     "about1": "Den Statioune-Historique erfaasst déi administrativ a physesch Ännerungen, déi eng Wiederstatioun während hirer Liewensdauer duerchgemaach huet. Eng Statioun kann ëmbenannt ginn, de Bedreiwer gewiesselt hunn, ëmgesat gi sinn, hir Instrumenter ersat kritt hunn oder Perioden u fehlenden Daten erlieft hunn — alles als Zäitstempelt Anträg festgehalen.",
     "about2": "Den Historique ass de Moment nëmme fir d'DWD-Observatiounsnetzwierk verfügbar. Wielt eng Opléisung an en Dataset, fir déi verfügbar Statiounen ze filteren, a wielt da eng oder méi Statiounen, fir hiren Historique ofzeruffen.",
     "about3": "Déi folgend Historique-Sektioune sinn verfügbar: Numm (Ännerunge vum Statiouns- a Bedreiwernumm), Parameter (iwwer d'Zäit gemoosse Parameteren), Gerät (Ännerunge vun Instrumenter a Moossmethoden), Geografie (Ännerunge vu Lag an Héicht) a fehlend Daten (Lächer am Moossregëster).",
-    "requestTitle": "Ufro",
     "datasetSelectionTitle": "Datasetauswiel",
     "datasetHint": "Den Historique ass nëmme fir DWD-Observatiounsdatesätz verfügbar",
     "providerLabel": "Ubidder",

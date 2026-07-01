@@ -3,17 +3,16 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <UContainer class="max-w-3xl mx-auto py-8 px-4">
-    <div class="flex items-center gap-3 mb-6">
-      <UIcon name="i-lucide-heart" class="text-2xl text-primary-500" />
-      <h1 class="text-3xl font-bold">
+  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold mb-4">
         {{ t('support.title') }}
       </h1>
     </div>
 
-    <UCard class="mb-4">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('support.reportTitle') }}
         </h2>
       </template>
@@ -27,9 +26,9 @@ const { t } = useI18n()
       </div>
     </UCard>
 
-    <UCard class="mb-4">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('support.contributeTitle') }}
         </h2>
       </template>
@@ -43,9 +42,9 @@ const { t } = useI18n()
       </div>
     </UCard>
 
-    <UCard class="mb-4">
+    <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('support.discussionsTitle') }}
         </h2>
       </template>
@@ -61,7 +60,7 @@ const { t } = useI18n()
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-bold">
           {{ t('support.donateTitle') }}
         </h2>
       </template>
