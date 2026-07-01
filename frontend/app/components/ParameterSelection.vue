@@ -8,6 +8,7 @@ const props = defineProps<{
     dataset?: string
     parameters?: string[]
   }
+  showParameters?: boolean
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -240,36 +241,48 @@ watch([provider, network, resolution, dataset, parameters], () => {
 <template>
   <UCard>
     <template #header>
-      {{ t('parameterSelection.title') }}
+      <h2 class="text-lg font-bold">
+        {{ t('parameterSelection.title') }}
+      </h2>
     </template>
     <UContainer class="flex flex-col gap-4">
-      <USelect v-model="provider" :items="providers" :placeholder="t('parameterSelection.selectProvider')" :class="{ 'needs-input': activeField === 'provider' }" />
-      <USelect v-model="network" :items="networks" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider" :class="{ 'needs-input': activeField === 'network' }" />
-      <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network" :class="{ 'needs-input': activeField === 'resolution' }" />
-      <USelect v-model="dataset" :items="datasetItems" :placeholder="t('parameterSelection.selectDataset')" :disabled="!resolution" :class="{ 'needs-input': activeField === 'dataset' }" />
-      <div class="flex gap-2 items-center min-w-0">
-        <USelectMenu v-model="parameters" :items="paramItems" value-key="value" multiple :placeholder="t('parameterSelection.selectParameters')" :disabled="!dataset" class="flex-1 min-w-0 overflow-hidden" :class="{ 'needs-input': activeField === 'parameters' }" />
-        <UButton
-          v-if="dataset && !allSelected"
-          size="xs"
-          variant="ghost"
-          color="neutral"
-          icon="i-lucide-check-check"
-          @click="selectAllParameters"
-        >
-          {{ t('common.all') }}
-        </UButton>
-        <UButton
-          v-if="dataset && parameters.length > 0"
-          size="xs"
-          variant="ghost"
-          color="neutral"
-          icon="i-lucide-x"
-          @click="clearParameters"
-        >
-          {{ t('parameterSelection.clear') }}
-        </UButton>
-      </div>
+      <UFormField :label="t('parameterSelection.providerLabel')">
+        <USelect v-model="provider" :items="providers" :placeholder="t('parameterSelection.selectProvider')" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
+      </UFormField>
+      <UFormField :label="t('parameterSelection.networkLabel')">
+        <USelect v-model="network" :items="networks" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider" class="w-full" :class="{ 'needs-input': activeField === 'network' }" />
+      </UFormField>
+      <UFormField :label="t('parameterSelection.resolutionLabel')">
+        <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network" class="w-full" :class="{ 'needs-input': activeField === 'resolution' }" />
+      </UFormField>
+      <UFormField :label="t('parameterSelection.datasetLabel')">
+        <USelect v-model="dataset" :items="datasetItems" :placeholder="t('parameterSelection.selectDataset')" :disabled="!resolution" class="w-full" :class="{ 'needs-input': activeField === 'dataset' }" />
+      </UFormField>
+      <UFormField v-if="props.showParameters !== false" :label="t('parameterSelection.parametersLabel')">
+        <div class="flex gap-2 items-center min-w-0">
+          <USelectMenu v-model="parameters" :items="paramItems" value-key="value" multiple :placeholder="t('parameterSelection.selectParameters')" :disabled="!dataset" class="flex-1 min-w-0 overflow-hidden" :class="{ 'needs-input': activeField === 'parameters' }" />
+          <UButton
+            v-if="dataset && !allSelected"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-lucide-check-check"
+            @click="selectAllParameters"
+          >
+            {{ t('common.all') }}
+          </UButton>
+          <UButton
+            v-if="dataset && parameters.length > 0"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-lucide-x"
+            @click="clearParameters"
+          >
+            {{ t('parameterSelection.clear') }}
+          </UButton>
+        </div>
+      </UFormField>
     </UContainer>
   </UCard>
 </template>

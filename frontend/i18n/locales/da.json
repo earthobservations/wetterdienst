@@ -306,7 +306,6 @@
     "aboutButton": "Om klimastriber",
     "aboutText1": "Klimastriber (også kendt som opvarmningsstriber) er en datavisualisering, der er designet til at formidle den langsigtede temperaturstigning. Hver stribe repræsenterer gennemsnitstemperaturen for et enkelt år, hvor blå angiver køligere år og rød varmere år.",
     "aboutText2": "Visualiseringen blev skabt af klimaforskeren Ed Hawkins og er blevet en ikonisk fremstilling af klimaforandringer. Dette værktøj bruger data fra den tyske vejrtjenestes (DWD) observationsnetværk.",
-    "requestTitle": "Forespørgsel",
     "type": "Vejrelement",
     "typeTemperature": "Temperatur",
     "typePrecipitation": "Nedbør",
@@ -409,7 +408,12 @@
     "selectResolution": "Vælg opløsning",
     "selectDataset": "Vælg datasæt",
     "selectParameters": "Vælg parametre",
-    "clear": "Ryd"
+    "clear": "Ryd",
+    "providerLabel": "Udbyder",
+    "networkLabel": "Netværk",
+    "resolutionLabel": "Opløsning",
+    "datasetLabel": "Datasæt",
+    "parametersLabel": "Parametre"
   },
   "stationSelection": {
     "loading": "Indlæser stationer …",
@@ -501,7 +505,6 @@
     "about1": "Stationshistorik registrerer de administrative og fysiske ændringer, en vejrstation har gennemgået i løbet af sin levetid. En station kan være blevet omdøbt, have skiftet operatør, være blevet flyttet, have fået udskiftet sine instrumenter eller have oplevet perioder med manglende data — alt sammen registreret som tidsstemplede poster.",
     "about2": "Historik er i øjeblikket kun tilgængelig for DWD-observationsnetværket. Vælg en opløsning og et datasæt for at filtrere de tilgængelige stationer, og vælg derefter en eller flere stationer for at hente deres historik.",
     "about3": "Følgende historikafsnit er tilgængelige: navn (ændringer af stations- og operatørnavn), parameter (målte parametre over tid), enhed (ændringer af instrumenter og målemetoder), geografi (ændringer af placering og højde) og manglende data (huller i måleregistret).",
-    "requestTitle": "Forespørgsel",
     "datasetSelectionTitle": "Valg af datasæt",
     "datasetHint": "Historik er kun tilgængelig for DWD-observationsdatasæt",
     "providerLabel": "Udbyder",

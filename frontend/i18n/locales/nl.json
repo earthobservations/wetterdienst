@@ -306,7 +306,6 @@
     "aboutButton": "Over klimaatstrepen",
     "aboutText1": "Klimaatstrepen (ook bekend als opwarmingsstrepen) zijn een gegevensvisualisatie die is ontworpen om de langetermijnstijging van temperaturen te communiceren. Elke streep staat voor de gemiddelde temperatuur van één jaar, waarbij blauw koelere jaren aangeeft en rood warmere jaren.",
     "aboutText2": "De visualisatie is gemaakt door klimaatwetenschapper Ed Hawkins en is een iconische weergave van klimaatverandering geworden. Dit hulpmiddel gebruikt gegevens van het waarnemingsnetwerk van de Duitse weerdienst (DWD).",
-    "requestTitle": "Aanvraag",
     "type": "Weerelement",
     "typeTemperature": "Temperatuur",
     "typePrecipitation": "Neerslag",
@@ -409,7 +408,12 @@
     "selectResolution": "Resolutie selecteren",
     "selectDataset": "Dataset selecteren",
     "selectParameters": "Parameters selecteren",
-    "clear": "Wissen"
+    "clear": "Wissen",
+    "providerLabel": "Aanbieder",
+    "networkLabel": "Netwerk",
+    "resolutionLabel": "Resolutie",
+    "datasetLabel": "Dataset",
+    "parametersLabel": "Parameters"
   },
   "stationSelection": {
     "loading": "Stations laden …",
@@ -501,7 +505,6 @@
     "about1": "De stationsgeschiedenis legt de administratieve en fysieke wijzigingen vast die een weerstation tijdens zijn levensduur heeft ondergaan. Een station kan zijn hernoemd, van beheerder zijn veranderd, zijn verplaatst, zijn instrumenten vervangen hebben gekregen of perioden met ontbrekende gegevens hebben gehad — dit alles wordt bijgehouden als records met tijdstempel.",
     "about2": "De geschiedenis is momenteel alleen beschikbaar voor het DWD-observatienetwerk. Selecteer een resolutie en dataset om de beschikbare stations te filteren en kies vervolgens een of meer stations om hun geschiedenis op te halen.",
     "about3": "De volgende geschiedenissecties zijn beschikbaar: naam (wijzigingen in de naam van het station en de beheerder), parameter (in de loop van de tijd gemeten parameters), apparaat (wijzigingen in instrumenten en meetmethoden), geografie (wijzigingen in locatie en hoogte) en ontbrekende gegevens (hiaten in de meetreeks).",
-    "requestTitle": "Aanvraag",
     "datasetSelectionTitle": "Datasetselectie",
     "datasetHint": "Geschiedenis is alleen beschikbaar voor DWD-observatiedatasets",
     "providerLabel": "Aanbieder",

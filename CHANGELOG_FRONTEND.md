@@ -43,6 +43,21 @@ Types of changes:
 - `[Legal]` Legally-structured Impressum page with operator address and inclusive/
   anti-fascist values statement.
 
+### Changed
+
+- `[Meteogram]` Replace the custom debounced-API station search (with 2-character minimum
+  and manual portal/positioning code) with a `USelectMenu` that loads all MOSMIX stations
+  once and filters client-side. All station dropdowns (Meteogram, Explorer, Climate Stripes,
+  Interpolation/Summary) now use `virtualize` for virtual-scrolled rendering so only visible
+  rows are in the DOM regardless of list size.
+- `[History]` History page now uses the shared `ParameterSelection` component (with
+  `:show-parameters="false"`) instead of inline provider/network/resolution/dataset
+  dropdowns, ensuring consistent behaviour and styling with the Explorer.
+- `[All pages]` Unified page header structure: centred `h1` title with a gray subtitle
+  paragraph across all pages. Station selection cards renamed to "Data Source" /
+  "Datenquelle". Stripes and Support pages restructured for consistency.
+
+
 ### Fixed
 
 - `[Meteogram]` Fix x-axis tick labels overlapping on narrow mobile screens. Tick interval

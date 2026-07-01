@@ -306,7 +306,6 @@
     "aboutButton": "About climate stripes",
     "aboutText1": "Climate stripes (also known as warming stripes) are a data visualization designed to communicate the long-term increase in temperatures. Each stripe represents the average temperature for a single year, with blue indicating cooler years and red indicating warmer years.",
     "aboutText2": "The visualization was created by climate scientist Ed Hawkins and has become an iconic representation of climate change. This tool uses data from the German Weather Service (DWD) observation network.",
-    "requestTitle": "Request",
     "type": "Weather element",
     "typeTemperature": "Temperature",
     "typePrecipitation": "Precipitation",
@@ -409,7 +408,12 @@
     "selectResolution": "Select resolution",
     "selectDataset": "Select dataset",
     "selectParameters": "Select parameters",
-    "clear": "Clear"
+    "clear": "Clear",
+    "providerLabel": "Provider",
+    "networkLabel": "Network",
+    "resolutionLabel": "Resolution",
+    "datasetLabel": "Dataset",
+    "parametersLabel": "Parameters"
   },
   "stationSelection": {
     "loading": "Loading stations …",
@@ -501,7 +505,6 @@
     "about1": "Station history captures the administrative and physical changes a weather station has undergone over its lifetime. A station may have been renamed, changed operators, relocated, had its instruments replaced, or experienced periods of missing data — all of which are tracked as timestamped records.",
     "about2": "History is currently available for the DWD Observation network only. Select a resolution and dataset to filter available stations, then choose one or more stations to retrieve their history.",
     "about3": "The following history sections are available: name (station and operator name changes), parameter (measured parameters over time), device (instrument and measurement method changes), geography (location and height changes), and missing data (gaps in the measurement record).",
-    "requestTitle": "Request",
     "datasetSelectionTitle": "Dataset selection",
     "datasetHint": "History is available for DWD Observation datasets only",
     "providerLabel": "Provider",

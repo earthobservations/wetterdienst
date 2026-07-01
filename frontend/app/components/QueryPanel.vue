@@ -388,7 +388,7 @@ onUnmounted(async () => {
     <UCard v-else class="mb-4">
       <template #header>
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold">
+          <h3 class="text-lg font-bold">
             SQL Query Transform
           </h3>
           <div class="flex gap-2">

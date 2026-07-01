@@ -181,7 +181,7 @@ onMounted(async () => {
 <template>
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
-      <h1 class="text-4xl font-bold mb-4">
+      <h1 class="text-3xl font-bold mb-4">
         {{ t('meteogram.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
@@ -189,7 +189,7 @@ onMounted(async () => {
       </p>
     </div>
 
-    <UCollapsible v-model="showAbout" class="mb-6">
+    <UCollapsible v-model="showAbout">
       <UButton
         :label="t('meteogram.aboutButton')"
         variant="subtle"
@@ -215,7 +215,7 @@ onMounted(async () => {
       <template #header>
         <div class="flex items-center gap-2 flex-wrap">
           <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
-          <span class="font-semibold">{{ t('meteogram.selectStation') }}</span>
+          <span class="text-lg font-bold">{{ t('explorer.dataSource') }}</span>
           <div class="ml-auto flex items-center gap-2">
             <span class="text-xs text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</span>
             <select
@@ -292,7 +292,7 @@ onMounted(async () => {
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-cloud-sun" class="text-primary-500" />
-          <span class="font-semibold">{{ selectedStation.name }}</span>
+          <span class="text-lg font-bold">{{ selectedStation.name }}</span>
           <span class="text-gray-400 text-sm">({{ selectedStation.station_id }})</span>
           <UButton
             :to="`/widget?station=${selectedStation.station_id}`"

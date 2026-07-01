@@ -306,7 +306,6 @@
     "aboutButton": "O klimatických pruzích",
     "aboutText1": "Klimatické pruhy (známé také jako pruhy oteplování) jsou vizualizace dat navržená ke sdělení dlouhodobého růstu teplot. Každý pruh představuje průměrnou teplotu jednoho roku, přičemž modrá značí chladnější roky a červená teplejší roky.",
     "aboutText2": "Vizualizaci vytvořil klimatolog Ed Hawkins a stala se ikonickým znázorněním změny klimatu. Tento nástroj využívá data z pozorovací sítě Německé meteorologické služby (DWD).",
-    "requestTitle": "Dotaz",
     "type": "Meteorologický prvek",
     "typeTemperature": "Teplota",
     "typePrecipitation": "Srážky",
@@ -409,7 +408,12 @@
     "selectResolution": "Vybrat rozlišení",
     "selectDataset": "Vybrat datovou sadu",
     "selectParameters": "Vybrat parametry",
-    "clear": "Vymazat"
+    "clear": "Vymazat",
+    "providerLabel": "Poskytovatel",
+    "networkLabel": "Síť",
+    "resolutionLabel": "Rozlišení",
+    "datasetLabel": "Datová sada",
+    "parametersLabel": "Parametry"
   },
   "stationSelection": {
     "loading": "Načítání stanic …",
@@ -501,7 +505,6 @@
     "about1": "Historie stanice zaznamenává administrativní a fyzické změny, kterými meteorologická stanice prošla během své existence. Stanice mohla být přejmenována, změnit provozovatele, být přemístěna, mít vyměněné přístroje nebo zažít období chybějících dat — to vše je sledováno jako záznamy s časovou značkou.",
     "about2": "Historie je v současné době dostupná pouze pro pozorovací síť DWD. Vyberte rozlišení a datovou sadu pro filtrování dostupných stanic a poté zvolte jednu nebo více stanic pro získání jejich historie.",
     "about3": "K dispozici jsou následující sekce historie: název (změny názvu stanice a provozovatele), parametr (parametry měřené v čase), zařízení (změny přístrojů a metod měření), geografie (změny polohy a výšky) a chybějící data (mezery v záznamu měření).",
-    "requestTitle": "Dotaz",
     "datasetSelectionTitle": "Výběr datové sady",
     "datasetHint": "Historie je dostupná pouze pro datové sady pozorování DWD",
     "providerLabel": "Poskytovatel",
