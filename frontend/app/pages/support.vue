@@ -12,15 +12,18 @@ const { t } = useI18n()
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('support.reportTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-bug" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('support.reportTitle') }}
+          </h2>
+        </div>
       </template>
       <p class="text-gray-600 dark:text-gray-400">
         {{ t('support.reportText') }}
       </p>
       <div class="mt-3">
-        <UButton size="sm" variant="ghost" color="primary" to="https://github.com/earthobservations/wetterdienst/issues" target="_blank">
+        <UButton size="sm" variant="ghost" color="primary" icon="i-simple-icons-github" to="https://github.com/earthobservations/wetterdienst/issues" target="_blank">
           {{ t('support.reportButton') }}
         </UButton>
       </div>
@@ -28,15 +31,18 @@ const { t } = useI18n()
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('support.contributeTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-git-pull-request" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('support.contributeTitle') }}
+          </h2>
+        </div>
       </template>
       <p class="text-gray-600 dark:text-gray-400">
         {{ t('support.contributeText') }}
       </p>
       <div class="mt-3">
-        <UButton size="sm" variant="ghost" color="primary" to="https://github.com/earthobservations/wetterdienst/pulls" target="_blank">
+        <UButton size="sm" variant="ghost" color="primary" icon="i-simple-icons-github" to="https://github.com/earthobservations/wetterdienst/pulls" target="_blank">
           {{ t('support.contributeButton') }}
         </UButton>
       </div>
@@ -44,15 +50,18 @@ const { t } = useI18n()
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('support.discussionsTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-message-circle" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('support.discussionsTitle') }}
+          </h2>
+        </div>
       </template>
       <p class="text-gray-600 dark:text-gray-400">
         {{ t('support.discussionsText') }}
       </p>
       <div class="mt-3">
-        <UButton size="sm" variant="ghost" color="primary" to="https://github.com/earthobservations/wetterdienst/discussions" target="_blank">
+        <UButton size="sm" variant="ghost" color="primary" icon="i-simple-icons-github" to="https://github.com/earthobservations/wetterdienst/discussions" target="_blank">
           {{ t('support.discussionsButton') }}
         </UButton>
       </div>
@@ -60,9 +69,12 @@ const { t } = useI18n()
 
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('support.donateTitle') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-heart" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('support.donateTitle') }}
+          </h2>
+        </div>
       </template>
       <p class="text-gray-600 dark:text-gray-400">
         {{ t('support.donateText') }}

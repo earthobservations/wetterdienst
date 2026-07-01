@@ -61,9 +61,12 @@ function unitItems(units: readonly string[]) {
     <!-- Language -->
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('settings.language') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-languages" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('settings.language') }}
+          </h2>
+        </div>
       </template>
       <USelect
         v-model="selectedLanguage"
@@ -75,9 +78,12 @@ function unitItems(units: readonly string[]) {
     <!-- Appearance -->
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('settings.theme') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-palette" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('settings.theme') }}
+          </h2>
+        </div>
       </template>
       <UFieldGroup>
         <UButton
@@ -95,9 +101,12 @@ function unitItems(units: readonly string[]) {
     <!-- Display & data -->
     <UCard>
       <template #header>
-        <h2 class="text-lg font-bold">
-          {{ t('settings.units') }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-ruler" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('settings.units') }}
+          </h2>
+        </div>
       </template>
       <div class="space-y-5">
         <div class="flex items-start justify-between gap-4">

@@ -56,6 +56,8 @@ Types of changes:
 - `[All pages]` Unified page header structure: centred `h1` title with a gray subtitle
   paragraph across all pages. Station selection cards renamed to "Data Source" /
   "Datenquelle". Stripes and Support pages restructured for consistency.
+- `[All pages]` Lucide icons added to all card headers, action buttons, empty states, and
+  status elements throughout the app (including the `ParameterSelection` component).
 
 ### Fixed
 
