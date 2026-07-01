@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-02
+
 ### Added
 
 - `[i18n]` Full internationalisation foundation: 11 locales (de, de-hh, en, fr, es, it, pl,
@@ -64,7 +66,6 @@ Types of changes:
   "Datenquelle". Stripes and Support pages restructured for consistency.
 - `[All pages]` Lucide icons added to all card headers, action buttons, empty states, and
   status elements throughout the app (including the `ParameterSelection` component).
-
 
 ### Fixed
 
@@ -198,7 +199,9 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.6.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.7.0...HEAD
+
+[0.7.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.6.0...frontend-v0.7.0
 
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.5.0...frontend-v0.6.0
 
