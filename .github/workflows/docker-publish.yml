@@ -143,8 +143,6 @@ jobs:
 
       - name: Deploy to Coolify
         run: |
-          curl --fail --request POST \
-            --header "X-GitHub-Event: push" \
-            --header "Content-Type: application/json" \
-            --data '{"ref":"refs/heads/main","repository":{"full_name":"${{ github.repository }}"},"commits":[],"pusher":{"name":"${{ github.actor }}"},"sender":{"login":"${{ github.actor }}"}}' \
-            '${{ secrets.COOLIFY_BACKEND_WEBHOOK }}?token=${{ secrets.COOLIFY_BACKEND_TOKEN }}'
+          curl --fail --request GET \
+            --header "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}" \
+            'https://coolify.eobs.org/api/v1/deploy?uuid=${{ secrets.COOLIFY_BACKEND_UUID }}&force=false'
