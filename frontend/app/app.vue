@@ -184,7 +184,7 @@ const items = computed<NavigationMenuItem[]>(() =>
             </NuxtLink>
           </nav>
 
-          <!-- Bottom bar: external links + theme toggle -->
+          <!-- Bottom bar: external links + settings -->
           <div class="shrink-0 border-t border-gray-200 dark:border-gray-800 px-4 py-4 flex items-center justify-between">
             <div class="flex items-center gap-1">
               <UTooltip :text="t('common.documentation')">
@@ -218,9 +218,14 @@ const items = computed<NavigationMenuItem[]>(() =>
                 />
               </UTooltip>
             </div>
-            <div class="flex items-center gap-2">
-              <SettingsMenu />
-            </div>
+            <UButton
+              to="/settings"
+              icon="i-lucide-settings-2"
+              color="neutral"
+              variant="ghost"
+              :aria-label="t('common.settings')"
+              @click="mobileMenuOpen = false"
+            />
           </div>
         </div>
       </Transition>
