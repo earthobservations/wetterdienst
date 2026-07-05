@@ -69,7 +69,12 @@ def _default_geo_station_distance() -> defaultdict[str, float]:
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
-    model_config = SettingsConfigDict(env_ignore_empty=True, env_prefix="WD_")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_ignore_empty=True,
+        env_prefix="WD_",
+        env_nested_delimiter="__",
+    )
 
     cache_disable: bool = Field(default=False)
     cache_dir: Path = Field(default_factory=lambda: Path(platformdirs.user_cache_dir(appname="wetterdienst")))
