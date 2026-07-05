@@ -91,6 +91,10 @@ Types of changes:
   now scoped to the navigation element to avoid matching the home page card.
 - `[Mobile]` Fix settings inaccessible on mobile — replace non-functional `UPopover` inside
   the fullscreen overlay with a direct link to `/settings`.
+- `[Explorer]` Fix mode/station/data-source cards collapsing when switching dataset or
+  provider/network — show them as soon as a dataset is selected instead of requiring
+  parameters to be chosen first. Also prevent stale coverage data from blocking the
+  resolution and dataset dropdowns during a network-coverage reload.
 
 ## [0.6.0] - 2026-06-18
 

@@ -38,7 +38,7 @@ const networks = computed<string[]>(() => {
 })
 
 // provider-network coverage
-const { data: providerNetworkCoverage, refresh: refreshProviderNetworkCoverage } = await useFetch<ProviderNetworkCoverageResponse>(
+const { data: providerNetworkCoverage, pending: networkCoveragePending, refresh: refreshProviderNetworkCoverage } = await useFetch<ProviderNetworkCoverageResponse>(
   '/api/coverage',
   {
     query: computed(() => ({
@@ -256,10 +256,10 @@ watch([provider, network, resolution, dataset, parameters], () => {
         <USelect v-model="network" :items="networks" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider" class="w-full" :class="{ 'needs-input': activeField === 'network' }" />
       </UFormField>
       <UFormField :label="t('parameterSelection.resolutionLabel')">
-        <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network" class="w-full" :class="{ 'needs-input': activeField === 'resolution' }" />
+        <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network || networkCoveragePending" class="w-full" :class="{ 'needs-input': activeField === 'resolution' }" />
       </UFormField>
       <UFormField :label="t('parameterSelection.datasetLabel')">
-        <USelect v-model="dataset" :items="datasetItems" :placeholder="t('parameterSelection.selectDataset')" :disabled="!resolution" class="w-full" :class="{ 'needs-input': activeField === 'dataset' }" />
+        <USelect v-model="dataset" :items="datasetItems" :placeholder="t('parameterSelection.selectDataset')" :disabled="!resolution || networkCoveragePending" class="w-full" :class="{ 'needs-input': activeField === 'dataset' }" />
       </UFormField>
       <UFormField v-if="props.showParameters !== false" :label="t('parameterSelection.parametersLabel')">
         <div class="flex gap-2 items-center min-w-0">

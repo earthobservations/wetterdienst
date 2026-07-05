@@ -214,9 +214,9 @@ const modeOptions = computed(() => [
   { value: 'summary' as const, label: t('explorer.modeSummary'), icon: 'i-lucide-bar-chart-3' },
 ])
 
-// once parameters are selected, we have all information to continue with station/interpolation selection
+// show mode/station/datasource cards once a dataset is chosen; parameters are needed only for the actual fetch
 const showModeSelection = computed(() => {
-  return parameterSelectionState.value.selection.parameters.length > 0
+  return !!parameterSelectionState.value.selection.dataset
 })
 
 // High resolution thresholds that require date filtering
