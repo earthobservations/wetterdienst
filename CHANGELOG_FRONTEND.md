@@ -95,6 +95,12 @@ Types of changes:
   provider/network — show them as soon as a dataset is selected instead of requiring
   parameters to be chosen first. Also prevent stale coverage data from blocking the
   resolution and dataset dropdowns during a network-coverage reload.
+- `[Explorer]` Add friendly EN/DE labels for all missing dataset names across every
+  provider: `weather_phenomena_more`, `water_equivalent`, MOSMIX-S/L, ICON, ICON-EU,
+  urban-climate datasets, DWD derived products, IMGW datasets, and the generic
+  `data` dataset used by NOAA, Geosphere, ECCC, and others.
+- `[Footer]` Move FE/BE version display from the header to the footer; show as a
+  two-row layout with coloured "Frontend" / "Backend" labels and muted version numbers.
 
 ## [0.6.0] - 2026-06-18
 

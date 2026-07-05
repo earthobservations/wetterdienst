@@ -81,18 +81,6 @@ const items = computed<NavigationMenuItem[]>(() =>
       <template #left>
         <div class="flex items-center gap-3">
           <img src="/favicon.ico" alt="Wetterdienst" class="w-7 h-7">
-          <div class="ml-2 inline-flex items-center gap-2">
-            <span
-              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-            >
-              FE {{ frontendVersion === 'unknown' ? frontendVersion : `v${frontendVersion}` }}
-            </span>
-            <span
-              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-            >
-              BE {{ version === 'unknown' ? version : `v${version}` }}
-            </span>
-          </div>
         </div>
       </template>
 
@@ -235,22 +223,29 @@ const items = computed<NavigationMenuItem[]>(() =>
       <NuxtPage />
     </UMain>
     <UFooter v-if="!isWidget">
-      <div class="w-full flex flex-wrap items-center gap-x-4 gap-y-2">
-        <span>{{ t('footer.copyright', { year: new Date().getFullYear() }) }}</span>
-        <span class="text-gray-400">|</span>
-        <span class="flex items-center gap-1.5 font-medium">
-          <span aria-hidden="true">🏳️‍🌈</span>
-          <span>{{ t('footer.lgbtq') }}</span>
-        </span>
-        <span class="text-gray-400">|</span>
-        <span class="flex items-center gap-1.5 font-medium">
-          <span aria-hidden="true">✊</span>
-          <span>{{ t('footer.antifascist') }}</span>
-        </span>
-        <span class="text-gray-400">|</span>
-        <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">
-          {{ t('footer.legal') }}
-        </NuxtLink>
+      <div class="w-full flex flex-col items-center gap-2 text-center">
+        <div class="text-xs text-gray-400 dark:text-gray-600">
+          <span class="text-green-600 dark:text-green-400 font-medium">Frontend</span> {{ frontendVersion === 'unknown' ? frontendVersion : `v${frontendVersion}` }}
+          <span class="mx-1">|</span>
+          <span class="text-blue-600 dark:text-blue-400 font-medium">Backend</span> {{ version === 'unknown' ? version : `v${version}` }}
+        </div>
+        <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-1">
+          <span>{{ t('footer.copyright', { year: new Date().getFullYear() }) }}</span>
+          <span class="text-gray-400">|</span>
+          <span class="flex items-center gap-1.5 font-medium">
+            <span aria-hidden="true">🏳️‍🌈</span>
+            <span>{{ t('footer.lgbtq') }}</span>
+          </span>
+          <span class="text-gray-400">|</span>
+          <span class="flex items-center gap-1.5 font-medium">
+            <span aria-hidden="true">✊</span>
+            <span>{{ t('footer.antifascist') }}</span>
+          </span>
+          <span class="text-gray-400">|</span>
+          <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">
+            {{ t('footer.legal') }}
+          </NuxtLink>
+        </div>
       </div>
     </UFooter>
   </UApp>
