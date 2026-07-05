@@ -89,6 +89,15 @@ render_plugin = "myst"
 no_index = true
 ```
 
+## MET Norway
+
+### Frost
+
+```{autodoc2-object} wetterdienst.provider.metno.frost.api.MetnoFrostRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ## NOAA
 
 ### GHCN

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import platformdirs
-from pydantic import Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wetterdienst.metadata.parameter import Parameter
@@ -21,6 +21,25 @@ from wetterdienst.model.unit import UnitConverter
 log = logging.getLogger(__name__)
 
 _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
+
+
+class Auth(BaseModel):
+    """Authentication credentials for providers requiring API keys."""
+
+    metno_frost: tuple[str, str] | None = Field(default=None)
+
+    @field_validator("metno_frost", mode="before")
+    @classmethod
+    def validate_metno_frost(cls, value: tuple[str, str] | str | None) -> tuple[str, str] | None:  # noqa: D102
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value, ""
+        as_tuple = tuple(value)
+        if len(as_tuple) != 2:
+            msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
+            raise ValueError(msg)
+        return str(as_tuple[0]), str(as_tuple[1])
 
 
 def _default_geo_station_distance() -> defaultdict[str, float]:
@@ -84,6 +103,7 @@ class Settings(BaseSettings):
             "timeout": 30,
         },
     )
+    auth: Auth = Field(default_factory=Auth)
     use_certifi: bool = Field(default=False)
     ts_humanize: bool = True
     ts_shape: Literal["wide", "long"] = "long"

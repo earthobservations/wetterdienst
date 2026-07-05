@@ -53,6 +53,11 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Hydrology
         - hydrological data of polish river stations
         - daily and monthly summaries
+- MET Norway (Meteorologisk institutt / Norwegian Meteorological Institute / Norway)
+    - Frost
+        - Historical and recent observations from Norwegian station network
+        - 10-minute, hourly, 6-hourly (historical only), daily, monthly and annual resolution
+        - ~2200 stations; requires free API key from frost.met.no
 - NOAA (National Oceanic And Atmospheric Administration / National Oceanic And Atmospheric Administration / United States Of America)
     - Global Historical Climatology Network
         - Historical, hourly (ISD) and daily weather observations from around the globe
