@@ -222,6 +222,55 @@ def version() -> JSONResponse:
     return JSONResponse(content={"version": __version__})
 
 
+@app.get("/api/auth")
+def auth(
+    provider: str,
+    network: str,
+    *,
+    debug: bool = False,
+) -> JSONResponse:
+    """Check whether the credentials for an auth-required provider are present and valid.
+
+    Returns `{"provider": ..., "network": ..., "auth": bool, "configured": bool, "valid": bool}`.
+    For providers that do not require authentication, `auth` is false and `configured`/`valid` are true.
+    `configured` reflects whether credentials are present; `valid` whether a probe request succeeded.
+    `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
+    """
+    set_logging_level(debug=debug)
+
+    try:
+        api = Wetterdienst(str(provider), str(network))
+    except (ApiNotFoundError, ImportError) as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
+        ) from e
+
+    metadata = getattr(api, "metadata", None)
+    requires_auth = metadata.auth if metadata is not None else False
+    is_configured = getattr(api, "is_configured", lambda: True)
+    is_valid = getattr(api, "is_valid", lambda: True)
+    configured = is_configured() if requires_auth else True
+    if not requires_auth:
+        valid = True
+    elif not configured:
+        valid = False
+    else:
+        try:
+            valid = is_valid()
+        except Exception:  # noqa: BLE001
+            valid = False
+    return JSONResponse(
+        content={
+            "provider": provider,
+            "network": network,
+            "auth": requires_auth,
+            "configured": configured,
+            "valid": valid,
+        }
+    )
+
+
 @app.get("/api/coverage")
 def coverage(
     provider: str | None = None,

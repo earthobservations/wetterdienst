@@ -205,6 +205,7 @@ class MetadataModel(BaseModel):
     kind: Literal["observation", "forecast", "derived"]
     timezone: TimeZoneName
     timezone_data: TimeZoneName | Literal["dynamic"]
+    auth: bool = False
     resolutions: list[ResolutionModel]
 
     def __getitem__(self, item: str | int) -> ResolutionModel:

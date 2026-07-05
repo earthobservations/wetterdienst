@@ -17,7 +17,15 @@ test.describe('API Coverage Endpoint', () => {
     const data = await response.json()
 
     expect(data).toHaveProperty('dwd')
-    expect(Array.isArray(data.dwd)).toBeTruthy()
+    expect(typeof data.dwd).toBe('object')
+    expect(Array.isArray(data.dwd)).toBeFalsy()
+    const networks = Object.keys(data.dwd)
+    expect(networks).toContain('observation')
+    for (const info of Object.values(data.dwd) as { auth: boolean, configured: boolean, valid: boolean }[]) {
+      expect(typeof info.auth).toBe('boolean')
+      expect(typeof info.configured).toBe('boolean')
+      expect(typeof info.valid).toBe('boolean')
+    }
   })
 
   test('should fetch provider-network coverage', async ({ request }) => {

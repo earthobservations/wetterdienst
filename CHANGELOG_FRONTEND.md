@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Explorer]` Provider/network combinations that require authentication are now hidden
+  from the parameter selector unless credentials are both present (`configured`) and
+  verified (`valid`) by the backend. This prevents selecting a provider that cannot be
+  used without a working API key.
+
 ## [0.7.0] - 2026-07-02
 
 ### Added
