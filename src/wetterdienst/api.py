@@ -98,8 +98,32 @@ class Wetterdienst:
 
     @classmethod
     def discover(cls) -> dict:
-        """Discover all available providers and networks."""
-        return {provider: list(networks.keys()) for provider, networks in cls.registry.items()}
+        """Discover all available providers and networks with their metadata."""
+        result = {}
+        for provider, networks in cls.registry.items():
+            result[provider] = {}
+            for network in networks:
+                try:
+                    api = cls(provider, network)
+                except ImportError:
+                    result[provider][network] = {"auth": False, "configured": True, "valid": True}
+                    continue
+                metadata = getattr(api, "metadata", None)
+                auth = metadata.auth if metadata is not None else False
+                is_configured = getattr(api, "is_configured", lambda: True)
+                is_valid = getattr(api, "is_valid", lambda: True)
+                configured = is_configured() if auth else True
+                if not auth:
+                    valid = True
+                elif not configured:
+                    valid = False
+                else:
+                    try:
+                        valid = is_valid()
+                    except Exception:  # noqa: BLE001
+                        valid = False
+                result[provider][network] = {"auth": auth, "configured": configured, "valid": valid}
+        return result
 
     @classmethod
     def get_provider_names(cls) -> list[str]:

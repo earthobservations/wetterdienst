@@ -67,8 +67,24 @@ def test_coverage(client: TestClient) -> None:
         "nws",
         "wsv",
     }
-    networks = data["dwd"]
-    assert networks == ["observation", "mosmix", "dmo", "road", "radar", "derived"]
+    dwd = data["dwd"]
+    assert list(dwd.keys()) == ["observation", "mosmix", "dmo", "road", "radar", "derived"]
+    for network_info in dwd.values():
+        assert network_info == {"auth": False, "configured": True, "valid": True}
+
+
+def test_auth_no_auth_required(client: TestClient) -> None:
+    """Providers without authentication always report configured=true and valid=true."""
+    response = client.get("/api/auth", params={"provider": "dwd", "network": "observation"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data == {"provider": "dwd", "network": "observation", "auth": False, "configured": True, "valid": True}
+
+
+def test_auth_unknown_provider(client: TestClient) -> None:
+    """Unknown provider/network returns 404."""
+    response = client.get("/api/auth", params={"provider": "nonexistent", "network": "fake"})
+    assert response.status_code == 404
 
 
 @pytest.mark.remote

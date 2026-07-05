@@ -336,6 +336,23 @@ class TimeseriesRequest:
         return start_date, end_date
 
     @classmethod
+    def is_configured(cls) -> bool:
+        """Return True if this provider's required credentials are present (env var / settings).
+
+        This is a cheap, offline check. Override in subclasses that require authentication.
+        """
+        return True
+
+    @classmethod
+    def is_valid(cls) -> bool:
+        """Return True if the provider's credentials are valid (authenticated successfully).
+
+        This may perform a lightweight network probe and should cache the result.
+        Only called when is_configured() is True. Override in auth-requiring subclasses.
+        """
+        return True
+
+    @classmethod
     def discover(  # noqa: C901
         cls,
         resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] | None = None,

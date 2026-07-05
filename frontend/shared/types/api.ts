@@ -25,8 +25,24 @@ export interface CoverageParameter {
   unit_original?: string
 }
 
-/** Provider to networks mapping */
-export type CoverageResponse = Record<string, string[]>
+/** Per-network metadata in the coverage response */
+export interface CoverageNetworkInfo {
+  auth: boolean
+  configured: boolean
+  valid: boolean
+}
+
+/** Provider to networks mapping with per-network metadata */
+export type CoverageResponse = Record<string, Record<string, CoverageNetworkInfo>>
+
+/** Response from GET /api/auth */
+export interface AuthResponse {
+  provider: string
+  network: string
+  auth: boolean
+  configured: boolean
+  valid: boolean
+}
 
 /** Detailed coverage for a provider-network pair */
 export type ProviderNetworkCoverageResponse = Record<

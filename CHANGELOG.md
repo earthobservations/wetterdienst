@@ -20,6 +20,19 @@ Types of changes:
 
 - `[Settings]` Load `.env` files automatically via `env_file=".env"` and support nested
   env vars via `env_nested_delimiter="__"` (e.g. `WD_TS_UNIT_TARGETS__temperature=degree_fahrenheit`).
+- `[Metadata]` Add `auth: bool = False` field to `MetadataModel` so providers requiring
+  an API key can declare it. Defaults to `False` for all existing providers.
+- `[API]` Add `is_configured() -> bool` and `is_valid() -> bool` classmethods to
+  `TimeseriesRequest`. `is_configured` checks whether credentials are present (cheap,
+  offline); `is_valid` probes the API to confirm they actually work (should be cached
+  by the implementation). Both default to `True` for providers that need no auth.
+- `[REST API]` `GET /api/coverage` (no parameters) now returns
+  `{provider: {network: {auth: bool, configured: bool, valid: bool}}}` instead of
+  `{provider: [network]}`, exposing per-network auth status to API consumers.
+- `[REST API]` Add `GET /api/auth?provider=&network=` endpoint that returns
+  `{provider, network, auth, configured, valid}` for a specific provider/network,
+  allowing clients to re-check credential validity without fetching all coverage.
+  `valid` is always `false` when `configured` is `false` (probe cannot run without credentials).
 
 ## [0.124.0] - 2026-06-30
 

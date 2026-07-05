@@ -29,12 +29,25 @@ const isInitializing = ref(true)
 // fetch coverage data
 const { data: coverage } = await useFetch<CoverageResponse>('/api/coverage')
 
+// A provider/network is available when it needs no auth, or when auth credentials are present and valid.
+const isAvailable = (n: { auth: boolean, configured: boolean, valid: boolean }) => !n.auth || (n.configured && n.valid)
+
 // EXPECTING
-const providers = computed(() => coverage.value ? Object.keys(coverage.value).sort() : [])
-const networks = computed<string[]>(() => {
-  if (!provider.value || !coverage.value)
+const providers = computed(() => {
+  const cov = coverage.value
+  if (!cov)
     return []
-  return coverage.value[provider.value] ?? []
+  return Object.keys(cov)
+    .filter(p => Object.values(cov[p] ?? {}).some(isAvailable))
+    .sort()
+})
+const networks = computed<string[]>(() => {
+  const cov = coverage.value
+  if (!provider.value || !cov)
+    return []
+  return Object.entries(cov[provider.value] ?? {})
+    .filter(([, n]) => isAvailable(n))
+    .map(([name]) => name)
 })
 
 // provider-network coverage
