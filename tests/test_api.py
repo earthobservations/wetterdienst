@@ -22,6 +22,7 @@ from wetterdienst.provider.eccc.observation import EcccObservationMetadata, Eccc
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata, GeosphereObservationRequest
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyMetadata, ImgwHydrologyRequest
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyMetadata, ImgwMeteorologyRequest
+from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata, MetnoFrostRequest
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 from wetterdienst.provider.nws.observation import NwsObservationMetadata, NwsObservationRequest
 from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
@@ -100,6 +101,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        MetnoFrostMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
         WsvPegelMetadata,
@@ -126,6 +128,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        MetnoFrostMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
         WsvPegelMetadata,
@@ -470,6 +473,33 @@ def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     first_date = values.get_column("date").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+@pytest.mark.remote
+@pytest.mark.skipif(
+    not MetnoFrostRequest.is_configured(),
+    reason="MET Norway Frost credentials not set — provide WD_AUTH__METNO_FROST=<client_id>",
+)
+def test_api_metno_frost(default_settings: Settings) -> None:
+    """Test metno frost API."""
+    request = MetnoFrostRequest(
+        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        start_date="2020-01-01",
+        end_date="2020-01-02",
+        settings=default_settings,
+    ).filter_by_station_id("SN18700")
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date"})
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_start_date:
+        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     assert not values.drop_nulls(subset="value").is_empty()
 
 

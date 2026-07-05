@@ -40,6 +40,7 @@ jobs:
     env:
       OS: ${{ matrix.os }}
       PYTHON: ${{ matrix.python-version }}
+      WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
 
     defaults:
       run:

@@ -17,6 +17,7 @@ concurrency:
 env:
   OS: "ubuntu-latest"
   PYTHON: "3.14"
+  WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
 
 permissions: {}
 

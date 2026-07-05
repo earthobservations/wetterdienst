@@ -344,11 +344,13 @@ class TimeseriesRequest:
         return True
 
     @classmethod
-    def is_valid(cls) -> bool:
+    def is_valid(cls, settings: Settings | None = None) -> bool:  # noqa: ARG003
         """Return True if the provider's credentials are valid (authenticated successfully).
 
         This may perform a lightweight network probe and should cache the result.
         Only called when is_configured() is True. Override in auth-requiring subclasses.
+        The optional `settings` argument lets callers pass a custom Settings instance;
+        implementations that ignore it fall back to Settings() internally.
         """
         return True
 

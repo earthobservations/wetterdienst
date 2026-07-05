@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import ssl
 import threading
@@ -271,6 +273,17 @@ class NetworkFilesystemManager:
         return cls._thread_local.filesystems
 
     @staticmethod
+    def _client_kwargs_suffix(client_kwargs: dict | None) -> str:
+        """Return a short stable hash suffix that distinguishes different client_kwargs (e.g. auth headers)."""
+        if not client_kwargs:
+            return ""
+        try:
+            serialized = json.dumps({k: str(v) for k, v in sorted(client_kwargs.items())}, sort_keys=True)
+            return "-" + hashlib.sha256(serialized.encode()).hexdigest()[:8]
+        except Exception:  # noqa: BLE001
+            return ""
+
+    @staticmethod
     def resolve_ttl(cache_expiry: CacheExpiry) -> tuple[str, float | int | Literal[False]]:
         """Resolve the cache expiration time.
 
@@ -307,7 +320,7 @@ class NetworkFilesystemManager:
 
         """
         ttl_name, ttl_value = cls.resolve_ttl(cache_expiry)
-        key = f"ttl-{ttl_name}"
+        key = f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
         fs = HTTPFileSystem(
             use_listings_cache=False,
             client_kwargs=client_kwargs,
@@ -351,7 +364,7 @@ class NetworkFilesystemManager:
 
         """
         ttl_name, _ = cls.resolve_ttl(cache_expiry)
-        key = f"ttl-{ttl_name}"
+        key = f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
         if key not in cls._get_filesystems():
             cls.register(
                 cache_dir=cache_dir,

@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- `[MET Norway Frost]` Add new provider `metno/frost` for the Norwegian Meteorological
+  Institute's Frost API. Supports 10-minute, hourly, 6-hour, daily, monthly and annual
+  resolutions with ~2200 stations across Norway. Authentication via free API key
+  (`WD_AUTH__METNO_FROST` env var). Historical synoptic 6-hourly data is retrieved
+  via an `availableTimeSeries` fallback that resolves the time-series-specific query
+  parameters required by the Frost API.
 - `[Settings]` Load `.env` files automatically via `env_file=".env"` and support nested
   env vars via `env_nested_delimiter="__"` (e.g. `WD_TS_UNIT_TARGETS__temperature=degree_fahrenheit`).
 - `[Metadata]` Add `auth: bool = False` field to `MetadataModel` so providers requiring

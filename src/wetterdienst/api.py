@@ -49,6 +49,9 @@ class Wetterdienst:
         "geosphere": {
             "observation": "wetterdienst.provider.geosphere.observation.GeosphereObservationRequest",
         },
+        "metno": {
+            "frost": "wetterdienst.provider.metno.frost.MetnoFrostRequest",
+        },
     }
 
     @classmethod
