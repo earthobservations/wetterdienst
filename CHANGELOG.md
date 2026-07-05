@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Settings]` Load `.env` files automatically via `env_file=".env"` and support nested
+  env vars via `env_nested_delimiter="__"` (e.g. `WD_TS_UNIT_TARGETS__temperature=degree_fahrenheit`).
+
 ## [0.124.0] - 2026-06-30
 
 ### Added

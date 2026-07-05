@@ -5,6 +5,7 @@
 import logging
 import os
 import re
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -106,6 +107,30 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     assert settings.ts_geo_station_distance["snow_depth_new"] == 20.0
     # default dict returns 40.0 for any other key
     assert settings.ts_geo_station_distance["foo"] == 40.0
+
+
+def test_settings_env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that Settings loads values from a .env file in the working directory."""
+    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=true\n")
+    monkeypatch.chdir(tmp_path)
+    settings = Settings()
+    assert settings.cache_disable
+
+
+def test_settings_env_file_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that Settings loads without error when no .env file exists."""
+    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
+    monkeypatch.chdir(tmp_path)
+    settings = Settings()
+    assert not settings.cache_disable
+
+
+def test_settings_env_nested_delimiter(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that WD_ env vars with __ delimiter set individual keys in dict fields."""
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS__temperature", "degree_fahrenheit")
+    settings = Settings()
+    assert settings.ts_unit_targets["temperature"] == "degree_fahrenheit"
 
 
 def test_use_certifi_setting() -> None:
