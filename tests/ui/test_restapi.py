@@ -1032,6 +1032,45 @@ def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
     assert stations_request.issue is DwdForecastDate.LATEST
 
 
+def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_request() -> None:
+    """_get_stations_request must NOT raise StartDateEndDateError for StationsRequest.
+
+    MetNo Frost marks its hourly, 10-minute, and 6-hour datasets as date_required=True.
+    Previously the date-range check applied to StationsRequest too, so listing stations
+    without a date range raised StartDateEndDateError and the Explorer showed no stations.
+    """
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.ui.core import StationsRequest, _get_stations_request  # noqa: PLC0415
+
+    api = Wetterdienst("metno", "frost")
+    settings = Settings(auth={"metno_frost": "fake-client-id"})
+    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"])
+
+    # Must not raise StartDateEndDateError despite hourly/data having date_required=True
+    stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
+    assert stations_request is not None
+
+
+def test_get_stations_request_no_periods_kwarg_for_providers_without_periods_field() -> None:
+    """_get_stations_request must not pass `periods` kwarg to providers that lack the field.
+
+    MetNoFrostRequest has multi-period datasets (historical + recent) but no `periods`
+    constructor argument. Previously this caused TypeError when building the request.
+    """
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.provider.metno.frost.api import MetnoFrostRequest  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.ui.core import StationsRequest, _get_stations_request  # noqa: PLC0415
+
+    api = Wetterdienst("metno", "frost")
+    settings = Settings(auth={"metno_frost": "fake-client-id"})
+    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"])
+
+    stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
+    assert isinstance(stations_request, MetnoFrostRequest)
+
+
 @pytest.mark.remote
 def test_values_dwd_mosmix(client: TestClient) -> None:
     """Test MOSMIX."""
