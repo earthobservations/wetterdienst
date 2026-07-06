@@ -33,7 +33,7 @@ jobs:
           python-version: ${{ env.PYTHON }}
 
       - name: Install project
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Run type checks
         run: uv run poe typecheck

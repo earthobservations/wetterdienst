@@ -250,12 +250,12 @@ coverage = [
     "coverage:parallel",
     "coverage:cflakes",
 ]
-typecheck = "uv run ty check src/wetterdienst"
+typecheck = "uv run ty check src/wetterdienst --exit-zero-on-warning"
 sync = "uv sync"
 lock = "uv lock"
 
 [tool.ty.rules]
-unresolved-import = "ignore"
+unresolved-import = "warn"
 
 [tool.ty.analysis]
 allowed-unresolved-imports = ["lxml.*", "tabula.*"]
