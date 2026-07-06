@@ -576,7 +576,7 @@ def _get_stations_request(
     parameters = parse_parameters(request.parameters, api.metadata)
 
     any_date_required = any(parameter.dataset.date_required for parameter in parameters)
-    if any_date_required and (not start_date or not end_date):
+    if any_date_required and (not start_date or not end_date) and not isinstance(request, StationsRequest):
         msg = "Start and end date required for single period datasets"
         raise StartDateEndDateError(msg)
 
@@ -587,7 +587,7 @@ def _get_stations_request(
         "start_date": start_date,
         "end_date": end_date,
     }
-    if any_multiple_period_dataset:
+    if any_multiple_period_dataset and "periods" in getattr(api, "__dataclass_fields__", {}):
         kwargs["periods"] = getattr(request, "periods", None)
 
     if issubclass(api, (DwdMosmixRequest, DwdDmoRequest)) and (issue := getattr(request, "issue", None)) is not None:
