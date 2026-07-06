@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.125.0] - 2026-07-06
+
 ### Added
 
 - `[MET Norway Frost]` Add new provider `metno/frost` for the Norwegian Meteorological
@@ -1891,332 +1893,169 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.124.0...HEAD
-
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.125.0...HEAD
+[0.125.0]: https://github.com/earthobservations/wetterdienst/compare/v0.124.0...v0.125.0
 [0.124.0]: https://github.com/earthobservations/wetterdienst/compare/v0.123.0...v0.124.0
-
 [0.123.0]: https://github.com/earthobservations/wetterdienst/compare/v0.122.0...v0.123.0
-
 [0.122.0]: https://github.com/earthobservations/wetterdienst/compare/v0.121.1...v0.122.0
-
 [0.121.1]: https://github.com/earthobservations/wetterdienst/compare/v0.121.0...v0.121.1
-
 [0.121.0]: https://github.com/earthobservations/wetterdienst/compare/v0.120.0...v0.121.0
-
 [0.120.0]: https://github.com/earthobservations/wetterdienst/compare/v0.119.0...v0.120.0
-
 [0.119.0]: https://github.com/earthobservations/wetterdienst/compare/v0.118.0...v0.119.0
-
 [0.118.0]: https://github.com/earthobservations/wetterdienst/compare/v0.117.0...v0.118.0
-
 [0.117.0]: https://github.com/earthobservations/wetterdienst/compare/v0.116.0...v0.117.0
-
 [0.116.0]: https://github.com/earthobservations/wetterdienst/compare/v0.115.0...v0.116.0
-
 [0.115.0]: https://github.com/earthobservations/wetterdienst/compare/v0.114.3...v0.115.0
-
 [0.114.3]: https://github.com/earthobservations/wetterdienst/compare/v0.114.2...v0.114.3
-
 [0.114.2]: https://github.com/earthobservations/wetterdienst/compare/v0.114.1...v0.114.2
-
 [0.114.1]: https://github.com/earthobservations/wetterdienst/compare/v0.114.0...v0.114.1
-
 [0.114.0]: https://github.com/earthobservations/wetterdienst/compare/v0.113.0...v0.114.0
-
 [0.113.0]: https://github.com/earthobservations/wetterdienst/compare/v0.112.0...v0.113.0
-
 [0.112.0]: https://github.com/earthobservations/wetterdienst/compare/v0.111.0...v0.112.0
-
 [0.111.0]: https://github.com/earthobservations/wetterdienst/compare/v0.110.0...v0.111.0
-
 [0.110.0]: https://github.com/earthobservations/wetterdienst/compare/v0.109.0...v0.110.0
-
 [0.109.0]: https://github.com/earthobservations/wetterdienst/compare/v0.108.0...v0.109.0
-
 [0.108.0]: https://github.com/earthobservations/wetterdienst/compare/v0.107.0...v0.108.0
-
 [0.107.0]: https://github.com/earthobservations/wetterdienst/compare/v0.106.0...v0.107.0
-
 [0.106.0]: https://github.com/earthobservations/wetterdienst/compare/v0.105.0...v0.106.0
-
 [0.105.0]: https://github.com/earthobservations/wetterdienst/compare/v0.104.0...v0.105.0
-
 [0.104.0]: https://github.com/earthobservations/wetterdienst/compare/v0.103.0...v0.104.0
-
 [0.103.0]: https://github.com/earthobservations/wetterdienst/compare/v0.102.0...v0.103.0
-
 [0.102.0]: https://github.com/earthobservations/wetterdienst/compare/v0.101.0...v0.102.0
-
 [0.101.0]: https://github.com/earthobservations/wetterdienst/compare/v0.100.0...v0.101.0
-
 [0.100.0]: https://github.com/earthobservations/wetterdienst/compare/v0.99.0...v0.100.0
-
 [0.99.0]: https://github.com/earthobservations/wetterdienst/compare/v0.98.0...v0.99.0
-
 [0.98.0]: https://github.com/earthobservations/wetterdienst/compare/v0.97.0...v0.98.0
-
 [0.97.0]: https://github.com/earthobservations/wetterdienst/compare/v0.96.0...v0.97.0
-
 [0.96.0]: https://github.com/earthobservations/wetterdienst/compare/v0.95.1...v0.96.0
-
 [0.95.1]: https://github.com/earthobservations/wetterdienst/compare/v0.95.0...v0.95.1
-
 [0.95.0]: https://github.com/earthobservations/wetterdienst/compare/v0.94.0...v0.95.0
-
 [0.94.0]: https://github.com/earthobservations/wetterdienst/compare/v0.93.0...v0.94.0
-
 [0.93.0]: https://github.com/earthobservations/wetterdienst/compare/v0.92.0...v0.93.0
-
 [0.92.0]: https://github.com/earthobservations/wetterdienst/compare/v0.91.0...v0.92.0
-
 [0.91.0]: https://github.com/earthobservations/wetterdienst/compare/v0.90.0...v0.91.0
-
 [0.90.0]: https://github.com/earthobservations/wetterdienst/compare/v0.89.0...v0.90.0
-
 [0.89.0]: https://github.com/earthobservations/wetterdienst/compare/v0.88.0...v0.89.0
-
 [0.88.0]: https://github.com/earthobservations/wetterdienst/compare/v0.87.0...v0.88.0
-
 [0.87.0]: https://github.com/earthobservations/wetterdienst/compare/v0.86.0...v0.87.0
-
 [0.86.0]: https://github.com/earthobservations/wetterdienst/compare/v0.85.0...v0.86.0
-
 [0.85.0]: https://github.com/earthobservations/wetterdienst/compare/v0.84.0...v0.85.0
-
 [0.84.0]: https://github.com/earthobservations/wetterdienst/compare/v0.83.0...v0.84.0
-
 [0.83.0]: https://github.com/earthobservations/wetterdienst/compare/v0.82.0...v0.83.0
-
 [0.82.0]: https://github.com/earthobservations/wetterdienst/compare/v0.81.0...v0.82.0
-
 [0.81.0]: https://github.com/earthobservations/wetterdienst/compare/v0.80.0...v0.81.0
-
 [0.80.0]: https://github.com/earthobservations/wetterdienst/compare/v0.79.0...v0.80.0
-
 [0.79.0]: https://github.com/earthobservations/wetterdienst/compare/v0.78.0...v0.79.0
-
 [0.78.0]: https://github.com/earthobservations/wetterdienst/compare/v0.77.1...v0.78.0
-
 [0.77.1]: https://github.com/earthobservations/wetterdienst/compare/v0.77.0...v0.77.1
-
 [0.77.0]: https://github.com/earthobservations/wetterdienst/compare/v0.76.1...v0.77.0
-
 [0.76.1]: https://github.com/earthobservations/wetterdienst/compare/v0.76.0...v0.76.1
-
 [0.76.0]: https://github.com/earthobservations/wetterdienst/compare/v0.75.0...v0.76.0
-
 [0.75.0]: https://github.com/earthobservations/wetterdienst/compare/v0.74.0...v0.75.0
-
 [0.74.0]: https://github.com/earthobservations/wetterdienst/compare/v0.73.0...v0.74.0
-
 [0.73.0]: https://github.com/earthobservations/wetterdienst/compare/v0.72.0...v0.73.0
-
 [0.72.0]: https://github.com/earthobservations/wetterdienst/compare/v0.71.0...v0.72.0
-
 [0.71.0]: https://github.com/earthobservations/wetterdienst/compare/v0.70.0...v0.71.0
-
 [0.70.0]: https://github.com/earthobservations/wetterdienst/compare/v0.69.0...v0.70.0
-
 [0.69.0]: https://github.com/earthobservations/wetterdienst/compare/v0.68.0...v0.69.0
-
 [0.68.0]: https://github.com/earthobservations/wetterdienst/compare/v0.67.0...v0.68.0
-
 [0.67.0]: https://github.com/earthobservations/wetterdienst/compare/v0.66.1...v0.67.0
-
 [0.66.1]: https://github.com/earthobservations/wetterdienst/compare/v0.66.0...v0.66.1
-
 [0.66.0]: https://github.com/earthobservations/wetterdienst/compare/v0.65.0...v0.66.0
-
 [0.65.0]: https://github.com/earthobservations/wetterdienst/compare/v0.64.0...v0.65.0
-
 [0.64.0]: https://github.com/earthobservations/wetterdienst/compare/v0.63.0...v0.64.0
-
 [0.63.0]: https://github.com/earthobservations/wetterdienst/compare/v0.62.0...v0.63.0
-
 [0.62.0]: https://github.com/earthobservations/wetterdienst/compare/v0.61.0...v0.62.0
-
 [0.61.0]: https://github.com/earthobservations/wetterdienst/compare/v0.60.0...v0.61.0
-
 [0.60.0]: https://github.com/earthobservations/wetterdienst/compare/v0.59.3...v0.60.0
-
 [0.59.3]: https://github.com/earthobservations/wetterdienst/compare/v0.59.2...v0.59.3
-
 [0.59.2]: https://github.com/earthobservations/wetterdienst/compare/v0.59.1...v0.59.2
-
 [0.59.1]: https://github.com/earthobservations/wetterdienst/compare/v0.59.0...v0.59.1
-
 [0.59.0]: https://github.com/earthobservations/wetterdienst/compare/v0.58.1...v0.59.0
-
 [0.58.1]: https://github.com/earthobservations/wetterdienst/compare/v0.58.0...v0.58.1
-
 [0.58.0]: https://github.com/earthobservations/wetterdienst/compare/v0.57.1...v0.58.0
-
 [0.57.1]: https://github.com/earthobservations/wetterdienst/compare/v0.57.0...v0.57.1
-
 [0.57.0]: https://github.com/earthobservations/wetterdienst/compare/v0.56.2...v0.57.0
-
 [0.56.2]: https://github.com/earthobservations/wetterdienst/compare/v0.56.1...v0.56.2
-
 [0.56.1]: https://github.com/earthobservations/wetterdienst/compare/v0.56.0...v0.56.1
-
 [0.56.0]: https://github.com/earthobservations/wetterdienst/compare/v0.55.2...v0.56.0
-
 [0.55.2]: https://github.com/earthobservations/wetterdienst/compare/v0.55.1...v0.55.2
-
 [0.55.1]: https://github.com/earthobservations/wetterdienst/compare/v0.55.0...v0.55.1
-
 [0.55.0]: https://github.com/earthobservations/wetterdienst/compare/v0.54.1...v0.55.0
-
 [0.54.1]: https://github.com/earthobservations/wetterdienst/compare/v0.54.0...v0.54.1
-
 [0.54.0]: https://github.com/earthobservations/wetterdienst/compare/v0.53.0...v0.54.0
-
 [0.53.0]: https://github.com/earthobservations/wetterdienst/compare/v0.52.0...v0.53.0
-
 [0.52.0]: https://github.com/earthobservations/wetterdienst/compare/v0.51.0...v0.52.0
-
 [0.51.0]: https://github.com/earthobservations/wetterdienst/compare/v0.50.0...v0.51.0
-
 [0.50.0]: https://github.com/earthobservations/wetterdienst/compare/v0.49.0...v0.50.0
-
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/v0.48.0...v0.49.0
-
 [0.48.0]: https://github.com/earthobservations/wetterdienst/compare/v0.47.1...v0.48.0
-
 [0.47.1]: https://github.com/earthobservations/wetterdienst/compare/v0.47.0...v0.47.1
-
 [0.47.0]: https://github.com/earthobservations/wetterdienst/compare/v0.46.0...v0.47.0
-
 [0.46.0]: https://github.com/earthobservations/wetterdienst/compare/v0.45.2...v0.46.0
-
 [0.45.2]: https://github.com/earthobservations/wetterdienst/compare/v0.45.1...v0.45.2
-
 [0.45.1]: https://github.com/earthobservations/wetterdienst/compare/v0.45.0...v0.45.1
-
 [0.45.0]: https://github.com/earthobservations/wetterdienst/compare/v0.44.0...v0.45.0
-
 [0.44.0]: https://github.com/earthobservations/wetterdienst/compare/v0.43.0...v0.44.0
-
 [0.43.0]: https://github.com/earthobservations/wetterdienst/compare/v0.42.1...v0.43.0
-
 [0.42.1]: https://github.com/earthobservations/wetterdienst/compare/v0.42.0...v0.42.1
-
 [0.42.0]: https://github.com/earthobservations/wetterdienst/compare/v0.41.1...v0.42.0
-
 [0.41.1]: https://github.com/earthobservations/wetterdienst/compare/v0.41.0...v0.41.1
-
 [0.41.0]: https://github.com/earthobservations/wetterdienst/compare/v0.40.0...v0.41.0
-
 [0.40.0]: https://github.com/earthobservations/wetterdienst/compare/v0.39.0...v0.40.0
-
 [0.39.0]: https://github.com/earthobservations/wetterdienst/compare/v0.38.0...v0.39.0
-
 [0.38.0]: https://github.com/earthobservations/wetterdienst/compare/v0.37.0...v0.38.0
-
 [0.37.0]: https://github.com/earthobservations/wetterdienst/compare/v0.36.0...v0.37.0
-
 [0.36.0]: https://github.com/earthobservations/wetterdienst/compare/v0.35.0...v0.36.0
-
 [0.35.0]: https://github.com/earthobservations/wetterdienst/compare/v0.34.0...v0.35.0
-
 [0.34.0]: https://github.com/earthobservations/wetterdienst/compare/v0.33.0...v0.34.0
-
 [0.33.0]: https://github.com/earthobservations/wetterdienst/compare/v0.32.4...v0.33.0
-
 [0.32.4]: https://github.com/earthobservations/wetterdienst/compare/v0.32.3...v0.32.4
-
 [0.32.3]: https://github.com/earthobservations/wetterdienst/compare/v0.32.2...v0.32.3
-
 [0.32.2]: https://github.com/earthobservations/wetterdienst/compare/v0.32.1...v0.32.2
-
 [0.32.1]: https://github.com/earthobservations/wetterdienst/compare/v0.32.0...v0.32.1
-
 [0.32.0]: https://github.com/earthobservations/wetterdienst/compare/v0.31.1...v0.32.0
-
 [0.31.1]: https://github.com/earthobservations/wetterdienst/compare/v0.31.0...v0.31.1
-
 [0.31.0]: https://github.com/earthobservations/wetterdienst/compare/v0.30.1...v0.31.0
-
 [0.30.1]: https://github.com/earthobservations/wetterdienst/compare/v0.30.0...v0.30.1
-
 [0.30.0]: https://github.com/earthobservations/wetterdienst/compare/v0.29.0...v0.30.
-
 [0.29.0]: https://github.com/earthobservations/wetterdienst/compare/v0.28.0...v0.29.
-
 [0.28.0]: https://github.com/earthobservations/wetterdienst/compare/v0.27.0...v0.28.
-
 [0.27.0]: https://github.com/earthobservations/wetterdienst/compare/v0.26.0...v0.27.
-
 [0.26.0]: https://github.com/earthobservations/wetterdienst/compare/v0.25.1...v0.26.
-
 [0.25.1]: https://github.com/earthobservations/wetterdienst/compare/v0.25.0...v0.25.
-
 [0.25.0]: https://github.com/earthobservations/wetterdienst/compare/v0.24.0...v0.25.
-
 [0.24.0]: https://github.com/earthobservations/wetterdienst/compare/v0.23.0...v0.24.
-
 [0.23.0]: https://github.com/earthobservations/wetterdienst/compare/v0.22.0...v0.23.
-
 [0.22.0]: https://github.com/earthobservations/wetterdienst/compare/v0.21.0...v0.22.
-
 [0.21.0]: https://github.com/earthobservations/wetterdienst/compare/v0.20.4...v0.21.
-
 [0.20.4]: https://github.com/earthobservations/wetterdienst/compare/v0.20.3...v0.20.
-
 [0.20.3]: https://github.com/earthobservations/wetterdienst/compare/v0.20.2...v0.20.3
-
 [0.20.2]: https://github.com/earthobservations/wetterdienst/compare/v0.20.1...v0.20.2
-
 [0.20.1]: https://github.com/earthobservations/wetterdienst/compare/v0.20.0...v0.20.1
-
 [0.20.0]: https://github.com/earthobservations/wetterdienst/compare/v0.19.0...v0.20.0
-
 [0.19.0]: https://github.com/earthobservations/wetterdienst/compare/v0.18.0...v0.19.0
-
 [0.18.0]: https://github.com/earthobservations/wetterdienst/compare/v0.17.0...v0.18.0
-
 [0.17.0]: https://github.com/earthobservations/wetterdienst/compare/v0.16.1...v0.17.0
-
 [0.16.1]: https://github.com/earthobservations/wetterdienst/compare/v0.16.0...v0.16.1
-
 [0.16.0]: https://github.com/earthobservations/wetterdienst/compare/v0.15.0...v0.16.0
-
 [0.15.0]: https://github.com/earthobservations/wetterdienst/compare/v0.14.1...v0.15.0
-
 [0.14.1]: https://github.com/earthobservations/wetterdienst/compare/v0.14.0...v0.14.1
-
 [0.14.0]: https://github.com/earthobservations/wetterdienst/compare/v0.13.0...v0.14.0
-
 [0.13.0]: https://github.com/earthobservations/wetterdienst/compare/v0.12.1...v0.13.0
-
 [0.12.1]: https://github.com/earthobservations/wetterdienst/compare/v0.12.0...v0.12.1
-
 [0.12.0]: https://github.com/earthobservations/wetterdienst/compare/v0.11.1...v0.12.0
-
 [0.11.1]: https://github.com/earthobservations/wetterdienst/compare/v0.11.0...v0.11.1
-
 [0.11.0]: https://github.com/earthobservations/wetterdienst/compare/v0.10.1...v0.11.0
-
 [0.10.1]: https://github.com/earthobservations/wetterdienst/compare/v0.10.0...v0.10.1
-
 [0.10.0]: https://github.com/earthobservations/wetterdienst/compare/v0.9.0...v0.10.0
-
 [0.9.0]: https://github.com/earthobservations/wetterdienst/compare/v0.8.0...v0.9.0
-
 [0.8.0]: https://github.com/earthobservations/wetterdienst/compare/v0.7.0...v0.8.0
-
 [0.7.0]: https://github.com/earthobservations/wetterdienst/compare/v0.6.0...v0.7.0
-
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/v0.5.0...v0.6.0
-
 [0.5.0]: https://github.com/earthobservations/wetterdienst/compare/v0.4.0...v0.5.0
-
 [0.4.0]: https://github.com/earthobservations/wetterdienst/compare/v0.3.0...v0.4.0
-
 [0.3.0]: https://github.com/earthobservations/wetterdienst/compare/v0.2.0...v0.3.0
-
 [0.2.0]: https://github.com/earthobservations/wetterdienst/compare/v0.1.1...v0.2.0
-
 [0.1.1]: https://github.com/earthobservations/wetterdienst/compare/v0.1.0...v0.1.1
-
 [0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/v0.1.0
