@@ -124,10 +124,7 @@ onMounted(() => {
 
     watch(compact, (c) => {
       const q = { ...route.query } as Record<string, any>
-      if (c)
-        q.compact = 'true'
-      else
-        delete q.compact
+      q.compact = c ? 'true' : 'false'
       void router.replace({ query: q })
     })
   }

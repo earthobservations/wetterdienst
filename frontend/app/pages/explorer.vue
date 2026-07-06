@@ -145,7 +145,7 @@ const dataSettings = ref<DataSettings>({
   humanize: route.query.humanize !== undefined ? route.query.humanize.toString() === 'true' : true,
   convertUnits: route.query.convertUnits !== undefined ? route.query.convertUnits.toString() === 'true' : true,
   unitTargets: {},
-  shape: (route.query.shape?.toString() as 'long' | 'wide') || 'long',
+  shape: (['long', 'wide'].includes(route.query.shape?.toString() ?? '') ? route.query.shape!.toString() : 'long') as 'long' | 'wide',
   skipEmpty: route.query.skipEmpty?.toString() === 'true',
   skipThreshold: 0.95,
   skipCriteria: 'min',
@@ -217,7 +217,15 @@ watch(
 
 // Update URL when parameter, station selection, or data settings change
 watch(
-  [parameterSelectionState, () => stationSelectionState.value.selection.stations, dataSettings],
+  [
+    parameterSelectionState,
+    () => stationSelectionState.value.selection.stations,
+    () => dataSettings.value.humanize,
+    () => dataSettings.value.convertUnits,
+    () => dataSettings.value.shape,
+    () => dataSettings.value.skipEmpty,
+    () => dataSettings.value.dropNulls,
+  ],
   () => router.replace({ query: { ...toQuery(parameterSelectionState.value, stationSelectionState.value), ...dataSettingsToQuery(dataSettings.value) } }),
   { deep: true },
 )

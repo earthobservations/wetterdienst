@@ -192,9 +192,9 @@ onMounted(async () => {
     })
     const station = (res.stations ?? [])[0]
     if (station) {
-      selectedStation.value = station
       if (issueFromUrl)
         selectedIssue.value = issueFromUrl
+      selectedStation.value = station
     }
   }
   catch {
