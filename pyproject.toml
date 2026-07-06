@@ -258,7 +258,7 @@ lock = "uv lock"
 unresolved-import = "warn"
 
 [tool.ty.analysis]
-allowed-unresolved-imports = ["lxml.*", "tabula.*"]
+allowed-unresolved-imports = ["backports.*", "lxml.*", "tabula.*"]
 
 [tool.ruff]
 line-length = 120
