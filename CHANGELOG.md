@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.126.0] - 2026-07-07
+
 ### Fixed
 
 - `[REST API]` Station listing no longer fails with `StartDateEndDateError` for providers
@@ -1901,7 +1903,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.125.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.126.0...HEAD
+[0.126.0]: https://github.com/earthobservations/wetterdienst/compare/v0.125.0...v0.126.0
 [0.125.0]: https://github.com/earthobservations/wetterdienst/compare/v0.124.0...v0.125.0
 [0.124.0]: https://github.com/earthobservations/wetterdienst/compare/v0.123.0...v0.124.0
 [0.123.0]: https://github.com/earthobservations/wetterdienst/compare/v0.122.0...v0.123.0
