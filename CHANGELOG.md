@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[REST API]` Station listing no longer fails with `StartDateEndDateError` for providers
+  with `date_required` datasets (e.g. MET Norway Frost hourly, 10-minute, 6-hour). The
+  date requirement only applies to value fetching, not to listing available stations. Also
+  fixed a `TypeError` when constructing requests for providers that declare multi-period
+  datasets but do not accept a `periods` constructor argument.
+
 ## [0.125.0] - 2026-07-06
 
 ### Added
