@@ -211,10 +211,7 @@ class EcccObservationValues(TimeseriesValues):
                 pl.lit(None, dtype=pl.Float64).alias("quality"),
             )
             data.append(df)
-        # Cast to DataFrame to satisfy the static typechecker which may infer
-        # an intermediate InProcessQuery type from collect(). At runtime this
-        # is a pl.DataFrame.
-        return cast("pl.DataFrame", pl.concat(data).collect())
+        return pl.concat(data).collect()
 
 
 @dataclass
