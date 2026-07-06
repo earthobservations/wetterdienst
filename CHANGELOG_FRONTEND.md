@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Meteogram]` Forecast model run (`issue`), horizon filter (`horizon`), visible panels
+  (`panels`), and compact mode (`compact`) are now synced to the URL. Sharing or
+  bookmarking the page restores the full view state.
+- `[Stripes]` `show_timeseries`, `show_trendline`, and `show_source` toggles are now
+  persisted in the URL, consistent with the other `show_*` parameters already synced.
+- `[Explorer]` Data-settings toggles (`shape`, `humanize`, `convertUnits`, `dropNulls`,
+  `skipEmpty`) are now persisted in the URL so the selected data view is shareable.
+
 ### Changed
 
 - `[Explorer]` Provider/network combinations that require authentication are now hidden

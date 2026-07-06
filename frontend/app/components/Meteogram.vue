@@ -64,7 +64,8 @@ watch(visiblePanels, (newVal) => {
 
 const seriesCache = computed(() => buildSeries(props.values ?? []))
 
-// On mount try to restore user preference and auto-enable compact on small screens
+// On mount try to restore user preference and auto-enable compact on small screens,
+// with URL params taking precedence over localStorage.
 onMounted(() => {
   try {
     if (typeof window !== 'undefined') {
@@ -77,6 +78,58 @@ onMounted(() => {
   }
   catch {
     // ignore
+  }
+
+  if (!props.widget) {
+    const q = useRoute().query
+    if (q.horizon) {
+      const h = Number(q.horizon.toString())
+      if (Number.isFinite(h) && h > 0)
+        horizonHours.value = h
+    }
+    if (q.panels) {
+      const names = q.panels.toString().split(',').filter(Boolean)
+      visiblePanels.value = {
+        temp: names.includes('temp'),
+        wind: names.includes('wind'),
+        precip: names.includes('precip'),
+        cloud: names.includes('cloud'),
+        pressure: names.includes('pressure'),
+      }
+    }
+    if (q.compact)
+      compact.value = q.compact.toString() === 'true'
+
+    const router = useRouter()
+    const route = useRoute()
+
+    watch(horizonHours, (h) => {
+      const q = { ...route.query } as Record<string, any>
+      if (h !== null)
+        q.horizon = String(h)
+      else
+        delete q.horizon
+      void router.replace({ query: q })
+    })
+
+    watch(visiblePanels, (panels) => {
+      const visible = (Object.keys(panels) as Array<keyof typeof panels>).filter(k => panels[k])
+      const q = { ...route.query } as Record<string, any>
+      if (visible.length < 5)
+        q.panels = visible.join(',')
+      else
+        delete q.panels
+      void router.replace({ query: q })
+    }, { deep: true })
+
+    watch(compact, (c) => {
+      const q = { ...route.query } as Record<string, any>
+      if (c)
+        q.compact = 'true'
+      else
+        delete q.compact
+      void router.replace({ query: q })
+    })
   }
 })
 

@@ -428,6 +428,12 @@ if (route.query.show_years !== undefined && route.query.show_years !== null)
   showYears.value = route.query.show_years?.toString() === 'true'
 if (route.query.show_data_availability !== undefined && route.query.show_data_availability !== null)
   showDataAvailability.value = route.query.show_data_availability?.toString() === 'true'
+if (route.query.show_timeseries !== undefined && route.query.show_timeseries !== null)
+  showTimeseries.value = route.query.show_timeseries?.toString() === 'true'
+if (route.query.show_trendline !== undefined && route.query.show_trendline !== null)
+  showTrendline.value = route.query.show_trendline?.toString() === 'true'
+if (route.query.show_source !== undefined && route.query.show_source !== null)
+  showSource.value = route.query.show_source?.toString() === 'true'
 if (route.query.start_year)
   startYear.value = Number(route.query.start_year.toString())
 if (route.query.end_year)
@@ -514,6 +520,12 @@ function stripesToQuery(): Record<string, string> {
     q.show_years = String(showYears.value)
   if (showDataAvailability.value !== undefined)
     q.show_data_availability = String(showDataAvailability.value)
+  if (showTimeseries.value !== undefined)
+    q.show_timeseries = String(showTimeseries.value)
+  if (showTrendline.value !== undefined)
+    q.show_trendline = String(showTrendline.value)
+  if (showSource.value !== undefined)
+    q.show_source = String(showSource.value)
   if (startYear.value !== null && startYear.value !== undefined)
     q.start_year = String(startYear.value)
   if (endYear.value !== null && endYear.value !== undefined)
@@ -527,6 +539,9 @@ watch([
   () => showTitle.value,
   () => showYears.value,
   () => showDataAvailability.value,
+  () => showTimeseries.value,
+  () => showTrendline.value,
+  () => showSource.value,
   () => startYear.value,
   () => endYear.value,
 ], () => {
