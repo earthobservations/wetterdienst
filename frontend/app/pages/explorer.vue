@@ -112,6 +112,21 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
   return q
 }
 
+function dataSettingsToQuery(settings: DataSettings): Record<string, string> {
+  const q: Record<string, string> = {}
+  if (!settings.humanize)
+    q.humanize = 'false'
+  if (!settings.convertUnits)
+    q.convertUnits = 'false'
+  if (settings.shape !== 'long')
+    q.shape = settings.shape
+  if (settings.skipEmpty)
+    q.skipEmpty = 'true'
+  if (!settings.dropNulls)
+    q.dropNulls = 'false'
+  return q
+}
+
 const showAbout = ref(false)
 const parameterSelectionState = ref<ParameterSelectionState>(fromQuery(route.query))
 const stationSelectionState = ref<StationSelectionState>({
@@ -127,14 +142,14 @@ const initialStationIds = ref<string[]>(stationIdsFromQuery(route.query))
 
 // Data settings
 const dataSettings = ref<DataSettings>({
-  humanize: true,
-  convertUnits: true,
+  humanize: route.query.humanize != null ? route.query.humanize.toString() === 'true' : true,
+  convertUnits: route.query.convertUnits != null ? route.query.convertUnits.toString() === 'true' : true,
   unitTargets: {},
-  shape: 'long',
-  skipEmpty: false,
+  shape: (['long', 'wide'].includes(route.query.shape?.toString() ?? '') ? route.query.shape!.toString() : 'long') as 'long' | 'wide',
+  skipEmpty: route.query.skipEmpty?.toString() === 'true',
   skipThreshold: 0.95,
   skipCriteria: 'min',
-  dropNulls: true,
+  dropNulls: route.query.dropNulls != null ? route.query.dropNulls.toString() !== 'false' : true,
   useNearbyStationDistance: 1.0,
   useStationDistancePerParameter: {},
   minGainOfValuePairs: 0.10,
@@ -200,10 +215,18 @@ watch(
   },
 )
 
-// Update URL when parameter or station selection changes
+// Update URL when parameter, station selection, or data settings change
 watch(
-  [parameterSelectionState, () => stationSelectionState.value.selection.stations],
-  () => router.replace({ query: toQuery(parameterSelectionState.value, stationSelectionState.value) }),
+  [
+    parameterSelectionState,
+    () => stationSelectionState.value.selection.stations,
+    () => dataSettings.value.humanize,
+    () => dataSettings.value.convertUnits,
+    () => dataSettings.value.shape,
+    () => dataSettings.value.skipEmpty,
+    () => dataSettings.value.dropNulls,
+  ],
+  () => router.replace({ query: { ...toQuery(parameterSelectionState.value, stationSelectionState.value), ...dataSettingsToQuery(dataSettings.value) } }),
   { deep: true },
 )
 

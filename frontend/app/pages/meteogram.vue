@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
-import { defineAsyncComponent } from 'vue'
+import { defineAsyncComponent, nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 
@@ -28,6 +28,9 @@ const error = ref<string | null>(null)
 
 // '' = latest (auto), iso string = a specific run
 const selectedIssue = ref<string>('')
+
+// Prevents watch(selectedStation) from resetting selectedIssue when restoring from URL
+const isRestoringFromUrl = ref(false)
 
 // Real list of available runs fetched from the backend — populated when a station is selected.
 const availableIssues = ref<string[]>([])
@@ -141,11 +144,11 @@ watch(selectedIssue, () => {
 
 // Auto-fetch and sync URL whenever a station is chosen or cleared
 watch(selectedStation, (station) => {
-  selectedIssue.value = ''
+  if (!isRestoringFromUrl.value)
+    selectedIssue.value = ''
   if (station) {
     void loadAvailableIssues(station.station_id)
     void fetchMeteogram(station)
-    void router.replace({ query: { station: station.station_id } })
   }
   else {
     values.value = []
@@ -155,11 +158,29 @@ watch(selectedStation, (station) => {
   }
 })
 
-// Restore selected station from URL query param on page load
+// Sync station + issue to URL (fires once when both change together)
+watch([selectedStation, selectedIssue], ([station, issue]) => {
+  if (!station)
+    return
+  const q: Record<string, string> = { station: station.station_id }
+  if (issue)
+    q.issue = issue
+  // Preserve display params managed by the Meteogram component
+  for (const k of ['horizon', 'panels', 'compact'] as const) {
+    const v = route.query[k]
+    if (v)
+      q[k] = v.toString()
+  }
+  void router.replace({ query: q })
+})
+
+// Restore selected station and issue from URL query params on page load
 onMounted(async () => {
   const stationId = route.query.station as string | undefined
+  const issueFromUrl = route.query.issue?.toString()
   if (!stationId)
     return
+  isRestoringFromUrl.value = true
   try {
     const res = await $fetch<{ stations: Station[] }>('/api/stations', {
       query: {
@@ -170,11 +191,18 @@ onMounted(async () => {
       },
     })
     const station = (res.stations ?? [])[0]
-    if (station)
+    if (station) {
+      if (issueFromUrl)
+        selectedIssue.value = issueFromUrl
       selectedStation.value = station
+    }
   }
   catch {
     // ignore – station ID in URL may be invalid, just start fresh
+  }
+  finally {
+    await nextTick()
+    isRestoringFromUrl.value = false
   }
 })
 </script>
