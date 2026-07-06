@@ -250,7 +250,7 @@ coverage = [
     "coverage:parallel",
     "coverage:cflakes",
 ]
-typecheck = "uv run ty check src/wetterdienst --exit-zero-on-warning"
+typecheck = "uv run ty check src/wetterdienst"
 sync = "uv sync"
 lock = "uv lock"
 
