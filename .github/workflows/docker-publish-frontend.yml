@@ -39,11 +39,19 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4 # zizmor: ignore[cache-poisoning]
+
       - name: Build frontend image
-        run: |
-          export DOCKER_BUILDKIT=1
-          export BUILDKIT_PROGRESS=plain
-          docker build -f docker/frontend.Dockerfile --target prod -t wd-frontend .
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/frontend.Dockerfile
+          target: prod
+          load: true
+          tags: wd-frontend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   docker_frontend:
     needs: build_and_test_frontend
@@ -57,7 +65,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Extract version from tag
         id: version
@@ -96,14 +104,6 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@v4 # zizmor: ignore[cache-poisoning]
 
-      - name: Cache Docker layers
-        uses: actions/cache@v6 # zizmor: ignore[cache-poisoning]
-        with:
-          path: /tmp/.buildx-cache-frontend
-          key: ${{ runner.os }}-buildx-frontend-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-frontend-
-
       - name: Inspect builder # zizmor: ignore[template-injection]
         run: |
           echo "Name:      ${{ steps.buildx.outputs.name }}"
@@ -129,14 +129,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
-          cache-from: type=local,src=/tmp/.buildx-cache-frontend
-          cache-to: type=local,dest=/tmp/.buildx-cache-frontend-new
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           provenance: false
-
-      - name: Move cache
-        run: |
-          rm -rf /tmp/.buildx-cache-frontend
-          mv /tmp/.buildx-cache-frontend-new /tmp/.buildx-cache-frontend
 
       - name: Display git status
         run: |
