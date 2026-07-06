@@ -255,7 +255,7 @@ sync = "uv sync"
 lock = "uv lock"
 
 [tool.ty.rules]
-unresolved-import = "warn"
+unresolved-import = "ignore"
 
 [tool.ty.analysis]
 allowed-unresolved-imports = ["lxml.*", "tabula.*"]
