@@ -228,6 +228,7 @@ function clear() {
     <UCollapsible v-model="showAbout">
       <UButton
         :label="t('history.aboutButton')"
+        icon="i-lucide-info"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"

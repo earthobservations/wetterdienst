@@ -193,6 +193,7 @@ onMounted(async () => {
     <UCollapsible v-model="showAbout">
       <UButton
         :label="t('meteogram.aboutButton')"
+        icon="i-lucide-info"
         variant="subtle"
         color="neutral"
         trailing-icon="i-lucide-chevron-down"
