@@ -44,13 +44,21 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4 # zizmor: ignore[cache-poisoning]
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true
+          tags: wd:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Run tests
-        run: |
-          export DOCKER_BUILDKIT=1
-          export COMPOSE_DOCKER_CLI_BUILD=1
-          export BUILDKIT_PROGRESS=plain
-          docker build -f docker/Dockerfile -t wd .
-          docker run wd wetterdienst info
+        run: docker run wd:test wetterdienst info
 
   docker:
     needs: build_and_test
@@ -64,7 +72,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Docker meta
         id: meta
@@ -94,14 +102,6 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@v4 # zizmor: ignore[cache-poisoning]
 
-      - name: Cache Docker layers
-        uses: actions/cache@v6 # zizmor: ignore[cache-poisoning]
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
       - name: Inspect builder # zizmor: ignore[template-injection]
         run: |
           echo "Name:      ${{ steps.buildx.outputs.name }}"
@@ -126,14 +126,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           provenance: false
-
-      - name: Move cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Display git status
         run: |
