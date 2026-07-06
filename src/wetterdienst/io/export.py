@@ -561,7 +561,7 @@ class ExportMixin:
 
             # Write to InfluxDB.
             if version == 1:
-                client.write_points(
+                client.write_points(  # ty: ignore[unresolved-attribute]
                     points=points,
                     batch_size=50000,
                 )
