@@ -142,14 +142,14 @@ const initialStationIds = ref<string[]>(stationIdsFromQuery(route.query))
 
 // Data settings
 const dataSettings = ref<DataSettings>({
-  humanize: route.query.humanize !== undefined ? route.query.humanize.toString() === 'true' : true,
-  convertUnits: route.query.convertUnits !== undefined ? route.query.convertUnits.toString() === 'true' : true,
+  humanize: route.query.humanize != null ? route.query.humanize.toString() === 'true' : true,
+  convertUnits: route.query.convertUnits != null ? route.query.convertUnits.toString() === 'true' : true,
   unitTargets: {},
   shape: (['long', 'wide'].includes(route.query.shape?.toString() ?? '') ? route.query.shape!.toString() : 'long') as 'long' | 'wide',
   skipEmpty: route.query.skipEmpty?.toString() === 'true',
   skipThreshold: 0.95,
   skipCriteria: 'min',
-  dropNulls: route.query.dropNulls !== undefined ? route.query.dropNulls.toString() !== 'false' : true,
+  dropNulls: route.query.dropNulls != null ? route.query.dropNulls.toString() !== 'false' : true,
   useNearbyStationDistance: 1.0,
   useStationDistancePerParameter: {},
   minGainOfValuePairs: 0.10,
