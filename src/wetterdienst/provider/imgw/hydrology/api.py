@@ -433,19 +433,6 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             "latitude",
             "longitude",
         ]
-        # TODO: remove the following workaround once the data is fixed upstream
-        # since somewhere in 2024-02 one station of the station list is bugged
-        # 603;150190400;CZ�STOCHOWA 2;Kucelinka;50 48 22;19 09 15
-        # 604;150190410;CZ�STOCHOWA 3;Warta;50 48 50	19;07 58  <-- this is the bugged line
-        # 605;152140100;DOLSK;My�la;52 48 10;14 50 35
-        df = df.with_columns(
-            pl.when(pl.col("station_id") == "150190410")
-            .then(pl.lit("50 48 50").alias("latitude"))
-            .otherwise(pl.col("latitude")),
-            pl.when(pl.col("station_id") == "150190410")
-            .then(pl.lit("19 07 58").alias("longitude"))
-            .otherwise(pl.col("longitude")),
-        )
         df = df.with_columns(
             pl.col("latitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
             pl.col("longitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),

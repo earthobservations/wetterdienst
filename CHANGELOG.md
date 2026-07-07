@@ -36,6 +36,13 @@ Types of changes:
   request. Cuts the number of HTTP requests from ~33 (meteorology) / ~74 (hydrology) down
   to the 1-2 folders that actually matter for a given query.
 
+### Removed
+
+- `[IMGW]` Removed the hardcoded lat/lon override for hydrology station `150190410`,
+  a workaround for a corrupted upstream CSV line from ~2024-02. The station's data has
+  been clean upstream for a while, so the override had become a no-op; keeping it around
+  risked silently clobbering a legitimate future coordinate change for that station.
+
 ### Fixed
 
 - `[IMGW]` Station listing for both meteorology and hydrology no longer fails: the
