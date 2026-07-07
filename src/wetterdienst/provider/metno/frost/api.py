@@ -46,7 +46,7 @@ MetnoFrostMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "temperature_air_max_2m",
@@ -103,7 +103,7 @@ MetnoFrostMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
@@ -184,7 +184,7 @@ MetnoFrostMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "precipitation_height",
@@ -205,7 +205,7 @@ MetnoFrostMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
@@ -292,7 +292,7 @@ MetnoFrostMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
@@ -385,7 +385,7 @@ MetnoFrostMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
@@ -469,29 +469,41 @@ class MetnoFrostValues(TimeseriesValues):
         station_id: str,
         parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
-        from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
+        from wetterdienst.model.metadata import DatasetModel, ParameterModel  # noqa: PLC0415
 
-        if not isinstance(parameter_or_dataset, ParameterModel):
+        if isinstance(parameter_or_dataset, DatasetModel):
+            dataset = parameter_or_dataset
+            parameters = parameter_or_dataset.parameters
+        elif isinstance(parameter_or_dataset, ParameterModel):
+            dataset = parameter_or_dataset.dataset
+            parameters = [parameter_or_dataset]
+        else:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+
         start_date = self.sr.start_date
         end_date = self.sr.end_date
         if not start_date or not end_date:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         settings = self.sr.settings
-        url = self._observations_url.format(
-            station_id=station_id,
-            element=parameter_or_dataset.name_original,
-            start=start_date.strftime("%Y-%m-%dT%H:%M:%S"),
-            end=end_date.strftime("%Y-%m-%dT%H:%M:%S"),
-            time_resolution=parameter_or_dataset.dataset.resolution.name_original,
-        )
         client_kwargs = {**settings.fsspec_client_kwargs}
         if settings.auth.metno_frost:
             client_kwargs["headers"] = {
                 **client_kwargs.get("headers", {}),
                 "Authorization": encode_basic_auth(*settings.auth.metno_frost),
             }
+
+        # Fetch all elements of the dataset in a single request instead of one request per
+        # parameter. The Frost API accepts a comma-separated `elements` list and returns
+        # observations for all of them together.
+        elements = ",".join(parameter.name_original for parameter in parameters)
+        url = self._observations_url.format(
+            station_id=station_id,
+            element=elements,
+            start=start_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            end=end_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            time_resolution=dataset.resolution.name_original,
+        )
         log.info(f"Acquiring data from {url}")
         file = download_file(
             url=url,
@@ -502,14 +514,18 @@ class MetnoFrostValues(TimeseriesValues):
         )
         if file.is_no_internet_error or file.is_empty:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        # 412: no data for this station/element/period combination
+        # 412: no data for this station/elements/period combination
         if file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        # 404: element may require specific time-series parameters (e.g. historical synoptic data)
+        # 404: one or more elements may require specific time-series parameters (e.g.
+        # historical synoptic data). Fall back to resolving each parameter individually.
         if file.status == 404:
-            return self._collect_via_time_series_discovery(
-                station_id, parameter_or_dataset, start_date, end_date, settings, client_kwargs
-            )
+            frames = [
+                self._collect_single_parameter(station_id, parameter, start_date, end_date, settings, client_kwargs)
+                for parameter in parameters
+            ]
+            frames = [frame for frame in frames if not frame.is_empty()]
+            return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         if isinstance(file.content, Exception):
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -528,12 +544,79 @@ class MetnoFrostValues(TimeseriesValues):
         )
         df = df.explode("observations")
         df = df.unnest("observations")
-        # keep only matching elementId (the Frost response may include multiple elements)
-        df = df.filter(pl.col("elementId").eq(parameter_or_dataset.name_original))
         return df.select(
-            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
-            pl.lit(parameter_or_dataset.name_original, dtype=pl.String).alias("parameter"),
+            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
+            pl.col("elementId").alias("parameter"),
+            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+            pl.col("referenceTime").alias("date"),
+            pl.col("value").cast(pl.Float64),
+            pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+        )
+
+    def _collect_single_parameter(
+        self,
+        station_id: str,
+        parameter: ParameterModel,
+        start_date: datetime,
+        end_date: datetime,
+        settings: Settings,
+        client_kwargs: dict,
+    ) -> pl.DataFrame:
+        """Fetch a single parameter directly, falling back to time-series discovery on 404.
+
+        Used when a batched multi-element request 404s, to resolve each parameter
+        individually (some historical/synoptic elements require time-series discovery,
+        see `_collect_via_time_series_discovery`).
+        """
+        url = self._observations_url.format(
+            station_id=station_id,
+            element=parameter.name_original,
+            start=start_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            end=end_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            time_resolution=parameter.dataset.resolution.name_original,
+        )
+        log.info(f"Acquiring data from {url}")
+        file = download_file(
+            url=url,
+            cache_dir=settings.cache_dir,
+            ttl=CacheExpiry.FIVE_MINUTES,
+            client_kwargs=client_kwargs,
+            cache_disable=settings.cache_disable,
+        )
+        if file.is_no_internet_error or file.is_empty:
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        # 412: no data for this station/element/period combination
+        if file.status == 412:
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        # 404: element may require specific time-series parameters (e.g. historical synoptic data)
+        if file.status == 404:
+            return self._collect_via_time_series_discovery(
+                station_id, parameter, start_date, end_date, settings, client_kwargs
+            )
+        if isinstance(file.content, Exception):
+            log.warning(f"Failed to download {url}: {file.content}")
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+
+        df = pl.read_json(file.content)
+        if "data" not in df.columns:
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+
+        df = df.select(pl.col("data").explode())
+        df = df.unnest("data")
+        df = df.with_columns(
+            pl.col("referenceTime")
+            .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
+            .dt.replace_time_zone("UTC"),
+        )
+        df = df.explode("observations")
+        df = df.unnest("observations")
+        # keep only matching elementId (the Frost response may include multiple elements)
+        df = df.filter(pl.col("elementId").eq(parameter.name_original))
+        return df.select(
+            pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
+            pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("referenceTime").alias("date"),
             pl.col("value").cast(pl.Float64),
