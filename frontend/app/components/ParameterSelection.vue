@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Accept initial values from parent via v-model
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue?: {
     provider?: string
     network?: string
@@ -9,7 +9,9 @@ const props = defineProps<{
     parameters?: string[]
   }
   showParameters?: boolean
-}>()
+}>(), {
+  showParameters: true,
+})
 
 const emit = defineEmits(['update:modelValue'])
 
@@ -99,7 +101,7 @@ const PRESELECTION = {
   network: 'observation',
   resolution: 'daily',
   dataset: 'climate_summary',
-  parameters: ['temperature_air_mean_2m'],
+  parameters: [],
 }
 
 // Initialize from query params and validate step by step
@@ -148,15 +150,16 @@ async function initializeFromProps() {
     return
   }
 
-  // Step 5: Validate parameters - keep only valid ones
-  // Need to wait for next tick so params computed updates after dataset is set
+  // Step 5: Use URL-specified parameters if valid; otherwise auto-select all
   await nextTick()
 
   if (initial.parameters?.length) {
     const validParams = initial.parameters.filter(p => params.value.includes(p))
-    parameters.value = validParams
+    parameters.value = validParams.length ? validParams : [...params.value]
   }
-  // Don't auto-select all parameters by default
+  else {
+    parameters.value = [...params.value]
+  }
 
   // Wait another tick to ensure watchers have processed before turning off initialization mode
   await nextTick()
@@ -198,11 +201,11 @@ watch(resolution, () => {
   parameters.value = []
 })
 
-watch(dataset, () => {
+watch(dataset, async () => {
   if (isInitializing.value)
     return
-  // Clear parameters when dataset changes
-  parameters.value = []
+  await nextTick()
+  parameters.value = [...params.value]
 })
 
 function selectAllParameters() {
