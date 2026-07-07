@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, cast
 from urllib.parse import parse_qs, urlparse
 
 import polars as pl
-from aiohttp import encode_basic_auth
+from aiohttp import ClientTimeout, encode_basic_auth
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
@@ -648,6 +648,7 @@ def _probe_frost_credentials(settings: Settings) -> bool:
         return False
     client_kwargs = {**settings.fsspec_client_kwargs}
     client_kwargs.setdefault("headers", {})["Authorization"] = encode_basic_auth(*settings.auth.metno_frost)
+    client_kwargs.setdefault("timeout", ClientTimeout(total=5))
     file = download_file(
         url="https://frost.met.no/sources/v0.jsonld?ids=SN18700&fields=id",
         cache_dir=settings.cache_dir,

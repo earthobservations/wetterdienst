@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[MET Norway Frost]` `GET /api/coverage` no longer hangs on a cold start (container
+  restart or first request after cache expiry). The Frost credential probe now uses a
+  5-second total timeout per attempt, capping worst-case delay at ~10 s instead of the
+  previous 10-minute maximum (2 × default 300 s aiohttp timeout).
+
 ## [0.126.0] - 2026-07-07
 
 ### Fixed
