@@ -18,7 +18,7 @@ from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import DatasetModel, build_metadata_model
+from wetterdienst.model.metadata import DatasetModel, ParameterModel, build_metadata_model
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import list_files_for_interval
@@ -702,8 +702,8 @@ class ImgwMeteorologyValues(TimeseriesValues):
                 )
             df_files = df_files.select(
                 pl.col("url"),
-                pl.col("date_range").list.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                pl.col("date_range").list.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+                pl.col("date_range").arr.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
+                pl.col("date_range").arr.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
@@ -743,8 +743,10 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
-        df = pl.read_csv(file.content, encoding="latin-1", separator=";", skip_rows=1, infer_schema_length=0)
+        df = pl.read_csv(file.content, encoding="utf8", separator=";", skip_rows=1, infer_schema_length=0)
         df = df[:, 1:]
+        # drop the "Rok założenia" (station founding year) column, which isn't part of our schema
+        df = df.drop(df.columns[3])
         df.columns = [
             "station_id",
             "name",
@@ -753,9 +755,24 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             "longitude",
             "height",
         ]
-        df = df.lazy()
-        return df.with_columns(
-            pl.col("latitude").map_batches(convert_dms_string_to_dd),
-            pl.col("longitude").map_batches(convert_dms_string_to_dd),
+        df = df.with_columns(
+            pl.col("latitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
+            pl.col("longitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
             pl.col("height").str.replace(" ", "").cast(pl.Float64, strict=False),
         )
+        # the station list is shared across all datasets, so tag each row once per requested resolution/dataset
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name)
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
+        }
+        data = [
+            df.with_columns(
+                pl.lit(resolution, pl.String).alias("resolution"),
+                pl.lit(dataset, pl.String).alias("dataset"),
+            )
+            for resolution, dataset in resolutions_and_datasets
+        ]
+        if not data:
+            return pl.LazyFrame()
+        return pl.concat(data).lazy()
