@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Explorer]` Failed value requests (e.g. auth misconfiguration or upstream provider
+  errors) were silently swallowed: the data viewer never inspected the fetch `error`,
+  so any failure looked identical to "no query run yet", showing the generic
+  "select parameters and stations" hint with no indication anything went wrong.
+  The actual error message is now shown in the data viewer and as a toast.
+
 ## [0.9.0] - 2026-07-07
 
 ### Fixed

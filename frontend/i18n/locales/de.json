@@ -475,6 +475,8 @@
     "facetByParameter": "Nach Parameter aufteilen",
     "trendline": "Trendlinie",
     "emptyHint": "Wählen Sie Parameter und Stationen und klicken Sie auf „Anzeigen“, um Daten zu laden",
+    "fetchError": "Daten konnten nicht geladen werden",
+    "fetchErrorToastTitle": "Datenabfrage fehlgeschlagen",
     "dataTitle": "Daten",
     "noChartData": "Keine Daten für das Diagramm verfügbar",
     "rowsPerPage": "Zeilen pro Seite",

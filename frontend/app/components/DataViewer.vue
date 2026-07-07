@@ -166,7 +166,7 @@ const apiQuery = computed(() => {
   }
 })
 
-const { data: valuesData, pending: valuesPending, refresh: refreshValues } = useFetch<ValuesResponse>(
+const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues } = useFetch<ValuesResponse>(
   apiEndpoint,
   {
     method: 'GET',
@@ -179,6 +179,25 @@ const { data: valuesData, pending: valuesPending, refresh: refreshValues } = use
 )
 
 const allValues = computed(() => valuesData.value?.values ?? [])
+
+const fetchErrorMessage = computed(() => {
+  const err = valuesError.value as { data?: { detail?: string }, message?: string } | undefined
+  if (!err)
+    return null
+  return err.data?.detail ?? err.message ?? String(err)
+})
+
+const toast = useToast()
+
+watch(valuesError, (err) => {
+  if (!err)
+    return
+  toast.add({
+    title: t('dataViewer.fetchErrorToastTitle'),
+    description: fetchErrorMessage.value ?? undefined,
+    color: 'error',
+  })
+})
 
 // Query transformed data
 const transformedData = ref<Value[]>([])
@@ -326,8 +345,6 @@ const paginatedValues = computed(() => {
 watch(pageSize, () => {
   currentPage.value = 1
 })
-
-const toast = useToast()
 
 function valuesToCsv(values: Value[]) {
   if (!values.length)
@@ -491,6 +508,7 @@ const canFetchData = computed(() => {
 function fetchData() {
   if (!canFetchData.value) {
     valuesData.value = { values: [] }
+    valuesError.value = undefined
     return
   }
   refreshValues()
@@ -500,6 +518,7 @@ function fetchData() {
 // Clear function to reset data
 function clearData() {
   valuesData.value = { values: [] }
+  valuesError.value = undefined
   currentPage.value = 1
 }
 
@@ -893,6 +912,7 @@ defineExpose({
   clearData,
   canFetchData,
   valuesPending,
+  fetchErrorMessage,
 })
 
 // Set facet chart ref
@@ -1011,7 +1031,11 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           <UIcon name="i-lucide-loader-circle" class="w-8 h-8 animate-spin text-primary-500" />
         </div>
         <template v-else>
-          <div v-if="allValues.length === 0" class="flex items-center justify-center py-12 text-gray-500">
+          <div v-if="allValues.length === 0 && fetchErrorMessage" class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400">
+            <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
+            <span class="text-sm">{{ fetchErrorMessage }}</span>
+          </div>
+          <div v-else-if="allValues.length === 0" class="flex items-center justify-center py-12 text-gray-500">
             {{ t('dataViewer.emptyHint') }}
           </div>
           <UTable
@@ -1020,7 +1044,14 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           />
           <div v-else class="py-4">
             <div
-              v-if="allValues.length === 0"
+              v-if="allValues.length === 0 && fetchErrorMessage"
+              class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400"
+            >
+              <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
+              <span class="text-sm">{{ fetchErrorMessage }}</span>
+            </div>
+            <div
+              v-else-if="allValues.length === 0"
               class="flex items-center justify-center py-12 text-gray-500"
             >
               {{ t('dataViewer.emptyHint') }}
