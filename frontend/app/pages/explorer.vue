@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import type { Station } from '#shared/types/api'
 import type { TableColumn } from '@nuxt/ui'
-import type { Station } from '~/shared/types/api'
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
