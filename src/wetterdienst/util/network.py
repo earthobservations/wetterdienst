@@ -404,6 +404,36 @@ def list_remote_files_fsspec(
     return fs.find(url)
 
 
+@stamina.retry(on=Exception, attempts=3)
+def list_remote_directory_fsspec(
+    url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
+) -> list[dict]:
+    """List the immediate contents (files and subdirectories) of a given path on the server, non-recursively.
+
+    Unlike ``list_remote_files_fsspec``, this does not descend into subdirectories, which is useful for
+    servers exposing a deeply nested directory tree where the folder names themselves carry enough
+    information (e.g. a date range) to decide which subdirectories are actually worth descending into.
+
+    Args:
+        url: The URL to list the contents of.
+        settings: The settings to use for the listing.
+        cache_expiry: The cache expiration time.
+
+    Returns:
+        A list of fsspec detail dicts (with "name" and "type" keys, among others) for each entry.
+
+    """
+    use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
+    fs = HTTPFileSystem(
+        use_listings_cache=use_cache,
+        listings_expiry_time=not settings.cache_disable and cache_expiry.value,
+        listings_cache_location=settings.cache_dir,
+        client_kwargs=settings.fsspec_client_kwargs,
+        use_certifi=settings.use_certifi,
+    )
+    return fs.ls(url, detail=True)
+
+
 def download_file(
     url: str,
     cache_dir: Path,

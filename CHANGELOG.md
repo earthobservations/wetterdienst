@@ -30,6 +30,11 @@ Types of changes:
   parameter, cutting the number of HTTP requests by up to 11x for multi-parameter queries.
   Falls back to the previous per-parameter behavior (including historical time-series
   discovery) if the batched request itself returns a 404.
+- `[IMGW]` File listing now prunes IMGW's per-period subfolders (named `YYYY` or
+  `YYYY_YYYY`, encoding the exact date range they cover) to only those overlapping the
+  requested date range, instead of recursively listing the entire directory tree on every
+  request. Cuts the number of HTTP requests from ~33 (meteorology) / ~74 (hydrology) down
+  to the 1-2 folders that actually matter for a given query.
 
 ## [0.126.0] - 2026-07-07
 
