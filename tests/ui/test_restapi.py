@@ -74,7 +74,9 @@ def test_coverage(client: TestClient) -> None:
         assert network_info["auth"] is False
         assert network_info["configured"] is True
         assert network_info["valid"] is True
-        assert "date_required" in network_info
+    # `road` requires a date range for value queries, other DWD networks don't
+    assert dwd["observation"]["date_required"] is False
+    assert dwd["road"]["date_required"] is True
 
 
 def test_auth_no_auth_required(client: TestClient) -> None:
