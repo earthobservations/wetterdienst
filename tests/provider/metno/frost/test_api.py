@@ -123,6 +123,40 @@ def test_metno_frost_values_monthly() -> None:
 
 
 @pytest.mark.remote
+def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCaptureFixture) -> None:
+    """Requesting multiple hourly parameters issues a single batched request.
+
+    Datasets are declared `grouped: True` so all parameters of a resolution are
+    fetched via one comma-separated `elements=` query instead of one request per
+    parameter. The response covers every element of the dataset; the requested
+    subset is filtered out of it afterward.
+    """
+    with caplog.at_level("INFO", logger="wetterdienst.provider.metno.frost.api"):
+        df = (
+            MetnoFrostRequest(
+                parameters=[
+                    ("hourly", "data", "temperature_air_mean_2m"),
+                    ("hourly", "data", "humidity"),
+                    ("hourly", "data", "wind_speed"),
+                ],
+                start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
+                end_date=dt.datetime(2020, 1, 2, tzinfo=UTC),
+            )
+            .filter_by_station_id(OSLO_BLINDERN)
+            .values.all()
+            .df
+        )
+    acquisitions = [r.message for r in caplog.records if r.message.startswith("Acquiring data from")]
+    assert len(acquisitions) == 1
+    # the single request's elements= list covers all three requested elements at once
+    assert "air_temperature" in acquisitions[0]
+    assert "relative_humidity" in acquisitions[0]
+    assert "wind_speed" in acquisitions[0]
+    assert sorted(df["parameter"].unique().to_list()) == ["humidity", "temperature_air_mean_2m", "wind_speed"]
+    assert len(df.filter(pl.col("parameter") == "temperature_air_mean_2m")) == 24
+
+
+@pytest.mark.remote
 def test_metno_frost_values_6hour_fallback() -> None:
     """6-hourly synoptic precipitation uses time-series discovery fallback.
 

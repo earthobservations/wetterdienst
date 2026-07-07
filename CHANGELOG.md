@@ -23,6 +23,14 @@ Types of changes:
   queries (e.g. MET Norway Frost). Lets frontends surface this before submitting a
   query rather than after the query fails.
 
+### Changed
+
+- `[MET Norway Frost]` Value requests now fetch all parameters of a dataset/resolution in
+  a single batched request (comma-separated `elements=`) instead of one request per
+  parameter, cutting the number of HTTP requests by up to 11x for multi-parameter queries.
+  Falls back to the previous per-parameter behavior (including historical time-series
+  discovery) if the batched request itself returns a 404.
+
 ## [0.126.0] - 2026-07-07
 
 ### Fixed
