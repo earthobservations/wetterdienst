@@ -4,20 +4,20 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      target: dev
     image: wetterdienst-backend:dev
     container_name: wetterdienst-backend
     restart: unless-stopped
     environment:
       # Common development env overrides; can be overridden in .env
       - PYTHONUNBUFFERED=1
-    command: [ "wetterdienst", "restapi", "--listen", "0.0.0.0:3000" ]
     ports:
       - "3000:3000"
     develop:
       watch:
         - path: src/wetterdienst
           action: sync
-          target: /app
+          target: /app/src/wetterdienst
         - path: ./pyproject.toml
           action: rebuild
         - path: ./uv.lock
