@@ -52,6 +52,9 @@ Types of changes:
   the wrong columns), a missing `return_dtype` on the lat/lon DMS-to-decimal conversion,
   and station rows no longer carrying a `resolution`/`dataset` tag, which made
   `.values.all()` fail outright.
+- `[IMGW]` Hydrology value downloads now honor `WD_USE_CERTIFI`/`use_certifi`, matching
+  the station list fetch and the meteorology provider. Previously it was silently ignored
+  for the actual data downloads.
 
 ## [0.126.0] - 2026-07-07
 

@@ -195,6 +195,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         files = [file for file in files if isinstance(file.content, BytesIO)]
         data = []
