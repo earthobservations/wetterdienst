@@ -22,9 +22,10 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, build_metadata_model
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.provider.imgw.fileindex import list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
-from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
+from wetterdienst.util.network import File, download_file, download_files
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -310,12 +311,22 @@ class ImgwHydrologyValues(TimeseriesValues):
     def _get_urls(self, dataset: DatasetModel) -> list[str]:
         """Get all urls for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
-        files = list_remote_files_fsspec(url, self.sr.settings)
+        interval = None
+        folder_interval = None
+        if self.sr.start_date:
+            interval = portion.closed(self.sr.start_date, self.sr.end_date)
+            # widen by 2 months on each side when pruning folders: IMGW files use "hydrological years"
+            # (shifted by 2 months, see __parse_file below) internally, so e.g. a file living in the "2023"
+            # folder can contain data as early as 2022-11. The exact per-file filtering below is unaffected.
+            folder_interval = portion.closed(
+                self.sr.start_date - relativedelta(months=2),
+                self.sr.end_date + relativedelta(months=2),
+            )
+        files = list_files_for_interval(url, self.sr.settings, folder_interval)
         df_files = pl.DataFrame({"url": files})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip") & ~pl.col("file").str.starts_with("zjaw"))
-        if self.sr.start_date:
-            interval = portion.closed(self.sr.start_date, self.sr.end_date)
+        if interval is not None:
             if dataset.resolution.value == Resolution.DAILY:
                 df_files = df_files.with_columns(
                     pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
