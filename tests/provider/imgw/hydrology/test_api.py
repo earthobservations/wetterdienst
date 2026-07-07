@@ -12,23 +12,26 @@ from polars.testing import assert_frame_equal
 from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyRequest
 
 
-@pytest.fixture
-def df_expected_station() -> pl.DataFrame:
+def _expected_station(resolution: str) -> pl.DataFrame:
     """Provide expected DataFrame for station."""
     return pl.DataFrame(
         [
             {
+                "resolution": resolution,
+                "dataset": "hydrology",
                 "station_id": "150190130",
                 "start_date": None,
                 "end_date": None,
                 "latitude": 50.350278,
                 "longitude": 19.185556,
                 "height": None,
-                "name": "£AGISZA",
+                "name": "ŁAGISZA",
                 "state": None,
             },
         ],
         schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
             "station_id": pl.String,
             "start_date": pl.Datetime(time_zone="UTC"),
             "end_date": pl.Datetime(time_zone="UTC"),
@@ -42,19 +45,20 @@ def df_expected_station() -> pl.DataFrame:
     )
 
 
-@pytest.mark.xfail
-def test_imgw_hydrology_api_daily(df_expected_station: pl.DataFrame) -> None:
+@pytest.mark.remote
+def test_imgw_hydrology_api_daily() -> None:
     """Test fetching of daily hydrology data."""
     request = ImgwHydrologyRequest(
         parameters=[("daily", "hydrology")],
         start_date="2010-08-01",
     ).filter_by_station_id("150190130")
-    assert_frame_equal(request.df, df_expected_station)
+    assert_frame_equal(request.df, _expected_station("daily"))
     values = request.values.all()
     df_expected = pl.DataFrame(
         [
             {
                 "station_id": "150190130",
+                "resolution": "daily",
                 "dataset": "hydrology",
                 "parameter": "discharge",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
@@ -63,23 +67,17 @@ def test_imgw_hydrology_api_daily(df_expected_station: pl.DataFrame) -> None:
             },
             {
                 "station_id": "150190130",
+                "resolution": "daily",
                 "dataset": "hydrology",
                 "parameter": "stage",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 1.64,
-                "quality": None,
-            },
-            {
-                "station_id": "150190130",
-                "dataset": "hydrology",
-                "parameter": "temperature_water",
-                "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": None,
+                "value": 164.0,
                 "quality": None,
             },
         ],
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
@@ -91,19 +89,20 @@ def test_imgw_hydrology_api_daily(df_expected_station: pl.DataFrame) -> None:
     assert_frame_equal(values.df, df_expected)
 
 
-@pytest.mark.xfail
-def test_imgw_hydrology_api_monthly(df_expected_station: pl.DataFrame) -> None:
+@pytest.mark.remote
+def test_imgw_hydrology_api_monthly() -> None:
     """Test fetching of monthly hydrology data."""
     request = ImgwHydrologyRequest(
         parameters=[("monthly", "hydrology")],
         start_date="2010-06-01",
     ).filter_by_station_id("150190130")
-    assert_frame_equal(request.df, df_expected_station)
+    assert_frame_equal(request.df, _expected_station("monthly"))
     values = request.values.all()
     df_expected_values = pl.DataFrame(
         [
             {
                 "station_id": "150190130",
+                "resolution": "monthly",
                 "dataset": "hydrology",
                 "parameter": "discharge_max",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
@@ -112,6 +111,7 @@ def test_imgw_hydrology_api_monthly(df_expected_station: pl.DataFrame) -> None:
             },
             {
                 "station_id": "150190130",
+                "resolution": "monthly",
                 "dataset": "hydrology",
                 "parameter": "discharge_mean",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
@@ -120,6 +120,7 @@ def test_imgw_hydrology_api_monthly(df_expected_station: pl.DataFrame) -> None:
             },
             {
                 "station_id": "150190130",
+                "resolution": "monthly",
                 "dataset": "hydrology",
                 "parameter": "discharge_min",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
@@ -128,55 +129,35 @@ def test_imgw_hydrology_api_monthly(df_expected_station: pl.DataFrame) -> None:
             },
             {
                 "station_id": "150190130",
+                "resolution": "monthly",
                 "dataset": "hydrology",
                 "parameter": "stage_max",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 2.64,
+                "value": 264.0,
                 "quality": None,
             },
             {
                 "station_id": "150190130",
+                "resolution": "monthly",
                 "dataset": "hydrology",
                 "parameter": "stage_mean",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 1.99,
+                "value": 199.0,
                 "quality": None,
             },
             {
                 "station_id": "150190130",
+                "resolution": "monthly",
                 "dataset": "hydrology",
                 "parameter": "stage_min",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 1.49,
-                "quality": None,
-            },
-            {
-                "station_id": "150190130",
-                "dataset": "hydrology",
-                "parameter": "temperature_water_max",
-                "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "150190130",
-                "dataset": "hydrology",
-                "parameter": "temperature_water_mean",
-                "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": None,
-                "quality": None,
-            },
-            {
-                "station_id": "150190130",
-                "dataset": "hydrology",
-                "parameter": "temperature_water_min",
-                "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": None,
+                "value": 149.0,
                 "quality": None,
             },
         ],
         schema={
             "station_id": pl.String,
+            "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),

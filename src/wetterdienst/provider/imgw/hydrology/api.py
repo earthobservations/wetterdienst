@@ -19,7 +19,7 @@ from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import DatasetModel, build_metadata_model
+from wetterdienst.model.metadata import DatasetModel, ParameterModel, build_metadata_model
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import list_files_for_interval
@@ -370,8 +370,8 @@ class ImgwHydrologyValues(TimeseriesValues):
                 )
             df_files = df_files.select(
                 pl.col("url"),
-                pl.col("date_range").list.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                pl.col("date_range").list.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+                pl.col("date_range").arr.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
+                pl.col("date_range").arr.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
@@ -412,19 +412,21 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         if isinstance(payload.content, Exception):
             return pl.LazyFrame()
         # skip empty lines in the csv file
-        lines = payload.content.read().decode("latin-1").replace("\r", "").split("\n")
+        lines = payload.content.read().decode("utf-8").replace("\r", "").split("\n")
         lines = [line for line in lines if line]
         payload = StringIO("\n".join(lines))
         df = pl.read_csv(
             payload,
-            encoding="latin-1",
+            encoding="utf8",
             has_header=False,
             separator=";",
             skip_rows=1,
             infer_schema_length=0,
             truncate_ragged_lines=True,
         )
-        df = df[:, [1, 2, 4, 5]]
+        # columns (0-indexed): LP, Kod (station_id), Nazwa (name), Rzeka, Rok założenia, Szerokość (latitude),
+        # Długość (longitude), Rzędna zera wodowskazu, Kilometr biegu rzeki
+        df = df[:, [1, 2, 5, 6]]
         df.columns = [
             "station_id",
             "name",
@@ -444,8 +446,23 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             .then(pl.lit("19 07 58").alias("longitude"))
             .otherwise(pl.col("longitude")),
         )
-        df = df.lazy()
-        return df.with_columns(
-            pl.col("latitude").map_batches(convert_dms_string_to_dd),
-            pl.col("longitude").map_batches(convert_dms_string_to_dd),
+        df = df.with_columns(
+            pl.col("latitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
+            pl.col("longitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
         )
+        # the station list is shared across all datasets, so tag each row once per requested resolution/dataset
+        resolutions_and_datasets = {
+            (parameter.dataset.resolution.name, parameter.dataset.name)
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
+        }
+        data = [
+            df.with_columns(
+                pl.lit(resolution, pl.String).alias("resolution"),
+                pl.lit(dataset, pl.String).alias("dataset"),
+            )
+            for resolution, dataset in resolutions_and_datasets
+        ]
+        if not data:
+            return pl.LazyFrame()
+        return pl.concat(data).lazy()

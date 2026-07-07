@@ -36,6 +36,16 @@ Types of changes:
   request. Cuts the number of HTTP requests from ~33 (meteorology) / ~74 (hydrology) down
   to the 1-2 folders that actually matter for a given query.
 
+### Fixed
+
+- `[IMGW]` Station listing for both meteorology and hydrology no longer fails: the
+  upstream station CSVs gained an extra "founding year" column and switched from a
+  Windows codepage to UTF-8, which broke column parsing and produced mojibake names.
+  Also fixed a station-list column-index bug (hydrology latitude/longitude were reading
+  the wrong columns), a missing `return_dtype` on the lat/lon DMS-to-decimal conversion,
+  and station rows no longer carrying a `resolution`/`dataset` tag, which made
+  `.values.all()` fail outright.
+
 ## [0.126.0] - 2026-07-07
 
 ### Fixed
