@@ -23,6 +23,34 @@ RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
     uv sync --frozen --active \
     --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi
 
+# Dev stage: editable install so uvicorn --reload picks up source changes.
+# Installs the same extras and OS packages as the final stage for feature parity.
+FROM python:3.14-slim-trixie AS dev
+
+COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /bin/
+
+ENV UV_NO_DEV=1
+ENV UV_LINK_MODE=copy
+ENV UV_PROJECT_ENVIRONMENT=/usr/local
+
+# Install chromium -> required for kaleido png export, and curl for health checks
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends chromium curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY uv.lock pyproject.toml ./
+COPY src ./src
+COPY README.md LICENSE.md ./
+
+RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
+    uv sync --frozen --active \
+    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi
+
+EXPOSE 3000
+CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:3000", "--reload"]
+
 # Final stage
 FROM python:3.14-slim-trixie
 
