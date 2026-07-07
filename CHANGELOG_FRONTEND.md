@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-07
+
 ### Fixed
 
 - `[Explorer]` Parameters selector was invisible due to Vue 3 boolean prop casting:
@@ -237,7 +239,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.8.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.9.0...HEAD
+[0.9.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.8.0...frontend-v0.9.0
 [0.8.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.7.0...frontend-v0.8.0
 [0.7.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.6.0...frontend-v0.7.0
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.5.0...frontend-v0.6.0
