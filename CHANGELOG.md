@@ -55,6 +55,13 @@ Types of changes:
 - `[IMGW]` Hydrology value downloads now honor `WD_USE_CERTIFI`/`use_certifi`, matching
   the station list fetch and the meteorology provider. Previously it was silently ignored
   for the actual data downloads.
+- `[IMGW]` Hydrology daily requests touching 2023 or later no longer crash with
+  `ValueError: month must be in 1..12`. IMGW switched from twelve monthly zips per year
+  to one consolidated yearly zip starting 2023, which broke the date-range parsing that
+  assumed a `codz_YYYY_MM.zip` filename. Also handles the two different (and, for 2024,
+  outright malformed) CSV export quirks IMGW has used for these consolidated files since,
+  for both daily and monthly hydrology data: semicolon-separated unquoted rows in 2023,
+  and in 2024 every row wrapped in a broken extra pair of quotes with doubled inner quotes.
 
 ## [0.126.0] - 2026-07-07
 

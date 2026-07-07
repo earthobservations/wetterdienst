@@ -146,6 +146,54 @@ ImgwHydrologyMetadata = {
 ImgwHydrologyMetadata = build_metadata_model(ImgwHydrologyMetadata, "ImgwHydrologyMetadata")
 
 
+def _hydrology_daily_file_date_range(year: int, month: int | None) -> list[dt.datetime]:
+    """Compute the date range covered by a hydrology daily zip file from its filename year/month.
+
+    Daily files are either per-month (``codz_YYYY_MM.zip``, historical) or a single
+    consolidated file per year (``codz_YYYY.zip``, used from 2023 onwards). ``month`` is
+    None for the latter, in which case the whole hydrological year is covered.
+    """
+    if month is None:
+        d = dt.datetime(year, 1, 1, tzinfo=ZoneInfo("UTC"))
+        return [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)]
+    # shift hydrological year/month to calendar year/month, mirroring __parse_file below
+    if month <= 2:
+        year -= 1
+    month = month - 2 if month + 10 > 12 else month + 10
+    return [
+        dt.datetime(year, month, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(year, month, 1, tzinfo=ZoneInfo("UTC")) + relativedelta(months=1) - relativedelta(days=1),
+    ]
+
+
+def _normalize_hydrology_csv(data: bytes) -> tuple[bytes, str]:
+    """Detect and normalize the CSV export quirks IMGW has used for hydrology zip files.
+
+    IMGW's per-row export format has changed multiple times:
+      - historically (through ~2022): comma-separated, individually quoted fields
+      - 2023: semicolon-separated, unquoted fields (sometimes with a UTF-8 BOM)
+      - 2024: comma-separated, but each row wrapped in one extra pair of quotes with
+        doubly-escaped inner quotes, e.g. ``"id,name,river,""2024"",""01"",...``
+
+    Returns the (possibly rewritten) bytes together with the separator to parse them with.
+    """
+    body = data.replace(b"\xef\xbb\xbf", b"")
+    first_line = body.split(b"\n", 1)[0].rstrip(b"\r")
+    if first_line.startswith(b'"') and b',""' in first_line:
+        unwrapped = []
+        for raw_line in body.split(b"\n"):
+            line = raw_line.rstrip(b"\r")
+            if not line:
+                continue
+            if line.startswith(b'"') and line.endswith(b'"'):
+                line = line[1:-1]
+            unwrapped.append(line.replace(b'""', b'"'))
+        return b"\r\n".join(unwrapped), ","
+    if b";" in first_line and b"," not in first_line:
+        return body, ";"
+    return body, ","
+
+
 class ImgwHydrologyValues(TimeseriesValues):
     """Values class for hydrological data from IMGW."""
 
@@ -260,10 +308,11 @@ class ImgwHydrologyValues(TimeseriesValues):
 
     def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
+        normalized, separator = _normalize_hydrology_csv(file)
         df = pl.read_csv(
-            file,
+            normalized,
             encoding="latin-1",
-            separator=",",
+            separator=separator,
             has_header=False,
             infer_schema_length=0,
             null_values=["9999", "99999.999", "99.9"],
@@ -329,29 +378,20 @@ class ImgwHydrologyValues(TimeseriesValues):
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip") & ~pl.col("file").str.starts_with("zjaw"))
         if interval is not None:
             if dataset.resolution.value == Resolution.DAILY:
+                # daily files are either per-month ("codz_YYYY_MM.zip", historical) or a single
+                # consolidated file per year ("codz_YYYY.zip", used from 2023 onwards); month is
+                # null for the latter and _hydrology_daily_file_date_range() covers the whole year
                 df_files = df_files.with_columns(
                     pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
                 )
                 df_files = df_files.with_columns(
                     pl.col("year_month").list.first().cast(pl.Int64).alias("year"),
-                    pl.col("year_month").list.last().cast(pl.Int64).alias("month"),
-                )
-                df_files = df_files.with_columns(
-                    pl.when(pl.col("month") <= 2).then(pl.col("year") - 1).otherwise(pl.col("year")).alias("year"),
-                    pl.when(pl.col("month").add(10).gt(12))
-                    .then(pl.col("month").sub(2))
-                    .otherwise(pl.col("month"))
-                    .alias("month"),
+                    pl.col("year_month").list.get(1, null_on_oob=True).cast(pl.Int64).alias("month"),
                 )
                 df_files = df_files.with_columns(
                     pl.struct(["year", "month"])
                     .map_elements(
-                        lambda x: [
-                            dt.datetime(x["year"], x["month"], 1, tzinfo=ZoneInfo("UTC")),
-                            dt.datetime(x["year"], x["month"], 1, tzinfo=ZoneInfo("UTC"))
-                            + relativedelta(months=1)
-                            - relativedelta(days=1),
-                        ],
+                        lambda x: _hydrology_daily_file_date_range(x["year"], x["month"]),
                         return_dtype=pl.Array(pl.Datetime, shape=2),
                     )
                     .alias("date_range"),
