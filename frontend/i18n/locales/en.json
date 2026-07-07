@@ -475,6 +475,8 @@
     "facetByParameter": "Facet by parameter",
     "trendline": "Trendline",
     "emptyHint": "Select parameters and stations, then click Show to load data",
+    "fetchError": "Failed to load data",
+    "fetchErrorToastTitle": "Data request failed",
     "dataTitle": "Data",
     "noChartData": "No data available for chart",
     "rowsPerPage": "Rows per page",
