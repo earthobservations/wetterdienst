@@ -8,6 +8,9 @@ services:
     image: wetterdienst-backend:dev
     container_name: wetterdienst-backend
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
       # Common development env overrides; can be overridden in .env
       - PYTHONUNBUFFERED=1
