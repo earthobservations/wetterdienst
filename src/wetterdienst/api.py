@@ -109,7 +109,12 @@ class Wetterdienst:
                 try:
                     api = cls(provider, network)
                 except ImportError:
-                    result[provider][network] = {"auth": False, "configured": True, "valid": True}
+                    result[provider][network] = {
+                        "auth": False,
+                        "configured": True,
+                        "valid": True,
+                        "date_required": False,
+                    }
                     continue
                 metadata = getattr(api, "metadata", None)
                 auth = metadata.auth if metadata is not None else False
@@ -125,7 +130,17 @@ class Wetterdienst:
                         valid = is_valid()
                     except Exception:  # noqa: BLE001
                         valid = False
-                result[provider][network] = {"auth": auth, "configured": configured, "valid": valid}
+                date_required = (
+                    any(dataset.date_required for resolution in metadata for dataset in resolution.datasets)
+                    if metadata is not None
+                    else False
+                )
+                result[provider][network] = {
+                    "auth": auth,
+                    "configured": configured,
+                    "valid": valid,
+                    "date_required": date_required,
+                }
         return result
 
     @classmethod
