@@ -30,6 +30,7 @@ export interface CoverageNetworkInfo {
   auth: boolean
   configured: boolean
   valid: boolean
+  date_required: boolean
 }
 
 /** Provider to networks mapping with per-network metadata */

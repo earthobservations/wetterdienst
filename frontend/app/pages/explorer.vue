@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import type { Station } from '~/shared/types/api'
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
@@ -255,8 +256,35 @@ const isHighResolution = computed(() => {
 const isInterpolationMode = computed(() => stationSelectionState.value.mode === 'interpolation')
 const isSummaryMode = computed(() => stationSelectionState.value.mode === 'summary')
 
-// Date range is required for interpolation, summary, or high resolution
-const dateRangeRequired = computed(() => isInterpolationMode.value || isSummaryMode.value || isHighResolution.value)
+// Date range is required for interpolation, summary, high resolution, or date_required providers
+const dateRangeRequired = computed(() =>
+  isInterpolationMode.value
+  || isSummaryMode.value
+  || isHighResolution.value
+  || parameterSelectionState.value.selection.dateRequired === true,
+)
+
+// When dates are required and stations are selected, auto-fill from min(start_date) / max(end_date).
+watch(
+  [
+    () => stationSelectionState.value.selection.stations,
+    dateRangeRequired,
+  ],
+  ([stations, required]) => {
+    if (!required || !(stations as Station[]).length)
+      return
+    const today = new Date().toISOString().slice(0, 10)
+    const toDate = (iso: string | undefined | null) => iso ? iso.slice(0, 10) : null
+    const starts = (stations as Station[]).map(s => toDate(s.start_date)).filter(Boolean) as string[]
+    // Active stations have no end_date — treat them as ending today
+    const ends = (stations as Station[]).map(s => toDate(s.end_date) ?? today)
+    if (starts.length)
+      stationSelectionState.value.dateRange.startDate = starts.reduce((a, b) => a < b ? a : b)
+    if (ends.length)
+      stationSelectionState.value.dateRange.endDate = ends.reduce((a, b) => a > b ? a : b)
+  },
+  { deep: true },
+)
 
 // Check if station/interpolation/summary selection is complete
 const hasLocationSelection = computed(() => {

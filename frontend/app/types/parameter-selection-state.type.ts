@@ -4,6 +4,7 @@ export interface ParameterSelection {
   resolution: Resolution | undefined
   dataset: string | undefined
   parameters: string[]
+  dateRequired?: boolean
 }
 
 export interface ParameterSelectionState {
