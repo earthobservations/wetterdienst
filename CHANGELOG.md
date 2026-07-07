@@ -62,6 +62,13 @@ Types of changes:
   outright malformed) CSV export quirks IMGW has used for these consolidated files since,
   for both daily and monthly hydrology data: semicolon-separated unquoted rows in 2023,
   and in 2024 every row wrapped in a broken extra pair of quotes with doubled inner quotes.
+- `[IMGW]` Meteorology `synop` daily requests no longer crash with
+  `TypeError: '<' not supported between instances of 'NoneType' and 'NoneType'`. Unlike
+  every other IMGW meteorology dataset, `synop` daily has always been archived one file
+  per station per period (e.g. `2024_100_s.zip` for the station whose id ends in `100`)
+  rather than one file per month across all stations, going back to at least the 1966-1970
+  archive — the URL selection logic never accounted for this, so `synop` daily was
+  non-functional for any date range.
 
 ## [0.126.0] - 2026-07-07
 
