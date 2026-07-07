@@ -25,6 +25,15 @@ Types of changes:
   dataset is chosen (initial load and on dataset change). URL-specified parameters are
   preserved if still valid; otherwise all parameters are selected as the default.
 
+### Added
+
+- `[Explorer]` The date range selector is now marked required for providers that need a
+  date range for value queries (e.g. MET Norway Frost), reflecting the backend's
+  `date_required` coverage flag instead of always showing "optional".
+- `[Explorer]` When a date range is required and stations are selected, the date range
+  auto-fills from the min start date / max end date across the selected stations
+  (stations still collecting data are treated as ending today).
+
 
 ## [0.8.0] - 2026-07-06
 

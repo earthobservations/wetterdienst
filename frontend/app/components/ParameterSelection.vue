@@ -7,6 +7,7 @@ const props = withDefaults(defineProps<{
     resolution?: string
     dataset?: string
     parameters?: string[]
+    dateRequired?: boolean
   }
   showParameters?: boolean
 }>(), {
@@ -86,6 +87,11 @@ const params = computed<string[]>(() => {
   return datasetParams
     .map((p: CoverageParameter) => p.name)
     .sort()
+})
+const dateRequired = computed<boolean>(() => {
+  if (!coverage.value || !provider.value || !network.value)
+    return false
+  return coverage.value[provider.value]?.[network.value]?.date_required === true
 })
 
 // Friendly, locale-aware labels for the select menus (value stays the raw backend id).
@@ -244,10 +250,11 @@ function emitUpdate() {
     resolution: resolution.value,
     dataset: dataset.value,
     parameters: parameters.value,
+    dateRequired: dateRequired.value,
   })
 }
 
-watch([provider, network, resolution, dataset, parameters], () => {
+watch([provider, network, resolution, dataset, parameters, dateRequired], () => {
   if (isInitializing.value)
     return
   emitUpdate()
