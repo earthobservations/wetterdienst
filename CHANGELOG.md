@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[REST API]` The `/api/coverage` endpoint now reports a `date_required` flag per
+  provider/network, true if any of its resolutions require a date range for value
+  queries (e.g. MET Norway Frost). Lets frontends surface this before submitting a
+  query rather than after the query fails.
+
 ## [0.126.0] - 2026-07-07
 
 ### Fixed
