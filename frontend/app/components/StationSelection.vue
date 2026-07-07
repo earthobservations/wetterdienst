@@ -83,7 +83,6 @@ watch(allStations, (stations) => {
 
 watch(() => props.parameterSelection, (ps) => {
   if (!ps.parameters?.length) {
-    // No parameters selected, clear stations data
     stationsData.value = { stations: [] }
     selectedStations.value = []
     return

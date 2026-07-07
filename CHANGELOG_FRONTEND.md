@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Explorer]` Parameters selector was invisible due to Vue 3 boolean prop casting:
+  `showParameters?: boolean` was silently cast to `false` when not passed by the parent,
+  making the field hidden in the Explorer. Fixed with `withDefaults({ showParameters: true })`.
+- `[Explorer]` All parameters for the selected dataset are now auto-selected when a
+  dataset is chosen (initial load and on dataset change). URL-specified parameters are
+  preserved if still valid; otherwise all parameters are selected as the default.
+
+
 ## [0.8.0] - 2026-07-06
 
 ### Added
