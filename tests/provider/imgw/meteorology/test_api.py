@@ -345,3 +345,114 @@ def test_imgw_meteorology_api_monthly() -> None:
         orient="row",
     )
     assert_frame_equal(values.df, df_expected_values)
+
+
+@pytest.mark.remote
+def test_imgw_meteorology_api_daily_synop() -> None:
+    """Test fetching of daily synop data.
+
+    Synop daily is archived per-station ("YYYY_<station-code>_s.zip"), not per-month like
+    the other meteorology daily datasets, and needs its own file-selection logic in _get_urls().
+    """
+    request = ImgwMeteorologyRequest(
+        parameters=[("daily", "synop")],
+        start_date="2024-01-01",
+        end_date="2024-01-01",
+    ).filter_by_station_id("354150100")
+    values = request.values.all()
+    df_expected_values = pl.DataFrame(
+        [
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "cloud_cover_total",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 0.0,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "humidity",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 0.905,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "precipitation_height_day",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 0.1,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "precipitation_height_night",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 4.8,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "pressure_air_sea_level",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1004.2,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "pressure_air_site",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1003.5,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "pressure_vapor",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 7.7,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "temperature_air_mean_2m",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 4.6,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "wind_speed",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 3.1,
+                "quality": None,
+            },
+        ],
+        schema={
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
+        orient="row",
+    )
+    assert_frame_equal(values.df, df_expected_values)

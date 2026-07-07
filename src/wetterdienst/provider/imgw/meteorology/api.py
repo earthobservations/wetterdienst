@@ -560,7 +560,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.stations.settings)
-        urls = self._get_urls(parameter_or_dataset)
+        urls = self._get_urls(parameter_or_dataset, station_id)
         files = download_files(
             urls=urls,
             cache_dir=settings.cache_dir,
@@ -644,7 +644,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         df = df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name="value")
         return df.with_columns(pl.col("value").cast(pl.Float64))
 
-    def _get_urls(self, dataset: DatasetModel) -> list[str]:
+    def _get_urls(self, dataset: DatasetModel, station_id: str) -> list[str]:
         """Get URLs for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         interval = portion.closed(self.sr.start_date, self.sr.end_date) if self.sr.start_date else None
@@ -652,6 +652,14 @@ class ImgwMeteorologyValues(TimeseriesValues):
         df_files = pl.DataFrame({"url": files})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip"))
+        if dataset.resolution.value == Resolution.DAILY and dataset.name == "synop":
+            # unlike every other IMGW meteorology dataset, synop daily is archived per
+            # station rather than per month: one file per period (year, or decade for
+            # older data) *per station*, e.g. "2024_100_s.zip" for the station whose
+            # 9-digit id ends in "100", not "2024_08_k.zip" for August across all stations
+            station_code = station_id[-3:]
+            df_files = df_files.filter(pl.col("file").str.contains(rf"_{station_code}_"))
+            return df_files.get_column("url").to_list()
         if interval is not None:
             if dataset.resolution.value == Resolution.MONTHLY:
                 df_files = df_files.with_columns(
