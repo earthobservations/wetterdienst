@@ -34,9 +34,12 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev',
+    // In CI, test against the real production build (catches bundling/build
+    // regressions the dev server would never surface); locally, keep the fast
+    // dev-server iteration loop.
+    command: process.env.CI ? 'npm run build && npm run preview -- --port 4000' : 'npm run dev',
     url: 'http://localhost:4000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: process.env.CI ? 300 * 1000 : 120 * 1000,
   },
 })
