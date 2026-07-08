@@ -39,6 +39,9 @@ Types of changes:
   even pages with no map. The map components already lazy-load Leaflet themselves via
   `@vue-leaflet`'s `use-global-leaflet` mechanism, so pages without a station map (API
   docs, Impressum, etc.) no longer pay for it.
+- `[Performance]` Replaced the 400×400 `favicon.ico` (actually a mislabeled PNG, 160 KB)
+  with a properly-sized 128×128 version (~19 KB), used both as the browser tab icon and
+  the in-page logo (rendered at 20-28px in the header and widget pages).
 
 ## [0.9.0] - 2026-07-07
 
