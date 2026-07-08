@@ -53,18 +53,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  docker_frontend:
+  # Computes the version/tags/labels once, shared by the per-platform build jobs
+  # and the final manifest-merge job.
+  docker_meta:
     needs: build_and_test_frontend
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
     if: ${{ ! (startsWith(github.actor, 'dependabot') || github.event.pull_request.head.repo.fork ) }}
+    outputs:
+      tags: ${{ steps.meta.outputs.tags }}
+      labels: ${{ steps.meta.outputs.labels }}
 
     steps:
       - name: Acquire sources
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Extract version from tag
@@ -95,22 +97,34 @@ jobs:
           echo "Tags:      ${{ steps.meta.outputs.tags }}"
           echo "Labels:    ${{ steps.meta.outputs.labels }}"
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+  # Builds each platform natively on its own runner (no QEMU emulation) and
+  # pushes an untagged, digest-addressed image. linux/arm64 under QEMU
+  # emulation on an amd64 runner took ~17 minutes (mostly `pnpm run build`,
+  # which is CPU-bound and emulates very poorly); native arm64 runners
+  # (free for public repos: https://github.blog/changelog/2025-08-07-arm64-hosted-runners-for-public-repositories-are-now-generally-available/)
+  # build at native speed instead.
+  docker_frontend_build:
+    needs: docker_meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-latest
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
+    permissions:
+      packages: write
+
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@v7
         with:
-          platforms: linux/amd64,linux/arm64
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        id: buildx
         uses: docker/setup-buildx-action@v4 # zizmor: ignore[cache-poisoning]
-
-      - name: Inspect builder # zizmor: ignore[template-injection]
-        run: |
-          echo "Name:      ${{ steps.buildx.outputs.name }}"
-          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
-          echo "Status:    ${{ steps.buildx.outputs.status }}"
-          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
-          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
 
       - name: Login to GHCR
         uses: docker/login-action@v4
@@ -119,19 +133,89 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ github.token }}
 
-      - name: Build and push
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/frontend.Dockerfile
           target: prod
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ needs.docker_meta.outputs.labels }}
+          outputs: type=image,name=ghcr.io/${{ env.IMAGE_NAME_FRONTEND }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=frontend-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=frontend-${{ matrix.arch }}
           provenance: false
+
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Combines the per-platform digests into a single multi-arch manifest under
+  # the real tags, then deploys.
+  docker_frontend_merge:
+    needs: [ docker_meta, docker_frontend_build ]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4 # zizmor: ignore[cache-poisoning]
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ github.token }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        env:
+          META_TAGS: ${{ needs.docker_meta.outputs.tags }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME_FRONTEND }}
+        run: |
+          tags=()
+          while IFS= read -r tag; do
+            [ -n "$tag" ] && tags+=("-t" "$tag")
+          done <<< "$META_TAGS"
+          refs=()
+          for digest in *; do
+            refs+=("ghcr.io/${IMAGE_NAME}@sha256:${digest}")
+          done
+          docker buildx imagetools create "${tags[@]}" "${refs[@]}"
+
+      - name: Inspect image
+        env:
+          META_TAGS: ${{ needs.docker_meta.outputs.tags }}
+        run: |
+          first_tag=$(head -n1 <<< "$META_TAGS")
+          docker buildx imagetools inspect "$first_tag"
 
       - name: Display git status
         run: |
