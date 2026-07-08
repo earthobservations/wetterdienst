@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Build]` Silenced the `@tailwindcss/vite` "Sourcemap is likely to be incorrect"
+  warning that flooded the production build log on every CSS chunk; the plugin doesn't
+  emit sourcemaps for its transform yet (upstream limitation), so the warning was
+  purely cosmetic.
 - `[Explorer]` Failed value requests (e.g. auth misconfiguration or upstream provider
   errors) were silently swallowed: the data viewer never inspected the fetch `error`,
   so any failure looked identical to "no query run yet", showing the generic
