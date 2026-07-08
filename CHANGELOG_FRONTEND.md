@@ -34,6 +34,11 @@ Types of changes:
   (only `scatter` and `bar` traces are used across Meteogram, Explorer, and Stripes),
   cutting the lazily-loaded Plotly chunk from ~4.8 MB to ~1.1 MB (~1.45 MB to ~0.37 MB
   gzipped).
+- `[Performance]` Removed the eager global Leaflet plugin: `leaflet` and
+  `leaflet.markercluster` (~450 KB) were being bundled into every page's initial load,
+  even pages with no map. The map components already lazy-load Leaflet themselves via
+  `@vue-leaflet`'s `use-global-leaflet` mechanism, so pages without a station map (API
+  docs, Impressum, etc.) no longer pay for it.
 
 ## [0.9.0] - 2026-07-07
 
