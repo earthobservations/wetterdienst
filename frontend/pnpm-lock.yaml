@@ -48,9 +48,9 @@ importers:
       nuxt-security:
         specifier: ^2.6.0
         version: 2.6.0(magicast@0.5.3)(rollup@4.61.1)
-      plotly.js-dist-min:
+      plotly.js-basic-dist-min:
         specifier: ^3.6.0
-        version: 3.6.0
+        version: 3.7.0
       suncalc:
         specifier: ^1.9.0
         version: 1.9.0
@@ -5650,8 +5650,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  plotly.js-dist-min@3.6.0:
-    resolution: {integrity: sha512-VR9jO2YdcEwbzVwtRyPE0eAieXFv1x5q6M9nnIgUS8FggahPrjiID6kzpnTYABwLX0gZkgEc0zxS6gQgVmgHzw==}
+  plotly.js-basic-dist-min@3.7.0:
+    resolution: {integrity: sha512-84KPQhLTrO5IHu6DCte2KwA4bzSoVIdIs3uDPWid3sgeTX8L5RjpDARjCG3spgOwQ8MYE8PL+MeQ0DQRWA1Emw==}
 
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
@@ -12914,7 +12914,7 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.2
 
-  plotly.js-dist-min@3.6.0: {}
+  plotly.js-basic-dist-min@3.7.0: {}
 
   pluralize@8.0.0: {}
 

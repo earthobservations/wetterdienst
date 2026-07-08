@@ -28,6 +28,13 @@ Types of changes:
   "select parameters and stations" hint with no indication anything went wrong.
   The actual error message is now shown in the data viewer and as a toast.
 
+### Changed
+
+- `[Performance]` Switched from `plotly.js-dist-min` to `plotly.js-basic-dist-min`
+  (only `scatter` and `bar` traces are used across Meteogram, Explorer, and Stripes),
+  cutting the lazily-loaded Plotly chunk from ~4.8 MB to ~1.1 MB (~1.45 MB to ~0.37 MB
+  gzipped).
+
 ## [0.9.0] - 2026-07-07
 
 ### Fixed

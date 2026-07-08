@@ -3,7 +3,7 @@ const { t } = useI18n()
 
 // Plotly instance (loaded client-side only)
 const plotlyLoaded = ref(false)
-let Plotly: typeof import('plotly.js-dist-min') | null = null
+let Plotly: typeof import('plotly.js-basic-dist-min') | null = null
 
 const kind = ref<StripesKind>('temperature')
 
@@ -565,7 +565,7 @@ watch([showTitle, showYears, showDataAvailability], () => {
 
 // Load Plotly dynamically on mount
 onMounted(async () => {
-  Plotly = await import('plotly.js-dist-min')
+  Plotly = await import('plotly.js-basic-dist-min')
   plotlyLoaded.value = true
 })
 </script>

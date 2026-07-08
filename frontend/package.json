@@ -33,7 +33,7 @@
     "luxon": "^3.5.0",
     "nuxt": "^4.4.7",
     "nuxt-security": "^2.6.0",
-    "plotly.js-dist-min": "^3.6.0",
+    "plotly.js-basic-dist-min": "^3.6.0",
     "suncalc": "^1.9.0",
     "tailwindcss": "^4.3.0",
     "tz-lookup": "^6.1.25",
