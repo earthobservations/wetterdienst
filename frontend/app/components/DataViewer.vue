@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-dist-min'
+import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-basic-dist-min'
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
@@ -53,7 +53,7 @@ const facetChartRefs = ref<Map<string, HTMLDivElement>>(new Map())
 
 // Plotly instance (loaded client-side only)
 const plotlyLoaded = ref(false)
-let Plotly: typeof import('plotly.js-dist-min') | null = null
+let Plotly: typeof import('plotly.js-basic-dist-min') | null = null
 
 // Parameter label format options and chart display
 // Options: 'parameter' (default), 'dataset/parameter', 'resolution/dataset/parameter'
@@ -824,7 +824,7 @@ async function renderFacetedCharts() {
 
 // Load Plotly and render charts
 onMounted(async () => {
-  Plotly = await import('plotly.js-dist-min')
+  Plotly = await import('plotly.js-basic-dist-min')
   plotlyLoaded.value = true
 
   // Initial render after Plotly loads

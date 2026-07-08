@@ -78,7 +78,7 @@ export default defineNuxtConfig({
       tailwindcss() as any,
     ],
     optimizeDeps: {
-      include: ['leaflet', 'leaflet.markercluster', 'plotly.js-dist-min'],
+      include: ['leaflet', 'leaflet.markercluster', 'plotly.js-basic-dist-min'],
     },
     build: {
       rollupOptions: {

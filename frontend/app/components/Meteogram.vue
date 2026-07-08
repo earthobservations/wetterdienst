@@ -899,7 +899,7 @@ async function renderChartActual() {
   }
 
   if (!plotlyLoaded.value) {
-    Plotly = await import('plotly.js-dist-min')
+    Plotly = await import('plotly.js-basic-dist-min')
     plotlyLoaded.value = true
   }
 
