@@ -80,6 +80,19 @@ export default defineNuxtConfig({
     optimizeDeps: {
       include: ['leaflet', 'leaflet.markercluster', 'plotly.js-dist-min'],
     },
+    build: {
+      rollupOptions: {
+        onwarn(warning, warn) {
+          // @tailwindcss/vite doesn't emit sourcemaps for its CSS transform yet
+          // (upstream limitation: https://github.com/tailwindlabs/tailwindcss/issues/17926),
+          // which floods the build log with a benign warning on every chunk.
+          if (warning.code === 'SOURCEMAP_BROKEN' && warning.plugin === '@tailwindcss/vite:generate:build') {
+            return
+          }
+          warn(warning)
+        },
+      },
+    },
   },
 
   // Module configurations
