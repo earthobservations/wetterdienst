@@ -3,5 +3,15 @@ confirmModulesPurge: false
 shellEmulator: true
 trustPolicy: no-downgrade
 overrides:
+  # Without this, pnpm's trustPolicy: no-downgrade rejects semver@6.3.1 (a
+  # long-standing transitive dep of @babel/core@7.x, pulled in via
+  # nuxt-security -> unplugin-remove) because that specific release lacks
+  # provenance attestation that an earlier semver version had. Not a known
+  # vulnerability -- babel 7.x has depended on semver ^6.3.1 for years, and
+  # babel 8 (which finally moved to semver ^7.x) is too fresh for
+  # unplugin-remove to have picked up yet. Revisit once it does.
   semver: ^7.8.2
+  # Same trustPolicy issue for undici-types@6.21.0, pulled in via
+  # @duckdb/duckdb-wasm -> apache-arrow -> @types/node@20.19.42 (an older,
+  # separately-resolved @types/node than the workspace's own ^25.x).
   undici-types: ^6.21.0
