@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { SunTimes } from 'suncalc'
 import type { Value } from '#shared/types/api'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
@@ -1061,13 +1062,13 @@ async function renderChartActual() {
   const dayShapes: any[] = []
   const days = getCalendarDays(minTime, displayMaxTime, stationTZ)
   if (props.stationCoords && props.stationCoords.latitude != null && props.stationCoords.longitude != null) {
-    const SunCalc = (await import('suncalc')) as any
+    const SunCalc = await import('suncalc')
     const lat = props.stationCoords.latitude
     const lon = props.stationCoords.longitude
     for (const day of days) {
       const localDayDt = DateTime.fromMillis(day.getTime(), { zone: stationTZ })
       const localNoon = localDayDt.plus({ hours: 12 }).toJSDate()
-      const times = SunCalc.getTimes(localNoon, lat, lon) as Record<string, Date | undefined>
+      const times: SunTimes = SunCalc.getTimes(localNoon, lat, lon)
       const sunrise = times.sunrise ?? times.sunriseEnd ?? localDayDt.plus({ hours: 4 }).toJSDate()
       const sunset = times.sunset ?? times.sunsetStart ?? localDayDt.plus({ hours: 20 }).toJSDate()
       const middayCf = cloudMap.get(localNoon.getTime()) ?? 0
