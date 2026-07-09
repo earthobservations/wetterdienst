@@ -109,14 +109,16 @@ const resolutionItems = computed(() => resolutions.value.map(r => ({ label: reso
 const datasetItems = computed(() => datasets.value.map(d => ({ label: datasetLabel(d), value: d })))
 const paramItems = computed(() => params.value.map(p => ({ label: parameterLabel(p), value: p })))
 
-// Beginner-friendly starting point used when the Explorer is opened without any
-// existing selection (no URL query): DWD observation, daily climate summary,
-// mean 2 m air temperature. Gives newcomers a working example to tweak.
+// Beginner-friendly starting point used when the caller is opened without any
+// existing selection (no URL query): DWD observation. Resolution/dataset/parameters
+// are deliberately left unset here -- auto-selecting a full parameter set on load
+// (some datasets have a dozen-plus parameters) made the page feel like it hung
+// before becoming interactive, so the user picks those explicitly instead.
 const PRESELECTION = {
   provider: 'dwd',
   network: 'observation',
-  resolution: 'daily',
-  dataset: 'climate_summary',
+  resolution: undefined,
+  dataset: undefined,
   parameters: [],
 }
 
