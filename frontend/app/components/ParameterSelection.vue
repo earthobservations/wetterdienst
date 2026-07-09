@@ -10,6 +10,10 @@ const props = withDefaults(defineProps<{
     dateRequired?: boolean
   }
   showParameters?: boolean
+  /** When set, restricts the provider select to this single value (e.g. Explorer is DWD-observation-only). */
+  restrictProvider?: string
+  /** When set, restricts the network select to this single value. */
+  restrictNetwork?: string
 }>(), {
   showParameters: true,
 })
@@ -40,17 +44,23 @@ const providers = computed(() => {
   const cov = coverage.value
   if (!cov)
     return []
-  return Object.keys(cov)
+  const all = Object.keys(cov)
     .filter(p => Object.values(cov[p] ?? {}).some(isAvailable))
     .sort()
+  if (props.restrictProvider)
+    return all.includes(props.restrictProvider) ? [props.restrictProvider] : all
+  return all
 })
 const networks = computed<string[]>(() => {
   const cov = coverage.value
   if (!provider.value || !cov)
     return []
-  return Object.entries(cov[provider.value] ?? {})
+  const all = Object.entries(cov[provider.value] ?? {})
     .filter(([, n]) => isAvailable(n))
     .map(([name]) => name)
+  if (props.restrictNetwork)
+    return all.includes(props.restrictNetwork) ? [props.restrictNetwork] : all
+  return all
 })
 
 // provider-network coverage
@@ -112,7 +122,23 @@ const PRESELECTION = {
 
 // Initialize from query params and validate step by step
 async function initializeFromProps() {
-  const initial = props.modelValue?.provider ? props.modelValue : PRESELECTION
+  const initial = { ...(props.modelValue?.provider ? props.modelValue : PRESELECTION) }
+
+  // A restricted provider/network overrides anything URL-provided — there's
+  // only one valid value, so no point treating a mismatch as "invalid input".
+  if (props.restrictProvider && initial.provider !== props.restrictProvider) {
+    initial.provider = props.restrictProvider
+    initial.network = undefined
+    initial.resolution = undefined
+    initial.dataset = undefined
+    initial.parameters = []
+  }
+  if (props.restrictNetwork && initial.network !== props.restrictNetwork) {
+    initial.network = props.restrictNetwork
+    initial.resolution = undefined
+    initial.dataset = undefined
+    initial.parameters = []
+  }
 
   // Step 1: Validate provider
   if (initial.provider && providers.value.includes(initial.provider)) {
@@ -273,10 +299,10 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
     </template>
     <UContainer class="flex flex-col gap-4">
       <UFormField :label="t('parameterSelection.providerLabel')">
-        <USelect v-model="provider" :items="providers" :placeholder="t('parameterSelection.selectProvider')" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
+        <USelect v-model="provider" :items="providers" :placeholder="t('parameterSelection.selectProvider')" :disabled="!!restrictProvider" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
       </UFormField>
       <UFormField :label="t('parameterSelection.networkLabel')">
-        <USelect v-model="network" :items="networks" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider" class="w-full" :class="{ 'needs-input': activeField === 'network' }" />
+        <USelect v-model="network" :items="networks" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider || !!restrictNetwork" class="w-full" :class="{ 'needs-input': activeField === 'network' }" />
       </UFormField>
       <UFormField :label="t('parameterSelection.resolutionLabel')">
         <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network || networkCoveragePending" class="w-full" :class="{ 'needs-input': activeField === 'resolution' }" />

@@ -576,7 +576,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
       </template>
     </UCollapsible>
 
-    <ParameterSelection v-model="parameterSelectionState.selection" />
+    <ParameterSelection v-model="parameterSelectionState.selection" restrict-provider="dwd" restrict-network="observation" />
 
     <!-- Mode Selection -->
     <UCard v-if="showModeSelection">

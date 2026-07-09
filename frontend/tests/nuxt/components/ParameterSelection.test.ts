@@ -1,4 +1,4 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ParameterSelection } from '#components'
 
@@ -134,6 +134,56 @@ describe('parameterSelection Component', () => {
     const vm = wrapper.vm as any
     expect(vm.selectAllParameters).toBeDefined()
     expect(typeof vm.selectAllParameters).toBe('function')
+  })
+
+  it('restricts the provider select to restrictProvider', async () => {
+    registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} }, noaa: { ghcn: {} } }))
+
+    const wrapper = await mountSuspended(ParameterSelection, {
+      props: {
+        modelValue: {},
+        restrictProvider: 'dwd',
+      },
+    })
+
+    const vm = wrapper.vm as any
+    expect(vm.providers).toEqual(['dwd'])
+  })
+
+  it('restricts the network select to restrictNetwork', async () => {
+    registerEndpoint('/api/coverage', () => ({ dwd: { observation: {}, mosmix: {} } }))
+
+    const wrapper = await mountSuspended(ParameterSelection, {
+      props: {
+        modelValue: { provider: 'dwd' },
+        restrictNetwork: 'observation',
+      },
+    })
+
+    const vm = wrapper.vm as any
+    expect(vm.networks).toEqual(['observation'])
+  })
+
+  it('overrides a mismatched initial provider/network with the restricted values', async () => {
+    registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} }, noaa: { ghcn: {} } }))
+
+    const wrapper = await mountSuspended(ParameterSelection, {
+      props: {
+        modelValue: {
+          provider: 'noaa',
+          network: 'ghcn',
+          resolution: 'daily',
+          dataset: 'foo',
+          parameters: ['bar'],
+        },
+        restrictProvider: 'dwd',
+        restrictNetwork: 'observation',
+      },
+    })
+
+    const vm = wrapper.vm as any
+    expect(vm.provider).toBe('dwd')
+    expect(vm.network).toBe('observation')
   })
 
   it('supports clear parameters', async () => {

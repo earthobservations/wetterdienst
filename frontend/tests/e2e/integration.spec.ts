@@ -38,6 +38,37 @@ test.describe('Explorer E2E Flow', () => {
     const bodyText = await page.locator('body').textContent()
     expect(bodyText).toBeTruthy()
   })
+
+  test('should restrict provider and network to dwd/observation', async ({ page }) => {
+    await page.goto('/explorer')
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000)
+
+    const providerSelect = page.getByLabel('Provider')
+    await expect(providerSelect).toBeDisabled()
+    await expect(providerSelect).toHaveText('dwd')
+
+    const networkSelect = page.getByLabel('Network')
+    await expect(networkSelect).toBeDisabled()
+    await expect(networkSelect).toHaveText('observation')
+
+    // Resolution/dataset stay freely selectable -- only provider/network are locked.
+    const resolutionSelect = page.getByLabel('Resolution')
+    await expect(resolutionSelect).toBeEnabled()
+  })
+
+  test('should leave provider/network freely selectable on History', async ({ page }) => {
+    await page.goto('/history')
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000)
+
+    const providerSelect = page.getByLabel('Provider')
+    await expect(providerSelect).toBeEnabled()
+
+    await providerSelect.click()
+    const optionCount = await page.getByRole('option').count()
+    expect(optionCount).toBeGreaterThan(1)
+  })
 })
 
 test.describe('API Integration Flow', () => {
