@@ -39,13 +39,19 @@ test.describe('Explorer E2E Flow', () => {
     expect(bodyText).toBeTruthy()
   })
 
-  test('should leave provider/network freely selectable on Explorer', async ({ page }) => {
+  test('should leave provider/network freely selectable and resolution/dataset unset on load', async ({ page }) => {
     await page.goto('/explorer')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(1000)
 
     const providerSelect = page.getByLabel('Provider')
     await expect(providerSelect).toBeEnabled()
+    await expect(providerSelect).toHaveText('dwd')
+
+    // Resolution/dataset are no longer auto-preselected on load -- picking a full
+    // dataset's worth of parameters eagerly made the page feel like it hung.
+    const resolutionSelect = page.getByLabel('Resolution')
+    await expect(resolutionSelect).toHaveText('Select resolution')
 
     await providerSelect.click()
     const optionCount = await page.getByRole('option').count()
