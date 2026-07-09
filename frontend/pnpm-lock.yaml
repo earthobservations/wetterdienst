@@ -52,8 +52,8 @@ importers:
         specifier: ^3.6.0
         version: 3.7.0
       suncalc:
-        specifier: ^1.9.0
-        version: 1.9.0
+        specifier: ^2.0.0
+        version: 2.0.0
       tailwindcss:
         specifier: ^4.3.2
         version: 4.3.2
@@ -91,9 +91,6 @@ importers:
       '@types/plotly.js':
         specifier: ^3.0.10
         version: 3.0.10
-      '@types/suncalc':
-        specifier: ^1.9.2
-        version: 1.9.2
       '@types/tz-lookup':
         specifier: ^6.1.2
         version: 6.1.2
@@ -2959,9 +2956,6 @@ packages:
 
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
-
-  '@types/suncalc@1.9.2':
-    resolution: {integrity: sha512-ATAGBHHfA1TlE2tjfidLyTcysjoT2JHHEAmWRULh73SU9UTn++j5fqHEW16X6Y/2Li87jEQXzgu4R/OOdlDqzw==}
 
   '@types/tz-lookup@6.1.2':
     resolution: {integrity: sha512-9y31Xf/8FHXrCHjvVjGZLcsayAa6ABNc8bZlk6MPOQLLlr41tICSqW3TRPRIx2nodbzdKs5N7ipHWBrUsWUiAA==}
@@ -6419,8 +6413,8 @@ packages:
     peerDependencies:
       postcss: ^8.5.14
 
-  suncalc@1.9.0:
-    resolution: {integrity: sha512-vMJ8Byp1uIPoj+wb9c1AdK4jpkSKVAywgHX0lqY7zt6+EWRRC3Z+0Ucfjy/0yxTVO1hwwchZe4uoFNqrIC24+A==}
+  suncalc@2.0.0:
+    resolution: {integrity: sha512-RcO28GOMXNnB+sr+c7/+zv5UPMa9wxIsUVGE3HddjQykqCVEC2rc4t4IjBB7qaa7K7dx5Cxp8UZwexyXrX8JkA==}
 
   supports-color@10.2.2:
     resolution: {integrity: sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==}
@@ -9919,8 +9913,6 @@ snapshots:
 
   '@types/resolve@1.20.2': {}
 
-  '@types/suncalc@1.9.2': {}
-
   '@types/tz-lookup@6.1.2': {}
 
   '@types/unist@3.0.3': {}
@@ -9993,8 +9985,8 @@ snapshots:
 
   '@typescript-eslint/project-service@8.60.1(typescript@5.9.3)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.60.1(typescript@5.9.3)
-      '@typescript-eslint/types': 8.60.1
+      '@typescript-eslint/tsconfig-utils': 8.63.0(typescript@5.9.3)
+      '@typescript-eslint/types': 8.63.0
       debug: 4.4.3
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -14082,7 +14074,7 @@ snapshots:
       postcss: 8.5.15
       postcss-selector-parser: 7.1.4
 
-  suncalc@1.9.0: {}
+  suncalc@2.0.0: {}
 
   supports-color@10.2.2: {}
 
