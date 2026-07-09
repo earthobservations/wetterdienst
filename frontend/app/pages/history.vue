@@ -250,7 +250,7 @@ function clear() {
       </template>
     </UCollapsible>
 
-    <ParameterSelection v-model="paramSel" :show-parameters="false" />
+    <ParameterSelection v-model="paramSel" :show-parameters="false" restrict-provider="dwd" restrict-network="observation" />
 
     <UCard>
       <template #header>
