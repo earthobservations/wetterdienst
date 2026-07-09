@@ -27,9 +27,9 @@ Types of changes:
   so any failure looked identical to "no query run yet", showing the generic
   "select parameters and stations" hint with no indication anything went wrong.
   The actual error message is now shown in the data viewer and as a toast.
-- `[Explorer]` Provider and network were freely selectable from all 10 supported
-  providers, even though Explorer is DWD-observation-only. The selects are now
-  disabled and locked to `dwd`/`observation`; History is unaffected and keeps full
+- `[History]` Provider and network were freely selectable from all 10 supported
+  providers, even though History is DWD-observation-only. The selects are now
+  disabled and locked to `dwd`/`observation`; Explorer is unaffected and keeps full
   provider/network choice.
 
 ### Changed
