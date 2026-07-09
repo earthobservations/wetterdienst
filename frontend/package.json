@@ -53,7 +53,7 @@
     "@types/tz-lookup": "^6.1.2",
     "@vitest/expect": "^4.1.8",
     "@vue/test-utils": "^2.4.11",
-    "eslint": "^9.39.4",
+    "eslint": "^10.6.0",
     "eslint-plugin-oxlint": "^1.68.0",
     "happy-dom": "^20.10.2",
     "oxlint": "^1.68.0",
