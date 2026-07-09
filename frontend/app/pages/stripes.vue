@@ -231,7 +231,7 @@ async function plotStripes(data: StripesValuesResponse) {
   // Create bar trace
   const trace = {
     x: years,
-    y: Array.from({ length: years.length }, () => 1),
+    y: Array.from<number>({ length: years.length }).fill(1),
     type: 'bar' as const,
     marker: {
       color: normalizedValues,
@@ -458,7 +458,7 @@ watch(stations, () => {
   // If the selectedStation is not in the stations array, clear it
   if (selectedStation.value) {
     const selId = selectedStation.value.station_id
-    if (!stations.value.find(s => s.station_id === selId)) {
+    if (!stations.value.some(s => s.station_id === selId)) {
       selectedStation.value = null
       // clear selection
       selectedStationItem.value = undefined
