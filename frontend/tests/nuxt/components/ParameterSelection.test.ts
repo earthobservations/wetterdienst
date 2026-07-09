@@ -1,6 +1,6 @@
-import { ParameterSelection } from '#components'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ParameterSelection } from '#components'
 
 describe('parameterSelection Component', () => {
   beforeEach(() => {
