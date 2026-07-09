@@ -23,10 +23,10 @@
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.33.1-dev45.0",
     "@nuxt/icon": "^2.2.3",
-    "@nuxt/ui": "^4.8.2",
+    "@nuxt/ui": "^4.9.0",
     "@nuxtjs/i18n": "^10.4.0",
     "@nuxtjs/leaflet": "^1.3.2",
-    "@tailwindcss/vite": "^4.3.0",
+    "@tailwindcss/vite": "^4.3.2",
     "@vueuse/core": "^14.3.0",
     "@vueuse/nuxt": "^14.3.0",
     "leaflet.markercluster": "^1.5.3",
@@ -35,7 +35,7 @@
     "nuxt-security": "^2.6.0",
     "plotly.js-basic-dist-min": "^3.6.0",
     "suncalc": "^1.9.0",
-    "tailwindcss": "^4.3.0",
+    "tailwindcss": "^4.3.2",
     "tz-lookup": "^6.1.25",
     "vue": "^3.5.35",
     "zod": "^4.4.3"
