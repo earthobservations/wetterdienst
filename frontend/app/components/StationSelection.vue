@@ -60,6 +60,32 @@ const { data: stationsData, pending: stationsPending, refresh: refreshStations }
 
 const allStations = computed(() => stationsData.value?.stations ?? [])
 
+// The station list can be large, so it's only fetched lazily -- when the
+// picker (select menu or map) is actually opened -- rather than as soon as
+// parameters become valid. The exception is restoring a shared URL's
+// preselected stations, which needs the list right away.
+const stationsLoaded = ref(false)
+const selectOpen = ref(false)
+
+function fetchStations() {
+  if (stationsLoaded.value || stationsPending.value)
+    return
+  if (!props.parameterSelection.parameters?.length)
+    return
+  stationsLoaded.value = true
+  refreshStations()
+}
+
+watch(selectOpen, (isOpen) => {
+  if (isOpen)
+    fetchStations()
+})
+
+watch(showMap, (isOpen) => {
+  if (isOpen)
+    fetchStations()
+})
+
 // Restore initial stations when stations data is loaded
 watch(allStations, (stations) => {
   if (hasRestoredInitialStations.value)
@@ -85,14 +111,21 @@ watch(() => props.parameterSelection, (ps) => {
   if (!ps.parameters?.length) {
     stationsData.value = { stations: [] }
     selectedStations.value = []
+    stationsLoaded.value = false
     return
   }
   // Clear selected stations when parameters change (but not on initial load)
   if (hasRestoredInitialStations.value) {
     selectedStations.value = []
   }
-  // Refresh stations data
-  refreshStations()
+  // Parameters changed -- any previously fetched station list is now stale.
+  stationsData.value = { stations: [] }
+  stationsLoaded.value = false
+  // Fetch right away only to restore stations preselected via a shared URL;
+  // otherwise wait until the picker is opened.
+  if (props.initialStationIds?.length && !hasRestoredInitialStations.value) {
+    fetchStations()
+  }
 }, { deep: true, immediate: true })
 
 // Items for the select menu
@@ -299,17 +332,13 @@ watch(() => selectedStations.value, () => {
 </script>
 
 <template>
-  <div v-if="stationsPending" class="flex justify-center py-8">
-    <span class="text-gray-500">{{ t('stationSelection.loading') }}</span>
-  </div>
-  <div v-else-if="!allStations?.length" class="flex justify-center py-8">
-    <span class="text-gray-500">{{ t('stationSelection.noneFound') }}</span>
-  </div>
-  <div v-else class="flex flex-col gap-4">
+  <div class="flex flex-col gap-4">
     <USelectMenu
       v-model="selectedItems"
+      v-model:open="selectOpen"
       :items="stationItems"
       :multiple="multiple"
+      :loading="stationsPending"
       searchable
       virtualize
       color="primary"
@@ -317,6 +346,9 @@ watch(() => selectedStations.value, () => {
       :class="{ 'needs-input': selectedStations.length === 0 }"
       :placeholder="t('common.stationSearch')"
     />
+    <p v-if="stationsLoaded && !stationsPending && !allStations.length" class="text-sm text-gray-500 text-center">
+      {{ t('stationSelection.noneFound') }}
+    </p>
     <UContainer v-if="selectedStations.length > 0" class="mt-2">
       <div class="flex items-center justify-between mb-2">
         <h4 class="text-sm font-medium">

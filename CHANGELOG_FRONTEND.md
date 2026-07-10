@@ -43,6 +43,10 @@ Types of changes:
   `window.L` is now set from within the map component itself (still
   lazy-loaded, so the fix doesn't reintroduce the bundle-size regression the
   removal fixed).
+- `[Explorer/History]` The station picker (select menu or map) fetched the full
+  station list as soon as a dataset's parameters were chosen, even before the
+  user opened it. It's now fetched lazily on first open of either the select
+  menu or the map, except when restoring a station preselected via a shared URL.
 
 ### Changed
 
