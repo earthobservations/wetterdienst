@@ -427,6 +427,7 @@
   "stationSelection": {
     "loading": "Loading stations …",
     "noneFound": "No stations found for the selected parameters",
+    "loadError": "Failed to load stations. Try reopening the picker.",
     "selectStations": "Select stations",
     "selectStation": "Select a station",
     "selectedStations": "Selected Stations:",

@@ -427,6 +427,7 @@
   "stationSelection": {
     "loading": "Stations laden …",
     "noneFound": "Geen stations gevonden voor de geselecteerde parameters",
+    "loadError": "Stations laden mislukt. Probeer de kiezer opnieuw te openen.",
     "selectStations": "Stations selecteren",
     "selectStation": "Selecteer een station",
     "selectedStations": "Geselecteerde stations:",

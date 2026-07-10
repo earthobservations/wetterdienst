@@ -427,6 +427,7 @@
   "stationSelection": {
     "loading": "Statioune ginn gelueden …",
     "noneFound": "Keng Statioune fonnt fir déi ausgewielte Parameteren",
+    "loadError": "Konnt d'Statioune net lueden. Probéiert d'Auswiel nach eng Kéier opzemaachen.",
     "selectStations": "Statiounen auswielen",
     "selectStation": "Wielt eng Statioun",
     "selectedStations": "Ausgewielte Statiounen:",

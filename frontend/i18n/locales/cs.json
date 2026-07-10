@@ -427,6 +427,7 @@
   "stationSelection": {
     "loading": "Načítání stanic …",
     "noneFound": "Pro vybrané parametry nebyly nalezeny žádné stanice",
+    "loadError": "Načtení stanic se nezdařilo. Zkuste výběr znovu otevřít.",
     "selectStations": "Vybrat stanice",
     "selectStation": "Vyberte stanici",
     "selectedStations": "Vybrané stanice:",

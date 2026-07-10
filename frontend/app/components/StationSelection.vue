@@ -44,7 +44,7 @@ watch(() => props.modelValue, (newVal) => {
 // Track whether we've already restored initial stations
 const hasRestoredInitialStations = ref(false)
 
-const { data: stationsData, pending: stationsPending, refresh: refreshStations } = useFetch<StationsResponse>(
+const { data: stationsData, pending: stationsPending, error: stationsError, refresh: refreshStations } = useFetch<StationsResponse>(
   '/api/stations',
   {
     query: computed(() => ({
@@ -67,13 +67,18 @@ const allStations = computed(() => stationsData.value?.stations ?? [])
 const stationsLoaded = ref(false)
 const selectOpen = ref(false)
 
-function fetchStations() {
+async function fetchStations() {
   if (stationsLoaded.value || stationsPending.value)
     return
   if (!props.parameterSelection.parameters?.length)
     return
   stationsLoaded.value = true
-  refreshStations()
+  await refreshStations()
+  // A failed request shouldn't count as "loaded" -- otherwise reopening the
+  // picker would never retry, and the empty result would misleadingly look
+  // like a confirmed "no stations found" instead of a failed request.
+  if (stationsError.value)
+    stationsLoaded.value = false
 }
 
 watch(selectOpen, (isOpen) => {
@@ -346,7 +351,10 @@ watch(() => selectedStations.value, () => {
       :class="{ 'needs-input': selectedStations.length === 0 }"
       :placeholder="t('common.stationSearch')"
     />
-    <p v-if="stationsLoaded && !stationsPending && !allStations.length" class="text-sm text-gray-500 text-center">
+    <p v-if="stationsError && !stationsPending" class="text-sm text-error text-center">
+      {{ t('stationSelection.loadError') }}
+    </p>
+    <p v-else-if="stationsLoaded && !stationsPending && !allStations.length" class="text-sm text-gray-500 text-center">
       {{ t('stationSelection.noneFound') }}
     </p>
     <UContainer v-if="selectedStations.length > 0" class="mt-2">

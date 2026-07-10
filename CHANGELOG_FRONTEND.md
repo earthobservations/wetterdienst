@@ -47,6 +47,11 @@ Types of changes:
   station list as soon as a dataset's parameters were chosen, even before the
   user opened it. It's now fetched lazily on first open of either the select
   menu or the map, except when restoring a station preselected via a shared URL.
+- `[Explorer/History]` A failed station list fetch (e.g. transient network/
+  backend error) was still marked as "loaded", so reopening the picker never
+  retried and the empty result looked like a confirmed "no stations found"
+  instead of a failed request. A failed fetch now resets the loaded state
+  (retried on next open) and shows a distinct error message.
 - `[History]` `ParameterSelection`'s provider/network restriction (used by
   History to lock to DWD/observation) silently fell back to showing every
   provider/network, unrestricted, if the restricted value wasn't actually

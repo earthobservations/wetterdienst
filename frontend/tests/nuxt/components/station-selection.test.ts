@@ -1,4 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { setResponseStatus } from 'h3'
 import { describe, expect, it } from 'vitest'
 import StationSelection from '~/components/StationSelection.vue'
 
@@ -87,6 +88,48 @@ describe('stationSelection', () => {
     expect(calls).toBe(1)
     const vm = wrapper.vm as any
     expect(vm.selectedStations).toEqual([expect.objectContaining({ station_id: '00001' })])
+  })
+
+  it('resets stationsLoaded on a failed fetch, so reopening the picker retries', async () => {
+    let failing = true
+    registerEndpoint('/api/stations', (event) => {
+      if (failing) {
+        setResponseStatus(event, 500)
+        return { error: 'boom' }
+      }
+      return stationsResponse
+    })
+
+    const wrapper = await mountSuspended(StationSelection, {
+      props: { parameterSelection, multiple: true },
+      attachTo: document.body,
+    })
+    await new Promise(resolve => setTimeout(resolve, 50))
+    await wrapper.vm.$nextTick()
+
+    const vm = wrapper.vm as any
+    vm.selectOpen = true
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await wrapper.vm.$nextTick()
+
+    // A failed request must not be treated as "loaded" -- otherwise reopening
+    // the picker would never retry, and the empty result would misleadingly
+    // look like a confirmed "no stations found" instead of a failed request.
+    expect(vm.stationsLoaded).toBe(false)
+    expect(wrapper.text()).toContain('Failed to load stations')
+
+    failing = false
+    vm.selectOpen = false
+    await wrapper.vm.$nextTick()
+    vm.selectOpen = true
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await wrapper.vm.$nextTick()
+
+    expect(vm.stationsLoaded).toBe(true)
+    expect(wrapper.text()).not.toContain('Failed to load stations')
+    expect(vm.allStations).toEqual(stationsResponse.stations)
   })
 
   it('does not fetch anything while parameters are unselected', async () => {

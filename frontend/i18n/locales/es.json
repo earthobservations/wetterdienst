@@ -427,6 +427,7 @@
   "stationSelection": {
     "loading": "Cargando estaciones …",
     "noneFound": "No se encontraron estaciones para los parámetros seleccionados",
+    "loadError": "No se pudieron cargar las estaciones. Vuelve a abrir el selector.",
     "selectStations": "Seleccionar estaciones",
     "selectStation": "Seleccionar una estación",
     "selectedStations": "Estaciones seleccionadas:",
