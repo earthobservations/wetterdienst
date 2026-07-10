@@ -33,9 +33,9 @@ Types of changes:
   provider/network choice.
 - `[Explorer]` Opening Explorer with no existing selection auto-selected daily
   climate-summary data and every one of its parameters, which made the page feel
-  like it hung for a couple of seconds before becoming interactive. Provider and
-  network are still pre-filled as a starting point, but resolution/dataset/
-  parameters are now left for the user to pick.
+  like it hung for a couple of seconds before becoming interactive. Provider,
+  network, resolution, dataset, and parameters are now all left unset for the
+  user to pick explicitly.
 
 ### Changed
 
