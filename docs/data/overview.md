@@ -53,6 +53,11 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Hydrology
         - hydrological data of polish river stations
         - daily and monthly summaries
+- MeteoSwiss (Federal Office of Meteorology and Climatology / Switzerland)
+    - Observation
+        - historical, recent and now data of the SwissMetNet automatic weather station network
+        - 10-minute, hourly, daily, monthly and annual resolution
+        - ~158 stations
 - MET Norway (Meteorologisk institutt / Norwegian Meteorological Institute / Norway)
     - Frost
         - Historical and recent observations from Norwegian station network

@@ -89,6 +89,15 @@ render_plugin = "myst"
 no_index = true
 ```
 
+## MeteoSwiss
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.meteoswiss.observation.api.MeteoswissObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ## MET Norway
 
 ### Frost

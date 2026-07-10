@@ -9,6 +9,7 @@ eaufrance/index.md
 eccc/index.md
 geosphere/index.md
 imgw/index.md
+meteoswiss/index.md
 metno/index.md
 noaa/index.md
 nws/index.md
