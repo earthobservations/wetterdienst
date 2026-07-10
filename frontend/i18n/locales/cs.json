@@ -420,7 +420,9 @@
     "networkLabel": "Síť",
     "resolutionLabel": "Rozlišení",
     "datasetLabel": "Datová sada",
-    "parametersLabel": "Parametry"
+    "parametersLabel": "Parametry",
+    "providerRestrictionUnavailable": "Nakonfigurovaný poskytovatel „{provider}“ není u tohoto backendu dostupný.",
+    "networkRestrictionUnavailable": "Nakonfigurovaná síť „{network}“ není u tohoto poskytovatele dostupná."
   },
   "stationSelection": {
     "loading": "Načítání stanic …",

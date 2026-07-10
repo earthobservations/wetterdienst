@@ -47,6 +47,11 @@ Types of changes:
   station list as soon as a dataset's parameters were chosen, even before the
   user opened it. It's now fetched lazily on first open of either the select
   menu or the map, except when restoring a station preselected via a shared URL.
+- `[History]` `ParameterSelection`'s provider/network restriction (used by
+  History to lock to DWD/observation) silently fell back to showing every
+  provider/network, unrestricted, if the restricted value wasn't actually
+  offered by the backend (e.g. a stale restriction or missing auth config).
+  A mismatch now shows a clear error instead of a confusingly half-locked form.
 
 ### Changed
 

@@ -420,7 +420,9 @@
     "networkLabel": "Réseau",
     "resolutionLabel": "Résolution",
     "datasetLabel": "Jeu de données",
-    "parametersLabel": "Paramètres"
+    "parametersLabel": "Paramètres",
+    "providerRestrictionUnavailable": "Le fournisseur configuré « {provider} » n’est pas disponible sur ce backend.",
+    "networkRestrictionUnavailable": "Le réseau configuré « {network} » n’est pas disponible pour ce fournisseur."
   },
   "stationSelection": {
     "loading": "Chargement des stations …",

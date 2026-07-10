@@ -420,7 +420,9 @@
     "networkLabel": "Netzwerk",
     "resolutionLabel": "Auflösung",
     "datasetLabel": "Datensatz",
-    "parametersLabel": "Parameter"
+    "parametersLabel": "Parameter",
+    "providerRestrictionUnavailable": "Der konfigurierte Anbieter „{provider}“ ist bei diesem Backend nicht verfügbar.",
+    "networkRestrictionUnavailable": "Das konfigurierte Netzwerk „{network}“ ist für diesen Anbieter nicht verfügbar."
   },
   "stationSelection": {
     "loading": "Stationen werden geladen …",

@@ -420,7 +420,9 @@
     "networkLabel": "Sieć",
     "resolutionLabel": "Rozdzielczość",
     "datasetLabel": "Zbiór danych",
-    "parametersLabel": "Parametry"
+    "parametersLabel": "Parametry",
+    "providerRestrictionUnavailable": "Skonfigurowany dostawca „{provider}” nie jest dostępny dla tego backendu.",
+    "networkRestrictionUnavailable": "Skonfigurowana sieć „{network}” nie jest dostępna dla tego dostawcy."
   },
   "stationSelection": {
     "loading": "Ładowanie stacji …",

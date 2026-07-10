@@ -420,7 +420,9 @@
     "networkLabel": "Netwerk",
     "resolutionLabel": "Resolutie",
     "datasetLabel": "Dataset",
-    "parametersLabel": "Parameters"
+    "parametersLabel": "Parameters",
+    "providerRestrictionUnavailable": "De geconfigureerde aanbieder \"{provider}\" is niet beschikbaar voor deze backend.",
+    "networkRestrictionUnavailable": "Het geconfigureerde netwerk \"{network}\" is niet beschikbaar voor deze aanbieder."
   },
   "stationSelection": {
     "loading": "Stations laden …",

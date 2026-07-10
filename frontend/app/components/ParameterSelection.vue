@@ -40,27 +40,53 @@ const { data: coverage } = await useFetch<CoverageResponse>('/api/coverage')
 const isAvailable = (n: { auth: boolean, configured: boolean, valid: boolean }) => !n.auth || (n.configured && n.valid)
 
 // EXPECTING
+// These reflect what the backend actually offers -- independent of any
+// restriction -- so restriction validity can be checked against reality
+// instead of assumed.
 const providers = computed(() => {
   const cov = coverage.value
   if (!cov)
     return []
-  const all = Object.keys(cov)
+  return Object.keys(cov)
     .filter(p => Object.values(cov[p] ?? {}).some(isAvailable))
     .sort()
-  if (props.restrictProvider)
-    return all.includes(props.restrictProvider) ? [props.restrictProvider] : all
-  return all
 })
-const networks = computed<string[]>(() => {
+function networksFor(providerName: string | undefined): string[] {
   const cov = coverage.value
-  if (!provider.value || !cov)
+  if (!providerName || !cov)
     return []
-  const all = Object.entries(cov[provider.value] ?? {})
+  return Object.entries(cov[providerName] ?? {})
     .filter(([, n]) => isAvailable(n))
     .map(([name]) => name)
-  if (props.restrictNetwork)
-    return all.includes(props.restrictNetwork) ? [props.restrictNetwork] : all
-  return all
+}
+const networks = computed<string[]>(() => networksFor(provider.value))
+
+// A caller-supplied restriction (e.g. History is DWD-observation-only) is only
+// as good as the backend actually offering it. Silently falling back to the
+// unrestricted list when it doesn't (stale config, auth not set up, etc.)
+// would look like the restriction never happened; surfacing it as a visible
+// error is safer than a confusingly half-locked form.
+const restrictedProviderAvailable = computed(() => !props.restrictProvider || providers.value.includes(props.restrictProvider))
+const restrictedNetworkAvailable = computed(() => {
+  if (!props.restrictNetwork)
+    return true
+  if (props.restrictProvider && !restrictedProviderAvailable.value)
+    return true // provider error already covers this; don't pile on
+  return networksFor(props.restrictProvider ?? provider.value).includes(props.restrictNetwork)
+})
+
+// What the selects actually display: the restricted value only when it's
+// confirmed available, otherwise nothing (rather than silently showing every
+// provider/network as if unrestricted).
+const providerItems = computed(() => {
+  if (!props.restrictProvider)
+    return providers.value
+  return restrictedProviderAvailable.value ? [props.restrictProvider] : []
+})
+const networkItems = computed(() => {
+  if (!props.restrictNetwork)
+    return networks.value
+  return restrictedNetworkAvailable.value ? [props.restrictNetwork] : []
 })
 
 // provider-network coverage
@@ -286,12 +312,28 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
         </h2>
       </div>
     </template>
+    <UAlert
+      v-if="restrictProvider && !restrictedProviderAvailable"
+      color="error"
+      variant="subtle"
+      :title="t('parameterSelection.providerRestrictionUnavailable', { provider: restrictProvider })"
+      icon="i-lucide-alert-circle"
+      class="mx-6 mt-4"
+    />
+    <UAlert
+      v-else-if="restrictNetwork && !restrictedNetworkAvailable"
+      color="error"
+      variant="subtle"
+      :title="t('parameterSelection.networkRestrictionUnavailable', { network: restrictNetwork })"
+      icon="i-lucide-alert-circle"
+      class="mx-6 mt-4"
+    />
     <UContainer class="flex flex-col gap-4">
       <UFormField :label="t('parameterSelection.providerLabel')">
-        <USelect v-model="provider" :items="providers" :placeholder="t('parameterSelection.selectProvider')" :disabled="!!restrictProvider" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
+        <USelect v-model="provider" :items="providerItems" :placeholder="t('parameterSelection.selectProvider')" :disabled="!!restrictProvider" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
       </UFormField>
       <UFormField :label="t('parameterSelection.networkLabel')">
-        <USelect v-model="network" :items="networks" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider || !!restrictNetwork" class="w-full" :class="{ 'needs-input': activeField === 'network' }" />
+        <USelect v-model="network" :items="networkItems" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider || !!restrictNetwork" class="w-full" :class="{ 'needs-input': activeField === 'network' }" />
       </UFormField>
       <UFormField :label="t('parameterSelection.resolutionLabel')">
         <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network || networkCoveragePending" class="w-full" :class="{ 'needs-input': activeField === 'resolution' }" />

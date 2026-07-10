@@ -420,7 +420,9 @@
     "networkLabel": "Netværk",
     "resolutionLabel": "Opløsning",
     "datasetLabel": "Datasæt",
-    "parametersLabel": "Parametre"
+    "parametersLabel": "Parametre",
+    "providerRestrictionUnavailable": "Den konfigurerede udbyder \"{provider}\" er ikke tilgængelig for denne backend.",
+    "networkRestrictionUnavailable": "Det konfigurerede netværk \"{network}\" er ikke tilgængeligt for denne udbyder."
   },
   "stationSelection": {
     "loading": "Indlæser stationer …",

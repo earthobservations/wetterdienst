@@ -420,7 +420,9 @@
     "networkLabel": "Netzwierk",
     "resolutionLabel": "Opléisung",
     "datasetLabel": "Dataset",
-    "parametersLabel": "Parameteren"
+    "parametersLabel": "Parameteren",
+    "providerRestrictionUnavailable": "Den agestallte Ubidder \"{provider}\" ass fir dëse Backend net disponibel.",
+    "networkRestrictionUnavailable": "Dat agestallt Netzwierk \"{network}\" ass fir dëse Ubidder net disponibel."
   },
   "stationSelection": {
     "loading": "Statioune ginn gelueden …",

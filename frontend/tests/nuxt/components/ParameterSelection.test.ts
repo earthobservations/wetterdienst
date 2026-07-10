@@ -1,10 +1,15 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearNuxtData } from '#app'
 import { ParameterSelection } from '#components'
 
 describe('parameterSelection Component', () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn()
+    // The Nuxt app (and its useFetch payload cache) is shared across mounts
+    // within this file -- without this, a later test's registerEndpoint()
+    // can be shadowed by an earlier test's cached /api/coverage response.
+    clearNuxtData()
   })
 
   it('renders the component', async () => {
@@ -147,7 +152,11 @@ describe('parameterSelection Component', () => {
     })
 
     const vm = wrapper.vm as any
-    expect(vm.providers).toEqual(['dwd'])
+    // `providers` reflects backend reality regardless of restriction; the
+    // select itself only offers the restricted value.
+    expect(vm.providers).toEqual(['dwd', 'noaa'])
+    expect(vm.providerItems).toEqual(['dwd'])
+    expect(vm.restrictedProviderAvailable).toBe(true)
   })
 
   it('restricts the network select to restrictNetwork', async () => {
@@ -161,7 +170,46 @@ describe('parameterSelection Component', () => {
     })
 
     const vm = wrapper.vm as any
-    expect(vm.networks).toEqual(['observation'])
+    expect(vm.networks).toEqual(['observation', 'mosmix'])
+    expect(vm.networkItems).toEqual(['observation'])
+    expect(vm.restrictedNetworkAvailable).toBe(true)
+  })
+
+  it('does not fall back to the unrestricted provider list when restrictProvider does not exist', async () => {
+    registerEndpoint('/api/coverage', () => ({ noaa: { ghcn: {} } }))
+
+    const wrapper = await mountSuspended(ParameterSelection, {
+      props: {
+        modelValue: {},
+        restrictProvider: 'dwd',
+      },
+    })
+
+    const vm = wrapper.vm as any
+    expect(vm.restrictedProviderAvailable).toBe(false)
+    // The select must not silently show every provider as if unrestricted.
+    expect(vm.providerItems).toEqual([])
+    expect(vm.provider).toBeUndefined()
+    expect(wrapper.text()).toContain('dwd')
+  })
+
+  it('does not fall back to the unrestricted network list when restrictNetwork does not exist', async () => {
+    registerEndpoint('/api/coverage', () => ({ dwd: { mosmix: {} } }))
+
+    const wrapper = await mountSuspended(ParameterSelection, {
+      props: {
+        modelValue: {},
+        restrictProvider: 'dwd',
+        restrictNetwork: 'observation',
+      },
+    })
+
+    const vm = wrapper.vm as any
+    expect(vm.restrictedProviderAvailable).toBe(true)
+    expect(vm.restrictedNetworkAvailable).toBe(false)
+    expect(vm.networkItems).toEqual([])
+    expect(vm.network).toBeUndefined()
+    expect(wrapper.text()).toContain('observation')
   })
 
   it('overrides a mismatched initial provider/network with the restricted values', async () => {
