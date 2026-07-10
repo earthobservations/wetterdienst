@@ -33,9 +33,35 @@ Types of changes:
   provider/network choice.
 - `[Explorer]` Opening Explorer with no existing selection auto-selected daily
   climate-summary data and every one of its parameters, which made the page feel
-  like it hung for a couple of seconds before becoming interactive. Provider and
-  network are still pre-filled as a starting point, but resolution/dataset/
-  parameters are now left for the user to pick.
+  like it hung for a couple of seconds before becoming interactive. Provider,
+  network, resolution, dataset, and parameters are now all left unset for the
+  user to pick explicitly.
+- `[Explorer/History]` Station map rendered as blank white space: the
+  "removed the global Leaflet plugin" change below assumed `<LMap
+  use-global-leaflet>` sets `window.L` itself, but it only reads it -- nothing
+  ever set it, so the map's `mounted` hook threw before rendering any tiles.
+  `window.L` is now set from within the map component itself (still
+  lazy-loaded, so the fix doesn't reintroduce the bundle-size regression the
+  removal fixed).
+- `[Explorer/History]` The station picker (select menu or map) fetched the full
+  station list as soon as a dataset's parameters were chosen, even before the
+  user opened it. It's now fetched lazily on first open of either the select
+  menu or the map, except when restoring a station preselected via a shared URL.
+- `[Explorer/History]` A failed station list fetch (e.g. transient network/
+  backend error) was still marked as "loaded", so reopening the picker never
+  retried and the empty result looked like a confirmed "no stations found"
+  instead of a failed request. A failed fetch now resets the loaded state
+  (retried on next open) and shows a distinct error message.
+- `[History]` `ParameterSelection`'s provider/network restriction (used by
+  History to lock to DWD/observation) silently fell back to showing every
+  provider/network, unrestricted, if the restricted value wasn't actually
+  offered by the backend (e.g. a stale restriction or missing auth config).
+  A mismatch now shows a clear error instead of a confusingly half-locked form.
+- `[Explorer/History/Stripes/Meteogram]` Each page's URL-sync watcher fired
+  `router.replace()` without handling a rejected navigation (e.g. one
+  superseded by a subsequent `replace()` before it resolves), an unhandled
+  promise rejection Vue Router is known to produce. Each call now has a
+  no-op `.catch()`.
 
 ### Changed
 

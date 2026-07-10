@@ -154,7 +154,9 @@ watch(selectedStation, (station) => {
     values.value = []
     error.value = null
     availableIssues.value = []
-    void router.replace({ query: {} })
+    // A rejected navigation (e.g. superseded by a subsequent replace() before
+    // this one resolves) would otherwise be an unhandled promise rejection.
+    void router.replace({ query: {} }).catch(() => {})
   }
 })
 
@@ -171,7 +173,9 @@ watch([selectedStation, selectedIssue], ([station, issue]) => {
     if (v)
       q[k] = v.toString()
   }
-  void router.replace({ query: q })
+  // A rejected navigation (e.g. superseded by a subsequent replace() before
+  // this one resolves) would otherwise be an unhandled promise rejection.
+  void router.replace({ query: q }).catch(() => {})
 })
 
 // Restore selected station and issue from URL query params on page load

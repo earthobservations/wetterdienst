@@ -420,11 +420,14 @@
     "networkLabel": "Red",
     "resolutionLabel": "Resolución",
     "datasetLabel": "Conjunto de datos",
-    "parametersLabel": "Parámetros"
+    "parametersLabel": "Parámetros",
+    "providerRestrictionUnavailable": "El proveedor configurado «{provider}» no está disponible en este backend.",
+    "networkRestrictionUnavailable": "La red configurada «{network}» no está disponible para este proveedor."
   },
   "stationSelection": {
     "loading": "Cargando estaciones …",
     "noneFound": "No se encontraron estaciones para los parámetros seleccionados",
+    "loadError": "No se pudieron cargar las estaciones. Vuelve a abrir el selector.",
     "selectStations": "Seleccionar estaciones",
     "selectStation": "Seleccionar una estación",
     "selectedStations": "Estaciones seleccionadas:",

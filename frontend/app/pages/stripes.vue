@@ -545,8 +545,10 @@ watch([
   () => startYear.value,
   () => endYear.value,
 ], () => {
-  // Use replace to avoid polluting history while keeping URL in sync
-  router.replace({ query: stripesToQuery() })
+  // Use replace to avoid polluting history while keeping URL in sync. A
+  // rejected navigation (e.g. superseded by a subsequent replace() before
+  // this one resolves) would otherwise be an unhandled promise rejection.
+  router.replace({ query: stripesToQuery() }).catch(() => {})
 })
 
 // Update selectedStation when selectedStationItem changes (from the select menu or map)

@@ -39,17 +39,22 @@ test.describe('Explorer E2E Flow', () => {
     expect(bodyText).toBeTruthy()
   })
 
-  test('should leave provider/network freely selectable and resolution/dataset unset on load', async ({ page }) => {
+  test('should leave provider/network/resolution/dataset all unset and freely selectable on load', async ({ page }) => {
     await page.goto('/explorer')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(1000)
 
+    // Nothing is preselected on load -- picking a full dataset's worth of
+    // parameters (or even just dwd/observation) eagerly made the page feel
+    // like it hung or nudged users toward a specific provider before they'd
+    // looked at the options themselves.
     const providerSelect = page.getByLabel('Provider')
     await expect(providerSelect).toBeEnabled()
-    await expect(providerSelect).toHaveText('dwd')
+    await expect(providerSelect).toHaveText('Select provider')
 
-    // Resolution/dataset are no longer auto-preselected on load -- picking a full
-    // dataset's worth of parameters eagerly made the page feel like it hung.
+    const networkSelect = page.getByLabel('Network')
+    await expect(networkSelect).toBeDisabled()
+
     const resolutionSelect = page.getByLabel('Resolution')
     await expect(resolutionSelect).toHaveText('Select resolution')
 
@@ -76,6 +81,41 @@ test.describe('History Provider/Network Restriction', () => {
     // Resolution stays freely selectable -- only provider/network are locked.
     const resolutionSelect = page.getByLabel('Resolution')
     await expect(resolutionSelect).toBeEnabled()
+  })
+
+  test('should fetch and expand a station history end to end via real clicks', async ({ page }) => {
+    await page.goto('/history')
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000)
+
+    // ParameterSelection's Resolution/Dataset are NuxtUI comboboxes (button +
+    // popover listbox), not native <select> elements -- open and pick by click.
+    await page.getByLabel('Resolution').click()
+    await page.getByRole('option', { name: 'Daily', exact: true }).click()
+    await page.waitForTimeout(500)
+    await page.getByLabel('Dataset').click()
+    await page.getByRole('option', { name: 'Climate summary', exact: true }).click()
+    await page.waitForTimeout(500)
+
+    // Station search is a searchable combobox: clicking its placeholder text
+    // opens a popover containing the actual text input to type into.
+    await page.getByText(/Search by name or station ID/i).click()
+    await page.getByPlaceholder('Search…').fill('00011')
+    await page.waitForTimeout(500)
+    await page.getByRole('option').first().click()
+    await page.waitForTimeout(300)
+
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
+    await page.waitForTimeout(2000)
+
+    await expect(page.getByText(/Station ID: 11/i)).toBeVisible()
+
+    const nameHistoryButton = page.getByRole('button', { name: /Name history/i })
+    await nameHistoryButton.click()
+    await expect(page.getByText('Station names')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Reset', exact: true }).click()
+    await expect(page.getByText(/No histories loaded/i)).toBeVisible()
   })
 })
 

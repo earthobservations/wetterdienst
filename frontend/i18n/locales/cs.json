@@ -420,11 +420,14 @@
     "networkLabel": "Síť",
     "resolutionLabel": "Rozlišení",
     "datasetLabel": "Datová sada",
-    "parametersLabel": "Parametry"
+    "parametersLabel": "Parametry",
+    "providerRestrictionUnavailable": "Nakonfigurovaný poskytovatel „{provider}“ není u tohoto backendu dostupný.",
+    "networkRestrictionUnavailable": "Nakonfigurovaná síť „{network}“ není u tohoto poskytovatele dostupná."
   },
   "stationSelection": {
     "loading": "Načítání stanic …",
     "noneFound": "Pro vybrané parametry nebyly nalezeny žádné stanice",
+    "loadError": "Načtení stanic se nezdařilo. Zkuste výběr znovu otevřít.",
     "selectStations": "Vybrat stanice",
     "selectStation": "Vyberte stanici",
     "selectedStations": "Vybrané stanice:",

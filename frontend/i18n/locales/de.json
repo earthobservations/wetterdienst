@@ -420,11 +420,14 @@
     "networkLabel": "Netzwerk",
     "resolutionLabel": "Auflösung",
     "datasetLabel": "Datensatz",
-    "parametersLabel": "Parameter"
+    "parametersLabel": "Parameter",
+    "providerRestrictionUnavailable": "Der konfigurierte Anbieter „{provider}“ ist bei diesem Backend nicht verfügbar.",
+    "networkRestrictionUnavailable": "Das konfigurierte Netzwerk „{network}“ ist für diesen Anbieter nicht verfügbar."
   },
   "stationSelection": {
     "loading": "Stationen werden geladen …",
     "noneFound": "Keine Stationen für die gewählten Parameter gefunden",
+    "loadError": "Stationen konnten nicht geladen werden. Bitte die Auswahl erneut öffnen.",
     "selectStations": "Stationen auswählen",
     "selectStation": "Station auswählen",
     "selectedStations": "Ausgewählte Stationen:",

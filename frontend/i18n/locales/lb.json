@@ -420,11 +420,14 @@
     "networkLabel": "Netzwierk",
     "resolutionLabel": "Opléisung",
     "datasetLabel": "Dataset",
-    "parametersLabel": "Parameteren"
+    "parametersLabel": "Parameteren",
+    "providerRestrictionUnavailable": "Den agestallte Ubidder \"{provider}\" ass fir dëse Backend net disponibel.",
+    "networkRestrictionUnavailable": "Dat agestallt Netzwierk \"{network}\" ass fir dëse Ubidder net disponibel."
   },
   "stationSelection": {
     "loading": "Statioune ginn gelueden …",
     "noneFound": "Keng Statioune fonnt fir déi ausgewielte Parameteren",
+    "loadError": "Konnt d'Statioune net lueden. Probéiert d'Auswiel nach eng Kéier opzemaachen.",
     "selectStations": "Statiounen auswielen",
     "selectStation": "Wielt eng Statioun",
     "selectedStations": "Ausgewielte Statiounen:",

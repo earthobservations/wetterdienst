@@ -420,11 +420,14 @@
     "networkLabel": "Network",
     "resolutionLabel": "Resolution",
     "datasetLabel": "Dataset",
-    "parametersLabel": "Parameters"
+    "parametersLabel": "Parameters",
+    "providerRestrictionUnavailable": "The configured provider \"{provider}\" is not available from this backend.",
+    "networkRestrictionUnavailable": "The configured network \"{network}\" is not available for this provider."
   },
   "stationSelection": {
     "loading": "Loading stations …",
     "noneFound": "No stations found for the selected parameters",
+    "loadError": "Failed to load stations. Try reopening the picker.",
     "selectStations": "Select stations",
     "selectStation": "Select a station",
     "selectedStations": "Selected Stations:",
