@@ -143,6 +143,106 @@ test.describe('Impressum Page', () => {
   })
 })
 
+test.describe('Forecast (Meteogram) Page', () => {
+  test('should navigate to the forecast page', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('navigation').getByRole('link', { name: /forecast/i }).click()
+
+    await expect(page).toHaveURL(/\/meteogram/)
+  })
+
+  test('should display the forecast heading and station search', async ({ page }) => {
+    await page.goto('/meteogram')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByRole('heading', { name: /Weather forecast/i }).first()).toBeVisible()
+    await expect(page.getByText(/Search for a station above/i)).toBeVisible()
+  })
+
+  test('should load a forecast when a station is picked via the URL', async ({ page }) => {
+    await page.goto('/meteogram?station=01001')
+    await page.waitForLoadState('networkidle')
+
+    // Either the chart loads or a definitive error/no-data state is shown --
+    // never the empty "search for a station" hint.
+    await expect(page.getByText(/Search for a station above/i)).not.toBeVisible()
+    await expect(page.getByText('JAN MAYEN', { exact: true })).toBeVisible()
+  })
+})
+
+test.describe('History Page', () => {
+  test('should navigate to the history page', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('navigation').getByRole('link', { name: /history/i }).click()
+
+    await expect(page).toHaveURL(/\/history/)
+  })
+
+  test('should display the station history heading', async ({ page }) => {
+    await page.goto('/history')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByRole('heading', { name: /Station history/i }).first()).toBeVisible()
+  })
+
+  test('should show the history sections selector', async ({ page }) => {
+    await page.goto('/history')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByText(/History sections/i)).toBeVisible()
+  })
+})
+
+test.describe('Settings Page', () => {
+  test('should navigate to the settings page', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    // The header icon opens a quick-settings popover; the full settings
+    // page is reached via the "Settings" link inside that popover.
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('link', { name: 'Settings', exact: true }).click()
+
+    await expect(page).toHaveURL(/\/settings/)
+  })
+
+  test('should display language, appearance and units sections', async ({ page }) => {
+    await page.goto('/settings')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByRole('heading', { name: /^Settings$/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Language' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible()
+  })
+
+  test('should switch theme when a theme button is clicked', async ({ page }) => {
+    await page.goto('/settings')
+    await page.waitForLoadState('networkidle')
+
+    await page.getByRole('button', { name: /^Dark$/i }).click()
+    await expect(page.locator('html')).toHaveClass(/dark/)
+  })
+})
+
+test.describe('Widget Page', () => {
+  test('should show a hint when no station is specified', async ({ page }) => {
+    await page.goto('/widget')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByText(/No station specified/i)).toBeVisible()
+  })
+
+  test('should render a minimal embeddable view for a given station', async ({ page }) => {
+    await page.goto('/widget?station=01001')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByText(/No station specified/i)).not.toBeVisible()
+    await expect(page.getByText('JAN MAYEN')).toBeVisible()
+    await expect(page.getByTitle(/Open full forecast/i)).toBeVisible()
+  })
+})
+
 test.describe('Color Mode Toggle', () => {
   test('should have color mode toggle button', async ({ page }) => {
     await page.goto('/')
