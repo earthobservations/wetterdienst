@@ -98,7 +98,9 @@ function historyToQuery(): Record<string, string> {
 // Sync state → URL (replace so browser back/forward stack stays clean)
 watch(
   [paramSel, () => stationIds.value, selectedSections],
-  () => router.replace({ query: historyToQuery() }),
+  // A rejected navigation (e.g. superseded by a subsequent replace() before
+  // this one resolves) would otherwise be an unhandled promise rejection.
+  () => router.replace({ query: historyToQuery() }).catch(() => {}),
   { deep: true },
 )
 

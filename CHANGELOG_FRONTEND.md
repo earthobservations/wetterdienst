@@ -52,6 +52,11 @@ Types of changes:
   provider/network, unrestricted, if the restricted value wasn't actually
   offered by the backend (e.g. a stale restriction or missing auth config).
   A mismatch now shows a clear error instead of a confusingly half-locked form.
+- `[Explorer/History/Stripes/Meteogram]` Each page's URL-sync watcher fired
+  `router.replace()` without handling a rejected navigation (e.g. one
+  superseded by a subsequent `replace()` before it resolves), an unhandled
+  promise rejection Vue Router is known to produce. Each call now has a
+  no-op `.catch()`.
 
 ### Changed
 

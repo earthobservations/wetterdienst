@@ -227,7 +227,9 @@ watch(
     () => dataSettings.value.skipEmpty,
     () => dataSettings.value.dropNulls,
   ],
-  () => router.replace({ query: { ...toQuery(parameterSelectionState.value, stationSelectionState.value), ...dataSettingsToQuery(dataSettings.value) } }),
+  // A rejected navigation (e.g. superseded by a subsequent replace() before
+  // this one resolves) would otherwise be an unhandled promise rejection.
+  () => router.replace({ query: { ...toQuery(parameterSelectionState.value, stationSelectionState.value), ...dataSettingsToQuery(dataSettings.value) } }).catch(() => {}),
   { deep: true },
 )
 
