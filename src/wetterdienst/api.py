@@ -49,6 +49,9 @@ class Wetterdienst:
         "geosphere": {
             "observation": "wetterdienst.provider.geosphere.observation.GeosphereObservationRequest",
         },
+        "meteoswiss": {
+            "observation": "wetterdienst.provider.meteoswiss.observation.MeteoswissObservationRequest",
+        },
         "metno": {
             "frost": "wetterdienst.provider.metno.frost.MetnoFrostRequest",
         },

@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+- Add MeteoSwiss (Switzerland) observation provider with 10-minute, hourly, daily, monthly and annual resolution
+
 ## [0.127.0] - 2026-07-07
 
 ### Added

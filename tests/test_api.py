@@ -22,6 +22,7 @@ from wetterdienst.provider.eccc.observation import EcccObservationMetadata, Eccc
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata, GeosphereObservationRequest
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyMetadata, ImgwHydrologyRequest
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyMetadata, ImgwMeteorologyRequest
+from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata, MeteoswissObservationRequest
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata, MetnoFrostRequest
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 from wetterdienst.provider.nws.observation import NwsObservationMetadata, NwsObservationRequest
@@ -101,6 +102,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        MeteoswissObservationMetadata,
         MetnoFrostMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
@@ -128,6 +130,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        MeteoswissObservationMetadata,
         MetnoFrostMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
@@ -511,6 +514,25 @@ def test_api_geosphere_observation(default_settings: Settings) -> None:
     ).filter_by_station_id("5882")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_date:
+        assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+def test_api_meteoswiss_observation(default_settings: Settings) -> None:
+    """Test MeteoSwiss observation API."""
+    request = MeteoswissObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        settings=default_settings,
+    ).filter_by_station_id("ABO")
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
