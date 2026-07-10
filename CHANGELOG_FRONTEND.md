@@ -36,6 +36,13 @@ Types of changes:
   like it hung for a couple of seconds before becoming interactive. Provider,
   network, resolution, dataset, and parameters are now all left unset for the
   user to pick explicitly.
+- `[Explorer/History]` Station map rendered as blank white space: the
+  "removed the global Leaflet plugin" change below assumed `<LMap
+  use-global-leaflet>` sets `window.L` itself, but it only reads it -- nothing
+  ever set it, so the map's `mounted` hook threw before rendering any tiles.
+  `window.L` is now set from within the map component itself (still
+  lazy-loaded, so the fix doesn't reintroduce the bundle-size regression the
+  removal fixed).
 
 ### Changed
 

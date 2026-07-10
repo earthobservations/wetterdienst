@@ -1,7 +1,6 @@
 <script setup lang="ts">
+import * as L from 'leaflet'
 import { computed, ref, watch } from 'vue'
-
-declare const L: typeof import('leaflet')
 
 const props = defineProps<{
   stations: any[]
@@ -9,6 +8,14 @@ const props = defineProps<{
   multiple?: boolean
 }>()
 const emit = defineEmits(['update:selectedStations'])
+
+// <LMap use-global-leaflet> and useLMarkerCluster() (from @nuxtjs/leaflet) both
+// read `window.L` directly rather than importing leaflet themselves. Setting it
+// here -- inside this already-lazy-loaded component -- rather than in a global
+// plugin keeps leaflet code-split into this chunk instead of bundled into every
+// page's initial load.
+if (import.meta.client && !window.L)
+  window.L = L
 
 const { t } = useI18n()
 
