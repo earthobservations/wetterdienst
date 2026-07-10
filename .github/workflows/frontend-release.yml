@@ -68,4 +68,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG_NAME" "../frontend-${TAG_NAME}.tar.gz"
+        run: gh release upload "$TAG_NAME" "frontend-${TAG_NAME}.tar.gz"
