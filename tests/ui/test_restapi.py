@@ -63,6 +63,7 @@ def test_coverage(client: TestClient) -> None:
         "eccc",
         "geosphere",
         "imgw",
+        "meteofrance",
         "meteoswiss",
         "metno",
         "noaa",

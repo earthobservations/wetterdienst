@@ -89,6 +89,15 @@ render_plugin = "myst"
 no_index = true
 ```
 
+## Météo-France
+
+### Synop
+
+```{autodoc2-object} wetterdienst.provider.meteofrance.synop.api.MeteoFranceSynopRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ## MeteoSwiss
 
 ### Observation

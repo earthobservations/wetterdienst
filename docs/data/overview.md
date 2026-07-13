@@ -53,6 +53,10 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Hydrology
         - hydrological data of polish river stations
         - daily and monthly summaries
+- Météo-France (French National Meteorological Service / France)
+    - Synop
+        - SYNOP observations at the native 3-hourly reporting interval
+        - ~190 stations across metropolitan France and overseas territories, 1996 to present
 - MeteoSwiss (Federal Office of Meteorology and Climatology / Switzerland)
     - Observation
         - historical, recent and now data of the SwissMetNet automatic weather station network
