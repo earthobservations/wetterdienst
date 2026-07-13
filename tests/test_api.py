@@ -23,6 +23,7 @@ from wetterdienst.provider.eccc.observation import EcccObservationMetadata, Eccc
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata, GeosphereObservationRequest
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyMetadata, ImgwHydrologyRequest
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyMetadata, ImgwMeteorologyRequest
+from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata, MeteoFranceObservationRequest
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata, MeteoFranceSynopRequest
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata, MeteoswissObservationRequest
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata, MetnoFrostRequest
@@ -104,6 +105,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        MeteoFranceObservationMetadata,
         MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,
         MetnoFrostMetadata,
@@ -133,6 +135,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        MeteoFranceObservationMetadata,
         MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,
         MetnoFrostMetadata,
@@ -544,6 +547,31 @@ def test_api_meteofrance_synop(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+def test_api_meteofrance_observation(default_settings: Settings) -> None:
+    """Test Météo-France observation API ("Données climatologiques de base")."""
+    # bounded to a few months: without a date range, values would download every period-bucket
+    # archive for the station's department (up to multi-decade, 100+ MB decompressed each)
+    request = MeteoFranceObservationRequest(
+        parameters=[("monthly", "data", "precipitation_height")],
+        start_date=datetime(2023, 1, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        end_date=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        settings=default_settings,
+    ).filter_by_station_id("31069001")
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    # end_date is legitimately null here: station "31069001" (Toulouse-Blagnac) is still open, and
+    # the canonical Météo-France station registry (unlike the per-department archive scan this
+    # used to derive dates from) reports null end_date for still-open stations
+    assert _is_complete_stations_df(request.df, exclude_columns={"state", "end_date"})
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
     first_date = values.get_column("date").gather(0).to_list()[0]
     assert first_date.tzinfo

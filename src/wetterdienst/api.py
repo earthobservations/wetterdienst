@@ -51,6 +51,7 @@ class Wetterdienst:
         },
         "meteofrance": {
             "synop": "wetterdienst.provider.meteofrance.synop.MeteoFranceSynopRequest",
+            "observation": "wetterdienst.provider.meteofrance.observation.MeteoFranceObservationRequest",
         },
         "meteoswiss": {
             "observation": "wetterdienst.provider.meteoswiss.observation.MeteoswissObservationRequest",

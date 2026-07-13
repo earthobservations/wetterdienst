@@ -98,6 +98,13 @@ render_plugin = "myst"
 no_index = true
 ```
 
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.meteofrance.observation.api.MeteoFranceObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ## MeteoSwiss
 
 ### Observation

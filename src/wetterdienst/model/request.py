@@ -709,7 +709,9 @@ class TimeseriesRequest:
             parameter.dataset.resolution.value for parameter in self.parameters if isinstance(parameter, ParameterModel)
         }
 
-        if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
+        if resolutions.intersection(
+            {Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_6, Resolution.MINUTE_10}
+        ):
             log.warning("Interpolation might be slow for high resolutions due to mass of data")
 
         lat, lon = latlon
@@ -761,7 +763,9 @@ class TimeseriesRequest:
             parameter.dataset.resolution.value for parameter in self.parameters if isinstance(parameter, ParameterModel)
         }
 
-        if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
+        if resolutions.intersection(
+            {Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_6, Resolution.MINUTE_10}
+        ):
             log.warning("Summary might be slow for high resolutions due to mass of data")
 
         lat, lon = latlon
