@@ -3,6 +3,7 @@
 """Tests for the API."""
 
 import zoneinfo
+from datetime import datetime
 
 import polars as pl
 import pytest
@@ -22,6 +23,7 @@ from wetterdienst.provider.eccc.observation import EcccObservationMetadata, Eccc
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata, GeosphereObservationRequest
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyMetadata, ImgwHydrologyRequest
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyMetadata, ImgwMeteorologyRequest
+from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata, MeteoFranceSynopRequest
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata, MeteoswissObservationRequest
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata, MetnoFrostRequest
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
@@ -102,6 +104,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,
         MetnoFrostMetadata,
         NoaaGhcnMetadata,
@@ -130,6 +133,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,
         MetnoFrostMetadata,
         NoaaGhcnMetadata,
@@ -514,6 +518,29 @@ def test_api_geosphere_observation(default_settings: Settings) -> None:
     ).filter_by_station_id("5882")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_date:
+        assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+def test_api_meteofrance_synop(default_settings: Settings) -> None:
+    """Test Météo-France SYNOP API."""
+    # bounded to a few days: without a date range, values would default to downloading and
+    # parsing every yearly archive since 1996, which is unnecessarily slow for a smoke test
+    request = MeteoFranceSynopRequest(
+        parameters=[("subdaily", "data", "temperature_air_mean_2m")],
+        start_date=datetime(2024, 1, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        end_date=datetime(2024, 1, 3, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        settings=default_settings,
+    ).filter_by_station_id("07005")
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "state"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")

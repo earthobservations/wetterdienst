@@ -54,7 +54,7 @@ provider_opt = cloup.option_group(
         help=(
             "Data provider/organisation. Must be combined with --network. "
             "Valid provider/network combinations can be listed with: wetterdienst about coverage. "
-            "Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere, meteoswiss"
+            "Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere, meteofrance, meteoswiss"
         ),
     ),
 )
@@ -312,7 +312,7 @@ This section explains all command line options in detail.
 Selection options:
 
     --provider                  The data provider / organisation.
-                                Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere, meteoswiss
+                                Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere, meteofrance, meteoswiss
 
     --network                   The network of the data provider
                                 Examples: observation, mosmix, radar, ghcn, pegel, hydrology
