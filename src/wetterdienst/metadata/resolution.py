@@ -19,6 +19,7 @@ class Resolution(Enum):
 
     MINUTE_1 = "1_minute"  # used by DWD for file server
     MINUTE_5 = "5_minutes"
+    MINUTE_6 = "6_minutes"  # used by Météo-France
     MINUTE_10 = "10_minutes"  # used by DWD for file server
     MINUTE_15 = "15_minutes"  # used by DWD for file server
     HOURLY = "hourly"  # used by DWD for file server
@@ -37,6 +38,7 @@ class Resolution(Enum):
 DAILY_AT_MOST = [
     Resolution.MINUTE_1,
     Resolution.MINUTE_5,
+    Resolution.MINUTE_6,
     Resolution.MINUTE_10,
     Resolution.MINUTE_15,
     Resolution.HOURLY,
@@ -52,6 +54,7 @@ class Frequency(Enum):
     MINUTE_1 = "1m"
     MINUTE_2 = "2m"
     MINUTE_5 = "5m"
+    MINUTE_6 = "6m"
     MINUTE_10 = "10m"
     MINUTE_15 = "15m"
     MINUTE_60 = "60m"  # similar to hourly, needed for WSV frequency detection

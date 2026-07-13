@@ -17,6 +17,7 @@ Types of changes:
 ## [Unreleased]
 
 - Add Météo-France (France) synop network (subdaily, 3-hourly)
+- Add Météo-France (France) observation network (6-minute, hourly, daily, monthly)
 - Add MeteoSwiss (Switzerland) observation provider with 10-minute, hourly, daily, monthly and annual resolution
 
 ## [0.127.0] - 2026-07-07
