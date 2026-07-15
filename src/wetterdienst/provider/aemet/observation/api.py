@@ -42,11 +42,16 @@ _MAX_REQUEST_DAYS = 179
 
 # AEMET's own error message for a 429 is "Espere al siguiente minuto" (wait for the next
 # minute) — the short retry/backoff baked into download_file() is nowhere near enough to
-# clear that, so a 429 gets its own, much longer wait here instead of being treated as a
-# regular failure (which would otherwise silently drop that chunk's data).
-_RATE_LIMIT_STATUS = 429
-_RATE_LIMIT_RETRY_WAIT_SECONDS = 60
-_RATE_LIMIT_MAX_RETRIES = 2
+# clear that. AEMET has also been observed, live, to intermittently drop connections
+# outright (TLS handshake failures, timeouts) even after download_file()'s own short
+# built-in retry is exhausted. Both are retried here with an exponential backoff that
+# starts short (clears quick blips fast) and grows close to the ~60s a 429 needs, instead
+# of being treated as a regular failure (which would otherwise silently drop that chunk's
+# data).
+_RETRYABLE_STATUSES = {429, 408, 500, 503}
+_RETRY_WAIT_INITIAL_SECONDS = 3
+_RETRY_WAIT_MAX_SECONDS = 60
+_RETRY_MAX_RETRIES = 4
 
 _EMPTY_VALUES_SCHEMA = {
     "resolution": pl.String,
@@ -107,8 +112,8 @@ _REALTIME_VALUE_COLUMNS = (
 )
 
 
-class _AemetRateLimitedError(Exception):
-    """Internal signal used to trigger a stamina retry when AEMET returns HTTP 429."""
+class _AemetRetryableError(Exception):
+    """Internal signal used to trigger a stamina retry on a retryable AEMET failure."""
 
 
 def _download_with_rate_limit_retry(
@@ -117,25 +122,30 @@ def _download_with_rate_limit_retry(
     ttl: CacheExpiry,
     *,
     client_kwargs: dict | None = None,
-    wait_seconds: float = _RATE_LIMIT_RETRY_WAIT_SECONDS,
-    max_retries: int = _RATE_LIMIT_MAX_RETRIES,
+    wait_initial: float = _RETRY_WAIT_INITIAL_SECONDS,
+    wait_max: float = _RETRY_WAIT_MAX_SECONDS,
+    max_retries: int = _RETRY_MAX_RETRIES,
 ) -> File:
-    """Download a URL, waiting out AEMET's per-minute rate limit (HTTP 429) if hit.
+    """Download a URL, retrying on retryable AEMET failures.
+
+    Retries both the per-minute rate limit (429) and transient network failures
+    (timeouts, connection resets, TLS handshake drops, etc.).
 
     download_file() already retries transiently via stamina internally, but with a short,
-    generic backoff that's nowhere near AEMET's actual "wait for the next minute" 429
-    policy. This runs its own stamina retry loop on top, scoped specifically to 429s, with
-    a fixed wait long enough to actually clear the rate limit.
+    generic backoff that's nowhere near enough for either failure mode observed live: a
+    429 needs close to a minute to clear, and plain connection failures have been seen to
+    recur even after download_file()'s own short retry is exhausted. This runs its own
+    stamina retry loop on top, with backoff growing from a few seconds up to wait_max, so
+    quick blips clear fast while a genuine rate limit still gets close to the wait it needs.
     """
     last_file: File | None = None
-    with contextlib.suppress(_AemetRateLimitedError):
+    with contextlib.suppress(_AemetRetryableError):
         for attempt in stamina.retry_context(
-            on=_AemetRateLimitedError,
+            on=_AemetRetryableError,
             attempts=max_retries + 1,
             timeout=None,
-            wait_initial=wait_seconds,
-            wait_max=wait_seconds,
-            wait_jitter=0,
+            wait_initial=wait_initial,
+            wait_max=wait_max,
         ):
             with attempt:
                 last_file = download_file(
@@ -146,9 +156,11 @@ def _download_with_rate_limit_retry(
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                if isinstance(last_file.content, Exception) and last_file.status == _RATE_LIMIT_STATUS:
-                    log.warning(f"AEMET rate limit hit for {url}, retrying in {wait_seconds:.0f}s")
-                    raise _AemetRateLimitedError(url)
+                if isinstance(last_file.content, Exception) and last_file.status in _RETRYABLE_STATUSES:
+                    log.warning(
+                        f"Retryable AEMET failure (status={last_file.status}) for {url}: {last_file.content}; retrying",
+                    )
+                    raise _AemetRetryableError(url)
     if last_file is None:
         msg = "unreachable: stamina.retry_context always runs at least once"
         raise AssertionError(msg)

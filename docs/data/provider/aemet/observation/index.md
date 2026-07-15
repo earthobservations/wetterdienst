@@ -18,6 +18,12 @@ The `hourly` resolution is real-time data: it does not accept a date range at al
 does not offer historical backfill — AEMET always returns whatever rolling window of
 recent observations (typically the last ~24h) it currently holds for the station.
 
+AEMET enforces a strict per-minute rate limit (HTTP 429) and has also been observed to
+intermittently drop connections outright. Requests hitting either are retried
+automatically with a growing backoff (a few seconds up to roughly a minute), so a single
+call can take noticeably longer than usual — up to a few minutes in the worst case —
+if AEMET is rate limiting or having connectivity issues, rather than failing outright.
+
 ## License
 
 Data is © AEMET. See

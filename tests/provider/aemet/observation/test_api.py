@@ -287,9 +287,9 @@ def test_aemet_observation_rate_limit_retry_recovers(monkeypatch: pytest.MonkeyP
 
     AEMET's own error message for a 429 is "wait for the next minute" — the short
     retry/backoff baked into download_file() is nowhere near enough for that, so this
-    provider runs its own stamina retry loop on top, scoped to 429s. download_file is
-    mocked so the test needs no real credentials or network access; the retry wait is
-    set to a fraction of a second (rather than the real 60s) so the test stays fast.
+    provider runs its own stamina retry loop on top. download_file is mocked so the test
+    needs no real credentials or network access; the retry wait is set to a fraction of a
+    second (rather than the real up-to-60s) so the test stays fast.
     """
     responses = iter(
         [
@@ -307,11 +307,42 @@ def test_aemet_observation_rate_limit_retry_recovers(monkeypatch: pytest.MonkeyP
         "https://example.org",
         Settings(),
         CacheExpiry.NO_CACHE,
-        wait_seconds=0.01,
+        wait_initial=0.01,
+        wait_max=0.01,
         max_retries=2,
     )
     assert result.status == 200
     assert len(calls) == 3
+
+
+def test_aemet_observation_transient_failure_retry_recovers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A transient failure (e.g. a dropped connection) is retried like a 429.
+
+    AEMET has been observed, live, to intermittently drop connections outright even
+    after download_file()'s own short built-in retry is exhausted — those chunk-losing
+    failures are retried the same way as a 429, just with a shorter backoff.
+    """
+    responses = iter(
+        [
+            File(url="url", content=Exception("connection reset"), status=503),
+            File(url="url", content=BytesIO(b"ok"), status=200),
+        ],
+    )
+    calls = []
+    monkeypatch.setattr(
+        "wetterdienst.provider.aemet.observation.api.download_file",
+        lambda **_kwargs: (calls.append(1), next(responses))[1],
+    )
+    result = _download_with_rate_limit_retry(
+        "https://example.org",
+        Settings(),
+        CacheExpiry.NO_CACHE,
+        wait_initial=0.01,
+        wait_max=0.01,
+        max_retries=2,
+    )
+    assert result.status == 200
+    assert len(calls) == 2
 
 
 def test_aemet_observation_rate_limit_retry_gives_up_eventually(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -327,9 +358,31 @@ def test_aemet_observation_rate_limit_retry_gives_up_eventually(monkeypatch: pyt
         "https://example.org",
         Settings(),
         CacheExpiry.NO_CACHE,
-        wait_seconds=0.01,
+        wait_initial=0.01,
+        wait_max=0.01,
         max_retries=2,
     )
     assert result.status == 429
     assert isinstance(result.content, Exception)
     assert len(calls) == 3  # 1 initial attempt + 2 retries, then gives up
+
+
+def test_aemet_observation_permanent_failure_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A non-retryable failure (e.g. a plain 404) is returned immediately, without retrying."""
+    calls = []
+
+    def always_404(**_kwargs: object) -> File:
+        calls.append(1)
+        return File(url="url", content=Exception("not found"), status=404)
+
+    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api.download_file", always_404)
+    result = _download_with_rate_limit_retry(
+        "https://example.org",
+        Settings(),
+        CacheExpiry.NO_CACHE,
+        wait_initial=0.01,
+        wait_max=0.01,
+        max_retries=2,
+    )
+    assert result.status == 404
+    assert len(calls) == 1
