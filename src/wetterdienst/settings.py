@@ -26,6 +26,7 @@ _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 class Auth(BaseModel):
     """Authentication credentials for providers requiring API keys."""
 
+    aemet: str | None = Field(default=None)
     metno_frost: tuple[str, str] | None = Field(default=None)
 
     @field_validator("metno_frost", mode="before")

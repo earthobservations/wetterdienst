@@ -41,6 +41,7 @@ jobs:
       OS: ${{ matrix.os }}
       PYTHON: ${{ matrix.python-version }}
       WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
+      WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
 
     defaults:
       run:

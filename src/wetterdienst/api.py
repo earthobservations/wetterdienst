@@ -16,6 +16,9 @@ class Wetterdienst:
     """
 
     registry: ClassVar = {
+        "aemet": {
+            "observation": "wetterdienst.provider.aemet.observation.AemetObservationRequest",
+        },
         "dwd": {
             "observation": "wetterdienst.provider.dwd.observation.DwdObservationRequest",
             "mosmix": "wetterdienst.provider.dwd.mosmix.DwdMosmixRequest",
