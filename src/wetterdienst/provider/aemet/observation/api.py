@@ -42,13 +42,15 @@ _MAX_REQUEST_DAYS = 179
 
 # AEMET's own error message for a 429 is "Espere al siguiente minuto" (wait for the next
 # minute) — the short retry/backoff baked into download_file() is nowhere near enough to
-# clear that. AEMET has also been observed, live, to intermittently drop connections
-# outright (TLS handshake failures, timeouts) even after download_file()'s own short
-# built-in retry is exhausted. Both are retried here with an exponential backoff that
-# starts short (clears quick blips fast) and grows close to the ~60s a 429 needs, instead
-# of being treated as a regular failure (which would otherwise silently drop that chunk's
-# data).
-_RETRYABLE_STATUSES = {429, 408, 500, 503}
+# clear that. AEMET has also been observed, live, to fail in several other transient ways
+# (TLS handshake drops, timeouts, and other failures on its second-stage "datos" URL) even
+# after download_file()'s own short built-in retry is exhausted, and the exact status varies
+# too much to enumerate as an allow-list. So everything is retried here EXCEPT the statuses
+# that mean the request itself is invalid and retrying it can't help (bad auth, bad station,
+# malformed request) -- retrying uses an exponential backoff that starts short (clears quick
+# blips fast) and grows close to the ~60s a 429 needs, instead of the failure being treated
+# as permanent (which would otherwise silently drop that chunk's data).
+_NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
 _RETRY_WAIT_INITIAL_SECONDS = 3
 _RETRY_WAIT_MAX_SECONDS = 60
 _RETRY_MAX_RETRIES = 4
@@ -156,7 +158,7 @@ def _download_with_rate_limit_retry(
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                if isinstance(last_file.content, Exception) and last_file.status in _RETRYABLE_STATUSES:
+                if isinstance(last_file.content, Exception) and last_file.status not in _NON_RETRYABLE_STATUSES:
                     log.warning(
                         f"Retryable AEMET failure (status={last_file.status}) for {url}: {last_file.content}; retrying",
                     )
