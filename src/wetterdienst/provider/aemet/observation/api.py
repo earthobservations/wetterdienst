@@ -8,6 +8,7 @@ import contextlib
 import datetime as dt
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
@@ -111,6 +112,11 @@ class _AemetRateLimitedError(Exception):
     """Internal signal used to trigger a stamina retry when AEMET returns HTTP 429."""
 
 
+def _redact_api_key(url: str) -> str:
+    """Redact the api_key query parameter from a URL, e.g. for safe logging."""
+    return re.sub(r"api_key=[^&]*", "api_key=***", url)
+
+
 def _download_with_rate_limit_retry(
     url: str,
     settings: Settings,
@@ -146,7 +152,7 @@ def _download_with_rate_limit_retry(
                     use_certifi=settings.use_certifi,
                 )
                 if isinstance(last_file.content, Exception) and last_file.status == _RATE_LIMIT_STATUS:
-                    log.warning(f"AEMET rate limit hit for {url}, retrying in {wait_seconds:.0f}s")
+                    log.warning(f"AEMET rate limit hit for {_redact_api_key(url)}, retrying in {wait_seconds:.0f}s")
                     raise _AemetRateLimitedError(url)
     if last_file is None:
         msg = "unreachable: stamina.retry_context always runs at least once"
@@ -247,7 +253,9 @@ class AemetObservationValues(TimeseriesValues):
         url = self._endpoint_realtime.format(station_id=station_id, api_key=api_key)
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
         if isinstance(payload, Exception):
-            log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
+            log.warning(
+                f"Failed to acquire AEMET data for station {station_id}, chunk {_redact_api_key(url)}: {payload}",
+            )
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         records = json.loads(payload.decode("latin-1"))
         if not records:
@@ -291,7 +299,9 @@ class AemetObservationValues(TimeseriesValues):
             if isinstance(payload, Exception):
                 # rate-limit retries (if applicable) are already exhausted at this point,
                 # so this chunk's data is genuinely missing from the result.
-                log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
+                log.warning(
+                    f"Failed to acquire AEMET data for station {station_id}, chunk {_redact_api_key(url)}: {payload}",
+                )
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
@@ -351,7 +361,9 @@ class AemetObservationValues(TimeseriesValues):
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             if isinstance(payload, Exception):
-                log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
+                log.warning(
+                    f"Failed to acquire AEMET data for station {station_id}, chunk {_redact_api_key(url)}: {payload}",
+                )
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
