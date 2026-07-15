@@ -60,6 +60,9 @@ _MONTHLY_ANNUAL_PARAMETERS = [
     },
 ]
 
+# AEMET's annual aggregate doesn't include a humidity field at all (unlike monthly).
+_ANNUAL_PARAMETERS = [parameter for parameter in _MONTHLY_ANNUAL_PARAMETERS if parameter["name"] != "humidity"]
+
 AemetObservationMetadata = {
     "name_short": "AEMET",
     "name_english": "State Meteorological Agency of Spain",
@@ -270,7 +273,7 @@ AemetObservationMetadata = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
-                    "parameters": _MONTHLY_ANNUAL_PARAMETERS,
+                    "parameters": _ANNUAL_PARAMETERS,
                 },
             ],
         },
