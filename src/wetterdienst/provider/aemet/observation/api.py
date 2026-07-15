@@ -8,7 +8,6 @@ import contextlib
 import datetime as dt
 import json
 import logging
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
@@ -112,16 +111,12 @@ class _AemetRateLimitedError(Exception):
     """Internal signal used to trigger a stamina retry when AEMET returns HTTP 429."""
 
 
-def _redact_api_key(url: str) -> str:
-    """Redact the api_key query parameter from a URL, e.g. for safe logging."""
-    return re.sub(r"api_key=[^&]*", "api_key=***", url)
-
-
 def _download_with_rate_limit_retry(
     url: str,
     settings: Settings,
     ttl: CacheExpiry,
     *,
+    client_kwargs: dict | None = None,
     wait_seconds: float = _RATE_LIMIT_RETRY_WAIT_SECONDS,
     max_retries: int = _RATE_LIMIT_MAX_RETRIES,
 ) -> File:
@@ -147,12 +142,12 @@ def _download_with_rate_limit_retry(
                     url=url,
                     cache_dir=settings.cache_dir,
                     ttl=ttl,
-                    client_kwargs=settings.fsspec_client_kwargs,
+                    client_kwargs=client_kwargs if client_kwargs is not None else settings.fsspec_client_kwargs,
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
                 if isinstance(last_file.content, Exception) and last_file.status == _RATE_LIMIT_STATUS:
-                    log.warning(f"AEMET rate limit hit for {_redact_api_key(url)}, retrying in {wait_seconds:.0f}s")
+                    log.warning(f"AEMET rate limit hit for {url}, retrying in {wait_seconds:.0f}s")
                     raise _AemetRateLimitedError(url)
     if last_file is None:
         msg = "unreachable: stamina.retry_context always runs at least once"
@@ -161,8 +156,17 @@ def _download_with_rate_limit_retry(
 
 
 def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exception:
-    """Resolve AEMET's two-step response pattern (envelope + separate "datos" URL)."""
-    file = _download_with_rate_limit_retry(url, settings, ttl)
+    """Resolve AEMET's two-step response pattern (envelope + separate "datos" URL).
+
+    The api_key is sent as a request header (rather than a URL query parameter) so it
+    never ends up embedded in a URL that gets logged. AEMET accepts the key either way;
+    the "datos" URL from the envelope is a pre-signed link that doesn't need auth at all.
+    """
+    client_kwargs = {
+        **settings.fsspec_client_kwargs,
+        "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "api_key": settings.auth.aemet},
+    }
+    file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
     if isinstance(file.content, Exception):
         return file.content
     envelope = json.load(file.content)
@@ -179,7 +183,7 @@ def _probe_aemet_credentials(settings: Settings) -> bool:
     """Probe the AEMET API; result is cached on disk for ONE_HOUR via download_file."""
     if not settings.auth.aemet:
         return False
-    url = f"{_BASE_URL}/valores/climatologicos/inventarioestaciones/todasestaciones?api_key={settings.auth.aemet}"
+    url = f"{_BASE_URL}/valores/climatologicos/inventarioestaciones/todasestaciones"
     payload = _fetch_datos(url, settings, CacheExpiry.ONE_HOUR)
     return not isinstance(payload, Exception)
 
@@ -190,14 +194,12 @@ class AemetObservationValues(TimeseriesValues):
     _endpoint_daily = (
         _BASE_URL + "/valores/climatologicos/diarios/datos/"
         "fechaini/{start_date}/fechafin/{end_date}/estacion/{station_id}"
-        "?api_key={api_key}"
     )
     _endpoint_monthly = (
-        _BASE_URL + "/valores/climatologicos/mensualesanuales/datos/"
-        "anioini/{start_year}/aniofin/{end_year}/estacion/{station_id}"
-        "?api_key={api_key}"
+        _BASE_URL
+        + "/valores/climatologicos/mensualesanuales/datos/anioini/{start_year}/aniofin/{end_year}/estacion/{station_id}"
     )
-    _endpoint_realtime = _BASE_URL + "/observacion/convencional/datos/estacion/{station_id}?api_key={api_key}"
+    _endpoint_realtime = _BASE_URL + "/observacion/convencional/datos/estacion/{station_id}"
 
     @staticmethod
     def _date_chunks(start_date: dt.datetime, end_date: dt.datetime) -> Iterator[tuple[dt.datetime, dt.datetime]]:
@@ -250,12 +252,10 @@ class AemetObservationValues(TimeseriesValues):
         if not api_key:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        url = self._endpoint_realtime.format(station_id=station_id, api_key=api_key)
+        url = self._endpoint_realtime.format(station_id=station_id)
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
         if isinstance(payload, Exception):
-            log.warning(
-                f"Failed to acquire AEMET data for station {station_id}, chunk {_redact_api_key(url)}: {payload}",
-            )
+            log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         records = json.loads(payload.decode("latin-1"))
         if not records:
@@ -293,15 +293,12 @@ class AemetObservationValues(TimeseriesValues):
                 station_id=station_id,
                 start_date=chunk_start.strftime("%Y-%m-%dT%H:%M:%SUTC"),
                 end_date=chunk_end.strftime("%Y-%m-%dT%H:%M:%SUTC"),
-                api_key=api_key,
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             if isinstance(payload, Exception):
                 # rate-limit retries (if applicable) are already exhausted at this point,
                 # so this chunk's data is genuinely missing from the result.
-                log.warning(
-                    f"Failed to acquire AEMET data for station {station_id}, chunk {_redact_api_key(url)}: {payload}",
-                )
+                log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
@@ -357,13 +354,10 @@ class AemetObservationValues(TimeseriesValues):
                 station_id=station_id,
                 start_year=start_year,
                 end_year=end_year,
-                api_key=api_key,
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             if isinstance(payload, Exception):
-                log.warning(
-                    f"Failed to acquire AEMET data for station {station_id}, chunk {_redact_api_key(url)}: {payload}",
-                )
+                log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
@@ -417,7 +411,7 @@ class AemetObservationRequest(TimeseriesRequest):
     metadata = AemetObservationMetadata
     _values = AemetObservationValues
 
-    _endpoint = _BASE_URL + "/valores/climatologicos/inventarioestaciones/todasestaciones?api_key={api_key}"
+    _endpoint = _BASE_URL + "/valores/climatologicos/inventarioestaciones/todasestaciones"
 
     @classmethod
     def is_configured(cls) -> bool:  # noqa: D102
@@ -441,8 +435,7 @@ class AemetObservationRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
-        url = self._endpoint.format(api_key=settings.auth.aemet)
-        payload = _fetch_datos(url, settings, CacheExpiry.METAINDEX)
+        payload = _fetch_datos(self._endpoint, settings, CacheExpiry.METAINDEX)
         if isinstance(payload, Exception):
             log.warning(f"Failed to fetch AEMET stations: {payload}")
             return pl.LazyFrame()
