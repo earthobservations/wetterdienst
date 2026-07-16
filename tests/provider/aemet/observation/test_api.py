@@ -2,7 +2,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for AEMET OpenData observation provider."""
 
+import contextlib
 import datetime as dt
+import json
 from io import BytesIO
 from itertools import pairwise
 from zoneinfo import ZoneInfo
@@ -271,6 +273,53 @@ def test_aemet_observation_date_chunks_split_and_cover_full_range() -> None:
     # chunks must be contiguous: each one starts exactly one second after the previous ends
     for (_, prev_end), (next_start, _) in pairwise(chunks):
         assert next_start == prev_end + dt.timedelta(seconds=1)
+
+
+def test_aemet_observation_daily_normalizes_non_utc_start_end_date_to_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A tz-aware non-UTC start/end date is normalized to UTC before being sent to AEMET.
+
+    TimeseriesRequest.convert_timestamps() only tags naive datetimes as UTC; it never
+    converts an already-tz-aware non-UTC datetime. Madrid is UTC+1 in January, so
+    2020-01-01 00:30 Madrid time is 2019-12-31 23:30 UTC -- if _collect_daily formatted
+    the raw (non-UTC) wall-clock values with a hardcoded "UTC" suffix, AEMET would
+    silently be asked for the wrong day entirely.
+    """
+    captured_urls = []
+    station_payload = json.dumps(
+        [
+            {
+                "indicativo": MADRID_RETIRO,
+                "nombre": "MADRID, RETIRO",
+                "provincia": "MADRID",
+                "altitud": "667",
+                "latitud": "402941N",
+                "longitud": "34041W",
+            },
+        ],
+    ).encode("latin-1")
+
+    def fake_fetch_datos(url: str, *_args: object, **_kwargs: object) -> bytes | Exception:
+        if "todasestaciones" in url:
+            return station_payload
+        captured_urls.append(url)
+        return Exception("stop after capturing the request URL")
+
+    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api._fetch_datos", fake_fetch_datos)
+
+    madrid = ZoneInfo("Europe/Madrid")
+    with contextlib.suppress(ValueError):
+        # ValueError("cannot concat empty list"): expected, since the daily fetch above
+        # deliberately fails after capturing the URL -- only the URL matters here.
+        AemetObservationRequest(
+            parameters=[("daily", "data")],
+            start_date=dt.datetime(2020, 1, 1, 0, 30, tzinfo=madrid),
+            end_date=dt.datetime(2020, 1, 1, 0, 30, tzinfo=madrid),
+            settings=Settings(auth={"aemet": "dummy-key-for-test"}),
+        ).filter_by_station_id(MADRID_RETIRO).values.all()
+
+    assert len(captured_urls) == 1
+    assert "fechaini/2019-12-31T23:30:00UTC" in captured_urls[0]
+    assert "fechafin/2019-12-31T23:30:00UTC" in captured_urls[0]
 
 
 def test_aemet_observation_year_chunks_within_limit() -> None:
