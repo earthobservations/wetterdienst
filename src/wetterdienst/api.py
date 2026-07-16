@@ -65,6 +65,9 @@ class Wetterdienst:
         "metno": {
             "frost": "wetterdienst.provider.metno.frost.MetnoFrostRequest",
         },
+        "smhi": {
+            "observation": "wetterdienst.provider.smhi.observation.SmhiObservationRequest",
+        },
     }
 
     @classmethod

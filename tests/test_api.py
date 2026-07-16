@@ -13,6 +13,7 @@ from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Parameter, Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.model.unit import UnitConverter
+from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
 from wetterdienst.provider.dmi.observation import DmiObservationMetadata, DmiObservationRequest
 from wetterdienst.provider.dwd.dmo import DwdDmoMetadata, DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
@@ -30,6 +31,7 @@ from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMe
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata, MetnoFrostRequest
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 from wetterdienst.provider.nws.observation import NwsObservationMetadata, NwsObservationRequest
+from wetterdienst.provider.smhi.observation import SmhiObservationMetadata, SmhiObservationRequest
 from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
 from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
 
@@ -96,6 +98,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
 @pytest.mark.parametrize(
     "metadata",
     [
+        AemetObservationMetadata,
         DmiObservationMetadata,
         DwdDmoMetadata,
         DwdMosmixMetadata,
@@ -113,6 +116,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         MetnoFrostMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
+        SmhiObservationMetadata,
         WsvPegelMetadata,
     ],
 )
@@ -127,6 +131,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
 @pytest.mark.parametrize(
     "metadata",
     [
+        AemetObservationMetadata,
         DmiObservationMetadata,
         DwdDmoMetadata,
         DwdMosmixMetadata,
@@ -144,6 +149,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         MetnoFrostMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
+        SmhiObservationMetadata,
         WsvPegelMetadata,
     ],
 )
@@ -614,6 +620,49 @@ def test_api_meteoswiss_observation(default_settings: Settings) -> None:
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(request.df, exclude_columns={"end_date"})
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_date:
+        assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+def test_api_aemet_observation(default_settings: Settings) -> None:
+    """Test AEMET observation API."""
+    request = AemetObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date="2020-01-01",
+        end_date="2020-01-02",
+        settings=default_settings,
+    ).filter_by_station_id("3195")
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    # AEMET's station inventory doesn't provide start_date/end_date at all.
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date"})
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_date:
+        assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+def test_api_smhi_observation(default_settings: Settings) -> None:
+    """Test SMHI observation API."""
+    request = SmhiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date="2020-01-01",
+        end_date="2020-01-02",
+        settings=default_settings,
+    ).filter_by_station_id("188790")
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "state"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")

@@ -17,6 +17,9 @@ keywords = [
     # DMI
     "dmi",
     "danish-meteorological-institute",
+    # SMHI
+    "smhi",
+    "swedish-meteorological-and-hydrological-institute",
     # DWD
     "deutscher-wetterdienst",
     "dmo",
