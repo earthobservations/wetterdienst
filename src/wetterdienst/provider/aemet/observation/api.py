@@ -41,19 +41,20 @@ _BASE_URL = "https://opendata.aemet.es/opendata/api"
 _MAX_REQUEST_DAYS = 179
 
 # AEMET's own error message for a 429 is "Espere al siguiente minuto" (wait for the next
-# minute) — the short retry/backoff baked into download_file() is nowhere near enough to
-# clear that. AEMET has also been observed, live, to fail in several other transient ways
+# minute), and it has also been observed, live, to fail in several other transient ways
 # (TLS handshake drops, timeouts, and other failures on its second-stage "datos" URL) even
-# after download_file()'s own short built-in retry is exhausted, and the exact status varies
-# too much to enumerate as an allow-list. So everything is retried here EXCEPT the statuses
+# after download_file()'s own short built-in retry is exhausted -- the exact status varies
+# too much to enumerate as an allow-list, so everything is retried here EXCEPT the statuses
 # that mean the request itself is invalid and retrying it can't help (bad auth, bad station,
-# malformed request) -- retrying uses an exponential backoff that starts short (clears quick
-# blips fast) and grows close to the ~60s a 429 needs, instead of the failure being treated
-# as permanent (which would otherwise silently drop that chunk's data).
+# malformed request). Kept deliberately modest (a couple of short-backoff retries): AEMET's
+# outages have been observed to regularly outlast even a much longer retry budget, so paying
+# for one is mostly wasted time -- this is enough to smooth over brief blips without making
+# a single failing call hang for minutes. Tests that hit sustained live outages are handled
+# via xfail rather than a longer retry (see tests/provider/aemet/observation/test_api.py).
 _NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
-_RETRY_WAIT_INITIAL_SECONDS = 3
-_RETRY_WAIT_MAX_SECONDS = 60
-_RETRY_MAX_RETRIES = 4
+_RETRY_WAIT_INITIAL_SECONDS = 2
+_RETRY_WAIT_MAX_SECONDS = 15
+_RETRY_MAX_RETRIES = 2
 
 _EMPTY_VALUES_SCHEMA = {
     "resolution": pl.String,
@@ -133,12 +134,14 @@ def _download_with_rate_limit_retry(
     Retries both the per-minute rate limit (429) and transient network failures
     (timeouts, connection resets, TLS handshake drops, etc.).
 
-    download_file() already retries transiently via stamina internally, but with a short,
-    generic backoff that's nowhere near enough for either failure mode observed live: a
-    429 needs close to a minute to clear, and plain connection failures have been seen to
-    recur even after download_file()'s own short retry is exhausted. This runs its own
-    stamina retry loop on top, with backoff growing from a few seconds up to wait_max, so
-    quick blips clear fast while a genuine rate limit still gets close to the wait it needs.
+    download_file() already retries transiently via stamina internally, but with a very
+    short, generic backoff -- not enough to reliably clear either failure mode observed
+    live. This runs its own, deliberately modest stamina retry loop on top (a couple of
+    short-backoff retries): enough to smooth over brief blips without making a single
+    failing call hang for minutes. It does NOT attempt to wait out a sustained outage or
+    the full ~60s AEMET's own 429 policy technically calls for -- live AEMET outages have
+    been observed to regularly outlast even a much longer retry budget, so that time would
+    mostly be wasted; tests hitting sustained outages are xfail'd instead of retried longer.
     """
     last_file: File | None = None
     with contextlib.suppress(_AemetRetryableError):

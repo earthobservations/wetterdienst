@@ -19,10 +19,12 @@ does not offer historical backfill — AEMET always returns whatever rolling win
 recent observations (typically the last ~24h) it currently holds for the station.
 
 AEMET enforces a strict per-minute rate limit (HTTP 429) and has also been observed to
-intermittently drop connections outright. Requests hitting either are retried
-automatically with a growing backoff (a few seconds up to roughly a minute), so a single
-call can take noticeably longer than usual — up to a few minutes in the worst case —
-if AEMET is rate limiting or having connectivity issues, rather than failing outright.
+intermittently drop connections outright or have sustained outages. Requests hitting a
+transient failure are retried automatically with a short backoff (a couple of retries,
+a few seconds each), so a single call can take somewhat longer than usual if AEMET is
+briefly rate limiting or flaky. This is deliberately modest, not an attempt to wait out
+a sustained outage — if AEMET is down for longer than that, the request fails rather
+than hanging for minutes.
 
 ## License
 
