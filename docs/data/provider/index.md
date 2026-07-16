@@ -3,6 +3,7 @@
 ```{toctree}
 :hidden:
 
+aemet/index.md
 dwd/index.md
 ea/index.md
 eaufrance/index.md

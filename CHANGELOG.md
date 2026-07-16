@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+- Add AEMET (Spain) observation provider with hourly (real-time), daily, monthly and
+  annual resolution
 - Add Météo-France (France) synop network (subdaily, 3-hourly)
 - Add Météo-France (France) observation network (6-minute, hourly, daily, monthly)
 - Add MeteoSwiss (Switzerland) observation provider with 10-minute, hourly, daily, monthly and annual resolution

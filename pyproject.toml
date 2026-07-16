@@ -11,6 +11,9 @@ readme = "README.md"
 license-expression = "MIT"
 license-files = ["LICENSE.md"]
 keywords = [
+    # AEMET
+    "aemet",
+    "state-meteorological-agency-of-spain",
     # DWD
     "deutscher-wetterdienst",
     "dmo",
@@ -36,6 +39,10 @@ keywords = [
     "federal-office-of-meteorology-and-climatology-switzerland",
     "meteoswiss",
     "mosmix",
+    # MET Norway
+    "met-norway",
+    "norwegian-meteorological-institute",
+    "frost",
     # NOAA
     "national-oceanic-and-atmospheric-administration",
     # NWS
