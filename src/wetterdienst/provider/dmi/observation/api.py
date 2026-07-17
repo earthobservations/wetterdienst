@@ -259,13 +259,15 @@ class DmiObservationRequest(TimeseriesRequest):
         # DMI lists a station once per validity period. Collapse to one row per station: keep
         # the most recent metadata (name, coordinates, height) and span the full active range
         # (earliest validFrom; a null validTo on any record means "still active" -> null).
-        df = df.sort("created", descending=True)
+        # `sort_by("created").first()` inside the aggregation picks the newest record per group
+        # order-independently -- relying on a pre-sort + `first()` would not be deterministic
+        # without group_by(maintain_order=True).
         df = df.group_by("station_id").agg(
-            pl.col("name").first(),
-            pl.col("state").first(),
-            pl.col("latitude").first(),
-            pl.col("longitude").first(),
-            pl.col("height").first(),
+            pl.col("name").sort_by("created", descending=True).first().alias("name"),
+            pl.col("state").sort_by("created", descending=True).first().alias("state"),
+            pl.col("latitude").sort_by("created", descending=True).first().alias("latitude"),
+            pl.col("longitude").sort_by("created", descending=True).first().alias("longitude"),
+            pl.col("height").sort_by("created", descending=True).first().alias("height"),
             pl.col("start_date").min(),
             pl.when(pl.col("end_date").is_null().any())
             .then(None)
