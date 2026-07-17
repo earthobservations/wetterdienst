@@ -164,7 +164,11 @@ DmiObservationMetadata = {
     "url": "https://opendatadocs.dmi.govcloud.dk/",
     "kind": "observation",
     "timezone": "Europe/Copenhagen",
-    "timezone_data": "Europe/Copenhagen",
+    # Emitted `date` values are always UTC: hourly are true UTC instants, and daily/monthly/
+    # annual are the civil calendar date stamped at UTC midnight (see api._date_expression).
+    # timezone_data drives the `ts_complete` base date grid, so it must be UTC to align with
+    # those labels (and a single civil zone couldn't represent DK/GRL/FRO anyway).
+    "timezone_data": "UTC",
     "auth": False,
     "resolutions": [
         {

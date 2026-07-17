@@ -105,6 +105,28 @@ def test_dmi_observation_values_daily() -> None:
 
 
 @pytest.mark.remote
+def test_dmi_observation_values_complete_aligns_to_utc_grid() -> None:
+    """With ts_complete the base date grid (driven by timezone_data=UTC) must join the labels.
+
+    A non-UTC timezone_data would generate the completion grid at local midnight converted to
+    UTC (e.g. 22:00Z), which would not join the provider's UTC-midnight labels and would null
+    out every value.
+    """
+    settings = Settings(cache_disable=True, ts_complete=True, ts_drop_nulls=False)
+    request = DmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
+        settings=settings,
+    ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])
+    values = request.values.all().df
+    assert values.height == 5
+    # every completed day aligns to a real UTC-midnight label and carries its value
+    assert values.drop_nulls(subset="value").height == 5
+    assert values.get_column("date").dt.hour().unique().to_list() == [0]
+
+
+@pytest.mark.remote
 def test_dmi_observation_values_hourly_utc() -> None:
     """Hourly values are UTC-aligned to the start of each hour."""
     request = DmiObservationRequest(
