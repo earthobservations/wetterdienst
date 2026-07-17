@@ -261,14 +261,17 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
             pl.col("properties").struct.field("stationHeight").alias("height"),
+            # %.f tolerates an optional fractional-seconds part; DMI's station timestamps are
+            # observed at second precision but emit fractional seconds elsewhere, so parse
+            # defensively (matching the hourly `from` parser).
             pl.col("properties")
             .struct.field("validFrom")
-            .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us")
+            .str.to_datetime("%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
             .dt.replace_time_zone("UTC")
             .alias("start_date"),
             pl.col("properties")
             .struct.field("validTo")
-            .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us")
+            .str.to_datetime("%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
             .dt.replace_time_zone("UTC")
             .alias("end_date"),
             pl.col("properties").struct.field("created").alias("created"),

@@ -3,11 +3,15 @@
 """Tests for DMI (Danish Meteorological Institute) climate data observation provider."""
 
 import datetime as dt
+import json
+from io import BytesIO
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
+import wetterdienst.provider.dmi.observation.api as dmi_api
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dmi.observation.api import DmiObservationRequest, DmiObservationValues
 from wetterdienst.settings import Settings
@@ -74,6 +78,79 @@ def test_date_expression_annual_truncates_to_first_of_year() -> None:
     """Annual aggregates are labelled by the first of the civil year at UTC midnight."""
     date = _dates_for("2021-01-01T00:00:00.001000+01:00", Resolution.ANNUAL)
     assert date == dt.datetime(2021, 1, 1, 0, 0, tzinfo=UTC)
+
+
+def _station_value_page(count: int, start: int = 0) -> BytesIO:
+    """Build a DMI stationValue response payload with ``count`` feature records."""
+    features = [
+        {
+            "properties": {
+                "parameterId": "mean_temp",
+                "from": "2023-06-01T00:00:00+00:00",
+                "value": float(index),
+            },
+        }
+        for index in range(start, start + count)
+    ]
+    return BytesIO(json.dumps({"features": features}).encode())
+
+
+def test_iter_station_value_pages_walks_all_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pagination advances the offset until a short (< limit) page and concatenates every page."""
+    monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 2)
+    # offset 0 -> full page (2), offset 2 -> full page (2), offset 4 -> short page (1) => stop
+    pages = {0: 2, 2: 2, 4: 1}
+    offsets: list[int] = []
+
+    def fake_download_file(*, url: str, **_: object) -> SimpleNamespace:
+        offset = int(url.split("offset=")[1])
+        offsets.append(offset)
+        return SimpleNamespace(content=_station_value_page(pages[offset], start=offset))
+
+    monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
+    values = object.__new__(DmiObservationValues)
+    dfs = list(
+        values._iter_station_value_pages("06180", "hour", "start", "end", Settings(cache_disable=True)),  # noqa: SLF001
+    )
+    assert offsets == [0, 2, 4]
+    assert len(dfs) == 3
+    assert sum(df.height for df in dfs) == 5
+
+
+def test_iter_station_value_pages_single_short_page_stops_immediately(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A first page shorter than the limit ends pagination after one request."""
+    monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 100)
+    offsets: list[int] = []
+
+    def fake_download_file(*, url: str, **_: object) -> SimpleNamespace:
+        offsets.append(int(url.split("offset=")[1]))
+        return SimpleNamespace(content=_station_value_page(3))
+
+    monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
+    values = object.__new__(DmiObservationValues)
+    dfs = list(
+        values._iter_station_value_pages("06180", "hour", "start", "end", Settings(cache_disable=True)),  # noqa: SLF001
+    )
+    assert offsets == [0]
+    assert [df.height for df in dfs] == [3]
+
+
+def test_iter_station_value_pages_stops_on_download_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download error ends pagination without raising, yielding what was collected so far."""
+    monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 2)
+
+    def fake_download_file(*, url: str, **_: object) -> SimpleNamespace:
+        # first (full) page succeeds, second page errors
+        if "offset=0" in url:
+            return SimpleNamespace(content=_station_value_page(2))
+        return SimpleNamespace(content=RuntimeError("boom"))
+
+    monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
+    values = object.__new__(DmiObservationValues)
+    dfs = list(
+        values._iter_station_value_pages("06180", "hour", "start", "end", Settings(cache_disable=True)),  # noqa: SLF001
+    )
+    assert [df.height for df in dfs] == [2]
 
 
 @pytest.mark.remote
