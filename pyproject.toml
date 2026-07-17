@@ -14,6 +14,9 @@ keywords = [
     # AEMET
     "aemet",
     "state-meteorological-agency-of-spain",
+    # DMI
+    "dmi",
+    "danish-meteorological-institute",
     # DWD
     "deutscher-wetterdienst",
     "dmo",

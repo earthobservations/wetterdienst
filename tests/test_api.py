@@ -13,6 +13,7 @@ from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Parameter, Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.model.unit import UnitConverter
+from wetterdienst.provider.dmi.observation import DmiObservationMetadata, DmiObservationRequest
 from wetterdienst.provider.dwd.dmo import DwdDmoMetadata, DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
@@ -95,6 +96,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
 @pytest.mark.parametrize(
     "metadata",
     [
+        DmiObservationMetadata,
         DwdDmoMetadata,
         DwdMosmixMetadata,
         DwdObservationMetadata,
@@ -125,6 +127,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
 @pytest.mark.parametrize(
     "metadata",
     [
+        DmiObservationMetadata,
         DwdDmoMetadata,
         DwdMosmixMetadata,
         DwdObservationMetadata,
@@ -303,6 +306,29 @@ def test_api_dwd_road(default_settings: Settings) -> None:
             "end_date",
         },
     )
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_start_date:
+        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+@pytest.mark.remote
+def test_api_dmi_observation(default_settings: Settings) -> None:
+    """Test dmi observation API."""
+    request = DmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        end_date=datetime(2023, 6, 5, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        settings=default_settings,
+    ).filter_by_station_id(["06180"])
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "height"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")

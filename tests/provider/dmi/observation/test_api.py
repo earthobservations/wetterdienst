@@ -1,0 +1,132 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""Tests for DMI (Danish Meteorological Institute) climate data observation provider."""
+
+import datetime as dt
+from zoneinfo import ZoneInfo
+
+import polars as pl
+import pytest
+
+from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.provider.dmi.observation.api import DmiObservationRequest, DmiObservationValues
+from wetterdienst.settings import Settings
+
+# Copenhagen (Zealand) — the reference station used across the remote tests.
+COPENHAGEN_LANDBOHOJSKOLEN = "06180"
+UTC = ZoneInfo("UTC")
+
+
+def _dates_for(from_value: str, resolution: Resolution) -> dt.datetime:
+    """Evaluate the provider's date expression for a single DMI ``from`` timestamp."""
+    df = pl.DataFrame({"from": [from_value]}).select(
+        DmiObservationValues._date_expression(resolution).alias("date"),  # noqa: SLF001
+    )
+    return df.get_column("date").to_list()[0]
+
+
+def test_metadata_resolutions() -> None:
+    """DMI exposes hour, day, month and year resolutions."""
+    resolutions = {resolution.name for resolution in DmiObservationRequest.metadata}
+    assert resolutions == {"hourly", "daily", "monthly", "annual"}
+
+
+def test_metadata_no_auth() -> None:
+    """DMI's open data service requires no authentication."""
+    assert DmiObservationRequest.metadata.auth is False
+
+
+def test_date_expression_hourly_is_utc_aligned() -> None:
+    """Hourly aggregates are UTC-aligned and labelled by the start of the hour."""
+    date = _dates_for("2023-06-01T00:00:00+00:00", Resolution.HOURLY)
+    assert date == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
+
+
+def test_date_expression_daily_uses_local_civil_date() -> None:
+    """A Danish summer day (``from`` at +02:00) maps to that civil date at UTC midnight."""
+    date = _dates_for("2023-06-02T00:00:00.001000+02:00", Resolution.DAILY)
+    assert date == dt.datetime(2023, 6, 2, 0, 0, tzinfo=UTC)
+
+
+def test_date_expression_daily_greenland_negative_offset() -> None:
+    """A Greenland day (``from`` at a negative offset) maps to its civil date at UTC midnight.
+
+    Taking the civil date straight from the ``from`` string keeps this correct regardless of
+    the station's timezone — a naive UTC conversion would shift it onto the previous day.
+    """
+    date = _dates_for("2023-06-02T00:00:00.001000-02:00", Resolution.DAILY)
+    assert date == dt.datetime(2023, 6, 2, 0, 0, tzinfo=UTC)
+
+
+def test_date_expression_monthly_truncates_to_first_of_month() -> None:
+    """Monthly aggregates are labelled by the first of the civil month at UTC midnight."""
+    date = _dates_for("2023-07-01T00:00:00.001000+02:00", Resolution.MONTHLY)
+    assert date == dt.datetime(2023, 7, 1, 0, 0, tzinfo=UTC)
+
+
+def test_date_expression_annual_truncates_to_first_of_year() -> None:
+    """Annual aggregates are labelled by the first of the civil year at UTC midnight."""
+    date = _dates_for("2021-01-01T00:00:00.001000+01:00", Resolution.ANNUAL)
+    assert date == dt.datetime(2021, 1, 1, 0, 0, tzinfo=UTC)
+
+
+@pytest.mark.remote
+def test_dmi_observation_stations() -> None:
+    """Station discovery returns deduplicated stations with usable metadata."""
+    request = DmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+    ).all()
+    assert not request.df.is_empty()
+    # DMI lists a station once per validity period; the provider collapses these to one row.
+    assert request.df.get_column("station_id").n_unique() == request.df.height
+    station = request.df.filter(pl.col("station_id") == COPENHAGEN_LANDBOHOJSKOLEN)
+    assert station.height == 1
+    row = station.to_dicts()[0]
+    assert row["name"]
+    assert row["state"] == "DNK"
+    assert 54 < row["latitude"] < 58
+    assert 8 < row["longitude"] < 16
+
+
+@pytest.mark.remote
+def test_dmi_observation_values_daily() -> None:
+    """Daily values include both range boundaries (the local/UTC offset must not drop them)."""
+    request = DmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
+    ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])
+    values = request.values.all().df
+    dates = values.get_column("date").sort().to_list()
+    assert dates[0] == dt.datetime(2023, 6, 1, tzinfo=UTC)
+    assert dates[-1] == dt.datetime(2023, 6, 5, tzinfo=UTC)
+    assert "UTC" in str(values.schema["date"])
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+@pytest.mark.remote
+def test_dmi_observation_values_hourly_utc() -> None:
+    """Hourly values are UTC-aligned to the start of each hour."""
+    request = DmiObservationRequest(
+        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end_date=dt.datetime(2023, 6, 1, 6, tzinfo=UTC),
+    ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])
+    values = request.values.all().df
+    first_date = values.get_column("date").min()
+    assert first_date == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+@pytest.mark.remote
+def test_dmi_observation_values_empty_for_unknown_station() -> None:
+    """An unknown station id yields an empty, well-formed values frame."""
+    settings = Settings(cache_disable=True)
+    request = DmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
+        settings=settings,
+    ).filter_by_station_id(["00000"])
+    values = request.values.all().df
+    assert values.is_empty()
