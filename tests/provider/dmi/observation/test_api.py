@@ -42,6 +42,12 @@ def test_date_expression_hourly_is_utc_aligned() -> None:
     assert date == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
 
 
+def test_date_expression_hourly_tolerates_fractional_seconds() -> None:
+    """Hourly parsing must not break if DMI includes fractional seconds in ``from``."""
+    date = _dates_for("2023-06-01T00:00:00.000000+00:00", Resolution.HOURLY)
+    assert date == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
+
+
 def test_date_expression_daily_uses_local_civil_date() -> None:
     """A Danish summer day (``from`` at +02:00) maps to that civil date at UTC midnight."""
     date = _dates_for("2023-06-02T00:00:00.001000+02:00", Resolution.DAILY)

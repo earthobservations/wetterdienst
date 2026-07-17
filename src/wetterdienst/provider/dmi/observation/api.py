@@ -114,7 +114,10 @@ class DmiObservationValues(TimeseriesValues):
         of expressing nominal calendar dates as UTC.
         """
         if resolution == Resolution.HOURLY:
-            return pl.col("from").str.to_datetime("%Y-%m-%dT%H:%M:%S%z", time_unit="us").dt.convert_time_zone("UTC")
+            # %.f tolerates an optional fractional-seconds part: hourly `from` is observed at
+            # second precision (e.g. `...00+00:00`), but DMI emits fractional seconds on the
+            # coarser resolutions (`.001000`), so parse defensively in case hourly does too.
+            return pl.col("from").str.to_datetime("%Y-%m-%dT%H:%M:%S%.f%z", time_unit="us").dt.convert_time_zone("UTC")
         year = pl.col("from").str.slice(0, 4).cast(pl.Int32)
         if resolution == Resolution.DAILY:
             month = pl.col("from").str.slice(5, 2).cast(pl.Int32)
