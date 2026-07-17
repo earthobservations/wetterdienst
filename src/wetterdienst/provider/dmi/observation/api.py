@@ -11,6 +11,7 @@ request -- see https://opendatadocs.dmi.govcloud.dk/Data/Climate_Data.
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
@@ -27,6 +28,8 @@ from wetterdienst.provider.dmi.observation.metadata import DmiObservationMetadat
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -130,6 +133,44 @@ class DmiObservationValues(TimeseriesValues):
             local = pl.date(year, 1, 1)
         return local.cast(pl.Datetime(time_unit="us")).dt.replace_time_zone("UTC")
 
+    def _iter_station_value_pages(
+        self,
+        station_id: str,
+        time_resolution: str,
+        start: str,
+        end: str,
+        settings: Settings,
+    ) -> Iterator[pl.DataFrame]:
+        """Yield each page of DMI stationValue records for a station/resolution/date range.
+
+        DMI paginates via limit/offset and always emits a "next" link, so pages are walked
+        until a short (or empty) page marks the end. Yields the parsed ``properties`` of each
+        non-empty page; stops on the first download error.
+        """
+        for offset in itertools.count(0, _PAGE_LIMIT):
+            url = (
+                f"{_BASE_URL}/stationValue/items?stationId={station_id}"
+                f"&timeResolution={time_resolution}&datetime={start}/{end}"
+                f"&limit={_PAGE_LIMIT}&offset={offset}"
+            )
+            file = download_file(
+                url=url,
+                cache_dir=settings.cache_dir,
+                ttl=CacheExpiry.FIVE_MINUTES,
+                client_kwargs=settings.fsspec_client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
+            )
+            if isinstance(file.content, Exception):
+                log.warning(f"Failed to acquire DMI data for station {station_id}: {file.content}")
+                return
+            df = pl.read_json(file.content, schema=_STATION_VALUE_SCHEMA)
+            df = df.select(pl.col("features").explode().struct.field("properties")).unnest("properties")
+            if not df.is_empty():
+                yield df
+            if df.height < _PAGE_LIMIT:
+                return
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -166,34 +207,7 @@ class DmiObservationValues(TimeseriesValues):
         # mapped in this dataset's metadata (their raw parameterId is name_original).
         known_parameters = {parameter.name_original for parameter in dataset.parameters}
 
-        records = []
-        offset = 0
-        while True:
-            url = (
-                f"{_BASE_URL}/stationValue/items?stationId={station_id}"
-                f"&timeResolution={time_resolution}&datetime={start}/{end}"
-                f"&limit={_PAGE_LIMIT}&offset={offset}"
-            )
-            file = download_file(
-                url=url,
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES,
-                client_kwargs=settings.fsspec_client_kwargs,
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
-            if isinstance(file.content, Exception):
-                log.warning(f"Failed to acquire DMI data for station {station_id}: {file.content}")
-                break
-            df = pl.read_json(file.content, schema=_STATION_VALUE_SCHEMA)
-            df = df.select(pl.col("features").explode().struct.field("properties")).unnest("properties")
-            number_returned = df.height
-            if number_returned:
-                records.append(df)
-            if number_returned < _PAGE_LIMIT:
-                break
-            offset += _PAGE_LIMIT
-
+        records = list(self._iter_station_value_pages(station_id, time_resolution, start, end, settings))
         if not records:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
