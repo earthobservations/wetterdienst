@@ -149,12 +149,15 @@ class DmiObservationValues(TimeseriesValues):
         # DMI matches its datetime filter against each aggregate's `from` *instant*. For
         # day/month/year aggregates `from` is the local civil period start, which sits a few
         # hours off the UTC-midnight label this provider assigns (e.g. a Danish summer day
-        # starts at 22:00Z the previous day). Widen the requested window by a day on each side
-        # so no boundary period is dropped for that offset; TimeseriesValues.query() trims the
-        # result back to the exact requested range by the assigned `date`. Normalise to UTC so
-        # the "Z" filter is true even for already-tz-aware, non-UTC callers.
-        start = (start_date.astimezone(_UTC) - dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        end = (end_date.astimezone(_UTC) + dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # starts at 22:00Z the previous day), so a boundary period would otherwise be dropped.
+        # Widen the requested window by a day on each side for those resolutions;
+        # TimeseriesValues.query() trims the result back to the exact requested range by the
+        # assigned `date`. Hourly aggregates are already UTC-aligned (label == `from`), so no
+        # margin is needed and none is added -- widening would only fetch extra data. Normalise
+        # to UTC so the "Z" filter is true even for already-tz-aware, non-UTC callers.
+        margin = dt.timedelta(0) if resolution == Resolution.HOURLY else dt.timedelta(days=1)
+        start = (start_date.astimezone(_UTC) - margin).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end = (end_date.astimezone(_UTC) + margin).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # DMI returns every parameter for the station in one response; keep only the ones
         # mapped in this dataset's metadata (their raw parameterId is name_original).
