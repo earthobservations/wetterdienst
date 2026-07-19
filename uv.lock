@@ -6730,6 +6730,10 @@ interpolation = [
     { name = "shapely" },
     { name = "utm" },
 ]
+knmi = [
+    { name = "h5netcdf" },
+    { name = "h5py" },
+]
 mysql = [
     { name = "mysqlclient" },
     { name = "pandas" },
@@ -6815,7 +6819,9 @@ requires-dist = [
     { name = "eccodes", marker = "extra == 'eccodes'", specifier = ">=1.5.2,<3" },
     { name = "fastapi", marker = "extra == 'restapi'", specifier = ">=0.95.1,<1" },
     { name = "fsspec", extras = ["http"], specifier = ">=2023.1" },
+    { name = "h5netcdf", marker = "extra == 'knmi'", specifier = ">=1.7.3,<2" },
     { name = "h5netcdf", marker = "extra == 'radar'", specifier = ">=1.7.3" },
+    { name = "h5py", marker = "extra == 'knmi'", specifier = ">=3.1,<4" },
     { name = "h5py", marker = "extra == 'radar'", specifier = ">=3.1,<4" },
     { name = "httpx", marker = "extra == 'restapi'", specifier = ">=0.24,<1" },
     { name = "influxdb", marker = "extra == 'influxdb'", specifier = ">=5.3,<6" },
@@ -6864,7 +6870,7 @@ requires-dist = [
     { name = "xradar", marker = "extra == 'radarplus'", specifier = ">=0.2,<1" },
     { name = "zarr", marker = "python_full_version >= '3.11' and extra == 'export'", specifier = ">=3.1,<4" },
 ]
-provides-extras = ["bufr", "cratedb", "duckdb", "eccodes", "excel", "export", "influxdb", "interpolation", "mysql", "pdf", "plotting", "postgresql", "radar", "radarplus", "restapi", "sql"]
+provides-extras = ["bufr", "cratedb", "duckdb", "eccodes", "excel", "export", "influxdb", "knmi", "interpolation", "mysql", "pdf", "plotting", "postgresql", "radar", "radarplus", "restapi", "sql"]
 
 [package.metadata.requires-dev]
 dev = [

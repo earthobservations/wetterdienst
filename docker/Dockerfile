@@ -21,7 +21,7 @@ COPY README.md LICENSE.md ./
 # Install wetterdienst with all extras using uv
 RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
     uv sync --frozen --active \
-    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi
+    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi
 
 # Dev stage: editable install so uvicorn --reload picks up source changes.
 # Installs the same extras and OS packages as the final stage for feature parity.
@@ -46,7 +46,7 @@ COPY README.md LICENSE.md ./
 
 RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
     uv sync --frozen --active \
-    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi
+    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi
 
 EXPOSE 3000
 CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:3000", "--reload"]

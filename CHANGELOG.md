@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+- Add KNMI (Netherlands) observation provider with 10-minute, hourly and daily resolution
+  (requires a free KNMI Data Platform API key)
 - Add DMI (Denmark) climate data observation provider with hourly, daily, monthly and
   annual resolution (no authentication required)
 - Add AEMET (Spain) observation provider with hourly (real-time), daily, monthly and

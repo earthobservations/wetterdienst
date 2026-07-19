@@ -11,6 +11,7 @@ eaufrance/index.md
 eccc/index.md
 geosphere/index.md
 imgw/index.md
+knmi/index.md
 meteofrance/index.md
 meteoswiss/index.md
 metno/index.md
