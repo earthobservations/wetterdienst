@@ -30,6 +30,11 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - All of Composite, Radolan, Radvor, Sites and Radolan_CDC
         - Radolan: calibrated radar precipitation
         - Radvor: radar precipitation forecast
+- DMI (Danmarks Meteorologiske Institut / Danish Meteorological Institute / Denmark)
+    - Observation
+        - quality-controlled climate data from stations in Denmark, Greenland and the Faroe Islands
+        - hourly, daily, monthly and annual resolution
+        - ~280 stations; open data, no authentication required
 - EA (Environment Agency)
     - Hydrology
         - data of river network of UK

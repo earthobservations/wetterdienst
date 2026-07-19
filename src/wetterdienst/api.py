@@ -19,6 +19,9 @@ class Wetterdienst:
         "aemet": {
             "observation": "wetterdienst.provider.aemet.observation.AemetObservationRequest",
         },
+        "dmi": {
+            "observation": "wetterdienst.provider.dmi.observation.DmiObservationRequest",
+        },
         "dwd": {
             "observation": "wetterdienst.provider.dwd.observation.DwdObservationRequest",
             "mosmix": "wetterdienst.provider.dwd.mosmix.DwdMosmixRequest",

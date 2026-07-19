@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+- Add DMI (Denmark) climate data observation provider with hourly, daily, monthly and
+  annual resolution (no authentication required)
 - Add AEMET (Spain) observation provider with hourly (real-time), daily, monthly and
   annual resolution
 - Add Météo-France (France) synop network (subdaily, 3-hourly)

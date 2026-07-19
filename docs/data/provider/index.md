@@ -4,6 +4,7 @@
 :hidden:
 
 aemet/index.md
+dmi/index.md
 dwd/index.md
 ea/index.md
 eaufrance/index.md
