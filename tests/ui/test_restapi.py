@@ -70,6 +70,7 @@ def test_coverage(client: TestClient) -> None:
         "metno",
         "noaa",
         "nws",
+        "smhi",
         "wsv",
     }
     dwd = data["dwd"]
