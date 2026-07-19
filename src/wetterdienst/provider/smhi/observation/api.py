@@ -29,10 +29,11 @@ log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendata-download-metobs.smhi.se/api/version/1.0"
 
-# SMHI splits history into non-overlapping-by-design periods: "corrected-archive" is
+# SMHI splits history into two periods that overlap by design: "corrected-archive" is
 # quality-controlled data up to ~3 months ago, "latest-months" covers the last ~4 months
-# (still under QC). Both are fetched and merged so a request spanning the boundary gets
-# complete coverage without needing to guess which period a given date range falls into.
+# (still under QC), so the two share roughly a month. Both are fetched and merged --
+# de-duplicating the overlap (see _collect_parameter) -- so a request spanning the boundary
+# gets complete coverage without needing to guess which period a given date range falls into.
 # Minute-resolution data is different: SMHI only exposes a short rolling window for it
 # (no historical archive at all), via "latest-day" instead.
 _PERIODS_BY_RESOLUTION = {
@@ -63,8 +64,12 @@ _EMPTY_VALUES_SCHEMA = {
 }
 
 
-def _fetch_csv(url: str, settings: Settings) -> bytes | Exception:
-    """Download an SMHI CSV file; a 404 (station doesn't report this parameter) is routine, not an error."""
+def _fetch(url: str, settings: Settings) -> bytes | Exception:
+    """Download an SMHI resource (CSV data or the station-list JSON), returning bytes or the error.
+
+    Callers decide how to treat failures -- e.g. _collect_parameter suppresses a 404 (station
+    doesn't report the parameter) as routine, while _all logs a station-list failure.
+    """
     file: File = download_file(
         url=url,
         cache_dir=settings.cache_dir,
@@ -108,7 +113,7 @@ class SmhiObservationValues(TimeseriesValues):
         frames = []
         for period in periods:
             url = f"{_BASE_URL}/parameter/{parameter.name_original}/station/{station_id}/period/{period}/data.csv"
-            payload = _fetch_csv(url, settings)
+            payload = _fetch(url, settings)
             if isinstance(payload, Exception):
                 # a 404 (FileNotFoundError) just means this station doesn't report this
                 # parameter -- routine, since not every SMHI station measures everything -- and
@@ -160,7 +165,7 @@ class SmhiObservationRequest(TimeseriesRequest):
         for resolution, dataset in resolutions_and_datasets:
             reference_parameter_id = _STATION_LIST_REFERENCE_PARAMETER_ID[Resolution(resolution)]
             url = f"{_BASE_URL}/parameter/{reference_parameter_id}.json"
-            payload = _fetch_csv(url, settings)
+            payload = _fetch(url, settings)
             if isinstance(payload, Exception):
                 log.warning(f"Failed to fetch SMHI stations for resolution {resolution}: {payload}")
                 continue
