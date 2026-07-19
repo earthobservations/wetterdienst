@@ -20,7 +20,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.smhi.observation.metadata import SmhiObservationMetadata
 from wetterdienst.provider.smhi.observation.parser import parse_smhi_csv
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, download_files
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -162,17 +162,25 @@ class SmhiObservationRequest(TimeseriesRequest):
         # reports temperature). Fetch each requested parameter's own station list and union
         # them per (resolution, dataset), rather than using a single reference parameter that
         # would omit stations measuring the requested parameter but not the reference. The
-        # registry is metadata, so it's cached at the long METAINDEX TTL.
+        # registry is metadata, so it's cached at the long METAINDEX TTL. The per-parameter
+        # station lists are independent, so fetch them concurrently.
+        parameters = [parameter for parameter in self.parameters if isinstance(parameter, ParameterModel)]
+        if not parameters:
+            return pl.LazyFrame()
+        files = download_files(
+            urls=[f"{_BASE_URL}/parameter/{parameter.name_original}.json" for parameter in parameters],
+            cache_dir=settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+        )
         frames_by_group: defaultdict[tuple[str, str], list[pl.DataFrame]] = defaultdict(list)
-        for parameter in self.parameters:
-            if not isinstance(parameter, ParameterModel):
+        for parameter, file in zip(parameters, files, strict=True):
+            if isinstance(file.content, Exception):
+                log.warning(f"Failed to fetch SMHI stations for parameter {parameter.name_original}: {file.content}")
                 continue
-            url = f"{_BASE_URL}/parameter/{parameter.name_original}.json"
-            payload = _fetch(url, settings, ttl=CacheExpiry.METAINDEX)
-            if isinstance(payload, Exception):
-                log.warning(f"Failed to fetch SMHI stations for parameter {parameter.name_original}: {payload}")
-                continue
-            stations = json.loads(payload.decode("utf-8-sig")).get("station", [])
+            stations = json.loads(file.content.read().decode("utf-8-sig")).get("station", [])
             if not stations:
                 continue
             df = pl.DataFrame(stations).select(
