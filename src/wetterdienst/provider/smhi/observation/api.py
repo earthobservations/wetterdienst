@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
@@ -43,16 +44,6 @@ _PERIODS_BY_RESOLUTION = {
     Resolution.MONTHLY: ("corrected-archive", "latest-months"),
 }
 
-# A reference parameter per resolution, used only to enumerate the station network --
-# temperature is measured at virtually every station, unlike e.g. visibility or snow
-# depth, so it stands in for "all stations available at this resolution".
-_STATION_LIST_REFERENCE_PARAMETER_ID = {
-    Resolution.MINUTE_1: "45",
-    Resolution.HOURLY: "1",
-    Resolution.DAILY: "2",
-    Resolution.MONTHLY: "22",
-}
-
 _EMPTY_VALUES_SCHEMA = {
     "resolution": pl.String,
     "dataset": pl.String,
@@ -64,16 +55,17 @@ _EMPTY_VALUES_SCHEMA = {
 }
 
 
-def _fetch(url: str, settings: Settings) -> bytes | Exception:
+def _fetch(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FIVE_MINUTES) -> bytes | Exception:
     """Download an SMHI resource (CSV data or the station-list JSON), returning bytes or the error.
 
     Callers decide how to treat failures -- e.g. _collect_parameter suppresses a 404 (station
-    doesn't report the parameter) as routine, while _all logs a station-list failure.
+    doesn't report the parameter) as routine, while _all logs a station-list failure -- and set
+    the cache TTL (short for rolling value data, long for the station registry).
     """
     file: File = download_file(
         url=url,
         cache_dir=settings.cache_dir,
-        ttl=CacheExpiry.FIVE_MINUTES,
+        ttl=ttl,
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
@@ -131,11 +123,11 @@ class SmhiObservationValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         df = pl.concat(frames, how="diagonal")
-        # when periods overlap by design (corrected-archive/latest-months), keep one row
-        # per timestamp, preferring the period fetched last (more recent QC state).
-        # maintain_order=True is required for keep="last" to deterministically retain the
-        # row from the last-appended (most recent) period.
-        df = df.unique(subset="date", keep="last", maintain_order=True)
+        # when periods overlap by design (corrected-archive/latest-months), keep one row per
+        # timestamp. corrected-archive is the finalized quality-controlled version and is
+        # fetched (and appended) first, so keep="first" prefers it over the still-under-QC
+        # latest-months value; maintain_order=True makes that deterministic.
+        df = df.unique(subset="date", keep="first", maintain_order=True)
         return df.select(
             pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
@@ -156,26 +148,27 @@ class SmhiObservationRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
-        resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name)
-            for parameter in self.parameters
-            if isinstance(parameter, ParameterModel)
-        }
-        data = []
-        for resolution, dataset in resolutions_and_datasets:
-            reference_parameter_id = _STATION_LIST_REFERENCE_PARAMETER_ID[Resolution(resolution)]
-            url = f"{_BASE_URL}/parameter/{reference_parameter_id}.json"
-            payload = _fetch(url, settings)
+        # SMHI publishes the station list per parameter (parameter/<id>.json), and station
+        # coverage differs by parameter (not every station reporting e.g. snow depth also
+        # reports temperature). Fetch each requested parameter's own station list and union
+        # them per (resolution, dataset), rather than using a single reference parameter that
+        # would omit stations measuring the requested parameter but not the reference. The
+        # registry is metadata, so it's cached at the long METAINDEX TTL.
+        frames_by_group: defaultdict[tuple[str, str], list[pl.DataFrame]] = defaultdict(list)
+        for parameter in self.parameters:
+            if not isinstance(parameter, ParameterModel):
+                continue
+            url = f"{_BASE_URL}/parameter/{parameter.name_original}.json"
+            payload = _fetch(url, settings, ttl=CacheExpiry.METAINDEX)
             if isinstance(payload, Exception):
-                log.warning(f"Failed to fetch SMHI stations for resolution {resolution}: {payload}")
+                log.warning(f"Failed to fetch SMHI stations for parameter {parameter.name_original}: {payload}")
                 continue
             stations = json.loads(payload.decode("utf-8-sig")).get("station", [])
             if not stations:
                 continue
-            df = pl.DataFrame(stations)
-            df = df.select(
-                pl.lit(resolution, dtype=pl.String).alias("resolution"),
-                pl.lit(dataset, dtype=pl.String).alias("dataset"),
+            df = pl.DataFrame(stations).select(
+                pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
                 pl.col("id").cast(pl.String).alias("station_id"),
                 pl.from_epoch("from", time_unit="ms").dt.replace_time_zone("UTC").alias("start_date"),
                 pl.from_epoch("to", time_unit="ms").dt.replace_time_zone("UTC").alias("end_date"),
@@ -184,7 +177,25 @@ class SmhiObservationRequest(TimeseriesRequest):
                 pl.col("height").cast(pl.Float64),
                 pl.col("name").cast(pl.String),
             )
-            data.append(df)
+            frames_by_group[(parameter.dataset.resolution.name, parameter.dataset.name)].append(df)
+        # collapse the per-parameter station lists to one row per station within each group,
+        # spanning the full reporting range (earliest start, latest end) across the requested
+        # parameters at that station.
+        data = [
+            pl.concat(frames, how="diagonal")
+            .group_by("station_id")
+            .agg(
+                pl.col("resolution").first(),
+                pl.col("dataset").first(),
+                pl.col("start_date").min(),
+                pl.col("end_date").max(),
+                pl.col("latitude").first(),
+                pl.col("longitude").first(),
+                pl.col("height").first(),
+                pl.col("name").first(),
+            )
+            for frames in frames_by_group.values()
+        ]
         if not data:
             return pl.LazyFrame()
         return pl.concat(data, how="diagonal").lazy()
