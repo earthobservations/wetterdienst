@@ -20,6 +20,9 @@ keywords = [
     # SMHI
     "smhi",
     "swedish-meteorological-and-hydrological-institute",
+    # KNMI
+    "knmi",
+    "royal-netherlands-meteorological-institute",
     # DWD
     "deutscher-wetterdienst",
     "dmo",
@@ -157,6 +160,10 @@ influxdb = [
     "influxdb>=5.3,<6",
     "influxdb-client>=1.18,<2",
     "influxdb3-python>=0.3,<1",
+]
+knmi = [
+    "h5netcdf>=1.7.3,<2",
+    "h5py>=3.1,<4",
 ]
 interpolation = [
     "scipy>=1.14.1,<2",

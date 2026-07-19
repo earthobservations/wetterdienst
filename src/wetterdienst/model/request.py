@@ -134,8 +134,9 @@ class TimeseriesRequest:
         Parameter.TEMPERATURE_AIR_MIN_2M_LAST_24H.name.lower(),
         Parameter.TEMPERATURE_AIR_MIN_2M_MEAN.name.lower(),
         Parameter.TEMPERATURE_AIR_MIN_2M_MULTIDAY.name.lower(),
-        # air temperature at 0.05 m (near-surface)
+        # air temperature at 0.05 m / 0.1 m (near-surface)
         Parameter.TEMPERATURE_AIR_MEAN_0_05M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MEAN_0_1M.name.lower(),
         Parameter.TEMPERATURE_AIR_MAX_0_05M.name.lower(),
         Parameter.TEMPERATURE_AIR_MIN_0_05M.name.lower(),
         Parameter.TEMPERATURE_AIR_MIN_0_05M_LAST_12H.name.lower(),

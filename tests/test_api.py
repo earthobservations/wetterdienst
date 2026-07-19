@@ -25,6 +25,7 @@ from wetterdienst.provider.eccc.observation import EcccObservationMetadata, Eccc
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata, GeosphereObservationRequest
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyMetadata, ImgwHydrologyRequest
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyMetadata, ImgwMeteorologyRequest
+from wetterdienst.provider.knmi.observation import KnmiObservationMetadata, KnmiObservationRequest
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata, MeteoFranceObservationRequest
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata, MeteoFranceSynopRequest
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata, MeteoswissObservationRequest
@@ -110,6 +111,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        KnmiObservationMetadata,
         MeteoFranceObservationMetadata,
         MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,
@@ -143,6 +145,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         HubeauMetadata,
         ImgwHydrologyMetadata,
         ImgwMeteorologyMetadata,
+        KnmiObservationMetadata,
         MeteoFranceObservationMetadata,
         MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,
@@ -671,6 +674,34 @@ def test_api_smhi_observation(default_settings: Settings) -> None:
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "state"})
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_date:
+        assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+@pytest.mark.xfail(strict=False, reason="KNMI server intermittently unavailable")
+@pytest.mark.remote
+@pytest.mark.skipif(
+    not KnmiObservationRequest.is_configured(),
+    reason="KNMI credentials not set — provide WD_AUTH__KNMI=<api_key>",
+)
+def test_api_knmi_observation(default_settings: Settings) -> None:
+    """Test KNMI observation API."""
+    request = KnmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date="2020-01-01",
+        end_date="2020-01-01",
+        settings=default_settings,
+    ).filter_by_station_id("06260")  # De Bilt (WMO station number, from WSI 0-20000-0-06260)
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    # KNMI's station inventory provides neither start_date/end_date nor a state.
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")

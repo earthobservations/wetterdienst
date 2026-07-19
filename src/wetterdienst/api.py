@@ -37,6 +37,9 @@ class Wetterdienst:
             "hydrology": "wetterdienst.provider.imgw.hydrology.ImgwHydrologyRequest",
             "meteorology": "wetterdienst.provider.imgw.meteorology.ImgwMeteorologyRequest",
         },
+        "knmi": {
+            "observation": "wetterdienst.provider.knmi.observation.KnmiObservationRequest",
+        },
         "noaa": {
             "ghcn": "wetterdienst.provider.noaa.ghcn.NoaaGhcnRequest",
         },
