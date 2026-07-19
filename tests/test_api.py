@@ -630,6 +630,7 @@ def test_api_meteoswiss_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.xfail(strict=False, reason="AEMET server intermittently unavailable")
 @pytest.mark.remote
 @pytest.mark.skipif(
     not AemetObservationRequest.is_configured(),
