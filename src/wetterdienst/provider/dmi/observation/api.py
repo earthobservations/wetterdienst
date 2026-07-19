@@ -162,7 +162,10 @@ class DmiObservationValues(TimeseriesValues):
                 use_certifi=settings.use_certifi,
             )
             if isinstance(file.content, Exception):
-                log.warning(f"Failed to acquire DMI data for station {station_id}: {file.content}")
+                # NoInternetError is already logged at debug by download_file and is an expected
+                # offline condition, so don't add a warning for it; warn only on real failures.
+                if not file.is_no_internet_error:
+                    log.warning(f"Failed to acquire DMI data for station {station_id}: {file.content}")
                 return
             df = pl.read_json(file.content, schema=_STATION_VALUE_SCHEMA)
             df = df.select(pl.col("features").explode().struct.field("properties")).unnest("properties")

@@ -4,17 +4,18 @@
 
 import datetime as dt
 import json
+import logging
 from io import BytesIO
-from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
 import wetterdienst.provider.dmi.observation.api as dmi_api
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dmi.observation.api import DmiObservationRequest, DmiObservationValues
 from wetterdienst.settings import Settings
+from wetterdienst.util.network import File
 
 # Copenhagen (Zealand) — the reference station used across the remote tests.
 COPENHAGEN_LANDBOHOJSKOLEN = "06180"
@@ -24,20 +25,20 @@ UTC = ZoneInfo("UTC")
 def _dates_for(from_value: str, resolution: Resolution) -> dt.datetime:
     """Evaluate the provider's date expression for a single DMI ``from`` timestamp."""
     df = pl.DataFrame({"from": [from_value]}).select(
-        DmiObservationValues._date_expression(resolution).alias("date"),  # noqa: SLF001
+        dmi_api.DmiObservationValues._date_expression(resolution).alias("date"),  # noqa: SLF001
     )
     return df.get_column("date").to_list()[0]
 
 
 def test_metadata_resolutions() -> None:
     """DMI exposes hour, day, month and year resolutions."""
-    resolutions = {resolution.name for resolution in DmiObservationRequest.metadata}
+    resolutions = {resolution.name for resolution in dmi_api.DmiObservationRequest.metadata}
     assert resolutions == {"hourly", "daily", "monthly", "annual"}
 
 
 def test_metadata_no_auth() -> None:
     """DMI's open data service requires no authentication."""
-    assert DmiObservationRequest.metadata.auth is False
+    assert dmi_api.DmiObservationRequest.metadata.auth is False
 
 
 def test_date_expression_hourly_is_utc_aligned() -> None:
@@ -80,8 +81,8 @@ def test_date_expression_annual_truncates_to_first_of_year() -> None:
     assert date == dt.datetime(2021, 1, 1, 0, 0, tzinfo=UTC)
 
 
-def _station_value_page(count: int, start: int = 0) -> BytesIO:
-    """Build a DMI stationValue response payload with ``count`` feature records."""
+def _station_value_file(count: int, start: int = 0) -> File:
+    """Build a DMI stationValue response File with ``count`` feature records."""
     features = [
         {
             "properties": {
@@ -92,7 +93,13 @@ def _station_value_page(count: int, start: int = 0) -> BytesIO:
         }
         for index in range(start, start + count)
     ]
-    return BytesIO(json.dumps({"features": features}).encode())
+    return File(url="", content=BytesIO(json.dumps({"features": features}).encode()), status=200)
+
+
+def _iter_pages(values: dmi_api.DmiObservationValues) -> list[pl.DataFrame]:
+    return list(
+        values._iter_station_value_pages("06180", "hour", "start", "end", Settings(cache_disable=True)),  # noqa: SLF001
+    )
 
 
 def test_iter_station_value_pages_walks_all_pages(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -102,16 +109,13 @@ def test_iter_station_value_pages_walks_all_pages(monkeypatch: pytest.MonkeyPatc
     pages = {0: 2, 2: 2, 4: 1}
     offsets: list[int] = []
 
-    def fake_download_file(*, url: str, **_: object) -> SimpleNamespace:
+    def fake_download_file(*, url: str, **_: object) -> File:
         offset = int(url.split("offset=")[1])
         offsets.append(offset)
-        return SimpleNamespace(content=_station_value_page(pages[offset], start=offset))
+        return _station_value_file(pages[offset], start=offset)
 
     monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
-    values = object.__new__(DmiObservationValues)
-    dfs = list(
-        values._iter_station_value_pages("06180", "hour", "start", "end", Settings(cache_disable=True)),  # noqa: SLF001
-    )
+    dfs = _iter_pages(object.__new__(dmi_api.DmiObservationValues))
     assert offsets == [0, 2, 4]
     assert len(dfs) == 3
     assert sum(df.height for df in dfs) == 5
@@ -122,41 +126,57 @@ def test_iter_station_value_pages_single_short_page_stops_immediately(monkeypatc
     monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 100)
     offsets: list[int] = []
 
-    def fake_download_file(*, url: str, **_: object) -> SimpleNamespace:
+    def fake_download_file(*, url: str, **_: object) -> File:
         offsets.append(int(url.split("offset=")[1]))
-        return SimpleNamespace(content=_station_value_page(3))
+        return _station_value_file(3)
 
     monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
-    values = object.__new__(DmiObservationValues)
-    dfs = list(
-        values._iter_station_value_pages("06180", "hour", "start", "end", Settings(cache_disable=True)),  # noqa: SLF001
-    )
+    dfs = _iter_pages(object.__new__(dmi_api.DmiObservationValues))
     assert offsets == [0]
     assert [df.height for df in dfs] == [3]
 
 
-def test_iter_station_value_pages_stops_on_download_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A download error ends pagination without raising, yielding what was collected so far."""
+def test_iter_station_value_pages_stops_on_download_error(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A download error ends pagination without raising, keeps prior pages, and logs a warning."""
     monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 2)
 
-    def fake_download_file(*, url: str, **_: object) -> SimpleNamespace:
+    def fake_download_file(*, url: str, **_: object) -> File:
         # first (full) page succeeds, second page errors
         if "offset=0" in url:
-            return SimpleNamespace(content=_station_value_page(2))
-        return SimpleNamespace(content=RuntimeError("boom"))
+            return _station_value_file(2)
+        return File(url=url, content=RuntimeError("boom"), status=500)
 
     monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
-    values = object.__new__(DmiObservationValues)
-    dfs = list(
-        values._iter_station_value_pages("06180", "hour", "start", "end", Settings(cache_disable=True)),  # noqa: SLF001
-    )
+    with caplog.at_level(logging.WARNING, logger=dmi_api.log.name):
+        dfs = _iter_pages(object.__new__(dmi_api.DmiObservationValues))
     assert [df.height for df in dfs] == [2]
+    assert any("Failed to acquire DMI data" in record.message for record in caplog.records)
+
+
+def test_iter_station_value_pages_no_internet_is_silent(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A NoInternetError ends pagination silently -- no warning (already logged at debug upstream)."""
+    monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 2)
+
+    def fake_download_file(*, url: str, **_: object) -> File:
+        return File(url=url, content=NoInternetError("offline"), status=503)
+
+    monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
+    with caplog.at_level(logging.WARNING, logger=dmi_api.log.name):
+        dfs = _iter_pages(object.__new__(dmi_api.DmiObservationValues))
+    assert dfs == []
+    assert not any("Failed to acquire DMI data" in record.message for record in caplog.records)
 
 
 @pytest.mark.remote
 def test_dmi_observation_stations() -> None:
     """Station discovery returns deduplicated stations with usable metadata."""
-    request = DmiObservationRequest(
+    request = dmi_api.DmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
     ).all()
     assert not request.df.is_empty()
@@ -174,7 +194,7 @@ def test_dmi_observation_stations() -> None:
 @pytest.mark.remote
 def test_dmi_observation_values_daily() -> None:
     """Daily values include both range boundaries (the local/UTC offset must not drop them)."""
-    request = DmiObservationRequest(
+    request = dmi_api.DmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
         start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
@@ -196,7 +216,7 @@ def test_dmi_observation_values_complete_aligns_to_utc_grid() -> None:
     out every value.
     """
     settings = Settings(cache_disable=True, ts_complete=True, ts_drop_nulls=False)
-    request = DmiObservationRequest(
+    request = dmi_api.DmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
         start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
@@ -212,7 +232,7 @@ def test_dmi_observation_values_complete_aligns_to_utc_grid() -> None:
 @pytest.mark.remote
 def test_dmi_observation_values_hourly_utc() -> None:
     """Hourly values are UTC-aligned to the start of each hour."""
-    request = DmiObservationRequest(
+    request = dmi_api.DmiObservationRequest(
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
         start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end_date=dt.datetime(2023, 6, 1, 6, tzinfo=UTC),
@@ -227,7 +247,7 @@ def test_dmi_observation_values_hourly_utc() -> None:
 def test_dmi_observation_values_empty_for_unknown_station() -> None:
     """An unknown station id yields an empty, well-formed values frame."""
     settings = Settings(cache_disable=True)
-    request = DmiObservationRequest(
+    request = dmi_api.DmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
         start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
