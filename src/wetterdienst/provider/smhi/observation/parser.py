@@ -36,6 +36,9 @@ def parse_smhi_csv(text: str) -> pl.DataFrame:
     quality_idx = header.index("Kvalitet")
     value_column = header[quality_idx - 1]
 
+    # SMHI's data block reuses its trailing columns for unrelated footnote text and can have
+    # empty/duplicate trailing column names, so a `columns=`-restricted read is not robust
+    # here -- read the block in full and select the (date, value) columns afterwards.
     df = pl.read_csv(
         io.StringIO("\n".join(lines[header_idx:])),
         separator=";",

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, cast
 
 import polars as pl
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -109,8 +110,14 @@ class SmhiObservationValues(TimeseriesValues):
             url = f"{_BASE_URL}/parameter/{parameter.name_original}/station/{station_id}/period/{period}/data.csv"
             payload = _fetch_csv(url, settings)
             if isinstance(payload, Exception):
-                # a 404 here just means this station doesn't report this parameter (routine,
-                # not every SMHI station measures everything) -- not worth logging as a failure.
+                # a 404 (FileNotFoundError) just means this station doesn't report this
+                # parameter -- routine, since not every SMHI station measures everything -- and
+                # a NoInternetError is already logged at debug upstream. Anything else is an
+                # unexpected failure worth surfacing rather than silently dropping the data.
+                if not isinstance(payload, (FileNotFoundError, NoInternetError)):
+                    log.warning(
+                        f"Failed to fetch SMHI parameter {parameter.name_original} for station {station_id}: {payload}",
+                    )
                 continue
             df = parse_smhi_csv(payload.decode("utf-8-sig"))
             if not df.is_empty():
@@ -121,7 +128,9 @@ class SmhiObservationValues(TimeseriesValues):
         df = pl.concat(frames, how="diagonal")
         # when periods overlap by design (corrected-archive/latest-months), keep one row
         # per timestamp, preferring the period fetched last (more recent QC state).
-        df = df.unique(subset="date", keep="last")
+        # maintain_order=True is required for keep="last" to deterministically retain the
+        # row from the last-appended (most recent) period.
+        df = df.unique(subset="date", keep="last", maintain_order=True)
         return df.select(
             pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
