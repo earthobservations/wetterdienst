@@ -22,8 +22,8 @@ observation feed.
 | temperature_air_mean_2m | 45             | temperature    | °C   |
 | pressure_air_sea_level  | 44             | pressure       | hPa  |
 | humidity                | 43             | fraction       | %    |
-| snow_depth              | 52             | length         | m    |
-| visibility_range        | 51             | length         | m    |
+| snow_depth              | 52             | length_short         | m    |
+| visibility_range        | 51             | length_medium         | m    |
 | wind_speed              | 47             | speed          | m/s  |
 | wind_direction          | 48             | angle          | °    |
 | precipitation_height    | 46             | precipitation  | mm   |

@@ -24,4 +24,4 @@
 | humidity                      | 6              | fraction    | %    |
 | pressure_air_sea_level        | 9              | pressure    | hPa  |
 | cloud_cover_total             | 16             | fraction    | %    |
-| visibility_range              | 12             | length      | m    |
+| visibility_range              | 12             | length_medium      | m    |

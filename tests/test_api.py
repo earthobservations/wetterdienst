@@ -657,6 +657,7 @@ def test_api_aemet_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.xfail(strict=False, reason="SMHI server intermittently unavailable")
 @pytest.mark.remote
 def test_api_smhi_observation(default_settings: Settings) -> None:
     """Test SMHI observation API."""

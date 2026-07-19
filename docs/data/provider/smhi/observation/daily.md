@@ -19,4 +19,4 @@
 | temperature_air_max_2m  | 20             | temperature    | °C   |
 | temperature_air_min_2m  | 19             | temperature    | °C   |
 | precipitation_height    | 5              | precipitation  | mm   |
-| snow_depth              | 8              | length         | m    |
+| snow_depth              | 8              | length_short         | m    |

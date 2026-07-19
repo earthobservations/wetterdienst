@@ -30,7 +30,7 @@ SmhiObservationMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": True,
+                    "grouped": False,
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
@@ -93,7 +93,7 @@ SmhiObservationMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": True,
+                    "grouped": False,
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
@@ -168,7 +168,7 @@ SmhiObservationMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": True,
+                    "grouped": False,
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
@@ -213,7 +213,7 @@ SmhiObservationMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
-                    "grouped": True,
+                    "grouped": False,
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
