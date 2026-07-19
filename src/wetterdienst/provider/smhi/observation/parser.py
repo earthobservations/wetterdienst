@@ -28,12 +28,18 @@ def parse_smhi_csv(text: str) -> pl.DataFrame:
     everything else, returning "date" already parsed to a UTC datetime.
     """
     lines = text.splitlines()
-    header_idx = next((i for i, line in enumerate(lines) if "Kvalitet" in line), None)
+    # match "Kvalitet" as an exact column (after splitting on ";"), not a substring: data rows
+    # and legend blocks contain it as part of words like "Kvalitetskontrollerade" / "Kvalitetskoderna".
+    header_idx = next((i for i, line in enumerate(lines) if "Kvalitet" in line.split(";")), None)
     if header_idx is None:
         return pl.DataFrame(schema=_EMPTY_PARSED_SCHEMA)
 
     header = lines[header_idx].split(";")
     quality_idx = header.index("Kvalitet")
+    if quality_idx == 0:
+        # the measurement column sits immediately left of "Kvalitet"; an unexpected layout with
+        # "Kvalitet" first has no value column to read.
+        return pl.DataFrame(schema=_EMPTY_PARSED_SCHEMA)
     value_column = header[quality_idx - 1]
 
     # SMHI's data block reuses its trailing columns for unrelated footnote text and can have

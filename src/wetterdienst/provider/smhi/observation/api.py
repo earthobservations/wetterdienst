@@ -98,7 +98,7 @@ class SmhiObservationValues(TimeseriesValues):
                 data.append(df)
         if not data:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        return pl.concat(data, how="diagonal")
+        return pl.concat(data)
 
     def _collect_parameter(self, station_id: str, parameter: ParameterModel, settings: Settings) -> pl.DataFrame:
         periods = _PERIODS_BY_RESOLUTION[parameter.dataset.resolution.value]
@@ -116,13 +116,22 @@ class SmhiObservationValues(TimeseriesValues):
                         f"Failed to fetch SMHI parameter {parameter.name_original} for station {station_id}: {payload}",
                     )
                 continue
-            df = parse_smhi_csv(payload.decode("utf-8-sig"))
+            try:
+                df = parse_smhi_csv(payload.decode("utf-8-sig"))
+            except Exception as exc:  # noqa: BLE001
+                # a single malformed CSV block shouldn't abort the whole (multi-station,
+                # multi-parameter) query -- skip it and keep going.
+                log.warning(
+                    f"Failed to parse SMHI CSV for parameter {parameter.name_original} "
+                    f"station {station_id} period {period}: {exc}",
+                )
+                continue
             if not df.is_empty():
                 frames.append(df)
         if not frames:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        df = pl.concat(frames, how="diagonal")
+        df = pl.concat(frames)
         # when periods overlap by design (corrected-archive/latest-months), keep one row per
         # timestamp. corrected-archive is the finalized quality-controlled version and is
         # fetched (and appended) first, so keep="first" prefers it over the still-under-QC
@@ -182,7 +191,7 @@ class SmhiObservationRequest(TimeseriesRequest):
         # spanning the full reporting range (earliest start, latest end) across the requested
         # parameters at that station.
         data = [
-            pl.concat(frames, how="diagonal")
+            pl.concat(frames)
             .group_by("station_id")
             .agg(
                 pl.col("resolution").first(),
@@ -198,4 +207,4 @@ class SmhiObservationRequest(TimeseriesRequest):
         ]
         if not data:
             return pl.LazyFrame()
-        return pl.concat(data, how="diagonal").lazy()
+        return pl.concat(data).lazy()
