@@ -244,6 +244,29 @@ class TimeseriesValues(ABC):
         )
         return df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in columns)
 
+    def _get_meta_enum_dtypes(self) -> dict[str, pl.Enum]:
+        """Build ``Enum`` dtypes for the low-cardinality metadata columns.
+
+        The categories are derived from the request itself, so they are identical across
+        every per-station frame. That lets the frames be concatenated in :meth:`all` without
+        an ``Enum`` mismatch, while making these highly repetitive columns integer-backed
+        instead of ``String`` - roughly halving the memory footprint of the tidy value frame.
+        """
+        parameters = self.sr.parameters
+        station_ids = self.sr.station_id.unique().sort().to_list()
+        resolutions = sorted({parameter.dataset.resolution.name for parameter in parameters})
+        datasets = sorted({parameter.dataset.name.lower() for parameter in parameters})
+        if self.sr.settings.ts_humanize:
+            parameter_names = sorted({parameter.name for parameter in parameters})
+        else:
+            parameter_names = sorted({parameter.name_original for parameter in parameters})
+        return {
+            "station_id": pl.Enum(station_ids),
+            "resolution": pl.Enum(resolutions),
+            "dataset": pl.Enum(datasets),
+            "parameter": pl.Enum(parameter_names),
+        }
+
     def query(self) -> Iterator[ValuesResult]:
         """Query data for all stations and parameters and return a DataFrame for each station."""
         # reset station stations_counter
@@ -253,6 +276,8 @@ class TimeseriesValues(ABC):
         hpm: dict[str, str] = {}
         if self.sr.settings.ts_humanize:
             hpm = self._create_humanized_parameters_mapping()
+        # global Enum dtypes shared across all per-station frames to save memory (see all)
+        enum_dtypes = self._get_meta_enum_dtypes()
         for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
             if self.stations_counter == self.sr.rank:
                 break
@@ -285,6 +310,10 @@ class TimeseriesValues(ABC):
                 df = self._widen_df(df=df)
             sort_columns = ["dataset", "parameter", "date"] if self.sr.settings.ts_tidy else ["dataset", "date"]
             df = df.sort(sort_columns)
+            # cast after sorting so row order stays lexical, not Enum-category order
+            df = df.with_columns(
+                pl.col(column).cast(dtype) for column, dtype in enum_dtypes.items() if column in df.columns
+            )
             self.stations_counter += 1
             self.stations_collected.append(station_id)
             yield ValuesResult(stations=self.sr, values=self, df=df)
