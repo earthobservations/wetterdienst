@@ -274,7 +274,9 @@ class ExportMixin:
                     pl.col("date").dt.convert_time_zone("UTC").dt.replace_time_zone(None).dt.to_string("iso:strict"),
                 )
                 group = df.get_column("dataset").gather(0).item()
-                df = df.to_pandas()
+                # xarray/zarr encoding cannot handle a pandas Categorical (produced from Enum
+                # columns), so cast Enum metadata columns back to String before conversion
+                df = df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas()
 
                 # Convert pandas DataFrame to xarray Dataset.
                 dataset = xarray.Dataset.from_dataframe(df)
@@ -608,7 +610,11 @@ class ExportMixin:
 
             # Convert timezone-aware datetime fields to naive ones.
             # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
-            df = self.df.with_columns(pl.col("date").dt.replace_time_zone(time_zone=None))
+            # Cast Enum metadata columns back to String so the pandas/SQLAlchemy write gets plain text.
+            df = self.df.with_columns(
+                pl.col("date").dt.replace_time_zone(time_zone=None),
+                pl.col(pl.Enum).cast(pl.String),
+            )
             if if_exists == "skip":
                 import sqlalchemy  # noqa: PLC0415
 
@@ -669,7 +675,7 @@ class ExportMixin:
                 if insp.has_table(tablename):
                     log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
                     return
-            self.df.to_pandas().to_sql(
+            self.df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas().to_sql(
                 name=tablename,
                 con=target,
                 if_exists=if_exists if if_exists != "skip" else "fail",

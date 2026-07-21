@@ -409,6 +409,50 @@ once, parsed nicely into column structure with improved parameter names. Instead
 ``start_date`` and ``end_date`` you may as well want to use ``period`` to update your
 database once in a while with a fixed set of records.
 
+The metadata columns ``station_id``, ``resolution``, ``dataset`` and ``parameter`` of the
+DataFrame returned by ``.values.all()`` are stored as polars
+[``Enum``](https://docs.pola.rs/api/python/stable/reference/api/polars.datatypes.Enum.html)
+instead of ``String`` to reduce the memory footprint (these columns repeat on every row and
+``Enum`` stores them as small integer codes). ``Enum`` behaves like ``String`` for most grouping,
+sorting and ``==`` comparisons, but it has a few sharp edges: it does not support the ``.str``
+namespace, it compares unequal to a ``String`` column (so joins need matching dtypes), and
+``is_in([...])`` **raises** if any of the given values is not one of the column's categories
+(e.g. filtering for a parameter that is absent from the result) instead of returning an empty
+selection. If you need plain ``String`` columns again — e.g. for ``.str`` operations,
+``is_in`` with possibly-absent values, strict dtype checks or when concatenating with a
+``String`` DataFrame — cast them back:
+
+```python
+import polars as pl
+
+# cast every Enum column back to String
+df = df.with_columns(pl.col(pl.Enum).cast(pl.String))
+```
+
+This matters in particular for ``station_id``: polars raises a ``SchemaError`` when a join
+key is ``Enum`` on one side and ``String`` on the other. The stations DataFrame
+(``request.df``) keeps ``station_id`` as ``String``, so joining it — or any other ``String``
+station table — with the values DataFrame requires casting the join key first:
+
+```python
+import polars as pl
+
+# join values (Enum station_id) with a String station table
+merged = df.with_columns(pl.col("station_id").cast(pl.String)).join(stations, on="station_id")
+```
+
+It also affects filtering by name with ``is_in``. There is no "soft"/non-raising flag on
+``is_in`` — if any queried value is not a category of the ``Enum`` column it raises instead of
+returning an empty selection. Cast the column to ``String`` for the comparison (an ``==`` check
+against a single value, on the other hand, does handle absent values gracefully):
+
+```python
+import polars as pl
+
+# filter by parameters that may or may not be present in the result
+subset = df.filter(pl.col("parameter").cast(pl.String).is_in(["temperature_air_mean_2m", "sunshine_duration"]))
+```
+
 In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from
 [settings](settings.md) to achieve that:
 

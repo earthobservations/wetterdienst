@@ -25,6 +25,7 @@ from wetterdienst.model.result import (
     ValuesResult,
 )
 from wetterdienst.model.util import filter_by_date
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
 )
@@ -411,6 +412,9 @@ def test_values_to_dict_with_metadata(
 
 def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_result_mock: StationsResult) -> None:
     """Test export of DataFrame of values to OGC feature collection."""
+    # mirror the real all() output where metadata columns (incl. station_id) are Enum, to exercise
+    # the stations<->values join in to_ogc_feature_collection (regression test for an Enum/String mismatch)
+    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection()
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
@@ -444,6 +448,7 @@ def test_values_to_ogc_feature_collection_with_metadata(
     metadata: dict,
 ) -> None:
     """Test export of DataFrame of values to OGC feature collection with metadata."""
+    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection(
         with_metadata=True,
     )

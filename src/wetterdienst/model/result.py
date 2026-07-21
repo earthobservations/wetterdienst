@@ -520,7 +520,12 @@ class ValuesResult(_ValuesResult):
         data = {}
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
-        df_stations = self.stations.df.join(self.df.select("station_id").unique(), on="station_id")
+        # the values frame stores station_id as Enum (see TimeseriesValues._cast_metadata_to_enum),
+        # so cast back to String to match the String station_id of the stations frame for the join
+        df_stations = self.stations.df.join(
+            self.df.select(pl.col("station_id").cast(pl.String)).unique(),
+            on="station_id",
+        )
         features = []
         for station in df_stations.with_columns(
             pl.col("start_date").dt.to_string("iso:strict"),
@@ -592,7 +597,9 @@ class ValuesResult(_ValuesResult):
             pl.concat_str(
                 pl.col("parameter"),
                 pl.lit(" ("),
-                pl.col("parameter").replace(units),
+                # parameter may be Enum in aggregated value results; cast to String so the unit
+                # symbols (which are not Enum categories) can be substituted in
+                pl.col("parameter").cast(pl.String).replace(units),
                 pl.lit(")"),
             ).alias("parameter"),
         )
@@ -803,7 +810,9 @@ class InterpolatedValuesResult(_ValuesResult):
             pl.concat_str(
                 pl.col("parameter"),
                 pl.lit(" ("),
-                pl.col("parameter").replace(units),
+                # parameter may be Enum in aggregated value results; cast to String so the unit
+                # symbols (which are not Enum categories) can be substituted in
+                pl.col("parameter").cast(pl.String).replace(units),
                 pl.lit(")"),
             ).alias("parameter"),
             pl.col("taken_station_ids").list.join(",").alias("taken_station_ids"),
@@ -1001,7 +1010,9 @@ class SummarizedValuesResult(_ValuesResult):
             pl.concat_str(
                 pl.col("parameter"),
                 pl.lit(" ("),
-                pl.col("parameter").replace(units),
+                # parameter may be Enum in aggregated value results; cast to String so the unit
+                # symbols (which are not Enum categories) can be substituted in
+                pl.col("parameter").cast(pl.String).replace(units),
                 pl.lit(")"),
             ).alias("parameter"),
         )

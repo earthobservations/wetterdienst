@@ -76,10 +76,10 @@ def test_imgw_hydrology_api_daily() -> None:
             },
         ],
         schema={
-            "station_id": pl.String,
-            "resolution": pl.String,
-            "dataset": pl.String,
-            "parameter": pl.String,
+            "station_id": pl.Enum(["150190130"]),
+            "resolution": pl.Enum(["daily"]),
+            "dataset": pl.Enum(["hydrology"]),
+            "parameter": pl.Enum(["discharge", "stage"]),
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
@@ -156,10 +156,12 @@ def test_imgw_hydrology_api_monthly() -> None:
             },
         ],
         schema={
-            "station_id": pl.String,
-            "resolution": pl.String,
-            "dataset": pl.String,
-            "parameter": pl.String,
+            "station_id": pl.Enum(["150190130"]),
+            "resolution": pl.Enum(["monthly"]),
+            "dataset": pl.Enum(["hydrology"]),
+            "parameter": pl.Enum(
+                ["discharge_max", "discharge_mean", "discharge_min", "stage_max", "stage_mean", "stage_min"]
+            ),
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
@@ -205,10 +207,10 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
             },
         ],
         schema={
-            "station_id": pl.String,
-            "resolution": pl.String,
-            "dataset": pl.String,
-            "parameter": pl.String,
+            "station_id": pl.Enum(["149180020"]),
+            "resolution": pl.Enum(["daily"]),
+            "dataset": pl.Enum(["hydrology"]),
+            "parameter": pl.Enum(["discharge", "stage"]),
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
@@ -230,5 +232,5 @@ def test_imgw_hydrology_api_monthly_recent_export_formats() -> None:
             start_date=start_date,
         ).filter_by_station_id("149180020")
         values = request.values.all()
-        discharge = values.df.filter(pl.col("parameter").str.starts_with("discharge")).sort("parameter")
+        discharge = values.df.filter(pl.col("parameter").cast(pl.String).str.starts_with("discharge")).sort("parameter")
         assert discharge.get_column("value").to_list() == [expected_max, expected_mean, expected_min]
