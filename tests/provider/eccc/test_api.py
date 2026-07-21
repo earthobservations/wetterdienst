@@ -132,10 +132,21 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             },
         ],
         schema={
-            "station_id": pl.String,
-            "resolution": pl.String,
-            "dataset": pl.String,
-            "parameter": pl.String,
+            "station_id": pl.Enum(["2"]),
+            "resolution": pl.Enum(["daily"]),
+            "dataset": pl.Enum(["data"]),
+            "parameter": pl.Enum(
+                [
+                    "count_days_cooling_degree",
+                    "count_days_heating_degree",
+                    "precipitation_height",
+                    "precipitation_height_liquid",
+                    "snow_depth_new",
+                    "temperature_air_max_2m",
+                    "temperature_air_mean_2m",
+                    "temperature_air_min_2m",
+                ]
+            ),
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,

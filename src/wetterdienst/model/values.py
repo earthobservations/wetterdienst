@@ -244,6 +244,24 @@ class TimeseriesValues(ABC):
         )
         return df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in columns)
 
+    # low-cardinality metadata columns that are stored as Enum instead of String to save memory
+    _meta_enum_columns: ClassVar = ("station_id", "resolution", "dataset", "parameter")
+
+    @classmethod
+    def _cast_metadata_to_enum(cls, df: pl.DataFrame) -> pl.DataFrame:
+        """Cast the low-cardinality metadata columns to ``Enum`` to reduce the memory footprint.
+
+        The categories are taken from the values actually present in the frame (not from the
+        request metadata), so the cast never fails on provider-specific casing or humanization
+        quirks (e.g. WSV emitting ``w`` while the metadata declares ``W``). These columns repeat
+        every row, so integer-backed ``Enum`` codes roughly halve the size of tidy value frames.
+        """
+        return df.with_columns(
+            pl.col(column).cast(pl.Enum(df.get_column(column).unique().sort()))
+            for column in cls._meta_enum_columns
+            if column in df.columns
+        )
+
     def query(self) -> Iterator[ValuesResult]:
         """Query data for all stations and parameters and return a DataFrame for each station."""
         # reset station stations_counter
@@ -427,6 +445,10 @@ class TimeseriesValues(ABC):
         except ValueError:
             log.exception("No data available for given constraints")
             return ValuesResult(stations=self.sr, values=self, df=pl.DataFrame())
+
+        # store the low-cardinality metadata columns as Enum to reduce the memory footprint of the
+        # aggregated result; done once here on the full frame, with categories from the actual data
+        df = self._cast_metadata_to_enum(df)
 
         return ValuesResult(stations=self.sr, values=self, df=df)
 

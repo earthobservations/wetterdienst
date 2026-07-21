@@ -26,6 +26,11 @@ Types of changes:
 - Add Météo-France (France) synop network (subdaily, 3-hourly)
 - Add Météo-France (France) observation network (6-minute, hourly, daily, monthly)
 - Add MeteoSwiss (Switzerland) observation provider with 10-minute, hourly, daily, monthly and annual resolution
+- Reduce the memory footprint of aggregated value results (`.values.all()`) by storing the
+  `station_id`, `resolution`, `dataset` and `parameter` columns as polars `Enum` instead of `String`
+  (roughly halves the size of tidy frames); note that the dtype of these columns is now `Enum`. To
+  get plain `String` columns back (e.g. for `.str` operations or strict dtype checks), cast them via
+  `df.with_columns(pl.col(pl.Enum).cast(pl.String))`
 
 ## [0.127.0] - 2026-07-07
 
