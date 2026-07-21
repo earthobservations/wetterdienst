@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.128.0] - 2026-07-22
+
 - Add KNMI (Netherlands) observation provider with 10-minute, hourly and daily resolution
   (requires a free KNMI Data Platform API key)
 - Add DMI (Denmark) climate data observation provider with hourly, daily, monthly and
@@ -1975,7 +1977,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.127.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.128.0...HEAD
+[0.128.0]: https://github.com/earthobservations/wetterdienst/compare/v0.127.0...v0.128.0
 [0.127.0]: https://github.com/earthobservations/wetterdienst/compare/v0.126.0...v0.127.0
 [0.126.0]: https://github.com/earthobservations/wetterdienst/compare/v0.125.0...v0.126.0
 [0.125.0]: https://github.com/earthobservations/wetterdienst/compare/v0.124.0...v0.125.0
