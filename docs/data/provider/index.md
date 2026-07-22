@@ -9,6 +9,7 @@ dwd/index.md
 ea/index.md
 eaufrance/index.md
 eccc/index.md
+fmi/index.md
 geosphere/index.md
 imgw/index.md
 knmi/index.md

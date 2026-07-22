@@ -16,6 +16,9 @@ Types of changes:
 
 ## [Unreleased]
 
+- Add FMI (Finland) observation provider with hourly and daily resolution
+  (no authentication required)
+
 ## [0.128.0] - 2026-07-22
 
 - Add KNMI (Netherlands) observation provider with 10-minute, hourly and daily resolution

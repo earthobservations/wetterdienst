@@ -22,6 +22,7 @@ from wetterdienst.provider.dwd.road import DwdRoadMetadata, DwdRoadRequest
 from wetterdienst.provider.ea.hydrology import EAHydrologyMetadata, EAHydrologyRequest
 from wetterdienst.provider.eaufrance.hubeau import HubeauMetadata, HubeauRequest
 from wetterdienst.provider.eccc.observation import EcccObservationMetadata, EcccObservationRequest
+from wetterdienst.provider.fmi.observation import FmiObservationMetadata, FmiObservationRequest
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata, GeosphereObservationRequest
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyMetadata, ImgwHydrologyRequest
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyMetadata, ImgwMeteorologyRequest
@@ -107,6 +108,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         DwdRoadMetadata,
         EAHydrologyMetadata,
         EcccObservationMetadata,
+        FmiObservationMetadata,
         GeosphereObservationMetadata,
         HubeauMetadata,
         ImgwHydrologyMetadata,
@@ -141,6 +143,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         DwdRoadMetadata,
         EAHydrologyMetadata,
         EcccObservationMetadata,
+        FmiObservationMetadata,
         GeosphereObservationMetadata,
         HubeauMetadata,
         ImgwHydrologyMetadata,
@@ -674,6 +677,30 @@ def test_api_smhi_observation(default_settings: Settings) -> None:
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "state"})
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_date:
+        assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+@pytest.mark.xfail(strict=False, reason="FMI server intermittently unavailable")
+@pytest.mark.remote
+def test_api_fmi_observation(default_settings: Settings) -> None:
+    """Test FMI observation API."""
+    request = FmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date="2024-01-01",
+        end_date="2024-01-02",
+        settings=default_settings,
+    ).filter_by_station_id("100971")  # Helsinki Kaisaniemi
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    # FMI's station catalogue exposes neither elevation nor an end_date for active stations.
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "height"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
