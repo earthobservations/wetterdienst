@@ -24,6 +24,7 @@ from wetterdienst.util.network import NetworkFilesystemManager
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from typing import BinaryIO
     from xml.etree.ElementTree import Element
 
     from wetterdienst.settings import Settings
@@ -55,9 +56,10 @@ class KMLReader:
         self.timesteps = []
         self.nsmap = None
         self.iter_elems = None
-        # Cache for already loaded URLs to avoid re-downloading/re-parsing
+        # Remember the last fully parsed URL to avoid re-parsing; keep the zip buffer/handle alive
+        # while lxml streams from it.
         self._current_url = None
-        self._cached_kml_data = None
+        self._zip_refs = None
 
         self.dwdfs = NetworkFilesystemManager.get(
             cache_dir=settings.cache_dir,
@@ -93,27 +95,30 @@ class KMLReader:
 
         return buffer
 
-    def fetch(self, url: str) -> bytes:
-        """Fetch weather mosmix file (zipped xml)."""
+    def fetch(self, url: str) -> BinaryIO:
+        """Open the zipped mosmix KML as a streaming handle (decompressed lazily, not all at once)."""
         buffer = self.download(url)
         zfs = ZipFileSystem(buffer, "r")
-        return zfs.open(zfs.glob("*")[0]).read()
+        handle = zfs.open(zfs.glob("*")[0])
+        # keep the compressed buffer and zip filesystem alive so the handle stays readable while
+        # lxml pulls from it incrementally
+        self._zip_refs = (buffer, zfs, handle)
+        return handle
 
     def read(self, url: str) -> None:
         """Download and read DWD XML Weather Forecast File of Type KML."""
-        # Check if we already have this URL loaded
-        if self._current_url == url and self._cached_kml_data is not None:
+        # Skip if this URL's forecasts are already parsed into self.data.
+        if self._current_url == url:
             return
 
         log.info(f"Downloading KMZ file {Path(url).name}")
-        kml = self.fetch(url)
+        handle = self.fetch(url)
         log.info("Parsing KML data")
 
-        # Cache the downloaded data
-        self._current_url = url
-        self._cached_kml_data = kml
-
-        self.iter_elems = iterparse(BytesIO(kml), events=("start", "end"), resolve_entities=False)
+        # Stream straight from the (incrementally decompressed) zip handle. Using end-only events
+        # plus sibling pruning in iter_items keeps peak memory bounded by the compressed file size
+        # rather than the ~600MB of decompressed KML.
+        self.iter_elems = iterparse(handle, events=("end",), resolve_entities=False)
         prod_items = {
             "issuer": "Issuer",
             "product_id": "ProductID",
@@ -124,16 +129,14 @@ class KMLReader:
         # Get Basic Metadata
         prod_definition = None
         prod_definition_tag = None
-        for event, element in self.iter_elems:
-            if event == "start":
-                # get namespaces from root element
-                if nsmap is None:
-                    nsmap = element.nsmap
-                    prod_definition_tag = f"{{{nsmap['dwd']}}}ProductDefinition"
-            elif event == "end" and element.tag == prod_definition_tag:
+        for _, element in self.iter_elems:
+            # namespaces are declared on the root and inherited, so any element carries the full map
+            if nsmap is None:
+                nsmap = element.nsmap
+                prod_definition_tag = f"{{{nsmap['dwd']}}}ProductDefinition"
+            if element.tag == prod_definition_tag:
                 prod_definition = element
-                # stop processing after head
-                # leave forecast data for iteration
+                # stop processing after head; leave forecast placemarks for iteration
                 break
         if prod_definition is None or nsmap is None:
             msg = "Could not find ProductDefinition in KML file"
@@ -148,24 +151,25 @@ class KMLReader:
         self.timesteps = [i.text for i in list(timesteps)]
         # save namespace map for later iteration
         self.nsmap = nsmap
+        # release the head subtree before iterating placemarks
+        prod_definition.clear()
         self._store_station_forecasts()
+        self._current_url = url
 
     def iter_items(self) -> Iterator[Element]:
-        """Iterate over station forecasts."""
+        """Iterate over station forecasts, pruning parsed elements to bound memory."""
         if self.iter_elems is None or self.nsmap is None:
             return
-        clear = True
         placemark_tag = f"{{{self.nsmap['kml']}}}Placemark"
-        for event, element in self.iter_elems:
-            if event == "start":
-                if element.tag == placemark_tag:
-                    clear = False
-            elif event == "end":
-                if element.tag == placemark_tag:
-                    yield element
-                    clear = True
-                if clear:
-                    element.clear()
+        for _, element in self.iter_elems:
+            if element.tag != placemark_tag:
+                continue
+            yield element
+            # release the finished placemark and every preceding sibling still held under the root,
+            # so the tree never accumulates more than one placemark at a time
+            element.clear()
+            while element.getprevious() is not None:
+                del element.getparent()[0]
 
     def get_metadata(self) -> pl.DataFrame:
         """Get metadata as DataFrame."""
@@ -203,8 +207,8 @@ class KMLReader:
                 measurement_string = next(iter(measurement_item)).text
                 if measurement_string is None:
                     continue
-                measurement_values = " ".join(measurement_string.split()).split(" ")
-                measurement_values = [None if i == "-" else float(i) for i in measurement_values]
+                # str.split() already collapses the whitespace-separated value list
+                measurement_values = [None if i == "-" else float(i) for i in measurement_string.split()]
                 self.data[station_id][measurement_parameter.lower()] = measurement_values
             station_forecast.clear()
 
