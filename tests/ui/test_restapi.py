@@ -63,6 +63,7 @@ def test_coverage(client: TestClient) -> None:
         "ea",
         "eaufrance",
         "eccc",
+        "fmi",
         "geosphere",
         "imgw",
         "knmi",
