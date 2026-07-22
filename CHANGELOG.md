@@ -18,6 +18,8 @@ Types of changes:
 
 - Add FMI (Finland) observation provider with hourly and daily resolution
   (no authentication required)
+- Reduce DWD MOSMIX/DMO KML parsing memory by streaming the zipped KML instead of
+  decompressing it fully in memory (~6.5x lower peak RSS on MOSMIX-S)
 
 ## [0.128.0] - 2026-07-22
 
