@@ -33,6 +33,9 @@ class Wetterdienst:
         "eccc": {
             "observation": "wetterdienst.provider.eccc.observation.EcccObservationRequest",
         },
+        "fmi": {
+            "observation": "wetterdienst.provider.fmi.observation.FmiObservationRequest",
+        },
         "imgw": {
             "hydrology": "wetterdienst.provider.imgw.hydrology.ImgwHydrologyRequest",
             "meteorology": "wetterdienst.provider.imgw.meteorology.ImgwMeteorologyRequest",
