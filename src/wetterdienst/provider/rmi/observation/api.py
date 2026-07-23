@@ -79,12 +79,14 @@ _STATION_SCHEMA = pl.Schema(
 def _values_schema(parameters: Sequence[ParameterModel]) -> pl.Schema:
     """Build the WFS feature schema for a dataset's parameters.
 
-    Only the ``timestamp`` and the mapped parameter columns are declared; ``read_json`` ignores
-    every other attribute (``code``, geometry, ``qc_flags``, unmapped parameters).
+    Only the ``timestamp``, the mapped parameter columns and ``qc_flags`` (the per-parameter
+    validation map, decoded into the ``quality`` column) are declared; ``read_json`` ignores every
+    other attribute (``code``, geometry, unmapped parameters).
     """
     properties: dict[str, type[pl.DataType]] = {"timestamp": pl.String}
     for parameter in parameters:
         properties[parameter.name_original] = pl.Float64
+    properties["qc_flags"] = pl.String
     # `numberMatched` (total features matched by the filter) drives pagination independently of
     # how many rows the server actually returns per page -- see `_iter_value_pages`.
     return pl.Schema(
@@ -188,14 +190,12 @@ class RmiObservationValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         df = pl.concat(frames)
+        param_names = [parameter.name_original for parameter in dataset.parameters]
         # Reshape the wide feature (one column per parameter) into the long value frame. The
         # column name is already `name_original`, which `_process_dataset` filters against.
-        df = df.unpivot(
-            index="timestamp",
-            on=[parameter.name_original for parameter in dataset.parameters],
-            variable_name="parameter",
-            value_name="value",
-        ).drop_nulls("value")
+        values = df.unpivot(index="timestamp", on=param_names, variable_name="parameter", value_name="value")
+        # Attach the per-parameter validation flag from qc_flags as the native quality code.
+        df = values.join(_quality_long(df, param_names), on=["timestamp", "parameter"], how="left").drop_nulls("value")
         if df.is_empty():
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         return df.select(
@@ -205,7 +205,7 @@ class RmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             _parse_utc_z(pl.col("timestamp")).alias("date"),
             pl.col("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.col("quality").cast(pl.Float64),
         )
 
 
@@ -252,17 +252,43 @@ class RmiObservationRequest(TimeseriesRequest):
         }
         if not resolutions_and_datasets:
             return pl.LazyFrame()
+        # sort the set so the concatenated station rows come out in a stable, deterministic order
         data = [
             df.with_columns(
                 pl.lit(resolution, pl.String).alias("resolution"),
                 pl.lit(dataset, pl.String).alias("dataset"),
             )
-            for resolution, dataset in resolutions_and_datasets
+            for resolution, dataset in sorted(resolutions_and_datasets)
         ]
         df = pl.concat(data)
         return df.select(
             pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns
         ).lazy()
+
+
+def _quality_long(df: pl.DataFrame, param_names: list[str]) -> pl.DataFrame:
+    """Build a long ``(timestamp, parameter, quality)`` frame from the ``qc_flags`` JSON.
+
+    RMI's ``qc_flags`` carries a per-parameter validated/not-validated boolean keyed by the
+    upper-cased attribute name (e.g. ``{"validated": {"TEMP_DRY_SHELTER_AVG": true, ...}}``). It is
+    exposed as the provider-native ``quality`` code: ``1.0`` validated, ``0.0`` not validated, and
+    null when the flag (or the whole ``qc_flags`` object) is absent.
+    """
+    validated_schema = pl.Struct({"validated": pl.Struct({name.upper(): pl.Boolean for name in param_names})})
+    return (
+        df.select(
+            "timestamp",
+            pl.col("qc_flags").str.json_decode(validated_schema).struct.field("validated").alias("validated"),
+        )
+        .unnest("validated")
+        .unpivot(
+            index="timestamp",
+            on=[name.upper() for name in param_names],
+            variable_name="parameter",
+            value_name="quality",
+        )
+        .with_columns(pl.col("parameter").str.to_lowercase(), pl.col("quality").cast(pl.Float64))
+    )
 
 
 def _parse_utc_z(expr: pl.Expr) -> pl.Expr:

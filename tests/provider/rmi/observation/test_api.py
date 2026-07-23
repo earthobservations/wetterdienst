@@ -198,12 +198,15 @@ def test_iter_value_pages_no_internet_is_silent(
 
 
 def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
-    """The wide feature (one column per parameter) is reshaped to long, UTC-labelled values."""
+    """The wide feature is reshaped to long, UTC-labelled values with qc_flags mapped to quality."""
     dataset = _hourly_dataset()
     names = [parameter.name_original for parameter in dataset.parameters]
-    wide = pl.DataFrame({"timestamp": ["2023-06-01T00:00:00Z", "2023-06-01T01:00:00Z"]}).with_columns(
-        [pl.lit(float(index)).alias(name) for index, name in enumerate(names)],
-    )
+    # qc_flags marks the first parameter validated (1.0) and the second not (0.0) for both rows
+    validated = {names[0].upper(): True, names[1].upper(): False}
+    qc_flags = json.dumps({"validated": validated})
+    wide = pl.DataFrame(
+        {"timestamp": ["2023-06-01T00:00:00Z", "2023-06-01T01:00:00Z"], "qc_flags": [qc_flags, qc_flags]},
+    ).with_columns([pl.lit(float(index)).alias(name) for index, name in enumerate(names)])
 
     values = object.__new__(rmi_api.RmiObservationValues)
     values.sr = SimpleNamespace(
@@ -223,6 +226,10 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
     assert df.height == 2 * len(names)
     assert str(df.schema["date"]).find("UTC") != -1
     assert df.get_column("date").min() == dt.datetime(2023, 6, 1, tzinfo=UTC)
+    # qc_flags validation maps to the quality code: validated -> 1.0, not validated -> 0.0
+    quality_by_parameter = dict(df.select("parameter", "quality").unique().iter_rows())
+    assert quality_by_parameter[names[0]] == 1.0
+    assert quality_by_parameter[names[1]] == 0.0
 
 
 @pytest.mark.remote
