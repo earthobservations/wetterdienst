@@ -16,17 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
 - Add CHMI (Czechia) observation provider with 10-minute, hourly, daily, monthly and annual
   resolution (no authentication required)
-
 - Add FMI (Finland) observation provider with hourly and daily resolution
   (no authentication required)
+
+### Changed
+
 - Reduce DWD MOSMIX/DMO KML parsing memory by streaming the zipped KML instead of
   decompressing it fully in memory (~6.5x lower peak RSS on MOSMIX-S)
+
+### Fixed
+
 - Parse NOAA GHCN-hourly (GHCNh) timestamps from the provided ISO date column instead of
   reconstructing them from separate year/month/day/hour/minute fields
 
 ## [0.128.0] - 2026-07-22
+
+### Added
 
 - Add KNMI (Netherlands) observation provider with 10-minute, hourly and daily resolution
   (requires a free KNMI Data Platform API key)
@@ -38,6 +47,9 @@ Types of changes:
 - Add Météo-France (France) synop network (subdaily, 3-hourly)
 - Add Météo-France (France) observation network (6-minute, hourly, daily, monthly)
 - Add MeteoSwiss (Switzerland) observation provider with 10-minute, hourly, daily, monthly and annual resolution
+
+### Changed
+
 - Reduce the memory footprint of aggregated value results (`.values.all()`) by storing the
   `station_id`, `resolution`, `dataset` and `parameter` columns as polars `Enum` instead of `String`
   (roughly halves the size of tidy frames); note that the dtype of these columns is now `Enum`. To
