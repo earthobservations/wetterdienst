@@ -73,6 +73,7 @@ def test_coverage(client: TestClient) -> None:
         "metno",
         "noaa",
         "nws",
+        "rmi",
         "smhi",
         "wsv",
     }

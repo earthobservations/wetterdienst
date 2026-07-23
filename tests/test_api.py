@@ -34,6 +34,7 @@ from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMe
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata, MetnoFrostRequest
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 from wetterdienst.provider.nws.observation import NwsObservationMetadata, NwsObservationRequest
+from wetterdienst.provider.rmi.observation import RmiObservationMetadata, RmiObservationRequest
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata, SmhiObservationRequest
 from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
 from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
@@ -122,6 +123,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         MetnoFrostMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
+        RmiObservationMetadata,
         SmhiObservationMetadata,
         WsvPegelMetadata,
     ],
@@ -158,6 +160,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         MetnoFrostMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
+        RmiObservationMetadata,
         SmhiObservationMetadata,
         WsvPegelMetadata,
     ],
@@ -344,6 +347,30 @@ def test_api_dmi_observation(default_settings: Settings) -> None:
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "height"})
+    first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_start_date:
+        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert _is_complete_values_df(values)
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+@pytest.mark.remote
+def test_api_rmi_observation(default_settings: Settings) -> None:
+    """Test rmi observation API."""
+    request = RmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        end_date=datetime(2023, 6, 5, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        settings=default_settings,
+    ).filter_by_station_id(["6447"])
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    # RMI stations carry no region/state, and Uccle is still active (null end_date).
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "state"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")

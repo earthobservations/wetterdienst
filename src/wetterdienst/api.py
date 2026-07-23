@@ -49,6 +49,9 @@ class Wetterdienst:
         "noaa": {
             "ghcn": "wetterdienst.provider.noaa.ghcn.NoaaGhcnRequest",
         },
+        "rmi": {
+            "observation": "wetterdienst.provider.rmi.observation.RmiObservationRequest",
+        },
         "wsv": {
             "pegel": "wetterdienst.provider.wsv.pegel.WsvPegelRequest",
         },
