@@ -20,6 +20,8 @@ Types of changes:
   (no authentication required)
 - Reduce DWD MOSMIX/DMO KML parsing memory by streaming the zipped KML instead of
   decompressing it fully in memory (~6.5x lower peak RSS on MOSMIX-S)
+- Parse NOAA GHCN-hourly (GHCNh) timestamps from the provided ISO date column instead of
+  reconstructing them from separate year/month/day/hour/minute fields
 
 ## [0.128.0] - 2026-07-22
 

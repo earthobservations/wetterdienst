@@ -66,18 +66,13 @@ class NoaaGhcnValues(TimeseriesValues):
         df = df.rename(
             {
                 "STATION": "station_id",
-                "Station_name": "name",
-                "Year": "year",
-                "Month": "month",
-                "Day": "day",
-                "Hour": "hour",
-                "Minute": "minute",
+                "DATE": "date",
             },
         )
         parameters = [parameter.name_original for parameter in dataset]
         df = df.select(
             "station_id",
-            pl.concat_str(["year", "month", "day", "hour", "minute"]).alias("date"),
+            "date",
             *parameters,
         )
         df = df.unpivot(
@@ -90,7 +85,9 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            pl.col("date").str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
+            # GHCNh provides a ready-made ISO-8601 timestamp column; parse it directly rather than
+            # reconstructing from the separate year/month/day/hour/minute fields
+            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC"),
             pl.col("value").replace("-None", None).cast(pl.Float64),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
