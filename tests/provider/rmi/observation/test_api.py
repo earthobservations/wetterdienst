@@ -21,12 +21,13 @@ from wetterdienst.util.network import File
 UCCLE = "6447"
 UTC = ZoneInfo("UTC")
 
-# A minimal feature schema (timestamp + one parameter) for the pagination tests.
+# A minimal feature schema (numberMatched + timestamp + one parameter) for the pagination tests.
 _SCHEMA = pl.Schema(
     {
+        "numberMatched": pl.Int64,
         "features": pl.List(
             pl.Struct({"properties": pl.Struct({"timestamp": pl.String, "temp_dry_shelter_avg": pl.Float64})})
-        )
+        ),
     },
 )
 
@@ -39,13 +40,20 @@ def _hourly_dataset() -> rmi_api.DatasetModel:
     return next(iter(resolution))
 
 
-def _feature_file(count: int, start: int = 0) -> File:
-    """Build a WFS GeoJSON response File with ``count`` hourly feature records."""
+def _feature_file(count: int, start: int = 0, number_matched: int | None = None) -> File:
+    """Build a WFS GeoJSON response File with ``count`` hourly feature records.
+
+    ``number_matched`` populates the response's ``numberMatched`` total; when omitted the key is
+    absent (exercising the short-page fallback).
+    """
     features = [
         {"properties": {"timestamp": "2023-06-01T00:00:00Z", "temp_dry_shelter_avg": float(index)}}
         for index in range(start, start + count)
     ]
-    return File(url="", content=BytesIO(json.dumps({"features": features}).encode()), status=200)
+    payload: dict = {"features": features}
+    if number_matched is not None:
+        payload["numberMatched"] = number_matched
+    return File(url="", content=BytesIO(json.dumps(payload).encode()), status=200)
 
 
 def _iter_pages(values: rmi_api.RmiObservationValues) -> list[pl.DataFrame]:
@@ -107,6 +115,30 @@ def test_iter_value_pages_walks_all_pages(monkeypatch: pytest.MonkeyPatch) -> No
         start_index = int(url.split("startIndex=")[1].split("&", maxsplit=1)[0])
         indices.append(start_index)
         return _feature_file(pages[start_index], start=start_index)
+
+    monkeypatch.setattr(rmi_api, "download_file", fake_download_file)
+    dfs = _iter_pages(object.__new__(rmi_api.RmiObservationValues))
+    assert indices == [0, 2, 4]
+    assert sum(df.height for df in dfs) == 5
+
+
+def test_iter_value_pages_numbermatched_drives_paging_when_server_caps_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A page shorter than the requested count does not end paging while numberMatched says more.
+
+    Simulates a server that caps each page at 2 features regardless of the requested count: the
+    short-page heuristic alone would stop after the first page and drop the remaining rows, but
+    numberMatched=5 keeps paging (advancing startIndex by the actual rows returned) until covered.
+    """
+    monkeypatch.setattr(rmi_api, "_PAGE_LIMIT", 500_000)
+    pages = {0: 2, 2: 2, 4: 1}
+    indices: list[int] = []
+
+    def fake_download_file(*, url: str, **_: object) -> File:
+        start_index = int(url.split("startIndex=")[1].split("&", maxsplit=1)[0])
+        indices.append(start_index)
+        return _feature_file(pages[start_index], start=start_index, number_matched=5)
 
     monkeypatch.setattr(rmi_api, "download_file", fake_download_file)
     dfs = _iter_pages(object.__new__(rmi_api.RmiObservationValues))

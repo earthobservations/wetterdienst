@@ -12,7 +12,6 @@ feature per timestamp -- see https://www.geo.be/catalog/details/RMI_AWS_WFS.
 
 from __future__ import annotations
 
-import itertools
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
@@ -86,7 +85,14 @@ def _values_schema(parameters: Sequence[ParameterModel]) -> pl.Schema:
     properties: dict[str, type[pl.DataType]] = {"timestamp": pl.String}
     for parameter in parameters:
         properties[parameter.name_original] = pl.Float64
-    return pl.Schema({"features": pl.List(pl.Struct({"properties": pl.Struct(properties)}))})
+    # `numberMatched` (total features matched by the filter) drives pagination independently of
+    # how many rows the server actually returns per page -- see `_iter_value_pages`.
+    return pl.Schema(
+        {
+            "numberMatched": pl.Int64,
+            "features": pl.List(pl.Struct({"properties": pl.Struct(properties)})),
+        },
+    )
 
 
 class RmiObservationValues(TimeseriesValues):
@@ -101,10 +107,15 @@ class RmiObservationValues(TimeseriesValues):
     ) -> Iterator[pl.DataFrame]:
         """Yield each page of WFS features (as unnested ``properties`` frames) for a query.
 
-        Pages are walked via ``startIndex`` until a short (or empty) page marks the end; stops on
-        the first download error.
+        ``startIndex`` is advanced by the number of features actually returned, and paging runs
+        until the response's ``numberMatched`` total has been covered (or a page comes back
+        empty). This is robust to a server-side page cap below ``_PAGE_LIMIT``: relying on a
+        "short page" alone would stop early and silently drop rows if the server ever returns
+        fewer features than requested. Stops on the first download error.
         """
-        for start_index in itertools.count(0, _PAGE_LIMIT):
+        start_index = 0
+        number_matched: int | None = None
+        while True:
             # `sortBy` is mandatory once `startIndex` paging is used: the feature types have no
             # primary key, so GeoServer otherwise rejects the request ("Cannot do natural order
             # without a primary key"). Sorting by timestamp also makes the paging deterministic.
@@ -128,11 +139,21 @@ class RmiObservationValues(TimeseriesValues):
                 if not file.is_no_internet_error:
                     log.warning(f"Failed to acquire RMI data (filter {cql_filter!r}): {file.content}")
                 return
-            df = pl.read_json(file.content, schema=schema)
-            df = df.select(pl.col("features").explode().struct.field("properties")).unnest("properties")
+            page = pl.read_json(file.content, schema=schema)
+            if number_matched is None:
+                number_matched = page.get_column("numberMatched").item()
+            df = page.select(pl.col("features").explode().struct.field("properties")).unnest("properties")
             if not df.is_empty():
                 yield df
-            if df.height < _PAGE_LIMIT:
+            # advance by what actually came back, never by the requested count
+            start_index += df.height
+            if df.is_empty():
+                return
+            if number_matched is not None:
+                if start_index >= number_matched:
+                    return
+            elif df.height < _PAGE_LIMIT:
+                # numberMatched absent (unexpected): fall back to the short-page heuristic
                 return
 
     def _collect_station_parameter_or_dataset(
