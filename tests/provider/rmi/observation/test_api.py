@@ -65,6 +65,22 @@ def test_metadata_no_auth() -> None:
     assert rmi_api.RmiObservationRequest.metadata.auth is False
 
 
+@pytest.mark.parametrize(
+    "raw",
+    ["2023-06-01T00:00:00Z", "2023-06-01T00:00:00.000000Z"],
+)
+def test_parse_utc_z_tolerates_optional_fractional_seconds(raw: str) -> None:
+    """Both second-precision and fractional-seconds UTC-Z timestamps parse to the same UTC instant."""
+    date = pl.select(rmi_api._parse_utc_z(pl.lit(raw))).item()  # noqa: SLF001
+    assert date == dt.datetime(2023, 6, 1, tzinfo=UTC)
+
+
+def test_parse_utc_z_null_stays_null() -> None:
+    """A null timestamp (e.g. an active station's date_end) parses to null rather than raising."""
+    date = pl.select(rmi_api._parse_utc_z(pl.lit(None, dtype=pl.String))).item()  # noqa: SLF001
+    assert date is None
+
+
 def test_values_schema_parses_timestamp_and_mapped_parameters() -> None:
     """The per-dataset feature schema parses the timestamp and every mapped parameter column."""
     dataset = _hourly_dataset()

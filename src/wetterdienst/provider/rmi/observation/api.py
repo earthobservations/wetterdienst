@@ -182,12 +182,7 @@ class RmiObservationValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("timestamp")
-            .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us")
-            .dt.replace_time_zone("UTC")
-            .alias(
-                "date",
-            ),
+            _parse_utc_z(pl.col("timestamp")).alias("date"),
             pl.col("value").cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
@@ -225,9 +220,9 @@ class RmiObservationRequest(TimeseriesRequest):
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
             pl.col("properties").struct.field("altitude").alias("height"),
-            _parse_station_datetime("date_begin").alias("start_date"),
+            _parse_utc_z(pl.col("properties").struct.field("date_begin")).alias("start_date"),
             # a null date_end marks a still-active station
-            _parse_station_datetime("date_end").alias("end_date"),
+            _parse_utc_z(pl.col("properties").struct.field("date_end")).alias("end_date"),
         )
         resolutions_and_datasets = {
             (parameter.dataset.resolution.name, parameter.dataset.name)
@@ -249,11 +244,11 @@ class RmiObservationRequest(TimeseriesRequest):
         ).lazy()
 
 
-def _parse_station_datetime(field: str) -> pl.Expr:
-    """Parse an RMI station ``date_begin``/``date_end`` (UTC ``Z`` instant) to a UTC datetime."""
-    return (
-        pl.col("properties")
-        .struct.field(field)
-        .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us")
-        .dt.replace_time_zone("UTC")
-    )
+def _parse_utc_z(expr: pl.Expr) -> pl.Expr:
+    """Parse an RMI UTC ``Z`` timestamp string (value ``timestamp`` or station date) to a UTC datetime.
+
+    ``%.f`` tolerates an optional fractional-seconds part: RMI timestamps are observed at second
+    precision (``...00Z``), but parsing defensively means a stray fractional part never raises and
+    aborts the whole query. A null input (e.g. an active station's ``date_end``) parses to null.
+    """
+    return expr.str.to_datetime("%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us").dt.replace_time_zone("UTC")
