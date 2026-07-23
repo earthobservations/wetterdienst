@@ -16,6 +16,9 @@ Types of changes:
 
 ## [Unreleased]
 
+- Add CHMI (Czechia) observation provider with 10-minute, hourly, daily, monthly and annual
+  resolution (no authentication required)
+
 - Add FMI (Finland) observation provider with hourly and daily resolution
   (no authentication required)
 - Reduce DWD MOSMIX/DMO KML parsing memory by streaming the zipped KML instead of

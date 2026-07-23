@@ -58,6 +58,7 @@ def test_coverage(client: TestClient) -> None:
     data = response.json()
     assert data.keys() == {
         "aemet",
+        "chmi",
         "dmi",
         "dwd",
         "ea",

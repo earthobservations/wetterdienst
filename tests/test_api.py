@@ -14,6 +14,7 @@ from wetterdienst import Parameter, Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
+from wetterdienst.provider.chmi.observation import ChmiObservationMetadata, ChmiObservationRequest
 from wetterdienst.provider.dmi.observation import DmiObservationMetadata, DmiObservationRequest
 from wetterdienst.provider.dwd.dmo import DwdDmoMetadata, DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
@@ -101,6 +102,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
     "metadata",
     [
         AemetObservationMetadata,
+        ChmiObservationMetadata,
         DmiObservationMetadata,
         DwdDmoMetadata,
         DwdMosmixMetadata,
@@ -136,6 +138,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
     "metadata",
     [
         AemetObservationMetadata,
+        ChmiObservationMetadata,
         DmiObservationMetadata,
         DwdDmoMetadata,
         DwdMosmixMetadata,
@@ -654,6 +657,30 @@ def test_api_aemet_observation(default_settings: Settings) -> None:
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     # AEMET's station inventory doesn't provide start_date/end_date at all.
     assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date"})
+    first_date = request.df.get_column("start_date").gather(0).to_list()[0]
+    if first_date:
+        assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    values = next(request.values.query()).df
+    first_date = values.get_column("date").gather(0).to_list()[0]
+    assert first_date.tzinfo
+    assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
+    assert not values.drop_nulls(subset="value").is_empty()
+
+
+@pytest.mark.xfail(strict=False, reason="CHMI server intermittently unavailable")
+@pytest.mark.remote
+def test_api_chmi_observation(default_settings: Settings) -> None:
+    """Test CHMI observation API."""
+    request = ChmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start_date="2020-01-01",
+        end_date="2020-01-02",
+        settings=default_settings,
+    ).filter_by_station_id("0-20000-0-11406")  # Cheb
+    assert not request.df.is_empty()
+    assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    # CHMI's station catalogue provides no state/region and no end_date for active stations.
+    assert _is_complete_stations_df(request.df, exclude_columns={"state", "end_date"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
