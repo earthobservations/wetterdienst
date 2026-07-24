@@ -13,7 +13,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
         - Every minute to yearly resolution
         - Time series of stations in Germany
-        - see the rdwd pages for an interactive map_ and table_ of available datasets
+        - see the [rdwd](https://bookdown.org/brry/rdwd/) pages for an interactive map and table of available datasets
     - Mosmix - statistical optimized scalar forecasts extracted from weather models
         - Point forecast
         - 5400 stations worldwide
@@ -30,6 +30,16 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - All of Composite, Radolan, Radvor, Sites and Radolan_CDC
         - Radolan: calibrated radar precipitation
         - Radvor: radar precipitation forecast
+- AEMET (Agencia Estatal de Meteorología / State Meteorological Agency / Spain)
+    - Observation
+        - climatological data from the Spanish station network
+        - hourly, daily, monthly and annual resolution
+        - requires a free API key from opendata.aemet.es (`WD_AUTH__AEMET`)
+- CHMI (Český hydrometeorologický ústav / Czech Hydrometeorological Institute / Czechia)
+    - Observation
+        - observations from the Czech station network
+        - 10-minute, hourly, daily, monthly and annual resolution
+        - open data, no authentication required
 - DMI (Danmarks Meteorologiske Institut / Danish Meteorological Institute / Denmark)
     - Observation
         - quality-controlled climate data from stations in Denmark, Greenland and the Faroe Islands
@@ -48,6 +58,11 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - Historical (last ~180 years)
         - Hourly, daily, monthly, (annual) resolution
         - Time series of stations in Canada
+- FMI (Ilmatieteen laitos / Finnish Meteorological Institute / Finland)
+    - Observation
+        - observations from the Finnish station network via the open WFS interface
+        - hourly and daily resolution
+        - open data, no authentication required
 - Geosphere (Geosphere Austria, formerly Central Institution for Meteorology and Geodynamics)
     - Observation
         - historical meteorological data of Austrian stations
@@ -58,6 +73,11 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Hydrology
         - hydrological data of polish river stations
         - daily and monthly summaries
+- KNMI (Koninklijk Nederlands Meteorologisch Instituut / Royal Netherlands Meteorological Institute / Netherlands)
+    - Observation
+        - observations from the Dutch station network
+        - 10-minute, hourly and daily resolution
+        - requires a free API key from developer.dataplatform.knmi.nl (`WD_AUTH__KNMI`)
 - Météo-France (French National Meteorological Service / France)
     - Synop
         - SYNOP observations at the native 3-hourly reporting interval
@@ -75,20 +95,25 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - Historical and recent observations from Norwegian station network
         - 10-minute, hourly, 6-hourly (historical only), daily, monthly and annual resolution
         - ~2200 stations; requires free API key from frost.met.no
-- NOAA (National Oceanic And Atmospheric Administration / National Oceanic And Atmospheric Administration / United States Of America)
-    - Global Historical Climatology Network
-        - Historical, hourly (ISD) and daily weather observations from around the globe
-        - more then 100k stations
+- NOAA (National Oceanic and Atmospheric Administration / United States of America)
+    - Global Historical Climatology Network (GHCN)
+        - hourly (GHCNh) and daily weather observations from around the globe
+        - more than 100k stations
         - data for weather services which don't publish data themselves
-- NWS (NOAA National Weather Service)
+- NWS (NOAA National Weather Service / United States of America)
     - Observation
         - recent observations (last week) of US weather stations
-        - currently the list of stations is not completely right as we use a diverging source!
+        - note: the station list is currently sourced from a diverging source and may be incomplete
 - RMI (Koninklijk Meteorologisch Instituut / Royal Meteorological Institute of Belgium / Belgium)
     - Observation
         - observations from the automatic weather station (AWS) network in Belgium
         - 10-minute, hourly and daily resolution
         - ~14 stations, back to 1995; open data, no authentication required
+- SMHI (Sveriges meteorologiska och hydrologiska institut / Swedish Meteorological and Hydrological Institute / Sweden)
+    - Observation
+        - observations from the Swedish station network
+        - 1-minute, hourly, daily and monthly resolution
+        - open data, no authentication required
 - WSV (Wasserstraßen- und Schifffahrtsverwaltung des Bundes / Federal Waterways and Shipping Administration)
     - Pegelonline
         - data of river network of Germany

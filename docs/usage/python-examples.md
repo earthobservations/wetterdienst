@@ -131,7 +131,7 @@ mystnb:
 ---
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
-stations = DwdMosmixRequest(
+request = DwdMosmixRequest(
     parameters=("hourly", "large"),
 )
 

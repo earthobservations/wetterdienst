@@ -34,9 +34,8 @@ sudo apt install git python3 python3-venv uv
 # - https://github.com/astral-sh/uv/releases
 ```
 
-Install required dependencies using `uv`:
-
-*with help of [poe](https://github.com/nat-n/poethepoet)
+Install required dependencies using `uv` (task shortcuts are provided via
+[poe](https://github.com/nat-n/poethepoet)):
 
 ```bash
 uv sync --all-extras --all-groups
@@ -51,11 +50,11 @@ geckodriver installed on your machine:
 uv run poe test
 ```
 
-If this does not work for some reason and you would like to skip ui-related
-tests on your machine, please invoke the test suite with:
+If this does not work for some reason and you would like to skip the explorer
+UI tests on your machine, please invoke the test suite with:
 
 ```bash
-uv run poe test -m "not ui"
+uv run poe test -m "not explorer"
 ```
 
 In order to run only specific tests, invoke:
@@ -114,11 +113,11 @@ docker build \
 
 ## Contributing
 
-1. Before committing your changes, please als run those steps in order to make
+1. Before committing your changes, please also run those steps in order to make
    the patch adhere to the coding standards used here.
 
    ```bash
-   uv run poe format  # black code formatting
+   uv run poe format  # ruff formatting and autofixes
    uv run poe lint    # lint checking
    ```
 
