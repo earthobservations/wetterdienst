@@ -56,6 +56,27 @@ def test_cli_about_parameters() -> None:
     assert "precipitation_height" in result.output
 
 
+@pytest.mark.remote
+def test_cli_about_fields_dwd_observation() -> None:
+    """Test cli about fields for dwd observation (regression: resolution + dataset args)."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "about",
+            "fields",
+            "--provider=dwd",
+            "--network=observation",
+            "--dataset=precipitation",
+            "--resolution=hourly",
+            "--period=historical",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "parameters" in result.output
+    assert "quality_information" in result.output
+
+
 def test_no_combination_of_provider_and_network(caplog: pytest.CaptureFixture) -> None:
     """Test cli coverage of dwd parameters."""
     runner = CliRunner()

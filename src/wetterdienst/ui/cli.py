@@ -780,8 +780,7 @@ def fields(
 
     try:
         metadata = api.describe_fields(  # ty: ignore[unresolved-attribute]
-            dataset=dataset,
-            resolution=resolution,
+            dataset=(resolution, dataset),
             period=period,
             language=language,
         )
