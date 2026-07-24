@@ -249,8 +249,8 @@ Coverage information:
 
     wetterdienst about coverage --provider=<provider> --network=<network>  [--resolutions=<resolutions>] [--datasets=<datasets>]
 
-    wetterdienst about fields --provider=<provider> --network=<network> --dataset=<dataset> --period=<period>
-        [--language=<language>]
+    wetterdienst about fields --provider=<provider> --network=<network> --resolution=<resolution>
+        --dataset=<dataset> --period=<period> [--language=<language>]
 
 Data acquisition:
 
@@ -755,10 +755,15 @@ def coverage(
 @network_opt
 @cloup.option_group(
     "(DWD only) information from PDF documents",
-    click.option("--dataset", type=click.STRING),
-    click.option("--resolution", type=click.STRING),
-    click.option("--period", type=click.STRING),
-    click.option("--language", type=click.Choice(["en", "de"], case_sensitive=False), default="en"),
+    click.option("--dataset", type=click.STRING, help="Dataset name, e.g. climate_summary or precipitation."),
+    click.option("--resolution", type=click.STRING, help="Resolution name, e.g. daily or hourly."),
+    click.option("--period", type=click.STRING, help="Period name, e.g. historical, recent or now."),
+    click.option(
+        "--language",
+        type=click.Choice(["en", "de"], case_sensitive=False),
+        default="en",
+        help="Language of the field descriptions.",
+    ),
     constraint=cloup.constraints.require_all,
 )
 @debug_opt
