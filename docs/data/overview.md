@@ -84,6 +84,11 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Observation
         - recent observations (last week) of US weather stations
         - currently the list of stations is not completely right as we use a diverging source!
+- RMI (Koninklijk Meteorologisch Instituut / Royal Meteorological Institute of Belgium / Belgium)
+    - Observation
+        - observations from the automatic weather station (AWS) network in Belgium
+        - 10-minute, hourly and daily resolution
+        - ~14 stations, back to 1995; open data, no authentication required
 - WSV (Wasserstraßen- und Schifffahrtsverwaltung des Bundes / Federal Waterways and Shipping Administration)
     - Pegelonline
         - data of river network of Germany
