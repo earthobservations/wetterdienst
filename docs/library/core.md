@@ -5,7 +5,22 @@ render_plugin = "myst"
 no_index = true
 ```
 
-```{autodoc2-object} wetterdienst.model
+```{autodoc2-object} wetterdienst.model.request
+render_plugin = "myst"
+no_index = true
+```
+
+```{autodoc2-object} wetterdienst.model.values
+render_plugin = "myst"
+no_index = true
+```
+
+```{autodoc2-object} wetterdienst.model.result
+render_plugin = "myst"
+no_index = true
+```
+
+```{autodoc2-object} wetterdienst.model.metadata
 render_plugin = "myst"
 no_index = true
 ```

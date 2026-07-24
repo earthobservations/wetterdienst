@@ -34,9 +34,3 @@ Run Wetterdienst HTTP REST API service:
 ```bash
 docker run -it --rm --publish=7890:7890 ghcr.io/earthobservations/wetterdienst wetterdienst restapi --listen 0.0.0.0:7890
 ```
-
-Run Wetterdienst Explorer UI service:
-
-```bash
-docker run -it --rm --publish=7891:7891 ghcr.io/earthobservations/wetterdienst wetterdienst explorer --listen 0.0.0.0:7891
-```

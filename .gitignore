@@ -13,6 +13,7 @@ htmlcov
 .nox
 /.pytest_cache
 /docs/_build
+/docs/apidocs
 /dist
 /tmp
 /geckodriver.log

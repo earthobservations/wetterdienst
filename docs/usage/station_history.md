@@ -4,7 +4,7 @@ This section documents the station history feature implemented in the project.
 
 ## Overview
 
-Wetterdienst now includes station history retrieval and metadata versioning. The feature provides:
+Wetterdienst includes station history retrieval and metadata versioning. The feature provides:
 
 - Historical station snapshots: retrieve station metadata as it was at a given date or over a date range.
 - Lifecycle events: query events such as created, updated, decommissioned for stations.
@@ -16,8 +16,8 @@ Wetterdienst now includes station history retrieval and metadata versioning. The
 Example usage via the Python API:
 
 ```python
-from src.wetterdienst import Settings
-from src.wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst import Settings
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 settings = Settings()
 
@@ -43,6 +43,25 @@ print(history.history.parameter)
 # missing data periods
 print(history.history.missing_data)
 ```
+
+## Command line
+
+The same history is available through the `history` command. Select stations the same way
+as for `stations`/`values` (via `--station` or `--all`) and optionally narrow the result to
+specific `--sections`:
+
+```bash
+# Full history for station 1048 (Dresden-Klotzsche).
+wetterdienst history --provider dwd --network observation --parameters daily/kl --station 1048
+
+# Only the naming and geography sections.
+wetterdienst history --provider dwd --network observation --parameters daily/kl \
+  --station 1048 --sections name,geography
+```
+
+Available `--sections` are `name`, `parameter`, `device`, `geography` and `missing_data`.
+The result is returned as JSON; use `--target file://history.json` to write it to a file
+(the target must end with `.json`).
 
 ## REST API
 

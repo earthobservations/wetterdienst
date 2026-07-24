@@ -27,7 +27,7 @@ The following settings are available:
 
 | name                 | description                                                           | default                            |
 |----------------------|-----------------------------------------------------------------------|------------------------------------|
-| cache_disable        | switch of caching                                                     | False                              |
+| cache_disable        | switch off caching                                                    | False                              |
 | cache_dir            | set the directory where the cache is stored                           | platform specific / "wetterdienst" |
 | fsspec_client_kwargs | pass arguments to fsspec, especially for querying data behind a proxy | {}                                 |
 | use_certifi          | use certifi certificate bundle instead of system certificates         | False                              |

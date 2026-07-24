@@ -55,7 +55,7 @@ how the DWD calls the dataset e.g. "precipitation".
 | `PRESSURE = "pressure"`                             | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
 | `TEMPERATURE_SOIL = "soil_temperature"`             | ❌        | ❌         | ❌          | ✅      | ❌        | ✅     | ❌       | ❌      |
 | `SUNSHINE_DURATION = "sun"`                         | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `VISBILITY = "visibility"`                          | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
+| `VISIBILITY = "visibility"`                         | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
 | `WIND_SYNOPTIC = "wind_synop"`                      | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
 | `MOISTURE = "moisture"`                             | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
 | `CLIMATE_SUMMARY = "kl"`                            | ❌        | ❌         | ❌          | ❌      | ✅        | ✅     | ✅       | ✅      |
@@ -123,15 +123,18 @@ server like [data set description for historical hourly station observations of 
 Wetterdienst provides convenient access to the relevant details
 by using routines to parse specific sections of the PDF documents.
 
-For example, use commands like these for accessing this information::
+For example, use the `describe_fields` helper to access this information:
 
-    # Historical hourly station observations of precipitation for Germany.
-    # English language.
-    wetterdienst dwd about fields --parameter=precipitation --resolution=hourly --period=historical
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    # Historical 10-minute station observations of pressure, air temperature (at 5cm and 2m height), humidity and dew point for Germany.
-    # German language.
-    wetterdienst dwd about fields --parameter=air_temperature --resolution=10_minutes --period=historical --language=de
+# Historical hourly station observations of precipitation for Germany.
+fields = DwdObservationRequest.describe_fields(
+    dataset="hourly/precipitation",
+    period="historical",
+    language="en",  # or "de" for the German descriptions
+)
+```
 
 or have a look at the example program [dwd_obs_climate_summary_describe_fields.py](https://github.com/earthobservations/wetterdienst/blob/main/examples/provider/dwd/observation/dwd_obs_climate_summary_describe_fields.py).
 
