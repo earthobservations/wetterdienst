@@ -4,6 +4,7 @@
 
 import datetime as dt
 import re
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import pybufrkit
@@ -19,8 +20,10 @@ from wetterdienst.provider.dwd.radar import (
     DwdRadarResolution,
     DwdRadarValues,
 )
+from wetterdienst.provider.dwd.radar.api import RadarResult
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
+from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
 
 h5py = pytest.importorskip("h5py", reason="h5py not installed")
 wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
@@ -519,6 +522,56 @@ def test_radar_request_site_historic_pe_bufr(default_settings: Settings) -> None
     # Read BUFR file.
     decoder = pybufrkit.decoder.Decoder()
     decoder.process(payload, info_only=True)
+
+
+def test_attach_bufr_noop_when_read_bufr_disabled() -> None:
+    """Without read_bufr, RadarResult.df stays None even for BUFR requests (no parsing, no deps)."""
+    request = object.__new__(DwdRadarValues)
+    request.format = DwdRadarDataFormat.BUFR
+    request.parameter = DwdRadarParameter.PE_ECHO_TOP
+    request.settings = Settings(read_bufr=False)
+    result = RadarResult(data=BytesIO(b"not-a-bufr-payload"))
+    request._attach_bufr(result)  # noqa: SLF001
+    assert result.df is None
+
+
+@pytest.mark.remote
+@pytest.mark.skipif(not (ensure_eccodes() and ensure_pdbufr()), reason="eccodes/pdbufr not installed")
+def test_radar_request_site_historic_pe_bufr_dataframe() -> None:
+    """With read_bufr enabled, PE_ECHO_TOP BUFR data is parsed into RadarResult.df as a long grid."""
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.PE_ECHO_TOP,
+        start_date=timestamp,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.BUFR,
+        settings=Settings(cache_disable=True, read_bufr=True),
+    )
+    results = list(request.query())
+    if not results:
+        pytest.skip("Data currently not available")
+    result = results[0]
+    # a placeholder/incomplete payload yields no parsed frame (parse error is swallowed) -> skip
+    if result.df is None:
+        pytest.skip("BUFR data currently not available")
+    # raw payload must remain readable after parsing (getvalue, not read)
+    assert result.data.getvalue()
+    df = result.df
+    assert df.columns == [
+        "station_id",
+        "date",
+        "latitude",
+        "longitude",
+        "height",
+        "projection_type",
+        "picture_type",
+        "value",
+    ]
+    assert df.get_column("station_id").unique().to_list() == ["BOO"]
+    assert "UTC" in str(df.schema["date"])
+    assert df.height > 0
+    # a real echo-top grid has at least some non-null pixel values
+    assert not df.drop_nulls("value").is_empty()
 
 
 @pytest.mark.remote

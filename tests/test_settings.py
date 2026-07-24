@@ -38,6 +38,7 @@ def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.
     assert default_settings.ts_geo_station_distance["foo"] == 40.0
     assert default_settings.ts_geo_use_nearby_station_distance == 1
     assert not default_settings.use_certifi
+    assert not default_settings.read_bufr
     assert (
         caplog.messages[0]
         == "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and is thus ignored in this request."  # noqa: E501

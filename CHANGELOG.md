@@ -18,6 +18,8 @@ Types of changes:
 
 ### Added
 
+- Parse DWD radar site BUFR products (echo top, reflectivity) into a polars DataFrame on
+  `RadarResult.df`, opt-in via the `read_bufr` setting (requires the `eccodes` and `bufr` extras)
 - Add RMI (Belgium) observation provider with 10-minute, hourly and daily resolution
   from the automatic weather station (AWS) network (no authentication required)
 - Add CHMI (Czechia) observation provider with 10-minute, hourly, daily, monthly and annual

@@ -31,6 +31,7 @@ The following settings are available:
 | cache_dir            | set the directory where the cache is stored                           | platform specific / "wetterdienst" |
 | fsspec_client_kwargs | pass arguments to fsspec, especially for querying data behind a proxy | {}                                 |
 | use_certifi          | use certifi certificate bundle instead of system certificates         | False                              |
+| read_bufr            | parse DWD radar BUFR products into `RadarResult.df` (needs `eccodes` + `bufr` extras) | False               |
 
 **Timeseries**
 

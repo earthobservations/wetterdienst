@@ -12,6 +12,7 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
+from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
@@ -41,6 +42,7 @@ from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_stri
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import _parse_datetime_from_formats, raster_minutes, round_minutes
+from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 
@@ -59,6 +61,15 @@ log = logging.getLogger(__name__)
 
 DATETIME_FORMATS = ["%y%m%d%H%M", "%Y%m%d%H%M"]
 
+# The BUFR data descriptor that holds the pixel values for each site product, keyed by parameter.
+# Only the grid site products published as BUFR are covered; other formats/parameters have no entry.
+_BUFR_VALUE_FIELD = {
+    DwdRadarParameter.PE_ECHO_TOP: "echoTops",
+    DwdRadarParameter.PG_REFLECTIVITY: "horizontalReflectivity",
+    DwdRadarParameter.LMAX_VOLUME_SCAN: "horizontalReflectivity",
+    DwdRadarParameter.PX250_REFLECTIVITY: "horizontalReflectivity",
+}
+
 
 @dataclass
 class RadarResult:
@@ -68,6 +79,9 @@ class RadarResult:
     timestamp: dt.datetime | None = None
     url: str | None = None
     filename: str | None = None
+    # populated with the parsed BUFR contents (long polars frame) when Settings.read_bufr is enabled
+    # and eccodes + pdbufr are available; None otherwise -- see read_radar_bufr().
+    df: pl.DataFrame | None = None
 
     def __getitem__(self, index: int) -> dt.datetime | BytesIO | None:
         """Backward compatibility to address this instance as a tuple.
@@ -88,6 +102,47 @@ class RadarResult:
         # pragma: no cover
         msg = f"Index {index} undefined on RadarResult"
         raise KeyError(msg)
+
+
+def read_radar_bufr(data: BytesIO, parameter: DwdRadarParameter) -> pl.DataFrame:
+    """Parse a DWD radar site BUFR product into a long polars DataFrame.
+
+    Each BUFR message is a single grid product (one raster of pixel values for one timestamp), so
+    the returned frame has one row per grid pixel: the station/grid metadata (repeated) plus the
+    pixel ``value``. Missing pixels are null. ``parameter`` selects which BUFR data descriptor
+    carries the values (echo tops vs reflectivity) -- see ``_BUFR_VALUE_FIELD``.
+    """
+    import pdbufr  # noqa: PLC0415
+
+    value_field = _BUFR_VALUE_FIELD[parameter]
+    with NamedTemporaryFile("w+b", suffix=".bufr") as tf:
+        # getvalue() (not read()) leaves the caller's BytesIO position untouched, so result.data
+        # stays readable afterwards.
+        tf.write(data.getvalue())
+        tf.seek(0)
+        df = pdbufr.read_bufr(tf.name, columns="data", flat=True)
+    # a single BUFR subset -> one pandas row; leading metadata descriptors carry a "#1#" prefix
+    row = df.iloc[0]
+    date = dt.datetime(
+        int(row["#1#year"]),
+        int(row["#1#month"]),
+        int(row["#1#day"]),
+        int(row["#1#hour"]),
+        int(row["#1#minute"]),
+        tzinfo=ZoneInfo("UTC"),
+    )
+    value_columns = [column for column in df.columns if column.endswith(f"#{value_field}")]
+    values = row[value_columns].astype("float64").tolist()
+    return pl.DataFrame({"value": values}).select(
+        pl.lit(str(row["#1#shortStationName"])).alias("station_id"),
+        pl.lit(date).alias("date"),
+        pl.lit(float(row["#1#latitude"])).alias("latitude"),
+        pl.lit(float(row["#1#longitude"])).alias("longitude"),
+        pl.lit(float(row["#1#heightOfStation"])).alias("height"),
+        pl.lit(int(row["#1#projectionType"])).alias("projection_type"),
+        pl.lit(int(row["#1#pictureType"])).alias("picture_type"),
+        pl.col("value").fill_nan(None),
+    )
 
 
 # TODO: add core class information
@@ -315,6 +370,26 @@ class DwdRadarValues:  # noqa: PLW1641
             if self.end_date is None:
                 self.end_date = self.start_date + dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
 
+    def _attach_bufr(self, result: RadarResult) -> None:
+        """Attach the parsed BUFR contents to ``result.df`` when ``read_bufr`` is enabled.
+
+        No-op unless the request is for BUFR data and ``Settings.read_bufr`` is set. Requires the
+        optional eccodes + pdbufr dependencies; a missing dependency or a parse error is logged and
+        leaves ``result.df`` as ``None`` rather than failing the whole query.
+        """
+        if self.format != DwdRadarDataFormat.BUFR or not self.settings.read_bufr:
+            return
+        if not (ensure_eccodes() and ensure_pdbufr()):
+            log.warning("read_bufr is enabled but eccodes/pdbufr are unavailable; skipping BUFR parsing.")
+            return
+        if self.parameter not in _BUFR_VALUE_FIELD:
+            log.warning(f"No BUFR value mapping for {self.parameter}; skipping BUFR parsing.")
+            return
+        try:
+            result.df = read_radar_bufr(result.data, self.parameter)
+        except Exception:  # pragma: no cover
+            log.exception("Unable to read BUFR file.")
+
     def query(self) -> Iterator[RadarResult]:  # noqa: C901
         """Query radar data from the DWD server."""
         log.info(f"acquiring radar data for {self!s}")
@@ -337,6 +412,7 @@ class DwdRadarValues:  # noqa: PLW1641
 
             # Yield single "RadarResult" item.
             result = next(self._download_generic_data(url=latest_file))
+            self._attach_bufr(result)
             yield result
 
         elif self.parameter == DwdRadarParameter.RADOLAN_CDC:
@@ -424,6 +500,7 @@ class DwdRadarValues:  # noqa: PLW1641
                             verify_hdf5(result.data)
                         except Exception:  # pragma: no cover
                             log.exception("Unable to read HDF5 file.")
+                    self._attach_bufr(result)
                     yield result
 
     @staticmethod
