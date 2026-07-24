@@ -16,6 +16,6 @@ if [ "${flavor}" = "testing" ]; then
   uv sync --active --extra bufr --extra export --extra influxdb --extra interpolation --extra knmi --extra pdf --extra plotting --extra radar --extra radarplus --extra restapi --extra sql
 
 elif [ "${flavor}" = "docs" ]; then
-  uv sync --active --extra interpolation --group docs
+  uv sync --active --extra interpolation --extra radar --extra radarplus --group docs
 
 fi
