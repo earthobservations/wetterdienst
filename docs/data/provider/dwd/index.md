@@ -4,34 +4,27 @@
 
 The data as offered by the DWD through ``wetterdienst`` includes:
 
-- Historical Weather Observations
-    - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
+- [Observation](observation/index.md) — historical weather observations
+    - historical (reaching back to the 19th century), recent (~500 days to yesterday) and now
+      (yesterday up to the last hour) periods
     - every minute to yearly resolution
-    - Time series of stations in Germany
-- Mosmix 
-    - statistical optimized scalar forecasts extracted from weather models
-    - Point forecast
-    - 5400 stations worldwide
-    - Both MOSMIX-L and MOSMIX-S is supported
-    - Up to 115 parameters
-- DMO
-    - scalar forecasts extracted from weather models
-    - Point forecast
-    - ICON and ICON-EU model
-    - 78 hours lead time
-    - Hourly and 3-hourly resolution
-    - 115 parameters
-    - 5400 stations worldwide
-- Radar
-    - 16 locations in Germany
-    - All of composite, radolan, radvor, sites and radolan_cdc
-    - Radolan: calibrated radar precipitation
-    - Radvor: radar precipitation forecast
-- derived technical products
-    - Secondary data products from primary weather observations
-    - Currently only data product heating_degreedays supported
-    - Monthly resolution
-    - From stations in Germany
+    - time series of over 1000 stations in Germany
+- [Mosmix](mosmix/index.md) — statistically optimized point forecasts derived from weather models
+    - MOSMIX-S (~40 parameters, updated hourly) and MOSMIX-L (~115 parameters, updated every 6 hours)
+    - over 5000 stations worldwide, forecast horizon up to 240 hours
+- [DMO](dmo/index.md) — raw point forecasts extracted from weather models (no statistical postprocessing)
+    - ICON (global) and ICON-EU (regional) models
+    - hourly resolution (78 h lead time) and, for ICON, additional 3-hourly resolution (168 h lead time)
+    - over 5000 stations worldwide
+- [Road](road/index.md) — weather observations from German motorway ("road") stations
+    - 15-minute resolution, distributed in BUFR format
+- [Radar](radar/index.md) — radar-based precipitation products
+    - composite, radolan, radvor, sites and radolan_cdc
+    - RADOLAN: gauge-calibrated areal precipitation; RADVOR: radar-based precipitation forecast
+- [Derived products](derived/index.md) — secondary products computed from primary observations
+    - technical products (heating/cooling degree days, climate correction factor) and climate
+      products (radiation & sunshine duration, soil data)
+    - hourly, daily and monthly resolution, for stations in Germany
 
 For a quick overview of the work of the DWD check the current 
 [dwd report](https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14) 
