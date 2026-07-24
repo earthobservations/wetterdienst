@@ -36,6 +36,8 @@ Types of changes:
 
 - Parse NOAA GHCN-hourly (GHCNh) timestamps from the provided ISO date column instead of
   reconstructing them from separate year/month/day/hour/minute fields
+- Fix the `about fields` CLI command, which crashed with a `TypeError` because it forwarded
+  `resolution` as a separate argument to `describe_fields()`
 
 ## [0.128.0] - 2026-07-22
 
