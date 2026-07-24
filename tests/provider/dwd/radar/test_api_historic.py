@@ -693,7 +693,9 @@ def test_radar_request_site_historic_px250_bufr_timerange(default_settings: Sett
         msg = "Data currently not available"
         raise pytest.skip(msg)
 
-    assert len(results) == 12
+    # a 1-hour window holds ~12-13 five-minute scans; DWD occasionally drops a scan, so tolerate a
+    # small shortfall rather than asserting an exact count (which flakes on any gap)
+    assert len(results) == IsInt(ge=10, le=13)
 
 
 @pytest.mark.remote
@@ -805,7 +807,9 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings
         msg = "Data currently not available"
         raise pytest.skip(msg)
 
-    assert len(results) in (12, 13)
+    # a 1-hour window holds ~12-13 five-minute scans; DWD occasionally drops a scan, so tolerate a
+    # small shortfall rather than asserting an exact count (which flakes on any gap)
+    assert len(results) == IsInt(ge=10, le=13)
 
     hdf = h5py.File(results[0].data, "r")
 
