@@ -39,6 +39,11 @@ _UTC = ZoneInfo("UTC")
 # GeoServer serves the whole matched set in one page for realistic station/date windows, but
 # paginate defensively (startIndex/count) so a very long range can never hit a server-side cap.
 _PAGE_LIMIT = 500_000
+# Hard runaway guard on the paging loop. At _PAGE_LIMIT rows/page this bounds a single query to
+# billions of rows -- orders of magnitude beyond any real station/window -- so it never trims a
+# legitimate result, but guarantees termination even against a server that ignores startIndex or
+# omits numberMatched (which would otherwise loop forever fetching duplicate full pages).
+_MAX_PAGES = 10_000
 
 _EMPTY_VALUES_SCHEMA = {
     "resolution": pl.String,
@@ -113,11 +118,12 @@ class RmiObservationValues(TimeseriesValues):
         until the response's ``numberMatched`` total has been covered (or a page comes back
         empty). This is robust to a server-side page cap below ``_PAGE_LIMIT``: relying on a
         "short page" alone would stop early and silently drop rows if the server ever returns
-        fewer features than requested. Stops on the first download error.
+        fewer features than requested. The loop is bounded by ``_MAX_PAGES`` as a runaway guard.
+        Stops on the first download error.
         """
         start_index = 0
         number_matched: int | None = None
-        while True:
+        for _ in range(_MAX_PAGES):
             # `sortBy` is mandatory once `startIndex` paging is used: the feature types have no
             # primary key, so GeoServer otherwise rejects the request ("Cannot do natural order
             # without a primary key"). Sorting by timestamp also makes the paging deterministic.
@@ -157,6 +163,9 @@ class RmiObservationValues(TimeseriesValues):
             elif df.height < _PAGE_LIMIT:
                 # numberMatched absent (unexpected): fall back to the short-page heuristic
                 return
+        # only reached if the loop never hit a natural stop -- a misbehaving server (ignoring
+        # startIndex or omitting numberMatched). Bail out with a warning rather than loop forever.
+        log.warning(f"RMI pagination exceeded {_MAX_PAGES} pages (filter {cql_filter!r}); stopping early")
 
     def _collect_station_parameter_or_dataset(
         self,

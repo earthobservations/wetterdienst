@@ -146,6 +146,25 @@ def test_iter_value_pages_numbermatched_drives_paging_when_server_caps_page(
     assert sum(df.height for df in dfs) == 5
 
 
+def test_iter_value_pages_runaway_guard_stops_after_max_pages(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A server returning full pages forever without numberMatched stops after _MAX_PAGES, warning."""
+    monkeypatch.setattr(rmi_api, "_PAGE_LIMIT", 2)
+    monkeypatch.setattr(rmi_api, "_MAX_PAGES", 3)
+
+    def fake_download_file(*, url: str, **_: object) -> File:  # noqa: ARG001
+        # always a full page (== _PAGE_LIMIT), never an empty/short page, no numberMatched
+        return _feature_file(2)
+
+    monkeypatch.setattr(rmi_api, "download_file", fake_download_file)
+    with caplog.at_level(logging.WARNING, logger=rmi_api.log.name):
+        dfs = _iter_pages(object.__new__(rmi_api.RmiObservationValues))
+    assert len(dfs) == 3  # exactly _MAX_PAGES pages, then the guard bails out
+    assert any("exceeded 3 pages" in record.message for record in caplog.records)
+
+
 def test_iter_value_pages_single_short_page_stops_immediately(monkeypatch: pytest.MonkeyPatch) -> None:
     """A first page shorter than the limit ends pagination after one request."""
     monkeypatch.setattr(rmi_api, "_PAGE_LIMIT", 100)
