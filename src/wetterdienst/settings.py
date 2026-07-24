@@ -107,6 +107,9 @@ class Settings(BaseSettings):
     )
     auth: Auth = Field(default_factory=Auth)
     use_certifi: bool = Field(default=False)
+    # opt-in: parse DWD radar BUFR files into a polars DataFrame (RadarResult.df). Requires the
+    # optional eccodes + pdbufr dependencies; off by default because parsing is expensive.
+    read_bufr: bool = Field(default=False)
     ts_humanize: bool = True
     ts_shape: Literal["wide", "long"] = "long"
     ts_convert_units: bool = True
