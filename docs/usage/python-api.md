@@ -479,228 +479,12 @@ print(values.df.head())
 values.df_stations
 ```
 
-### Interpolation
+### Interpolation & Summary
 
-Occasionally, you may require data specific to your precise location rather than relying on values measured at a
-station's location. To address this need, we have introduced an interpolation feature, enabling you to interpolate data
-from nearby stations to your exact coordinates. The function leverages the four closest stations to your specified
-latitude and longitude and employs the bilinear interpolation method provided by the scipy package (interp2d) to
-interpolate the given parameter values. Currently, this interpolation feature supports the following parameters:
-
-**Large spatial correlation (~40 km default search radius)** — homogeneous fields that vary slowly across regions:
-
-*Temperature:*
-``temperature_air_2m``, ``temperature_air_mean_2m``, ``temperature_air_mean_2m_last_24h``,
-``temperature_air_max_2m``, ``temperature_air_max_2m_last_24h``, ``temperature_air_max_2m_mean``, ``temperature_air_max_2m_multiday``,
-``temperature_air_min_2m``, ``temperature_air_min_2m_last_24h``, ``temperature_air_min_2m_mean``, ``temperature_air_min_2m_multiday``,
-``temperature_air_mean_0_05m``, ``temperature_air_max_0_05m``, ``temperature_air_min_0_05m``, ``temperature_air_min_0_05m_last_12h``,
-``temperature_dew_point_mean_2m``, ``temperature_wet_mean_2m``, ``temperature_wind_chill``, ``temperature_surface_mean``,
-``temperature_soil_mean_0_02m``, ``temperature_soil_mean_0_05m``, ``temperature_soil_mean_0_1m``, ``temperature_soil_mean_0_2m``,
-``temperature_soil_mean_0_5m``, ``temperature_soil_mean_1m``, ``temperature_soil_mean_2m``,
-``temperature_soil_min_0_1m``, ``temperature_soil_min_0_2m``, ``temperature_soil_min_0_5m``, ``temperature_soil_min_1m``, ``temperature_soil_min_2m``,
-``temperature_soil_max_0_1m``, ``temperature_soil_max_0_2m``, ``temperature_soil_max_0_5m``, ``temperature_soil_max_1m``, ``temperature_soil_max_2m``,
-``heating_degree_day``, ``cooling_degree_hour``
-
-*Humidity:*
-``humidity``, ``humidity_absolute``, ``humidity_max``, ``humidity_min``, ``humidex``
-
-*Wind:*
-``wind_speed``, ``wind_speed_arithmetic``, ``wind_speed_min``, ``wind_speed_rolling_mean_max``, ``wind_force_beaufort``,
-``wind_movement_24h``, ``wind_movement_multiday``,
-``wind_gust_max``, ``wind_gust_max_last_1h``, ``wind_gust_max_last_3h``, ``wind_gust_max_last_6h``, ``wind_gust_max_last_12h``,
-``wind_gust_max_5sec``, ``wind_gust_max_1min``, ``wind_gust_max_2min``, ``wind_gust_max_instant``, ``wind_gust_max_1mile``
-
-*Snow (accumulated depth):*
-``snow_depth``, ``snow_depth_excelled``, ``snow_depth_manual``, ``snow_depth_max``,
-``water_equivalent_snow_depth``, ``water_equivalent_snow_depth_excelled``
-
-*Solar / Radiation:*
-``sunshine_duration``, ``sunshine_duration_last_3h``, ``sunshine_duration_yesterday``,
-``sunshine_duration_relative``, ``sunshine_duration_relative_last_24h``,
-``radiation_global``, ``radiation_global_last_3h``,
-``radiation_sky_short_wave_diffuse``, ``radiation_sky_short_wave_direct``,
-``radiation_sky_long_wave``, ``radiation_sky_long_wave_last_3h``
-
-*Pressure:*
-``pressure_air_sea_level``, ``pressure_air_site``, ``pressure_air_site_reduced``,
-``pressure_air_site_max``, ``pressure_air_site_min``, ``pressure_air_site_delta_last_3h``, ``pressure_vapor``
-
-*Cloud cover:*
-``cloud_cover_total``, ``cloud_cover_total_midnight_to_midnight``, ``cloud_cover_total_sunrise_to_sunset``, ``cloud_cover_effective``
-
-*Evapotranspiration / Evaporation:*
-``evapotranspiration_potential_last_24h``, ``evapotranspiration_potential_gras_fao_last_24h``,
-``evapotranspiration_potential_gras_haude_last_24h``, ``evaporation_height``, ``evaporation_height_multiday``
-
-**Short spatial correlation (~20 km default search radius)** — heterogeneous fields that vary more locally:
-
-*Precipitation:*
-``precipitation_height``, ``precipitation_height_day``, ``precipitation_height_night``,
-``precipitation_height_liquid``, ``precipitation_height_droplet``, ``precipitation_height_rocker``,
-``precipitation_height_last_1h``, ``precipitation_height_last_3h``, ``precipitation_height_last_6h``,
-``precipitation_height_last_9h``, ``precipitation_height_last_12h``, ``precipitation_height_last_15h``,
-``precipitation_height_last_18h``, ``precipitation_height_last_21h``, ``precipitation_height_last_24h``,
-``precipitation_height_multiday``,
-``precipitation_height_significant_weather_last_1h``, ``precipitation_height_significant_weather_last_3h``,
-``precipitation_height_significant_weather_last_6h``, ``precipitation_height_significant_weather_last_12h``,
-``precipitation_height_significant_weather_last_24h``,
-``precipitation_height_liquid_significant_weather_last_1h``,
-``precipitation_height_max``, ``precipitation_height_liquid_max``, ``precipitation_duration``
-
-*New snow per period:*
-``snow_depth_new``, ``snow_depth_new_multiday``, ``snow_depth_new_max``,
-``water_equivalent_snow_depth_new``, ``water_equivalent_snow_depth_new_last_1h``, ``water_equivalent_snow_depth_new_last_3h``
-
-
-There are several settings that can be used to control the interpolation behavior:
-
-| Name                               | Type             | Default                                      | Description                                                                                                                                                                                                             |
-|------------------------------------|------------------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| ts_geo_station_distance            | dict[str, float] | 20.0 (precipitation and new-snow variants)<br/>40.0 (other) | Max distance for stations used for interpolation (in km)                                                                                                                                                                |
-| ts_geo_use_nearby_station_distance | float            | 1.0                                          | Distance (in km) until which the value of a nearby station is used instead of interpolation.                                                                                                                            |
-| ts_geo_min_gain_of_value_pairs     | float            | 0.1                                          | Minimum gain of value pairs [for an additional station] to be included in the list of stations used. This is to prevent taking all stations into account in case of a dense station network.                            |
-| ts_geo_num_additional_stations     | int              | 3                                            | Number of additional stations to be used for interpolation regardless of min_gain_of_value_pairs. This is to ensure that at least a certain number of stations are used for interpolation, even if the gain is not met. |
-
-The graphic below shows values of the parameter ``temperature_air_mean_2m`` from multiple stations measured at the same
-time.
-The blue points represent the position of a station and includes the measured value.
-The red point represents the position of the interpolation and includes the interpolated value.
-
-![interpolation example](../assets/interpolation.png)
-
-Values represented as a table:
-
-| station_id | resolution | dataset         | parameter               | date                      | value  |
-|------------|------------|-----------------|-------------------------|---------------------------|--------|
-| 02480      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 278.15 |
-| 04411      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 277.15 |
-| 07341      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 278.35 |
-| 00917      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 276.25 |
-
-The interpolated value looks like this:
-
-| resolution | dataset         | parameter               | date                      | value  |
-|------------|-----------------|-------------------------|---------------------------|--------|
-| daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 277.65 |
-
-```{code-cell}
----
-mystnb:
-  number_source_lines: true
----
-import datetime as dt
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
-)
-values = request.interpolate(latlon=(50.0, 8.9))
-df = values.df
-df
-```
-
-Instead of a latlon you may alternatively use an existing station id for which to interpolate values in a manner of
-getting a more complete dataset:
-
-```{code-cell}
----
-mystnb:
-  number_source_lines: true
----
-import datetime as dt
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
-)
-values = request.interpolate_by_station_id(station_id="02480")
-df = values.df
-df
-```
-
-Increase maximum distance for interpolation:
-
-```{code-cell}
----
-mystnb:
-  number_source_lines: true
----
-import datetime as dt
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst import Settings
-
-settings = Settings(ts_interpolation_station_distance={"precipitation_height": 25.0})
-request = DwdObservationRequest(
-    parameters=("hourly", "precipitation", "precipitation_height"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
-    settings=settings
-)
-values = request.interpolate(latlon=(52.8, 12.9))
-df = values.df
-df
-```
-
-Interpolation is still in its early stages, we welcome feedback to enhance and refine its functionality.
-
-### Summary
-
-Similar to interpolation you may sometimes want to combine multiple stations to get a complete list of data. For that
-reason you can use `.summary(latlon)`, which goes through nearest stations and combines data from them meaningful. The
-following figure visualizes how summary works. The first graph shows the summarized values of the parameter
-``temperature_air_mean_2m`` from multiple stations.
-
-![summary example](../assets/summary.png)
-
-The code to execute the summary is given below. It currently only works for ``DwdObservationRequest`` and individual
-parameters.
-Currently, the following parameters are supported (more will be added if useful): ``temperature_air_mean_2m``,
-``wind_speed``, ``precipitation_height``.
-
-```{code-cell}
----
-mystnb:
-  number_source_lines: true
----
-import datetime as dt
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
-)
-values = request.summarize(latlon=(50.0, 8.9))
-df = values.df
-df
-```
-
-Instead of a latlon you may alternatively use an existing station id for which to summarize values in a manner of
-getting a more complete dataset:
-
-```{code-cell}
----
-mystnb:
-  number_source_lines: true
----
-import datetime as dt
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
-)
-values = request.summarize_by_station_id(station_id="02480")
-df = values.df
-df
-```
-
-Summary is still in its early stages, we welcome feedback to enhance and refine its functionality.
+Wetterdienst can derive a time series for an arbitrary location from the surrounding
+station network, either by spatial interpolation or by combining the nearest available
+stations. See the dedicated [Interpolation & Summary](interpolation.md) chapter for the
+full explanation, supported parameters, settings, CLI and REST usage.
 
 ### Format
 
@@ -901,7 +685,7 @@ The argument `if_exists` supports the following modes:
 - `append`: Insert new values to the existing table (not supported by files).
 - `skip`: Do nothing if the table/file already exists.
 
-### Caching
+## Caching
 
 The backbone of wetterdienst uses fsspec caching. It requires to create a directory under ``/home`` for the
 most cases. If you are not allowed to write into ``/home`` you will run into ``OSError``. For this purpose you can set
@@ -927,7 +711,7 @@ Or similarly with the cli:
 !wetterdienst cache
 ```
 
-### FSSPEC
+## FSSPEC
 
 FSSPEC is used for flexible file caching. It relies on the two libraries requests and aiohttp. Aiohttp is used for
 asynchronous requests and may swallow some errors related to proxies, ssl or similar. Use the defined variable
