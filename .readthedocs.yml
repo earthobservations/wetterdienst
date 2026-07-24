@@ -3,7 +3,7 @@
 
 # Details
 # - https://docs.readthedocs.io/en/stable/config-file/v2.html
-# - https://docs.readthedocs.io/en/stable/build-customization.html#install-dependencies-with-poetry
+# - https://docs.readthedocs.io/en/stable/build-customization.html#extend-the-build-process
 
 # Required
 version: 2
@@ -16,11 +16,10 @@ build:
   # https://docs.readthedocs.io/en/stable/build-customization.html#extend-the-build-process
   jobs:
     post_install:
-      # setuptools has been downgraded to 58.2.0, so upgrade again.
+      # RTD pins an old setuptools into the venv; upgrade it before installing.
       - pip install --upgrade setuptools
       - pip install uv
-      # Install project's dependencies.
-      # see https://github.com/python-poetry/poetry/issues/9025
+      # Install the project and the "docs" dependency group via uv (see install.sh).
       - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH .github/workflows/install.sh docs
 
 sphinx:
