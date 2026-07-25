@@ -330,6 +330,16 @@ df = stations.df
 df
 ```
 
+```{note}
+Unlike `filter_by_distance`, `filter_by_rank` returns **all** stations sorted by
+distance in `stations.df`, not just `rank` rows. The `rank` limit is applied lazily
+during value collection: Wetterdienst walks the distance-sorted stations and stops
+once `rank` stations *with data* have been consumed (see `ts_skip_empty` and related
+settings below). To see the `rank` closest stations that actually returned data, use
+`stations.values.all().df_stations` rather than `stations.df`. Set
+`ts_skip_empty=False` to take the `rank` closest stations regardless of availability.
+```
+
 #### filter by bbox
 
 ```{code-cell}
