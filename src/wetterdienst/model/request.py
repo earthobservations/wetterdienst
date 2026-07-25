@@ -551,14 +551,26 @@ class TimeseriesRequest:
     ) -> StationsResult:
         """Filter stations by rank.
 
-        Rank is defined by distance to the requested point.
+        Rank is defined by distance to the requested point. The resulting
+        ``StationsResult.df`` holds **all** stations sorted by distance, not just
+        ``rank`` rows: because we cannot know upfront which stations actually carry
+        data for the request, the ``rank`` limit is applied lazily while collecting
+        values. Value collection walks the distance-sorted stations and stops once
+        ``rank`` stations with data (per the ``ts_skip_empty`` / ``ts_skip_threshold``
+        / ``ts_skip_criteria`` settings) have been consumed. The stations that ended
+        up contributing values are then exposed via ``ValuesResult.df_stations``.
+
+        In other words, use ``stations.values.all().df_stations`` (not
+        ``stations.df``) to see the ``rank`` closest stations that actually returned
+        data. Set ``ts_skip_empty=False`` to simply take the ``rank`` closest
+        stations regardless of data availability.
 
         Args:
             latlon: Latitude and longitude for the requested point.
             rank: Number of stations requested.
 
         Returns:
-            StationsResult: Filtered stations.
+            StationsResult: Stations sorted by distance (see note above on ``rank``).
 
         """
         from wetterdienst.util.geo import derive_nearest_neighbours  # noqa: PLC0415
