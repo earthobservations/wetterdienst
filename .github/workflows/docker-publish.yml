@@ -1,7 +1,11 @@
 # Stage Docker images through GitHub Actions (GHA) to GitHub Container Registry (GHCR).
 #
+# Multi-arch strategy: each platform is built natively on its own runner
+# (amd64 on ubuntu-latest, arm64 on ubuntu-24.04-arm) and pushed by digest, then a
+# merge job assembles the multi-arch manifest list. This avoids slow QEMU emulation.
+#
 # Derived from:
-# https://github.com/crate/cratedb-prometheus-adapter/blob/main/.github/workflows/release.yml
+# https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
 name: Release Docker Backend
 
 on:
@@ -33,11 +37,15 @@ concurrency:
 # The name for the produced image at ghcr.io.
 env:
   IMAGE_NAME: "${{ github.repository }}"
-  PYTHON: "3.14"
+  REGISTRY_IMAGE: "ghcr.io/${{ github.repository }}"
 
 jobs:
+  # PR gate / pre-release smoke test: build the amd64 image natively and run it.
+  # No image is pushed here; multi-arch publishing happens only on non-PR events.
   build_and_test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Acquire sources
         uses: actions/checkout@v7
@@ -54,61 +62,48 @@ jobs:
           file: docker/Dockerfile
           load: true
           tags: wd:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=linux-amd64
+          cache-to: type=gha,mode=max,scope=linux-amd64
 
       - name: Run tests
         run: docker run wd:test wetterdienst info
 
-  docker:
+  # Build each platform natively and push it by digest (release/nightly/manual only).
+  build:
     needs: build_and_test
-    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ${{ matrix.runner }}
     permissions:
+      contents: read
       packages: write
-    if: ${{ ! (startsWith(github.actor, 'dependabot') || github.event.pull_request.head.repo.fork ) }}
-
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
+      - name: Prepare platform pair
+        id: prep
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: echo "pair=${PLATFORM//\//-}" >> "$GITHUB_OUTPUT"
+
       - name: Acquire sources
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
           persist-credentials: false
 
-      - name: Docker meta
+      - name: Docker meta (labels)
         id: meta
         uses: docker/metadata-action@v6
         with:
-          # List of Docker images to use as base name for tags
-          images: |
-            ghcr.io/${{ env.IMAGE_NAME }}
-          # Generate Docker tags based on the following events/attributes
-          tags: |
-            type=schedule,pattern=nightly
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-
-      - name: Inspect meta # zizmor: ignore[template-injection]
-        run: |
-          echo "Tags:      ${{ steps.meta.outputs.tags }}"
-          echo "Labels:    ${{ steps.meta.outputs.labels }}"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-        with:
-          platforms: linux/amd64,linux/arm64  # TODO: add linux/arm/v7
+          images: ${{ env.REGISTRY_IMAGE }}
 
       - name: Set up Docker Buildx
-        id: buildx
         uses: docker/setup-buildx-action@v4 # zizmor: ignore[cache-poisoning]
-
-      - name: Inspect builder # zizmor: ignore[template-injection]
-        run: |
-          echo "Name:      ${{ steps.buildx.outputs.name }}"
-          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
-          echo "Status:    ${{ steps.buildx.outputs.status }}"
-          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
-          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
 
       - name: Login to GHCR
         uses: docker/login-action@v4
@@ -117,24 +112,80 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ github.token }}
 
-      - name: Build and push
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
-          platforms: linux/amd64,linux/arm64  # TODO: add linux/arm/v7
-          tags: ${{ steps.meta.outputs.tags }}
+          platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ steps.prep.outputs.pair }}
+          cache-to: type=gha,mode=max,scope=${{ steps.prep.outputs.pair }}
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           provenance: false
 
-      - name: Display git status
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          set -x
-          git describe --tags
-          git status
+          mkdir -p "${RUNNER_TEMP}/digests"
+          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ steps.prep.outputs.pair }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Assemble the multi-arch manifest list from the per-platform digests, then deploy.
+  merge:
+    needs: build
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Docker meta (tags)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            type=schedule,pattern=nightly
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4 # zizmor: ignore[cache-poisoning]
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ github.token }}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${REGISTRY_IMAGE}@sha256:%s " *)
+
+      - name: Inspect image
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: docker buildx imagetools inspect "${REGISTRY_IMAGE}:${VERSION}"
 
       - name: Deploy to Coolify
         run: |
