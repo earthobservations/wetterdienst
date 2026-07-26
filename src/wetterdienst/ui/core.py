@@ -36,15 +36,163 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# Field type aliases with descriptions, shared across the request models below. The descriptions
+# surface in the REST API's OpenAPI schema and, via it, in the MCP tool parameters, so a single
+# edit here documents both surfaces. Optional fields fold "| None" into the alias so the description
+# is attached to the field itself (pydantic drops it from a bare "Alias | None" union).
+_ProviderField = Annotated[
+    str,
+    Field(description="Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."),
+]
+_NetworkField = Annotated[
+    str,
+    Field(description="Data network of the provider, e.g. 'observation'. List valid combinations via coverage."),
+]
+_ParametersField = Annotated[
+    list[str],
+    Field(
+        description="Parameters as 'resolution/dataset' (e.g. 'daily/kl') or "
+        "'resolution/dataset/parameter' (e.g. 'daily/climate_summary/temperature_air_mean_2m'); "
+        "multiple allowed, comma-separated.",
+    ),
+]
+_PeriodsField = Annotated[
+    list[str] | None,
+    Field(description="Dataset periods: 'historical', 'recent' and/or 'now'. Inferred from the date when omitted."),
+]
+_LeadTimeField = Annotated[
+    Literal["short", "long"] | None,
+    Field(description="Forecast lead time for DWD DMO ('short' or 'long'); ignored for other networks."),
+]
+_IssueField = Annotated[
+    str | None,
+    Field(description="Model-run issue time for DWD MOSMIX/DMO (ISO 8601); defaults to the latest run."),
+]
+_AllField = Annotated[bool | None, Field(description="Return all stations, ignoring the station/name/geo filters.")]
+_StationIdsField = Annotated[
+    list[str] | None,
+    Field(description="One or more station ids to query, e.g. '01048' or '01048,04411'."),
+]
+_StationIdField = Annotated[str, Field(description="Station id used as the reference location, e.g. '01048'.")]
+_StationIdOptField = Annotated[
+    str | None,
+    Field(description="Station id used as the reference location, e.g. '01048'."),
+]
+_NameField = Annotated[
+    str | None,
+    Field(description="Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'."),
+]
+_NameThresholdField = Annotated[
+    float,
+    Field(ge=0, le=1, description="Minimum fuzzy-match score for `name` (0 = any match, 1 = exact)."),
+]
+_LatitudeField = Annotated[
+    float | None,
+    Field(ge=-90, le=90, description="Latitude of the reference point for geospatial filtering or interpolation."),
+]
+_LongitudeField = Annotated[
+    float | None,
+    Field(ge=-180, le=180, description="Longitude of the reference point for geospatial filtering or interpolation."),
+]
+_RankField = Annotated[
+    int | None,
+    Field(ge=1, description="Return the N closest stations to the given latitude/longitude."),
+]
+_DistanceField = Annotated[
+    float | None,
+    Field(ge=0, description="Return stations within this many kilometres of the given latitude/longitude."),
+]
+_LeftField = Annotated[float | None, Field(ge=-180, le=180, description="Western longitude of the bounding box.")]
+_BottomField = Annotated[float | None, Field(ge=-90, le=90, description="Southern latitude of the bounding box.")]
+_RightField = Annotated[float | None, Field(ge=-180, le=180, description="Eastern longitude of the bounding box.")]
+_TopField = Annotated[float | None, Field(ge=-90, le=90, description="Northern latitude of the bounding box.")]
+_SqlField = Annotated[
+    str | None,
+    Field(description="SQL WHERE clause applied to the station metadata, e.g. \"state='Sachsen'\"."),
+]
+_SqlValuesField = Annotated[
+    str | None,
+    Field(description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0".'),
+]
+_WithMetadataField = Annotated[bool, Field(description="Include the provider-metadata block in the output.")]
+_WithStationsField = Annotated[bool, Field(description="Include the queried stations' metadata block in the output.")]
+_FormatField = Annotated[
+    Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"],
+    Field(description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."),
+]
+_PrettyField = Annotated[bool, Field(description="Pretty-print JSON/GeoJSON output.")]
+_DebugField = Annotated[bool, Field(description="Enable debug logging.")]
+_WidthField = Annotated[int | None, Field(gt=0, description="Width of the rendered chart image in pixels.")]
+_HeightField = Annotated[int | None, Field(gt=0, description="Height of the rendered chart image in pixels.")]
+_ScaleField = Annotated[float | None, Field(gt=0, description="Scale factor of the rendered chart image.")]
+_DateField = Annotated[
+    str,
+    Field(description="Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'."),
+]
+_DateOptField = Annotated[
+    str | None,
+    Field(description="Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'."),
+]
+_ShapeField = Annotated[
+    Literal["long", "wide"],
+    Field(description="Output shape: 'long' (one row per value) or 'wide' (one column per parameter)."),
+]
+_HumanizeField = Annotated[bool, Field(description="Use human-readable parameter names instead of raw dataset codes.")]
+_ConvertUnitsField = Annotated[bool, Field(description="Convert values to SI units.")]
+_UnitTargetsField = Annotated[
+    dict[str, str] | None,
+    Field(
+        description="Custom unit targets as a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}."
+    ),
+]
+_SkipEmptyField = Annotated[
+    bool, Field(description="Skip stations whose null-value fraction exceeds `skip_threshold`.")
+]
+_SkipThresholdField = Annotated[
+    float,
+    Field(ge=0, le=1, description="Null-value fraction above which a station is skipped (requires `skip_empty`)."),
+]
+_SkipCriteriaField = Annotated[
+    Literal["min", "mean", "max"],
+    Field(description="Aggregation used to measure a station's null fraction: min, mean or max."),
+]
+_DropNullsField = Annotated[bool, Field(description="Drop rows with null values from the output.")]
+_SectionsField = Annotated[
+    set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
+    Field(description="History sections to include: name, parameter, device, geography, missing_data."),
+]
+_InterpolationStationDistanceField = Annotated[
+    dict[str, Annotated[float, Field(ge=0.0)]] | None,
+    Field(description="Per-parameter maximum interpolation-station distance in km, overriding the default."),
+]
+_SummaryStationDistanceField = Annotated[
+    dict[str, Annotated[float, Field(ge=0.0)]] | None,
+    Field(description="Per-parameter maximum summary-station distance in km, overriding the default."),
+]
+_UseNearbyStationDistanceField = Annotated[
+    float,
+    Field(
+        ge=0, description="Use a nearby station's values directly when it is within this distance (km) of the target."
+    ),
+]
+_MinGainOfValuePairsField = Annotated[
+    float,
+    Field(ge=0, description="Minimum relative gain in value pairs required to add another interpolation station."),
+]
+_NumAdditionalStationsField = Annotated[
+    int,
+    Field(ge=0, description="Number of additional nearby stations to consider for interpolation."),
+]
+
 
 class StationsRequest(BaseModel):
     """Stations request with validated parameters."""
 
     model_config = {"extra": "forbid"}
 
-    provider: str
-    network: str
-    parameters: list[str]
+    provider: _ProviderField
+    network: _NetworkField
+    parameters: _ParametersField
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -60,7 +208,7 @@ class StationsRequest(BaseModel):
                 parameters.append(item)
         return parameters
 
-    periods: list[str] | None = None
+    periods: _PeriodsField = None
 
     @field_validator("periods", mode="before")
     @classmethod
@@ -79,13 +227,13 @@ class StationsRequest(BaseModel):
         return periods
 
     # Mosmix/DMO
-    lead_time: Literal["short", "long"] | None = None
-    issue: str | None = None
+    lead_time: _LeadTimeField = None
+    issue: _IssueField = None
 
     # station filter parameters
-    all: bool | None = False
+    all: _AllField = False
     # station ids
-    station: list[str] | None = None
+    station: _StationIdsField = None
 
     @field_validator("station", mode="before")
     @classmethod
@@ -104,32 +252,32 @@ class StationsRequest(BaseModel):
         return stations
 
     # station name
-    name: str | None = None
-    name_threshold: Annotated[float, Field(ge=0, le=1)] = 0.8
+    name: _NameField = None
+    name_threshold: _NameThresholdField = 0.8
     # latlon
-    latitude: Annotated[float, Field(ge=-90, le=90)] | None = None
-    longitude: Annotated[float, Field(ge=-180, le=180)] | None = None
-    rank: Annotated[int, Field(ge=1)] | None = None
-    distance: Annotated[float, Field(ge=0)] | None = None
+    latitude: _LatitudeField = None
+    longitude: _LongitudeField = None
+    rank: _RankField = None
+    distance: _DistanceField = None
     # bbox
-    left: Annotated[float, Field(ge=-180, le=180)] | None = None
-    bottom: Annotated[float, Field(ge=-90, le=90)] | None = None
-    right: Annotated[float, Field(ge=-180, le=180)] | None = None
-    top: Annotated[float, Field(ge=-90, le=90)] | None = None
+    left: _LeftField = None
+    bottom: _BottomField = None
+    right: _RightField = None
+    top: _TopField = None
     # sql
-    sql: str | None = None
+    sql: _SqlField = None
 
-    with_metadata: bool = False
-    with_stations: bool = False
+    with_metadata: _WithMetadataField = False
+    with_stations: _WithStationsField = False
 
-    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
-    pretty: bool = False
-    debug: bool = False
+    format: _FormatField = "json"
+    pretty: _PrettyField = False
+    debug: _DebugField = False
 
     # plot settings
-    width: Annotated[int, Field(gt=0)] | None = None
-    height: Annotated[int, Field(gt=0)] | None = None
-    scale: Annotated[float, Field(gt=0)] | None = None
+    width: _WidthField = None
+    height: _HeightField = None
+    scale: _ScaleField = None
 
 
 class HistoryRequest(BaseModel):
@@ -140,9 +288,9 @@ class HistoryRequest(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    provider: str
-    network: str
-    parameters: list[str]
+    provider: _ProviderField
+    network: _NetworkField
+    parameters: _ParametersField
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -159,11 +307,11 @@ class HistoryRequest(BaseModel):
         return parameters
 
     # allow selecting all stations
-    all: bool | None = False
+    all: _AllField = False
 
     # station filter parameters
     # For history requests we accept one or more station ids (list) or 'all'.
-    station: list[str] | None = None
+    station: _StationIdsField = None
 
     @field_validator("station", mode="before")
     @classmethod
@@ -181,7 +329,7 @@ class HistoryRequest(BaseModel):
                 stations.append(item)
         return stations
 
-    sections: set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None = None
+    sections: _SectionsField = None
 
     @field_validator("sections", mode="before")
     @classmethod
@@ -199,11 +347,11 @@ class HistoryRequest(BaseModel):
                 parameters.append(item)
         return set(parameters)
 
-    with_metadata: bool = False
-    with_stations: bool = False
+    with_metadata: _WithMetadataField = False
+    with_stations: _WithStationsField = False
 
-    pretty: bool = False
-    debug: bool = False
+    pretty: _PrettyField = False
+    debug: _DebugField = False
 
 
 class ValuesRequest(BaseModel):
@@ -212,9 +360,9 @@ class ValuesRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
     # from stations
-    provider: str
-    network: str
-    parameters: list[str]
+    provider: _ProviderField
+    network: _NetworkField
+    parameters: _ParametersField
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -230,7 +378,7 @@ class ValuesRequest(BaseModel):
                 parameters.append(item)
         return parameters
 
-    periods: list[str] | None = None
+    periods: _PeriodsField = None
 
     @field_validator("periods", mode="before")
     @classmethod
@@ -249,13 +397,13 @@ class ValuesRequest(BaseModel):
         return periods
 
     # Mosmix/DMO
-    lead_time: Literal["short", "long"] | None = None
-    issue: str | None = None
+    lead_time: _LeadTimeField = None
+    issue: _IssueField = None
 
     # station filter parameters
-    all: bool | None = False
+    all: _AllField = False
     # station ids
-    station: list[str] | None = None
+    station: _StationIdsField = None
 
     @field_validator("station", mode="before")
     @classmethod
@@ -274,44 +422,44 @@ class ValuesRequest(BaseModel):
         return stations
 
     # station name
-    name: str | None = None
-    name_threshold: Annotated[float, Field(ge=0, le=1)] = 0.8
+    name: _NameField = None
+    name_threshold: _NameThresholdField = 0.8
     # latlon
-    latitude: Annotated[float, Field(ge=-90, le=90)] | None = None
-    longitude: Annotated[float, Field(ge=-180, le=180)] | None = None
-    rank: Annotated[int, Field(ge=1)] | None = None
-    distance: Annotated[float, Field(ge=0)] | None = None
+    latitude: _LatitudeField = None
+    longitude: _LongitudeField = None
+    rank: _RankField = None
+    distance: _DistanceField = None
     # bbox
-    left: Annotated[float, Field(ge=-180, le=180)] | None = None
-    bottom: Annotated[float, Field(ge=-90, le=90)] | None = None
-    right: Annotated[float, Field(ge=-180, le=180)] | None = None
-    top: Annotated[float, Field(ge=-90, le=90)] | None = None
+    left: _LeftField = None
+    bottom: _BottomField = None
+    right: _RightField = None
+    top: _TopField = None
     # sql
-    sql: str | None = None
+    sql: _SqlField = None
 
-    with_metadata: bool = False
-    with_stations: bool = False
+    with_metadata: _WithMetadataField = False
+    with_stations: _WithStationsField = False
 
-    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
-    pretty: bool = False
-    debug: bool = False
+    format: _FormatField = "json"
+    pretty: _PrettyField = False
+    debug: _DebugField = False
 
     # plot settings
-    width: Annotated[int, Field(gt=0)] | None = None
-    height: Annotated[int, Field(gt=0)] | None = None
-    scale: Annotated[float, Field(gt=0)] | None = None
+    width: _WidthField = None
+    height: _HeightField = None
+    scale: _ScaleField = None
 
     # values
-    date: str | None = None
-    sql_values: str | None = None
-    humanize: bool = True
-    shape: Literal["long", "wide"] = "long"
-    convert_units: bool = True
-    unit_targets: dict[str, str] | None = None
-    skip_empty: bool = False
-    skip_threshold: Annotated[float, Field(ge=0, le=1)] = 0.95
-    skip_criteria: Literal["min", "mean", "max"] = "min"
-    drop_nulls: bool = True
+    date: _DateOptField = None
+    sql_values: _SqlValuesField = None
+    humanize: _HumanizeField = True
+    shape: _ShapeField = "long"
+    convert_units: _ConvertUnitsField = True
+    unit_targets: _UnitTargetsField = None
+    skip_empty: _SkipEmptyField = False
+    skip_threshold: _SkipThresholdField = 0.95
+    skip_criteria: _SkipCriteriaField = "min"
+    drop_nulls: _DropNullsField = True
 
     @field_validator("unit_targets", mode="before")
     @classmethod
@@ -329,9 +477,9 @@ class InterpolationRequest(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    provider: str
-    network: str
-    parameters: list[str]
+    provider: _ProviderField
+    network: _NetworkField
+    parameters: _ParametersField
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -347,7 +495,7 @@ class InterpolationRequest(BaseModel):
                 parameters.append(item)
         return parameters
 
-    periods: list[str] | None = None
+    periods: _PeriodsField = None
 
     @field_validator("periods", mode="before")
     @classmethod
@@ -365,22 +513,22 @@ class InterpolationRequest(BaseModel):
                 periods.append(item)
         return periods
 
-    date: str
+    date: _DateField
 
     # Mosmix/DMO
-    lead_time: Literal["short", "long"] | None = None
-    issue: str | None = None
+    lead_time: _LeadTimeField = None
+    issue: _IssueField = None
 
     # station filter parameters
-    station: str | None = None
+    station: _StationIdOptField = None
     # latlon
-    latitude: Annotated[float, Field(ge=-90, le=90)] | None = None
-    longitude: Annotated[float, Field(ge=-180, le=180)] | None = None
+    latitude: _LatitudeField = None
+    longitude: _LongitudeField = None
     # sql
-    sql_values: str | None = None
-    humanize: bool = True
-    convert_units: bool = True
-    unit_targets: dict[str, str] | None = None
+    sql_values: _SqlValuesField = None
+    humanize: _HumanizeField = True
+    convert_units: _ConvertUnitsField = True
+    unit_targets: _UnitTargetsField = None
 
     @field_validator("unit_targets", mode="before")
     @classmethod
@@ -392,7 +540,7 @@ class InterpolationRequest(BaseModel):
             return v
         return json.loads(v)
 
-    interpolation_station_distance: dict[str, Annotated[float, Field(ge=0.0)]] | None = None
+    interpolation_station_distance: _InterpolationStationDistanceField = None
 
     @field_validator("interpolation_station_distance", mode="before")
     @classmethod
@@ -404,21 +552,21 @@ class InterpolationRequest(BaseModel):
             return v
         return json.loads(v)
 
-    use_nearby_station_distance: Annotated[float, Field(ge=0)] = 1.0
-    min_gain_of_value_pairs: Annotated[float, Field(ge=0)] = 0.10
-    num_additional_stations: Annotated[int, Field(ge=0)] = 3
-    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
+    use_nearby_station_distance: _UseNearbyStationDistanceField = 1.0
+    min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
+    num_additional_stations: _NumAdditionalStationsField = 3
+    format: _FormatField = "json"
 
-    with_metadata: bool = False
-    with_stations: bool = False
+    with_metadata: _WithMetadataField = False
+    with_stations: _WithStationsField = False
 
-    pretty: bool = False
-    debug: bool = False
+    pretty: _PrettyField = False
+    debug: _DebugField = False
 
     # plot settings
-    width: Annotated[int, Field(gt=0)] | None = None
-    height: Annotated[int, Field(gt=0)] | None = None
-    scale: Annotated[float, Field(gt=0)] | None = None
+    width: _WidthField = None
+    height: _HeightField = None
+    scale: _ScaleField = None
 
 
 class SummaryRequest(BaseModel):
@@ -426,9 +574,9 @@ class SummaryRequest(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    provider: str
-    network: str
-    parameters: list[str]
+    provider: _ProviderField
+    network: _NetworkField
+    parameters: _ParametersField
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -444,7 +592,7 @@ class SummaryRequest(BaseModel):
                 parameters.append(item)
         return parameters
 
-    periods: list[str] | None = None
+    periods: _PeriodsField = None
 
     @field_validator("periods", mode="before")
     @classmethod
@@ -462,22 +610,22 @@ class SummaryRequest(BaseModel):
                 periods.append(item)
         return periods
 
-    date: str
+    date: _DateField
 
     # Mosmix/DMO
-    lead_time: Literal["short", "long"] | None = None
-    issue: str | None = None
+    lead_time: _LeadTimeField = None
+    issue: _IssueField = None
 
     # station filter parameters
-    station: str | None = None
+    station: _StationIdOptField = None
     # latlon
-    latitude: Annotated[float, Field(ge=-90, le=90)] | None = None
-    longitude: Annotated[float, Field(ge=-180, le=180)] | None = None
+    latitude: _LatitudeField = None
+    longitude: _LongitudeField = None
     # sql
-    sql_values: str | None = None
-    humanize: bool = True
-    convert_units: bool = True
-    unit_targets: dict[str, str] | None = None
+    sql_values: _SqlValuesField = None
+    humanize: _HumanizeField = True
+    convert_units: _ConvertUnitsField = True
+    unit_targets: _UnitTargetsField = None
 
     @field_validator("unit_targets", mode="before")
     @classmethod
@@ -487,7 +635,7 @@ class SummaryRequest(BaseModel):
             return None
         return json.loads(v)
 
-    summary_station_distance: dict[str, Annotated[float, Field(ge=0.0)]] | None = None
+    summary_station_distance: _SummaryStationDistanceField = None
 
     @field_validator("summary_station_distance", mode="before")
     @classmethod
@@ -499,21 +647,21 @@ class SummaryRequest(BaseModel):
             return v
         return json.loads(v)
 
-    use_nearby_station_distance: Annotated[float, Field(ge=0)] = 1.0
-    min_gain_of_value_pairs: Annotated[float, Field(ge=0)] = 0.10
-    num_additional_stations: Annotated[int, Field(ge=0)] = 3
-    format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
+    use_nearby_station_distance: _UseNearbyStationDistanceField = 1.0
+    min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
+    num_additional_stations: _NumAdditionalStationsField = 3
+    format: _FormatField = "json"
 
-    with_metadata: bool = False
-    with_stations: bool = False
+    with_metadata: _WithMetadataField = False
+    with_stations: _WithStationsField = False
 
-    pretty: bool = False
-    debug: bool = False
+    pretty: _PrettyField = False
+    debug: _DebugField = False
 
     # plot settings
-    width: Annotated[int, Field(gt=0)] | None = None
-    height: Annotated[int, Field(gt=0)] | None = None
-    scale: Annotated[float, Field(gt=0)] | None = None
+    width: _WidthField = None
+    height: _HeightField = None
+    scale: _ScaleField = None
 
 
 class IssuesRequest(BaseModel):
@@ -521,10 +669,10 @@ class IssuesRequest(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    provider: str
-    network: str
-    station: str
-    debug: bool = False
+    provider: _ProviderField
+    network: _NetworkField
+    station: _StationIdField
+    debug: _DebugField = False
 
 
 def get_issues(
@@ -807,7 +955,7 @@ def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> Stations
 def _get_stripes_data(  # noqa: C901
     kind: StripesKind,
     station_id: str | None = None,
-    name: str | None = None,
+    name: _NameField = None,
     start_year: int | None = None,
     end_year: int | None = None,
     name_threshold: float = 0.8,
@@ -888,7 +1036,7 @@ def _get_stripes_data(  # noqa: C901
 def _plot_stripes(
     kind: StripesKind,
     station_id: str | None = None,
-    name: str | None = None,
+    name: _NameField = None,
     start_year: int | None = None,
     end_year: int | None = None,
     name_threshold: float = 0.8,

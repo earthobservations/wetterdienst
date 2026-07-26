@@ -38,6 +38,9 @@ Types of changes:
 
 ### Changed
 
+- Add descriptions to every field of the REST request models (stations, values, interpolate,
+  summarize, history, issues). They surface in the REST API's OpenAPI schema (`/docs`) and in the
+  generated MCP tool parameters, making both surfaces self-documenting.
 - REST API and CLI: the `with_metadata` and `with_stations` options now default to `false` on the
   `stations`, `values`, `interpolate`, `summarize` and `history` commands/endpoints, so output
   contains just the requested data by default. Pass `with_metadata=true` / `with_stations=true`

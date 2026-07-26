@@ -1857,3 +1857,29 @@ def test_mcp_values_tool_returns_data() -> None:
 
     data = asyncio.run(_call())
     assert data is not None
+
+
+def test_request_models_have_field_descriptions() -> None:
+    """Every field of every REST request model carries a description (for OpenAPI + MCP)."""
+    from wetterdienst.ui.core import (  # noqa: PLC0415
+        HistoryRequest,
+        InterpolationRequest,
+        IssuesRequest,
+        StationsRequest,
+        SummaryRequest,
+        ValuesRequest,
+    )
+
+    models = (
+        StationsRequest,
+        HistoryRequest,
+        ValuesRequest,
+        InterpolationRequest,
+        SummaryRequest,
+        IssuesRequest,
+    )
+    undescribed = {
+        model.__name__: [name for name, info in model.model_fields.items() if not info.description] for model in models
+    }
+    undescribed = {model: fields for model, fields in undescribed.items() if fields}
+    assert not undescribed, f"request-model fields missing descriptions: {undescribed}"
