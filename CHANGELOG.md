@@ -18,6 +18,9 @@ Types of changes:
 
 ### Added
 
+- Add an optional Model Context Protocol (MCP) endpoint at `/mcp` on the REST API, exposing every
+  REST endpoint as an MCP tool over the streamable-HTTP transport (via [FastMCP](https://gofastmcp.com/));
+  enable it with the `mcp` extra (`pip install wetterdienst[mcp]`), which is included in the Docker image
 - Add DWD weather alerts (CAP warnings) provider (`dwd/alerts`) with Python API, CLI `alerts`
   command and REST `/api/alerts` endpoint: all active warnings, one row per alert, with a GeoJSON
   MultiPolygon geometry, on community (Gemeinde) or district (Landkreis) granularity; a `date`

@@ -1747,3 +1747,73 @@ def test_value_endpoints_default_to_compact_output() -> None:
     for model in (StationsRequest, HistoryRequest, ValuesRequest, InterpolationRequest, SummaryRequest):
         assert model.model_fields["with_metadata"].default is False
         assert model.model_fields["with_stations"].default is False
+
+
+def test_mcp_endpoint_mounted() -> None:
+    """The /mcp endpoint is mounted when the optional fastmcp extra is installed."""
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+
+    assert restapi.mcp_enabled is True
+    paths = [getattr(route, "path", None) for route in restapi.app.routes]
+    assert "/mcp" in paths
+
+
+def test_mcp_index_link() -> None:
+    """The index page advertises the MCP endpoint when it is enabled."""
+    pytest.importorskip("fastmcp")
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+
+    if not restapi.mcp_enabled:
+        pytest.skip("fastmcp not installed")
+    response = TestClient(restapi.app).get("/")
+    assert "/mcp" in response.text
+
+
+def test_mcp_initialize_handshake() -> None:
+    """The /mcp endpoint speaks MCP: an initialize request returns an event-stream response."""
+    pytest.importorskip("fastmcp")
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+
+    if not restapi.mcp_enabled:
+        pytest.skip("fastmcp not installed")
+    body = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1"},
+        },
+    }
+    # the session manager runs in the app lifespan, so drive the client as a context manager
+    with TestClient(restapi.app) as client:
+        response = client.post("/mcp", json=body, headers={"Accept": "application/json, text/event-stream"})
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+
+
+def test_mcp_tools_cover_rest_endpoints() -> None:
+    """Every REST endpoint is exposed as an MCP tool (alerts, coverage, stations, values, ...)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client, FastMCP  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+
+    mcp = FastMCP.from_fastapi(app=restapi.app, name="wetterdienst-test")
+
+    async def _list() -> set[str]:
+        async with Client(mcp) as client:
+            return {tool.name for tool in await client.list_tools()}
+
+    tools = asyncio.run(_list())
+    assert "alerts_api_alerts_get" in tools
+    assert "coverage_api_coverage_get" in tools
+    assert "values_api_values_get" in tools

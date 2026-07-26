@@ -48,6 +48,10 @@ info = Info()
 
 app = FastAPI(debug=False)
 
+# Set to True at the bottom of this module when the optional ``[mcp]`` extra (fastmcp) is installed
+# and an MCP endpoint has been mounted onto ``app`` at ``/mcp``. Read by the index page.
+mcp_enabled = False
+
 log = logging.getLogger(__name__)
 
 
@@ -167,6 +171,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
                     <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
+                    {"<li>MCP endpoint (streamable HTTP): <code>/mcp</code></li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
                 <ul>
@@ -892,6 +897,35 @@ def alerts(
     content = result.to_format(fmt, indent=pretty)
     media_type = "text/csv" if fmt == "csv" else "application/json"
     return Response(content=content, media_type=media_type)
+
+
+def _mount_mcp(rest_app: FastAPI) -> bool:
+    """Mount an MCP endpoint at ``/mcp`` onto ``rest_app``, if the optional ``[mcp]`` extra is present.
+
+    The MCP server is generated from the REST API's own routes (each endpoint becomes an MCP tool,
+    proxied in-process), so the ``/mcp`` transport stays in lockstep with the HTTP API. The MCP
+    streamable-http session manager is started via the sub-app's lifespan, which is adopted by
+    ``rest_app`` here; the existing REST routes keep working with or without the lifespan running.
+
+    Returns ``True`` when the endpoint was mounted, ``False`` when fastmcp is not installed (so the
+    ``/mcp`` route is strictly optional and the plain REST API is unaffected).
+    """
+    try:
+        from fastmcp import FastMCP  # noqa: PLC0415
+    except ModuleNotFoundError:
+        return False
+
+    mcp_server = FastMCP.from_fastapi(app=rest_app, name=f"{info.name} REST API")
+    mcp_app = mcp_server.http_app(path="/mcp")
+    # Add the /mcp route(s) to the existing app and adopt the MCP session-manager lifespan, rather
+    # than building a second FastAPI (which would duplicate the auto-generated docs routes).
+    rest_app.router.routes.extend(mcp_app.router.routes)
+    rest_app.router.lifespan_context = mcp_app.router.lifespan_context
+    log.info("MCP endpoint mounted at /mcp")
+    return True
+
+
+mcp_enabled = _mount_mcp(app)
 
 
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
