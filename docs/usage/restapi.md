@@ -106,15 +106,14 @@ The generated tools are made agent-friendly so even small models use them correc
 get clean names (`values` rather than `values_api_values_get`), and the non-data endpoints
 (index, health, ...) are hidden.
 
-Install the optional extra to enable it (it is already included in the Docker image, so the hosted
-[wetterdienst.eobs.org](https://www.wetterdienst.eobs.org) instance serves `/mcp` as well):
+Install the optional extra to enable it:
 
 ```bash
 pip install wetterdienst[mcp]
 wetterdienst restapi
 ```
 
-The endpoint then lives next to the HTTP API:
+The endpoint then lives next to the HTTP API, on the backend:
 
 ```
 http://localhost:7890/mcp
@@ -126,7 +125,7 @@ Point any MCP client (streamable HTTP) at that URL — for example:
 {
   "mcpServers": {
     "wetterdienst": {
-      "url": "https://wetterdienst.eobs.org/mcp"
+      "url": "http://localhost:7890/mcp"
     }
   }
 }
@@ -134,3 +133,13 @@ Point any MCP client (streamable HTTP) at that URL — for example:
 
 Without the `[mcp]` extra installed, the REST API behaves exactly as before and the `/mcp` route is
 simply absent.
+
+### Hosted instance
+
+The `[mcp]` extra is included in the backend Docker image, and the frontend proxies `/mcp` through
+to the backend (preserving the streamable-HTTP POST/SSE transport), so the hosted app serves the MCP
+endpoint on its own origin:
+
+```
+https://wetterdienst.eobs.org/mcp
+```
