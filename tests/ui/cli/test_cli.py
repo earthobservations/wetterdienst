@@ -36,6 +36,7 @@ def test_cli_help() -> None:
           interpolate  Interpolate data.
           summarize    Summarize data.
           radar        List radar stations.
+          alerts       Acquire DWD weather alerts (CAP warnings).
           stripes      Climate stripes.
         """,
     )
