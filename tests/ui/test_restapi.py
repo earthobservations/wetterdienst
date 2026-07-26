@@ -28,9 +28,13 @@ def test_index(client: TestClient) -> None:
     assert "wetterdienst - open weather data for humans" in response.text
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize("url", REQUEST_EXAMPLES.values())
 def test_index_examples(client: TestClient, url: str) -> None:
-    """Test index examples."""
+    """Test index examples.
+
+    Every example URL fetches live provider data, so this is marked ``remote``.
+    """
     response = client.get(url)
     assert response.status_code == 200
 
@@ -78,7 +82,7 @@ def test_coverage(client: TestClient) -> None:
         "wsv",
     }
     dwd = data["dwd"]
-    assert list(dwd.keys()) == ["observation", "mosmix", "dmo", "road", "radar", "derived"]
+    assert list(dwd.keys()) == ["observation", "mosmix", "dmo", "road", "radar", "alerts", "derived"]
     for network_info in dwd.values():
         assert network_info["auth"] is False
         assert network_info["configured"] is True
@@ -86,6 +90,14 @@ def test_coverage(client: TestClient) -> None:
     # `road` requires a date range for value queries, other DWD networks don't
     assert dwd["observation"]["date_required"] is False
     assert dwd["road"]["date_required"] is True
+
+
+@pytest.mark.parametrize("network", ["alerts", "radar"])
+def test_coverage_standalone_network_returns_404(client: TestClient, network: str) -> None:
+    """Coverage for a metadata-less standalone network returns 404, not an uncaught 500."""
+    response = client.get("/api/coverage", params={"provider": "dwd", "network": network})
+    assert response.status_code == 404
+    assert "not available" in response.json()["detail"]
 
 
 def test_auth_no_auth_required(client: TestClient) -> None:
@@ -1654,3 +1666,66 @@ def test_issues_unknown_provider(client: TestClient) -> None:
         params={"provider": "unknown", "network": "unknown", "station": "00011"},
     )
     assert response.status_code == 404
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize("granularity", ["community", "district"])
+def test_alerts_default_json(client: TestClient, granularity: str) -> None:
+    """Test /api/alerts returns a JSON alert collection."""
+    response = client.get("/api/alerts", params={"granularity": granularity})
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    data = response.json()
+    assert "alerts" in data
+    for alert in data["alerts"]:
+        assert alert["alert_id"]
+
+
+@pytest.mark.remote
+def test_alerts_geojson(client: TestClient) -> None:
+    """Test /api/alerts returns a GeoJSON FeatureCollection."""
+    response = client.get("/api/alerts", params={"granularity": "district", "format": "geojson"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["type"] == "FeatureCollection"
+    for feature in data["features"]:
+        assert feature["type"] == "Feature"
+        if feature["geometry"] is not None:
+            assert feature["geometry"]["type"] == "MultiPolygon"
+
+
+@pytest.mark.remote
+def test_alerts_csv(client: TestClient) -> None:
+    """Test /api/alerts returns CSV."""
+    response = client.get("/api/alerts", params={"format": "csv"})
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "alert_id" in response.text.splitlines()[0]
+
+
+def test_alerts_invalid_granularity(client: TestClient) -> None:
+    """Test /api/alerts rejects an unknown granularity."""
+    response = client.get("/api/alerts", params={"granularity": "bogus"})
+    assert response.status_code == 422
+
+
+@pytest.mark.remote
+def test_alerts_date_snapshot(client: TestClient) -> None:
+    """Test /api/alerts accepts a historical date within the rolling window."""
+    import datetime as dt  # noqa: PLC0415
+    from zoneinfo import ZoneInfo  # noqa: PLC0415
+
+    target = dt.datetime.now(ZoneInfo("UTC")) - dt.timedelta(hours=6)
+    response = client.get(
+        "/api/alerts",
+        params={"granularity": "district", "date": target.strftime("%Y-%m-%dT%H:%M:%S")},
+    )
+    assert response.status_code == 200
+    assert "alerts" in response.json()
+
+
+@pytest.mark.remote
+def test_alerts_date_before_window(client: TestClient) -> None:
+    """Test /api/alerts returns 400 for a date older than the rolling window."""
+    response = client.get("/api/alerts", params={"date": "2000-01-01T00:00:00"})
+    assert response.status_code == 400

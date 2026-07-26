@@ -25,6 +25,9 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - technical products (heating/cooling degree days, climate correction factor) and climate
       products (radiation & sunshine duration, soil data)
     - hourly, daily and monthly resolution, for stations in Germany
+- [Alerts](alerts/index.md) — public weather warnings in Common Alerting Protocol (CAP) format
+    - all currently active warnings, one row per alert, with GeoJSON MultiPolygon geometry
+    - community (Gemeinde) or district (Landkreis) granularity, several languages
 
 For a quick overview of the work of the DWD check the current 
 [dwd report](https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14) 
@@ -47,4 +50,5 @@ observation/index.md
 road/index.md
 radar/index.md
 derived/index.md
+alerts/index.md
 ```

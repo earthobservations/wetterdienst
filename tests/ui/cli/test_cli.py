@@ -36,6 +36,7 @@ def test_cli_help() -> None:
           interpolate  Interpolate data.
           summarize    Summarize data.
           radar        List radar stations.
+          alerts       Acquire DWD weather alerts (CAP warnings).
           stripes      Climate stripes.
         """,
     )
@@ -109,6 +110,15 @@ def test_coverage() -> None:
         "precipitation_height_rocker",
         "precipitation_index",
     ]
+
+
+@pytest.mark.parametrize("network", ["alerts", "radar"])
+def test_coverage_standalone_network_reports_cleanly(network: str) -> None:
+    """Test coverage for a metadata-less standalone network fails cleanly instead of crashing."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["about", "coverage", "--provider=dwd", f"--network={network}"])
+    assert result.exit_code == 1
+    assert not isinstance(result.exception, AttributeError)
 
 
 def test_coverage_resolution_1_minute() -> None:

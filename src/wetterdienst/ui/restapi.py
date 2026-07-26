@@ -62,6 +62,7 @@ REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_stripes_image": "api/stripes/image?kind=temperature&station=1048",
     "dwd_mosmix_issues": "api/issues?provider=dwd&network=mosmix&station=10147",
     "dwd_dmo_issues": "api/issues?provider=dwd&network=dmo&station=10147",
+    "dwd_weather_alerts": "api/alerts?granularity=community&format=geojson",
 }
 
 
@@ -165,6 +166,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/stripes/stations" target="_blank" rel="noopener">stripes stations</a></li>
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
                     <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
+                    <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
                 </ul>
                 <h2>Examples</h2>
                 <ul>
@@ -176,6 +178,7 @@ def index() -> HTMLResponse:
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_stations"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Stations</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_image"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Image</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_weather_alerts"]}" target="_blank" rel="noopener">DWD Weather Alerts</a></li>
                 </ul>
                 <h2>Producer</h2>
                 <ul>
@@ -302,6 +305,14 @@ def coverage(
             status_code=404,
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",
         ) from e
+
+    # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network
+    # discover(); report that cleanly instead of raising an uncaught AttributeError (HTTP 500).
+    if not hasattr(api, "discover"):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Coverage is not available for provider '{provider}' and network '{network}'.",
+        )
 
     resolutions_list: list[str] | None = read_list(resolutions) if resolutions else None
     datasets_list: list[str] | None = read_list(datasets) if datasets else None
@@ -843,6 +854,44 @@ def history(  # noqa: C901
         ),
         media_type="application/json",
     )
+
+
+@app.get("/api/alerts")
+def alerts(
+    granularity: Annotated[Literal["community", "district"], Query()] = "community",
+    language: Annotated[Literal["de", "en", "es", "fr", "mul"], Query()] = "en",
+    date: Annotated[str | None, Query()] = None,
+    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
+    pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
+    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
+) -> Response:
+    """Provide DWD weather alerts (CAP warnings) via restapi.
+
+    Returns all warnings active at the selected time, one entry per alert, with a GeoJSON
+    MultiPolygon geometry. ``date`` (ISO 8601, UTC if no offset) selects a historical snapshot from
+    DWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result simply means
+    there were no active warnings.
+    """
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    set_logging_level(debug=debug)
+
+    try:
+        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=Settings())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    try:
+        result = request.query()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        log.exception("Failed to get weather alerts")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    content = result.to_format(fmt, indent=pretty)
+    media_type = "text/csv" if fmt == "csv" else "application/json"
+    return Response(content=content, media_type=media_type)
 
 
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:

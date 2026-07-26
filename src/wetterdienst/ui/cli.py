@@ -624,6 +624,20 @@ Explore OPERA radar stations:
     wetterdienst radar --odim-code=deasb
     wetterdienst radar --wmo-code=10103
 
+Acquire DWD weather alerts (CAP warnings):
+
+    # Get all current warnings on community (Gemeinde) basis as JSON
+    wetterdienst alerts
+
+    # Get warnings on district (Landkreis) basis as GeoJSON, in German
+    wetterdienst alerts --granularity=district --language=de --format=geojson
+
+    # Get warnings active at a past point in time (within DWD's rolling ~48h window)
+    wetterdienst alerts --granularity=district --date=2026-07-26T10:00:00
+
+    # Write current warnings to a GeoJSON file
+    wetterdienst alerts --format=geojson --target=file://alerts.geojson
+
 Create warming stripes (only DWD Observation data):
 
     # Create warming stripes for a specific station
@@ -741,6 +755,12 @@ def coverage(
     datasets_list = read_list(datasets)
 
     api = get_api(provider=provider, network=network)
+
+    # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network
+    # discover(); report that cleanly instead of crashing with an AttributeError.
+    if not hasattr(api, "discover"):
+        log.error(f"Coverage is not available for provider '{provider}' and network '{network}'.")
+        sys.exit(1)
 
     cov = api.discover(
         resolutions=resolutions_list,
@@ -1645,6 +1665,100 @@ def radar(
         raise KeyError(msg)
 
     output = json.dumps(data, indent=indent)
+
+    print(output)  # noqa: T201
+
+
+@cli.command("alerts", section=data_section)
+@cloup.option(
+    "--granularity",
+    type=click.Choice(["community", "district"], case_sensitive=False),
+    default="community",
+    help="Spatial granularity: 'community' (per Gemeinde, default) or 'district' (per Landkreis).",
+)
+@cloup.option(
+    "--language",
+    type=click.Choice(["de", "en", "es", "fr", "mul"], case_sensitive=False),
+    default="en",
+    help="Language of the warning texts. Default: en",
+)
+@cloup.option(
+    "--date",
+    type=click.STRING,
+    default=None,
+    help=(
+        "Point in time (ISO 8601, UTC if no offset) to select the active-warnings snapshot for. "
+        "Defaults to the latest snapshot. Must fall within DWD's rolling ~48-hour window."
+    ),
+)
+@cloup.option_group(
+    "Format/Target",
+    cloup.option(
+        "--format",
+        "fmt",
+        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
+        default="json",
+        help="Output format. Default: json",
+    ),
+    cloup.option(
+        "--target",
+        type=click.STRING,
+        help="Write output to this file instead of stdout. Example: file://alerts.geojson",
+    ),
+)
+@cloup.option(
+    "--pretty",
+    type=click.BOOL,
+    default=False,
+    help="Pretty-print JSON/GeoJSON with 4-space indentation. Default: false",
+)
+@debug_opt
+def alerts(
+    granularity: str,
+    language: str,
+    date: str,
+    fmt: str,
+    target: str,
+    pretty: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Acquire DWD weather alerts (CAP warnings).
+
+    Returns all warnings active at the selected time (the latest snapshot by default), one row per
+    alert, with a GeoJSON MultiPolygon geometry. An empty result means there were no active warnings.
+    """
+    set_logging_level(debug=debug)
+
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    # Validate the target up front (before the network fetch): alerts output is plain text, so only a
+    # local path / file:// URI is supported (unlike the timeseries commands' to_target()); reject
+    # other schemes instead of writing a file literally named e.g. "duckdb://...".
+    if target and "://" in target and not target.startswith("file://"):
+        msg = "--target only supports a local path or a file:// URI for alerts."
+        raise click.BadParameter(msg)
+
+    # Invalid input (granularity/language/format, or a date outside the rolling window) is a
+    # BadParameter; a runtime download/parse failure is a clean ClickException, not a traceback.
+    try:
+        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=Settings())
+    except ValueError as e:
+        raise click.BadParameter(str(e)) from e
+
+    try:
+        result = request.query()
+    except ValueError as e:
+        raise click.BadParameter(str(e)) from e
+    except Exception as e:
+        log.exception("Failed to acquire weather alerts")
+        raise click.ClickException(str(e)) from e
+
+    output = result.to_format(fmt, indent=pretty)
+
+    if target:
+        path = target.removeprefix("file://")
+        Path(path).write_text(output, encoding="utf-8")
+        return
 
     print(output)  # noqa: T201
 
