@@ -609,6 +609,9 @@ The HTTP REST API service:
     # Start service on public interface and specific port.
     wetterdienst restapi --listen=0.0.0.0:8890
 
+    # With the optional 'mcp' extra installed (pip install wetterdienst[mcp]), the service also
+    # exposes a Model Context Protocol endpoint at http://localhost:7890/mcp
+
 Explore OPERA radar stations:
 
     # Display all radar stations.

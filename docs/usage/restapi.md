@@ -92,3 +92,45 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 # Acquire ICON data.
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_mean_2m station==01001 date==2024-05-27
 ```
+
+## MCP endpoint
+
+The REST API can optionally expose a [Model Context Protocol](https://modelcontextprotocol.io/)
+(MCP) endpoint at `/mcp`, so LLM agents can call the data endpoints (coverage, stations, values,
+interpolate, summarize, stripes, alerts, ...) as MCP tools. It is served over the streamable-HTTP
+transport by [FastMCP](https://gofastmcp.com/), generated from the REST API's own routes and running
+in the same process.
+
+The generated tools are made agent-friendly so even small models use them correctly: a workflow
+`instructions` block (find a station, then query its values) is attached to the server, the tools
+get clean names (`values` rather than `values_api_values_get`), and the non-data endpoints
+(index, health, ...) are hidden.
+
+Install the optional extra to enable it (it is already included in the Docker image, so the hosted
+[wetterdienst.eobs.org](https://www.wetterdienst.eobs.org) instance serves `/mcp` as well):
+
+```bash
+pip install wetterdienst[mcp]
+wetterdienst restapi
+```
+
+The endpoint then lives next to the HTTP API:
+
+```
+http://localhost:7890/mcp
+```
+
+Point any MCP client (streamable HTTP) at that URL — for example:
+
+```json
+{
+  "mcpServers": {
+    "wetterdienst": {
+      "url": "https://wetterdienst.eobs.org/mcp"
+    }
+  }
+}
+```
+
+Without the `[mcp]` extra installed, the REST API behaves exactly as before and the `/mcp` route is
+simply absent.

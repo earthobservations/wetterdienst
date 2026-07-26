@@ -48,6 +48,10 @@ info = Info()
 
 app = FastAPI(debug=False)
 
+# Set to True at the bottom of this module when the optional ``[mcp]`` extra (fastmcp) is installed
+# and an MCP endpoint has been mounted onto ``app`` at ``/mcp``. Read by the index page.
+mcp_enabled = False
+
 log = logging.getLogger(__name__)
 
 
@@ -167,6 +171,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
                     <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
+                    {"<li>MCP endpoint (streamable HTTP): <code>/mcp</code></li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
                 <ul>
@@ -284,7 +289,12 @@ def coverage(
     pretty: bool = False,
     debug: bool = False,
 ) -> Response:
-    """Wrap around Wetterdienst.discover to provide results via restapi."""
+    """List available data: providers/networks, or the resolutions, datasets and parameters within one.
+
+    Call with no arguments to list every provider and its networks. Pass provider+network (e.g.
+    provider="dwd", network="observation") to list its resolutions/datasets/parameters; narrow with
+    resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
+    """
     set_logging_level(debug=debug)
 
     if (provider and not network) or (not provider and network):
@@ -336,7 +346,13 @@ def coverage(
 def stations(
     request: Annotated[StationsRequest, Query()],
 ) -> Response:
-    """Wrap get_stations to provide results via restapi."""
+    """Find weather stations and their `station_id` (step 1 of the station -> values workflow).
+
+    Requires provider, network and parameters (e.g. provider="dwd", network="observation",
+    parameters="daily/kl"). Filter by `name` for a place (e.g. name="Hamburg Fuhlsbüttel"), by
+    `station` id(s), by lat/lon with `rank` or `distance`, by bounding box, or pass all=true for the
+    full list. Returns station metadata including `station_id`, which you pass to `values`.
+    """
     set_logging_level(debug=request.debug)
 
     try:
@@ -430,7 +446,14 @@ def issues(
 def values(
     request: Annotated[ValuesRequest, Query()],
 ) -> Response:
-    """Wrap get_values to provide results via restapi."""
+    """Get measured values for station(s) (step 2 of the station -> values workflow).
+
+    Requires provider, network, parameters and a station selection. Use parameters as
+    "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") to keep
+    the response small, and `station` with an id from `stations` (e.g. station="01975"). `periods`
+    is usually "recent". The response `values` array is sorted by date; the most recent reading for
+    a parameter is the last item with that parameter. Do not re-request in other formats.
+    """
     set_logging_level(debug=request.debug)
 
     try:
@@ -892,6 +915,37 @@ def alerts(
     content = result.to_format(fmt, indent=pretty)
     media_type = "text/csv" if fmt == "csv" else "application/json"
     return Response(content=content, media_type=media_type)
+
+
+def _mount_mcp(rest_app: FastAPI) -> bool:
+    """Mount an MCP endpoint at ``/mcp`` onto ``rest_app``, if the optional ``[mcp]`` extra is present.
+
+    The MCP server (see :mod:`wetterdienst.ui.mcp`) is generated from the REST API's own routes, so
+    the ``/mcp`` transport stays in lockstep with the HTTP API, with a workflow ``instructions``
+    block and clean tool names layered on for agent usability. The MCP streamable-http session
+    manager is started via the sub-app's lifespan, which is adopted by ``rest_app`` here; the
+    existing REST routes keep working with or without the lifespan running.
+
+    Returns ``True`` when the endpoint was mounted, ``False`` when fastmcp is not installed (so the
+    ``/mcp`` route is strictly optional and the plain REST API is unaffected).
+    """
+    try:
+        import fastmcp  # noqa: F401, PLC0415
+    except ModuleNotFoundError:
+        return False
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp_app = build_mcp_server(rest_app).http_app(path="/mcp")
+    # Add the /mcp route(s) to the existing app and adopt the MCP session-manager lifespan, rather
+    # than building a second FastAPI (which would duplicate the auto-generated docs routes).
+    rest_app.router.routes.extend(mcp_app.router.routes)
+    rest_app.router.lifespan_context = mcp_app.router.lifespan_context
+    log.info("MCP endpoint mounted at /mcp")
+    return True
+
+
+mcp_enabled = _mount_mcp(app)
 
 
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
