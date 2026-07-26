@@ -25,6 +25,9 @@ def test_history_dwd_observation() -> None:
             "daily/climate_summary",
             "--station",
             "02564",
+            # with_metadata/with_stations now default to false; request them explicitly here
+            "--with_metadata=true",
+            "--with_stations=true",
         ],
     )
     assert result.exit_code == 0

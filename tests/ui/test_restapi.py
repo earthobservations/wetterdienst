@@ -1533,6 +1533,9 @@ def test_history_dwd_observation(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/climate_summary",
             "station": "02564",
+            # with_metadata/with_stations now default to false; request them explicitly here
+            "with_metadata": True,
+            "with_stations": True,
         },
     )
     assert response.status_code == 200
@@ -1729,3 +1732,18 @@ def test_alerts_date_before_window(client: TestClient) -> None:
     """Test /api/alerts returns 400 for a date older than the rolling window."""
     response = client.get("/api/alerts", params={"date": "2000-01-01T00:00:00"})
     assert response.status_code == 400
+
+
+def test_value_endpoints_default_to_compact_output() -> None:
+    """with_metadata/with_stations default to false on the REST request models (compact output)."""
+    from wetterdienst.ui.core import (  # noqa: PLC0415
+        HistoryRequest,
+        InterpolationRequest,
+        StationsRequest,
+        SummaryRequest,
+        ValuesRequest,
+    )
+
+    for model in (StationsRequest, HistoryRequest, ValuesRequest, InterpolationRequest, SummaryRequest):
+        assert model.model_fields["with_metadata"].default is False
+        assert model.model_fields["with_stations"].default is False

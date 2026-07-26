@@ -31,6 +31,10 @@ The REST API is complemented by a modern web frontend built with Nuxt.js, provid
 
 Visit [wetterdienst.eobs.org](https://www.wetterdienst.eobs.org) to use the web interface.
 
+By default the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints return only
+the requested data. Add `with_metadata=true` to include the provider-metadata block, and (for the
+value endpoints) `with_stations=true` to include the queried stations' metadata.
+
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 
 ## Examples
