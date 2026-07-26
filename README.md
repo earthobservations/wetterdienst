@@ -75,6 +75,7 @@ or the [table](https://bookdown.org/brry/rdwd/available-datasets.html) provided 
 - Command line interfaced
 - Modern app with interactive data explorer, settings interface, visualization and separate REST API, hosted
   on [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
+- Optional MCP (Model Context Protocol) endpoint so LLM agents can query the data as tools
 - Run SQL queries on the results
 - Export results to databases and other data sinks
 - Public Docker image
