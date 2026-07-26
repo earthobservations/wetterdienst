@@ -1773,3 +1773,113 @@ def test_request_models_have_field_descriptions() -> None:
     }
     undescribed = {model: fields for model, fields in undescribed.items() if fields}
     assert not undescribed, f"request-model fields missing descriptions: {undescribed}"
+
+
+def test_mcp_endpoint_mounted() -> None:
+    """The /mcp endpoint is mounted when the optional fastmcp extra is installed."""
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+
+    assert restapi.mcp_enabled is True
+    paths = [getattr(route, "path", None) for route in restapi.app.routes]
+    assert "/mcp" in paths
+
+
+def test_mcp_index_link() -> None:
+    """The index page advertises the MCP endpoint when it is enabled."""
+    pytest.importorskip("fastmcp")
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+
+    if not restapi.mcp_enabled:
+        pytest.skip("fastmcp not installed")
+    response = TestClient(restapi.app).get("/")
+    assert "/mcp" in response.text
+
+
+def test_mcp_initialize_handshake() -> None:
+    """The /mcp endpoint speaks MCP: an initialize request returns an event-stream response."""
+    pytest.importorskip("fastmcp")
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+
+    if not restapi.mcp_enabled:
+        pytest.skip("fastmcp not installed")
+    body = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1"},
+        },
+    }
+    # the session manager runs in the app lifespan, so drive the client as a context manager
+    with TestClient(restapi.app) as client:
+        response = client.post("/mcp", json=body, headers={"Accept": "application/json, text/event-stream"})
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+
+
+def test_mcp_server_is_agent_friendly() -> None:
+    """The MCP server exposes clean tool names, a workflow instructions block, and no noise tools."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _introspect() -> tuple[set[str], str | None]:
+        async with Client(mcp) as client:
+            names = {tool.name for tool in await client.list_tools()}
+            return names, client.initialize_result.instructions
+
+    tools, instructions = asyncio.run(_introspect())
+    # data endpoints exposed under clean, agent-friendly names
+    assert {"coverage", "stations", "values", "alerts"} <= tools
+    # the ugly auto-generated names are gone
+    assert "values_api_values_get" not in tools
+    # non-data/noise endpoints are excluded
+    assert not tools & {"index", "health_health_get", "version_api_version_get", "auth_api_auth_get"}
+    # a workflow instructions block is attached and describes the station -> values path
+    assert instructions is not None
+    assert "stations" in instructions
+    assert "values" in instructions
+
+
+@pytest.mark.remote
+def test_mcp_values_tool_returns_data() -> None:
+    """The values MCP tool returns data instead of failing output-schema validation (regression)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> object:
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "values",
+                {
+                    "provider": "dwd",
+                    "network": "observation",
+                    "parameters": "daily/climate_summary/temperature_air_mean_2m",
+                    "station": "01975",
+                    "periods": "recent",
+                },
+            )
+            return result.data
+
+    data = asyncio.run(_call())
+    assert data is not None

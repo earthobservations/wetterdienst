@@ -204,6 +204,10 @@ restapi = [
 sql = [
     "duckdb>=0.9,<2",
 ]
+mcp = [
+    "wetterdienst[restapi]",
+    "fastmcp>=3.4.4,<4.0.0",
+]
 
 [project.urls]
 Homepage = "https://wetterdienst.readthedocs.io/"
@@ -349,6 +353,8 @@ DEP002 = [
     "pybufrkit",
     "sqlalchemy-cratedb",
     "tzdata",
+    # self-referential extra: the `mcp` extra pulls in `wetterdienst[restapi]`, which is never imported
+    "wetterdienst",
     "wradlib",
     "xlsxwriter",
     "xradar",
