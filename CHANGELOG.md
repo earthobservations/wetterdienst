@@ -18,6 +18,10 @@ Types of changes:
 
 ### Added
 
+- Add DWD weather alerts (CAP warnings) provider (`dwd/alerts`) with Python API, CLI `alerts`
+  command and REST `/api/alerts` endpoint: all active warnings, one row per alert, with a GeoJSON
+  MultiPolygon geometry, on community (Gemeinde) or district (Landkreis) granularity; a `date`
+  selects a historical snapshot from DWD's rolling ~48-hour window
 - Parse DWD radar site BUFR products (echo top, reflectivity) into a polars DataFrame on
   `RadarResult.df`, opt-in via the `read_bufr` setting (requires the `eccodes` and `bufr` extras)
 - Add RMI (Belgium) observation provider with 10-minute, hourly and daily resolution
@@ -38,6 +42,9 @@ Types of changes:
   reconstructing them from separate year/month/day/hour/minute fields
 - Fix the `about fields` CLI command, which crashed with a `TypeError` because it forwarded
   `resolution` as a separate argument to `describe_fields()`
+- Report coverage cleanly for metadata-less standalone networks (`dwd/radar`, `dwd/alerts`):
+  `about coverage` and `/api/coverage` now return a clear message instead of crashing with an
+  `AttributeError` / HTTP 500
 
 ## [0.128.0] - 2026-07-22
 
