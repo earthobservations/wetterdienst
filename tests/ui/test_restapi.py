@@ -1798,22 +1798,62 @@ def test_mcp_initialize_handshake() -> None:
     assert response.headers["content-type"].startswith("text/event-stream")
 
 
-def test_mcp_tools_cover_rest_endpoints() -> None:
-    """Every REST endpoint is exposed as an MCP tool (alerts, coverage, stations, values, ...)."""
+def test_mcp_server_is_agent_friendly() -> None:
+    """The MCP server exposes clean tool names, a workflow instructions block, and no noise tools."""
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
 
-    from fastmcp import Client, FastMCP  # noqa: PLC0415
+    from fastmcp import Client  # noqa: PLC0415
 
     from wetterdienst.ui import restapi  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
-    mcp = FastMCP.from_fastapi(app=restapi.app, name="wetterdienst-test")
+    mcp = build_mcp_server(restapi.app)
 
-    async def _list() -> set[str]:
+    async def _introspect() -> tuple[set[str], str | None]:
         async with Client(mcp) as client:
-            return {tool.name for tool in await client.list_tools()}
+            names = {tool.name for tool in await client.list_tools()}
+            return names, client.initialize_result.instructions
 
-    tools = asyncio.run(_list())
-    assert "alerts_api_alerts_get" in tools
-    assert "coverage_api_coverage_get" in tools
-    assert "values_api_values_get" in tools
+    tools, instructions = asyncio.run(_introspect())
+    # data endpoints exposed under clean, agent-friendly names
+    assert {"coverage", "stations", "values", "alerts"} <= tools
+    # the ugly auto-generated names are gone
+    assert "values_api_values_get" not in tools
+    # non-data/noise endpoints are excluded
+    assert not tools & {"index", "health_health_get", "version_api_version_get", "auth_api_auth_get"}
+    # a workflow instructions block is attached and describes the station -> values path
+    assert instructions is not None
+    assert "stations" in instructions
+    assert "values" in instructions
+
+
+@pytest.mark.remote
+def test_mcp_values_tool_returns_data() -> None:
+    """The values MCP tool returns data instead of failing output-schema validation (regression)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> object:
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "values",
+                {
+                    "provider": "dwd",
+                    "network": "observation",
+                    "parameters": "daily/climate_summary/temperature_air_mean_2m",
+                    "station": "01975",
+                    "periods": "recent",
+                },
+            )
+            return result.data
+
+    data = asyncio.run(_call())
+    assert data is not None
