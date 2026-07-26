@@ -70,6 +70,8 @@ def test_cli_summarize_geojson(metadata: dict) -> None:
             "--station=00071",
             "--date=1986-10-31/1986-11-01",
             "--format=geojson",
+            # with_metadata now defaults to false; request it explicitly to test the metadata block
+            "--with_metadata=true",
         ],
     )
     if result.exit_code != 0:

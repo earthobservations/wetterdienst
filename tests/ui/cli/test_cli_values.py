@@ -356,6 +356,8 @@ def test_cli_values_geojson(metadata: dict) -> None:
         ],
         station="01048",
         fmt="geojson",
+        # with_metadata now defaults to false; request it explicitly to test the metadata block
+        additional=["--with_metadata=true"],
     )
     response = json.loads(result.output)
     assert response.keys() == {"metadata", "data"}

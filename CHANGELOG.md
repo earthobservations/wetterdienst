@@ -33,6 +33,11 @@ Types of changes:
 
 ### Changed
 
+- REST API and CLI: the `with_metadata` and `with_stations` options now default to `false` on the
+  `stations`, `values`, `interpolate`, `summarize` and `history` commands/endpoints, so output
+  contains just the requested data by default. Pass `with_metadata=true` / `with_stations=true`
+  (or `--with_metadata=true` / `--with_stations=true`) to include the provider-metadata and station
+  blocks as before.
 - Reduce DWD MOSMIX/DMO KML parsing memory by streaming the zipped KML instead of
   decompressing it fully in memory (~6.5x lower peak RSS on MOSMIX-S)
 

@@ -119,8 +119,8 @@ class StationsRequest(BaseModel):
     # sql
     sql: str | None = None
 
-    with_metadata: bool = True
-    with_stations: bool = True
+    with_metadata: bool = False
+    with_stations: bool = False
 
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
     pretty: bool = False
@@ -199,8 +199,8 @@ class HistoryRequest(BaseModel):
                 parameters.append(item)
         return set(parameters)
 
-    with_metadata: bool = True
-    with_stations: bool = True
+    with_metadata: bool = False
+    with_stations: bool = False
 
     pretty: bool = False
     debug: bool = False
@@ -289,8 +289,8 @@ class ValuesRequest(BaseModel):
     # sql
     sql: str | None = None
 
-    with_metadata: bool = True
-    with_stations: bool = True
+    with_metadata: bool = False
+    with_stations: bool = False
 
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
     pretty: bool = False
@@ -409,8 +409,8 @@ class InterpolationRequest(BaseModel):
     num_additional_stations: Annotated[int, Field(ge=0)] = 3
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
-    with_metadata: bool = True
-    with_stations: bool = True
+    with_metadata: bool = False
+    with_stations: bool = False
 
     pretty: bool = False
     debug: bool = False
@@ -504,8 +504,8 @@ class SummaryRequest(BaseModel):
     num_additional_stations: Annotated[int, Field(ge=0)] = 3
     format: Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"] = "json"
 
-    with_metadata: bool = True
-    with_stations: bool = True
+    with_metadata: bool = False
+    with_stations: bool = False
 
     pretty: bool = False
     debug: bool = False

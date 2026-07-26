@@ -842,8 +842,8 @@ def fields(
 @cloup.option(
     "--with_metadata",
     type=click.BOOL,
-    default=True,
-    help="Include provider metadata block in JSON/GeoJSON output. Default: true",
+    default=False,
+    help="Include provider metadata block in JSON/GeoJSON output. Default: false",
 )
 @cloup.option(
     "--pretty",
@@ -1010,8 +1010,8 @@ def issues_cmd(provider: str, network: str, station: str, debug: bool) -> None: 
         help="Export target URI (instead of stdout). Examples: file://data.csv, duckdb:///obs.duckdb?table=weather",
     ),
 )
-@cloup.option("--with_metadata", type=click.BOOL, default=True)
-@cloup.option("--with_stations", type=click.BOOL, default=True)
+@cloup.option("--with_metadata", type=click.BOOL, default=False)
+@cloup.option("--with_stations", type=click.BOOL, default=False)
 @cloup.option("--pretty", type=click.BOOL, default=False)
 @debug_opt
 def history(
@@ -1187,14 +1187,14 @@ def history(
 @cloup.option(
     "--with_metadata",
     type=click.BOOL,
-    default=True,
-    help="Include provider metadata block in JSON/GeoJSON output. Default: true",
+    default=False,
+    help="Include provider metadata block in JSON/GeoJSON output. Default: false",
 )
 @cloup.option(
     "--with_stations",
     type=click.BOOL,
-    default=True,
-    help="Include station list in JSON/GeoJSON output. Default: true",
+    default=False,
+    help="Include station list in JSON/GeoJSON output. Default: false",
 )
 @cloup.option(
     "--pretty",
@@ -1373,8 +1373,8 @@ def values(
 @cloup.option("--unit_targets", type=click.STRING, default=None)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
-@cloup.option("--with_metadata", type=click.BOOL, default=True)
-@cloup.option("--with_stations", type=click.BOOL, default=True)
+@cloup.option("--with_metadata", type=click.BOOL, default=False)
+@cloup.option("--with_stations", type=click.BOOL, default=False)
 @debug_opt
 def interpolate(
     provider: str,
@@ -1520,8 +1520,8 @@ def interpolate(
 @cloup.option("--unit_targets", type=click.STRING, default=None)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
-@cloup.option("--with_metadata", type=click.BOOL, default=True)
-@cloup.option("--with_stations", type=click.BOOL, default=True)
+@cloup.option("--with_metadata", type=click.BOOL, default=False)
+@cloup.option("--with_stations", type=click.BOOL, default=False)
 @debug_opt
 def summarize(
     provider: str,

@@ -71,6 +71,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "--station=00071",
             "--date=1986-10-31/1986-11-01",
             "--format=json",
+            "--with_metadata=true",
+            "--with_stations=true",
         ],
     )
     if result.exit_code != 0:
@@ -156,6 +158,7 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
             "--station=00071",
             "--date=1986-10-31/1986-11-01",
             "--format=geojson",
+            "--with_metadata=true",
         ],
     )
     if result.exit_code != 0:
