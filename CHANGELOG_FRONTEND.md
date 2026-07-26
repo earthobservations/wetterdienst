@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[API]` Proxy the backend's `/mcp` (Model Context Protocol) endpoint through the frontend so it is
+  reachable on the app origin (e.g. `wetterdienst.eobs.org/mcp`), preserving the streamable-HTTP
+  transport (POST + SSE + the `mcp-session-id` header).
+
 ## [0.10.0] - 2026-07-10
 
 ### Fixed
