@@ -1747,3 +1747,29 @@ def test_value_endpoints_default_to_compact_output() -> None:
     for model in (StationsRequest, HistoryRequest, ValuesRequest, InterpolationRequest, SummaryRequest):
         assert model.model_fields["with_metadata"].default is False
         assert model.model_fields["with_stations"].default is False
+
+
+def test_request_models_have_field_descriptions() -> None:
+    """Every field of every REST request model carries a description (for OpenAPI + MCP)."""
+    from wetterdienst.ui.core import (  # noqa: PLC0415
+        HistoryRequest,
+        InterpolationRequest,
+        IssuesRequest,
+        StationsRequest,
+        SummaryRequest,
+        ValuesRequest,
+    )
+
+    models = (
+        StationsRequest,
+        HistoryRequest,
+        ValuesRequest,
+        InterpolationRequest,
+        SummaryRequest,
+        IssuesRequest,
+    )
+    undescribed = {
+        model.__name__: [name for name, info in model.model_fields.items() if not info.description] for model in models
+    }
+    undescribed = {model: fields for model, fields in undescribed.items() if fields}
+    assert not undescribed, f"request-model fields missing descriptions: {undescribed}"
