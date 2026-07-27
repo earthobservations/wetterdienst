@@ -22,6 +22,16 @@ Types of changes:
   reachable on the app origin (e.g. `wetterdienst.eobs.org/mcp`), preserving the streamable-HTTP
   transport (POST + SSE + the `mcp-session-id` header).
 
+### Changed
+
+- `[Build]` Bumped frontend dependencies within their existing ranges (nuxt 4.5, vue 3.5.40,
+  tailwindcss 4.3.3, plotly 3.7, luxon 3.7.2, playwright 1.62, vitest 4.1.10, oxlint/eslint,
+  and others). Bumped `@nuxt/test-utils` to 4.1.0, whose nuxt vitest environment drops the
+  `vitest/environments` import and `transformMode` option deprecated in Vitest 4 (now using
+  `vitest/runtime` and `viteEnvironment`), removing the deprecation warnings from the test run.
+  TypeScript is held at 5.x: the current vue-tsc cannot load TypeScript 7's native compiler,
+  which breaks `nuxt typecheck`.
+
 ## [0.10.0] - 2026-07-10
 
 ### Fixed
