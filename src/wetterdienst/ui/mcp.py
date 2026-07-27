@@ -2,9 +2,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """MCP server for wetterdienst, generated from the REST API.
 
-The tools mirror the REST endpoints one-to-one (via FastMCP's ``from_fastapi``), so the MCP
-transport stays in lockstep with the HTTP API. To make that surface usable by small/cheap LLM
-agents -- which otherwise guess parameters and thrash -- this module adds:
+The tools are generated from the REST API's OpenAPI schema (via FastMCP's ``OpenAPIProvider``), so
+the MCP transport stays in lockstep with the HTTP API. To make that surface usable by small/cheap
+LLM agents -- which otherwise guess parameters and thrash -- this module adds:
 
 - a core ``instructions`` block describing the station -> values workflow, the DWD defaults, the
   parameter syntax and how to read results (so agents don't re-request the same data in different
@@ -101,6 +101,8 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     results with "9.0 is not of type 'string'"; ``validate_output=False`` replaces those schemas with
     a permissive object schema so the tools work.
     """
+    from contextlib import asynccontextmanager  # noqa: PLC0415
+
     import httpx  # noqa: PLC0415
     from fastmcp import FastMCP  # noqa: PLC0415
     from fastmcp.server.providers.openapi import MCPType, OpenAPIProvider, RouteMap  # noqa: PLC0415
@@ -114,4 +116,14 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         mcp_names=_TOOL_NAMES,
         validate_output=False,
     )
-    return FastMCP(name="Wetterdienst", instructions=INSTRUCTIONS, providers=[provider])
+
+    @asynccontextmanager
+    async def lifespan(_server: FastMCP):  # noqa: ANN202
+        # Tie the in-process httpx client to the server lifespan so it is closed on shutdown; this
+        # lifespan is composed into the REST app's lifespan when /mcp is mounted (see restapi.py).
+        try:
+            yield
+        finally:
+            await client.aclose()
+
+    return FastMCP(name="Wetterdienst", instructions=INSTRUCTIONS, providers=[provider], lifespan=lifespan)
