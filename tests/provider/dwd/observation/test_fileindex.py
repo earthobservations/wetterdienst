@@ -27,8 +27,10 @@ def test_file_index_creation_success(default_settings: Settings) -> None:
     ).collect()
     assert not file_index.is_empty()
     assert file_index.filter(pl.col("station_id").eq("01048")).get_column("url").to_list() == [
-        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
-        "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip",
+        (
+            "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
+            "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip"
+        ),
     ]
 
 
@@ -55,8 +57,10 @@ def test_create_file_list_for_dwd_server(default_settings: Settings) -> None:
         settings=default_settings,
     ).to_list()
     assert remote_file_path == [
-        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
-        "daily/kl/recent/tageswerte_KL_01048_akt.zip",
+        (
+            "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
+            "daily/kl/recent/tageswerte_KL_01048_akt.zip"
+        ),
     ]
     # with date range
     remote_file_path = create_file_list_for_climate_observations(
@@ -67,7 +71,9 @@ def test_create_file_list_for_dwd_server(default_settings: Settings) -> None:
         settings=default_settings,
     ).to_list()
     assert remote_file_path == [
-        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
-        "10_minutes/air_temperature/historical/"
-        "10minutenwerte_TU_00003_19930428_19991231_hist.zip",
+        (
+            "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
+            "10_minutes/air_temperature/historical/"
+            "10minutenwerte_TU_00003_19930428_19991231_hist.zip"
+        ),
     ]

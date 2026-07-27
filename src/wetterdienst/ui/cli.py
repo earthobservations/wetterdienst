@@ -1444,7 +1444,7 @@ def interpolate(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
         ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=request.interpolation_station_distance or {},  # ty: ignore[invalid-argument-type]
+        ts_geo_station_distance=request.interpolation_station_distance or {},
         ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
         ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
         ts_geo_num_additional_stations=request.num_additional_stations,
@@ -1586,7 +1586,7 @@ def summarize(
         ts_humanize=request.humanize,
         ts_convert_units=request.convert_units,
         ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=request.summary_station_distance or {},  # ty: ignore[invalid-argument-type]
+        ts_geo_station_distance=request.summary_station_distance or {},
         ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
         ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
         ts_geo_num_additional_stations=request.num_additional_stations,
@@ -1603,7 +1603,7 @@ def summarize(
         sys.exit(1)
     else:
         if values_.df.is_empty():
-            log.exception("No data available for given constraints")
+            log.error("No data available for given constraints")
             sys.exit(1)
 
     if target:
@@ -1787,7 +1787,7 @@ def stripes_stations(
         msg = f"Invalid kind '{kind}'"
         raise click.ClickException(msg)
 
-    stations = _get_stripes_stations(kind=kind, active=active)  # ty: ignore[invalid-argument-type]
+    stations = _get_stripes_stations(kind=kind, active=active)
 
     output = stations.to_format(fmt, indent=pretty)
 
