@@ -1,5 +1,8 @@
 dangerouslyAllowAllBuilds: true
 confirmModulesPurge: false
+minimumReleaseAgeExclude:
+  - '@nuxt/kit@3.21.10'
+  - '@nuxt/test-utils@4.1.0'
 shellEmulator: true
 trustPolicy: no-downgrade
 overrides:
