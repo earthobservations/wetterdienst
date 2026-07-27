@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-28
+
 ### Fixed
 
 - `[API]` Return `404` for `/.well-known/oauth-*` on the app origin instead of letting the SPA
@@ -327,7 +329,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.11.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.12.0...HEAD
+[0.12.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.11.0...frontend-v0.12.0
 [0.11.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.10.0...frontend-v0.11.0
 [0.10.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.9.0...frontend-v0.10.0
 [0.9.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.8.0...frontend-v0.9.0
