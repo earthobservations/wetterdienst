@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.129.0] - 2026-07-27
+
 ### Added
 
 - Add an optional Model Context Protocol (MCP) endpoint at `/mcp` on the REST API, exposing the data
@@ -2031,7 +2033,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.128.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.129.0...HEAD
+[0.129.0]: https://github.com/earthobservations/wetterdienst/compare/v0.128.0...v0.129.0
 [0.128.0]: https://github.com/earthobservations/wetterdienst/compare/v0.127.0...v0.128.0
 [0.127.0]: https://github.com/earthobservations/wetterdienst/compare/v0.126.0...v0.127.0
 [0.126.0]: https://github.com/earthobservations/wetterdienst/compare/v0.125.0...v0.126.0
