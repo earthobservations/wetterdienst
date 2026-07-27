@@ -923,24 +923,35 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
     The MCP server (see :mod:`wetterdienst.ui.mcp`) is generated from the REST API's own routes, so
     the ``/mcp`` transport stays in lockstep with the HTTP API, with a workflow ``instructions``
     block and clean tool names layered on for agent usability. The MCP streamable-http session
-    manager is started via the sub-app's lifespan, which is adopted by ``rest_app`` here; the
+    manager runs via the sub-app's lifespan, which is *composed* with ``rest_app``'s existing
+    lifespan here (not replaced), so any current or future app startup/shutdown still runs; the
     existing REST routes keep working with or without the lifespan running.
 
-    Returns ``True`` when the endpoint was mounted, ``False`` when fastmcp is not installed (so the
-    ``/mcp`` route is strictly optional and the plain REST API is unaffected).
+    Returns ``True`` when the endpoint was mounted, ``False`` when the optional ``[mcp]`` extra is not
+    installed or the MCP server could not be built (so the ``/mcp`` route is strictly optional and a
+    build error never takes down the plain REST API).
     """
     try:
-        import fastmcp  # noqa: F401, PLC0415
+        from fastmcp.utilities.lifespan import combine_lifespans  # noqa: PLC0415
+
+        from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+        mcp_app = build_mcp_server(rest_app).http_app(path="/mcp")
     except ModuleNotFoundError:
+        # optional [mcp] extra (fastmcp) not installed -> plain REST API, no /mcp route
+        return False
+    except Exception:
+        # never let an MCP build/version error take down the whole REST API; degrade to no /mcp
+        log.exception("Failed to build the MCP endpoint; continuing without /mcp")
         return False
 
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    mcp_app = build_mcp_server(rest_app).http_app(path="/mcp")
-    # Add the /mcp route(s) to the existing app and adopt the MCP session-manager lifespan, rather
-    # than building a second FastAPI (which would duplicate the auto-generated docs routes).
+    # Add the /mcp route(s) to the existing app and compose the MCP session-manager lifespan with the
+    # app's existing lifespan (rather than replacing it, which would drop any app startup/shutdown).
     rest_app.router.routes.extend(mcp_app.router.routes)
-    rest_app.router.lifespan_context = mcp_app.router.lifespan_context
+    rest_app.router.lifespan_context = combine_lifespans(
+        rest_app.router.lifespan_context,
+        mcp_app.router.lifespan_context,
+    )
     log.info("MCP endpoint mounted at /mcp")
     return True
 
