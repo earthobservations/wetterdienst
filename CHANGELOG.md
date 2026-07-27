@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Return `404` for the OAuth discovery paths (`/.well-known/oauth-authorization-server`,
+  `/.well-known/oauth-protected-resource`) on the REST API so MCP clients treat the open `/mcp`
+  server as no-auth instead of attempting (and failing) OAuth Dynamic Client Registration
+
 ## [0.129.0] - 2026-07-27
 
 ### Added

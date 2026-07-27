@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[API]` Return `404` for `/.well-known/oauth-*` on the app origin instead of letting the SPA
+  catch-all serve a `200` HTML page there, so MCP clients such as Claude Desktop treat the proxied
+  `/mcp` server as no-auth and connect without failing OAuth Dynamic Client Registration.
+
 ## [0.11.0] - 2026-07-27
 
 ### Added

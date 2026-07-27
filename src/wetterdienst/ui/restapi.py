@@ -230,6 +230,20 @@ def version() -> JSONResponse:
     return JSONResponse(content={"version": __version__})
 
 
+# OAuth discovery endpoints. The `/mcp` server is open (no auth), so MCP clients such as Claude
+# Desktop must receive a 404 here to conclude "no authorization server" and connect anonymously;
+# a 200 (e.g. from a catch-all serving HTML) makes them attempt -- and fail -- Dynamic Client
+# Registration. FastAPI already 404s unknown paths (including the resource-specific sub-paths like
+# `.../oauth-protected-resource/mcp`), but declaring these explicitly documents the no-auth contract
+# and keeps it correct if a static/SPA catch-all is ever mounted ahead of these routes.
+# `include_in_schema=False` keeps them out of the OpenAPI schema so they do not become MCP tools.
+@app.get("/.well-known/oauth-authorization-server", include_in_schema=False)
+@app.get("/.well-known/oauth-protected-resource", include_in_schema=False)
+def oauth_metadata_not_found() -> None:
+    """Return 404 for OAuth discovery so the open `/mcp` server is treated as no-auth."""
+    raise HTTPException(status_code=404, detail="Not Found")
+
+
 @app.get("/api/auth")
 def auth(
     provider: str,
