@@ -48,6 +48,12 @@ Types of changes:
   blocks as before.
 - Reduce DWD MOSMIX/DMO KML parsing memory by streaming the zipped KML instead of
   decompressing it fully in memory (~6.5x lower peak RSS on MOSMIX-S)
+- Refresh locked dependencies to their latest compatible versions (polars 1.43.1, pyarrow 25,
+  fastapi 0.140.7, uvicorn 0.51, and others). Update the dev toolchain (ruff 0.16, ty 0.0.64) and
+  adopt their new checks: ignore `CPY001` (no per-file copyright headers) and `PLR0917`
+  (too-many-positional-arguments, sibling of the already-ignored `PLR0913`), fix a
+  `log.exception()` call outside an exception handler, wrap implicitly concatenated test URLs, and
+  narrow the DWD-derived available-dates set so `min()`/`max()` no longer see `datetime | None`
 
 ### Fixed
 

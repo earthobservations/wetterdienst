@@ -166,19 +166,13 @@ class DwdDerivedValues(TimeseriesValues):
             url=file_url,
             settings=self.sr.settings,
         )
-        available_dates = {
-            self._extract_datetime_from_file_url(
-                dataset=dataset,
-                file_url=file_url,
-            )
-            for file_url in available_file_urls
-        }
-
         # None values are artifacts from files that contain no dates, like
-        # station TXT files or description PDFs.
-        available_dates.discard(
-            None,
-        )
+        # station TXT files or description PDFs, and are filtered out here.
+        available_dates = {
+            date
+            for file_url in available_file_urls
+            if (date := self._extract_datetime_from_file_url(dataset=dataset, file_url=file_url)) is not None
+        }
 
         if len(available_dates) == 0:
             return pl.Series()

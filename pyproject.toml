@@ -317,8 +317,11 @@ ignore = [
     "PLR0912",
     "PLR0913",
     "PLR0915",
+    "PLR0917",
     "PLR2004",
     "PLW2901",
+    # flake8-copyright (project does not use per-file copyright headers)
+    "CPY001",
     # Perflint (PERF)
     "PERF",
     # flake8-logging-format
