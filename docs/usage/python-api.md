@@ -221,8 +221,10 @@ df
 
 #### filter by name
 
-Station name filtering uses fuzzy matching (case-insensitive) so partial names, minor
-typos, and word-order variations are handled automatically.
+Station name filtering uses fuzzy matching (case-insensitive, via rapidfuzz's `WRatio`
+scorer) so partial names, minor typos, and word-order variations are handled
+automatically. In particular a bare place name resolves to its stations, e.g.
+`name="Kiel"` matches `Kiel-Holtenau` and `Kiel-Kronshagen`.
 
 ```{code-cell}
 ---
@@ -245,6 +247,10 @@ df
 The `threshold` parameter (0–1, default **0.8**) controls how strictly the name must
 match.  Lower values accept more typos; higher values require a closer match.  The
 `rank` parameter limits how many stations are returned (default 1).
+
+Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
+stations (e.g. `name="Bad"` matches every "…, Bad" station). For an **exact** name match
+use `filter_by_sql` instead, e.g. `filter_by_sql("name = 'Aach'")`.
 
 ```{code-cell}
 ---
