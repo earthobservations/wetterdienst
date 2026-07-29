@@ -519,10 +519,15 @@ class TimeseriesRequest:
 
         df = self.all().df
 
+        # WRatio (rapidfuzz's weighted composite of ratio/partial/token-sort/token-set with
+        # length-ratio guards) so a short place query matches longer station names: "Kiel" ->
+        # "Kiel-Holtenau"/"Kiel-Kronshagen". The previous token_sort_ratio scored by full-string
+        # similarity and thus penalised the length gap ("Kiel" vs "Kiel-Holtenau" ~47%), so a bare
+        # city name fell below the threshold and returned nothing.
         station_match = process.extract(
             query=name,
             choices=df.get_column("name"),
-            scorer=fuzz.token_sort_ratio,
+            scorer=fuzz.WRatio,
             score_cutoff=threshold * 100,
             processor=fuzz_utils.default_process,
         )

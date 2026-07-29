@@ -41,7 +41,12 @@ def expected_df() -> pl.DataFrame:
 
 @pytest.fixture
 def expected_df_name() -> pl.DataFrame:
-    """Provide expected DataFrame for name-filtered stations (Aach + Aachen at threshold 0.8)."""
+    """Provide expected DataFrame for name-filtered stations (Aach + Aachen + Aachen-Orsbach, 0.8).
+
+    ``end_date`` is intentionally omitted: the WRatio scorer also matches the still-active
+    Aachen-Orsbach station, whose ``end_date`` tracks the latest available day, so the test drops
+    that column before comparing (see ``test_dwd_observations_stations_filter_name``).
+    """
     return pl.DataFrame(
         [
             {
@@ -49,7 +54,6 @@ def expected_df_name() -> pl.DataFrame:
                 "dataset": "climate_summary",
                 "station_id": "00001",
                 "start_date": dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "end_date": dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC")),
                 "latitude": 47.8413,
                 "longitude": 8.8493,
                 "height": 478.0,
@@ -61,11 +65,21 @@ def expected_df_name() -> pl.DataFrame:
                 "dataset": "climate_summary",
                 "station_id": "00003",
                 "start_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "end_date": dt.datetime(2011, 3, 31, tzinfo=ZoneInfo("UTC")),
                 "latitude": 50.7827,
                 "longitude": 6.0941,
                 "height": 202.0,
                 "name": "Aachen",
+                "state": "Nordrhein-Westfalen",
+            },
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": "15000",
+                "start_date": dt.datetime(2011, 4, 1, tzinfo=ZoneInfo("UTC")),
+                "latitude": 50.7983,
+                "longitude": 6.0244,
+                "height": 231.0,
+                "name": "Aachen-Orsbach",
                 "state": "Nordrhein-Westfalen",
             },
         ],
@@ -106,7 +120,9 @@ def test_dwd_observations_stations_filter_name(default_settings: Settings, expec
         periods="historical",
         settings=default_settings,
     ).filter_by_name(name="Aach")
-    given_df = request.df
+    # Drop end_date: one match (Aachen-Orsbach) is still active, so its end_date tracks the latest
+    # available day and cannot be pinned in a static fixture.
+    given_df = request.df.drop("end_date")
     assert_frame_equal(given_df, expected_df_name)
 
 
