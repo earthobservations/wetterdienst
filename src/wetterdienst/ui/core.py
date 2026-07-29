@@ -763,7 +763,11 @@ def get_stations(
 
     name: str | None = getattr(request, "name", None)
     if name:
-        return r.filter_by_name(name, threshold=getattr(request, "name_threshold", 0.8))
+        # filter_by_name defaults to a single best match; for a listing default to several
+        # candidates so a place query offers options, honoring an explicit rank when given
+        # (e.g. the REST/MCP `rank` param).
+        name_rank: int = getattr(request, "rank", None) or 5
+        return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8))
 
     latitude: float | None = getattr(request, "latitude", None)
     longitude: float | None = getattr(request, "longitude", None)

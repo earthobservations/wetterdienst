@@ -41,7 +41,7 @@ def expected_df() -> pl.DataFrame:
 
 @pytest.fixture
 def expected_df_name() -> pl.DataFrame:
-    """Provide expected DataFrame for name-filtered stations (Aach + Aachen at threshold 0.8)."""
+    """Provide expected DataFrame for the single best name match of "Aach" (rank defaults to 1)."""
     return pl.DataFrame(
         [
             {
@@ -55,18 +55,6 @@ def expected_df_name() -> pl.DataFrame:
                 "height": 478.0,
                 "name": "Aach",
                 "state": "Baden-Württemberg",
-            },
-            {
-                "resolution": "daily",
-                "dataset": "climate_summary",
-                "station_id": "00003",
-                "start_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "end_date": dt.datetime(2011, 3, 31, tzinfo=ZoneInfo("UTC")),
-                "latitude": 50.7827,
-                "longitude": 6.0941,
-                "height": 202.0,
-                "name": "Aachen",
-                "state": "Nordrhein-Westfalen",
             },
         ],
         orient="row",
@@ -108,6 +96,19 @@ def test_dwd_observations_stations_filter_name(default_settings: Settings, expec
     ).filter_by_name(name="Aach")
     given_df = request.df
     assert_frame_equal(given_df, expected_df_name)
+
+
+@pytest.mark.remote
+def test_dwd_observations_stations_filter_name_rank(default_settings: Settings) -> None:
+    """A bare place name matches its stations (WRatio) and `rank` caps the number returned."""
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+        periods="historical",
+        settings=default_settings,
+    ).filter_by_name(name="Kiel", rank=2)
+    names = request.df.get_column("name").to_list()
+    assert len(names) == 2
+    assert all("Kiel" in name for name in names)
 
 
 # TODO: move this test to test_io.py
