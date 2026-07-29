@@ -102,12 +102,10 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     Wraps every data endpoint as an MCP tool and attaches the workflow ``instructions``, clean tool
     names and the noise-endpoint exclusions described in the module docstring.
 
-    This drives the ``OpenAPIProvider`` directly (rather than ``FastMCP.from_fastapi``) so it can pass
-    ``validate_output=False``: the REST endpoints return a raw JSON string but declare rich
-    ``response_model`` unions, which FastMCP turns into inaccurate output schemas (numeric measurement
-    values typed as strings). With the default validation that makes ``values`` reject perfectly good
-    results with "9.0 is not of type 'string'"; ``validate_output=False`` replaces those schemas with
-    a permissive object schema so the tools work.
+    This drives the ``OpenAPIProvider`` directly (rather than ``FastMCP.from_fastapi``) so the route
+    maps, tool names and lifespan can be configured in one place. Output validation is left on (the
+    default): the endpoints' ``response_model`` types match what they actually serialise, so FastMCP
+    derives accurate output schemas and validating the results catches real drift.
     """
     from contextlib import asynccontextmanager  # noqa: PLC0415
 
@@ -122,7 +120,6 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         client=client,
         route_maps=route_maps,
         mcp_names=_TOOL_NAMES,
-        validate_output=False,
     )
 
     @asynccontextmanager
