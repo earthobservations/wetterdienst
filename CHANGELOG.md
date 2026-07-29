@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.130.0] - 2026-07-30
+
 ### Changed
 
 - Raise stale/incorrect dependency lower bounds to honest, still-compatible floors (no change to the
@@ -2074,7 +2076,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.129.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.130.0...HEAD
+[0.130.0]: https://github.com/earthobservations/wetterdienst/compare/v0.129.0...v0.130.0
 [0.129.0]: https://github.com/earthobservations/wetterdienst/compare/v0.128.0...v0.129.0
 [0.128.0]: https://github.com/earthobservations/wetterdienst/compare/v0.127.0...v0.128.0
 [0.127.0]: https://github.com/earthobservations/wetterdienst/compare/v0.126.0...v0.127.0
