@@ -27,6 +27,11 @@ Types of changes:
 - Honor the `rank` argument in `filter_by_name` (it was silently ignored, always returning up to 5
   matches): it now returns the `rank` best matches, best score first (default 1). The `stations`
   REST/CLI listing requests several name candidates by default and passes through an explicit `rank`
+- Limit the `stations` listing to the requested `rank` on the REST API (`/api/stations`) and CLI
+  (`stations`). A rank filter keeps every station in the frame (the `rank` limit is applied lazily
+  during value collection), so a listing that asked for the N closest returned all stations instead
+  -- e.g. `rank=3` near Kiel returned all 1284 DWD stations (a ~365 KB response that overwhelmed MCP
+  clients). Listings now return the `rank` closest by distance
 - Return `404` for the OAuth discovery paths (`/.well-known/oauth-authorization-server`,
   `/.well-known/oauth-protected-resource`) on the REST API so MCP clients treat the open `/mcp`
   server as no-auth instead of attempting (and failing) OAuth Dynamic Client Registration

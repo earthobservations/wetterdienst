@@ -33,6 +33,7 @@ from wetterdienst.ui.core import (
     get_stations,
     get_summarize,
     get_values,
+    limit_stations_to_rank,
     set_logging_level,
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
@@ -919,6 +920,10 @@ def stations(
     if stations_.df.is_empty():
         log.error("No stations available for given constraints")
         sys.exit(1)
+
+    # A rank filter keeps all stations in the frame (rank is applied lazily during value collection);
+    # for a plain listing return just the N closest the caller asked for instead of every station.
+    stations_ = limit_stations_to_rank(stations_)
 
     if target:
         stations_.to_target(target)
