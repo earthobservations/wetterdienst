@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Rewrite the `history`, `summarize` and `interpolate` endpoint descriptions (which become the MCP
+  tool descriptions) so small models stop mis-routing plain weather questions to them: they now say
+  what each returns and that it is not measured weather -- `history` is station *metadata* history
+  (name/location/sensor changes), `summarize`/`interpolate` estimate a value for a point *between*
+  stations. Add a "Choosing a tool" note to the MCP instructions pointing weather questions at the
+  `stations` -> `values` workflow
+
 ### Fixed
 
 - Match station names with `WRatio` (was `token_sort_ratio`) in `filter_by_name`, so a bare place
