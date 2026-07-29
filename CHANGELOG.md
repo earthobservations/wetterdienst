@@ -22,7 +22,11 @@ Types of changes:
   name finds its stations: `name="Kiel"` now returns `Kiel-Holtenau`/`Kiel-Kronshagen` instead of
   nothing (`token_sort_ratio` scored the length gap "Kiel" vs "Kiel-Holtenau" at ~47%, below the 0.8
   threshold). `WRatio` is a partial matcher, so a query that is a common sub-token (e.g. `name="Bad"`)
-  matches many stations -- use the `sql` filter (`sql="name = 'Aach'"`) for an exact name match
+  matches many stations -- set `name_threshold=1.0` (keep only score-100 matches) or use the `sql`
+  filter (`sql="name = 'Aach'"`) for an exact name match
+- Honor the `rank` argument in `filter_by_name` (it was silently ignored, always returning up to 5
+  matches): it now returns the `rank` best matches, best score first (default 1). The `stations`
+  REST/CLI listing requests several name candidates by default and passes through an explicit `rank`
 - Return `404` for the OAuth discovery paths (`/.well-known/oauth-authorization-server`,
   `/.well-known/oauth-protected-resource`) on the REST API so MCP clients treat the open `/mcp`
   server as no-auth instead of attempting (and failing) OAuth Dynamic Client Registration

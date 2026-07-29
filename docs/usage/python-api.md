@@ -249,8 +249,10 @@ match.  Lower values accept more typos; higher values require a closer match.  T
 `rank` parameter limits how many stations are returned (default 1).
 
 Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
-stations (e.g. `name="Bad"` matches every "…, Bad" station). For an **exact** name match
-use `filter_by_sql` instead, e.g. `filter_by_sql("name = 'Aach'")`.
+stations (e.g. `name="Bad"` matches every "…, Bad" station). For an exact match you have two
+options: set `threshold=1.0`, which keeps only matches scoring 100 (so `name="Kiel"` returns
+nothing while `name="Aach"` returns just `Aach`); or, for strict string equality, use
+`filter_by_sql`, e.g. `filter_by_sql("name = 'Aach'")`.
 
 ```{code-cell}
 ---
