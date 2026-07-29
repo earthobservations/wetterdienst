@@ -44,6 +44,11 @@ Types of changes:
 - Return `404` for the OAuth discovery paths (`/.well-known/oauth-authorization-server`,
   `/.well-known/oauth-protected-resource`) on the REST API so MCP clients treat the open `/mcp`
   server as no-auth instead of attempting (and failing) OAuth Dynamic Client Registration
+- Type `value`/`quality` as `float | None` (was `str`) in the `_ValuesItemDict` response model, so
+  the `/api/values` OpenAPI schema matches the numbers actually serialised. The MCP `values` tool
+  derives its output schema from that model, and the wrong `str` type made FastMCP reject valid
+  results with `9.0 is not of type 'string'`. This fixes the real schema instead of the previous
+  workaround (`validate_output=False`), so MCP output validation is now enabled again
 
 ## [0.129.0] - 2026-07-27
 

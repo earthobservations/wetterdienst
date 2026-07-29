@@ -416,8 +416,8 @@ class _ValuesItemDict(TypedDict):
     dataset: str
     parameter: str
     date: str
-    value: str
-    quality: str
+    value: float | None
+    quality: float | None
 
 
 class _ValuesDict(TypedDict):
