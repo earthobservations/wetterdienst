@@ -18,6 +18,13 @@ Types of changes:
 
 ### Changed
 
+- Raise stale/incorrect dependency lower bounds to honest, still-compatible floors (no change to the
+  resolved/tested versions). Most importantly `fastapi>=0.115` (was `>=0.95.1`): the REST endpoints
+  use Pydantic query-parameter models, a feature added in FastAPI 0.115, so the old floor advertised
+  support the code never had. Also bump `httpx>=0.27`, `uvicorn>=0.30`, `duckdb>=1` (restapi/sql/
+  duckdb extras), `xarray>=2024.6`, `fsspec>=2024.6`, `python-dateutil>=2.8.2`, `tabulate>=0.9`,
+  `tqdm>=4.64`, `click>=8.1`, and add a lower bound to `sqlalchemy-cratedb>=0.40` (was unbounded
+  below). Dev/docs groups are unchanged
 - Rewrite the `history`, `summarize` and `interpolate` endpoint descriptions (which become the MCP
   tool descriptions) so small models stop mis-routing plain weather questions to them: they now say
   what each returns and that it is not measured weather -- `history` is station *metadata* history
