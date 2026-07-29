@@ -41,6 +41,14 @@ default, plus NOAA, ECCC, Météo-France and more). These tools mirror its REST 
             parameters="daily/climate_summary/temperature_air_mean_2m",
             station="01975", periods="recent")
 
+## Choosing a tool
+For "what was/is the weather at <place>" always use `stations` then `values` -- that is the only \
+path to measured weather. The similarly named tools are for other jobs: `history` returns a \
+station's *metadata* history (name/location/sensor changes), not weather; `summarize` and \
+`interpolate` estimate values for a point *between* stations (nearest-station and spatial \
+interpolation respectively), not a plain-language summary. Reach for those only when explicitly \
+asked for a between-stations estimate or station-change audit.
+
 ## Conventions
 - provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
 `coverage` with no arguments to list every provider/network.

@@ -544,7 +544,13 @@ def values(
 def interpolate(
     request: Annotated[InterpolationRequest, Query()],
 ) -> Response:
-    """Wrap around get_interpolate to provide results via restapi."""
+    """Estimate a value series at a point between stations by spatial interpolation.
+
+    For a `latitude`/`longitude` (or reference `station`) that has no station of its own, this
+    interpolates each parameter from up to four surrounding stations. Requires provider, network,
+    parameters and a `date`. Use this only to estimate values at an arbitrary location -- for the
+    actual measured weather at a place, use the stations -> values workflow instead.
+    """
     set_logging_level(debug=request.debug)
 
     try:
@@ -617,7 +623,14 @@ def interpolate(
 def summarize(
     request: Annotated[SummaryRequest, Query()],
 ) -> Response:
-    """Wrap around get_summarize to provide results via restapi."""
+    """Build a value series at a point from the nearest stations with data (not a text summary).
+
+    For a `latitude`/`longitude` (or reference `station`) without its own measurements, this takes --
+    per parameter and date -- the value of the closest station that reported it (the result names the
+    `taken_station_id` and its `distance`). Requires provider, network, parameters and a `date`. This
+    is NOT a weather summary: for the actual weather at a place use the stations -> values workflow;
+    use this only to fill a point between stations.
+    """
     set_logging_level(debug=request.debug)
 
     try:
@@ -828,10 +841,12 @@ def stripes_image(
 def history(  # noqa: C901
     request: Annotated[HistoryRequest, Query()],
 ) -> Response:
-    """Wrap get_history to provide station history via restapi.
+    """Return a station's metadata history -- how the station itself changed over time (not weather).
 
-    Support querying multiple stations or using 'all' to collect histories for
-    multiple stations.
+    Provides the record of a station's name, position, sensors/devices and data-gap sections across
+    its lifetime, for auditing station changes. This is NOT weather or measurement history: for past
+    measurements use the stations -> values workflow with a `date` or interval. Requires provider,
+    network, parameters and either `station` id(s) or all=true.
     """
     set_logging_level(debug=request.debug)
 
