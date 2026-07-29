@@ -39,6 +39,7 @@ from wetterdienst.ui.core import (
     get_stations,
     get_summarize,
     get_values,
+    limit_stations_to_rank,
     set_logging_level,
 )
 from wetterdienst.util.cli import setup_logging
@@ -392,6 +393,10 @@ def stations(
     except Exception as e:
         log.exception("Failed to get stations.")
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+    # A rank filter keeps all stations in the frame (rank is applied lazily during value collection);
+    # for a plain listing return just the N closest the caller asked for instead of every station.
+    stations_ = limit_stations_to_rank(stations_)
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {

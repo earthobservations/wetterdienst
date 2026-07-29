@@ -804,6 +804,26 @@ def get_stations(
     raise KeyError(msg)
 
 
+def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
+    """Trim a rank-filtered stations *listing* to the requested ``rank`` rows.
+
+    ``filter_by_rank`` intentionally keeps *all* stations (distance-sorted) in ``df`` because the real
+    ``rank`` limit is applied later, during value collection: that walk takes the ``rank`` closest
+    stations that actually carry data (governed by ``ts_skip_empty`` / ``ts_skip_threshold`` /
+    ``ts_skip_criteria``) and exposes them via ``ValuesResult.df_stations``.
+
+    A plain stations listing does no value collection, so it cannot apply that data-aware selection --
+    but returning every station (e.g. 1284 for DWD) when the caller asked for the N closest is both
+    surprising and huge. Here we slice to the ``rank`` closest *by distance* (data availability
+    unknown at listing time); leave other filters untouched.
+    """
+    from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
+
+    if stations.stations_filter is StationsFilter.BY_RANK and stations.rank:
+        stations.df = stations.df.head(stations.rank)
+    return stations
+
+
 def get_values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
