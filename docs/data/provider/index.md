@@ -19,6 +19,7 @@ lhmt/index.md
 meteofrance/index.md
 meteoswiss/index.md
 metno/index.md
+metoffice/index.md
 noaa/index.md
 nws/index.md
 rmi/index.md
