@@ -130,6 +130,61 @@ def test_parse_values_empty_input() -> None:
     assert df.columns == ["date", "parameter", "value", "quality"]
 
 
+def _fake_jwt(exp: float) -> str:
+    """Build a minimal unsigned JWT string carrying just an ``exp`` claim (base64url payload)."""
+    import base64  # noqa: PLC0415
+    import json  # noqa: PLC0415
+
+    payload = base64.urlsafe_b64encode(json.dumps({"exp": exp}).encode()).rstrip(b"=").decode()
+    return f"header.{payload}.signature"
+
+
+def test_ceda_token_is_cached_until_expiry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The CEDA token is minted once and reused from cache until shortly before its ``exp`` claim."""
+    import time  # noqa: PLC0415
+
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    creds = ("user", "pass")
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+    settings = Settings(auth={"ceda": "user:pass"})
+
+    calls = {"n": 0}
+
+    def _fake_post(*_args: object, **_kwargs: object) -> object:
+        calls["n"] += 1
+
+        class _Resp:
+            def raise_for_status(self) -> None: ...
+            def json(self) -> dict:
+                return {"access_token": _fake_jwt(time.time() + 3 * 24 * 3600)}
+
+        return _Resp()
+
+    monkeypatch.setattr(download.httpx, "post", _fake_post)
+
+    first = download.get_ceda_token(settings)
+    second = download.get_ceda_token(settings)
+    assert first == second
+    assert calls["n"] == 1  # second call served from cache, no re-mint
+
+    # an expired cache entry forces a fresh mint
+    token, _ = download._TOKEN_CACHE[creds]  # noqa: SLF001
+    download._TOKEN_CACHE[creds] = (token, time.time() - 1)  # noqa: SLF001
+    download.get_ceda_token(settings)
+    assert calls["n"] == 2
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+
+
+def test_ceda_token_missing_credentials_returns_none() -> None:
+    """With no CEDA credentials configured, token retrieval returns None rather than raising."""
+    from wetterdienst.provider.metoffice.observation.download import get_ceda_token  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    assert get_ceda_token(Settings(auth={"ceda": None})) is None
+
+
 # ---------------------------------------------------------------------------
 # Remote tests -- require a free CEDA account (WD_AUTH__CEDA=<username>:<password>).
 # ---------------------------------------------------------------------------

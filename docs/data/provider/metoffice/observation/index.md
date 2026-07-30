@@ -21,8 +21,11 @@ at [services.ceda.ac.uk](https://services.ceda.ac.uk) and configure the credenti
 Station metadata comes from each dataset's `station-metadata.csv` catalogue. Observations are one
 BADC-CSV file per station and year. A station may transmit several report types for the same period
 (for example an overnight and a daytime 12-hour reading alongside a 24-hour one); these are
-collapsed to a single value per calendar day (maximum for max-type parameters, minimum for min-type
-ones), which matches the true daily extreme. Hourly datasets carry one reading per hour.
+collapsed to a single value per calendar day (maximum for max-type parameters such as
+`temperature_air_max_2m`, minimum for min-type ones). For the daily temperature extremes this
+recovers the true daily extreme regardless of which report types a station transmits; the other
+daily quantities (sunshine, snow depth, precipitation) are reported once per day, so the aggregation
+is effectively a de-duplication there. Hourly datasets carry one reading per hour.
 
 Not every station measures every parameter — a station/parameter combination MIDAS doesn't have
 simply contributes no rows.

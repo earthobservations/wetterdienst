@@ -106,10 +106,9 @@ class MetOfficeObservationValues(TimeseriesValues):
     """Values class for Met Office (MIDAS Open) observation data."""
 
     def _token(self, settings: Settings) -> str | None:
-        # minted fresh per values-collection run rather than persisted: simplest correct behaviour
-        # given the 3-day token TTL and no refresh endpoint (see download.py). Re-minting per
-        # station would be wasteful; consider caching on the request/settings instance if this
-        # turns out to be a bottleneck.
+        # get_ceda_token caches the minted token in-process until shortly before its own expiry, so
+        # calling this once per station (as the values collection does) reuses one token rather than
+        # re-minting per station (see download.py).
         return get_ceda_token(settings)
 
     def _download(self, url: str, settings: Settings, token: str | None) -> bytes | None:

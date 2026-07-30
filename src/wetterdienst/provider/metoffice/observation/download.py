@@ -10,11 +10,20 @@ CEDA requires the token exchange below). The token is minted from the user's CED
 CEDA's token API and is a Keycloak-issued JWT, confirmed 3 days validity for both browser- and
 API-issued tokens -- there is no refresh endpoint, so an expired token is simply replaced by
 minting a new one.
+
+The minted token is cached in-process (keyed by credentials) until shortly before its own ``exp``
+claim, so a values query spanning many stations reuses one token instead of hitting CEDA's token
+endpoint once per station (which is slow and risks rate-limiting the free account).
 """
 
 from __future__ import annotations
 
+import base64
+import binascii
+import contextlib
+import json
 import logging
+import time
 from typing import TYPE_CHECKING
 
 import httpx
@@ -26,12 +35,39 @@ log = logging.getLogger(__name__)
 
 _TOKEN_URL = "https://services.ceda.ac.uk/api/token/create/"  # noqa: S105 -- URL, not a credential
 
+# re-mint this many seconds before the token's own expiry, to avoid handing out a token that expires
+# mid-request.
+_EXPIRY_MARGIN_SECONDS = 300
+# used only if the token's ``exp`` claim can't be read; comfortably under the ~3-day real lifetime.
+_FALLBACK_TTL_SECONDS = 3600
+
+# in-process cache: (username, password) -> (token, epoch seconds after which it must be re-minted).
+_TOKEN_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
+
+
+def _token_valid_until(token: str) -> float:
+    """Return the epoch second up to which ``token`` may be reused (its ``exp`` minus a margin).
+
+    Reads the ``exp`` claim from the JWT payload without verifying the signature (the token is used
+    as an opaque bearer; CEDA is the authority on validity). Falls back to a short TTL if the token
+    is not a readable JWT.
+    """
+    now = time.time()
+    with contextlib.suppress(IndexError, ValueError, binascii.Error, json.JSONDecodeError, KeyError):
+        payload_b64 = token.split(".")[1]
+        payload_b64 += "=" * (-len(payload_b64) % 4)  # restore base64 padding
+        exp = json.loads(base64.urlsafe_b64decode(payload_b64))["exp"]
+        return float(exp) - _EXPIRY_MARGIN_SECONDS
+    return now + _FALLBACK_TTL_SECONDS
+
 
 def get_ceda_token(settings: Settings) -> str | None:
-    """Mint a fresh CEDA bearer token from the configured (username, password) credentials.
+    """Return a valid CEDA bearer token for the configured (username, password) credentials.
 
-    Returns None (rather than raising) if no credentials are configured or the exchange fails, so
-    callers can surface a clear "not authenticated" data gap instead of a hard crash.
+    A cached token is reused while it is still valid; otherwise a fresh one is minted from the
+    credentials and cached. Returns None (rather than raising) if no credentials are configured or
+    the exchange fails, so callers can surface a clear "not authenticated" data gap instead of a
+    hard crash.
     """
     credentials = settings.auth.ceda
     if not credentials:
@@ -41,6 +77,9 @@ def get_ceda_token(settings: Settings) -> str | None:
             "or Settings(auth={'ceda': '<username>:<password>'}) (Python).",
         )
         return None
+    cached = _TOKEN_CACHE.get(credentials)
+    if cached is not None and cached[1] > time.time():
+        return cached[0]
     username, password = credentials
     try:
         response = httpx.post(_TOKEN_URL, auth=(username, password), timeout=30)
@@ -48,4 +87,6 @@ def get_ceda_token(settings: Settings) -> str | None:
     except httpx.HTTPError as e:
         log.warning(f"Failed to obtain CEDA access token: {e}")
         return None
-    return response.json()["access_token"]
+    token = response.json()["access_token"]
+    _TOKEN_CACHE[credentials] = (token, _token_valid_until(token))
+    return token

@@ -35,6 +35,7 @@ from wetterdienst.provider.meteofrance.observation import MeteoFranceObservation
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata, MeteoFranceSynopRequest
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata, MeteoswissObservationRequest
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata, MetnoFrostRequest
+from wetterdienst.provider.metoffice.observation import MetOfficeObservationMetadata
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 from wetterdienst.provider.nws.observation import NwsObservationMetadata, NwsObservationRequest
 from wetterdienst.provider.rmi.observation import RmiObservationMetadata, RmiObservationRequest
@@ -127,6 +128,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,
         MetnoFrostMetadata,
+        MetOfficeObservationMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
         RmiObservationMetadata,
@@ -167,6 +169,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,
         MetnoFrostMetadata,
+        MetOfficeObservationMetadata,
         NoaaGhcnMetadata,
         NwsObservationMetadata,
         RmiObservationMetadata,
