@@ -56,12 +56,27 @@ def test_parse_ipma_observations_sentinel_and_wind_code() -> None:
     assert df["date"].to_list() == [dt.datetime(2026, 7, 29, 14, 0, tzinfo=UTC)] * len(df)
 
 
-def test_parse_ipma_observations_calm_wind_is_null() -> None:
-    """Wind-direction code 0 (calm / no direction) maps to null, not 0 degrees."""
-    content = b'{"2026-07-29T14:00": {"1200579": {"idDireccVento": 0, "temperatura": 20.0}}}'
+@pytest.mark.parametrize(
+    ("code", "expected_degrees"),
+    [
+        (0, None),  # calm / no direction -> null (not 0°)
+        (1, 0.0),  # N
+        (2, 45.0),  # NE
+        (3, 90.0),  # E
+        (4, 135.0),  # SE
+        (5, 180.0),  # S
+        (6, 225.0),  # SW
+        (7, 270.0),  # W
+        (8, 315.0),  # NW
+        (9, 0.0),  # N (alias of 1)
+    ],
+)
+def test_parse_ipma_observations_wind_direction_codes(code: int, expected_degrees: float | None) -> None:
+    """Every IPMA wind-direction code 0-9 maps to the expected degrees (0/calm -> null, 9 aliases N)."""
+    content = f'{{"2026-07-29T14:00": {{"1200579": {{"idDireccVento": {code}}}}}}}'.encode()
     df = parse_ipma_observations(content, station_id="1200579")
     wind = df.filter(pl.col("parameter") == "idDireccVento")
-    assert wind["value"].to_list() == [None]
+    assert wind["value"].to_list() == [expected_degrees]
 
 
 def test_parse_ipma_observations_skips_absent_station() -> None:

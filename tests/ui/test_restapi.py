@@ -71,6 +71,7 @@ def test_coverage(client: TestClient) -> None:
         "fmi",
         "geosphere",
         "imgw",
+        "ipma",
         "knmi",
         "meteofrance",
         "meteoswiss",
