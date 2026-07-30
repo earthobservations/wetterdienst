@@ -36,6 +36,11 @@ Types of changes:
   stations. Recent-only (a rolling ~1-day window), so a date range within the last day is required.
   The `-99.0` missing sentinel becomes null and the 8-point wind-direction code is converted to
   degrees
+- Add an LHMT (Lithuania) observation provider (`lhmt`/`observation`) backed by the key-less
+  `api.meteo.lt` JSON REST API. Provides hourly observations (temperature, humidity, wind
+  speed/gust/direction, cloud cover, sea-level pressure, precipitation, snow depth) from ~52
+  stations, with historical data back to roughly 2016 fetched per station and day. Settled past days
+  are cached indefinitely while the current day uses a short cache
 
 ### Changed
 

@@ -73,6 +73,7 @@ def test_coverage(client: TestClient) -> None:
         "imgw",
         "ipma",
         "knmi",
+        "lhmt",
         "meteofrance",
         "meteoswiss",
         "metno",

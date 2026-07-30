@@ -71,6 +71,45 @@ def test_parse_lhmt_observations_empty() -> None:
     assert df.columns == ["date", "parameter", "value"]
 
 
+def test_parse_lhmt_malformed_json_yields_empty() -> None:
+    """A malformed 200 body (e.g. an HTML error page) yields an empty frame, not an exception."""
+    assert parse_lhmt_observations(b"<html>rate limited</html>").is_empty()
+    assert parse_lhmt_stations(b"not json").is_empty()
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        # single UTC day (start == end date) -> one day
+        (dt.datetime(2020, 7, 1, tzinfo=UTC), dt.datetime(2020, 7, 1, 23, tzinfo=UTC), [dt.date(2020, 7, 1)]),
+        # inclusive multi-day span -> every day incl. both ends
+        (
+            dt.datetime(2020, 7, 1, tzinfo=UTC),
+            dt.datetime(2020, 7, 3, tzinfo=UTC),
+            [dt.date(2020, 7, 1), dt.date(2020, 7, 2), dt.date(2020, 7, 3)],
+        ),
+        # month/year rollover
+        (
+            dt.datetime(2019, 12, 31, tzinfo=UTC),
+            dt.datetime(2020, 1, 1, tzinfo=UTC),
+            [dt.date(2019, 12, 31), dt.date(2020, 1, 1)],
+        ),
+        # a non-UTC start is converted to its UTC calendar date first: 23:30 in Vilnius (UTC+3) on
+        # 2020-07-01 is 20:30 UTC the same day, so the window still begins on 2020-07-01 UTC
+        (
+            dt.datetime(2020, 7, 1, 23, 30, tzinfo=ZoneInfo("Europe/Vilnius")),
+            dt.datetime(2020, 7, 2, 12, tzinfo=UTC),
+            [dt.date(2020, 7, 1), dt.date(2020, 7, 2)],
+        ),
+    ],
+)
+def test_days_covers_range_inclusive(start: dt.datetime, end: dt.datetime, expected: list[dt.date]) -> None:
+    """`_days` yields every UTC calendar date in [start, end] inclusive, handling non-UTC inputs."""
+    from wetterdienst.provider.lhmt.observation.api import _days  # noqa: PLC0415
+
+    assert list(_days(start, end)) == expected
+
+
 # ---------------------------------------------------------------------------
 # Remote tests -- hit the live (key-less) api.meteo.lt. Historical data is stable, so exact values
 # can be asserted. xfail (not hard-fail) on an outage matches the CHMI/AEMET precedent.

@@ -42,7 +42,10 @@ def parse_lhmt_stations(content: bytes) -> pl.DataFrame:
     and ``coordinates`` (``latitude``/``longitude``). The API exposes no elevation, so ``height`` is
     left for the framework to null-fill.
     """
-    stations = json.loads(content)
+    try:
+        stations = json.loads(content)
+    except json.JSONDecodeError:
+        return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
     if not isinstance(stations, list) or not stations:
         return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
     rows = [
@@ -64,7 +67,10 @@ def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
     with one entry per hour. Missing values are already ``null`` (no sentinel). Timestamps are UTC
     (``YYYY-MM-DD HH:MM:SS``).
     """
-    payload = json.loads(content)
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:
+        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
     observations = payload.get("observations") if isinstance(payload, dict) else None
     if not observations:
         return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)

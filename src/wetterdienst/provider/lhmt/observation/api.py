@@ -101,12 +101,14 @@ class LhmtObservationValues(TimeseriesValues):
 
     def _download_day(self, station_id: str, day: dt.date, settings: Settings) -> bytes | None:
         url = f"{_BASE_URL}/stations/{station_id}/observations/{day.isoformat()}"
+        # a settled past day is immutable, so it can be cached indefinitely; only the current (still
+        # filling) day needs a short cache. This keeps repeated historical queries off the network
+        # and well under the api.meteo.lt request-rate limit.
+        ttl = CacheExpiry.FIVE_MINUTES if day >= dt.datetime.now(dt.timezone.utc).date() else CacheExpiry.INFINITE
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
-            # past days are immutable; the current day keeps filling, so a twelve-hour cache is a
-            # safe compromise that also stays well under the api.meteo.lt request-rate limit.
-            ttl=CacheExpiry.TWELVE_HOURS,
+            ttl=ttl,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
