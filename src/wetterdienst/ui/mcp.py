@@ -42,12 +42,18 @@ default, plus NOAA, ECCC, Météo-France and more). These tools mirror its REST 
             station="01975", periods="recent")
 
 ## Choosing a tool
-For "what was/is the weather at <place>" always use `stations` then `values` -- that is the only \
-path to measured weather. The similarly named tools are for other jobs: `history` returns a \
-station's *metadata* history (name/location/sensor changes), not weather; `summarize` and \
-`interpolate` estimate values for a point *between* stations (nearest-station and spatial \
-interpolation respectively), not a plain-language summary. Reach for those only when explicitly \
-asked for a between-stations estimate or station-change audit.
+For "what was/is the weather at <place>" ALWAYS use `stations` then `values` -- that is the only \
+path to measured weather, and the correct default. This holds even when the request names a \
+specific past date (e.g. "how was the weather in Kiel on 26.12.2025"): find Kiel's nearest station \
+with `stations`, then read its `values` for that date. Do NOT reach for `interpolate` or \
+`summarize` here.
+
+`interpolate` and `summarize` estimate values for a point *between* stations (spatial interpolation \
+and nearest-station-with-data respectively); both introduce inaccuracy and are opt-in. Use them \
+ONLY when the user explicitly asks for an interpolated / between-stations estimate, or when \
+`stations` -> `values` genuinely returns no station with data near the location. They are not a \
+plain-language "summary". `history` is different again: it returns a station's *metadata* history \
+(name/location/sensor changes), not weather.
 
 ## Conventions
 - provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \

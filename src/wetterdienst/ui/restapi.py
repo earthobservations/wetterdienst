@@ -549,12 +549,16 @@ def values(
 def interpolate(
     request: Annotated[InterpolationRequest, Query()],
 ) -> Response:
-    """Estimate a value series at a point between stations by spatial interpolation.
+    """Estimate a value series at a point between stations by spatial interpolation (opt-in; adds inaccuracy).
 
-    For a `latitude`/`longitude` (or reference `station`) that has no station of its own, this
-    interpolates each parameter from up to four surrounding stations. Requires provider, network,
-    parameters and a `date`. Use this only to estimate values at an arbitrary location -- for the
-    actual measured weather at a place, use the stations -> values workflow instead.
+    Do NOT use this for the weather at a named place (city, town, station) -- that is ALWAYS the
+    `stations` -> `values` workflow, even when a specific past date is given (e.g. "the weather in
+    Kiel on 26.12.2025": find Kiel's nearest station, then read its values for that date). Only reach
+    for interpolate when the user explicitly asks for an interpolated / between-stations estimate, or
+    when `stations` -> `values` genuinely finds no station with data near the location. It blends up
+    to four surrounding stations for a `latitude`/`longitude` (or reference `station`) that has no
+    station of its own, so the result is a modelled estimate, not a measurement. Requires provider,
+    network, parameters and a `date`.
     """
     set_logging_level(debug=request.debug)
 
@@ -628,13 +632,16 @@ def interpolate(
 def summarize(
     request: Annotated[SummaryRequest, Query()],
 ) -> Response:
-    """Build a value series at a point from the nearest stations with data (not a text summary).
+    """Build a value series at a point from the nearest stations with data (opt-in; not a text summary).
 
-    For a `latitude`/`longitude` (or reference `station`) without its own measurements, this takes --
-    per parameter and date -- the value of the closest station that reported it (the result names the
-    `taken_station_id` and its `distance`). Requires provider, network, parameters and a `date`. This
-    is NOT a weather summary: for the actual weather at a place use the stations -> values workflow;
-    use this only to fill a point between stations.
+    Do NOT use this for the weather at a named place (city, town, station) -- that is ALWAYS the
+    `stations` -> `values` workflow, even when a specific past date is given. Despite the name this
+    is NOT a plain-language weather summary. Only reach for it when the user explicitly asks for a
+    nearest-station estimate at an arbitrary point, or when `stations` -> `values` genuinely finds no
+    station with data near the location. Per parameter and date it takes the value of the closest
+    station that reported it (the result names the `taken_station_id` and its `distance`), so the
+    result may stitch together different stations. Requires provider, network, parameters and a
+    `date`.
     """
     set_logging_level(debug=request.debug)
 
