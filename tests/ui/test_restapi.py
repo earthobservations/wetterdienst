@@ -1854,6 +1854,34 @@ def test_mcp_server_is_agent_friendly() -> None:
     assert "values" in instructions
 
 
+@pytest.mark.parametrize(
+    ("schema_name", "nullable_numeric"),
+    [
+        ("_ValuesItemDict", ("value", "quality")),
+        ("_InterpolatedValuesItemDict", ("value", "distance_mean")),
+        ("_SummarizedValuesItemDict", ("value", "distance")),
+    ],
+)
+def test_values_item_output_schemas_match_payload(schema_name: str, nullable_numeric: tuple[str, ...]) -> None:
+    """The values/interpolate/summarize item schemas match what the endpoints serialise (regression).
+
+    Guards the MCP output-schema drift behind #1776: every item carries `resolution` and `dataset`,
+    and the numeric fields that go null when no station is in reach (e.g. an out-of-range
+    interpolation point) must be typed nullable, or FastMCP output validation rejects the response.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    schema = app.openapi()["components"]["schemas"][schema_name]
+    properties = schema["properties"]
+    # resolution and dataset are always present in the serialised rows
+    assert {"resolution", "dataset"} <= properties.keys()
+    # nullable numeric fields are typed as number-or-null (anyOf includes a null branch)
+    for field in nullable_numeric:
+        branches = properties[field].get("anyOf", [properties[field]])
+        assert any(branch.get("type") == "null" for branch in branches), f"{schema_name}.{field} not nullable"
+        assert any(branch.get("type") == "number" for branch in branches), f"{schema_name}.{field} not numeric"
+
+
 @pytest.mark.remote
 def test_mcp_values_tool_returns_data() -> None:
     """The values MCP tool returns data instead of failing output-schema validation (regression)."""
@@ -1877,6 +1905,43 @@ def test_mcp_values_tool_returns_data() -> None:
                     "parameters": "daily/climate_summary/temperature_air_mean_2m",
                     "station": "01975",
                     "periods": "recent",
+                },
+            )
+            return result.data
+
+    data = asyncio.run(_call())
+    assert data is not None
+
+
+@pytest.mark.remote
+def test_mcp_interpolate_tool_returns_data() -> None:
+    """The interpolate MCP tool passes output-schema validation, including null out-of-range rows.
+
+    Interpolation of a point with no station in reach serialises null `value`/`distance_mean`; this
+    exercises that the item schema types them nullable (regression for the interpolate/summarize
+    counterpart of #1776).
+    """
+    pytest.importorskip("fastmcp")
+    pytest.importorskip("utm")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> object:
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "interpolate",
+                {
+                    "provider": "dwd",
+                    "network": "observation",
+                    "parameters": "daily/climate_summary/temperature_air_mean_2m",
+                    "station": "00071",
+                    "date": "1986-10-31/1986-11-01",
                 },
             )
             return result.data
