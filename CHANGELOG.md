@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Sharpen the `interpolate`/`summarize` endpoint descriptions (which become the MCP tool
+  descriptions) and the MCP instructions so agents stop routing plain weather questions to them.
+  `stations` -> `values` is now stated as the default for weather at a named place even when a
+  specific past date is given, and interpolate/summarize are called out as opt-in estimates -- used
+  only on explicit request or when no station with data is near the point -- because they add
+  inaccuracy
+
 ### Fixed
 
 - Type the `interpolate`/`summarize` response-model items to match what the endpoints serialise, so

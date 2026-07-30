@@ -1852,6 +1852,9 @@ def test_mcp_server_is_agent_friendly() -> None:
     assert instructions is not None
     assert "stations" in instructions
     assert "values" in instructions
+    # interpolate/summarize are steered as opt-in, not the default for weather at a place
+    assert "interpolate" in instructions
+    assert "opt-in" in instructions or "explicitly" in instructions
 
 
 @pytest.mark.parametrize(
