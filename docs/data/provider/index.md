@@ -13,6 +13,7 @@ eccc/index.md
 fmi/index.md
 geosphere/index.md
 imgw/index.md
+ipma/index.md
 knmi/index.md
 meteofrance/index.md
 meteoswiss/index.md

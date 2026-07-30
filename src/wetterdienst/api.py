@@ -45,6 +45,9 @@ class Wetterdienst:
             "hydrology": "wetterdienst.provider.imgw.hydrology.ImgwHydrologyRequest",
             "meteorology": "wetterdienst.provider.imgw.meteorology.ImgwMeteorologyRequest",
         },
+        "ipma": {
+            "observation": "wetterdienst.provider.ipma.observation.IpmaObservationRequest",
+        },
         "knmi": {
             "observation": "wetterdienst.provider.knmi.observation.KnmiObservationRequest",
         },
