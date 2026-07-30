@@ -684,10 +684,12 @@ class _InterpolatedValuesItemDict(TypedDict):
     """Type definition for dictionary of interpolated values."""
 
     station_id: str
+    resolution: str
+    dataset: str
     parameter: str
     date: str
-    value: float
-    distance_mean: float
+    value: float | None
+    distance_mean: float | None
     taken_station_ids: list[str]
 
 
@@ -884,11 +886,13 @@ class _SummarizedValuesItemDict(TypedDict):
     """Format summarized values as dictionary."""
 
     station_id: str
+    resolution: str
+    dataset: str
     parameter: str
     date: str
-    value: float
-    distance: float
-    taken_station_id: str
+    value: float | None
+    distance: float | None
+    taken_station_id: str | None
 
 
 class _SummarizedValuesDict(TypedDict):

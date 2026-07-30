@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Type the `interpolate`/`summarize` response-model items to match what the endpoints serialise, so
+  their MCP output schemas stop rejecting valid results. `_InterpolatedValuesItemDict` and
+  `_SummarizedValuesItemDict` now include the `resolution`/`dataset` keys (always present in the
+  rows) and type `value`/`distance_mean`/`distance`/`taken_station_id` as nullable: interpolating or
+  summarizing a point with no station in reach serialises `null` for those fields, which the previous
+  non-null schema rejected (the same schema drift fixed for `values` in 0.130.0)
+
 ## [0.130.0] - 2026-07-30
 
 ### Changed
