@@ -15,6 +15,7 @@ geosphere/index.md
 imgw/index.md
 ipma/index.md
 knmi/index.md
+lhmt/index.md
 meteofrance/index.md
 meteoswiss/index.md
 metno/index.md

@@ -30,6 +30,7 @@ from wetterdienst.provider.imgw.hydrology import ImgwHydrologyMetadata, ImgwHydr
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyMetadata, ImgwMeteorologyRequest
 from wetterdienst.provider.ipma.observation import IpmaObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata, KnmiObservationRequest
+from wetterdienst.provider.lhmt.observation import LhmtObservationMetadata
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata, MeteoFranceObservationRequest
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata, MeteoFranceSynopRequest
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata, MeteoswissObservationRequest
@@ -121,6 +122,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         ImgwMeteorologyMetadata,
         IpmaObservationMetadata,
         KnmiObservationMetadata,
+        LhmtObservationMetadata,
         MeteoFranceObservationMetadata,
         MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,
@@ -160,6 +162,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         ImgwMeteorologyMetadata,
         IpmaObservationMetadata,
         KnmiObservationMetadata,
+        LhmtObservationMetadata,
         MeteoFranceObservationMetadata,
         MeteoFranceSynopMetadata,
         MeteoswissObservationMetadata,

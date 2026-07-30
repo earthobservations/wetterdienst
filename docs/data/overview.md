@@ -86,6 +86,11 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - observations from the Dutch station network
         - 10-minute, hourly and daily resolution
         - requires a free API key from developer.dataplatform.knmi.nl (`WD_AUTH__KNMI`)
+- LHMT (Lietuvos hidrometeorologijos tarnyba / Lithuanian Hydrometeorological Service / Lithuania)
+    - Observation
+        - hourly observations from the Lithuanian automatic station network via the api.meteo.lt REST API
+        - ~52 stations; historical (back to ~2016)
+        - open data, no authentication required
 - Météo-France (French National Meteorological Service / France)
     - Synop
         - SYNOP observations at the native 3-hourly reporting interval

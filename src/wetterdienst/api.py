@@ -51,6 +51,9 @@ class Wetterdienst:
         "knmi": {
             "observation": "wetterdienst.provider.knmi.observation.KnmiObservationRequest",
         },
+        "lhmt": {
+            "observation": "wetterdienst.provider.lhmt.observation.LhmtObservationRequest",
+        },
         "noaa": {
             "ghcn": "wetterdienst.provider.noaa.ghcn.NoaaGhcnRequest",
         },
