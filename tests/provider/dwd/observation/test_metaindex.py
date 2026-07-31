@@ -10,12 +10,13 @@ import polars as pl
 import pytest
 
 from wetterdienst import Settings
-from wetterdienst.exceptions import MetaFileNotFoundError
+from wetterdienst.exceptions import MetaFileFormatError, MetaFileNotFoundError
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.metaindex import (
     _create_csv_line,
+    _read_meta_df_urban,
     create_meta_index_for_climate_observations,
 )
 
@@ -96,6 +97,47 @@ def test_create_csv_line() -> None:
         )
         == """01332,19660701,20240514,471,48.4832,12.7241,"Falkenberg,Kr.Rottal-Inn",Bayern"""
     )
+
+
+def test_read_meta_df_urban() -> None:
+    """climate_urban station lists are parsed by content, tolerating blank date/state fields.
+
+    The two leading lines are the header and its dashes ruler and are dropped. Data rows vary in
+    token count because von_datum/bis_datum and (for the 10-minute lists) the trailing
+    Bundesland/Abgabe fields are frequently left blank.
+    """
+    raw_lines = [
+        b"Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland Abgabe\n",
+        b"----------- --------- --------- ------------- --------- --------- ----------- ---------- ------\n",
+        # 10-minute row: blank dates and blank state
+        b"13667 269 48.0006 7.8342 Freiburg-Mitte\n",
+        # dates present, state still blank
+        b"00399 20040701 20260724 100 52.5447 13.4046 Berlin-Alexanderplatz\n",
+        # full hourly row: dates, state and a trailing "Frei" Abgabe marker
+        b"13667 20080101 20260724 269 48.0006 7.8342 Freiburg-Mitte Baden-Wuerttemberg Frei\n",
+        # blank line is skipped
+        b"\n",
+    ]
+    df = _read_meta_df_urban(raw_lines).collect()
+    assert df.rows() == [
+        ("13667", "", "", "269", "48.0006", "7.8342", "Freiburg-Mitte", ""),
+        ("00399", "20040701", "20260724", "100", "52.5447", "13.4046", "Berlin-Alexanderplatz", ""),
+        ("13667", "20080101", "20260724", "269", "48.0006", "7.8342", "Freiburg-Mitte", "Baden-Wuerttemberg"),
+    ]
+
+
+def test_read_meta_df_urban_rejects_malformed_rows() -> None:
+    """A row that breaks the content assumptions fails loudly instead of shifting every field."""
+    header = [
+        b"Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland\n",
+        b"----------- --------- --------- ------------- --------- --------- ----------- ----------\n",
+    ]
+    # fewer than two decimal tokens (truncated coordinates)
+    with pytest.raises(MetaFileFormatError):
+        _read_meta_df_urban([*header, b"13667 269 48.0006 Freiburg-Mitte\n"]).collect()
+    # a decimal-valued height would otherwise be mis-read as latitude
+    with pytest.raises(MetaFileFormatError):
+        _read_meta_df_urban([*header, b"13667 269.5 48.0006 7.8342 Freiburg-Mitte\n"]).collect()
 
 
 def test_missing_meta_file_skipped(default_settings: Settings) -> None:

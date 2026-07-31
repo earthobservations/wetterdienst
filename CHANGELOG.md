@@ -23,6 +23,13 @@ Types of changes:
   (selectable via `issue`, default: the latest run): air, dew-point and road surface temperature,
   liquid precipitation, precipitation probabilities and the road surface condition. This is the
   forecast counterpart to the DWD `road` observation network
+- Add the DWD `10_minutes` urban climate (Stadtklima) datasets to the `dwd`/`observation` network,
+  served from DWD's `climate_urban/` path (recent period only): `urban_precipitation`,
+  `urban_pressure`, `urban_solar`, `urban_temperature_air` (incl. the new
+  `temperature_radiant_mean_2m` parameter), `urban_temperature_extreme`, `urban_temperature_soil`,
+  `urban_wind` and `urban_wind_extreme`. These complement the existing hourly urban datasets. The
+  urban station-description lists are parsed by content because they frequently leave the optional
+  date and Bundesland fields blank
 
 ### Changed
 

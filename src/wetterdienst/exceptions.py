@@ -15,6 +15,10 @@ class MetaFileNotFoundError(FileNotFoundError):
     """Raised when a meta file is not found."""
 
 
+class MetaFileFormatError(ValueError):
+    """Raised when a meta file does not match the expected format."""
+
+
 class ProductFileNotFoundError(FileNotFoundError):
     """Raised when a product file is not found."""
 

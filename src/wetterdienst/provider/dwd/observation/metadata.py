@@ -313,6 +313,218 @@ DwdObservationMetadata = {
                         },
                     ],
                 },
+                # urban (Stadtklima) 10-minute datasets -- served from climate_urban/ (recent only);
+                # column codes carry the ``_st_`` (Stadt) infix.
+                {
+                    "name": "urban_temperature_air",
+                    "name_original": "urban_air_temperature",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn",
+                            "unit_type": "dimensionless",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "tt_st_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                        {"name": "humidity", "name_original": "rf_st_10", "unit_type": "fraction", "unit": "percent"},
+                        {
+                            # "Strahlungstemperatur" -- radiant temperature at 2 m
+                            "name": "temperature_radiant_mean_2m",
+                            "name_original": "strahl_st_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_mean_0_05m",
+                            "name_original": "tt5_st_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                    ],
+                },
+                {
+                    "name": "urban_temperature_extreme",
+                    "name_original": "urban_extreme_temperature",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn",
+                            "unit_type": "dimensionless",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "temperature_air_max_2m",
+                            "name_original": "tx_st_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m",
+                            "name_original": "tn_st_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "tn5_st_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                    ],
+                },
+                {
+                    "name": "urban_wind_extreme",
+                    "name_original": "urban_extreme_wind",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn",
+                            "unit_type": "dimensionless",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "wind_gust_max",
+                            "name_original": "fx_st_10",
+                            "unit_type": "speed",
+                            "unit": "meter_per_second",
+                        },
+                    ],
+                },
+                {
+                    "name": "urban_precipitation",
+                    "name_original": "urban_precipitation",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn",
+                            "unit_type": "dimensionless",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "rr_st_10",
+                            "unit_type": "precipitation",
+                            "unit": "millimeter",
+                        },
+                    ],
+                },
+                {
+                    "name": "urban_pressure",
+                    "name_original": "urban_pressure",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn",
+                            "unit_type": "dimensionless",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "pressure_air_sea_level",
+                            "name_original": "pp_st_10",
+                            "unit_type": "pressure",
+                            "unit": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_air_site",
+                            "name_original": "p0_st_10",
+                            "unit_type": "pressure",
+                            "unit": "hectopascal",
+                        },
+                    ],
+                },
+                {
+                    "name": "urban_temperature_soil",
+                    "name_original": "urban_soil_temperature",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn",
+                            "unit_type": "dimensionless",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_1m",
+                            "name_original": "te_st_01m_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_2m",
+                            "name_original": "te_st_02m_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_5m",
+                            "name_original": "te_st_05m_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_1m",
+                            "name_original": "te_st_10m_10",
+                            "unit_type": "temperature",
+                            "unit": "degree_celsius",
+                        },
+                    ],
+                },
+                {
+                    "name": "urban_solar",
+                    "name_original": "urban_solar",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn",
+                            "unit_type": "dimensionless",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "radiation_global",
+                            "name_original": "fg_st_10",
+                            "unit_type": "energy_per_area",
+                            "unit": "joule_per_square_centimeter",
+                        },
+                        # urban sunshine duration is reported in minutes (the non-urban solar sd_10 is hours)
+                        {
+                            "name": "sunshine_duration",
+                            "name_original": "sd_st_10",
+                            "unit_type": "time",
+                            "unit": "minute",
+                        },
+                    ],
+                },
+                {
+                    "name": "urban_wind",
+                    "name_original": "urban_wind",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn",
+                            "unit_type": "dimensionless",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "ff_st_10",
+                            "unit_type": "speed",
+                            "unit": "meter_per_second",
+                        },
+                        {"name": "wind_direction", "name_original": "dd_st_10", "unit_type": "angle", "unit": "degree"},
+                    ],
+                },
             ],
         },
         {
@@ -1964,6 +2176,14 @@ DwdObservationMetadata = {
 DwdObservationMetadata = build_metadata_model(DwdObservationMetadata, "DwdObservationMetadata")
 
 DWD_URBAN_DATASETS = [
+    DwdObservationMetadata.minute_10.urban_temperature_air,
+    DwdObservationMetadata.minute_10.urban_temperature_extreme,
+    DwdObservationMetadata.minute_10.urban_wind_extreme,
+    DwdObservationMetadata.minute_10.urban_precipitation,
+    DwdObservationMetadata.minute_10.urban_pressure,
+    DwdObservationMetadata.minute_10.urban_temperature_soil,
+    DwdObservationMetadata.minute_10.urban_solar,
+    DwdObservationMetadata.minute_10.urban_wind,
     DwdObservationMetadata.hourly.urban_precipitation,
     DwdObservationMetadata.hourly.urban_pressure,
     DwdObservationMetadata.hourly.urban_sun,

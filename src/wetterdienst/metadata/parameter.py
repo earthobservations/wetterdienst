@@ -541,6 +541,7 @@ class Parameter(Enum):
     TEMPERATURE_SOIL_MAX_BARE_MUCK_1_8M = "TEMPERATURE_SOIL_MAX_BARE_MUCK_1_8M"
 
     TEMPERATURE_SURFACE_MEAN = "TEMPERATURE_SURFACE_MEAN"
+    TEMPERATURE_RADIANT_MEAN_2M = "TEMPERATURE_RADIANT_MEAN_2M"  # radiant temperature ("Strahlungstemperatur")
 
     HEATING_DEGREE_DAY = "HEATING_DEGREE_DAY"  # This may be renamed/moved to the aggregated section
     COOLING_DEGREE_HOUR = "COOLING_DEGREE_HOUR"  # This may be renamed/moved to the aggregated section
