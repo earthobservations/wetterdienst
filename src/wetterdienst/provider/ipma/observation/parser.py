@@ -40,7 +40,7 @@ _EMPTY_VALUES_SCHEMA = {
 
 
 def parse_ipma_stations(content: bytes) -> pl.DataFrame:
-    """Parse ``stations.json`` (a GeoJSON FeatureCollection) into one row per station.
+    """Parse ``stations.json`` (a bare JSON array of GeoJSON Feature objects) into one row per station.
 
     Each feature carries ``properties.idEstacao`` (the numeric station id) and
     ``properties.localEstacao`` (the name), plus a ``Point`` geometry as ``[longitude, latitude]``.

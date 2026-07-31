@@ -6,7 +6,7 @@ IPMA's open-data API provides near-real-time hourly observations from the Portug
 weather station network (~222 stations across mainland Portugal, the Azores and Madeira). No API key
 or registration is required — the feed is fully public.
 
-Two JSON feeds are used: a station catalogue (`stations.json`, a GeoJSON FeatureCollection giving
+Two JSON feeds are used: a station catalogue (`stations.json`, a bare array of GeoJSON Feature objects giving
 each station's id, name and coordinates) and a single all-stations observation feed
 (`observations.json`) holding roughly the last day of hourly readings. Because the feed is a rolling
 window, only the `recent` period is available — there is no historical archive, so a date range

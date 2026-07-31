@@ -3,7 +3,7 @@
 """IPMA (Instituto Português do Mar e da Atmosfera) observation provider.
 
 IPMA publishes near-real-time hourly observations from its Portuguese automatic station network as
-two key-less JSON feeds: a station catalogue (``stations.json``, a GeoJSON FeatureCollection) and a
+two key-less JSON feeds: a station catalogue (``stations.json``, a bare array of GeoJSON Feature objects) and a
 single all-stations observation feed (``observations.json``) holding roughly the last day of hourly
 readings. Only the ``recent`` period exists; there is no historical archive.
 
