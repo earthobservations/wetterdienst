@@ -41,33 +41,36 @@ in the "now" period, although this may change in the future.
 The two dataset strings reflect on how we call a dataset e.g. "PRECIPITATION" and
 how the DWD calls the dataset e.g. "precipitation".
 
-| Dataset \ Granularity                               | 1_minute | 5_minutes | 10_minutes | hourly | subdaily | daily | monthly | annual |
-|-----------------------------------------------------|----------|-----------|------------|--------|----------|-------|---------|--------|
-| `PRECIPITATION = "precipitation"`                   | ✅        | ✅         | ✅          | ❌      | ❌        | ❌     | ❌       | ❌      |
-| `TEMPERATURE_AIR = "air_temperature"`               | ❌        | ❌         | ✅          | ✅      | ✅        | ❌     | ❌       | ❌      |
-| `TEMPERATURE_EXTREME = "extreme_temperature"`       | ❌        | ❌         | ✅          | ❌      | ❌        | ❌     | ❌       | ❌      |
-| `WIND_EXTREME = "extreme_wind"`                     | ❌        | ❌         | ✅          | ❌      | ❌        | ❌     | ❌       | ❌      |
-| `SOLAR = "solar"`                                   | ❌        | ❌         | ✅          | ✅      | ❌        | ✅     | ❌       | ❌      |
-| `WIND = "wind"`                                     | ❌        | ❌         | ✅          | ✅      | ✅        | ❌     | ❌       | ❌      |
-| `CLOUD_TYPE = "cloud_type"`                         | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `CLOUDINESS = "cloudiness"`                         | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
-| `DEW_POINT = "dew_point"`                           | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `PRESSURE = "pressure"`                             | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
-| `TEMPERATURE_SOIL = "soil_temperature"`             | ❌        | ❌         | ❌          | ✅      | ❌        | ✅     | ❌       | ❌      |
-| `SUNSHINE_DURATION = "sun"`                         | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `VISIBILITY = "visibility"`                         | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
-| `WIND_SYNOPTIC = "wind_synop"`                      | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `MOISTURE = "moisture"`                             | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
-| `CLIMATE_SUMMARY = "kl"`                            | ❌        | ❌         | ❌          | ❌      | ✅        | ✅     | ✅       | ✅      |
-| `PRECIPITATION_MORE = "more_precip"`                | ❌        | ❌         | ❌          | ❌      | ❌        | ✅     | ✅       | ✅      |
-| `WATER_EQUIVALENT = "water_equiv"`                  | ❌        | ❌         | ❌          | ❌      | ❌        | ✅     | ❌       | ❌      |
-| `WEATHER_PHENOMENA = "weather_phenomena"`           | ❌        | ❌         | ❌          | ❌      | ❌        | ✅     | ✅       | ✅      |
-| `URBAN_TEMPERATURE_AIR = "urban_temperature_air"`   | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `URBAN_PRECIPITATION = "urban_precipitation"`       | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `URBAN_PRESSURE = "urban_pressure"`                 | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `URBAN_TEMPERATURE_SOIL = "urban_temperature_soil"` | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `URBAN_SUN = "urban_sun"`                           | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
-| `URBAN_WIND = "urban_wind"`                         | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| Dataset \ Granularity                                     | 1_minute | 5_minutes | 10_minutes | hourly | subdaily | daily | monthly | annual |
+|-----------------------------------------------------------|----------|-----------|------------|--------|----------|-------|---------|--------|
+| `PRECIPITATION = "precipitation"`                         | ✅        | ✅         | ✅          | ❌      | ❌        | ❌     | ❌       | ❌      |
+| `TEMPERATURE_AIR = "air_temperature"`                     | ❌        | ❌         | ✅          | ✅      | ✅        | ❌     | ❌       | ❌      |
+| `TEMPERATURE_EXTREME = "extreme_temperature"`             | ❌        | ❌         | ✅          | ❌      | ❌        | ❌     | ❌       | ❌      |
+| `WIND_EXTREME = "extreme_wind"`                           | ❌        | ❌         | ✅          | ❌      | ❌        | ❌     | ❌       | ❌      |
+| `SOLAR = "solar"`                                         | ❌        | ❌         | ✅          | ✅      | ❌        | ✅     | ❌       | ❌      |
+| `WIND = "wind"`                                           | ❌        | ❌         | ✅          | ✅      | ✅        | ❌     | ❌       | ❌      |
+| `CLOUD_TYPE = "cloud_type"`                               | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `CLOUDINESS = "cloudiness"`                               | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
+| `DEW_POINT = "dew_point"`                                 | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `PRESSURE = "pressure"`                                   | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
+| `TEMPERATURE_SOIL = "soil_temperature"`                   | ❌        | ❌         | ❌          | ✅      | ❌        | ✅     | ❌       | ❌      |
+| `SUNSHINE_DURATION = "sun"`                               | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `VISIBILITY = "visibility"`                               | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
+| `WIND_SYNOPTIC = "wind_synop"`                            | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `MOISTURE = "moisture"`                                   | ❌        | ❌         | ❌          | ✅      | ✅        | ❌     | ❌       | ❌      |
+| `CLIMATE_SUMMARY = "kl"`                                  | ❌        | ❌         | ❌          | ❌      | ✅        | ✅     | ✅       | ✅      |
+| `PRECIPITATION_MORE = "more_precip"`                      | ❌        | ❌         | ❌          | ❌      | ❌        | ✅     | ✅       | ✅      |
+| `WATER_EQUIVALENT = "water_equiv"`                        | ❌        | ❌         | ❌          | ❌      | ❌        | ✅     | ❌       | ❌      |
+| `WEATHER_PHENOMENA = "weather_phenomena"`                 | ❌        | ❌         | ❌          | ❌      | ❌        | ✅     | ✅       | ✅      |
+| `URBAN_TEMPERATURE_AIR = "urban_temperature_air"`         | ❌        | ❌         | ✅          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `URBAN_PRECIPITATION = "urban_precipitation"`             | ❌        | ❌         | ✅          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `URBAN_PRESSURE = "urban_pressure"`                       | ❌        | ❌         | ✅          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `URBAN_TEMPERATURE_SOIL = "urban_temperature_soil"`       | ❌        | ❌         | ✅          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `URBAN_SUN = "urban_sun"`                                 | ❌        | ❌         | ❌          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `URBAN_WIND = "urban_wind"`                               | ❌        | ❌         | ✅          | ✅      | ❌        | ❌     | ❌       | ❌      |
+| `URBAN_SOLAR = "urban_solar"`                             | ❌        | ❌         | ✅          | ❌      | ❌        | ❌     | ❌       | ❌      |
+| `URBAN_TEMPERATURE_EXTREME = "urban_temperature_extreme"` | ❌        | ❌         | ✅          | ❌      | ❌        | ❌     | ❌       | ❌      |
+| `URBAN_WIND_EXTREME = "urban_wind_extreme"`               | ❌        | ❌         | ✅          | ❌      | ❌        | ❌     | ❌       | ❌      |
 
 This table and subsets of it can be printed with a function call of
 ``.discover()`` as described in the API section. Furthermore, individual

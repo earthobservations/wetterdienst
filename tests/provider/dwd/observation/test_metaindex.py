@@ -10,7 +10,7 @@ import polars as pl
 import pytest
 
 from wetterdienst import Settings
-from wetterdienst.exceptions import MetaFileNotFoundError
+from wetterdienst.exceptions import MetaFileFormatError, MetaFileNotFoundError
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
@@ -124,6 +124,20 @@ def test_read_meta_df_urban() -> None:
         ("00399", "20040701", "20260724", "100", "52.5447", "13.4046", "Berlin-Alexanderplatz", ""),
         ("13667", "20080101", "20260724", "269", "48.0006", "7.8342", "Freiburg-Mitte", "Baden-Wuerttemberg"),
     ]
+
+
+def test_read_meta_df_urban_rejects_malformed_rows() -> None:
+    """A row that breaks the content assumptions fails loudly instead of shifting every field."""
+    header = [
+        b"Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland\n",
+        b"----------- --------- --------- ------------- --------- --------- ----------- ----------\n",
+    ]
+    # fewer than two decimal tokens (truncated coordinates)
+    with pytest.raises(MetaFileFormatError):
+        _read_meta_df_urban([*header, b"13667 269 48.0006 Freiburg-Mitte\n"]).collect()
+    # a decimal-valued height would otherwise be mis-read as latitude
+    with pytest.raises(MetaFileFormatError):
+        _read_meta_df_urban([*header, b"13667 269.5 48.0006 7.8342 Freiburg-Mitte\n"]).collect()
 
 
 def test_missing_meta_file_skipped(default_settings: Settings) -> None:

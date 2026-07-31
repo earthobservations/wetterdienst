@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
 
-from wetterdienst.exceptions import MetaFileNotFoundError
+from wetterdienst.exceptions import MetaFileFormatError, MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.fileindex import (
@@ -75,14 +75,16 @@ def create_meta_index_for_climate_observations(
             how="left",
         )
     meta_index = meta_index.sort(by=["station_id"])
+    # The climate_urban lists frequently leave von_datum/bis_datum blank; parse those leniently so
+    # blanks become null instead of raising. The well-formed non-urban lists keep strict parsing so a
+    # malformed date still fails loudly.
+    strict_dates = not cond3
     return meta_index.select(
         pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
         pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
         "station_id",
-        # strict=False keeps blank optional dates (present in the climate_urban lists) as null
-        # instead of raising; the well-formed non-urban lists are unaffected.
-        pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
-        pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
+        pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
+        pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
         pl.col("height").cast(pl.Float64),
         pl.col("latitude").cast(pl.Float64),
         pl.col("longitude").cast(pl.Float64),
@@ -180,6 +182,10 @@ def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
     Bundesland names in these lists are single hyphenated tokens (e.g. "Freiburg-Mitte",
     "Baden-Wuerttemberg"), so the token right after longitude is the name and the remainder (if
     present, and after dropping a trailing "Frei" Abgabe marker) is the state.
+
+    Raises MetaFileFormatError if a row does not match these content assumptions (fewer than two
+    decimal tokens, or a decimal-valued height) so a changed DWD layout fails loudly instead of
+    silently shifting every field.
     """
     records = []
     for raw in raw_lines[2:]:
@@ -188,8 +194,14 @@ def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
             continue
         tokens = line.split()
         decimals = [i for i, token in enumerate(tokens) if "." in token]
+        if len(decimals) < 2:
+            msg = f"Expected latitude and longitude as decimal tokens in climate_urban station row: {line!r}"
+            raise MetaFileFormatError(msg)
         lat_idx, lon_idx = decimals[0], decimals[1]
         height_idx = lat_idx - 1
+        if height_idx < 1 or "." in tokens[height_idx]:
+            msg = f"Expected an integer height before the coordinates in climate_urban station row: {line!r}"
+            raise MetaFileFormatError(msg)
         dates = [token for token in tokens[1:height_idx] if len(token) == 8 and token.isdigit()]
         trailing = tokens[lon_idx + 1 :]
         if trailing and trailing[-1] == "Frei":
