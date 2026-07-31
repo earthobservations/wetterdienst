@@ -191,6 +191,9 @@ class DwdSwsmosRequest(TimeseriesRequest):
         resolution = self.metadata[0]
         # catalogue columns: Kennung;Name;Streckentyp;Streckenbelag;Breite;Laenge;Hoehe;Flughafen;Inaktiv
         # (Breite/Laenge/Hoehe use a comma decimal separator, unlike the run files)
+        # drop stations flagged inactive (the ``Inaktiv`` column is empty for active stations)
+        if "Inaktiv" in df.columns:
+            df = df.filter(pl.col("Inaktiv").is_null() | (pl.col("Inaktiv").str.strip_chars() == ""))
         return df.select(
             pl.col("Kennung").alias("station_id"),
             pl.col("Name").alias("name"),

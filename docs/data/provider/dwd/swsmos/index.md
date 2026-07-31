@@ -4,10 +4,10 @@
 
 SWSMOS (Straßenwetter-MOS) is the DWD's **road weather forecast** for its network of ~1800 road
 weather stations ("Straßenwetterstationen"). For each model run it provides an hourly forecast out
-to +167 hours (roughly seven days) of air temperature (with its forecast standard deviation),
-dew point, road surface temperature, liquid precipitation and its probability, and the road surface
-condition. Most variables come from a Model Output Statistics (MOS) post-processing; the road
-surface temperature and road condition come from the METRo road-weather model.
+to +167 hours (roughly seven days) of air temperature, dew point, road surface temperature, liquid
+precipitation and precipitation probabilities, and the road surface condition. Most variables come
+from a Model Output Statistics (MOS) post-processing; the road surface temperature and road
+condition come from the METRo road-weather model.
 
 The data is published as one CSV file per model run under
 [local_forecasts/swsmos](https://opendata.dwd.de/weather/local_forecasts/swsmos/)
