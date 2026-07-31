@@ -185,6 +185,20 @@ def test_ceda_token_missing_credentials_returns_none() -> None:
     assert get_ceda_token(Settings(auth={"ceda": None})) is None
 
 
+def test_ceda_token_valid_until_falls_back_on_unreadable_payload() -> None:
+    """A JWT whose payload is valid JSON but not a dict falls back to a short TTL, not a crash."""
+    import base64  # noqa: PLC0415
+    import json  # noqa: PLC0415
+    import time  # noqa: PLC0415
+
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+
+    # payload decodes to JSON ``null`` -> ["exp"] would be a TypeError; must fall back, not raise
+    payload = base64.urlsafe_b64encode(json.dumps(None).encode()).rstrip(b"=").decode()
+    valid_until = download._token_valid_until(f"header.{payload}.signature")  # noqa: SLF001
+    assert time.time() < valid_until <= time.time() + download._FALLBACK_TTL_SECONDS + 5  # noqa: SLF001
+
+
 # ---------------------------------------------------------------------------
 # Remote tests -- require a free CEDA account (WD_AUTH__CEDA=<username>:<password>).
 # ---------------------------------------------------------------------------

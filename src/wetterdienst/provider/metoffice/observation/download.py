@@ -23,6 +23,7 @@ import binascii
 import contextlib
 import json
 import logging
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -43,6 +44,9 @@ _FALLBACK_TTL_SECONDS = 3600
 
 # in-process cache: (username, password) -> (token, epoch seconds after which it must be re-minted).
 _TOKEN_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
+# serialises the check-then-mint so concurrent callers (e.g. the REST API's thread pool) don't each
+# mint a redundant token on a cold cache.
+_TOKEN_LOCK = threading.Lock()
 
 
 def _token_valid_until(token: str) -> float:
@@ -53,7 +57,8 @@ def _token_valid_until(token: str) -> float:
     is not a readable JWT.
     """
     now = time.time()
-    with contextlib.suppress(IndexError, ValueError, binascii.Error, json.JSONDecodeError, KeyError):
+    # TypeError covers a payload that is valid JSON but not a dict (e.g. ``null``/list/number)
+    with contextlib.suppress(IndexError, ValueError, TypeError, binascii.Error, json.JSONDecodeError, KeyError):
         payload_b64 = token.split(".")[1]
         payload_b64 += "=" * (-len(payload_b64) % 4)  # restore base64 padding
         exp = json.loads(base64.urlsafe_b64decode(payload_b64))["exp"]
@@ -81,12 +86,17 @@ def get_ceda_token(settings: Settings) -> str | None:
     if cached is not None and cached[1] > time.time():
         return cached[0]
     username, password = credentials
-    try:
-        response = httpx.post(_TOKEN_URL, auth=(username, password), timeout=30)
-        response.raise_for_status()
-    except httpx.HTTPError as e:
-        log.warning(f"Failed to obtain CEDA access token: {e}")
-        return None
-    token = response.json()["access_token"]
-    _TOKEN_CACHE[credentials] = (token, _token_valid_until(token))
-    return token
+    with _TOKEN_LOCK:
+        # re-check under the lock: another thread may have minted while we waited
+        cached = _TOKEN_CACHE.get(credentials)
+        if cached is not None and cached[1] > time.time():
+            return cached[0]
+        try:
+            response = httpx.post(_TOKEN_URL, auth=(username, password), timeout=30)
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            log.warning(f"Failed to obtain CEDA access token: {e}")
+            return None
+        token = response.json()["access_token"]
+        _TOKEN_CACHE[credentials] = (token, _token_valid_until(token))
+        return token
