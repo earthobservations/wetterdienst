@@ -48,15 +48,24 @@ def parse_lhmt_stations(content: bytes) -> pl.DataFrame:
         return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
     if not isinstance(stations, list) or not stations:
         return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
-    rows = [
-        {
-            "station_id": station["code"],
-            "name": station["name"],
-            "latitude": station["coordinates"]["latitude"],
-            "longitude": station["coordinates"]["longitude"],
-        }
-        for station in stations
-    ]
+    rows = []
+    for station in stations:
+        # skip a malformed entry rather than crash the whole listing: a station needs at least a
+        # code and coordinates to be usable
+        if not isinstance(station, dict):
+            continue
+        coordinates = station.get("coordinates")
+        coordinates = coordinates if isinstance(coordinates, dict) else {}
+        code = station.get("code")
+        latitude = coordinates.get("latitude")
+        longitude = coordinates.get("longitude")
+        if code is None or latitude is None or longitude is None:
+            continue
+        rows.append(
+            {"station_id": code, "name": station.get("name"), "latitude": latitude, "longitude": longitude},
+        )
+    if not rows:
+        return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
     return pl.DataFrame(rows, schema=_EMPTY_STATIONS_SCHEMA)
 
 
@@ -72,13 +81,17 @@ def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
     except json.JSONDecodeError:
         return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
     observations = payload.get("observations") if isinstance(payload, dict) else None
-    if not observations:
+    if not isinstance(observations, list) or not observations:
         return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
     rows = [
-        {"date": observation["observationTimeUtc"], "parameter": field, "value": observation.get(field)}
+        {"date": timestamp, "parameter": field, "value": observation.get(field)}
         for observation in observations
+        # skip a malformed entry (non-dict, or one without a timestamp) rather than crash the day
+        if isinstance(observation, dict) and (timestamp := observation.get("observationTimeUtc")) is not None
         for field in _VALUE_FIELDS
     ]
+    if not rows:
+        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
     return pl.DataFrame(rows, schema={"date": pl.String, "parameter": pl.String, "value": pl.Float64}).with_columns(
         pl.col("date").str.to_datetime("%Y-%m-%d %H:%M:%S", time_unit="us").dt.replace_time_zone("UTC"),
     )

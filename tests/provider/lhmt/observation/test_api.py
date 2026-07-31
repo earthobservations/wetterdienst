@@ -77,6 +77,29 @@ def test_parse_lhmt_malformed_json_yields_empty() -> None:
     assert parse_lhmt_stations(b"not json").is_empty()
 
 
+def test_parse_lhmt_skips_malformed_items() -> None:
+    """Valid JSON with malformed items degrades to the good rows rather than raising."""
+    # observations: a non-dict entry and one missing the timestamp are dropped; the good one stays
+    obs = (
+        b'{"station": {"code": "x"}, "observations": ['
+        b'"garbage", {"airTemperature": 1.0}, '
+        b'{"observationTimeUtc": "2020-07-01 12:00:00", "airTemperature": 22.3}]}'
+    )
+    df = parse_lhmt_observations(obs)
+    assert df["date"].unique().to_list() == [dt.datetime(2020, 7, 1, 12, 0, tzinfo=UTC)]
+    temp = df.filter(pl.col("parameter") == "airTemperature")
+    assert temp["value"].to_list() == [22.3]
+
+    # stations: entries missing a code or coordinates are skipped; the complete one survives
+    stations = (
+        b'[{"name": "no code"}, {"code": "y", "coordinates": {}}, '
+        b'{"code": "vilniaus-ams", "name": "Vilniaus AMS", '
+        b'"coordinates": {"latitude": 54.6, "longitude": 25.1}}]'
+    )
+    sdf = parse_lhmt_stations(stations)
+    assert sdf["station_id"].to_list() == ["vilniaus-ams"]
+
+
 @pytest.mark.parametrize(
     ("start", "end", "expected"),
     [
@@ -94,12 +117,13 @@ def test_parse_lhmt_malformed_json_yields_empty() -> None:
             dt.datetime(2020, 1, 1, tzinfo=UTC),
             [dt.date(2019, 12, 31), dt.date(2020, 1, 1)],
         ),
-        # a non-UTC start is converted to its UTC calendar date first: 23:30 in Vilnius (UTC+3) on
-        # 2020-07-01 is 20:30 UTC the same day, so the window still begins on 2020-07-01 UTC
+        # a non-UTC start is converted to its UTC calendar date first: 01:00 in Vilnius (UTC+3) on
+        # 2020-07-01 is 2020-06-30 22:00 UTC -- the PREVIOUS calendar day -- so the window must begin
+        # on 2020-06-30 (a naive .date() without the UTC conversion would wrongly start on 2020-07-01)
         (
-            dt.datetime(2020, 7, 1, 23, 30, tzinfo=ZoneInfo("Europe/Vilnius")),
-            dt.datetime(2020, 7, 2, 12, tzinfo=UTC),
-            [dt.date(2020, 7, 1), dt.date(2020, 7, 2)],
+            dt.datetime(2020, 7, 1, 1, 0, tzinfo=ZoneInfo("Europe/Vilnius")),
+            dt.datetime(2020, 7, 1, 12, tzinfo=UTC),
+            [dt.date(2020, 6, 30), dt.date(2020, 7, 1)],
         ),
     ],
 )
