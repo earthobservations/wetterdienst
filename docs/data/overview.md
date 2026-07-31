@@ -25,6 +25,9 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - Up to 115 parameters
     - Road
         - Historical weather observations of German highway stations
+    - SWSMOS
+        - road weather forecast (Straßenwetter-MOS) for ~1800 German road weather stations
+        - hourly, out to +167 hours; air/dew/road-surface temperature, precipitation, road condition
     - Radar
         - 16 locations in Germany
         - All of Composite, Radolan, Radvor, Sites and Radolan_CDC

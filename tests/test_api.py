@@ -20,6 +20,7 @@ from wetterdienst.provider.dwd.dmo import DwdDmoMetadata, DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.road import DwdRoadMetadata, DwdRoadRequest
+from wetterdienst.provider.dwd.swsmos import DwdSwsmosMetadata
 from wetterdienst.provider.ea.hydrology import EAHydrologyMetadata, EAHydrologyRequest
 from wetterdienst.provider.eaufrance.hubeau import HubeauMetadata, HubeauRequest
 from wetterdienst.provider.eccc.observation import EcccObservationMetadata, EcccObservationRequest
@@ -109,6 +110,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
         DwdMosmixMetadata,
         DwdObservationMetadata,
         DwdRoadMetadata,
+        DwdSwsmosMetadata,
         EAHydrologyMetadata,
         EcccObservationMetadata,
         FmiObservationMetadata,
@@ -146,6 +148,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
         DwdMosmixMetadata,
         DwdObservationMetadata,
         DwdRoadMetadata,
+        DwdSwsmosMetadata,
         EAHydrologyMetadata,
         EcccObservationMetadata,
         FmiObservationMetadata,
