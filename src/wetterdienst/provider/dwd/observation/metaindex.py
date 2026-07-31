@@ -55,7 +55,10 @@ def create_meta_index_for_climate_observations(
     elif cond2:
         meta_index = _create_meta_index_for_subdaily_extreme_wind(period, settings)
     elif cond3:
-        meta_index = _create_meta_index_for_climate_observations(dataset, Period.RECENT, settings)
+        # The climate_urban station lists frequently leave optional fields (von_datum, bis_datum,
+        # Bundesland, Abgabe) blank, so whitespace-splitting misaligns the columns -- the urban path
+        # locates fields by their content instead (see _read_meta_df_urban). Urban data is recent-only.
+        meta_index = _create_meta_index_for_climate_observations(dataset, Period.RECENT, settings, urban=True)
     else:
         meta_index = _create_meta_index_for_climate_observations(dataset, period, settings)
     # If no state column available, take state information from daily historical
@@ -76,8 +79,10 @@ def create_meta_index_for_climate_observations(
         pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
         pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
         "station_id",
-        pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
-        pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC"),
+        # strict=False keeps blank optional dates (present in the climate_urban lists) as null
+        # instead of raising; the well-formed non-urban lists are unaffected.
+        pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
+        pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
         pl.col("height").cast(pl.Float64),
         pl.col("latitude").cast(pl.Float64),
         pl.col("longitude").cast(pl.Float64),
@@ -90,6 +95,8 @@ def _create_meta_index_for_climate_observations(
     dataset: DatasetModel,
     period: Period,
     settings: Settings,
+    *,
+    urban: bool = False,
 ) -> pl.LazyFrame:
     """Create metadata DataFrame for climate observations."""
     url = _build_url_from_dataset_and_period(dataset, period)
@@ -116,13 +123,15 @@ def _create_meta_index_for_climate_observations(
         use_certifi=settings.use_certifi,
     )
     file.raise_if_exception()
-    return _read_meta_df(file)
+    return _read_meta_df(file, urban=urban)
 
 
-def _read_meta_df(file: File) -> pl.LazyFrame:
+def _read_meta_df(file: File, *, urban: bool = False) -> pl.LazyFrame:
     """Read meta file into DataFrame."""
     if isinstance(file.content, Exception):
         return pl.LazyFrame()
+    if urban:
+        return _read_meta_df_urban(file.content.readlines())
     lines = file.content.readlines()[2:]
     first = lines[0].decode("latin-1")
     if first.startswith("SP"):
@@ -157,6 +166,48 @@ def _create_csv_line(columns: list[str]) -> str:
     if "," in station_name:
         columns[-2] = f'"{station_name}"'
     return ",".join(columns)
+
+
+def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
+    """Read a climate_urban station-description file into a DataFrame.
+
+    These lists carry the standard header (Stations_id, von_datum, bis_datum, Stationshoehe,
+    geoBreite, geoLaenge, Stationsname, Bundesland[, Abgabe]) but frequently leave the optional
+    von_datum/bis_datum (and, for the 10-minute lists, the trailing Bundesland/Abgabe) fields
+    blank. Whitespace-splitting then yields a varying number of tokens, so the fields are located
+    by their content instead: latitude and longitude are the first two decimal tokens, the height
+    is the token before them, and any 8-digit tokens ahead of the height are the dates. Station and
+    Bundesland names in these lists are single hyphenated tokens (e.g. "Freiburg-Mitte",
+    "Baden-Wuerttemberg"), so the token right after longitude is the name and the remainder (if
+    present, and after dropping a trailing "Frei" Abgabe marker) is the state.
+    """
+    records = []
+    for raw in raw_lines[2:]:
+        line = raw.decode("latin-1")
+        if not line.strip():
+            continue
+        tokens = line.split()
+        decimals = [i for i, token in enumerate(tokens) if "." in token]
+        lat_idx, lon_idx = decimals[0], decimals[1]
+        height_idx = lat_idx - 1
+        dates = [token for token in tokens[1:height_idx] if len(token) == 8 and token.isdigit()]
+        trailing = tokens[lon_idx + 1 :]
+        if trailing and trailing[-1] == "Frei":
+            trailing = trailing[:-1]
+        records.append(
+            {
+                "station_id": tokens[0],
+                "start_date": dates[0] if dates else "",
+                "end_date": dates[1] if len(dates) > 1 else "",
+                "height": tokens[height_idx],
+                "latitude": tokens[lat_idx],
+                "longitude": tokens[lon_idx],
+                "name": trailing[0] if trailing else "",
+                "state": " ".join(trailing[1:]),
+            }
+        )
+    columns = ("station_id", "start_date", "end_date", "height", "latitude", "longitude", "name", "state")
+    return pl.DataFrame(records, schema=dict.fromkeys(columns, pl.String)).lazy()
 
 
 def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Settings) -> pl.LazyFrame:
