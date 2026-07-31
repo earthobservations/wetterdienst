@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Add a DWD SWSMOS network (`dwd`/`swsmos`) exposing the road weather forecast (Straßenwetter-MOS)
+  for DWD's ~1800 road weather stations. Each model run provides an hourly forecast out to +167 hours
+  (selectable via `issue`, default: the latest run): air, dew-point and road surface temperature,
+  liquid precipitation, precipitation probabilities and the road surface condition. This is the
+  forecast counterpart to the DWD `road` observation network
+
 ### Changed
 
 - Sharpen the `interpolate`/`summarize` endpoint descriptions (which become the MCP tool

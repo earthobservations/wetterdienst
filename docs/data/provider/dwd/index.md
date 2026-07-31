@@ -48,6 +48,7 @@ dmo/index.md
 mosmix/index.md
 observation/index.md
 road/index.md
+swsmos/index.md
 radar/index.md
 derived/index.md
 alerts/index.md

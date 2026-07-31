@@ -82,7 +82,7 @@ def test_coverage(client: TestClient) -> None:
         "wsv",
     }
     dwd = data["dwd"]
-    assert list(dwd.keys()) == ["observation", "mosmix", "dmo", "road", "radar", "alerts", "derived"]
+    assert list(dwd.keys()) == ["observation", "mosmix", "dmo", "road", "swsmos", "radar", "alerts", "derived"]
     for network_info in dwd.values():
         assert network_info["auth"] is False
         assert network_info["configured"] is True
