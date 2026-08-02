@@ -41,6 +41,13 @@ Types of changes:
   speed/gust/direction, cloud cover, sea-level pressure, precipitation, snow depth) from ~52
   stations, with historical data back to roughly 2016 fetched per station and day. Settled past days
   are cached indefinitely while the current day uses a short cache
+- Add a Met Office (UK) observation provider (`metoffice`/`observation`) backed by the MIDAS Open
+  archive on CEDA (UK Open Government Licence). Covers eight datasets across daily and hourly
+  resolution (rain, temperature, weather, wind, radiation, soil temperature). Requires a free CEDA
+  account (`WD_AUTH__CEDA=<username>:<password>`); the bearer token is minted from those credentials
+  and cached in-process until shortly before it expires. Multiple report types per day are collapsed
+  to one value per calendar day, multi-day rain accumulations are dropped, and native units are
+  normalised (e.g. visibility from decametres to metres)
 
 ### Changed
 

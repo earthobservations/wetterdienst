@@ -29,6 +29,7 @@ class Auth(BaseModel):
     aemet: str | None = Field(default=None)
     knmi: str | None = Field(default=None)
     metno_frost: tuple[str, str] | None = Field(default=None)
+    ceda: tuple[str, str] | None = Field(default=None)
 
     @field_validator("metno_frost", mode="before")
     @classmethod
@@ -40,6 +41,24 @@ class Auth(BaseModel):
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
+            raise ValueError(msg)
+        return str(as_tuple[0]), str(as_tuple[1])
+
+    @field_validator("ceda", mode="before")
+    @classmethod
+    def validate_ceda(cls, value: tuple[str, str] | str | None) -> tuple[str, str] | None:
+        """Parse the CEDA (username, password) pair, e.g. from ``WD_AUTH__CEDA=username:password``."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            username, sep, password = value.partition(":")
+            if not sep:
+                msg = "ceda must be given as 'username:password'"
+                raise ValueError(msg)
+            return username, password
+        as_tuple = tuple(value)
+        if len(as_tuple) != 2:
+            msg = f"ceda must be a (username, password) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
         return str(as_tuple[0]), str(as_tuple[1])
 

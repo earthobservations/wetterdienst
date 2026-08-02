@@ -77,6 +77,7 @@ def test_coverage(client: TestClient) -> None:
         "meteofrance",
         "meteoswiss",
         "metno",
+        "metoffice",
         "noaa",
         "nws",
         "rmi",

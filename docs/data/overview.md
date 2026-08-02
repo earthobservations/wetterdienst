@@ -108,6 +108,13 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - Historical and recent observations from Norwegian station network
         - 10-minute, hourly, 6-hourly (historical only), daily, monthly and annual resolution
         - ~2200 stations; requires free API key from frost.met.no
+- Met Office (UK Met Office / United Kingdom)
+    - Observation
+        - historical UK land surface observations from the MIDAS Open archive on CEDA
+        - daily and hourly resolution across eight datasets (rain, temperature, weather, wind,
+          radiation, soil temperature); some stations back to the 19th century
+        - annual releases, so the most recent ~6-12 months are not yet available
+        - requires a free CEDA account (`WD_AUTH__CEDA=<username>:<password>`)
 - NOAA (National Oceanic and Atmospheric Administration / United States of America)
     - Global Historical Climatology Network (GHCN)
         - hourly (GHCNh) and daily weather observations from around the globe
