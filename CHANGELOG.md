@@ -30,6 +30,12 @@ Types of changes:
   `urban_wind` and `urban_wind_extreme`. These complement the existing hourly urban datasets. The
   urban station-description lists are parsed by content because they frequently leave the optional
   date and Bundesland fields blank
+- Add an IPMA (Portugal) observation provider (`ipma`/`observation`) backed by the key-less
+  `api.ipma.pt` open-data JSON feeds. Provides near-real-time hourly observations (temperature,
+  humidity, sea-level pressure, wind speed/direction, precipitation, global radiation) from ~222
+  stations. Recent-only (a rolling ~1-day window), so a date range within the last day is required.
+  The `-99.0` missing sentinel becomes null and the 8-point wind-direction code is converted to
+  degrees
 
 ### Changed
 

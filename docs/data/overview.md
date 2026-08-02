@@ -76,6 +76,11 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Hydrology
         - hydrological data of polish river stations
         - daily and monthly summaries
+- IPMA (Instituto Português do Mar e da Atmosfera / Portuguese Institute for Sea and Atmosphere / Portugal)
+    - Observation
+        - near-real-time hourly observations from the Portuguese automatic station network
+        - ~222 stations; recent only (rolling ~last day, no historical archive)
+        - open data, no authentication required
 - KNMI (Koninklijk Nederlands Meteorologisch Instituut / Royal Netherlands Meteorological Institute / Netherlands)
     - Observation
         - observations from the Dutch station network
