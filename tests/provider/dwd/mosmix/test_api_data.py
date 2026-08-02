@@ -3,12 +3,16 @@
 """Tests for DWD MOSMIX."""
 
 import datetime as dt
+from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from wetterdienst import Settings
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+from wetterdienst.provider.dwd.mosmix.api import DWD_MOSMIX_SNOW_PATH, DwdMosmixMetadata
+from wetterdienst.util.network import list_remote_files_fsspec
 
 
 @pytest.mark.remote
@@ -236,6 +240,68 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> Non
             "sund1",
         ],
     )
+
+
+def test_dwd_mosmix_snow_metadata() -> None:
+    """The MOSMIX-SNOW dataset exposes DWD's 20 snow forecast parameters (year-round, no network)."""
+    dataset = DwdMosmixMetadata.hourly.snow
+    assert dataset.name == "snow"
+    assert dataset.name_original == "mosmix_snow"
+    name_originals = {parameter.name_original for parameter in dataset.parameters}
+    assert len(name_originals) == 20
+    # the 14 snow-specific fields plus the 6 standard fields carried over from MOSMIX-S
+    assert name_originals == {
+        "sa3",
+        "sa6",
+        "sah",
+        "sad",
+        "sa605",
+        "sa610",
+        "sa620",
+        "sah05",
+        "sah10",
+        "sah30",
+        "sad10",
+        "sad30",
+        "sad50",
+        "sncv",
+        "ttt",
+        "td",
+        "dd",
+        "ff",
+        "fx1",
+        "rr1c",
+    }
+
+
+@pytest.mark.remote
+def test_dwd_mosmix_snow(settings_humanize_false_drop_nulls_false: Settings) -> None:
+    """Test a typical MOSMIX-SNOW response near the Alps.
+
+    MOSMIX-SNOW is only published from November to April (and only while there is snow), so the test
+    skips itself when no file is available on the server.
+    """
+    url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_SNOW_PATH)
+    files = list_remote_files_fsspec(url, settings_humanize_false_drop_nulls_false, CacheExpiry.NO_CACHE)
+    if not any(file.endswith(".kmz") for file in files):
+        pytest.skip("MOSMIX-SNOW is only published from November to April; no file available")
+    request = DwdMosmixRequest(
+        parameters=[("hourly", "snow")],
+        settings=settings_humanize_false_drop_nulls_false,
+    ).filter_by_rank(latlon=(47.421, 10.986), rank=20)
+    response = next(request.values.query())
+    assert list(response.df.columns) == [
+        "station_id",
+        "resolution",
+        "dataset",
+        "parameter",
+        "date",
+        "value",
+        "quality",
+    ]
+    assert not response.df.is_empty()
+    name_originals = {parameter.name_original for parameter in DwdMosmixMetadata.hourly.snow.parameters}
+    assert set(response.df.get_column("parameter")).issubset(name_originals)
 
 
 @pytest.mark.remote

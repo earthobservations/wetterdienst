@@ -204,3 +204,39 @@
 | wind_gust_max_last_3h                                    | fx3           | Maximum wind gust within the last 3 hours                                           | speed           | m/s   | >=0         |
 | wind_gust_max_last_12h                                   | fxh           | Maximum wind gust within the last 12 hours                                          | speed           | m/s   | >=0         |
 | wind_speed                                               | ff            | Wind speed                                                                          | speed           | m/s   | >=0         |
+### Snow
+
+#### Metadata
+
+| property         | value                                                                                            |
+|------------------|--------------------------------------------------------------------------------------------------|
+| name             | snow                                                                                             |
+| original name    | mosmix_snow                                                                                      |
+| description      | Point forecast of new/fresh snow parameters at mountain stations, published November to April    |
+| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                             |
+| access           | [here](https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX-SNOW_S/)                       |
+
+#### parameters
+
+| name                                             | original name | description                                                                  | unit type     | unit  | constraints |
+|--------------------------------------------------|---------------|------------------------------------------------------------------------------|---------------|-------|-------------|
+| precipitation_height_significant_weather_last_1h | rr1c          | Total precipitation during the last hour consistent with significant weather | precipitation | kg/m² | >=0         |
+| probability_snow_depth_new_gt_10cm_last_12h      | sah10         | Probability of > 10cm new snow amount in 12 hours                            | fraction      | %     | >=0,<=100   |
+| probability_snow_depth_new_gt_10cm_last_24h      | sad10         | Probability of > 10cm new snow amount in 24 hours                            | fraction      | %     | >=0,<=100   |
+| probability_snow_depth_new_gt_10cm_last_6h       | sa610         | Probability of > 10cm new snow amount in 6 hours                             | fraction      | %     | >=0,<=100   |
+| probability_snow_depth_new_gt_20cm_last_6h       | sa620         | Probability of > 20cm new snow amount in 6 hours                             | fraction      | %     | >=0,<=100   |
+| probability_snow_depth_new_gt_30cm_last_12h      | sah30         | Probability of > 30cm new snow amount in 12 hours                            | fraction      | %     | >=0,<=100   |
+| probability_snow_depth_new_gt_30cm_last_24h      | sad30         | Probability of > 30cm new snow amount in 24 hours                            | fraction      | %     | >=0,<=100   |
+| probability_snow_depth_new_gt_50cm_last_24h      | sad50         | Probability of > 50cm new snow amount in 24 hours                            | fraction      | %     | >=0,<=100   |
+| probability_snow_depth_new_gt_5cm_last_12h       | sah05         | Probability of > 5cm new snow amount in 12 hours                             | fraction      | %     | >=0,<=100   |
+| probability_snow_depth_new_gt_5cm_last_6h        | sa605         | Probability of > 5cm new snow amount in 6 hours                              | fraction      | %     | >=0,<=100   |
+| snow_depth                                       | sncv          | Snow depth                                                                   | length_short  | m     | >=0         |
+| snow_depth_new_last_12h                          | sah           | Accumulated new snow amount in 12 hours (sum of 6h values)                   | length_short  | m     | >=0         |
+| snow_depth_new_last_24h                          | sad           | Accumulated new snow amount in 24 hours (sum of 12h values)                  | length_short  | m     | >=0         |
+| snow_depth_new_last_3h                           | sa3           | Accumulated new snow amount in 3 hours                                       | length_short  | m     | >=0         |
+| snow_depth_new_last_6h                           | sa6           | Accumulated new snow amount in 6 hours (sum of 3h values)                    | length_short  | m     | >=0         |
+| temperature_air_mean_2m                          | ttt           | Temperature 2m above surface                                                 | temperature   | K     | -           |
+| temperature_dew_point_mean_2m                    | td            | Dewpoint 2m above surface                                                    | temperature   | K     | -           |
+| wind_direction                                   | dd            | Wind direction                                                               | angle         | °     | >=0,<=360   |
+| wind_gust_max_last_1h                            | fx1           | Maximum wind gust within the last hour                                       | speed         | m/s   | >=0         |
+| wind_speed                                       | ff            | Wind speed                                                                   | speed         | m/s   | >=0         |

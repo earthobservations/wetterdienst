@@ -18,6 +18,11 @@ Types of changes:
 
 ### Added
 
+- Add a MOSMIX-SNOW dataset (`dwd`/`mosmix`, `hourly`/`snow`) exposing DWD's 20 new/fresh snow
+  forecast parameters for mountain stations (accumulated new snow over 3/6/12/24h, the corresponding
+  exceedance probabilities, snow depth, plus air/dew-point temperature, wind and precipitation). It
+  reuses the existing MOSMIX KML machinery and is published hourly from November to April; out of
+  season a request raises a clear "Unable to find LATEST file" error instead of failing obscurely
 - Add a DWD SWSMOS network (`dwd`/`swsmos`) exposing the road weather forecast (Straßenwetter-MOS)
   for DWD's ~1800 road weather stations. Each model run provides an hourly forecast out to +167 hours
   (selectable via `issue`, default: the latest run): air, dew-point and road surface temperature,
