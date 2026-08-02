@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.131.0] - 2026-08-02
+
 ### Added
 
 - Add a DWD SWSMOS network (`dwd`/`swsmos`) exposing the road weather forecast (Straßenwetter-MOS)
@@ -2127,7 +2129,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.130.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.131.0...HEAD
+[0.131.0]: https://github.com/earthobservations/wetterdienst/compare/v0.130.0...v0.131.0
 [0.130.0]: https://github.com/earthobservations/wetterdienst/compare/v0.129.0...v0.130.0
 [0.129.0]: https://github.com/earthobservations/wetterdienst/compare/v0.128.0...v0.129.0
 [0.128.0]: https://github.com/earthobservations/wetterdienst/compare/v0.127.0...v0.128.0
