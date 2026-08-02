@@ -49,7 +49,14 @@ def latest_release_version(settings: Settings, token: str | None) -> str | None:
     )
     if isinstance(file.content, Exception):
         return None
-    listing = json.loads(file.content.read())
+    try:
+        # the listing is a network boundary: a non-JSON body (e.g. a temporary HTML error page) or an
+        # unexpected shape should read as "no release found", not crash the request
+        listing = json.loads(file.content.read())
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(listing, dict):
+        return None
     versions = [m.group(1) for item in listing.get("items", []) if (m := _MANIFEST_NAME_RE.match(item.get("name", "")))]
     return max(versions) if versions else None
 

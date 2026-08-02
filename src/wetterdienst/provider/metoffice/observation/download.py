@@ -56,14 +56,13 @@ def _token_valid_until(token: str) -> float:
     as an opaque bearer; CEDA is the authority on validity). Falls back to a short TTL if the token
     is not a readable JWT.
     """
-    now = time.time()
     # TypeError covers a payload that is valid JSON but not a dict (e.g. ``null``/list/number)
     with contextlib.suppress(IndexError, ValueError, TypeError, binascii.Error, json.JSONDecodeError, KeyError):
         payload_b64 = token.split(".")[1]
         payload_b64 += "=" * (-len(payload_b64) % 4)  # restore base64 padding
         exp = json.loads(base64.urlsafe_b64decode(payload_b64))["exp"]
         return float(exp) - _EXPIRY_MARGIN_SECONDS
-    return now + _FALLBACK_TTL_SECONDS
+    return time.time() + _FALLBACK_TTL_SECONDS
 
 
 def get_ceda_token(settings: Settings) -> str | None:
@@ -97,6 +96,12 @@ def get_ceda_token(settings: Settings) -> str | None:
         except httpx.HTTPError as e:
             log.warning(f"Failed to obtain CEDA access token: {e}")
             return None
-        token = response.json()["access_token"]
+        try:
+            # a 200 with a non-JSON body (e.g. an HTML login/error page) or a JSON body missing the
+            # access_token field is an exchange failure, not data -- surface it as "not authenticated"
+            token = response.json()["access_token"]
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            log.warning(f"Unexpected CEDA token response: {e}")
+            return None
         _TOKEN_CACHE[credentials] = (token, _token_valid_until(token))
         return token

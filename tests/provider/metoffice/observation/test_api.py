@@ -185,6 +185,38 @@ def test_ceda_token_missing_credentials_returns_none() -> None:
     assert get_ceda_token(Settings(auth={"ceda": None})) is None
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<html>login page</html>",  # non-JSON body on a 200 (e.g. redirected login page)
+        {"detail": "no token here"},  # JSON body missing the access_token field
+        ["unexpected"],  # JSON that is not even an object
+    ],
+)
+def test_ceda_token_bad_response_returns_none(body: object, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 200 whose body is not usable JSON with an access_token is an auth failure, not a crash."""
+    import json  # noqa: PLC0415
+
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+
+    def _fake_post(*_args: object, **_kwargs: object) -> object:
+        class _Resp:
+            def raise_for_status(self) -> None: ...
+            def json(self) -> object:
+                if isinstance(body, str):
+                    return json.loads(body)  # invalid JSON raises JSONDecodeError, like httpx does
+                return body
+
+        return _Resp()
+
+    monkeypatch.setattr(download.httpx, "post", _fake_post)
+    assert download.get_ceda_token(Settings(auth={"ceda": "user:pass"})) is None
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+
+
 def test_ceda_token_valid_until_falls_back_on_unreadable_payload() -> None:
     """A JWT whose payload is valid JSON but not a dict falls back to a short TTL, not a crash."""
     import base64  # noqa: PLC0415
@@ -197,6 +229,23 @@ def test_ceda_token_valid_until_falls_back_on_unreadable_payload() -> None:
     payload = base64.urlsafe_b64encode(json.dumps(None).encode()).rstrip(b"=").decode()
     valid_until = download._token_valid_until(f"header.{payload}.signature")  # noqa: SLF001
     assert time.time() < valid_until <= time.time() + download._FALLBACK_TTL_SECONDS + 5  # noqa: SLF001
+
+
+@pytest.mark.parametrize("body", [b"<html>temporary error</html>", b'["not", "a", "dict"]'])
+def test_latest_release_version_bad_listing_returns_none(body: bytes, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A non-JSON or unexpectedly-shaped archive listing reads as 'no release', not a crash."""
+    from wetterdienst.provider.metoffice.observation import fileindex  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    class _Content:
+        def read(self) -> bytes:
+            return body
+
+    class _File:
+        content = _Content()
+
+    monkeypatch.setattr(fileindex, "download_file", lambda **_kwargs: _File())
+    assert fileindex.latest_release_version(Settings(), token="t") is None  # noqa: S106
 
 
 # ---------------------------------------------------------------------------

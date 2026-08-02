@@ -264,6 +264,15 @@ class MetOfficeObservationRequest(TimeseriesRequest):
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         token = get_ceda_token(settings)
+        if token is None:
+            # MIDAS Open's download host only serves a login redirect without a token, so every
+            # station-catalogue fetch below would fail; surface an empty result once instead
+            return pl.LazyFrame()
+        # the release version is the same for every dataset in a request, so resolve it once rather
+        # than re-reading the (cached) archive listing per dataset
+        version = latest_release_version(settings, token)
+        if version is None:
+            return pl.LazyFrame()
 
         # DatasetModel isn't hashable, so dedupe on (resolution, name) like CHMI does
         datasets = {
@@ -274,9 +283,6 @@ class MetOfficeObservationRequest(TimeseriesRequest):
         frames = []
         for dataset in datasets:
             midas_dataset = dataset.name_original
-            version = latest_release_version(settings, token)
-            if version is None:
-                continue
             content = None
             headers = {**settings.fsspec_client_kwargs.get("headers", {})}
             if token:
