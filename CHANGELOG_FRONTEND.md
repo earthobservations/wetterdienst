@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-08-02
+
+### Security
+
+- `[Build]` Resolve all 15 `pnpm audit` advisories (1 critical, 10 high, 3 moderate, 1 low) in the
+  frontend dependency tree. Refreshed transitive dependencies within their existing ranges via
+  `pnpm update`, and added two scoped `pnpm` overrides for advisories that intermediate packages
+  pinned below the fix: `brace-expansion` (ReDoS) to `^5.0.8` and `esbuild` (dev-server file read,
+  GHSA-g7r4-m6w7-qqqr) to `^0.28.1`. `pnpm audit` now reports no known vulnerabilities.
+
 ## [0.12.0] - 2026-07-28
 
 ### Fixed
@@ -329,7 +339,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.12.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.12.1...HEAD
+[0.12.1]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.12.0...frontend-v0.12.1
 [0.12.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.11.0...frontend-v0.12.0
 [0.11.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.10.0...frontend-v0.11.0
 [0.10.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.9.0...frontend-v0.10.0
