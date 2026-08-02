@@ -92,6 +92,16 @@ def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
     ]
     if not rows:
         return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-    return pl.DataFrame(rows, schema={"date": pl.String, "parameter": pl.String, "value": pl.Float64}).with_columns(
-        pl.col("date").str.to_datetime("%Y-%m-%d %H:%M:%S", time_unit="us").dt.replace_time_zone("UTC"),
+    # parse non-strict so one malformed observationTimeUtc string yields null instead of raising and
+    # failing the whole day; drop those rows so only cleanly-timestamped observations remain
+    return (
+        pl.DataFrame(rows, schema={"date": pl.String, "parameter": pl.String, "value": pl.Float64})
+        .with_columns(
+            pl.col("date")
+            .str.to_datetime("%Y-%m-%d %H:%M:%S", time_unit="us", strict=False)
+            .dt.replace_time_zone(
+                "UTC",
+            ),
+        )
+        .drop_nulls("date")
     )

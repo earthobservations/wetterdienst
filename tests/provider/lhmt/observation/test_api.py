@@ -79,10 +79,12 @@ def test_parse_lhmt_malformed_json_yields_empty() -> None:
 
 def test_parse_lhmt_skips_malformed_items() -> None:
     """Valid JSON with malformed items degrades to the good rows rather than raising."""
-    # observations: a non-dict entry and one missing the timestamp are dropped; the good one stays
+    # observations: a non-dict entry, one missing the timestamp, and one whose timestamp string is
+    # malformed are all dropped; the cleanly-timestamped one stays (no exception for the bad string)
     obs = (
         b'{"station": {"code": "x"}, "observations": ['
         b'"garbage", {"airTemperature": 1.0}, '
+        b'{"observationTimeUtc": "not-a-timestamp", "airTemperature": 9.9}, '
         b'{"observationTimeUtc": "2020-07-01 12:00:00", "airTemperature": 22.3}]}'
     )
     df = parse_lhmt_observations(obs)
