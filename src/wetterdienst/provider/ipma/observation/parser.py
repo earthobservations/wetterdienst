@@ -40,13 +40,16 @@ _EMPTY_VALUES_SCHEMA = {
 
 
 def parse_ipma_stations(content: bytes) -> pl.DataFrame:
-    """Parse ``stations.json`` (a bare JSON array of GeoJSON Feature objects) into one row per station.
+    """Parse ``stations.json`` into one row per station.
 
-    Each feature carries ``properties.idEstacao`` (the numeric station id) and
+    IPMA serves the catalogue as a bare JSON array of GeoJSON ``Feature`` objects, but a standard
+    ``FeatureCollection`` wrapper (``{"type": "FeatureCollection", "features": [...]}``) is accepted
+    too. Each feature carries ``properties.idEstacao`` (the numeric station id) and
     ``properties.localEstacao`` (the name), plus a ``Point`` geometry as ``[longitude, latitude]``.
     The catalogue exposes no elevation, so ``height`` is left for the framework to null-fill.
     """
-    features = json.loads(content)
+    data = json.loads(content)
+    features = data.get("features") if isinstance(data, dict) else data
     if not isinstance(features, list) or not features:
         return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
     rows = [
@@ -70,17 +73,26 @@ def _value(field: str, raw: float | None) -> float | None:
     return float(raw)
 
 
-def parse_ipma_observations(content: bytes, station_id: str) -> pl.DataFrame:
-    """Parse the all-stations ``observations.json`` into long rows for a single station.
+def parse_ipma_observations_feed(content: bytes) -> dict:
+    """Deserialise the all-stations ``observations.json`` once into its nested dict.
 
     The feed is a nested object ``{timestamp: {station_id: {field: value}}}`` covering roughly the
-    last day. A station that reported nothing for a timestamp maps to ``null`` and is skipped. The
-    emitted ``parameter`` column keeps the raw IPMA field name (``name_original``); values are
-    normalised via :func:`_value`. Timestamps are UTC (``YYYY-MM-DDTHH:MM``).
+    last day and holding every station. Because a single feed serves all stations, callers parse it
+    once and hand the result to :func:`extract_ipma_station_observations` per station, rather than
+    re-running :func:`json.loads` over the whole payload for every station. A payload that is not a
+    JSON object yields an empty dict.
     """
     feed = json.loads(content)
-    if not isinstance(feed, dict):
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+    return feed if isinstance(feed, dict) else {}
+
+
+def extract_ipma_station_observations(feed: dict, station_id: str) -> pl.DataFrame:
+    """Extract one station's long-form rows from an already-parsed observations ``feed``.
+
+    A station that reported nothing for a timestamp maps to ``null`` and is skipped. The emitted
+    ``parameter`` column keeps the raw IPMA field name (``name_original``); values are normalised via
+    :func:`_value`. Timestamps are UTC (``YYYY-MM-DDTHH:MM``).
+    """
     rows = []
     for timestamp, stations in feed.items():
         record = stations.get(station_id) if isinstance(stations, dict) else None
@@ -93,3 +105,14 @@ def parse_ipma_observations(content: bytes, station_id: str) -> pl.DataFrame:
     return pl.DataFrame(rows, schema={"date": pl.String, "parameter": pl.String, "value": pl.Float64}).with_columns(
         pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M", time_unit="us").dt.replace_time_zone("UTC"),
     )
+
+
+def parse_ipma_observations(content: bytes, station_id: str) -> pl.DataFrame:
+    """Parse the all-stations ``observations.json`` into long rows for a single station.
+
+    Convenience wrapper that deserialises the feed and extracts one station in a single call. Callers
+    fetching many stations from the same feed should instead parse once via
+    :func:`parse_ipma_observations_feed` and reuse the result across
+    :func:`extract_ipma_station_observations` calls.
+    """
+    return extract_ipma_station_observations(parse_ipma_observations_feed(content), station_id)

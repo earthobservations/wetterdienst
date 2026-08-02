@@ -24,7 +24,11 @@ from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.ipma.observation.metadata import IpmaObservationMetadata
-from wetterdienst.provider.ipma.observation.parser import parse_ipma_observations, parse_ipma_stations
+from wetterdienst.provider.ipma.observation.parser import (
+    extract_ipma_station_observations,
+    parse_ipma_observations_feed,
+    parse_ipma_stations,
+)
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -50,18 +54,17 @@ _EMPTY_VALUES_SCHEMA = {
 class IpmaObservationValues(TimeseriesValues):
     """Values class for IPMA observation data."""
 
-    def _collect_station_parameter_or_dataset(
-        self,
-        station_id: str,
-        parameter_or_dataset: ParameterModel | DatasetModel,
-    ) -> pl.DataFrame:
-        if isinstance(parameter_or_dataset, ParameterModel):
-            dataset = parameter_or_dataset.dataset
-        elif isinstance(parameter_or_dataset, DatasetModel):
-            dataset = parameter_or_dataset
-        else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+    def _observations_feed(self) -> dict | None:
+        """Download and deserialise the all-stations feed once, memoised on the values instance.
 
+        A single ``observations.json`` holds every station, so parsing it per station (once per
+        ``_collect_station_parameter_or_dataset`` call in a rank loop) would re-run ``json.loads`` over
+        the whole payload N times. The parsed feed is cached here so it is deserialised exactly once
+        per query; ``None`` signals a fetch failure and is intentionally not cached so it is retried.
+        """
+        cached = getattr(self, "_feed_cache", None)
+        if cached is not None:
+            return cached
         settings = cast("Settings", self.sr.stations.settings)
         # one all-stations feed serves every station; a five-minute cache means the concurrent
         # per-station queries in a rank loop download it once.
@@ -76,8 +79,27 @@ class IpmaObservationValues(TimeseriesValues):
         if isinstance(file.content, Exception):
             if not file.is_no_internet_error:
                 log.warning(f"Failed to fetch IPMA observations: {file.content}")
+            return None
+        feed = parse_ipma_observations_feed(file.content.read())
+        self._feed_cache = feed
+        return feed
+
+    def _collect_station_parameter_or_dataset(
+        self,
+        station_id: str,
+        parameter_or_dataset: ParameterModel | DatasetModel,
+    ) -> pl.DataFrame:
+        if isinstance(parameter_or_dataset, ParameterModel):
+            dataset = parameter_or_dataset.dataset
+        elif isinstance(parameter_or_dataset, DatasetModel):
+            dataset = parameter_or_dataset
+        else:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        df = parse_ipma_observations(file.content.read(), station_id=station_id)
+
+        feed = self._observations_feed()
+        if feed is None:
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        df = extract_ipma_station_observations(feed, station_id=station_id)
         if df.is_empty():
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         return df.select(

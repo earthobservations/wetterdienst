@@ -10,7 +10,9 @@ import pytest
 
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
 from wetterdienst.provider.ipma.observation.parser import (
+    extract_ipma_station_observations,
     parse_ipma_observations,
+    parse_ipma_observations_feed,
     parse_ipma_stations,
 )
 
@@ -32,6 +34,35 @@ def test_parse_ipma_stations() -> None:
             "longitude": -9.1333,
         },
     ]
+
+
+def test_parse_ipma_stations_feature_collection() -> None:
+    """A standard GeoJSON FeatureCollection wrapper is accepted as well as the bare array."""
+    content = (
+        b'{"type": "FeatureCollection", "features": [{"geometry": {"type": "Point", '
+        b'"coordinates": [-9.1333, 38.7667]}, "type": "Feature", '
+        b'"properties": {"idEstacao": 1200579, "localEstacao": "Lisboa"}}]}'
+    )
+    df = parse_ipma_stations(content)
+    assert df.to_dicts() == [
+        {"station_id": "1200579", "name": "Lisboa", "latitude": 38.7667, "longitude": -9.1333},
+    ]
+
+
+def test_parse_ipma_observations_feed_extract_multiple_stations() -> None:
+    """The feed is deserialised once and reused to extract each station independently."""
+    content = b'{"2026-07-29T14:00": {"1200579": {"temperatura": 27.5}, "1210881": {"temperatura": 19.0}}}'
+    feed = parse_ipma_observations_feed(content)
+    assert set(feed["2026-07-29T14:00"]) == {"1200579", "1210881"}
+    first = extract_ipma_station_observations(feed, station_id="1200579")
+    second = extract_ipma_station_observations(feed, station_id="1210881")
+    assert first.filter(pl.col("parameter") == "temperatura")["value"].to_list() == [27.5]
+    assert second.filter(pl.col("parameter") == "temperatura")["value"].to_list() == [19.0]
+
+
+def test_parse_ipma_observations_feed_rejects_non_object() -> None:
+    """A payload that is not a JSON object yields an empty feed rather than raising."""
+    assert parse_ipma_observations_feed(b"[]") == {}
 
 
 def test_parse_ipma_observations_sentinel_and_wind_code() -> None:
