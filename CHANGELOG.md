@@ -16,8 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Bump the minimum supported polars version to `>=1.43.0` (from `>=1.15.0`), required by the
+  `explode(empty_as_null=...)` and `concat(how="horizontal_extend")` APIs used below
+
 ### Fixed
 
+- Resolve polars and pyarrow deprecation warnings surfaced in the test suite: pass explicit
+  `empty_as_null=True` to all `explode()` calls, switch `concat(how="horizontal")` to
+  `how="horizontal_extend"`, and read Feather exports via `pyarrow.ipc.open_file()` instead of the
+  deprecated `pyarrow.feather.read_table`. Also vectorise two per-element `map_elements` calls
+  (eaufrance/hubeau, ea/hydrology) that had native polars equivalents
 - Type the station response-model `state` field as nullable so the `stations` MCP tool stops rejecting
   MOSMIX/DMO stations. These forecast stations have no state and serialise `state` as `null`, but
   `_Station.state` and `_OgcFeatureProperties.state` were typed non-null, so the derived MCP output

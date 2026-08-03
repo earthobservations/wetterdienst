@@ -752,7 +752,7 @@ class TimeseriesRequest:
         df_stations_all = self.all().df
         df_stations = df_stations_all.join(
             other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
-            .explode("station_id")
+            .explode("station_id", empty_as_null=True)
             .unique(),
             on="station_id",
         )

@@ -187,4 +187,4 @@ def _transform_minute_1_precipitation_historical(df: pl.LazyFrame) -> pl.LazyFra
         "end_date",
     )
     # Expand dataframe over calculated date ranges -> one datetime per row
-    return df.explode("date")
+    return df.explode("date", empty_as_null=True)

@@ -160,7 +160,7 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
             },
             orient="row",
         )
-        param_df = pl.concat([param_df, results], how="horizontal")
+        param_df = pl.concat([param_df, results], how="horizontal_extend")
         data.append(param_df)
     df = pl.concat(data)
     df = df.with_columns(pl.col("value").round(2), pl.col("distance").round(2))

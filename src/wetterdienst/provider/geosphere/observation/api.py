@@ -103,9 +103,9 @@ class GeosphereObservationValues(TimeseriesValues):
             },
         )
         series_timestamps = df.get_column("timestamps")
-        series_timestamps = series_timestamps.explode()
+        series_timestamps = series_timestamps.explode(empty_as_null=True)
         df = df.select("features")
-        df = df.explode("features")
+        df = df.explode("features", empty_as_null=True)
         df = df.select(pl.col("features").struct.unnest())
         df = df.select(pl.col("properties").struct.field("parameters").struct.unnest())
         df = df.unpivot(
@@ -115,7 +115,7 @@ class GeosphereObservationValues(TimeseriesValues):
         df = df.with_columns(
             pl.col("value").struct.field("data").alias("value"),
         )
-        df = df.explode("value")
+        df = df.explode("value", empty_as_null=True)
         # adjust units for radiation parameters of 10 minute/hourly resolution from W / m² to J / cm²
         if parameter_or_dataset.dataset.resolution.value == Resolution.MINUTE_10:
             df = df.with_columns(

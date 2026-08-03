@@ -252,7 +252,7 @@ class NwsObservationValues(TimeseriesValues):
                 ),
             },
         )
-        df = df.explode("features")
+        df = df.explode("features", empty_as_null=True)
         df = df.select(pl.col("features").struct.field("properties"))
         df = df.select(pl.col("properties").struct.unnest())
         df = df.rename(str.lower)
