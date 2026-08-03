@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Type the station response-model `state` field as nullable so the `stations` MCP tool stops rejecting
+  MOSMIX/DMO stations. These forecast stations have no state and serialise `state` as `null`, but
+  `_Station.state` and `_OgcFeatureProperties.state` were typed non-null, so the derived MCP output
+  schema failed validation with `Output validation error: None is not of type 'string'` for every
+  `mosmix`/`dmo` station listing (the same schema drift fixed for `values`/`interpolate`/`summarize`)
+
 ## [0.131.0] - 2026-08-02
 
 ### Added
