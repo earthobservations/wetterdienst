@@ -534,7 +534,7 @@ class MetnoFrostValues(TimeseriesValues):
         if "data" not in df.columns:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        df = df.select(pl.col("data").explode())
+        df = df.select(pl.col("data").explode(empty_as_null=True))
         df = df.unnest("data")
         # columns: sourceId, referenceTime, observations (list of structs)
         df = df.with_columns(
@@ -542,7 +542,7 @@ class MetnoFrostValues(TimeseriesValues):
             .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
             .dt.replace_time_zone("UTC"),
         )
-        df = df.explode("observations")
+        df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
@@ -602,14 +602,14 @@ class MetnoFrostValues(TimeseriesValues):
         if "data" not in df.columns:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        df = df.select(pl.col("data").explode())
+        df = df.select(pl.col("data").explode(empty_as_null=True))
         df = df.unnest("data")
         df = df.with_columns(
             pl.col("referenceTime")
             .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
             .dt.replace_time_zone("UTC"),
         )
-        df = df.explode("observations")
+        df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
         # keep only matching elementId (the Frost response may include multiple elements)
         df = df.filter(pl.col("elementId").eq(parameter.name_original))
@@ -700,13 +700,13 @@ class MetnoFrostValues(TimeseriesValues):
             df = pl.read_json(obs_file.content)
             if "data" not in df.columns:
                 continue
-            df = df.select(pl.col("data").explode()).unnest("data")
+            df = df.select(pl.col("data").explode(empty_as_null=True)).unnest("data")
             df = df.with_columns(
                 pl.col("referenceTime")
                 .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
                 .dt.replace_time_zone("UTC"),
             )
-            df = df.explode("observations").unnest("observations")
+            df = df.explode("observations", empty_as_null=True).unnest("observations")
             df = df.filter(pl.col("elementId").eq(element))
             frames.append(
                 df.select(
@@ -795,7 +795,7 @@ class MetnoFrostRequest(TimeseriesRequest):
             return pl.LazyFrame()
 
         df = pl.read_json(file.content)
-        df = df.select(pl.col("data").explode())
+        df = df.select(pl.col("data").explode(empty_as_null=True))
         df = df.unnest("data")
         # geometry.coordinates: [longitude, latitude, elevation?]
         df = df.with_columns(

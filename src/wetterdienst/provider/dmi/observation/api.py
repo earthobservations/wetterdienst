@@ -168,7 +168,9 @@ class DmiObservationValues(TimeseriesValues):
                     log.warning(f"Failed to acquire DMI data for station {station_id}: {file.content}")
                 return
             df = pl.read_json(file.content, schema=_STATION_VALUE_SCHEMA)
-            df = df.select(pl.col("features").explode().struct.field("properties")).unnest("properties")
+            df = df.select(pl.col("features").explode(empty_as_null=True).struct.field("properties")).unnest(
+                "properties"
+            )
             if not df.is_empty():
                 yield df
             if df.height < _PAGE_LIMIT:
@@ -256,7 +258,7 @@ class DmiObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         df = pl.read_json(file.content, schema=_STATION_SCHEMA)
-        df = df.select(pl.col("features").explode()).unnest("features")
+        df = df.select(pl.col("features").explode(empty_as_null=True)).unnest("features")
         df = df.select(
             pl.col("properties").struct.field("stationId").alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),

@@ -150,7 +150,9 @@ class RmiObservationValues(TimeseriesValues):
             page = pl.read_json(file.content, schema=schema)
             if number_matched is None:
                 number_matched = page.get_column("numberMatched").item()
-            df = page.select(pl.col("features").explode().struct.field("properties")).unnest("properties")
+            df = page.select(pl.col("features").explode(empty_as_null=True).struct.field("properties")).unnest(
+                "properties"
+            )
             if not df.is_empty():
                 yield df
             # advance by what actually came back, never by the requested count
@@ -243,7 +245,7 @@ class RmiObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         df = pl.read_json(file.content, schema=_STATION_SCHEMA)
-        df = df.select(pl.col("features").explode()).unnest("features")
+        df = df.select(pl.col("features").explode(empty_as_null=True)).unnest("features")
         df = df.select(
             pl.col("properties").struct.field("code").cast(pl.String).alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),

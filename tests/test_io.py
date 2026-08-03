@@ -986,7 +986,7 @@ def test_export_feather(
     tmp_path: Path,
 ) -> None:
     """Test export of DataFrame to feather."""
-    feather = pytest.importorskip("pyarrow.feather")
+    pa_ipc = pytest.importorskip("pyarrow.ipc")
     # Request data
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -1001,7 +1001,8 @@ def test_export_feather(
     filename = tmp_path.joinpath("observation.feather")
     values.to_target(f"file://{filename}")
     # Read back Feather file.
-    table = feather.read_table(filename)
+    with pa_ipc.open_file(filename) as reader:
+        table = reader.read_all()
     # Validate dimensions.
     assert table.num_columns == 32
     assert table.num_rows == 366

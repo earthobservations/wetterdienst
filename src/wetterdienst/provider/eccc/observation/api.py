@@ -194,7 +194,9 @@ class EcccObservationValues(TimeseriesValues):
                 ),
             )
             df = df.lazy()
-            df = df.select(pl.col("features").explode().struct.field("properties")).unnest("properties")
+            df = df.select(pl.col("features").explode(empty_as_null=True).struct.field("properties")).unnest(
+                "properties"
+            )
             df = df.rename(str.lower)
             df = self._tidy_up_df(df)
             df = df.select(
@@ -294,7 +296,7 @@ class EcccObservationRequest(TimeseriesRequest):
             ),
         )
         df_raw = df_raw.lazy()
-        df_raw = df_raw.select(pl.col("features").explode())
+        df_raw = df_raw.select(pl.col("features").explode(empty_as_null=True))
         df_raw = df_raw.select(
             pl.col("features").struct.field("properties").struct.field("STN_ID").alias("station_id"),
             pl.col("features").struct.field("properties").struct.field("STATION_NAME").alias("name"),

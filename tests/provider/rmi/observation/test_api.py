@@ -99,7 +99,7 @@ def test_values_schema_parses_timestamp_and_mapped_parameters() -> None:
         ).encode(),
     )
     df = pl.read_json(content, schema=schema)
-    df = df.select(pl.col("features").explode().struct.field("properties")).unnest("properties")
+    df = df.select(pl.col("features").explode(empty_as_null=True).struct.field("properties")).unnest("properties")
     assert "timestamp" in df.columns
     assert {parameter.name_original for parameter in dataset.parameters} <= set(df.columns)
     assert df.get_column("temp_dry_shelter_avg").to_list() == [15.27]

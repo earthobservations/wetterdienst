@@ -161,9 +161,9 @@ class EAHydrologyValues(TimeseriesValues):
                 ),
             },
         )
-        df_measures = df_measures.explode("items")
+        df_measures = df_measures.explode("items", empty_as_null=True)
         df_measures = df_measures.select(pl.col("items").struct.field("measures"))
-        df_measures = df_measures.explode("measures")
+        df_measures = df_measures.explode("measures", empty_as_null=True)
         df_measures = df_measures.select(pl.col("measures").struct.unnest())
         df_measures = df_measures.with_columns(
             pl.col("period")
@@ -209,7 +209,7 @@ class EAHydrologyValues(TimeseriesValues):
                 ),
             },
         )
-        df = df.explode("items")
+        df = df.explode("items", empty_as_null=True)
         df = df.select(pl.col("items").struct.unnest())
         return df.select(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
@@ -287,8 +287,8 @@ class EAHydrologyRequest(TimeseriesRequest):
             },
         )
         df = df.lazy()
-        df = df.select(pl.col("items").explode().struct.unnest())
-        df = df.explode("measures")
+        df = df.select(pl.col("items").explode(empty_as_null=True).struct.unnest())
+        df = df.explode("measures", empty_as_null=True)
         df = df.with_columns(pl.col("measures").struct.unnest())
         df = df.rename(
             mapping={
@@ -313,8 +313,8 @@ class EAHydrologyRequest(TimeseriesRequest):
             ),
         )
         df = df.drop_nulls("resolution")
-        resolution_parameter_pairs = {
-            (parameter.dataset.resolution.name, self._parameter_core_name_map[parameter.name])
+        resolution_parameter_keys = {
+            f"{parameter.dataset.resolution.name}/{self._parameter_core_name_map[parameter.name]}"
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
         }
@@ -323,10 +323,7 @@ class EAHydrologyRequest(TimeseriesRequest):
             msg = "Expected DataFrame, got InProcessQuery"
             raise TypeError(msg)
         df = result.filter(
-            pl.concat_list(["resolution", "parameter"]).map_elements(
-                lambda rp: tuple(rp) in resolution_parameter_pairs,
-                return_dtype=pl.Boolean,
-            )
+            pl.concat_str(["resolution", "parameter"], separator="/").is_in(resolution_parameter_keys),
         )
         df = df.lazy()
         return df.select(

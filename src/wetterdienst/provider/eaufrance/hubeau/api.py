@@ -196,7 +196,7 @@ class HubeauValues(TimeseriesValues):
                     ),
                 },
             )
-            df = df.explode("data")
+            df = df.explode("data", empty_as_null=True)
             df = df.select(pl.col("data").struct.unnest())
             data.append(df)
         try:
@@ -266,7 +266,7 @@ class HubeauRequest(TimeseriesRequest):
                 ),
             },
         )
-        df_raw = df_raw.explode("data")
+        df_raw = df_raw.explode("data", empty_as_null=True)
         df_raw = df_raw.with_columns(pl.col("data").struct.unnest())
         df_raw = df_raw.rename(
             mapping={
@@ -288,7 +288,7 @@ class HubeauRequest(TimeseriesRequest):
             .alias("end_date"),
         )
         df_raw = df_raw.filter(
-            pl.col("station_id").str.slice(offset=0, length=1).map_elements(str.isalpha, return_dtype=pl.Boolean),
+            pl.col("station_id").str.contains(r"^\p{L}"),
         )
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
