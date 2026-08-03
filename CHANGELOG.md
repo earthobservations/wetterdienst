@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.132.0] - 2026-08-04
+
 ### Changed
 
 - Bump the minimum supported polars version to `>=1.43.0` (from `>=1.15.0`), required by the
@@ -2147,7 +2149,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.131.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.132.0...HEAD
+[0.132.0]: https://github.com/earthobservations/wetterdienst/compare/v0.131.0...v0.132.0
 [0.131.0]: https://github.com/earthobservations/wetterdienst/compare/v0.130.0...v0.131.0
 [0.130.0]: https://github.com/earthobservations/wetterdienst/compare/v0.129.0...v0.130.0
 [0.129.0]: https://github.com/earthobservations/wetterdienst/compare/v0.128.0...v0.129.0
