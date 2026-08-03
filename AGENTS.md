@@ -4,154 +4,111 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Wetterdienst is a Python library providing unified access to weather/hydrology data from multiple providers (DWD, NOAA, ECCC, EA, NWS, Geosphere Austria, IMGW, WSV, Eaufrance). It uses [polars](https://pola.rs/) as the primary dataframe library throughout.
+Wetterdienst is a Python library providing unified access to weather, climate and hydrology data from many national providers (DWD, NOAA, ECCC, EA, NWS, Geosphere Austria, IMGW, WSV, Eaufrance, Météo-France, MeteoSwiss, met.no, SMHI, FMI, KNMI, DMI, CHMI, RMI, AEMET, IPMA, LHMT, Met Office, Eumetnet). [polars](https://pola.rs/) is the primary dataframe library throughout.
 
 ## Commands
 
-### Python Backend
+### Python backend (`uv run poe <task>`)
 
 ```bash
-# Run all tests (parallel + cflake tests)
-uv run poe test
+uv run poe test              # full suite (parallel + cflake)
+uv run poe "test:parallel"   # parallel only (faster for dev)
+uv run poe coverage          # tests with coverage
+uv run poe format            # ruff format + lint --fix
+uv run poe lint              # check only, no fixes
+uv run poe typecheck         # ty check src/wetterdienst
+uv run poe unused            # deptry unused-dependency check
+uv run poe sync              # uv sync
 
-# Run tests in parallel only (faster for development)
-uv run poe "test:parallel"
-
-# Run a single test file
+# Single file / single test
 uv run pytest tests/provider/dwd/observation/test_api.py -vvv
-
-# Run a single test by name
 uv run pytest tests/ -k "test_my_function" -vvv
-
-# Run with coverage
-uv run poe coverage
-
-# Format and lint
-uv run poe format
-
-# Lint only (no fix)
-uv run poe lint
-
-# Type checking
-uv run poe typecheck
-
-# Check for unused dependencies
-uv run poe unused
-
-# Sync dependencies
-uv run poe sync
 ```
 
-### Frontend (Nuxt 3 / Vue 3)
+### Frontend (`cd frontend`, Nuxt 3 / Vue 3, pnpm)
 
 ```bash
-cd frontend
-
-# Install dependencies
 pnpm install
-
-# Dev server (runs on port 4000)
-pnpm dev
-
-# Build
+pnpm dev            # dev server, port 4000
 pnpm build
-
-# Lint
-pnpm lint
-
-# Unit tests
-pnpm test:ci
-
-# E2E tests
-pnpm test:e2e
+pnpm lint           # oxlint + eslint
+pnpm test:ci        # vitest run
+pnpm test:e2e       # playwright
 ```
 
-### Docker (full stack)
+### Docker (`compose.yml`)
 
 ```bash
-# Run backend + frontend
-docker compose --profile app up
-
-# Backend only (port 3000)
-docker compose --profile backend up
-
-# Frontend only (port 4000)
-docker compose --profile frontend up
+docker compose --profile app up        # backend + frontend
+docker compose --profile backend up    # backend only, port 3000
+docker compose --profile frontend up   # frontend only, port 4000
 ```
 
-### REST API
+### CLI / REST API
 
 ```bash
-# Start the REST API server
 wetterdienst restapi --listen 0.0.0.0:3000
-
-# CLI usage
 wetterdienst stations --provider dwd --network observation --parameters daily/kl --periods recent --all
 wetterdienst values --provider dwd --network observation --parameters daily/kl --periods recent --station 00011
 ```
 
+CLI commands (`ui/cli.py`): `stations`, `values`, `history`, `interpolate`, `summarize`, `stripes`, `radar`, `coverage`, `restapi`, `about`.
+
 ## Architecture
 
-### Core Data Model
+### Core data model
 
-The library follows a layered pattern: `Request → StationsResult → ValuesResult`
+Layered flow: `Request → StationsResult → ValuesResult`.
 
-- **`Wetterdienst`** (`src/wetterdienst/api.py`): Registry/factory that lazily resolves provider+network combos to their request classes.
-- **`TimeseriesRequest`** (`src/wetterdienst/model/request.py`): Abstract base dataclass all provider request classes extend. Handles parameter parsing, date validation, and station filtering.
-- **`TimeseriesValues`** (`src/wetterdienst/model/values.py`): Abstract base for fetching actual observation data, bound to a `StationsResult`.
-- **`StationsResult`** / **`ValuesResult`** (`src/wetterdienst/model/result.py`): Wrap polars DataFrames and provide `to_dict()`, `to_json()`, `to_ogc_feature_collection()`, `to_file()`, `to_target()`, SQL filtering via DuckDB, and plotting methods.
-- **`Settings`** (`src/wetterdienst/settings.py`): Pydantic settings model; all env vars are prefixed `WD_`. Controls caching (`WD_CACHE_DISABLE`, `WD_CACHE_DIR`), unit conversion, interpolation defaults, etc.
+- **`Wetterdienst`** (`src/wetterdienst/api.py`): registry/factory that lazily resolves provider+network combos to request classes.
+- **`TimeseriesRequest`** (`model/request.py`): abstract base dataclass all provider request classes extend — parameter parsing, date validation, station filtering.
+- **`TimeseriesValues`** (`model/values.py`): abstract base for fetching observation data, bound to a `StationsResult`.
+- **`StationsResult` / `ValuesResult`** (`model/result.py`): wrap polars DataFrames; provide `to_dict/to_json/to_ogc_feature_collection/to_file/to_target`, DuckDB SQL filtering, and plotting.
+- **`Settings`** (`settings.py`): pydantic settings; env vars prefixed `WD_` (caching, unit conversion, interpolation defaults, provider auth via `WD_AUTH__*`).
 
-### Metadata System
+### Metadata system
 
-Provider metadata (parameters, resolutions, datasets, periods) is declared as nested dicts in each provider's `metadata.py` and converted to pydantic models via `build_metadata_model()` in `src/wetterdienst/model/metadata.py`. The key classes are `MetadataModel → ResolutionModel → DatasetModel → ParameterModel`.
+Provider metadata (resolutions, datasets, parameters, periods) is declared as nested dicts in each provider's `metadata.py` and converted to pydantic models via `build_metadata_model()` (`model/metadata.py`): `MetadataModel → ResolutionModel → DatasetModel → ParameterModel`. Shared enums live in `metadata/`: `Parameter` (canonical snake_case names), `Resolution`, `Period`, `CacheExpiry`.
 
-### Provider Structure
+### Provider structure
 
-Each provider lives under `src/wetterdienst/provider/<provider>/`. Standard layout:
+Each provider lives under `src/wetterdienst/provider/<provider>/`, often per-network. Standard layout:
+
 ```
-provider/
-  __init__.py          # exports the main Request class
-  api.py               # concrete TimeseriesRequest subclass
-  metadata.py          # MetadataModel dict + build_metadata_model() call
-  values.py            # concrete TimeseriesValues subclass
-  parser.py            # raw data parsing
-  fileindex.py         # file listing/indexing from source
-  download.py          # data fetching helpers
+provider/<provider>/[<network>/]
+  __init__.py     # exports the main Request class
+  api.py          # concrete TimeseriesRequest subclass
+  metadata.py     # metadata dict + build_metadata_model()
+  values.py       # concrete TimeseriesValues subclass
+  parser.py       # raw data parsing
+  fileindex.py    # file listing/indexing from source
+  download.py     # data fetching helpers
 ```
 
-DWD has multiple networks: `observation`, `mosmix`, `dmo`, `road`, `radar`, `derived`.
+DWD has multiple networks: `observation`, `mosmix`, `dmo`, `road`, `radar`, `derived`, `swsmos`, `alerts`.
 
-### Metadata Enums
+### Network / caching
 
-Shared enums live in `src/wetterdienst/metadata/`:
-- `Parameter` — canonical cross-provider parameter names (snake_case)
-- `Resolution` — time granularity (`MINUTE_1`, `HOURLY`, `DAILY`, etc.)
-- `Period` — data periods (`HISTORICAL`, `RECENT`, `NOW`)
-- `CacheExpiry` — preset cache durations used via fsspec
+All HTTP goes through `util/network.py`, wrapping fsspec with TTL caching and `stamina` retry logic. Cache dir is configurable via `WD_CACHE_DIR`.
 
-### Network / Caching
+### UI layer
 
-All HTTP requests go through `src/wetterdienst/util/network.py` which wraps fsspec with TTL caching and `stamina`-based retry logic. Cache is stored in the user cache directory (configurable via `WD_CACHE_DIR`).
+- **CLI** (`ui/cli.py`): click/cloup-based.
+- **REST API** (`ui/restapi.py`): FastAPI app mirroring the CLI; starts via `wetterdienst restapi`.
+- **MCP** (`ui/mcp.py`): Model Context Protocol server exposing the same tools.
+- **Frontend** (`frontend/`): Nuxt 3 SPA (SSR disabled) calling the REST API; `NUXT_PUBLIC_API_BASE` sets the backend URL.
 
-### UI Layer
+### Export / interpolation
 
-- **CLI** (`src/wetterdienst/ui/cli.py`): click/cloup-based CLI exposing `stations`, `values`, `history`, `interpolate`, `summarize`, `stripes`, `restapi`, and `about` commands.
-- **REST API** (`src/wetterdienst/ui/restapi.py`): FastAPI app; endpoints mirror CLI commands. Starts via `wetterdienst restapi`.
-- **Frontend** (`frontend/`): Nuxt 3 SPA (SSR disabled) that calls the REST API backend. Runtime config `NUXT_PUBLIC_API_BASE` sets the backend URL (default: `http://localhost:3000/api`).
+- `ExportMixin` (`io/export.py`): export to CSV/JSON/Excel/Zarr files, SQLite/PostgreSQL/CrateDB/InfluxDB, and DuckDB SQL (`[export]` extra).
+- `core/interpolate.py` and `core/summarize.py`: spatial interpolation and weighted summarization for a target point (`[interpolation]` extra: scipy, shapely, utm).
 
-### Export / IO
+Optional dependency groups include `export`, `interpolation`, `restapi`, `sql`, `mcp`, `bufr`.
 
-`ExportMixin` (`src/wetterdienst/io/export.py`) is mixed into result classes and supports exporting to files (CSV, JSON, Excel, Zarr), databases (SQLite, PostgreSQL, CrateDB, InfluxDB), and DuckDB SQL queries. The `[export]` optional dependency group enables most of these.
+## Conventions
 
-### Interpolation & Summary
-
-`src/wetterdienst/core/interpolate.py` and `src/wetterdienst/core/summarize.py` implement spatial interpolation (requires `[interpolation]` extras: scipy, shapely, utm) and weighted summarization of station values for a target location.
-
-## Key Conventions
-
-- **Polars throughout**: data is always `pl.DataFrame`/`pl.LazyFrame`; avoid pandas in new code (it appears only in some export adapters).
-- **Parameters are referenced** as `"resolution/dataset"` or `"resolution/dataset/parameter"` strings, or as typed `ParameterModel`/`DatasetModel` objects from the provider's metadata.
-- **Provider metadata dicts** follow a strict schema — see any existing `provider/*/metadata.py` for the canonical structure before adding a new provider.
-- **Test markers**: `remote` (needs internet), `slow`, `sql`, `explorer`, `cflake` (concurrency-flaky). Remote tests are not skipped by default locally; use `-m "not remote"` to skip them.
-- **Ruff** is the linter/formatter; line length is 120. Run `uv run poe format` before committing.
+- **Polars throughout**: use `pl.DataFrame`/`pl.LazyFrame`; avoid pandas in new code (it appears only in some export adapters).
+- **Parameters** are referenced as `"resolution/dataset"` or `"resolution/dataset/parameter"` strings, or as typed `ParameterModel`/`DatasetModel` objects.
+- **New providers**: follow the strict metadata dict schema — copy an existing `provider/*/metadata.py` before adding one.
+- **Test markers**: `remote` (needs internet), `slow`, `sql`, `explorer`, `cflake` (concurrency-flaky). Remote tests run by default locally; skip with `-m "not remote"`.
+- **Ruff** is the linter/formatter, line length 120. **`ty`** is the type checker. Run `uv run poe format` before committing.
