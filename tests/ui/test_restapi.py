@@ -1100,6 +1100,24 @@ def test_get_stations_request_no_periods_kwarg_for_providers_without_periods_fie
     assert isinstance(stations_request, MetnoFrostRequest)
 
 
+@pytest.mark.parametrize("schema_name", ["_Station", "_OgcFeatureProperties"])
+def test_stations_output_schemas_allow_null_state(schema_name: str) -> None:
+    """The stations output schemas must type ``state`` as string-or-null (regression).
+
+    MOSMIX/DMO stations have no state and serialise ``state`` as null. The MCP server validates every
+    tool result against the output schema derived from these ``response_model`` types (via FastMCP).
+    When ``state`` was typed ``str`` the schema required a string, so listing mosmix/dmo stations
+    failed with "Output validation error: None is not of type 'string'". The field must be nullable.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    properties = app.openapi()["components"]["schemas"][schema_name]["properties"]
+    # state is typed as string-or-null (anyOf includes a null branch)
+    branches = properties["state"].get("anyOf", [properties["state"]])
+    assert any(branch.get("type") == "null" for branch in branches), f"{schema_name}.state not nullable"
+    assert any(branch.get("type") == "string" for branch in branches), f"{schema_name}.state not string"
+
+
 @pytest.mark.remote
 def test_values_dwd_mosmix(client: TestClient) -> None:
     """Test MOSMIX."""

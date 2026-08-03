@@ -85,7 +85,7 @@ class _Station(TypedDict):
     longitude: float
     height: float
     name: str
-    state: str
+    state: str | None
 
 
 class _StationsDict(TypedDict):
@@ -102,7 +102,7 @@ class _OgcFeatureProperties(TypedDict):
     dataset: str
     id: str
     name: str
-    state: str
+    state: str | None
     start_date: str | None
     end_date: str | None
 
