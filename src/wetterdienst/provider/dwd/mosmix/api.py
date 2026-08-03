@@ -42,6 +42,7 @@ log = logging.getLogger(__name__)
 DWD_MOSMIX_S_PATH = "weather/local_forecasts/mos/MOSMIX_S/all_stations/kml/"
 DWD_MOSMIX_L_PATH = "weather/local_forecasts/mos/MOSMIX_L/all_stations/kml/"
 DWD_MOSMIX_L_SINGLE_PATH = "weather/local_forecasts/mos/MOSMIX_L/single_stations/{station_id}/kml/"
+DWD_MOSMIX_SNOW_PATH = "weather/local_forecasts/mos/MOSMIX-SNOW_S/all_stations/kml/"
 
 
 class DwdMosmixStationGroup(Enum):
@@ -129,6 +130,8 @@ class DwdMosmixValues(TimeseriesValues):
             return self.read_mosmix_small(station_id, date)
         if dataset == DwdMosmixMetadata.hourly.large:
             return self.read_mosmix_large(station_id, date)
+        if dataset == DwdMosmixMetadata.hourly.snow:
+            return self.read_mosmix_snow(station_id, date)
         msg = f"Dataset {dataset} not supported"
         raise KeyError(msg)
 
@@ -155,6 +158,18 @@ class DwdMosmixValues(TimeseriesValues):
         self.kml.read(file_url)
         return self.kml.get_station_forecast(station_id)
 
+    def read_mosmix_snow(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
+        """Read single MOSMIX-SNOW-S file holding all stations.
+
+        MOSMIX-SNOW is published in the same hourly cadence and KML/KMZ format as MOSMIX-S, so no
+        issue-date rounding is required. Note the product is only available during the snow season
+        (November to April), so out of season no files exist on the server.
+        """
+        url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_SNOW_PATH)
+        file_url = self.get_url_for_date(url, date)
+        self.kml.read(file_url)
+        return self.kml.get_station_forecast(station_id)
+
     def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str:
         """Get the URL for a given date."""
         from typing import cast  # noqa: PLC0415
@@ -164,7 +179,8 @@ class DwdMosmixValues(TimeseriesValues):
         if date == DwdForecastDate.LATEST:
             try:
                 return next(filter(lambda url_: "LATEST" in url_.upper(), urls))
-            except IndexError as e:
+            except StopIteration as e:
+                # no LATEST file is published, e.g. MOSMIX-SNOW is only available from November to April
                 msg = f"Unable to find LATEST file within {url}"
                 raise IndexError(msg) from e
 
