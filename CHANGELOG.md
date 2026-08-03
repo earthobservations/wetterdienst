@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Bump the minimum supported polars version to `>=1.43.0` (from `>=1.15.0`), required by the
+  `explode(empty_as_null=...)` and `concat(how="horizontal_extend")` APIs used below
+
 ### Fixed
 
 - Resolve polars and pyarrow deprecation warnings surfaced in the test suite: pass explicit
