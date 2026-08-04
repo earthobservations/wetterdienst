@@ -7440,7 +7440,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.0,<4" },
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'", specifier = ">=2" },
     { name = "certifi", specifier = ">=2024.2.2" },
-    { name = "click", specifier = ">=8.1,<9" },
+    { name = "click", specifier = ">=8.2,<9" },
     { name = "cloup", specifier = ">=3.0.1,<4" },
     { name = "diskcache", specifier = ">=5.6.3,<6" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=1,<2" },

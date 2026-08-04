@@ -26,8 +26,9 @@ Types of changes:
 
 - Raise several dependency floors that were declared lower than what the code actually needs:
   `aiohttp>=3.14.0` (`encode_basic_auth`), `stamina>=25.1.0` (`set_testing` as a context manager),
-  `pandas>=2.2.2`, `shapely>=2.0.4` and `h5py>=3.11` (NumPy 2 support), and
-  `plotly>=6.1.1` with `kaleido>=1.0.0` (static image export)
+  `pandas>=2.2.2`, `shapely>=2.0.4` and `h5py>=3.11` (NumPy 2 support),
+  `plotly>=6.1.1` with `kaleido>=1.0.0` (static image export), and `click>=8.2`
+  (separately captured `stderr` in `CliRunner`)
 - Raise the development tooling floors to the versions we develop against, so that the minimum
   versions job only exercises runtime dependency floors
 
