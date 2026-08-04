@@ -79,3 +79,53 @@ jobs:
       - name: Run tests
         run: |
           uv run poe test
+
+  # Resolve every *direct* dependency to the lowest version its specifier allows and run the
+  # suite against that. This is what catches calls to arguments/symbols that only exist in
+  # newer releases of our dependencies - something neither the lockfile-based jobs above nor
+  # static analysis can detect, because they only ever see the newest version installed.
+  minimum-versions:
+    name: Minimum dependency versions
+    runs-on: ubuntu-latest
+
+    continue-on-error: true
+
+    env:
+      UV_RESOLUTION: lowest-direct
+      WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
+      WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
+      WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
+      WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          # oldest supported Python, where the oldest dependency releases are still available
+          python-version: "3.10"
+
+      - name: Install project
+        run: uv sync
+
+      - name: Install eccodes
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libeccodes-dev
+
+      - name: Install extras for testing
+        run: .github/workflows/install.sh testing
+
+      - name: Show resolved versions
+        run: uv pip list
+
+      - name: Run tests
+        run: |
+          uv run poe test

@@ -16,6 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- CI: new `Minimum dependency versions` job that resolves every direct dependency to the lowest
+  version its specifier allows (`UV_RESOLUTION=lowest-direct`) and runs the test suite against it,
+  so that declared floors are actually exercised
+
+### Changed
+
+- Raise several dependency floors that were declared lower than what the code actually needs:
+  `aiohttp>=3.14.0` (`encode_basic_auth`), `stamina>=25.1.0` (`set_testing` as a context manager),
+  `pandas>=2.2.2`, `shapely>=2.0.4` and `h5py>=3.11` (NumPy 2 support),
+  `plotly>=6.1.1` with `kaleido>=1.0.0` (static image export), and `click>=8.2`
+  (separately captured `stderr` in `CliRunner`)
+- Raise the development tooling floors to the versions we develop against, so that the minimum
+  versions job only exercises runtime dependency floors
+
+### Removed
+
+- Unused `jsonschema` development dependency
+
 ## [0.132.0] - 2026-08-04
 
 ### Changed
