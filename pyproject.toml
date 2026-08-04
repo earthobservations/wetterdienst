@@ -106,7 +106,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "aiohttp>=3.13.2,<4",
+    "aiohttp>=3.14.0,<4",
     "backports-datetime-fromisoformat>=2; python_version<'3.11'",
     "certifi>=2024.2.2",
     "click>=8.1,<9",
@@ -124,7 +124,7 @@ dependencies = [
     "python-dateutil>=2.8.2,<3",
     "rapidfuzz>=3.1,<4",
     "diskcache>=5.6.3,<6",
-    "stamina>=23,<27",
+    "stamina>=25.1.0,<27",
     "tabulate>=0.9,<1",
     "tqdm>=4.64,<5",
     "typing-extensions>=4.15.0; python_version<'3.11'",
@@ -138,12 +138,12 @@ bufr = [
     "pybufrkit>=0.2,<1",
 ]
 cratedb = [
-    "pandas>=2,<4",
+    "pandas>=2.2.2,<4",
     "sqlalchemy-cratedb>=0.40,<1",
 ]
 duckdb = [
     "duckdb>=1,<2",
-    "pandas>=2,<4",
+    "pandas>=2.2.2,<4",
 ]
 eccodes = [
     "eccodes>=1.5.2,<3",
@@ -152,7 +152,7 @@ excel = [
     "xlsxwriter>=3.0.9,<4",
 ]
 export = [
-    "pandas>=2,<4",
+    "pandas>=2.2.2,<4",
     "sqlalchemy>=2,<3",
     "xarray>=2024.6,<2027",
     "xlsxwriter>=3.0.9,<4",
@@ -165,30 +165,30 @@ influxdb = [
 ]
 knmi = [
     "h5netcdf>=1.7.3,<2",
-    "h5py>=3.1,<4",
+    "h5py>=3.11,<4",
 ]
 interpolation = [
     "scipy>=1.14.1,<2",
-    "shapely>=2,<3",
+    "shapely>=2.0.4,<3",
     "utm>=0.7,<1",
 ]
 mysql = [
     "mysqlclient>=2,<3",
-    "pandas>=2,<3",
+    "pandas>=2.2.2,<3",
 ]
 pdf = [
     "pypdf>=3.12.1,<7",
 ]
 plotting = [
-    "kaleido>=0.2.2",
-    "plotly>=5.24.1",
+    "kaleido>=1.0.0",
+    "plotly>=6.1.1",
 ]
 postgresql = [
     "psycopg2-binary>=2,<3",
 ]
 radar = [
     "h5netcdf>=1.7.3",
-    "h5py>=3.1,<4",
+    "h5py>=3.11,<4",
     "tabula>=1.0.5",
 ]
 radarplus = [
@@ -225,25 +225,27 @@ requires = ["uv_build>=0.9.21,<0.12.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
+# Development tooling floors are kept close to the versions we actually develop against,
+# so that the `minimum versions` CI job only exercises the floors of the *runtime*
+# dependencies declared in [project] and [project.optional-dependencies].
 dev = [
     # general
-    "dirty-equals>=0.5",
-    "freezegun>=1.2",
-    "h5py>=3.1",
-    "jsonschema[format-nongpl]>=4.17.3",
-    "lmfit>=1.1.0",
-    "matplotlib>=3.3,<4",
-    "pybufrkit>=0.2",
-    "pytest>=7.2",
-    "pytest-cov>=4",
-    "pytest-rerunfailures",
-    "pytest-xdist>=3",
+    "dirty-equals>=0.11",
+    "freezegun>=1.5.5",
+    "h5py>=3.11",
+    "lmfit>=1.3.4",
+    "matplotlib>=3.10,<4",
+    "pybufrkit>=0.2.25",
+    "pytest>=9.1",
+    "pytest-cov>=7.1",
+    "pytest-rerunfailures>=16.4",
+    "pytest-xdist>=3.8",
     # formatting and linting
-    "ruff>=0.3.3",
-    "poethepoet>=0.27.0",
-    "zizmor>=1.4.1",
-    "deptry>=0.24.0",
-    "ty>=0.0.32",
+    "ruff>=0.16.0",
+    "poethepoet>=0.48.0",
+    "zizmor>=1.28.0",
+    "deptry>=0.25.1",
+    "ty>=0.0.64",
     "httpx2>=2.4.0",
 ]
 
