@@ -42,13 +42,14 @@ Types of changes:
   MeteoSwiss, met.no Frost and RMI. Set `ts_unit_targets={"power_per_area":
   "watt_per_square_centimeter"}` to keep the old output. Irradiation (`energy_per_area`) is
   unchanged and still returned in J/cm², which is the conventional unit for it
-- **Breaking**: KNMI (10 minutes), RMI, MeteoSwiss and met.no reported irradiance in W/m² under
-  the `radiation_global`, `radiation_sky_long_wave` and `radiation_sky_short_wave_diffuse` names,
-  which elsewhere mean irradiation in J/cm². These declarations moved to the new
-  `radiation_*_intensity` names. KNMI is the clearest case: its 10-minute `qg` is W/m² while its
-  hourly and daily `Q` is J/cm², so one name was covering two quantities that no unit conversion
-  relates without the accumulation interval. Queries using the old names against these providers
-  need to switch to the `_intensity` names; DWD and every other provider are unaffected
+- **Breaking**: KNMI (10 minutes), RMI, MeteoSwiss, met.no and Geosphere (10 minutes, hourly)
+  reported irradiance in W/m² under the `radiation_global`, `radiation_sky_long_wave` and
+  `radiation_sky_short_wave_diffuse` names, which elsewhere mean irradiation in J/cm². These
+  declarations moved to the new `radiation_*_intensity` names. KNMI is the clearest case: its
+  10-minute `qg` is W/m² while its hourly and daily `Q` is J/cm², so one name was covering two
+  quantities that no unit conversion relates without the accumulation interval. Queries using the
+  old names against these providers need to switch to the `_intensity` names; DWD and every other
+  provider are unaffected
 - **Breaking**: Météo-France synop `visibility_range` was the only declaration of that parameter
   using `length_long`, so it was returned in km while all 15 other declarations return m. It now
   uses `length_medium` and returns m
@@ -61,6 +62,20 @@ Types of changes:
   Eaufrance)
 - Fixed `tests/test_docs.py::test_data_coverage`, which had been passing without checking anything
   because its provider path pointed at `<root>/wetterdienst/provider` instead of `<root>/src/...`
+
+### Fixed
+
+- Geosphere 10-minute and hourly radiation was returned in J/cm² although the source publishes
+  `cglo` and `chim` in W/m² — a factor of 60 out for a 10-minute mean. Only the daily and monthly
+  `cglo_j` really is J/cm². The affected declarations moved to the `radiation_*_intensity` names
+  with `watt_per_square_meter`, as above. This was self-consistent metadata (a wrong `unit_type`
+  paired with a matching wrong `unit`), so the new table check could not catch it
+- The three new `radiation_*_intensity` parameters are now listed in
+  `TimeseriesRequest.interpolatable_parameters`. Without them, `interpolate()` and `summarize()`
+  silently dropped the renamed radiation parameters for the affected providers
+- Fixed four more provider docs rows that named parameters renamed in the code but not in the docs:
+  DWD 1-minute and 5-minute `precipitation_form` → `precipitation_index`, and the `unit` cell of
+  DWD DMO hourly `visibility_range`, which repeated the unit type instead of naming the unit
 - Raise several dependency floors that were declared lower than what the code actually needs:
   `aiohttp>=3.14.0` (`encode_basic_auth`), `stamina>=25.1.0` (`set_testing` as a context manager),
   `pandas>=2.2.2`, `shapely>=2.0.4` and `h5py>=3.11` (NumPy 2 support),

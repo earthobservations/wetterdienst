@@ -245,10 +245,13 @@ class TimeseriesRequest:
         Parameter.SUNSHINE_DURATION_RELATIVE.name.lower(),
         Parameter.SUNSHINE_DURATION_RELATIVE_LAST_24H.name.lower(),
         Parameter.RADIATION_GLOBAL.name.lower(),
+        Parameter.RADIATION_GLOBAL_INTENSITY.name.lower(),
         Parameter.RADIATION_GLOBAL_LAST_3H.name.lower(),
         Parameter.RADIATION_SKY_SHORT_WAVE_DIFFUSE.name.lower(),
+        Parameter.RADIATION_SKY_SHORT_WAVE_DIFFUSE_INTENSITY.name.lower(),
         Parameter.RADIATION_SKY_SHORT_WAVE_DIRECT.name.lower(),
         Parameter.RADIATION_SKY_LONG_WAVE.name.lower(),
+        Parameter.RADIATION_SKY_LONG_WAVE_INTENSITY.name.lower(),
         Parameter.RADIATION_SKY_LONG_WAVE_LAST_3H.name.lower(),
         # ---- pressure ----
         # pressure — synoptic-scale field, most spatially homogeneous of all met parameters (~40 km)

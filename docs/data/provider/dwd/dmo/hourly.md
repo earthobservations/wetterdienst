@@ -24,50 +24,50 @@
 
 #### parameters
 
-| name                                                       | original name | description                                                                     | unit          | constraints |
-|------------------------------------------------------------|---------------|---------------------------------------------------------------------------------|---------------|-------------|
-| {term}`cloud_base_convective`                              | h_bsc         | Cloud base of convective clouds                                                 | m             | >=0         |
-| {term}`cloud_cover_above_7km`                              | nh            | High cloud cover (>7 km)                                                        | %             | >=0,<=100   |
-| {term}`cloud_cover_below_500ft`                            | n05           | Cloud cover below 500 ft.                                                       | %             | >=0,<=100   |
-| {term}`cloud_cover_below_1000ft`                           | n1            | Low cloud cover (lower than 2 km)                                               | %             | >=0,<=100   |
-| {term}`cloud_cover_below_7km`                              | nlm           | Cloud cover low and mid level clouds below 7000 m                               | %             | >=0,<=100   |
-| {term}`cloud_cover_between_2km_to_7km`                     | nm            | Midlevel cloud cover (2-7 km)                                                   | %             | >=0,<=100   |
-| {term}`cloud_cover_effective`                              | neff          | Effective cloud cover                                                           | %             | >=0,<=100   |
-| {term}`cloud_cover_total`                                  | n             | Total cloud cover                                                               | %             | >=0,<=100   |
-| {term}`precipitation_height_significant_weather_last_1h`   | rr1c          | Total precipitation during the last hour consistent with significant weather    | kg/m²         | >=0         |
-| {term}`precipitation_height_significant_weather_last_3h`   | rr3c          | Total precipitation during the last 3 hours consistent with significant weather | kg/m²         | >=0         |
-| {term}`pressure_air_site_reduced`                          | pppp          | Surface pressure, reduced                                                       | Pa            | >=0         |
-| {term}`probability_fog_last_1h`                            | wwm           | Probability for fog within the last hour                                        | %             | >=0,<=100   |
-| {term}`probability_fog_last_6h`                            | wwm6          | Probability for fog within the last 6 hours                                     | %             | >=0,<=100   |
-| {term}`probability_fog_last_12h`                           | wwmh          | Probability for fog within the last 12 hours                                    | %             | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_0mm_last_12h` | rh00          | Probability of precipitation > 0.0mm during the last 12 hours                   | %             | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_6h`  | r602          | Probability of precipitation > 0.2mm during the last 6 hours                    | %             | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_12h` | rh02          | Probability of precipitation > 0.2mm during the last 12 hours                   | %             | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_24h` | rd02          | Probability of precipitation > 0.2mm during the last 24 hours                   | %             | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_1mm_last_12h`   | rh10          | Probability of precipitation > 1.0mm during the last 12 hours                   | %             | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_6h`    | r650          | Probability of precipitation > 5.0mm during the last 6 hours                    | %             | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_12h`   | rh50          | Probability of precipitation > 5.0mm during the last 12 hours                   | %             | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_24h`   | rd50          | Probability of precipitation > 5.0mm during the last 24 hours                   | %             | >=0,<=100   |
-| {term}`probability_wind_gust_ge_25kn_last_12h`             | fxh25         | Probability of wind gusts >= 25kn within the last 12 hours                      | %             | >=0,<=100   |
-| {term}`probability_wind_gust_ge_40kn_last_12h`             | fxh40         | Probability of wind gusts >= 40kn within the last 12 hours                      | %             | >=0,<=100   |
-| {term}`probability_wind_gust_ge_55kn_last_12h`             | fxh55         | Probability of wind gusts >= 55kn within the last 12 hours                      | %             | >=0,<=100   |
-| {term}`radiation_global`                                   | rad1h         | Global Irradiance                                                               | kJ/m²         | >=0         |
-| {term}`sunshine_duration`                                  | sund1         | Sunshine duration during the last Hour                                          | s             | >=0         |
-| {term}`temperature_air_max_2m`                             | tx            | Maximum temperature - within the last 12 hours                                  | K             | -           |
-| {term}`temperature_air_mean_0_05m`                         | t5cm          | Temperature 5cm above surface                                                   | K             | -           |
-| {term}`temperature_air_mean_2m`                            | ttt           | Temperature 2m above surface                                                    | K             | -           |
-| {term}`temperature_air_min_2m`                             | tn            | Minimum temperature - within the last 12 hours                                  | K             | -           |
-| {term}`temperature_dew_point_mean_2m`                      | td            | Dewpoint 2m above surface                                                       | K             | -           |
-| {term}`visibility_range`                                   | vv            | Visibility                                                                      | length_medium | >=0         |
-| {term}`water_equivalent_snow_depth_new_last_1h`            | rrs1c         | Snow-Rain-Equivalent during the last hour                                       | kg/m²         | >=0         |
-| {term}`water_equivalent_snow_depth_new_last_3h`            | rrs3c         | Snow-Rain-Equivalent during the last 3 hours                                    | kg/m²         | >=0         |
-| {term}`weather_last_6h`                                    | w1w2          | Past weather during the last 6 hours                                            | -             | -           |
-| {term}`weather_significant`                                | ww            | Significant Weather                                                             | -             | -           |
-| {term}`wind_direction`                                     | dd            | Wind direction                                                                  | °             | >=0,<=360   |
-| {term}`wind_gust_max_last_1h`                              | fx1           | Maximum wind gust within the last hour                                          | m/s           | >=0         |
-| {term}`wind_gust_max_last_3h`                              | fx3           | Maximum wind gust within the last 3 hours                                       | m/s           | >=0         |
-| {term}`wind_gust_max_last_12h`                             | fxh           | Maximum wind gust within the last 12 hours                                      | m/s           | >=0         |
-| {term}`wind_speed`                                         | ff            | Wind speed                                                                      | m/s           | >=0         |
+| name                                                       | original name | description                                                                     | unit  | constraints |
+|------------------------------------------------------------|---------------|---------------------------------------------------------------------------------|-------|-------------|
+| {term}`cloud_base_convective`                              | h_bsc         | Cloud base of convective clouds                                                 | m     | >=0         |
+| {term}`cloud_cover_above_7km`                              | nh            | High cloud cover (>7 km)                                                        | %     | >=0,<=100   |
+| {term}`cloud_cover_below_500ft`                            | n05           | Cloud cover below 500 ft.                                                       | %     | >=0,<=100   |
+| {term}`cloud_cover_below_1000ft`                           | n1            | Low cloud cover (lower than 2 km)                                               | %     | >=0,<=100   |
+| {term}`cloud_cover_below_7km`                              | nlm           | Cloud cover low and mid level clouds below 7000 m                               | %     | >=0,<=100   |
+| {term}`cloud_cover_between_2km_to_7km`                     | nm            | Midlevel cloud cover (2-7 km)                                                   | %     | >=0,<=100   |
+| {term}`cloud_cover_effective`                              | neff          | Effective cloud cover                                                           | %     | >=0,<=100   |
+| {term}`cloud_cover_total`                                  | n             | Total cloud cover                                                               | %     | >=0,<=100   |
+| {term}`precipitation_height_significant_weather_last_1h`   | rr1c          | Total precipitation during the last hour consistent with significant weather    | kg/m² | >=0         |
+| {term}`precipitation_height_significant_weather_last_3h`   | rr3c          | Total precipitation during the last 3 hours consistent with significant weather | kg/m² | >=0         |
+| {term}`pressure_air_site_reduced`                          | pppp          | Surface pressure, reduced                                                       | Pa    | >=0         |
+| {term}`probability_fog_last_1h`                            | wwm           | Probability for fog within the last hour                                        | %     | >=0,<=100   |
+| {term}`probability_fog_last_6h`                            | wwm6          | Probability for fog within the last 6 hours                                     | %     | >=0,<=100   |
+| {term}`probability_fog_last_12h`                           | wwmh          | Probability for fog within the last 12 hours                                    | %     | >=0,<=100   |
+| {term}`probability_precipitation_height_gt_0_0mm_last_12h` | rh00          | Probability of precipitation > 0.0mm during the last 12 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_height_gt_0_2mm_last_6h`  | r602          | Probability of precipitation > 0.2mm during the last 6 hours                    | %     | >=0,<=100   |
+| {term}`probability_precipitation_height_gt_0_2mm_last_12h` | rh02          | Probability of precipitation > 0.2mm during the last 12 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_height_gt_0_2mm_last_24h` | rd02          | Probability of precipitation > 0.2mm during the last 24 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_height_gt_1mm_last_12h`   | rh10          | Probability of precipitation > 1.0mm during the last 12 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_height_gt_5mm_last_6h`    | r650          | Probability of precipitation > 5.0mm during the last 6 hours                    | %     | >=0,<=100   |
+| {term}`probability_precipitation_height_gt_5mm_last_12h`   | rh50          | Probability of precipitation > 5.0mm during the last 12 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_height_gt_5mm_last_24h`   | rd50          | Probability of precipitation > 5.0mm during the last 24 hours                   | %     | >=0,<=100   |
+| {term}`probability_wind_gust_ge_25kn_last_12h`             | fxh25         | Probability of wind gusts >= 25kn within the last 12 hours                      | %     | >=0,<=100   |
+| {term}`probability_wind_gust_ge_40kn_last_12h`             | fxh40         | Probability of wind gusts >= 40kn within the last 12 hours                      | %     | >=0,<=100   |
+| {term}`probability_wind_gust_ge_55kn_last_12h`             | fxh55         | Probability of wind gusts >= 55kn within the last 12 hours                      | %     | >=0,<=100   |
+| {term}`radiation_global`                                   | rad1h         | Global Irradiance                                                               | kJ/m² | >=0         |
+| {term}`sunshine_duration`                                  | sund1         | Sunshine duration during the last Hour                                          | s     | >=0         |
+| {term}`temperature_air_max_2m`                             | tx            | Maximum temperature - within the last 12 hours                                  | K     | -           |
+| {term}`temperature_air_mean_0_05m`                         | t5cm          | Temperature 5cm above surface                                                   | K     | -           |
+| {term}`temperature_air_mean_2m`                            | ttt           | Temperature 2m above surface                                                    | K     | -           |
+| {term}`temperature_air_min_2m`                             | tn            | Minimum temperature - within the last 12 hours                                  | K     | -           |
+| {term}`temperature_dew_point_mean_2m`                      | td            | Dewpoint 2m above surface                                                       | K     | -           |
+| {term}`visibility_range`                                   | vv            | Visibility                                                                      | m     | >=0         |
+| {term}`water_equivalent_snow_depth_new_last_1h`            | rrs1c         | Snow-Rain-Equivalent during the last hour                                       | kg/m² | >=0         |
+| {term}`water_equivalent_snow_depth_new_last_3h`            | rrs3c         | Snow-Rain-Equivalent during the last 3 hours                                    | kg/m² | >=0         |
+| {term}`weather_last_6h`                                    | w1w2          | Past weather during the last 6 hours                                            | -     | -           |
+| {term}`weather_significant`                                | ww            | Significant Weather                                                             | -     | -           |
+| {term}`wind_direction`                                     | dd            | Wind direction                                                                  | °     | >=0,<=360   |
+| {term}`wind_gust_max_last_1h`                              | fx1           | Maximum wind gust within the last hour                                          | m/s   | >=0         |
+| {term}`wind_gust_max_last_3h`                              | fx3           | Maximum wind gust within the last 3 hours                                       | m/s   | >=0         |
+| {term}`wind_gust_max_last_12h`                             | fxh           | Maximum wind gust within the last 12 hours                                      | m/s   | >=0         |
+| {term}`wind_speed`                                         | ff            | Wind speed                                                                      | m/s   | >=0         |
 
 ### icon
 

@@ -169,6 +169,28 @@ def test_parameter_table_unit_types(unit_converter: UnitConverter) -> None:
         assert parameter.unit_type in unit_converter.targets, parameter.name
 
 
+def test_parameter_table_names_unique() -> None:
+    """Test that no canonical name is declared twice.
+
+    `PARAMETERS` is built by dict comprehension, so a duplicate is silently collapsed and the last
+    entry wins -- a conflicting `unit_type` would take effect with no error anywhere. It would also
+    emit a duplicate-term warning when the docs glossary is built.
+    """
+    duplicates = sorted({p.name for p in PARAMETER_TABLE if [q.name for q in PARAMETER_TABLE].count(p.name) > 1})
+    assert not duplicates, f"duplicate canonical names: {duplicates}"
+
+
+def test_parameter_table_matches_enum(parameter_names: set[str]) -> None:
+    """Test that the table and the `Parameter` enum stay in sync.
+
+    Both are hand-maintained in separate files until the enum is derived from the table, so nothing
+    but this stops one from gaining a name the other lacks. Quality parameters are exempt: they are
+    filtered out by `DatasetModel.__iter__` and deliberately have no enum members.
+    """
+    table_names = {p.name for p in PARAMETER_TABLE if not p.name.startswith("quality")}
+    assert table_names == parameter_names
+
+
 @pytest.mark.parametrize(
     "metadata",
     ALL_METADATA,
