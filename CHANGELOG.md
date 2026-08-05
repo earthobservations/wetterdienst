@@ -24,6 +24,13 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: irradiance (`power_per_area`) is now returned in W/m² rather than W/cm², so
+  affected values are 10⁴ times larger. W/m² is what WMO specifies and what every source in this
+  library actually publishes — MeteoSwiss global radiation now reads 0–1344 W/m² where it used to
+  read 0–0.1344 W/cm². Affects the 17 declarations using `power_per_area`: KNMI (10 minutes),
+  MeteoSwiss, met.no Frost and RMI. Set `ts_unit_targets={"power_per_area":
+  "watt_per_square_centimeter"}` to keep the old output. Irradiation (`energy_per_area`) is
+  unchanged and still returned in J/cm², which is the conventional unit for it
 - Raise several dependency floors that were declared lower than what the code actually needs:
   `aiohttp>=3.14.0` (`encode_basic_auth`), `stamina>=25.1.0` (`set_testing` as a context manager),
   `pandas>=2.2.2`, `shapely>=2.0.4` and `h5py>=3.11` (NumPy 2 support),
