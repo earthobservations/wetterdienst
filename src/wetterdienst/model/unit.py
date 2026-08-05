@@ -131,7 +131,8 @@ class UnitConverter:
             "conductivity": self.units["conductivity"][3],
             "dimensionless": self.units["dimensionless"][0],
             "energy_per_area": self.units["energy_per_area"][0],
-            "power_per_area": self.units["power_per_area"][0],
+            # W/m² is what every source publishes irradiance in, and what WMO specifies
+            "power_per_area": self.units["power_per_area"][1],
             "length_short": self.units["length_short"][1],
             "length_medium": self.units["length_medium"][2],
             "length_long": self.units["length_long"][3],
