@@ -142,7 +142,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
     "metadata",
     ALL_METADATA,
 )
-def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) -> None:
+def test_metadata_parameter_names(parameter_names: set[str], metadata: dict) -> None:
     """Test metadata parameter names."""
     for resolution in metadata:
         for dataset in resolution:

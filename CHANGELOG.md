@@ -31,7 +31,7 @@ Types of changes:
   rather than irradiation accumulated over the interval (energy per area)
 - Docs: a parameter glossary on the Parameters page, built from the canonical parameter table at
   build time by the local Sphinx extension `docs/_ext/parameter_glossary.py`. Every parameter in
-  every provider's metadata table now links to its glossary entry themselves
+  every provider's metadata table now links to its glossary entry
 
 ### Changed
 

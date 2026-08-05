@@ -4,7 +4,7 @@
 
 Provides a ``parameter-glossary`` directive so ``docs/data/parameters.md`` builds the glossary from
 ``wetterdienst.metadata.parameter_table`` at build time. Every canonical name becomes a ``term``
-target, which provider metadata tables link to with ``{term}`name```.
+target, which provider metadata tables link to with the MyST term role, {term}`name`.
 """
 
 from __future__ import annotations
