@@ -23,11 +23,11 @@
 
 #### parameters
 
-| name                      | original name   | description                                                                | unit type     | unit          | constraints |
-| ------------------------- | --------------- | -------------------------------------------------------------------------- | ------------- | ------------- | ----------- |
-| number_of_days_per_month  | Anzahl Tage     | number of available values of mean daily air temperatures per month        | dimensionless | dimensionless | >=0         |
-| heating_degree_day        | Monatsgradtage  | sum of degree days over a month                                            | degree_day    | °Cd           | >=0         |
-| count_days_heating_degree | Anzahl Heiztage | number of days with daily mean air temperature less than 15 degree Celsius | dimensionless | dimensionless | >=0         |
+| name                              | original name   | description                                                                | unit          | constraints |
+|-----------------------------------|-----------------|----------------------------------------------------------------------------|---------------|-------------|
+| {term}`number_of_days_per_month`  | Anzahl Tage     | number of available values of mean daily air temperatures per month        | dimensionless | >=0         |
+| {term}`heating_degree_day`        | Monatsgradtage  | sum of degree days over a month                                            | °Cd           | >=0         |
+| {term}`count_days_heating_degree` | Anzahl Heiztage | number of days with daily mean air temperature less than 15 degree Celsius | dimensionless | >=0         |
 
 ### cooling_degreehours
 
@@ -43,12 +43,12 @@ To distinguish different base temperatures, there exist three datasets with the 
 
 #### parameters
 
-| name                       | original name       | description                                                                                             | unit type     | unit          | constraints |
-| -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------- | ------------- | ------------- | ----------- |
-| number_of_hours_per_month  | Anzahl Stunden      | number of hours per month                                                                               | dimensionless | dimensionless | >=0         |
-| count_hours_cooling_degree | Anzahl Kuehlstunden | number of hours with positive temperature differences between air temperature and reference temperature | dimensionless | dimensionless | >=0         |
-| cooling_degree_hour        | Kuehlgradstunden    | accumulated hourly temperature differences between air temperature and reference temperature            | degree_day    | °Cd           | >=0         |
-| count_days_cooling_degree  | Anzahl Kühltage     | number of days with at least one cooling hour                                                           | dimensionless | dimensionless | >=0         |
+| name                               | original name       | description                                                                                             | unit          | constraints |
+|------------------------------------|---------------------|---------------------------------------------------------------------------------------------------------|---------------|-------------|
+| {term}`number_of_hours_per_month`  | Anzahl Stunden      | number of hours per month                                                                               | dimensionless | >=0         |
+| {term}`count_hours_cooling_degree` | Anzahl Kuehlstunden | number of hours with positive temperature differences between air temperature and reference temperature | dimensionless | >=0         |
+| {term}`cooling_degree_hour`        | Kuehlgradstunden    | accumulated hourly temperature differences between air temperature and reference temperature            | °Cd           | >=0         |
+| {term}`count_days_cooling_degree`  | Anzahl Kühltage     | number of days with at least one cooling hour                                                           | dimensionless | >=0         |
 
 ### climate_correction_factor
 
@@ -63,9 +63,9 @@ To distinguish different base temperatures, there exist three datasets with the 
 
 #### parameters
 
-| name                      | original name       | description                                                                    | unit type      | unit          | constraints              |
-|---------------------------|---------------------|--------------------------------------------------------------------------------|----------------|---------------|--------------------------|
-| climate_correction_factor | KF                  | quotient of yearly degree days of reference station in Potsdam and postal code | dimensionless  | dimensionless | >=0                      |
+| name                              | original name | description                                                                    | unit          | constraints |
+|-----------------------------------|---------------|--------------------------------------------------------------------------------|---------------|-------------|
+| {term}`climate_correction_factor` | KF            | quotient of yearly degree days of reference station in Potsdam and postal code | dimensionless | >=0         |
 
 ### soil
 
@@ -80,36 +80,36 @@ To distinguish different base temperatures, there exist three datasets with the 
 
 #### parameters
 
-| name                                              | original name           | description                                                                           | unit type      | unit            | constraints |
-|---------------------------------------------------|-------------------------|---------------------------------------------------------------------------------------|-----------------|-----------------|-----------|
-| temperature_soil_mean_0_05m                       | mittel von ts05         | mean soil temperature at 0.05m depth                                                 | temperature    | °C              | -          |
-| temperature_soil_mean_0_1m                        | mittel von ts10         | mean soil temperature at 0.1m depth                                                  | temperature    | °C              | -          |
-| temperature_soil_mean_0_2m                        | mittel von ts20         | mean soil temperature at 0.2m depth                                                  | temperature    | °C              | -          |
-| temperature_soil_mean_0_5m                        | mittel von ts50         | mean soil temperature at 0.5m depth                                                  | temperature    | °C              | -          |
-| temperature_soil_mean_1m                          | mittel von ts100        | mean soil temperature at 1m depth                                                    | temperature    | °C              | -          |
-| temperature_soil_mean_loamysand_0_05m             | mittel von tsls05       | mean soil temperature for loamy sand at 0.05m depth                                  | temperature    | °C              | -          |
-| temperature_soil_mean_loamysilt_0_05m             | mittel von tssl05       | mean soil temperature for loamy silt at 0.05m depth                                  | temperature    | °C              | -          |
-| frozen_ground_layer_thickness_max_month           | maximum von zfumi       | maximum frozen ground layer thickness in the month                                    | length_short   | cm              | >=0       |
-| thawing_thickness_plantstock_max_month            | maximum von ztkmi       | maximum thawing thickness under vegetation in the month                               | length_short   | cm              | >=0       |
-| thawing_thickness_bare_max_month                  | maximum von ztumi       | maximum thawing thickness under bare soil in the month                                | length_short   | cm              | >=0       |
-| soil_moisture_gras_loamysilt_00cm_10cm            | mittel von bfgl01_ag    | mean soil moisture for meadow on loamy silt 0-10cm                                    | fraction       | %               | 0-100     |
-| soil_moisture_gras_loamysilt_10cm_20cm            | mittel von bfgl02_ag    | mean soil moisture for meadow on loamy silt 10-20cm                                   | fraction       | %               | 0-100     |
-| soil_moisture_gras_loamysilt_20cm_30cm            | mittel von bfgl03_ag    | mean soil moisture for meadow on loamy silt 20-30cm                                   | fraction       | %               | 0-100     |
-| soil_moisture_gras_loamysilt_30cm_40cm            | mittel von bfgl04_ag    | mean soil moisture for meadow on loamy silt 30-40cm                                   | fraction       | %               | 0-100     |
-| soil_moisture_gras_loamysilt_40cm_50cm            | mittel von bfgl05_ag    | mean soil moisture for meadow on loamy silt 40-50cm                                   | fraction       | %               | 0-100     |
-| soil_moisture_gras_loamysilt_50cm_60cm            | mittel von bfgl06_ag    | mean soil moisture for meadow on loamy silt 50-60cm                                   | fraction       | %               | 0-100     |
-| soil_moisture_gras_sand_00cm_60cm                 | mittel von bfgs_ag      | mean soil moisture for meadow on sand 0-60cm                                          | fraction       | %               | 0-100     |
-| soil_moisture_gras_loamysilt_00cm_60cm            | mittel von bfgl_ag      | mean soil moisture for meadow on loamy silt 0-60cm                                    | fraction       | %               | 0-100     |
-| soil_moisture_winterwheat_sand_00cm_60cm          | mittel von bfws_ag      | mean soil moisture for winter wheat on sand 0-60cm                                    | fraction       | %               | 0-100     |
-| soil_moisture_winterwheat_loamysilt_00cm_60cm     | mittel von bfwl_ag      | mean soil moisture for winter wheat on loamy silt 0-60cm                              | fraction       | %               | 0-100     |
-| soil_moisture_corn_sand_00cm_60cm                 | mittel von bfms_ag      | mean soil moisture for corn on sand 0-60cm                                            | fraction       | %               | 0-100     |
-| soil_moisture_corn_loamysilt_00cm_60cm            | mittel von bfml_ag      | mean soil moisture for corn on loamy silt 0-60cm                                      | fraction       | %               | 0-100     |
-| evapotranspiration_potential_gras_fao_last_24h    | summe von vpgfao        | sum of potential evapotranspiration for meadow (FAO method)                           | precipitation  | mm              | >=0       |
-| evapotranspiration_potential_gras_haude_last_24h  | summe von vpgh          | sum of potential evapotranspiration for meadow (Haude method)                         | precipitation  | mm              | >=0       |
-| evaporation_height_gras_sand                      | summe von vrgs_ag       | sum of evaporation height for meadow on sand                                          | precipitation  | mm              | >=0       |
-| evaporation_height_gras_loamysilt                 | summe von vrgl_ag       | sum of evaporation height for meadow on loamy silt                                    | precipitation  | mm              | >=0       |
-| evaporation_height_winterwheat_sand               | summe von vrws_ag       | sum of evaporation height for winter wheat on sand                                    | precipitation  | mm              | >=0       |
-| evaporation_height_winterwheat_loamysilt          | summe von vrwl_ag       | sum of evaporation height for winter wheat on loamy silt                              | precipitation  | mm              | >=0       |
-| evaporation_height_corn_sand                      | summe von vrms_ag       | sum of evaporation height for corn on sand                                            | precipitation  | mm              | >=0       |
-| evaporation_height_corn_loamysilt                 | summe von vrml_ag       | sum of evaporation height for corn on loamy silt                                      | precipitation  | mm              | >=0       |
+| name                                                     | original name        | description                                                   | unit | constraints |
+|----------------------------------------------------------|----------------------|---------------------------------------------------------------|------|-------------|
+| {term}`temperature_soil_mean_0_05m`                      | mittel von ts05      | mean soil temperature at 0.05m depth                          | °C   | -           |
+| {term}`temperature_soil_mean_0_1m`                       | mittel von ts10      | mean soil temperature at 0.1m depth                           | °C   | -           |
+| {term}`temperature_soil_mean_0_2m`                       | mittel von ts20      | mean soil temperature at 0.2m depth                           | °C   | -           |
+| {term}`temperature_soil_mean_0_5m`                       | mittel von ts50      | mean soil temperature at 0.5m depth                           | °C   | -           |
+| {term}`temperature_soil_mean_1m`                         | mittel von ts100     | mean soil temperature at 1m depth                             | °C   | -           |
+| {term}`temperature_soil_mean_loamysand_0_05m`            | mittel von tsls05    | mean soil temperature for loamy sand at 0.05m depth           | °C   | -           |
+| {term}`temperature_soil_mean_loamysilt_0_05m`            | mittel von tssl05    | mean soil temperature for loamy silt at 0.05m depth           | °C   | -           |
+| {term}`frozen_ground_layer_thickness_max_month`          | maximum von zfumi    | maximum frozen ground layer thickness in the month            | cm   | >=0         |
+| {term}`thawing_thickness_plantstock_max_month`           | maximum von ztkmi    | maximum thawing thickness under vegetation in the month       | cm   | >=0         |
+| {term}`thawing_thickness_bare_max_month`                 | maximum von ztumi    | maximum thawing thickness under bare soil in the month        | cm   | >=0         |
+| {term}`soil_moisture_gras_loamysilt_00cm_10cm`           | mittel von bfgl01_ag | mean soil moisture for meadow on loamy silt 0-10cm            | %    | 0-100       |
+| {term}`soil_moisture_gras_loamysilt_10cm_20cm`           | mittel von bfgl02_ag | mean soil moisture for meadow on loamy silt 10-20cm           | %    | 0-100       |
+| {term}`soil_moisture_gras_loamysilt_20cm_30cm`           | mittel von bfgl03_ag | mean soil moisture for meadow on loamy silt 20-30cm           | %    | 0-100       |
+| {term}`soil_moisture_gras_loamysilt_30cm_40cm`           | mittel von bfgl04_ag | mean soil moisture for meadow on loamy silt 30-40cm           | %    | 0-100       |
+| {term}`soil_moisture_gras_loamysilt_40cm_50cm`           | mittel von bfgl05_ag | mean soil moisture for meadow on loamy silt 40-50cm           | %    | 0-100       |
+| {term}`soil_moisture_gras_loamysilt_50cm_60cm`           | mittel von bfgl06_ag | mean soil moisture for meadow on loamy silt 50-60cm           | %    | 0-100       |
+| {term}`soil_moisture_gras_sand_00cm_60cm`                | mittel von bfgs_ag   | mean soil moisture for meadow on sand 0-60cm                  | %    | 0-100       |
+| {term}`soil_moisture_gras_loamysilt_00cm_60cm`           | mittel von bfgl_ag   | mean soil moisture for meadow on loamy silt 0-60cm            | %    | 0-100       |
+| {term}`soil_moisture_winterwheat_sand_00cm_60cm`         | mittel von bfws_ag   | mean soil moisture for winter wheat on sand 0-60cm            | %    | 0-100       |
+| {term}`soil_moisture_winterwheat_loamysilt_00cm_60cm`    | mittel von bfwl_ag   | mean soil moisture for winter wheat on loamy silt 0-60cm      | %    | 0-100       |
+| {term}`soil_moisture_corn_sand_00cm_60cm`                | mittel von bfms_ag   | mean soil moisture for corn on sand 0-60cm                    | %    | 0-100       |
+| {term}`soil_moisture_corn_loamysilt_00cm_60cm`           | mittel von bfml_ag   | mean soil moisture for corn on loamy silt 0-60cm              | %    | 0-100       |
+| {term}`evapotranspiration_potential_gras_fao_last_24h`   | summe von vpgfao     | sum of potential evapotranspiration for meadow (FAO method)   | mm   | >=0         |
+| {term}`evapotranspiration_potential_gras_haude_last_24h` | summe von vpgh       | sum of potential evapotranspiration for meadow (Haude method) | mm   | >=0         |
+| {term}`evaporation_height_gras_sand`                     | summe von vrgs_ag    | sum of evaporation height for meadow on sand                  | mm   | >=0         |
+| {term}`evaporation_height_gras_loamysilt`                | summe von vrgl_ag    | sum of evaporation height for meadow on loamy silt            | mm   | >=0         |
+| {term}`evaporation_height_winterwheat_sand`              | summe von vrws_ag    | sum of evaporation height for winter wheat on sand            | mm   | >=0         |
+| {term}`evaporation_height_winterwheat_loamysilt`         | summe von vrwl_ag    | sum of evaporation height for winter wheat on loamy silt      | mm   | >=0         |
+| {term}`evaporation_height_corn_sand`                     | summe von vrms_ag    | sum of evaporation height for corn on sand                    | mm   | >=0         |
+| {term}`evaporation_height_corn_loamysilt`                | summe von vrml_ag    | sum of evaporation height for corn on loamy silt              | mm   | >=0         |
 

@@ -22,28 +22,28 @@
 
 #### parameters
 
-| name | original name | unit type | unit |
-|------|----------------|-----------|------|
-| wind_direction | dkl010h0 | angle | degree |
-| wind_speed | fkl010h0 | speed | meter_per_second |
-| wind_gust_max | fkl010h1 | speed | meter_per_second |
-| precipitation_height | rre150h0 | precipitation | millimeter |
-| pressure_air_site | prestah0 | pressure | hectopascal |
-| pressure_air_sea_level | pp0qffh0 | pressure | hectopascal |
-| pressure_vapor | pva200h0 | pressure | hectopascal |
-| radiation_global | gre000h0 | power_per_area | watt_per_square_meter |
-| radiation_sky_short_wave_diffuse | ods000h0 | power_per_area | watt_per_square_meter |
-| radiation_sky_long_wave | oli000h0 | power_per_area | watt_per_square_meter |
-| sunshine_duration | sre000h0 | time | minute |
-| snow_depth | htoauths | length_short | centimeter |
-| temperature_air_mean_2m | tre200h0 | temperature | degree_celsius |
-| temperature_air_min_2m | tre200hn | temperature | degree_celsius |
-| temperature_air_max_2m | tre200hx | temperature | degree_celsius |
-| temperature_air_mean_0_05m | tre005h0 | temperature | degree_celsius |
-| temperature_air_min_0_05m | tre005hn | temperature | degree_celsius |
-| temperature_soil_mean_0_05m | tso005hs | temperature | degree_celsius |
-| temperature_soil_mean_0_1m | tso010hs | temperature | degree_celsius |
-| temperature_soil_mean_0_2m | tso020hs | temperature | degree_celsius |
-| humidity | ure200h0 | fraction | percent |
-| temperature_dew_point_mean_2m | tde200h0 | temperature | degree_celsius |
+| name                                               | original name | unit                  |
+|----------------------------------------------------|---------------|-----------------------|
+| {term}`wind_direction`                             | dkl010h0      | degree                |
+| {term}`wind_speed`                                 | fkl010h0      | meter_per_second      |
+| {term}`wind_gust_max`                              | fkl010h1      | meter_per_second      |
+| {term}`precipitation_height`                       | rre150h0      | millimeter            |
+| {term}`pressure_air_site`                          | prestah0      | hectopascal           |
+| {term}`pressure_air_sea_level`                     | pp0qffh0      | hectopascal           |
+| {term}`pressure_vapor`                             | pva200h0      | hectopascal           |
+| {term}`radiation_global_intensity`                 | gre000h0      | watt_per_square_meter |
+| {term}`radiation_sky_short_wave_diffuse_intensity` | ods000h0      | watt_per_square_meter |
+| {term}`radiation_sky_long_wave_intensity`          | oli000h0      | watt_per_square_meter |
+| {term}`sunshine_duration`                          | sre000h0      | minute                |
+| {term}`snow_depth`                                 | htoauths      | centimeter            |
+| {term}`temperature_air_mean_2m`                    | tre200h0      | degree_celsius        |
+| {term}`temperature_air_min_2m`                     | tre200hn      | degree_celsius        |
+| {term}`temperature_air_max_2m`                     | tre200hx      | degree_celsius        |
+| {term}`temperature_air_mean_0_05m`                 | tre005h0      | degree_celsius        |
+| {term}`temperature_air_min_0_05m`                  | tre005hn      | degree_celsius        |
+| {term}`temperature_soil_mean_0_05m`                | tso005hs      | degree_celsius        |
+| {term}`temperature_soil_mean_0_1m`                 | tso010hs      | degree_celsius        |
+| {term}`temperature_soil_mean_0_2m`                 | tso020hs      | degree_celsius        |
+| {term}`humidity`                                   | ure200h0      | percent               |
+| {term}`temperature_dew_point_mean_2m`              | tde200h0      | degree_celsius        |
 

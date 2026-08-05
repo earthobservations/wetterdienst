@@ -23,26 +23,26 @@
 
 #### parameters
 
-| name                    | original name           | description                                       | unit type                | unit   | constraints |
-|-------------------------|-------------------------|---------------------------------------------------|--------------------------|--------|-------------|
-| chlorid_concentration   | cl                      | average chlorid concentration during time scale   | concentration            | mg/l   | -           |
-| clearance_height        | dfh                     | average clearance height during time scale        | length_short             | m      | -           |
-| current                 | r                       | average current during time scale                 | magnetic_field_intensity | T      | -           |
-| discharge               | q                       | average discharge during time scale               | volume_per_time          | m³/s   | >=0         |
-| electric_conductivity   | lf                      | average electric conductivity during time scale   | conductivity             | μS/cm  | -           |
-| flow_speed              | va                      | average flow speed during time scale              | speed                    | m/s    | -           |
-| groundwater_level       | gru                     | average groundwater level during time scale       | length_medium            | m      | -           |
-| humidity                | hl                      | average water level during time scale             | angle                    | °      | >=0,<=100   |
-| oxygen_level            | o2                      | average oxygen level during time scale            | concentration            | mg/l   | >=0         |
-| ph_value                | ph                      | average pH during time scale                      | dimensionless            | -      | -           |
-| precipitation_height    | niederschlag            | average precipitation height during time scale    | precipitation            | mm     | >=0         |
-| precipitation_intensity | niederschlagsintensität | average precipitation intensity during time scale | precipitation_intensity  | mm/h   | >=0         |
-| temperature_air_mean_2m | lt                      | average air temperature during time scale         | temperature              | °C     | -           |
-| temperature_water       | wt                      | average water temperature during time scale       | temperature              | °C     | -           |
-| turbidity               | tr                      | average turbidity during time scale               | turbidity                | NTU    | -           |
-| stage                   | w                       | average water level during time scale             | length_short             | cm     | >=0         |
-| wave_height_max         | maxh                    | max wave height during time scale                 | length_short             | cm     | -           |
-| wave_height_sign        | sigh                    | average wave height sign during time scale        | length_short             | cm     | -           |
-| wave_period             | tp                      | average wave period during time scale             | wave_period              | 1/100s | >=0         |
-| wind_direction          | wr                      | average wind direction during time scale          | angle                    | °      | >=0,<=360   |
-| wind_speed              | wg                      | average wind speed during time scale              | speed                    | m/s    | -           |
+| name                            | original name           | description                                       | unit   | constraints |
+|---------------------------------|-------------------------|---------------------------------------------------|--------|-------------|
+| {term}`chlorid_concentration`   | cl                      | average chlorid concentration during time scale   | mg/l   | -           |
+| {term}`clearance_height`        | dfh                     | average clearance height during time scale        | m      | -           |
+| {term}`current`                 | r                       | average current during time scale                 | T      | -           |
+| {term}`discharge`               | q                       | average discharge during time scale               | m³/s   | >=0         |
+| {term}`electric_conductivity`   | lf                      | average electric conductivity during time scale   | μS/cm  | -           |
+| {term}`flow_speed`              | va                      | average flow speed during time scale              | m/s    | -           |
+| {term}`groundwater_level`       | gru                     | average groundwater level during time scale       | m      | -           |
+| {term}`humidity`                | hl                      | average water level during time scale             | °      | >=0,<=100   |
+| {term}`oxygen_level`            | o2                      | average oxygen level during time scale            | mg/l   | >=0         |
+| {term}`ph_value`                | ph                      | average pH during time scale                      | -      | -           |
+| {term}`precipitation_height`    | niederschlag            | average precipitation height during time scale    | mm     | >=0         |
+| {term}`precipitation_intensity` | niederschlagsintensität | average precipitation intensity during time scale | mm/h   | >=0         |
+| {term}`temperature_air_mean_2m` | lt                      | average air temperature during time scale         | °C     | -           |
+| {term}`temperature_water`       | wt                      | average water temperature during time scale       | °C     | -           |
+| {term}`turbidity`               | tr                      | average turbidity during time scale               | NTU    | -           |
+| {term}`stage`                   | w                       | average water level during time scale             | cm     | >=0         |
+| {term}`wave_height_max`         | maxh                    | max wave height during time scale                 | cm     | -           |
+| {term}`wave_height_sign`        | sigh                    | average wave height sign during time scale        | cm     | -           |
+| {term}`wave_period`             | tp                      | average wave period during time scale             | 1/100s | >=0         |
+| {term}`wind_direction`          | wr                      | average wind direction during time scale          | °      | >=0,<=360   |
+| {term}`wind_speed`              | wg                      | average wind speed during time scale              | m/s    | -           |

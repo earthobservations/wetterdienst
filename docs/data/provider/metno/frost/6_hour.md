@@ -13,9 +13,9 @@
 
 #### parameters
 
-| name                 | original name                   | unit type     | unit |
-|----------------------|---------------------------------|---------------|------|
-| precipitation_height | sum(precipitation_amount PT6H)  | precipitation | mm   |
+| name                         | original name                  | unit |
+|------------------------------|--------------------------------|------|
+| {term}`precipitation_height` | sum(precipitation_amount PT6H) | mm   |
 
 ## Notes
 

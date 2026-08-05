@@ -53,6 +53,9 @@ export const parameters: Record<string, string> = {
   radiation_global: 'Globalstrahlung',
   radiation_sky_short_wave_diffuse: 'Diffuse Himmelsstrahlung',
   radiation_sky_long_wave: 'Langwellige Strahlung',
+  radiation_global_intensity: 'Globalstrahlung (Bestrahlungsstärke)',
+  radiation_sky_short_wave_diffuse_intensity: 'Diffuse Himmelsstrahlung (Bestrahlungsstärke)',
+  radiation_sky_long_wave_intensity: 'Langwellige Strahlung (Bestrahlungsstärke)',
 
   // Snow
   snow_depth: 'Schneehöhe',

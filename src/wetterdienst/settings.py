@@ -91,7 +91,6 @@ def _default_geo_station_distance() -> defaultdict[str, float]:
         Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_24H,
         Parameter.PRECIPITATION_HEIGHT_LIQUID_SIGNIFICANT_WEATHER_LAST_1H,
         Parameter.PRECIPITATION_HEIGHT_MAX,
-        Parameter.PRECIPITATION_HEIGHT_LIQUID_MAX,
         Parameter.PRECIPITATION_DURATION,
         # new snow per period — heterogeneous like precipitation
         Parameter.SNOW_DEPTH_NEW,

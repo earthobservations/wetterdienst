@@ -63,7 +63,6 @@ _OCCURRENCE_BASED_PARAMETERS: frozenset[str] = frozenset(
         Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_24H,
         Parameter.PRECIPITATION_HEIGHT_LIQUID_SIGNIFICANT_WEATHER_LAST_1H,
         Parameter.PRECIPITATION_HEIGHT_MAX,
-        Parameter.PRECIPITATION_HEIGHT_LIQUID_MAX,
         # precipitation duration — zero when no precipitation occurred
         Parameter.PRECIPITATION_DURATION,
         # new snow per period — heterogeneous and zero-inflated like precipitation

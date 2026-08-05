@@ -23,7 +23,7 @@
 
 #### parameters
 
-| name  | original name | description | unit type       | unit          | constraints |
-|-------|---------------|-------------|-----------------|---------------|-------------|
-| flow  | q             | flow        | volume_per_time | l/s           | >=0         |
-| stage | stage         | stage       | length_short    | mm            | -           |
+| name              | original name | description | unit | constraints |
+|-------------------|---------------|-------------|------|-------------|
+| {term}`discharge` | q             | flow        | l/s  | >=0         |
+| {term}`stage`     | stage         | stage       | mm   | -           |

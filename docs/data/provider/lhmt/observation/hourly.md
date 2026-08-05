@@ -20,14 +20,14 @@
 
 #### parameters
 
-| name                    | original name    | unit type     | unit |
-|-------------------------|------------------|---------------|------|
-| temperature_air_mean_2m | airTemperature   | temperature   | °C   |
-| humidity                | relativeHumidity | fraction      | %    |
-| wind_speed              | windSpeed        | speed         | m/s  |
-| wind_gust_max           | windGust         | speed         | m/s  |
-| wind_direction          | windDirection    | angle         | °    |
-| cloud_cover_total       | cloudCover       | fraction      | %    |
-| pressure_air_sea_level  | seaLevelPressure | pressure      | hPa  |
-| precipitation_height    | precipitation    | precipitation | mm   |
-| snow_depth              | snowDepth        | length_short  | cm   |
+| name                            | original name    | unit |
+|---------------------------------|------------------|------|
+| {term}`temperature_air_mean_2m` | airTemperature   | °C   |
+| {term}`humidity`                | relativeHumidity | %    |
+| {term}`wind_speed`              | windSpeed        | m/s  |
+| {term}`wind_gust_max`           | windGust         | m/s  |
+| {term}`wind_direction`          | windDirection    | °    |
+| {term}`cloud_cover_total`       | cloudCover       | %    |
+| {term}`pressure_air_sea_level`  | seaLevelPressure | hPa  |
+| {term}`precipitation_height`    | precipitation    | mm   |
+| {term}`snow_depth`              | snowDepth        | cm   |

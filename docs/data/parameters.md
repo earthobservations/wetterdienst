@@ -6,11 +6,14 @@ kernelspec:
 
 # Parameters
 
-The data that is provided via `wetterdienst` and its implemented services comes in all kinds of different shapes. All
-parameters are summarized in a core `Parameter` enumeration and parameter enumerations of all weather services are
-tested against it so that newly added parameters will be sorted and carefully added to the existing collection. The core
-`Parameter` enumeration can be used for requests as well, as internally the requested parameter is always translated
-to the provider specific parameter enumeration.
+The data that is provided via `wetterdienst` and its implemented services comes in all kinds of different shapes. Every
+provider publishes its own parameter codes, so each one is mapped onto a canonical parameter name that means the same
+thing everywhere. Those names, and the unit type each of them implies, live in a single table
+(`wetterdienst.metadata.parameter_table`) that every provider's metadata is tested against, so a name cannot mean two
+different quantities depending on who reported it.
+
+The glossary below lists them all. The provider pages link into it, so from any provider's parameter table you can jump
+to what the parameter actually is.
 
 ## Metadata Model
 
@@ -30,19 +33,10 @@ metadata = DwdObservationMetadata.model_dump_json(indent=2)
 print(metadata)
 ```
 
-## List of Parameters
+## Glossary
 
-The amount of distinct parameters and a list of the parameter names:
+The unit type is a property of the parameter itself and decides which unit values are returned in;
+the unit a given provider publishes is listed per provider under [providers](provider/index.md).
 
-```{code-cell}
----
-mystnb:
-  number_source_lines: true
----
-from wetterdienst.metadata.parameter import Parameter
-
-parameters = [parameter.value.lower() for parameter in Parameter]
-print(f"Number of parameters: {len(parameters)}")
-print("Parameters:")
-print("\n".join(parameters))
+```{parameter-glossary}
 ```

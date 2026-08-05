@@ -13,17 +13,17 @@
 
 #### parameters
 
-| name                          | original name | unit type       | unit  |
-|-------------------------------|---------------|-----------------|-------|
-| temperature_air_mean_2m       | T             | temperature     | °C    |
-| temperature_dew_point_mean_2m | TD            | temperature     | °C    |
-| humidity                      | U             | fraction        | %     |
-| wind_speed                    | FH            | speed           | m/s   |
-| wind_direction                | DD            | angle           | °     |
-| wind_gust_max                 | FX            | speed           | m/s   |
-| precipitation_height          | RH            | precipitation   | mm    |
-| precipitation_duration        | DR            | time            | h     |
-| pressure_air_sea_level        | P             | pressure        | hPa   |
-| sunshine_duration             | SQ            | time            | h     |
-| radiation_global              | Q             | energy_per_area | J/cm² |
-| cloud_cover_total             | N             | fraction        | 1/8   |
+| name                                  | original name | unit  |
+|---------------------------------------|---------------|-------|
+| {term}`temperature_air_mean_2m`       | T             | °C    |
+| {term}`temperature_dew_point_mean_2m` | TD            | °C    |
+| {term}`humidity`                      | U             | %     |
+| {term}`wind_speed`                    | FH            | m/s   |
+| {term}`wind_direction`                | DD            | °     |
+| {term}`wind_gust_max`                 | FX            | m/s   |
+| {term}`precipitation_height`          | RH            | mm    |
+| {term}`precipitation_duration`        | DR            | h     |
+| {term}`pressure_air_sea_level`        | P             | hPa   |
+| {term}`sunshine_duration`             | SQ            | h     |
+| {term}`radiation_global`              | Q             | J/cm² |
+| {term}`cloud_cover_total`             | N             | 1/8   |

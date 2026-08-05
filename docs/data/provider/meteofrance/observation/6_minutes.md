@@ -22,6 +22,6 @@
 
 #### parameters
 
-| name | original name | unit type | unit |
-|------|----------------|-----------|------|
-| precipitation_height | RR | precipitation | millimeter |
+| name                         | original name | unit       |
+|------------------------------|---------------|------------|
+| {term}`precipitation_height` | RR            | millimeter |

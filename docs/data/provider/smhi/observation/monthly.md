@@ -13,7 +13,7 @@
 
 #### parameters
 
-| name                    | original name | unit type     | unit |
-|-------------------------|----------------|----------------|------|
-| temperature_air_mean_2m | 22             | temperature    | °C   |
-| precipitation_height    | 23             | precipitation  | mm   |
+| name                            | original name | unit |
+|---------------------------------|---------------|------|
+| {term}`temperature_air_mean_2m` | 22            | °C   |
+| {term}`precipitation_height`    | 23            | mm   |

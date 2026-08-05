@@ -53,6 +53,9 @@ export const parameters: Record<string, string> = {
   radiation_global: 'Global radiation',
   radiation_sky_short_wave_diffuse: 'Diffuse sky radiation',
   radiation_sky_long_wave: 'Long-wave radiation',
+  radiation_global_intensity: 'Global irradiance',
+  radiation_sky_short_wave_diffuse_intensity: 'Diffuse sky irradiance',
+  radiation_sky_long_wave_intensity: 'Long-wave irradiance',
 
   // Snow
   snow_depth: 'Snow depth',

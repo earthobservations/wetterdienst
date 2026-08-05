@@ -21,6 +21,17 @@ Types of changes:
 - CI: new `Minimum dependency versions` job that resolves every direct dependency to the lowest
   version its specifier allows (`UV_RESOLUTION=lowest-direct`) and runs the test suite against it,
   so that declared floors are actually exercised
+- Canonical parameter table (`wetterdienst.metadata.parameter_table`) holding the `unit_type` of
+  each of the 504 canonical parameter names in one place, plus a test that checks every provider
+  declaration against it — that the name is canonical, that the declared `unit_type` agrees, and
+  that the declared `unit` is a unit of that quantity. Providers still declare `unit_type`
+  themselves; the table is what they are now checked against
+- New canonical parameters `radiation_global_intensity`, `radiation_sky_long_wave_intensity` and
+  `radiation_sky_short_wave_diffuse_intensity` for sources that report irradiance (power per area)
+  rather than irradiation accumulated over the interval (energy per area)
+- Docs: a parameter glossary on the Parameters page, built from the canonical parameter table at
+  build time by the local Sphinx extension `docs/_ext/parameter_glossary.py`. Every parameter in
+  every provider's metadata table now links to its glossary entry themselves
 
 ### Changed
 
@@ -31,6 +42,25 @@ Types of changes:
   MeteoSwiss, met.no Frost and RMI. Set `ts_unit_targets={"power_per_area":
   "watt_per_square_centimeter"}` to keep the old output. Irradiation (`energy_per_area`) is
   unchanged and still returned in J/cm², which is the conventional unit for it
+- **Breaking**: KNMI (10 minutes), RMI, MeteoSwiss and met.no reported irradiance in W/m² under
+  the `radiation_global`, `radiation_sky_long_wave` and `radiation_sky_short_wave_diffuse` names,
+  which elsewhere mean irradiation in J/cm². These declarations moved to the new
+  `radiation_*_intensity` names. KNMI is the clearest case: its 10-minute `qg` is W/m² while its
+  hourly and daily `Q` is J/cm², so one name was covering two quantities that no unit conversion
+  relates without the accumulation interval. Queries using the old names against these providers
+  need to switch to the `_intensity` names; DWD and every other provider are unaffected
+- **Breaking**: Météo-France synop `visibility_range` was the only declaration of that parameter
+  using `length_long`, so it was returned in km while all 15 other declarations return m. It now
+  uses `length_medium` and returns m
+- Docs: provider metadata tables no longer repeat the `unit type` column. The unit type is a
+  property of the canonical parameter, so it is stated once in the glossary; the `unit` column
+  stays, because that really is the individual provider's own
+- Fixed nine provider docs rows that named parameters renamed in the code but not in the docs
+  (`*_indicator` → `*_index` for DWD, `pressure_air_sl` → `pressure_air_sea_level` for
+  Geosphere/NWS, `pressure_air_sh` → `pressure_air_site` for NWS, `flow` → `discharge` for
+  Eaufrance)
+- Fixed `tests/test_docs.py::test_data_coverage`, which had been passing without checking anything
+  because its provider path pointed at `<root>/wetterdienst/provider` instead of `<root>/src/...`
 - Raise several dependency floors that were declared lower than what the code actually needs:
   `aiohttp>=3.14.0` (`encode_basic_auth`), `stamina>=25.1.0` (`set_testing` as a context manager),
   `pandas>=2.2.2`, `shapely>=2.0.4` and `h5py>=3.11` (NumPy 2 support),
@@ -41,6 +71,16 @@ Types of changes:
 
 ### Removed
 
+- **Breaking**: five `Parameter` enum members that no provider declared, so no request could ever
+  return them: `HUMIDEX`, `PRECIPITATION_FREQUENCY`, `PRECIPITATION_HEIGHT_LIQUID_MAX`,
+  `TIME_WIND_GUST_MAX` and `TIME_WIND_GUST_MAX_1MILE_OR_1MIN`. The dead entries referencing two of
+  them in the interpolation membership lists went with them
+- Docs: `docs/data/provider/eccc/observation/annual.md`. ECCC's `annual` resolution was dropped
+  when observation values moved to the api.weather.gc.ca OGC API, and the docs still described it,
+  along with `humidex` under hourly. The ECCC observation overview also still described bulk CSV
+  downloads and four resolutions; corrected
+- Docs: the `pressure_air_sea` row from IMGW meteorology daily, a parameter that provider no
+  longer exposes
 - Unused `jsonschema` development dependency
 
 ## [0.132.0] - 2026-08-04
