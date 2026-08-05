@@ -139,12 +139,12 @@ Codes (precipitation_form):
 
 #### parameters
 
-| name                                         | original name | description                       | unit | constraints |
-|----------------------------------------------|---------------|-----------------------------------|------|-------------|
-| {term}`snow_depth_excelled`                  | ash_6         | height of snow pack sample        | cm   | >=0         |
-| {term}`snow_depth`                           | sh_tag        | total snow depth                  | cm   | >=0         |
-| {term}`water_equivalent_snow_depth`          | wash_6        | total snow water equivalent       | mm   | >=0         |
-| {term}`water_equivalent_snow_depth_excelled` | waas_6        | sampled snow pack water eqivalent | mm   | >=0         |
+| name                                         | original name | description                        | unit | constraints |
+|----------------------------------------------|---------------|------------------------------------|------|-------------|
+| {term}`snow_depth_excelled`                  | ash_6         | height of snow pack sample         | cm   | >=0         |
+| {term}`snow_depth`                           | sh_tag        | total snow depth                   | cm   | >=0         |
+| {term}`water_equivalent_snow_depth`          | wash_6        | total snow water equivalent        | mm   | >=0         |
+| {term}`water_equivalent_snow_depth_excelled` | waas_6        | sampled snow pack water equivalent | mm   | >=0         |
 
 ### weather_phenomena
 
