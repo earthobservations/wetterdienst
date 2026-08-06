@@ -23,11 +23,11 @@
 
 #### parameters
 
-| name                       | original name | description                                          | unit type     | unit          | constraints |
-|----------------------------|---------------|------------------------------------------------------|---------------|---------------|-------------|
-| precipitation_duration     | rws_dau_10    | duration of precipitation within the last 10 minutes | time          | min           | >=0         |
-| precipitation_height       | rws_10        | precipitation height of the last 10 minutes          | precipitation | mm            | >=0         |
-| precipitation_indicator_wr | rws_ind_10    | precipitation index                                  | dimensionless | -             | ∈ \[0,1,3\] |
+| name                           | original name | description                                          | unit | constraints |
+|--------------------------------|---------------|------------------------------------------------------|------|-------------|
+| {term}`precipitation_duration` | rws_dau_10    | duration of precipitation within the last 10 minutes | min  | >=0         |
+| {term}`precipitation_height`   | rws_10        | precipitation height of the last 10 minutes          | mm   | >=0         |
+| {term}`precipitation_index`    | rws_ind_10    | precipitation index                                  | -    | ∈ \[0,1,3\] |
 
 Codes (precipitation_indicator_wr):
 
@@ -50,12 +50,12 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name                             | original name | description                              | unit type       | unit          | constraints |
-|----------------------------------|---------------|------------------------------------------|-----------------|---------------|-------------|
-| radiation_sky_short_wave_diffuse | ds_10         | 10min-sum of diffuse solar radiation     | energy_per_area | J/cm²         | >=0         |
-| radiation_global                 | gs_10         | 10min-sum of solar incoming radiation    | energy_per_area | J/cm²         | >=0         |
-| sunshine_duration                | sd_10         | 10min-sum of sunshine duration           | time            | h             | >=0         |
-| radiation_sky_long_wave          | ls_10         | 10min-sum of longwave downward radiation | energy_per_area | J/cm²         | >=0         |
+| name                                     | original name | description                              | unit  | constraints |
+|------------------------------------------|---------------|------------------------------------------|-------|-------------|
+| {term}`radiation_sky_short_wave_diffuse` | ds_10         | 10min-sum of diffuse solar radiation     | J/cm² | >=0         |
+| {term}`radiation_global`                 | gs_10         | 10min-sum of solar incoming radiation    | J/cm² | >=0         |
+| {term}`sunshine_duration`                | sd_10         | 10min-sum of sunshine duration           | h     | >=0         |
+| {term}`radiation_sky_long_wave`          | ls_10         | 10min-sum of longwave downward radiation | J/cm² | >=0         |
 
 ### temperature_air
 
@@ -70,13 +70,13 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name                          | original name | description                                                                                                                         | unit type   | unit          | constraints |
-|-------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------|-------------|---------------|-------------|
-| pressure_air_site             | pp_10         | pressure at station height                                                                                                          | pressure    | hPa           | >=0         |
-| temperature_air_mean_2m       | tt_10         | air temperature at 2m height                                                                                                        | temperature | °C            | -           |
-| temperature_air_mean_0_05m    | tm5_10        | air temperature at 5cm height                                                                                                       | temperature | °C            | -           |
-| humidity                      | rf_10         | relative humidity at 2m height                                                                                                      | fraction    | %             | >=0,<=100   |
-| temperature_dew_point_mean_2m | td_10         | dew point temperature at 2m height, the dew point temperature is calculated from the temperature and relative humidity measurements | temperature | °C            | -           |
+| name                                  | original name | description                                                                                                                         | unit | constraints |
+|---------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------|------|-------------|
+| {term}`pressure_air_site`             | pp_10         | pressure at station height                                                                                                          | hPa  | >=0         |
+| {term}`temperature_air_mean_2m`       | tt_10         | air temperature at 2m height                                                                                                        | °C   | -           |
+| {term}`temperature_air_mean_0_05m`    | tm5_10        | air temperature at 5cm height                                                                                                       | °C   | -           |
+| {term}`humidity`                      | rf_10         | relative humidity at 2m height                                                                                                      | %    | >=0,<=100   |
+| {term}`temperature_dew_point_mean_2m` | td_10         | dew point temperature at 2m height, the dew point temperature is calculated from the temperature and relative humidity measurements | °C   | -           |
 
 ### temperature_extreme
 
@@ -91,12 +91,12 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name                      | original name | description                                                         | unit type   | unit          | constraints |
-|---------------------------|---------------|---------------------------------------------------------------------|-------------|---------------|-------------|
-| temperature_air_max_2m    | tx_10         | maximum of air temperature at 2m height during the last 10 minutes  | temperature | °C            | -           |
-| temperature_air_max_0_05m | tx5_10        | maximum of air temperature at 5cm height during the last 10 minutes | temperature | °C            | -           |
-| temperature_air_min_2m    | tn_10         | minimum of air temperature at 2m height during the last 10 minutes  | temperature | °C            | -           |
-| temperature_air_min_0_05m | tn5_10        | minimum of air temperature at 5cm height during the last 10 minutes | temperature | °C            | -           |
+| name                              | original name | description                                                         | unit | constraints |
+|-----------------------------------|---------------|---------------------------------------------------------------------|------|-------------|
+| {term}`temperature_air_max_2m`    | tx_10         | maximum of air temperature at 2m height during the last 10 minutes  | °C   | -           |
+| {term}`temperature_air_max_0_05m` | tx5_10        | maximum of air temperature at 5cm height during the last 10 minutes | °C   | -           |
+| {term}`temperature_air_min_2m`    | tn_10         | minimum of air temperature at 2m height during the last 10 minutes  | °C   | -           |
+| {term}`temperature_air_min_0_05m` | tn5_10        | minimum of air temperature at 5cm height during the last 10 minutes | °C   | -           |
 
 ### wind
 
@@ -111,10 +111,10 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name           | original name | description                                       | unit type | unit          | constraints |
-|----------------|---------------|---------------------------------------------------|-----------|---------------|-------------|
-| wind_speed     | ff_10         | mean of wind speed during the last 10 minutes     | speed     | m/s           | >=0         |
-| wind_direction | dd_10         | mean of wind direction during the last 10 minutes | angle     | °             | >=0,<=360   |
+| name                   | original name | description                                       | unit | constraints |
+|------------------------|---------------|---------------------------------------------------|------|-------------|
+| {term}`wind_speed`     | ff_10         | mean of wind speed during the last 10 minutes     | m/s  | >=0         |
+| {term}`wind_direction` | dd_10         | mean of wind direction during the last 10 minutes | °    | >=0,<=360   |
 
 ### wind_extreme
 
@@ -129,12 +129,12 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name                        | original name | description                                                                                                                                                                                                                                                    | unit type | unit          | constraints |
-|-----------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|---------------|-------------|
-| wind_gust_max               | fx_10         | maximum wind gust of the last 10 minutes, the instrument samples the instantaneous wind velocity every 0.25 seconds, and writes out the max value of a 3 second period, the highest occuring within the 10min interval is given here as the maximum wind gust. | speed     | m/s           | >=0         |
-| wind_speed_min              | fnx_10        | minimum 10-minute mean wind velocity. The 10-minutes interval is moved in 10s steps over the last 20 minutes                                                                                                                                                   | speed     | m/s           | >=0         |
-| wind_speed_rolling_mean_max | fmx_10        | maximum 10-minute mean wind velocity. The 10-minutes interval is moved in 10s steps over the last 20 minutes                                                                                                                                                   | speed     | m/s           | >=0         |
-| wind_direction_gust_max     | dx_10         | wind direction of highest wind gust                                                                                                                                                                                                                            | angle     | °             | >=0,<=360   |
+| name                                | original name | description                                                                                                                                                                                                                                                     | unit | constraints |
+|-------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|-------------|
+| {term}`wind_gust_max`               | fx_10         | maximum wind gust of the last 10 minutes, the instrument samples the instantaneous wind velocity every 0.25 seconds, and writes out the max value of a 3 second period, the highest occurring within the 10min interval is given here as the maximum wind gust. | m/s  | >=0         |
+| {term}`wind_speed_min`              | fnx_10        | minimum 10-minute mean wind velocity. The 10-minutes interval is moved in 10s steps over the last 20 minutes                                                                                                                                                    | m/s  | >=0         |
+| {term}`wind_speed_rolling_mean_max` | fmx_10        | maximum 10-minute mean wind velocity. The 10-minutes interval is moved in 10s steps over the last 20 minutes                                                                                                                                                    | m/s  | >=0         |
+| {term}`wind_direction_gust_max`     | dx_10         | wind direction of highest wind gust                                                                                                                                                                                                                             | °    | >=0,<=360   |
 
 ### urban_precipitation
 
@@ -149,9 +149,9 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name                 | original name | description                                 | unit type     | unit | constraints |
-|----------------------|---------------|---------------------------------------------|---------------|------|-------------|
-| precipitation_height | rr_st_10      | precipitation height of the last 10 minutes | precipitation | mm   | >=0         |
+| name                         | original name | description                                 | unit | constraints |
+|------------------------------|---------------|---------------------------------------------|------|-------------|
+| {term}`precipitation_height` | rr_st_10      | precipitation height of the last 10 minutes | mm   | >=0         |
 
 ### urban_pressure
 
@@ -166,10 +166,10 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name                   | original name | description                   | unit type | unit | constraints |
-|------------------------|---------------|-------------------------------|-----------|------|-------------|
-| pressure_air_sea_level | pp_st_10      | pressure reduced to sea level | pressure  | hPa  | >=0         |
-| pressure_air_site      | p0_st_10      | pressure at station height    | pressure  | hPa  | >=0         |
+| name                           | original name | description                   | unit | constraints |
+|--------------------------------|---------------|-------------------------------|------|-------------|
+| {term}`pressure_air_sea_level` | pp_st_10      | pressure reduced to sea level | hPa  | >=0         |
+| {term}`pressure_air_site`      | p0_st_10      | pressure at station height    | hPa  | >=0         |
 
 ### urban_solar
 
@@ -184,10 +184,10 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name              | original name | description                              | unit type       | unit  | constraints |
-|-------------------|---------------|------------------------------------------|-----------------|-------|-------------|
-| radiation_global  | fg_st_10      | 10min-sum of global (incoming) radiation | energy_per_area | J/cm² | >=0         |
-| sunshine_duration | sd_st_10      | 10min-sum of sunshine duration           | time            | min   | >=0         |
+| name                      | original name | description                              | unit  | constraints |
+|---------------------------|---------------|------------------------------------------|-------|-------------|
+| {term}`radiation_global`  | fg_st_10      | 10min-sum of global (incoming) radiation | J/cm² | >=0         |
+| {term}`sunshine_duration` | sd_st_10      | 10min-sum of sunshine duration           | min   | >=0         |
 
 ### urban_temperature_air
 
@@ -202,12 +202,12 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name                        | original name | description                      | unit type   | unit | constraints |
-|-----------------------------|---------------|----------------------------------|-------------|------|-------------|
-| temperature_air_mean_2m     | tt_st_10      | air temperature at 2m height     | temperature | °C   | -           |
-| humidity                    | rf_st_10      | relative humidity at 2m height   | fraction    | %    | >=0,<=100   |
-| temperature_radiant_mean_2m | strahl_st_10  | radiant temperature at 2m height | temperature | °C   | -           |
-| temperature_air_mean_0_05m  | tt5_st_10     | air temperature at 5cm height    | temperature | °C   | -           |
+| name                                | original name | description                      | unit | constraints |
+|-------------------------------------|---------------|----------------------------------|------|-------------|
+| {term}`temperature_air_mean_2m`     | tt_st_10      | air temperature at 2m height     | °C   | -           |
+| {term}`humidity`                    | rf_st_10      | relative humidity at 2m height   | %    | >=0,<=100   |
+| {term}`temperature_radiant_mean_2m` | strahl_st_10  | radiant temperature at 2m height | °C   | -           |
+| {term}`temperature_air_mean_0_05m`  | tt5_st_10     | air temperature at 5cm height    | °C   | -           |
 
 ### urban_temperature_extreme
 
@@ -222,11 +222,11 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name                      | original name | description                           | unit type   | unit | constraints |
-|---------------------------|---------------|---------------------------------------|-------------|------|-------------|
-| temperature_air_max_2m    | tx_st_10      | maximum air temperature at 2m height  | temperature | °C   | -           |
-| temperature_air_min_2m    | tn_st_10      | minimum air temperature at 2m height  | temperature | °C   | -           |
-| temperature_air_min_0_05m | tn5_st_10     | minimum air temperature at 5cm height | temperature | °C   | -           |
+| name                              | original name | description                           | unit | constraints |
+|-----------------------------------|---------------|---------------------------------------|------|-------------|
+| {term}`temperature_air_max_2m`    | tx_st_10      | maximum air temperature at 2m height  | °C   | -           |
+| {term}`temperature_air_min_2m`    | tn_st_10      | minimum air temperature at 2m height  | °C   | -           |
+| {term}`temperature_air_min_0_05m` | tn5_st_10     | minimum air temperature at 5cm height | °C   | -           |
 
 ### urban_temperature_soil
 
@@ -241,12 +241,12 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name                       | original name | description                      | unit type   | unit | constraints |
-|----------------------------|---------------|----------------------------------|-------------|------|-------------|
-| temperature_soil_mean_0_1m | te_st_01m_10  | soil temperature in 10 cm depth  | temperature | °C   | -           |
-| temperature_soil_mean_0_2m | te_st_02m_10  | soil temperature in 20 cm depth  | temperature | °C   | -           |
-| temperature_soil_mean_0_5m | te_st_05m_10  | soil temperature in 50 cm depth  | temperature | °C   | -           |
-| temperature_soil_mean_1m   | te_st_10m_10  | soil temperature in 100 cm depth | temperature | °C   | -           |
+| name                               | original name | description                      | unit | constraints |
+|------------------------------------|---------------|----------------------------------|------|-------------|
+| {term}`temperature_soil_mean_0_1m` | te_st_01m_10  | soil temperature in 10 cm depth  | °C   | -           |
+| {term}`temperature_soil_mean_0_2m` | te_st_02m_10  | soil temperature in 20 cm depth  | °C   | -           |
+| {term}`temperature_soil_mean_0_5m` | te_st_05m_10  | soil temperature in 50 cm depth  | °C   | -           |
+| {term}`temperature_soil_mean_1m`   | te_st_10m_10  | soil temperature in 100 cm depth | °C   | -           |
 
 ### urban_wind
 
@@ -261,10 +261,10 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name           | original name | description                                    | unit type | unit | constraints |
-|----------------|---------------|------------------------------------------------|-----------|------|-------------|
-| wind_speed     | ff_st_10      | mean wind speed during the last 10 minutes     | speed     | m/s  | >=0         |
-| wind_direction | dd_st_10      | mean wind direction during the last 10 minutes | angle     | °    | >=0,<=360   |
+| name                   | original name | description                                    | unit | constraints |
+|------------------------|---------------|------------------------------------------------|------|-------------|
+| {term}`wind_speed`     | ff_st_10      | mean wind speed during the last 10 minutes     | m/s  | >=0         |
+| {term}`wind_direction` | dd_st_10      | mean wind direction during the last 10 minutes | °    | >=0,<=360   |
 
 ### urban_wind_extreme
 
@@ -279,7 +279,7 @@ Codes (precipitation_indicator_wr):
 
 #### parameters
 
-| name          | original name | description                              | unit type | unit | constraints |
-|---------------|---------------|------------------------------------------|-----------|------|-------------|
-| wind_gust_max | fx_st_10      | maximum wind gust of the last 10 minutes | speed     | m/s  | >=0         |
+| name                  | original name | description                              | unit | constraints |
+|-----------------------|---------------|------------------------------------------|------|-------------|
+| {term}`wind_gust_max` | fx_st_10      | maximum wind gust of the last 10 minutes | m/s  | >=0         |
 

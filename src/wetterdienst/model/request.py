@@ -173,7 +173,6 @@ class TimeseriesRequest:
         Parameter.HUMIDITY_ABSOLUTE.name.lower(),
         Parameter.HUMIDITY_MAX.name.lower(),
         Parameter.HUMIDITY_MIN.name.lower(),
-        Parameter.HUMIDEX.name.lower(),
         # ---- wind ----
         # wind speed variants — regional-scale field (~40 km)
         Parameter.WIND_SPEED.name.lower(),
@@ -219,7 +218,6 @@ class TimeseriesRequest:
         Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_24H.name.lower(),
         Parameter.PRECIPITATION_HEIGHT_LIQUID_SIGNIFICANT_WEATHER_LAST_1H.name.lower(),
         Parameter.PRECIPITATION_HEIGHT_MAX.name.lower(),
-        Parameter.PRECIPITATION_HEIGHT_LIQUID_MAX.name.lower(),
         Parameter.PRECIPITATION_DURATION.name.lower(),
         # ---- snow ----
         # accumulated snow depth — smooth regional field (~40 km)
@@ -247,10 +245,13 @@ class TimeseriesRequest:
         Parameter.SUNSHINE_DURATION_RELATIVE.name.lower(),
         Parameter.SUNSHINE_DURATION_RELATIVE_LAST_24H.name.lower(),
         Parameter.RADIATION_GLOBAL.name.lower(),
+        Parameter.RADIATION_GLOBAL_INTENSITY.name.lower(),
         Parameter.RADIATION_GLOBAL_LAST_3H.name.lower(),
         Parameter.RADIATION_SKY_SHORT_WAVE_DIFFUSE.name.lower(),
+        Parameter.RADIATION_SKY_SHORT_WAVE_DIFFUSE_INTENSITY.name.lower(),
         Parameter.RADIATION_SKY_SHORT_WAVE_DIRECT.name.lower(),
         Parameter.RADIATION_SKY_LONG_WAVE.name.lower(),
+        Parameter.RADIATION_SKY_LONG_WAVE_INTENSITY.name.lower(),
         Parameter.RADIATION_SKY_LONG_WAVE_LAST_3H.name.lower(),
         # ---- pressure ----
         # pressure — synoptic-scale field, most spatially homogeneous of all met parameters (~40 km)

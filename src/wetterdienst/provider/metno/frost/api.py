@@ -154,7 +154,7 @@ MetnoFrostMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "radiation_global",
+                            "name": "radiation_global_intensity",
                             "name_original": "mean(surface_downwelling_shortwave_flux_in_air PT1H)",
                             "unit_type": "power_per_area",
                             "unit": "watt_per_square_meter",
@@ -262,7 +262,7 @@ MetnoFrostMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global",
+                            "name": "radiation_global_intensity",
                             "name_original": "mean(surface_downwelling_shortwave_flux_in_air P1D)",
                             "unit_type": "power_per_area",
                             "unit": "watt_per_square_meter",

@@ -23,8 +23,8 @@
 
 #### parameters
 
-| name              | original name    | description       | unit type       | unit          | constraints |
-|-------------------|------------------|-------------------|-----------------|---------------|-------------|
-| discharge         | przepływ         | discharge         | volume_per_time | m³/s          | >=0         |
-| temperature_water | temperatura wody | temperature water | temperature     | °C            | -           |
-| stage             | stan wody        | stage             | length_short    | cm            | -           |
+| name                      | original name    | description       | unit | constraints |
+|---------------------------|------------------|-------------------|------|-------------|
+| {term}`discharge`         | przepływ         | discharge         | m³/s | >=0         |
+| {term}`temperature_water` | temperatura wody | temperature water | °C   | -           |
+| {term}`stage`             | stan wody        | stage             | cm   | -           |

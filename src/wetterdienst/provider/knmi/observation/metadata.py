@@ -94,7 +94,7 @@ KnmiObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global",
+                            "name": "radiation_global_intensity",
                             "name_original": "qg",
                             "unit_type": "power_per_area",
                             "unit": "watt_per_square_meter",

@@ -13,9 +13,9 @@
 
 #### parameters
 
-| name                    | original name | unit type   | unit |
-|-------------------------|---------------|-------------|------|
-| temperature_air_mean_2m | T             | temperature | °C   |
-| humidity                | H             | fraction    | %    |
-| pressure_air_site       | P             | pressure    | hPa  |
-| wind_speed              | F             | speed       | m/s  |
+| name                            | original name | unit |
+|---------------------------------|---------------|------|
+| {term}`temperature_air_mean_2m` | T             | °C   |
+| {term}`humidity`                | H             | %    |
+| {term}`pressure_air_site`       | P             | hPa  |
+| {term}`wind_speed`              | F             | m/s  |

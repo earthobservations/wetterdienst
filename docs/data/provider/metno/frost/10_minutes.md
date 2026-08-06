@@ -13,12 +13,12 @@
 
 #### parameters
 
-| name                    | original name                          | unit type   | unit  |
-|-------------------------|----------------------------------------|-------------|-------|
-| temperature_air_max_2m  | max(air_temperature PT10M)             | temperature | °C    |
-| temperature_air_min_2m  | min(air_temperature PT10M)             | temperature | °C    |
-| humidity_max            | max(relative_humidity PT10M)           | fraction    | %     |
-| humidity_min            | min(relative_humidity PT10M)           | fraction    | %     |
-| wind_gust_max           | max(wind_speed_of_gust PT10M)          | speed       | m/s   |
-| wind_direction_gust_max | max(wind_from_direction_of_gust PT10M) | angle       | °     |
-| precipitation_height    | sum(precipitation_amount PT10M)        | precipitation | mm  |
+| name                            | original name                          | unit |
+|---------------------------------|----------------------------------------|------|
+| {term}`temperature_air_max_2m`  | max(air_temperature PT10M)             | °C   |
+| {term}`temperature_air_min_2m`  | min(air_temperature PT10M)             | °C   |
+| {term}`humidity_max`            | max(relative_humidity PT10M)           | %    |
+| {term}`humidity_min`            | min(relative_humidity PT10M)           | %    |
+| {term}`wind_gust_max`           | max(wind_speed_of_gust PT10M)          | m/s  |
+| {term}`wind_direction_gust_max` | max(wind_from_direction_of_gust PT10M) | °    |
+| {term}`precipitation_height`    | sum(precipitation_amount PT10M)        | mm   |

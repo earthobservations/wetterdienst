@@ -24,7 +24,7 @@
 
 #### parameters
 
-| name              | original name | description                            | unit type       | unit | constraints |
-|-------------------|---------------|----------------------------------------|-----------------|------|-------------|
-| discharge         | flow-i-900    | instant flow at timestamp              | volume_per_time | m³/s | >=0         |
-| groundwater_level | level-i-900   | instant groundwater level at timestamp | length_medium   | m    | >=0         |
+| name                      | original name | description                            | unit | constraints |
+|---------------------------|---------------|----------------------------------------|------|-------------|
+| {term}`discharge`         | flow-i-900    | instant flow at timestamp              | m³/s | >=0         |
+| {term}`groundwater_level` | level-i-900   | instant groundwater level at timestamp | m    | >=0         |

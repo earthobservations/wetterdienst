@@ -79,7 +79,7 @@ MeteoFranceSynopMetadata = {
                         {
                             "name": "visibility_range",
                             "name_original": "vv",
-                            "unit_type": "length_long",
+                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                         {

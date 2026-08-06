@@ -4,7 +4,7 @@
 
 - Historical Weather Observations
     - Historical (last ~180 years)
-    - Hourly, daily, monthly, (annual) resolution
+    - Hourly, daily, monthly resolution
     - Time series of stations in Canada
 
 ## License

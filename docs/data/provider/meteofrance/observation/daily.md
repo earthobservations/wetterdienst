@@ -22,15 +22,15 @@
 
 #### parameters
 
-| name | original name | unit type | unit |
-|------|----------------|-----------|------|
-| precipitation_height | RR | precipitation | millimeter |
-| temperature_air_min_2m | TN | temperature | degree_celsius |
-| temperature_air_max_2m | TX | temperature | degree_celsius |
-| temperature_air_mean_2m | TM | temperature | degree_celsius |
-| wind_speed | FFM | speed | meter_per_second |
-| wind_gust_max | FXI | speed | meter_per_second |
-| wind_direction_gust_max | DXI | angle | degree |
+| name                            | original name | unit             |
+|---------------------------------|---------------|------------------|
+| {term}`precipitation_height`    | RR            | millimeter       |
+| {term}`temperature_air_min_2m`  | TN            | degree_celsius   |
+| {term}`temperature_air_max_2m`  | TX            | degree_celsius   |
+| {term}`temperature_air_mean_2m` | TM            | degree_celsius   |
+| {term}`wind_speed`              | FFM           | meter_per_second |
+| {term}`wind_gust_max`           | FXI           | meter_per_second |
+| {term}`wind_direction_gust_max` | DXI           | degree           |
 
 ### others
 
@@ -45,13 +45,13 @@
 
 #### parameters
 
-| name | original name | unit type | unit |
-|------|----------------|-----------|------|
-| pressure_air_sea_level | PMERM | pressure | hectopascal |
-| pressure_vapor | TSVM | pressure | hectopascal |
-| sunshine_duration | INST | time | minute |
-| radiation_global | GLOT | energy_per_area | joule_per_square_centimeter |
-| humidity | UM | fraction | percent |
-| snow_depth | NEIGETOT06 | length_short | centimeter |
-| snow_depth_new | HNEIGEF | length_short | centimeter |
+| name                           | original name | unit                        |
+|--------------------------------|---------------|-----------------------------|
+| {term}`pressure_air_sea_level` | PMERM         | hectopascal                 |
+| {term}`pressure_vapor`         | TSVM          | hectopascal                 |
+| {term}`sunshine_duration`      | INST          | minute                      |
+| {term}`radiation_global`       | GLOT          | joule_per_square_centimeter |
+| {term}`humidity`               | UM            | percent                     |
+| {term}`snow_depth`             | NEIGETOT06    | centimeter                  |
+| {term}`snow_depth_new`         | HNEIGEF       | centimeter                  |
 

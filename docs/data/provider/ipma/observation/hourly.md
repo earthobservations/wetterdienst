@@ -20,12 +20,12 @@
 
 #### parameters
 
-| name                    | original name    | unit type       | unit  |
-|-------------------------|------------------|-----------------|-------|
-| temperature_air_mean_2m | temperatura      | temperature     | °C    |
-| humidity                | humidade         | fraction        | %     |
-| pressure_air_sea_level  | pressao          | pressure        | hPa   |
-| wind_speed              | intensidadeVento | speed           | m/s   |
-| wind_direction          | idDireccVento    | angle           | °     |
-| precipitation_height    | precAcumulada    | precipitation   | mm    |
-| radiation_global        | radiacao         | energy_per_area | kJ/m² |
+| name                            | original name    | unit  |
+|---------------------------------|------------------|-------|
+| {term}`temperature_air_mean_2m` | temperatura      | °C    |
+| {term}`humidity`                | humidade         | %     |
+| {term}`pressure_air_sea_level`  | pressao          | hPa   |
+| {term}`wind_speed`              | intensidadeVento | m/s   |
+| {term}`wind_direction`          | idDireccVento    | °     |
+| {term}`precipitation_height`    | precAcumulada    | mm    |
+| {term}`radiation_global`        | radiacao         | kJ/m² |

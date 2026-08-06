@@ -12,10 +12,12 @@ from fsspec.exceptions import FSTimeoutError
 from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Parameter, Settings
 from wetterdienst.api import Wetterdienst
+from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
 from wetterdienst.provider.chmi.observation import ChmiObservationMetadata, ChmiObservationRequest
 from wetterdienst.provider.dmi.observation import DmiObservationMetadata, DmiObservationRequest
+from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
 from wetterdienst.provider.dwd.dmo import DwdDmoMetadata, DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
@@ -42,6 +44,39 @@ from wetterdienst.provider.rmi.observation import RmiObservationMetadata, RmiObs
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata, SmhiObservationRequest
 from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
 from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
+
+# every provider/network that exposes a metadata model (dwd/radar and dwd/alerts have none)
+ALL_METADATA = [
+    AemetObservationMetadata,
+    ChmiObservationMetadata,
+    DmiObservationMetadata,
+    DwdDerivedMetadata,
+    DwdDmoMetadata,
+    DwdMosmixMetadata,
+    DwdObservationMetadata,
+    DwdRoadMetadata,
+    DwdSwsmosMetadata,
+    EAHydrologyMetadata,
+    EcccObservationMetadata,
+    FmiObservationMetadata,
+    GeosphereObservationMetadata,
+    HubeauMetadata,
+    ImgwHydrologyMetadata,
+    ImgwMeteorologyMetadata,
+    IpmaObservationMetadata,
+    KnmiObservationMetadata,
+    LhmtObservationMetadata,
+    MeteoFranceObservationMetadata,
+    MeteoFranceSynopMetadata,
+    MeteoswissObservationMetadata,
+    MetnoFrostMetadata,
+    MetOfficeObservationMetadata,
+    NoaaGhcnMetadata,
+    NwsObservationMetadata,
+    RmiObservationMetadata,
+    SmhiObservationMetadata,
+    WsvPegelMetadata,
+]
 
 DF_STATIONS_MINIMUM_COLUMNS = {
     "resolution",
@@ -105,38 +140,9 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
 
 @pytest.mark.parametrize(
     "metadata",
-    [
-        AemetObservationMetadata,
-        ChmiObservationMetadata,
-        DmiObservationMetadata,
-        DwdDmoMetadata,
-        DwdMosmixMetadata,
-        DwdObservationMetadata,
-        DwdRoadMetadata,
-        DwdSwsmosMetadata,
-        EAHydrologyMetadata,
-        EcccObservationMetadata,
-        FmiObservationMetadata,
-        GeosphereObservationMetadata,
-        HubeauMetadata,
-        ImgwHydrologyMetadata,
-        ImgwMeteorologyMetadata,
-        IpmaObservationMetadata,
-        KnmiObservationMetadata,
-        LhmtObservationMetadata,
-        MeteoFranceObservationMetadata,
-        MeteoFranceSynopMetadata,
-        MeteoswissObservationMetadata,
-        MetnoFrostMetadata,
-        MetOfficeObservationMetadata,
-        NoaaGhcnMetadata,
-        NwsObservationMetadata,
-        RmiObservationMetadata,
-        SmhiObservationMetadata,
-        WsvPegelMetadata,
-    ],
+    ALL_METADATA,
 )
-def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) -> None:
+def test_metadata_parameter_names(parameter_names: set[str], metadata: dict) -> None:
     """Test metadata parameter names."""
     for resolution in metadata:
         for dataset in resolution:
@@ -146,36 +152,7 @@ def test_metadata_parameter_names(parameter_names: list[str], metadata: dict) ->
 
 @pytest.mark.parametrize(
     "metadata",
-    [
-        AemetObservationMetadata,
-        ChmiObservationMetadata,
-        DmiObservationMetadata,
-        DwdDmoMetadata,
-        DwdMosmixMetadata,
-        DwdObservationMetadata,
-        DwdRoadMetadata,
-        DwdSwsmosMetadata,
-        EAHydrologyMetadata,
-        EcccObservationMetadata,
-        FmiObservationMetadata,
-        GeosphereObservationMetadata,
-        HubeauMetadata,
-        ImgwHydrologyMetadata,
-        ImgwMeteorologyMetadata,
-        IpmaObservationMetadata,
-        KnmiObservationMetadata,
-        LhmtObservationMetadata,
-        MeteoFranceObservationMetadata,
-        MeteoFranceSynopMetadata,
-        MeteoswissObservationMetadata,
-        MetnoFrostMetadata,
-        MetOfficeObservationMetadata,
-        NoaaGhcnMetadata,
-        NwsObservationMetadata,
-        RmiObservationMetadata,
-        SmhiObservationMetadata,
-        WsvPegelMetadata,
-    ],
+    ALL_METADATA,
 )
 def test_metadata_units(unit_converter: UnitConverter, unit_converter_unit_type_units: dict, metadata: dict) -> None:
     """Test metadata units."""
@@ -184,6 +161,61 @@ def test_metadata_units(unit_converter: UnitConverter, unit_converter_unit_type_
             for parameter in dataset:
                 assert parameter.unit_type in unit_converter.targets
                 assert parameter.unit in unit_converter_unit_type_units[parameter.unit_type]
+
+
+def test_parameter_table_unit_types(unit_converter: UnitConverter) -> None:
+    """Test that every canonical unit type is one the unit converter can convert to."""
+    for parameter in PARAMETER_TABLE:
+        assert parameter.unit_type in unit_converter.targets, parameter.name
+
+
+def test_parameter_table_names_unique() -> None:
+    """Test that no canonical name is declared twice.
+
+    `PARAMETERS` is built by dict comprehension, so a duplicate is silently collapsed and the last
+    entry wins -- a conflicting `unit_type` would take effect with no error anywhere. It would also
+    emit a duplicate-term warning when the docs glossary is built.
+    """
+    duplicates = sorted({p.name for p in PARAMETER_TABLE if [q.name for q in PARAMETER_TABLE].count(p.name) > 1})
+    assert not duplicates, f"duplicate canonical names: {duplicates}"
+
+
+def test_parameter_table_matches_enum(parameter_names: set[str]) -> None:
+    """Test that the table and the `Parameter` enum stay in sync.
+
+    Both are hand-maintained in separate files until the enum is derived from the table, so nothing
+    but this stops one from gaining a name the other lacks. Quality parameters are exempt: they are
+    filtered out by `DatasetModel.__iter__` and deliberately have no enum members.
+    """
+    table_names = {p.name for p in PARAMETER_TABLE if not p.name.startswith("quality")}
+    assert table_names == parameter_names
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    ALL_METADATA,
+)
+def test_metadata_parameter_table(unit_converter_unit_type_units: dict, metadata: dict) -> None:
+    """Test provider parameter declarations against the canonical parameter table.
+
+    The canonical unit_type selects the output unit, so a provider disagreeing with the table
+    silently changes what users get back. A source reporting a different physical quantity gets
+    its own canonical name instead, so there is no exception to this.
+    """
+    for resolution in metadata:
+        for dataset in resolution:
+            # iterate dataset.parameters rather than dataset, to cover quality parameters too
+            for parameter in dataset.parameters:
+                site = f"{metadata.__name__} {resolution.name}/{dataset.name}/{parameter.name}"
+                canonical = PARAMETERS.get(parameter.name)
+                assert canonical, f"{site}: not a canonical parameter name"
+                assert parameter.unit_type == canonical.unit_type, (
+                    f"{site}: unit_type {parameter.unit_type!r} does not match canonical {canonical.unit_type!r}"
+                )
+                # the source's unit must be a unit of the quantity this parameter measures
+                assert parameter.unit in unit_converter_unit_type_units[canonical.unit_type], (
+                    f"{site}: unit {parameter.unit!r} is not a unit of unit_type {canonical.unit_type!r}"
+                )
 
 
 def test_api_dwd_observation(default_settings: Settings) -> None:

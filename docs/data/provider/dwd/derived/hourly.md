@@ -23,11 +23,11 @@
 
 #### parameters
 
-| name                          | original name   | description                              | unit type      | unit                        | constraints |
-|-------------------------------|-----------------|------------------------------------------|-----------------|------------------------------|-----------|
-| quality                       | qn_952          | quality flag                             | dimensionless   | dimensionless              | -          |
-| radiation_global              | fg_duett        | global radiation                         | energy_per_area | joule_per_square_centimeter | >=0       |
-| radiation_global_uncertainty  | fg_un_duett     | uncertainty of global radiation          | energy_per_area | joule_per_square_centimeter | >=0       |
+| name                                 | original name | description                     | unit                        | constraints |
+|--------------------------------------|---------------|---------------------------------|-----------------------------|-------------|
+| {term}`quality`                      | qn_952        | quality flag                    | dimensionless               | -           |
+| {term}`radiation_global`             | fg_duett      | global radiation                | joule_per_square_centimeter | >=0         |
+| {term}`radiation_global_uncertainty` | fg_un_duett   | uncertainty of global radiation | joule_per_square_centimeter | >=0         |
 
 ### sunshine_duration
 
@@ -42,8 +42,8 @@
 
 #### parameters
 
-| name                            | original name   | description                               | unit type      | unit          | constraints |
-|---------------------------------|-----------------|-------------------------------------------|-----------------|---------------|-----------|
-| quality                         | qn_952          | quality flag                              | dimensionless   | dimensionless | -          |
-| sunshine_duration               | sd_duett        | sunshine duration                         | time            | minute        | >=0       |
-| sunshine_duration_uncertainty   | fg_un_duett     | uncertainty of sunshine duration          | time            | minute        | >=0       |
+| name                                  | original name | description                      | unit          | constraints |
+|---------------------------------------|---------------|----------------------------------|---------------|-------------|
+| {term}`quality`                       | qn_952        | quality flag                     | dimensionless | -           |
+| {term}`sunshine_duration`             | sd_duett      | sunshine duration                | minute        | >=0         |
+| {term}`sunshine_duration_uncertainty` | fg_un_duett   | uncertainty of sunshine duration | minute        | >=0         |

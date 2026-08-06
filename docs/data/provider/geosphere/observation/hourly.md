@@ -23,24 +23,24 @@
 
 #### parameters
 
-| name                       | original name | description                   | unit type       | unit          | constraints |
-|----------------------------|---------------|-------------------------------|-----------------|---------------|-------------|
-| humidity                   | rf            | relative humidity             | fraction        | %             | >=0,<=100   |
-| precipitation_duration     | rrm           | precipitation duration        | time            | min           | >=0         |
-| precipitation_height       | rr            | precipitation height          | precipitation   | mm            | >=0         |
-| pressure_air_site          | p             | air pressure at site          | pressure        | hPa           | >=0         |
-| pressure_air_sl            | pred          | air pressure at sea level     | pressure        | hPa           | >=0         |
-| radiation_global           | cglo          | global radiation              | energy_per_area | J/cm²         | >=0         |
-| snow_depth                 | sh            | snow depth                    | length_short    | cm            | >=0         |
-| sunshine_duration          | so_h          | sunshine duration             | time            | h             | >=0         |
-| temperature_air_mean_2m    | tl            | air temperature mean at 2m    | temperature     | °C            | -           |
-| temperature_air_min_0_05m  | tsmin         | air temperature min at 0.05m  | temperature     | °C            | -           |
-| temperature_soil_mean_0_1m | tb10          | soil temperature mean at 0.1m | temperature     | °C            | -           |
-| temperature_soil_mean_0_2m | tb20          | soil temperature mean at 0.2m | temperature     | °C            | -           |
-| temperature_soil_mean_0_5m | tb50          | soil temperature mean at 0.5m | temperature     | °C            | -           |
-| temperature_soil_mean_1m   | tb100         | soil temperature mean at 1m   | temperature     | °C            | -           |
-| temperature_soil_mean_2m   | tb200         | soil temperature mean at 2m   | temperature     | °C            | -           |
-| wind_direction             | dd            | wind direction                | angle           | °             | >=0,<=360   |
-| wind_direction_gust_max    | ddx           | wind direction gust max       | angle           | °             | >=0,<=360   |
-| wind_gust_max              | ffx           | wind gust max                 | speed           | m/s           | >=0         |
-| wind_speed                 | ff            | wind speed                    | speed           | m/s           | >=0         |
+| name                               | original name | description                   | unit  | constraints |
+|------------------------------------|---------------|-------------------------------|-------|-------------|
+| {term}`humidity`                   | rf            | relative humidity             | %     | >=0,<=100   |
+| {term}`precipitation_duration`     | rrm           | precipitation duration        | min   | >=0         |
+| {term}`precipitation_height`       | rr            | precipitation height          | mm    | >=0         |
+| {term}`pressure_air_site`          | p             | air pressure at site          | hPa   | >=0         |
+| {term}`pressure_air_sea_level`     | pred          | air pressure at sea level     | hPa   | >=0         |
+| {term}`radiation_global`           | cglo          | global radiation              | J/cm² | >=0         |
+| {term}`snow_depth`                 | sh            | snow depth                    | cm    | >=0         |
+| {term}`sunshine_duration`          | so_h          | sunshine duration             | h     | >=0         |
+| {term}`temperature_air_mean_2m`    | tl            | air temperature mean at 2m    | °C    | -           |
+| {term}`temperature_air_min_0_05m`  | tsmin         | air temperature min at 0.05m  | °C    | -           |
+| {term}`temperature_soil_mean_0_1m` | tb10          | soil temperature mean at 0.1m | °C    | -           |
+| {term}`temperature_soil_mean_0_2m` | tb20          | soil temperature mean at 0.2m | °C    | -           |
+| {term}`temperature_soil_mean_0_5m` | tb50          | soil temperature mean at 0.5m | °C    | -           |
+| {term}`temperature_soil_mean_1m`   | tb100         | soil temperature mean at 1m   | °C    | -           |
+| {term}`temperature_soil_mean_2m`   | tb200         | soil temperature mean at 2m   | °C    | -           |
+| {term}`wind_direction`             | dd            | wind direction                | °     | >=0,<=360   |
+| {term}`wind_direction_gust_max`    | ddx           | wind direction gust max       | °     | >=0,<=360   |
+| {term}`wind_gust_max`              | ffx           | wind gust max                 | m/s   | >=0         |
+| {term}`wind_speed`                 | ff            | wind speed                    | m/s   | >=0         |

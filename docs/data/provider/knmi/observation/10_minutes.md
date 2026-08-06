@@ -17,21 +17,21 @@ values outside the requested `[start_date, end_date]` range are then trimmed as 
 
 #### parameters
 
-| name                          | original name | unit type               | unit  |
-|-------------------------------|---------------|-------------------------|-------|
-| temperature_air_mean_2m       | ta            | temperature             | °C    |
-| temperature_air_mean_0_1m     | tg            | temperature             | °C    |
-| temperature_dew_point_mean_2m | td            | temperature             | °C    |
-| temperature_wet_mean_2m       | tb            | temperature             | °C    |
-| humidity                      | rh            | fraction                | %     |
-| wind_speed                    | ff            | speed                   | m/s   |
-| wind_direction                | dd            | angle                   | °     |
-| wind_gust_max                 | fx            | speed                   | m/s   |
-| pressure_air_site             | p0            | pressure                | hPa   |
-| pressure_air_sea_level        | pp            | pressure                | hPa   |
-| radiation_global              | qg            | power_per_area          | W/m²  |
-| sunshine_duration             | ss            | time                    | min   |
-| cloud_cover_total             | n             | fraction                | 1/8   |
-| visibility_range              | vv            | length_medium           | m     |
-| precipitation_intensity       | rg            | precipitation_intensity | mm/h  |
-| precipitation_duration        | dr            | time                    | s     |
+| name                                  | original name | unit |
+|---------------------------------------|---------------|------|
+| {term}`temperature_air_mean_2m`       | ta            | °C   |
+| {term}`temperature_air_mean_0_1m`     | tg            | °C   |
+| {term}`temperature_dew_point_mean_2m` | td            | °C   |
+| {term}`temperature_wet_mean_2m`       | tb            | °C   |
+| {term}`humidity`                      | rh            | %    |
+| {term}`wind_speed`                    | ff            | m/s  |
+| {term}`wind_direction`                | dd            | °    |
+| {term}`wind_gust_max`                 | fx            | m/s  |
+| {term}`pressure_air_site`             | p0            | hPa  |
+| {term}`pressure_air_sea_level`        | pp            | hPa  |
+| {term}`radiation_global_intensity`    | qg            | W/m² |
+| {term}`sunshine_duration`             | ss            | min  |
+| {term}`cloud_cover_total`             | n             | 1/8  |
+| {term}`visibility_range`              | vv            | m    |
+| {term}`precipitation_intensity`       | rg            | mm/h |
+| {term}`precipitation_duration`        | dr            | s    |

@@ -94,7 +94,7 @@ _COMMON = [
         "unit": "minute",
     },
     {
-        "name": "radiation_global",
+        "name": "radiation_global_intensity",
         "name_original": "short_wave_from_sky_avg",
         "unit_type": "power_per_area",
         "unit": "watt_per_square_meter",

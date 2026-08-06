@@ -7,7 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 # Read metadata from the installed package so this works on any supported Python
 # version (tomllib is only available on 3.11+, while the project supports 3.10+).
+import sys
 from importlib.metadata import metadata
+from pathlib import Path
 
 _meta = metadata("wetterdienst")
 
@@ -20,12 +22,16 @@ version = _meta["Version"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 master_doc = "index"
 
+# Local extensions live in docs/_ext.
+sys.path.insert(0, str(Path(__file__).parent / "_ext"))
+
 latex_engine = "xelatex"
 
 extensions = [
     "myst_nb",
     "autodoc2",
     "sphinx_copybutton",
+    "parameter_glossary",
 ]
 
 # -- MyST / MyST-NB configuration --------------------------------------------

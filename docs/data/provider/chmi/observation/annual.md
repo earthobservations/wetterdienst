@@ -13,9 +13,9 @@
 
 #### parameters
 
-| name                    | original name | unit type     | unit |
-|-------------------------|---------------|---------------|------|
-| temperature_air_mean_2m | T             | temperature   | °C   |
-| temperature_air_max_2m  | TMA           | temperature   | °C   |
-| temperature_air_min_2m  | TMI           | temperature   | °C   |
-| precipitation_height    | SRA           | precipitation | mm   |
+| name                            | original name | unit |
+|---------------------------------|---------------|------|
+| {term}`temperature_air_mean_2m` | T             | °C   |
+| {term}`temperature_air_max_2m`  | TMA           | °C   |
+| {term}`temperature_air_min_2m`  | TMI           | °C   |
+| {term}`precipitation_height`    | SRA           | mm   |

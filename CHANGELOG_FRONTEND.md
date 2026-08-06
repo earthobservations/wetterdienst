@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[All pages]` Glossary labels for the new `radiation_global_intensity`,
+  `radiation_sky_long_wave_intensity` and `radiation_sky_short_wave_diffuse_intensity` parameters,
+  which the backend introduced for sources reporting irradiance (W/m²) rather than irradiation
+  accumulated over the interval (J/cm²). Affects KNMI (10 minutes), MeteoSwiss, met.no and RMI,
+  whose radiation parameters are served under the new names.
+
 ## [0.12.1] - 2026-08-02
 
 ### Security

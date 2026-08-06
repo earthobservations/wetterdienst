@@ -20,9 +20,9 @@
 
 #### parameters
 
-| name                 | original name | unit type     | unit |
-|----------------------|---------------|---------------|------|
-| precipitation_height | prcp_amt      | precipitation | mm   |
+| name                         | original name | unit |
+|------------------------------|---------------|------|
+| {term}`precipitation_height` | prcp_amt      | mm   |
 
 ### temperature
 
@@ -35,11 +35,11 @@
 
 #### parameters
 
-| name                      | original name | unit type   | unit |
-|---------------------------|---------------|-------------|------|
-| temperature_air_max_2m    | max_air_temp  | temperature | °C   |
-| temperature_air_min_2m    | min_air_temp  | temperature | °C   |
-| temperature_air_min_0_05m | min_grss_temp | temperature | °C   |
+| name                              | original name | unit |
+|-----------------------------------|---------------|------|
+| {term}`temperature_air_max_2m`    | max_air_temp  | °C   |
+| {term}`temperature_air_min_2m`    | min_air_temp  | °C   |
+| {term}`temperature_air_min_0_05m` | min_grss_temp | °C   |
 
 ### weather
 
@@ -52,8 +52,8 @@
 
 #### parameters
 
-| name              | original name    | unit type    | unit |
-|-------------------|------------------|--------------|------|
-| sunshine_duration | drv_24hr_sun_dur | time         | h    |
-| snow_depth        | snow_depth       | length_short | cm   |
-| snow_depth_new    | frsh_snw_amt     | length_short | cm   |
+| name                      | original name    | unit |
+|---------------------------|------------------|------|
+| {term}`sunshine_duration` | drv_24hr_sun_dur | h    |
+| {term}`snow_depth`        | snow_depth       | cm   |
+| {term}`snow_depth_new`    | frsh_snw_amt     | cm   |

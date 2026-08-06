@@ -22,16 +22,16 @@
 
 #### parameters
 
-| name | original name | unit type | unit |
-|------|----------------|-----------|------|
-| precipitation_height | RR1 | precipitation | millimeter |
-| temperature_air_min_2m | TN | temperature | degree_celsius |
-| temperature_air_max_2m | TX | temperature | degree_celsius |
-| temperature_air_mean_2m | T | temperature | degree_celsius |
-| wind_speed | FF | speed | meter_per_second |
-| wind_direction | DD | angle | degree |
-| wind_gust_max | FXY | speed | meter_per_second |
-| wind_direction_gust_max | DXY | angle | degree |
+| name                            | original name | unit             |
+|---------------------------------|---------------|------------------|
+| {term}`precipitation_height`    | RR1           | millimeter       |
+| {term}`temperature_air_min_2m`  | TN            | degree_celsius   |
+| {term}`temperature_air_max_2m`  | TX            | degree_celsius   |
+| {term}`temperature_air_mean_2m` | T             | degree_celsius   |
+| {term}`wind_speed`              | FF            | meter_per_second |
+| {term}`wind_direction`          | DD            | degree           |
+| {term}`wind_gust_max`           | FXY           | meter_per_second |
+| {term}`wind_direction_gust_max` | DXY           | degree           |
 
 ### others
 
@@ -46,13 +46,13 @@
 
 #### parameters
 
-| name | original name | unit type | unit |
-|------|----------------|-----------|------|
-| temperature_dew_point_mean_2m | TD | temperature | degree_celsius |
-| humidity | U | fraction | percent |
-| pressure_air_sea_level | PMER | pressure | hectopascal |
-| pressure_air_site | PSTAT | pressure | hectopascal |
-| cloud_cover_total | N | fraction | one_eighth |
-| visibility_range | VV | length_medium | meter |
-| radiation_global | GLO | energy_per_area | joule_per_square_centimeter |
-| sunshine_duration | INS | time | minute |
+| name                                  | original name | unit                        |
+|---------------------------------------|---------------|-----------------------------|
+| {term}`temperature_dew_point_mean_2m` | TD            | degree_celsius              |
+| {term}`humidity`                      | U             | percent                     |
+| {term}`pressure_air_sea_level`        | PMER          | hectopascal                 |
+| {term}`pressure_air_site`             | PSTAT         | hectopascal                 |
+| {term}`cloud_cover_total`             | N             | one_eighth                  |
+| {term}`visibility_range`              | VV            | meter                       |
+| {term}`radiation_global`              | GLO           | joule_per_square_centimeter |
+| {term}`sunshine_duration`             | INS           | minute                      |
