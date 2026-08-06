@@ -59,16 +59,16 @@ GeosphereObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global",
+                            "name": "radiation_global_intensity",
                             "name_original": "cglo",
-                            "unit_type": "energy_per_area",
-                            "unit": "joule_per_square_centimeter",
+                            "unit_type": "power_per_area",
+                            "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_short_wave_diffuse",
+                            "name": "radiation_sky_short_wave_diffuse_intensity",
                             "name_original": "chim",
-                            "unit_type": "energy_per_area",
-                            "unit": "joule_per_square_centimeter",
+                            "unit_type": "power_per_area",
+                            "unit": "watt_per_square_meter",
                         },
                         {
                             "name": "snow_depth",
@@ -212,10 +212,10 @@ GeosphereObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global",
+                            "name": "radiation_global_intensity",
                             "name_original": "cglo",
-                            "unit_type": "energy_per_area",
-                            "unit": "joule_per_square_centimeter",
+                            "unit_type": "power_per_area",
+                            "unit": "watt_per_square_meter",
                         },
                         {
                             "name": "snow_depth",
