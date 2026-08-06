@@ -12,7 +12,7 @@ from wetterdienst.provider.geosphere.observation import GeosphereObservationRequ
 
 
 @pytest.mark.remote
-def test_geopshere_observation_api() -> None:
+def test_geosphere_observation_api() -> None:
     """Test the correct parsing of data, especially the dates.
 
     Thanks, @mhuber89, for the discovery and fix!
@@ -29,16 +29,21 @@ def test_geopshere_observation_api() -> None:
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    ("resolution", "parameter", "expected"),
+    ("resolution", "parameter", "expected_rows", "expected_sum"),
     [
         # cglo, served as irradiance in W / m² and passed through unconverted
-        ("minute_10", "radiation_global_intensity", IsNumeric(ge=82770.0, le=82870.0)),
-        ("hourly", "radiation_global_intensity", IsNumeric(ge=13790.0, le=13815.0)),
+        ("minute_10", "radiation_global_intensity", 288, IsNumeric(ge=82770.0, le=82870.0)),
+        ("hourly", "radiation_global_intensity", 48, IsNumeric(ge=13790.0, le=13815.0)),
         # cglo_j, a distinct upstream parameter already accumulated over the day in J / cm²
-        ("daily", "radiation_global", IsNumeric(ge=4966.2000, le=4972.0000)),
+        ("daily", "radiation_global", 2, IsNumeric(ge=4966.2000, le=4972.0000)),
     ],
 )
-def test_geopshere_observation_api_radiation(resolution: str, parameter: str, expected: IsNumeric) -> None:
+def test_geosphere_observation_api_radiation(
+    resolution: str,
+    parameter: str,
+    expected_rows: int,
+    expected_sum: IsNumeric,
+) -> None:
     """Test that radiation is reported in the unit the source publishes it in.
 
     Geosphere serves ``cglo`` as irradiance (W / m²) at 10 minutes and hourly, and ``cglo_j`` as
@@ -46,6 +51,10 @@ def test_geopshere_observation_api_radiation(resolution: str, parameter: str, ex
     to be multiplied by the interval length in the parser to make them look like the daily ones; they
     now keep their own unit and canonical name instead. The expected sums are equivalent to the former
     J / cm² ones scaled by that interval: 82851 * 0.06 and 13795 * 0.36 both land in the daily range.
+
+    The row count is asserted alongside the sum because the window is a fixed and complete stretch of
+    archive, so a sum that drifts because rows went missing should say so rather than read as the unit
+    having changed.
     """
     stations_at = GeosphereObservationRequest(
         parameters=[(resolution, "data", parameter)],
@@ -54,5 +63,6 @@ def test_geopshere_observation_api_radiation(resolution: str, parameter: str, ex
     )
     station_at = stations_at.filter_by_station_id("4821")
     df = station_at.values.all().df
+    assert df.get_column("value").is_not_null().sum() == expected_rows
     # the result is slightly different for each resolution
-    assert df.get_column("value").sum() == expected
+    assert df.get_column("value").sum() == expected_sum

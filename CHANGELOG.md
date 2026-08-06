@@ -55,7 +55,7 @@ Types of changes:
   `radiation_global` and `radiation_sky_short_wave_diffuse` names. That conversion is removed and
   the three declarations moved to `radiation_global_intensity` and
   `radiation_sky_short_wave_diffuse_intensity` in W/m². Values are correspondingly 16.67× (10
-  minutes) and 2.78× (hourly) larger; divide by 0.06 and 0.36 respectively to recover the old
+  minutes) and 2.78× (hourly) larger; multiply by 0.06 and 0.36 respectively to recover the old
   numbers. Daily and monthly are unaffected — they use `cglo_j`, a distinct upstream parameter
   genuinely accumulated over the interval, and keep `radiation_global` in J/cm². This was the only
   in-parser unit conversion left in the library
