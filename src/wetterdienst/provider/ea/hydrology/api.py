@@ -51,13 +51,11 @@ EAHydrologyMetadata = {
                         {
                             "name": "discharge",
                             "name_original": "flow-i-900",
-                            "unit_type": "volume_per_time",
                             "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "groundwater_level",
                             "name_original": "level-i-900",
-                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                     ],
@@ -79,31 +77,26 @@ EAHydrologyMetadata = {
                         {
                             "name": "discharge_max",
                             "name_original": "flow-max-86400",
-                            "unit_type": "volume_per_time",
                             "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "discharge_mean",
                             "name_original": "flow-m-86400",
-                            "unit_type": "volume_per_time",
                             "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "discharge_min",
                             "name_original": "flow-min-86400",
-                            "unit_type": "volume_per_time",
                             "unit": "cubic_meter_per_second",
                         },
                         {
                             "name": "groundwater_level_max",
                             "name_original": "level-max-86400",
-                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                         {
                             "name": "groundwater_level_min",
                             "name_original": "level-min-86400",
-                            "unit_type": "length_medium",
                             "unit": "meter",
                         },
                     ],

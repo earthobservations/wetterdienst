@@ -20,64 +20,54 @@ _BASE_PARAMETERS = [
     {
         "name": "temperature_air_mean_2m",
         "name_original": "mean_temp",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "temperature_air_max_2m",
         "name_original": "max_temp_w_date",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "temperature_air_min_2m",
         "name_original": "min_temp",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "humidity",
         "name_original": "mean_relative_hum",
-        "unit_type": "fraction",
         "unit": "percent",
     },
     {
         # DMI's mean_pressure is reduced to mean sea level (observed parameter "pressure_at_sea").
         "name": "pressure_air_sea_level",
         "name_original": "mean_pressure",
-        "unit_type": "pressure",
         "unit": "hectopascal",
     },
     {
         "name": "precipitation_height",
         "name_original": "acc_precip",
-        "unit_type": "precipitation",
         "unit": "millimeter",
     },
     {
         "name": "wind_speed",
         "name_original": "mean_wind_speed",
-        "unit_type": "speed",
         "unit": "meter_per_second",
     },
     {
         # maximum of the 10-minute mean wind speed
         "name": "wind_speed_rolling_mean_max",
         "name_original": "max_wind_speed_10min",
-        "unit_type": "speed",
         "unit": "meter_per_second",
     },
     {
         # maximum 3-second (gust) wind speed
         "name": "wind_gust_max",
         "name_original": "max_wind_speed_3sec",
-        "unit_type": "speed",
         "unit": "meter_per_second",
     },
     {
         "name": "wind_direction",
         "name_original": "mean_wind_dir",
-        "unit_type": "angle",
         "unit": "degree",
     },
 ]
@@ -86,7 +76,6 @@ _BASE_PARAMETERS = [
 _HEATING_DEGREE_DAY = {
     "name": "heating_degree_day",
     "name_original": "acc_heating_degree_days_17",
-    "unit_type": "degree_day",
     "unit": "degree_celsius_day",
 }
 
@@ -96,7 +85,6 @@ _DAILY_PARAMETERS = [
         # maximum 30-minute precipitation within the day
         "name": "precipitation_height_max",
         "name_original": "max_precip_30m",
-        "unit_type": "precipitation",
         "unit": "millimeter",
     },
     _HEATING_DEGREE_DAY,
@@ -110,31 +98,26 @@ _MONTHLY_PARAMETERS = [
     {
         "name": "temperature_air_max_2m_mean",
         "name_original": "mean_daily_max_temp",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "temperature_air_min_2m_mean",
         "name_original": "mean_daily_min_temp",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "humidity_max",
         "name_original": "max_relative_hum",
-        "unit_type": "fraction",
         "unit": "percent",
     },
     {
         "name": "humidity_min",
         "name_original": "min_relative_hum",
-        "unit_type": "fraction",
         "unit": "percent",
     },
     {
         "name": "precipitation_height_max",
         "name_original": "max_precip_24h",
-        "unit_type": "precipitation",
         "unit": "millimeter",
     },
 ]

@@ -24,25 +24,21 @@ _SOIL_TEMPERATURE = [
     {
         "name": "temperature_soil_mean_0_05m",
         "name_original": "temp_soil_avg_5cm",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "temperature_soil_mean_0_1m",
         "name_original": "temp_soil_avg_10cm",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "temperature_soil_mean_0_2m",
         "name_original": "temp_soil_avg_20cm",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "temperature_soil_mean_0_5m",
         "name_original": "temp_soil_avg_50cm",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
 ]
@@ -52,51 +48,43 @@ _COMMON = [
     {
         "name": "precipitation_height",
         "name_original": "precip_quantity",
-        "unit_type": "precipitation",
         "unit": "millimeter",
     },
     {
         # air temperature just above the grass surface (PT100 sensor at ~5 cm)
         "name": "temperature_air_mean_0_05m",
         "name_original": "temp_grass_pt100_avg",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     *_SOIL_TEMPERATURE,
     {
         "name": "wind_speed",
         "name_original": "wind_speed_10m",
-        "unit_type": "speed",
         "unit": "meter_per_second",
     },
     {
         "name": "wind_gust_max",
         "name_original": "wind_gusts_speed",
-        "unit_type": "speed",
         "unit": "meter_per_second",
     },
     {
         "name": "humidity",
         "name_original": "humidity_rel_shelter_avg",
-        "unit_type": "fraction",
         "unit": "percent",
     },
     {
         "name": "pressure_air_site",
         "name_original": "pressure",
-        "unit_type": "pressure",
         "unit": "hectopascal",
     },
     {
         "name": "sunshine_duration",
         "name_original": "sun_duration",
-        "unit_type": "time",
         "unit": "minute",
     },
     {
         "name": "radiation_global_intensity",
         "name_original": "short_wave_from_sky_avg",
-        "unit_type": "power_per_area",
         "unit": "watt_per_square_meter",
     },
 ]
@@ -107,7 +95,6 @@ _SUBDAILY = [
     {
         "name": "temperature_air_mean_2m",
         "name_original": "temp_dry_shelter_avg",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     *_COMMON,
@@ -119,7 +106,6 @@ _MINUTE_10_PARAMETERS = [
     {
         "name": "wind_direction",
         "name_original": "wind_direction",
-        "unit_type": "angle",
         "unit": "degree",
     },
 ]
@@ -130,19 +116,16 @@ _DAILY_PARAMETERS = [
     {
         "name": "temperature_air_mean_2m",
         "name_original": "temp_avg",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "temperature_air_max_2m",
         "name_original": "temp_max",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     {
         "name": "temperature_air_min_2m",
         "name_original": "temp_min",
-        "unit_type": "temperature",
         "unit": "degree_celsius",
     },
     *_COMMON,

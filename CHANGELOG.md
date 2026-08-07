@@ -23,9 +23,8 @@ Types of changes:
   so that declared floors are actually exercised
 - Canonical parameter table (`wetterdienst.metadata.parameter_table`) holding the `unit_type` of
   each of the 504 canonical parameter names in one place, plus a test that checks every provider
-  declaration against it — that the name is canonical, that the declared `unit_type` agrees, and
-  that the declared `unit` is a unit of that quantity. Providers still declare `unit_type`
-  themselves; the table is what they are now checked against
+  declaration against it — that the name is canonical and that the declared `unit` is a unit of
+  that quantity. The table is now the single source of `unit_type`; see below
 - New canonical parameters `radiation_global_intensity`, `radiation_sky_long_wave_intensity` and
   `radiation_sky_short_wave_diffuse_intensity` for sources that report irradiance (power per area)
   rather than irradiation accumulated over the interval (energy per area)
@@ -90,6 +89,15 @@ Types of changes:
 
 ### Removed
 
+- The `unit_type` key from provider metadata declarations — 1575 of them across 29 files. It is a
+  property of the measured quantity rather than of the provider, and restating it once per
+  declaration is what let the same canonical name pick different output units in different
+  providers. `ParameterModel.unit_type` now reads it from the canonical parameter table via the
+  parameter's `name`, and `ParameterModel` rejects the key outright so an override cannot creep
+  back in. All 1692 parameters resolve to exactly the same `unit_type` as before, so nothing
+  changes for users of the library — but a **third-party or custom provider metadata dict that
+  still declares `unit_type` will now fail to validate**, and should simply drop the key. The
+  `unit_type` remains part of `discover()` output and of the REST/CLI responses
 - **Breaking**: five `Parameter` enum members that no provider declared, so no request could ever
   return them: `HUMIDEX`, `PRECIPITATION_FREQUENCY`, `PRECIPITATION_HEIGHT_LIQUID_MAX`,
   `TIME_WIND_GUST_MAX` and `TIME_WIND_GUST_MAX_1MILE_OR_1MIN`. The dead entries referencing two of

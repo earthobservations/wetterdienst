@@ -7,9 +7,11 @@ snake_case name and the unit type that selects the output unit via ``UnitConvert
 
 Provider metadata declares only what the provider itself knows -- the canonical ``name`` as a
 foreign key into this table, the source's own ``name_original`` and the source's ``unit``.
-A provider may still declare a ``unit_type``; ``tests/test_api.py::test_metadata_parameter_table``
-checks it against this table. The check lives in a test rather than in ``build_metadata_model`` so
-that nothing is validated at import time.
+A provider cannot declare a ``unit_type`` of its own: ``ParameterModel.unit_type`` reads it from
+here, and ``ParameterModel`` forbids the key outright, so an override cannot creep back in.
+That the name is a key of this table at all is checked by
+``tests/test_api.py::test_metadata_parameter_table`` rather than at import time, so no user pays
+for validating declarations that only a contributor can get wrong.
 
 A name maps to exactly one ``unit_type``. Where a source reports a different physical quantity it
 gets its own name, not a different unit type for the same one -- see the ``radiation_*`` /

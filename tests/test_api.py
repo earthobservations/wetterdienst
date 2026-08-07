@@ -8,11 +8,13 @@ from datetime import datetime
 import polars as pl
 import pytest
 from fsspec.exceptions import FSTimeoutError
+from pydantic import ValidationError
 
 from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Parameter, Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
+from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
 from wetterdienst.provider.chmi.observation import ChmiObservationMetadata, ChmiObservationRequest
@@ -180,6 +182,34 @@ def test_parameter_table_names_unique() -> None:
     assert not duplicates, f"duplicate canonical names: {duplicates}"
 
 
+def test_parameter_model_rejects_declared_unit_type() -> None:
+    """Test that a provider cannot declare a `unit_type` of its own.
+
+    The table owns the unit type, and letting a declaration override it is exactly the drift the
+    table exists to prevent -- one name meaning two unit types, and so two output units. Providers
+    used to declare it 1575 times; `extra="forbid"` is what stops one creeping back in.
+    """
+    with pytest.raises(ValidationError):
+        ParameterModel(
+            name="temperature_air_mean_2m",
+            name_original="tt_10",
+            unit="degree_celsius",
+            unit_type="temperature",
+        )
+
+
+def test_parameter_model_unit_type_unknown_name() -> None:
+    """Test that an uncanonical name fails when its unit type is read, naming the parameter.
+
+    The lookup is deliberately not done at import: a name that is not in the table is a
+    contributor error, caught by `test_metadata_parameter_table`, and validating 1692 declarations
+    on every interpreter start would make every user pay for it.
+    """
+    parameter = ParameterModel(name="not_a_real_parameter", name_original="x", unit="meter")
+    with pytest.raises(KeyError, match="not_a_real_parameter"):
+        _ = parameter.unit_type
+
+
 def test_parameter_table_matches_enum(parameter_names: set[str]) -> None:
     """Test that the table and the `Parameter` enum stay in sync.
 
@@ -198,9 +228,10 @@ def test_parameter_table_matches_enum(parameter_names: set[str]) -> None:
 def test_metadata_parameter_table(unit_converter_unit_type_units: dict, metadata: dict) -> None:
     """Test provider parameter declarations against the canonical parameter table.
 
-    The canonical unit_type selects the output unit, so a provider disagreeing with the table
-    silently changes what users get back. A source reporting a different physical quantity gets
-    its own canonical name instead, so there is no exception to this.
+    Providers no longer declare a `unit_type` -- `ParameterModel.unit_type` reads it from the table
+    -- so there is no longer a disagreement to detect. What is left to check is that the name is a
+    key of the table at all, since an unknown name only raises once something reads `unit_type`,
+    and that the source's unit really is a unit of the quantity that name denotes.
     """
     for resolution in metadata:
         for dataset in resolution:
@@ -209,9 +240,6 @@ def test_metadata_parameter_table(unit_converter_unit_type_units: dict, metadata
                 site = f"{metadata.__name__} {resolution.name}/{dataset.name}/{parameter.name}"
                 canonical = PARAMETERS.get(parameter.name)
                 assert canonical, f"{site}: not a canonical parameter name"
-                assert parameter.unit_type == canonical.unit_type, (
-                    f"{site}: unit_type {parameter.unit_type!r} does not match canonical {canonical.unit_type!r}"
-                )
                 # the source's unit must be a unit of the quantity this parameter measures
                 assert parameter.unit in unit_converter_unit_type_units[canonical.unit_type], (
                     f"{site}: unit {parameter.unit!r} is not a unit of unit_type {canonical.unit_type!r}"

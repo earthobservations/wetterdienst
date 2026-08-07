@@ -9,11 +9,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, Field, SkipValidation, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
 from pydantic_extra_types.timezone_name import (
     TimeZoneName,  # noqa: TC002, needs to stay here for pydantic model to work
 )
 
+from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
 from wetterdienst.metadata.resolution import Resolution  # noqa: TC001, needs to stay here for pydantic model to work
 
@@ -33,14 +34,35 @@ DATASET_NAME_DEFAULT = "data"
 
 
 class ParameterModel(BaseModel):  # noqa: PLW1641
-    """Parameter model for a provider."""
+    """Parameter model for a provider.
+
+    A provider declares only what it itself knows: the canonical ``name`` as a foreign key into
+    ``PARAMETERS``, the source's own ``name_original`` and the source's ``unit``. The ``unit_type``
+    is a property of the measured quantity rather than of the provider, so it is read from the
+    canonical table instead of being declared -- see ``unit_type`` below.
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str
     name_original: str
-    unit_type: str
     unit: str
     description: str | None = None
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
+
+    @property
+    def unit_type(self) -> str:
+        """The unit type of the measured quantity, from the canonical parameter table.
+
+        Resolved on access rather than at import, so an unknown name is caught by
+        ``tests/test_api.py::test_metadata_parameter_table`` rather than by every user paying a
+        table lookup per declaration on every interpreter start.
+        """
+        try:
+            return PARAMETERS[self.name].unit_type
+        except KeyError:
+            msg = f"'{self.name}' is not a canonical parameter name"
+            raise KeyError(msg) from None
 
     def __eq__(self, other: object) -> bool:
         """Compare two parameters."""
@@ -49,7 +71,7 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
         return (
             self.name == other.name
             and self.name_original == other.name_original
-            and self.unit_type == other.unit_type
+            # unit_type is derived from name, so comparing it would be redundant
             and self.unit == other.unit
             and self.description == other.description
             # don't compare the dataset object itself because it'd be circular
