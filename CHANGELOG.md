@@ -96,8 +96,12 @@ Types of changes:
   parameter's `name`, and `ParameterModel` rejects the key outright so an override cannot creep
   back in. All 1692 parameters resolve to exactly the same `unit_type` as before, so nothing
   changes for users of the library — but a **third-party or custom provider metadata dict that
-  still declares `unit_type` will now fail to validate**, and should simply drop the key. The
-  `unit_type` remains part of `discover()` output and of the REST/CLI responses
+  still declares `unit_type` will now fail to validate**, and should simply drop the key.
+  `discover()` and the REST and CLI responses report `unit_type` exactly as before. It is no
+  longer part of `ParameterModel.model_dump()`/`model_dump_json()`, since it is derived from the
+  parameter's `name` and emitting it per declaration would reintroduce at the serialization layer
+  the duplication this removes; look the name up in `wetterdienst.metadata.parameter_table`
+  instead
 - **Breaking**: five `Parameter` enum members that no provider declared, so no request could ever
   return them: `HUMIDEX`, `PRECIPITATION_FREQUENCY`, `PRECIPITATION_HEIGHT_LIQUID_MAX`,
   `TIME_WIND_GUST_MAX` and `TIME_WIND_GUST_MAX_1MILE_OR_1MIN`. The dead entries referencing two of

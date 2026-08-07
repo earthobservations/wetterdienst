@@ -57,6 +57,12 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
         Resolved on access rather than at import, so an unknown name is caught by
         ``tests/test_api.py::test_metadata_parameter_table`` rather than by every user paying a
         table lookup per declaration on every interpreter start.
+
+        A plain property rather than a ``computed_field``, so it does not reappear in
+        ``model_dump()``. It is derived from ``name``, and re-emitting it per declaration would
+        put back at the serialization layer the duplication this model exists to remove. Callers
+        that want it from a dump can look the name up in ``PARAMETERS``; ``discover()`` and the
+        REST and CLI responses build their own dicts and report it as before.
         """
         try:
             return PARAMETERS[self.name].unit_type

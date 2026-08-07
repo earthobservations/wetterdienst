@@ -22,6 +22,10 @@ Import the provider specific metadata model like:
 You can inspect the metadata model of the services to see the available parameters and their descriptions. The metadata 
 model is a Pydantic model with all its functionality so you can also extract a JSON schema.
 
+Each parameter carries only what the provider itself knows -- the canonical `name`, the provider's own `name_original`
+and the `unit` it publishes in. The unit type is not repeated here because it follows from the canonical name; look it
+up in the glossary below, or in `wetterdienst.metadata.parameter_table`.
+
 ```{code-cell}
 ---
 mystnb:
