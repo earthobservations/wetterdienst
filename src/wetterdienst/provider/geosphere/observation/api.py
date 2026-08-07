@@ -116,21 +116,6 @@ class GeosphereObservationValues(TimeseriesValues):
             pl.col("value").struct.field("data").alias("value"),
         )
         df = df.explode("value", empty_as_null=True)
-        # adjust units for radiation parameters of 10 minute/hourly resolution from W / m² to J / cm²
-        if parameter_or_dataset.dataset.resolution.value == Resolution.MINUTE_10:
-            df = df.with_columns(
-                pl.when(pl.col("parameter").is_in(["cglo", "chim"]))
-                .then(pl.col("value") * 600 / 10000)
-                .otherwise(pl.col("value"))
-                .alias("value"),
-            )
-        elif parameter_or_dataset.dataset.resolution.value == Resolution.HOURLY:
-            df = df.with_columns(
-                pl.when(pl.col("parameter").eq("cglo"))
-                .then(pl.col("value") * 3600 / 10000)
-                .otherwise(pl.col("value"))
-                .alias("value"),
-            )
         return df.select(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
