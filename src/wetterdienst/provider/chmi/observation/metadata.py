@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
-_TEMPERATURE = {"unit_type": "temperature", "unit": "degree_celsius"}
-_PRECIPITATION = {"unit_type": "precipitation", "unit": "millimeter"}
-_PRESSURE = {"unit_type": "pressure", "unit": "hectopascal"}
-_HUMIDITY = {"unit_type": "fraction", "unit": "percent"}
-_WIND_SPEED = {"unit_type": "speed", "unit": "meter_per_second"}
+_TEMPERATURE = {"unit": "degree_celsius"}
+_PRECIPITATION = {"unit": "millimeter"}
+_PRESSURE = {"unit": "hectopascal"}
+_HUMIDITY = {"unit": "percent"}
+_WIND_SPEED = {"unit": "meter_per_second"}
 
 # daily/monthly/annual share the same climatological element codes and value-selection scheme;
 # only the file layout and date granularity differ (handled in api.py).
@@ -38,8 +38,8 @@ _DAILY_PARAMETERS = [
     {"name": "pressure_air_site", "name_original": "P", **_PRESSURE},
     {"name": "wind_speed", "name_original": "F", **_WIND_SPEED},
     {"name": "wind_gust_max", "name_original": "Fmax", **_WIND_SPEED},
-    {"name": "snow_depth", "name_original": "SCE", "unit_type": "length_short", "unit": "centimeter"},
-    {"name": "sunshine_duration", "name_original": "SSV", "unit_type": "time", "unit": "hour"},
+    {"name": "snow_depth", "name_original": "SCE", "unit": "centimeter"},
+    {"name": "sunshine_duration", "name_original": "SSV", "unit": "hour"},
 ]
 
 _MINUTE_10_PARAMETERS = [

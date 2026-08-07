@@ -34,15 +34,15 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import build_metadata_model
 
-_TEMPERATURE = {"unit_type": "temperature", "unit": "degree_celsius"}
-_PRECIPITATION = {"unit_type": "precipitation", "unit": "millimeter"}
-_PRESSURE = {"unit_type": "pressure", "unit": "hectopascal"}
-_HUMIDITY = {"unit_type": "fraction", "unit": "percent"}
-_WIND_SPEED = {"unit_type": "speed", "unit": "knots"}
-_WIND_DIRECTION = {"unit_type": "angle", "unit": "degree"}
-_SUNSHINE = {"unit_type": "time", "unit": "hour"}
-_SNOW_DEPTH = {"unit_type": "length_short", "unit": "centimeter"}
-_RADIATION = {"unit_type": "energy_per_area", "unit": "kilojoule_per_square_meter"}
+_TEMPERATURE = {"unit": "degree_celsius"}
+_PRECIPITATION = {"unit": "millimeter"}
+_PRESSURE = {"unit": "hectopascal"}
+_HUMIDITY = {"unit": "percent"}
+_WIND_SPEED = {"unit": "knots"}
+_WIND_DIRECTION = {"unit": "degree"}
+_SUNSHINE = {"unit": "hour"}
+_SNOW_DEPTH = {"unit": "centimeter"}
+_RADIATION = {"unit": "kilojoule_per_square_meter"}
 
 _DAILY_RAIN_PARAMETERS = [
     {"name": "precipitation_height", "name_original": "prcp_amt", **_PRECIPITATION},
@@ -65,7 +65,7 @@ _DAILY_WEATHER_PARAMETERS = [
 
 _HOURLY_RAIN_PARAMETERS = [
     {"name": "precipitation_height", "name_original": "prcp_amt", **_PRECIPITATION},
-    {"name": "precipitation_duration", "name_original": "prcp_dur", "unit_type": "time", "unit": "minute"},
+    {"name": "precipitation_duration", "name_original": "prcp_dur", "unit": "minute"},
 ]
 
 _HOURLY_WEATHER_PARAMETERS = [
@@ -73,7 +73,7 @@ _HOURLY_WEATHER_PARAMETERS = [
     {"name": "wind_speed", "name_original": "wind_speed", **_WIND_SPEED},
     {"name": "wind_gust_max", "name_original": "q10mnt_mxgst_spd", **_WIND_SPEED},
     # native decametres; scaled to metres in api.py (_SCALE)
-    {"name": "visibility_range", "name_original": "visibility", "unit_type": "length_medium", "unit": "meter"},
+    {"name": "visibility_range", "name_original": "visibility", "unit": "meter"},
     {"name": "pressure_air_sea_level", "name_original": "msl_pressure", **_PRESSURE},
     {"name": "pressure_air_site", "name_original": "stn_pres", **_PRESSURE},
     {"name": "temperature_air_mean_2m", "name_original": "air_temperature", **_TEMPERATURE},
@@ -81,8 +81,8 @@ _HOURLY_WEATHER_PARAMETERS = [
     {"name": "humidity", "name_original": "rltv_hum", **_HUMIDITY},
     {"name": "sunshine_duration", "name_original": "wmo_hr_sun_dur", **_SUNSHINE},
     {"name": "snow_depth", "name_original": "snow_depth", **_SNOW_DEPTH},
-    {"name": "cloud_cover_total", "name_original": "cld_ttl_amt_id", "unit_type": "fraction", "unit": "one_eighth"},
-    {"name": "weather", "name_original": "prst_wx_id", "unit_type": "dimensionless", "unit": "dimensionless"},
+    {"name": "cloud_cover_total", "name_original": "cld_ttl_amt_id", "unit": "one_eighth"},
+    {"name": "weather", "name_original": "prst_wx_id", "unit": "dimensionless"},
 ]
 
 _MEAN_WIND_PARAMETERS = [

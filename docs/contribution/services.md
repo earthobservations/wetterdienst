@@ -32,31 +32,26 @@ DwdObservationMetadata = {
                         {
                             "name": "quality",
                             "name_original": "qn",
-                            "unit_type": "dimensionless",
                             "unit": "dimensionless",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "rs_01",
-                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_droplet",
                             "name_original": "rth_01",
-                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_height_rocker",
                             "name_original": "rwh_01",
-                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_index",
                             "name_original": "rs_ind_01",
-                            "unit_type": "dimensionless",
                             "unit": "dimensionless",
                         },
                     ],
@@ -73,6 +68,26 @@ The `grouped` attribute is used to define if data is provided eather as one for 
 parameter separately. If `grouped` is `True` the data is provided as one for the whole dataset, if `False` the data
 is provided for each parameter separately. If `grouped` is `True` the `collect_station_parameter_or_dataset` method
 expects `parameter_or_dataset` to be of `DatasetModel` type, if `False` it expects `ParameterModel` type.
+
+A parameter declares only what the service itself knows: the canonical `name`, the service's own
+`name_original` and the `unit` the service publishes the values in. It does **not** declare a
+`unit_type` -- that is a property of the measured quantity rather than of the service, so it is read
+from the [canonical parameter table](../data/parameters.md)
+(`wetterdienst.metadata.parameter_table`) via the canonical `name`. Declaring one is rejected,
+because a service overriding it would let a single name mean two different unit types and so return
+two different units.
+
+This means the canonical `name` you pick has to already exist in that table. If your service reports
+a quantity that is not in it yet, add it there first. If it reports something that looks like an
+existing name but is a *different* physical quantity, give it its own name rather than reusing the
+existing one -- see the `radiation_global` and `radiation_global_intensity` pair, which are
+irradiation (accumulated energy per area) and irradiance (power per area) and are not convertible
+into one another without the accumulation interval.
+
+`unit` stays mandatory even where a service already publishes canonical units, since silently
+defaulting it is how values end up wrong by a factor of ten with nothing to catch it. Note that it is
+the unit at the point of declaration: if the parser transforms values before they are returned, the
+declared unit is the one *after* that transformation.
 
 Given the metadata model above you can request either the whole dataset or a specific parameter of the dataset.
 

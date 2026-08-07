@@ -44,43 +44,36 @@ IpmaObservationMetadata = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "temperatura",
-                            "unit_type": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "humidity",
                             "name_original": "humidade",
-                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "pressao",
-                            "unit_type": "pressure",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "wind_speed",
                             "name_original": "intensidadeVento",
-                            "unit_type": "speed",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "wind_direction",
                             "name_original": "idDireccVento",
-                            "unit_type": "angle",
                             "unit": "degree",
                         },
                         {
                             "name": "precipitation_height",
                             "name_original": "precAcumulada",
-                            "unit_type": "precipitation",
                             "unit": "millimeter",
                         },
                         {
                             "name": "radiation_global",
                             "name_original": "radiacao",
-                            "unit_type": "energy_per_area",
                             "unit": "kilojoule_per_square_meter",
                         },
                     ],

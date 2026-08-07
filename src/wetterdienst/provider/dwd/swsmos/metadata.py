@@ -22,8 +22,8 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
-_TEMPERATURE = {"unit_type": "temperature", "unit": "degree_celsius"}
-_PRECIPITATION = {"unit_type": "precipitation", "unit": "millimeter"}
+_TEMPERATURE = {"unit": "degree_celsius"}
+_PRECIPITATION = {"unit": "millimeter"}
 
 DwdSwsmosMetadata = {
     "name_short": "DWD",
@@ -57,20 +57,17 @@ DwdSwsmosMetadata = {
                         {
                             "name": "probability_precipitation_liquid_last_6h",
                             "name_original": "WWL6",
-                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             # R650: probability of > 5 mm liquid+solid precipitation in the last 6 h
                             "name": "probability_precipitation_height_gt_5mm_last_6h",
                             "name_original": "R650",
-                            "unit_type": "fraction",
                             "unit": "percent",
                         },
                         {
                             "name": "road_surface_condition",
                             "name_original": "RC",
-                            "unit_type": "dimensionless",
                             "unit": "dimensionless",
                         },
                     ],
