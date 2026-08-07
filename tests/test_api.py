@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the API."""
 
+import collections
 import zoneinfo
 from datetime import datetime
 
@@ -169,6 +170,25 @@ def test_parameter_table_unit_types(unit_converter: UnitConverter) -> None:
     """Test that every canonical unit type is one the unit converter can convert to."""
     for parameter in PARAMETER_TABLE:
         assert parameter.unit_type in unit_converter.targets, parameter.name
+
+
+def test_parameter_table_descriptions() -> None:
+    """Test that every canonical parameter says what it is, in one well-formed sentence.
+
+    The description is what the docs glossary, the REST API and the MCP tools show a user who does
+    not already know what a parameter measures, so an entry added without one silently reintroduces
+    the gap this filled. Distinctness is checked too: a description repeated across two parameters
+    means at least one of them is not actually describing itself.
+    """
+    missing = sorted(p.name for p in PARAMETER_TABLE if not p.description)
+    assert not missing, f"canonical parameters without a description: {missing}"
+    malformed = sorted(
+        p.name for p in PARAMETER_TABLE if not p.description[0].isupper() or not p.description.endswith(".")
+    )
+    assert not malformed, f"descriptions must be a capitalised sentence ending in a period: {malformed}"
+    seen = collections.Counter(p.description for p in PARAMETER_TABLE)
+    duplicated = sorted(description for description, count in seen.items() if count > 1)
+    assert not duplicated, f"descriptions shared by more than one parameter: {duplicated}"
 
 
 def test_parameter_table_names_unique() -> None:
