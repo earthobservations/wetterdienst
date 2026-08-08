@@ -31,6 +31,13 @@ Types of changes:
 - Docs: a parameter glossary on the Parameters page, built from the canonical parameter table at
   build time by the local Sphinx extension `docs/_ext/parameter_glossary.py`. Every parameter in
   every provider's metadata table now links to its glossary entry
+- A one-sentence description for all 504 canonical parameters, so the glossary now says what each
+  quantity *is* rather than only which unit it comes back in — that soil temperatures are at a
+  stated depth under a stated cover, that `wind_movement_24h` is wind run, that
+  `radiation_global` is accumulated energy while `radiation_global_intensity` is power. They are
+  deliberately provider- and resolution-independent, describing the quantity rather than one
+  source's version of it. They appear in the docs glossary today; exposing them through the REST
+  API, CLI and MCP is a separate change, since `discover()` reports name, unit type and unit only
 
 ### Changed
 
