@@ -25,6 +25,7 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollection,
 )
 from wetterdienst.ui.core import (
+    GlossaryEntry,
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
@@ -34,6 +35,7 @@ from wetterdienst.ui.core import (
     _get_stripes_data,
     _get_stripes_stations,
     _plot_stripes,
+    get_glossary,
     get_interpolate,
     get_issues,
     get_stations,
@@ -164,6 +166,7 @@ def index() -> HTMLResponse:
                 <h2>Endpoints</h2>
                 <ul>
                     <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
+                    <li><a href="api/glossary" target="_blank" rel="noopener">glossary</a></li>
                     <li><a href="api/stations" target="_blank" rel="noopener">stations</a></li>
                     <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
                     <li><a href="api/interpolate" target="_blank" rel="noopener">interpolation</a></li>
@@ -348,6 +351,27 @@ def coverage(
     )
 
     return Response(content=json.dumps(cov, indent=4 if pretty else None), media_type="application/json")
+
+
+@app.get("/api/glossary", response_model=list[GlossaryEntry])
+def glossary(
+    parameter: str | None = None,
+    unit_type: str | None = None,
+    *,
+    debug: bool = False,
+) -> list[GlossaryEntry]:
+    """Look up what a parameter measures and which unit it is returned in.
+
+    Call with no arguments to list every canonical parameter. Pass parameter="radiation" to match
+    names containing that text, or unit_type="temperature" to list every parameter of one quantity.
+
+    This complements coverage: coverage says which parameters a given provider offers, this says
+    what any of them means. The unit reported here is what a values request returns unless the
+    ts_unit_targets setting overrides it.
+    """
+    set_logging_level(debug=debug)
+
+    return get_glossary(parameter=parameter, unit_type=unit_type)
 
 
 # response models for the different formats are

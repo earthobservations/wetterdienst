@@ -8,10 +8,14 @@ import json
 import logging
 import sys
 from collections.abc import Mapping  # noqa: TC003
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 import polars as pl
 from pydantic import BaseModel, Field, field_validator
+
+# pydantic refuses typing.TypedDict as a response model on Python below 3.12, and GlossaryEntry
+# is one; model/result.py imports it from here for the same reason
+from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
 from wetterdienst.metadata.period import Period
@@ -673,6 +677,53 @@ class IssuesRequest(BaseModel):
     network: _NetworkField
     station: _StationIdField
     debug: _DebugField = False
+
+
+class GlossaryEntry(TypedDict):
+    """One canonical parameter: what it measures and which unit it is returned in."""
+
+    name: str
+    unit_type: str
+    unit: str
+    unit_symbol: str
+    description: str | None
+
+
+def get_glossary(parameter: str | None = None, unit_type: str | None = None) -> list[GlossaryEntry]:
+    """Return the canonical parameter vocabulary, optionally filtered.
+
+    `coverage` answers which parameters a given provider offers; this answers what any of them
+    means and which unit it comes back in, neither of which coverage reports. The unit is the
+    default target of the unit converter, so it is what a request returns unless `ts_unit_targets`
+    overrides it.
+
+    `parameter` matches as a substring, since the useful question over 504 names is usually
+    "everything about radiation" rather than one exact name. `unit_type` matches exactly, because
+    it is a closed vocabulary a caller can enumerate from the results.
+    """
+    from wetterdienst.metadata.parameter_table import PARAMETER_TABLE  # noqa: PLC0415
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+
+    unit_converter = UnitConverter()
+    needle = parameter.strip().lower() if parameter else None
+    wanted_unit_type = unit_type.strip().lower() if unit_type else None
+    entries: list[GlossaryEntry] = []
+    for canonical in PARAMETER_TABLE:
+        if needle and needle not in canonical.name:
+            continue
+        if wanted_unit_type and canonical.unit_type != wanted_unit_type:
+            continue
+        target = unit_converter.targets[canonical.unit_type]
+        entries.append(
+            GlossaryEntry(
+                name=canonical.name,
+                unit_type=canonical.unit_type,
+                unit=target.name,
+                unit_symbol=target.symbol,
+                description=canonical.description,
+            ),
+        )
+    return entries
 
 
 def get_issues(

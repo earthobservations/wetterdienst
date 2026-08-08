@@ -36,6 +36,13 @@ Types of changes:
   table is a type error rather than something only a test can catch. A test pins the literal to
   `UnitConverter` in both directions, since the converter builds its unit types as a runtime dict
   that no static type can be derived from
+- Parameter discovery across all three interfaces: `GET /api/glossary`, the `glossary` MCP tool and
+  `wetterdienst about glossary`. `coverage` answers which parameters a given provider offers; the
+  glossary answers what any of them measures and which unit it comes back in — neither of which
+  `coverage` reports. Filter with `parameter=` (substring match over the 504 names) or `unit_type=`
+  (exact). This is what puts the canonical descriptions in front of users rather than only in the
+  docs. A filter matching nothing is an empty list over HTTP and a non-zero exit on the CLI, the
+  latter following grep so a shell script can tell
 - A one-sentence description for all 504 canonical parameters, so the glossary now says what each
   quantity *is* rather than only which unit it comes back in — that soil temperatures are at a
   stated depth under a stated cover, that `wind_movement_24h` is wind run, that
