@@ -8,6 +8,7 @@ import pytest
 from dirty_equals import IsApprox, IsNumber, IsStr
 from starlette.testclient import TestClient
 
+from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 
 
@@ -93,6 +94,50 @@ def test_coverage(client: TestClient) -> None:
     # `road` requires a date range for value queries, other DWD networks don't
     assert dwd["observation"]["date_required"] is False
     assert dwd["road"]["date_required"] is True
+
+
+def test_glossary(client: TestClient) -> None:
+    """Test that the glossary reports what a parameter measures and its returned unit."""
+    response = client.get("/api/glossary", params={"parameter": "radiation_global_intensity"})
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "name": "radiation_global_intensity",
+            "unit_type": "power_per_area",
+            "unit": "watt_per_square_meter",
+            "unit_symbol": "W/m\u00b2",
+            "description": "Global irradiance on a horizontal surface, reported as power rather than energy.",
+        },
+    ]
+
+
+def test_glossary_all(client: TestClient) -> None:
+    """Test that the unfiltered glossary covers the whole canonical vocabulary."""
+    response = client.get("/api/glossary")
+    assert response.status_code == 200
+    entries = response.json()
+    assert len(entries) == len(PARAMETER_TABLE)
+    # every entry says what it is and which unit it comes back in; that is the point of the endpoint
+    assert all(entry["description"] for entry in entries)
+    assert all(entry["unit"] for entry in entries)
+
+
+def test_glossary_unit_type(client: TestClient) -> None:
+    """Test that filtering by unit type returns only parameters of that quantity."""
+    response = client.get("/api/glossary", params={"unit_type": "turbidity"})
+    assert response.status_code == 200
+    assert [entry["name"] for entry in response.json()] == ["turbidity"]
+
+
+def test_glossary_no_match(client: TestClient) -> None:
+    """Test that a filter matching nothing is an empty list, not an error.
+
+    The CLI exits 1 on the same query, following grep, but over HTTP a filter that matches nothing
+    is a successful request with no results.
+    """
+    response = client.get("/api/glossary", params={"parameter": "not_a_parameter"})
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 @pytest.mark.parametrize("network", ["alerts", "radar"])

@@ -45,6 +45,22 @@ The following examples use [httpie](https://github.com/httpie/cli) to demonstrat
 http localhost:7890/api/coverage
 ```
 
+### Glossary
+
+Coverage says which parameters a provider offers; the glossary says what any of them means and
+which unit it comes back in.
+
+```bash
+# Look up every canonical parameter.
+http localhost:7890/api/glossary
+
+# Match names containing some text.
+http localhost:7890/api/glossary parameter==radiation
+
+# List every parameter of one quantity.
+http localhost:7890/api/glossary unit_type==temperature
+```
+
 ### Stations
 
 ```bash

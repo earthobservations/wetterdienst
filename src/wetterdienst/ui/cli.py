@@ -28,6 +28,7 @@ from wetterdienst.ui.core import (
     ValuesRequest,
     _get_stripes_stations,
     _plot_stripes,
+    get_glossary,
     get_interpolate,
     get_issues,
     get_stations,
@@ -772,6 +773,43 @@ def coverage(
     )
 
     print(json.dumps(cov, indent=2))  # noqa: T201
+
+
+@about.command("glossary")
+@cloup.option_group(
+    "Parameter",
+    click.option(
+        "--parameter",
+        type=click.STRING,
+        help="Match canonical parameter names containing this text, e.g. radiation.",
+    ),
+)
+@cloup.option_group(
+    "Unit type",
+    click.option(
+        "--unit-type",
+        type=click.STRING,
+        help="Restrict to one quantity, e.g. temperature.",
+    ),
+)
+@debug_opt
+def glossary(
+    parameter: str,
+    unit_type: str,
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Look up what a parameter measures and which unit it is returned in."""
+    set_logging_level(debug=debug)
+
+    entries = get_glossary(parameter=parameter, unit_type=unit_type)
+
+    if not entries:
+        log.error("No canonical parameter matches the given filters.")
+        sys.exit(1)
+
+    # ensure_ascii=False so unit symbols print as °C and J/cm² rather than escapes; this command
+    # exists to show them
+    print(json.dumps(entries, indent=2, ensure_ascii=False))  # noqa: T201
 
 
 @about.command("fields")
