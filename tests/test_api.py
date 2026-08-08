@@ -5,6 +5,7 @@
 import collections
 import zoneinfo
 from datetime import datetime
+from typing import get_args
 
 import polars as pl
 import pytest
@@ -15,6 +16,7 @@ from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Parameter, Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
+from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
@@ -166,8 +168,26 @@ def test_metadata_units(unit_converter: UnitConverter, unit_converter_unit_type_
                 assert parameter.unit in unit_converter_unit_type_units[parameter.unit_type]
 
 
+def test_unit_type_matches_unit_converter(unit_converter: UnitConverter) -> None:
+    """Test that the `UnitType` literal and the unit converter describe the same vocabulary.
+
+    `UnitType` has to restate the keys of `UnitConverter.units`, which are built as a dict literal
+    at runtime and so cannot be turned into a static type. That makes it a second place the same
+    vocabulary is written down, which is only safe while the two are pinned together. Checked in
+    both directions: a unit type added to the converter but not the literal cannot be named by a
+    parameter, and one added to the literal but not the converter has no target unit to convert to.
+    """
+    assert set(get_args(UnitType)) == set(unit_converter.units)
+    assert set(get_args(UnitType)) == set(unit_converter.targets)
+
+
 def test_parameter_table_unit_types(unit_converter: UnitConverter) -> None:
-    """Test that every canonical unit type is one the unit converter can convert to."""
+    """Test that every canonical unit type is one the unit converter can convert to.
+
+    `UnitType` makes this a type error too, but only for code the type checker sees. The table is
+    data, and a wrong-but-valid unit type -- `pressure` where `temperature` was meant -- is not a
+    typo the literal can catch.
+    """
     for parameter in PARAMETER_TABLE:
         assert parameter.unit_type in unit_converter.targets, parameter.name
 

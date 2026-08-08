@@ -31,6 +31,11 @@ Types of changes:
 - Docs: a parameter glossary on the Parameters page, built from the canonical parameter table at
   build time by the local Sphinx extension `docs/_ext/parameter_glossary.py`. Every parameter in
   every provider's metadata table now links to its glossary entry
+- `wetterdienst.metadata.unit_type.UnitType`, a literal of the 23 unit types the unit converter
+  knows. `CanonicalParameter.unit_type` is typed with it, so a mistyped unit type in the parameter
+  table is a type error rather than something only a test can catch. A test pins the literal to
+  `UnitConverter` in both directions, since the converter builds its unit types as a runtime dict
+  that no static type can be derived from
 - A one-sentence description for all 504 canonical parameters, so the glossary now says what each
   quantity *is* rather than only which unit it comes back in — that soil temperatures are at a
   stated depth under a stated cover, that `wind_movement_24h` is wind run, that
