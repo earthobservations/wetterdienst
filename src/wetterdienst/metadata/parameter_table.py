@@ -31,6 +31,10 @@ exposed parameter names with no explanation of what they measure.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from wetterdienst.metadata.unit_type import UnitType
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +42,7 @@ class CanonicalParameter:
     """Properties of a measured quantity, shared by every provider that reports it."""
 
     name: str
-    unit_type: str
+    unit_type: UnitType
     description: str | None = None
 
 

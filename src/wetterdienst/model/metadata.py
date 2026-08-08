@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
     from pydantic_core.core_schema import ValidationInfo
 
+    from wetterdienst.metadata.unit_type import UnitType
     from wetterdienst.model.request import _PARAMETER_TYPE
 
 log = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
 
     @property
-    def unit_type(self) -> str:
+    def unit_type(self) -> UnitType:
         """The unit type of the measured quantity, from the canonical parameter table.
 
         Resolved on access rather than at import, so an unknown name is caught by
