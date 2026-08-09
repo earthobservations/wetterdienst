@@ -8,7 +8,9 @@ import pytest
 from dirty_equals import IsApprox, IsNumber, IsStr
 from starlette.testclient import TestClient
 
+from wetterdienst import Settings
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
+from wetterdienst.ui.core import get_glossary
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 
 
@@ -127,6 +129,43 @@ def test_glossary_unit_type(client: TestClient) -> None:
     response = client.get("/api/glossary", params={"unit_type": "turbidity"})
     assert response.status_code == 200
     assert [entry["name"] for entry in response.json()] == ["turbidity"]
+
+
+def test_glossary_unknown_unit_type(client: TestClient) -> None:
+    """Test that an unknown unit type is rejected rather than answered with an empty list.
+
+    `unit_type` is a closed vocabulary, so a typo is a caller error. Returning 200 and [] would be
+    indistinguishable from a quantity that legitimately has no parameters, and the enum in the
+    OpenAPI schema is also how an agent learns the valid values without downloading all 504 entries.
+    """
+    response = client.get("/api/glossary", params={"unit_type": "celsius"})
+    assert response.status_code == 422
+
+
+def test_glossary_limit(client: TestClient) -> None:
+    """Test that limit bounds the response.
+
+    The full vocabulary is a large payload for a tool-driving agent, and even a broad filter can be
+    wide, so callers need a way to cap it explicitly. There is no default limit: silently truncating
+    would be worse than a big answer.
+    """
+    response = client.get("/api/glossary", params={"limit": 3})
+    assert response.status_code == 200
+    assert len(response.json()) == 3
+
+
+def test_glossary_reports_unit_target_override(client: TestClient) -> None:
+    """Test that the reported unit follows ts_unit_targets rather than the built-in default.
+
+    Reporting degree_celsius while a values request hands back Fahrenheit would make the glossary
+    actively misleading, which is worse than it not existing.
+    """
+    entries = get_glossary(
+        parameter="temperature_air_mean_2m",
+        settings=Settings(ts_unit_targets={"temperature": "degree_fahrenheit"}),
+    )
+    assert entries
+    assert {entry["unit"] for entry in entries if entry["unit_type"] == "temperature"} == {"degree_fahrenheit"}
 
 
 def test_glossary_no_match(client: TestClient) -> None:
@@ -1909,7 +1948,7 @@ def test_mcp_server_is_agent_friendly() -> None:
 
     tools, instructions = asyncio.run(_introspect())
     # data endpoints exposed under clean, agent-friendly names
-    assert {"coverage", "stations", "values", "alerts"} <= tools
+    assert {"coverage", "glossary", "stations", "values", "alerts"} <= tools
     # the ugly auto-generated names are gone
     assert "values_api_values_get" not in tools
     # non-data/noise endpoints are excluded

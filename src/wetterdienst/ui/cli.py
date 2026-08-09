@@ -10,7 +10,7 @@ import logging
 import sys
 from pathlib import Path
 from pprint import pformat
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import click
 import cloup
@@ -19,6 +19,7 @@ from cloup.constraints import AllSet, If, RequireExactly, accept_none
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ApiNotFoundError
+from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
@@ -788,20 +789,34 @@ def coverage(
     "Unit type",
     click.option(
         "--unit-type",
-        type=click.STRING,
+        # a closed vocabulary, so an unknown one is a usage error rather than an empty result
+        type=click.Choice(get_args(UnitType)),
         help="Restrict to one quantity, e.g. temperature.",
+    ),
+)
+@cloup.option_group(
+    "Limit",
+    click.option(
+        "--limit",
+        type=click.IntRange(min=1),
+        help="Return at most this many entries; the full vocabulary is 504 parameters.",
     ),
 )
 @debug_opt
 def glossary(
     parameter: str,
-    unit_type: str,
+    unit_type: UnitType | None,
+    limit: int | None,
     debug: bool,  # noqa: FBT001
 ) -> None:
-    """Look up what a parameter measures and which unit it is returned in."""
+    """Look up what a parameter measures and which unit it is returned in.
+
+    The unit shown is the one a values request would return, including any WD_TS_UNIT_TARGETS
+    override.
+    """
     set_logging_level(debug=debug)
 
-    entries = get_glossary(parameter=parameter, unit_type=unit_type)
+    entries = get_glossary(parameter=parameter, unit_type=unit_type, limit=limit)
 
     if not entries:
         log.error("No canonical parameter matches the given filters.")

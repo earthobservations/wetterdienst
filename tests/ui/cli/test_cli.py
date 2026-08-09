@@ -236,3 +236,24 @@ def test_cli_glossary_no_match() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
     assert result.exit_code == 1
+
+
+def test_cli_glossary_unknown_unit_type() -> None:
+    """Test that an unknown unit type is a usage error listing the valid ones.
+
+    click.Choice turns the closed vocabulary into a message naming every option, so a typo tells
+    the user what to type instead of returning nothing.
+    """
+    runner = CliRunner()
+    result = runner.invoke(cli, ["about", "glossary", "--unit-type=celsius"])
+    assert result.exit_code == 2
+    assert "'celsius' is not one of" in result.output
+    assert "temperature" in result.output
+
+
+def test_cli_glossary_limit() -> None:
+    """Test that --limit bounds the output."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["about", "glossary", "--limit=3"])
+    assert result.exit_code == 0
+    assert len(json.loads(result.stdout)) == 3

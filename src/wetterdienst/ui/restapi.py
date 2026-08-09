@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import ApiNotFoundError, StartDateEndDateError
+from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -356,22 +357,25 @@ def coverage(
 @app.get("/api/glossary", response_model=list[GlossaryEntry])
 def glossary(
     parameter: str | None = None,
-    unit_type: str | None = None,
+    unit_type: UnitType | None = None,
+    limit: int | None = None,
     *,
     debug: bool = False,
 ) -> list[GlossaryEntry]:
     """Look up what a parameter measures and which unit it is returned in.
 
-    Call with no arguments to list every canonical parameter. Pass parameter="radiation" to match
-    names containing that text, or unit_type="temperature" to list every parameter of one quantity.
+    Filter with parameter="radiation" to match names containing that text, or
+    unit_type="temperature" for every parameter of one quantity. Both can be combined. Use limit to
+    cap the number of entries: the vocabulary is 504 parameters, so an unfiltered call is a large
+    response and a broad filter can still be a wide one (parameter="temperature" matches 184).
 
     This complements coverage: coverage says which parameters a given provider offers, this says
-    what any of them means. The unit reported here is what a values request returns unless the
-    ts_unit_targets setting overrides it.
+    what any of them means. The unit reported is the one a values request would actually return,
+    including any ts_unit_targets override.
     """
     set_logging_level(debug=debug)
 
-    return get_glossary(parameter=parameter, unit_type=unit_type)
+    return get_glossary(parameter=parameter, unit_type=unit_type, limit=limit)
 
 
 # response models for the different formats are

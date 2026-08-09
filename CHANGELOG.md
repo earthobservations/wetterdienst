@@ -39,10 +39,13 @@ Types of changes:
 - Parameter discovery across all three interfaces: `GET /api/glossary`, the `glossary` MCP tool and
   `wetterdienst about glossary`. `coverage` answers which parameters a given provider offers; the
   glossary answers what any of them measures and which unit it comes back in — neither of which
-  `coverage` reports. Filter with `parameter=` (substring match over the 504 names) or `unit_type=`
-  (exact). This is what puts the canonical descriptions in front of users rather than only in the
-  docs. A filter matching nothing is an empty list over HTTP and a non-zero exit on the CLI, the
-  latter following grep so a shell script can tell
+  `coverage` reports. Filter with `parameter=` (substring match over the 504 names), `unit_type=`
+  (a closed vocabulary, so an unknown one is a 422 or a CLI usage error rather than an empty
+  result) and `limit=` to cap the response. The unit reported is the one a values request would
+  actually return, including any `ts_unit_targets` override. This is what puts the canonical
+  descriptions in front of users rather than only in the docs. A filter matching nothing is an
+  empty list over HTTP and a non-zero exit on the CLI, the latter following grep so a shell script
+  can tell
 - A one-sentence description for all 504 canonical parameters, so the glossary now says what each
   quantity *is* rather than only which unit it comes back in — that soil temperatures are at a
   stated depth under a stated cover, that `wind_movement_24h` is wind run, that

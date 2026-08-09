@@ -19,6 +19,7 @@ from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
 from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import parse_date
@@ -683,35 +684,46 @@ class GlossaryEntry(TypedDict):
     """One canonical parameter: what it measures and which unit it is returned in."""
 
     name: str
-    unit_type: str
+    unit_type: UnitType
     unit: str
     unit_symbol: str
     description: str | None
 
 
-def get_glossary(parameter: str | None = None, unit_type: str | None = None) -> list[GlossaryEntry]:
+def get_glossary(
+    parameter: str | None = None,
+    unit_type: UnitType | None = None,
+    limit: int | None = None,
+    settings: Settings | None = None,
+) -> list[GlossaryEntry]:
     """Return the canonical parameter vocabulary, optionally filtered.
 
     `coverage` answers which parameters a given provider offers; this answers what any of them
-    means and which unit it comes back in, neither of which coverage reports. The unit is the
-    default target of the unit converter, so it is what a request returns unless `ts_unit_targets`
-    overrides it.
+    means and which unit it comes back in, neither of which coverage reports.
 
     `parameter` matches as a substring, since the useful question over 504 names is usually
-    "everything about radiation" rather than one exact name. `unit_type` matches exactly, because
-    it is a closed vocabulary a caller can enumerate from the results.
+    "everything about radiation" rather than one exact name. An exact name deliberately does *not*
+    short-circuit to a single entry: `humidity` is both a parameter and the prefix of
+    `humidity_max`, `humidity_min` and `humidity_absolute`, and hiding those would be the more
+    surprising behaviour. Use `limit` to bound the result instead.
+
+    The unit reported is the one a values request would actually return, so `ts_unit_targets` is
+    honoured -- reporting the built-in default while `values` hands back Fahrenheit would make this
+    worse than saying nothing.
     """
     from wetterdienst.metadata.parameter_table import PARAMETER_TABLE  # noqa: PLC0415
     from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+    from wetterdienst.settings import Settings as _Settings  # noqa: PLC0415
 
+    settings = settings or _Settings()
     unit_converter = UnitConverter()
+    unit_converter.update_targets(settings.ts_unit_targets)
     needle = parameter.strip().lower() if parameter else None
-    wanted_unit_type = unit_type.strip().lower() if unit_type else None
     entries: list[GlossaryEntry] = []
     for canonical in PARAMETER_TABLE:
         if needle and needle not in canonical.name:
             continue
-        if wanted_unit_type and canonical.unit_type != wanted_unit_type:
+        if unit_type and canonical.unit_type != unit_type:
             continue
         target = unit_converter.targets[canonical.unit_type]
         entries.append(
@@ -723,6 +735,8 @@ def get_glossary(parameter: str | None = None, unit_type: str | None = None) -> 
                 description=canonical.description,
             ),
         )
+        if limit is not None and len(entries) >= limit:
+            break
     return entries
 
 
