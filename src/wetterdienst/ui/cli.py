@@ -10,7 +10,7 @@ import logging
 import sys
 from pathlib import Path
 from pprint import pformat
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import click
 import cloup
@@ -19,6 +19,7 @@ from cloup.constraints import AllSet, If, RequireExactly, accept_none
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ApiNotFoundError
+from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
@@ -28,6 +29,7 @@ from wetterdienst.ui.core import (
     ValuesRequest,
     _get_stripes_stations,
     _plot_stripes,
+    get_glossary,
     get_interpolate,
     get_issues,
     get_stations,
@@ -772,6 +774,57 @@ def coverage(
     )
 
     print(json.dumps(cov, indent=2))  # noqa: T201
+
+
+@about.command("glossary")
+@cloup.option_group(
+    "Parameter",
+    click.option(
+        "--parameter",
+        type=click.STRING,
+        help="Match canonical parameter names containing this text, e.g. radiation.",
+    ),
+)
+@cloup.option_group(
+    "Unit type",
+    click.option(
+        "--unit-type",
+        # a closed vocabulary, so an unknown one is a usage error rather than an empty result
+        type=click.Choice(get_args(UnitType)),
+        help="Restrict to one quantity, e.g. temperature.",
+    ),
+)
+@cloup.option_group(
+    "Limit",
+    click.option(
+        "--limit",
+        type=click.IntRange(min=1),
+        help="Return at most this many entries; the full vocabulary is 504 parameters.",
+    ),
+)
+@debug_opt
+def glossary(
+    parameter: str | None,
+    unit_type: UnitType | None,
+    limit: int | None,
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Look up what a parameter measures and which unit it is returned in.
+
+    The unit shown is the one a values request would return, including any WD_TS_UNIT_TARGETS
+    override.
+    """
+    set_logging_level(debug=debug)
+
+    entries = get_glossary(parameter=parameter, unit_type=unit_type, limit=limit)
+
+    if not entries:
+        log.error("No canonical parameter matches the given filters.")
+        sys.exit(1)
+
+    # ensure_ascii=False so unit symbols print as °C and J/cm² rather than escapes; this command
+    # exists to show them
+    print(json.dumps(entries, indent=2, ensure_ascii=False))  # noqa: T201
 
 
 @about.command("fields")

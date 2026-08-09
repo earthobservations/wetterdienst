@@ -55,6 +55,11 @@ ONLY when the user explicitly asks for an interpolated / between-stations estima
 plain-language "summary". `history` is different again: it returns a station's *metadata* history \
 (name/location/sensor changes), not weather.
 
+`glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
+the user asks what something is, or what unit a number is in. It is not a way to find data: it \
+knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
+does this provider have".
+
 ## Conventions
 - provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
 `coverage` with no arguments to list every provider/network.
@@ -89,6 +94,7 @@ _EXCLUDE_PATTERNS = (r"^/$", r"^/robots\.txt$", r"^/health$", r"^/api/version$",
 # Clean, agent-friendly names for the auto-generated tools (auto name -> friendly name).
 _TOOL_NAMES = {
     "coverage_api_coverage_get": "coverage",
+    "glossary_api_glossary_get": "glossary",
     "stations_api_stations_get": "stations",
     "values_api_values_get": "values",
     "interpolate_api_interpolate_get": "interpolate",

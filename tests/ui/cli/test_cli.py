@@ -199,3 +199,61 @@ def test_issues_unsupported_provider() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=observation", "--station=00011"])
     assert result.exit_code == 1
+
+
+def test_cli_glossary() -> None:
+    """Test that the glossary reports what a parameter measures and its returned unit."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["about", "glossary", "--parameter=radiation_global_intensity"])
+    assert result.exit_code == 0
+    entries = json.loads(result.stdout)
+    assert entries == [
+        {
+            "name": "radiation_global_intensity",
+            "unit_type": "power_per_area",
+            "unit": "watt_per_square_meter",
+            "unit_symbol": "W/m²",
+            "description": "Global irradiance on a horizontal surface, reported as power rather than energy.",
+        },
+    ]
+
+
+def test_cli_glossary_unit_type() -> None:
+    """Test that filtering by unit type returns only parameters of that quantity."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["about", "glossary", "--unit-type=turbidity"])
+    assert result.exit_code == 0
+    entries = json.loads(result.stdout)
+    assert [entry["name"] for entry in entries] == ["turbidity"]
+
+
+def test_cli_glossary_no_match() -> None:
+    """Test that a filter matching nothing exits non-zero, as grep does.
+
+    The REST endpoint answers the same query with 200 and an empty list, because an empty result is
+    not an HTTP error. The exit code is what makes the difference visible to a shell script.
+    """
+    runner = CliRunner()
+    result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
+    assert result.exit_code == 1
+
+
+def test_cli_glossary_unknown_unit_type() -> None:
+    """Test that an unknown unit type is a usage error listing the valid ones.
+
+    click.Choice turns the closed vocabulary into a message naming every option, so a typo tells
+    the user what to type instead of returning nothing.
+    """
+    runner = CliRunner()
+    result = runner.invoke(cli, ["about", "glossary", "--unit-type=celsius"])
+    assert result.exit_code == 2
+    assert "'celsius' is not one of" in result.output
+    assert "temperature" in result.output
+
+
+def test_cli_glossary_limit() -> None:
+    """Test that --limit bounds the output."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["about", "glossary", "--limit=3"])
+    assert result.exit_code == 0
+    assert len(json.loads(result.stdout)) == 3

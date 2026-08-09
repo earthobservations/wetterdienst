@@ -14,6 +14,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import ApiNotFoundError, StartDateEndDateError
+
+# needed at runtime: FastAPI resolves this annotation to build the query parameter's enum
+from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -25,6 +28,7 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollection,
 )
 from wetterdienst.ui.core import (
+    GlossaryEntry,
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
@@ -34,6 +38,7 @@ from wetterdienst.ui.core import (
     _get_stripes_data,
     _get_stripes_stations,
     _plot_stripes,
+    get_glossary,
     get_interpolate,
     get_issues,
     get_stations,
@@ -164,6 +169,7 @@ def index() -> HTMLResponse:
                 <h2>Endpoints</h2>
                 <ul>
                     <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
+                    <li><a href="api/glossary" target="_blank" rel="noopener">glossary</a></li>
                     <li><a href="api/stations" target="_blank" rel="noopener">stations</a></li>
                     <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
                     <li><a href="api/interpolate" target="_blank" rel="noopener">interpolation</a></li>
@@ -348,6 +354,30 @@ def coverage(
     )
 
     return Response(content=json.dumps(cov, indent=4 if pretty else None), media_type="application/json")
+
+
+@app.get("/api/glossary", response_model=list[GlossaryEntry])
+def glossary(
+    parameter: str | None = None,
+    unit_type: UnitType | None = None,
+    limit: int | None = None,
+    *,
+    debug: bool = False,
+) -> list[GlossaryEntry]:
+    """Look up what a parameter measures and which unit it is returned in.
+
+    Filter with parameter="radiation" to match names containing that text, or
+    unit_type="temperature" for every parameter of one quantity. Both can be combined. Use limit to
+    cap the number of entries: the vocabulary is 504 parameters, so an unfiltered call is a large
+    response and a broad filter can still be a wide one (parameter="temperature" matches 184).
+
+    This complements coverage: coverage says which parameters a given provider offers, this says
+    what any of them means. The unit reported is the one a values request would actually return,
+    including any ts_unit_targets override.
+    """
+    set_logging_level(debug=debug)
+
+    return get_glossary(parameter=parameter, unit_type=unit_type, limit=limit)
 
 
 # response models for the different formats are
