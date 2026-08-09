@@ -17,7 +17,6 @@ from shapely.geometry import Point, Polygon
 from tqdm import tqdm
 
 from wetterdienst.core.util import _ParameterData, extract_station_values
-from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
@@ -37,42 +36,41 @@ log = logging.getLogger(__name__)
 # (i.e. "it didn't rain / snow at this timestep"), but NOT to continuous fields like accumulated
 # snow depth or evaporation that are rarely exactly zero and have a different physical character.
 _OCCURRENCE_BASED_PARAMETERS: frozenset[str] = frozenset(
-    p.name.lower()
-    for p in (
+    (
         # precipitation height — all temporal variants
-        Parameter.PRECIPITATION_HEIGHT,
-        Parameter.PRECIPITATION_HEIGHT_DAY,
-        Parameter.PRECIPITATION_HEIGHT_NIGHT,
-        Parameter.PRECIPITATION_HEIGHT_LIQUID,
-        Parameter.PRECIPITATION_HEIGHT_DROPLET,
-        Parameter.PRECIPITATION_HEIGHT_ROCKER,
-        Parameter.PRECIPITATION_HEIGHT_LAST_1H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_3H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_6H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_9H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_12H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_15H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_18H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_21H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_24H,
-        Parameter.PRECIPITATION_HEIGHT_MULTIDAY,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_1H,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_3H,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_6H,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_12H,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_24H,
-        Parameter.PRECIPITATION_HEIGHT_LIQUID_SIGNIFICANT_WEATHER_LAST_1H,
-        Parameter.PRECIPITATION_HEIGHT_MAX,
+        "precipitation_height",
+        "precipitation_height_day",
+        "precipitation_height_night",
+        "precipitation_height_liquid",
+        "precipitation_height_droplet",
+        "precipitation_height_rocker",
+        "precipitation_height_last_1h",
+        "precipitation_height_last_3h",
+        "precipitation_height_last_6h",
+        "precipitation_height_last_9h",
+        "precipitation_height_last_12h",
+        "precipitation_height_last_15h",
+        "precipitation_height_last_18h",
+        "precipitation_height_last_21h",
+        "precipitation_height_last_24h",
+        "precipitation_height_multiday",
+        "precipitation_height_significant_weather_last_1h",
+        "precipitation_height_significant_weather_last_3h",
+        "precipitation_height_significant_weather_last_6h",
+        "precipitation_height_significant_weather_last_12h",
+        "precipitation_height_significant_weather_last_24h",
+        "precipitation_height_liquid_significant_weather_last_1h",
+        "precipitation_height_max",
         # precipitation duration — zero when no precipitation occurred
-        Parameter.PRECIPITATION_DURATION,
+        "precipitation_duration",
         # new snow per period — heterogeneous and zero-inflated like precipitation
-        Parameter.SNOW_DEPTH_NEW,
-        Parameter.SNOW_DEPTH_NEW_MULTIDAY,
-        Parameter.SNOW_DEPTH_NEW_MAX,
+        "snow_depth_new",
+        "snow_depth_new_multiday",
+        "snow_depth_new_max",
         # new snow water equivalent — same zero-inflated character
-        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW,
-        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_1H,
-        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_3H,
+        "water_equivalent_snow_depth_new",
+        "water_equivalent_snow_depth_new_last_1h",
+        "water_equivalent_snow_depth_new_last_3h",
     )
 )
 

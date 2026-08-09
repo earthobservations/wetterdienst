@@ -212,6 +212,29 @@ def test_parameter_table_descriptions() -> None:
     assert not duplicated, f"descriptions shared by more than one parameter: {duplicated}"
 
 
+def test_internal_parameter_lists_are_canonical() -> None:
+    """Test that the parameter names hard-coded inside the library are real canonical names.
+
+    These lists used to be written as `Parameter.PRECIPITATION_HEIGHT` members, so a misspelling
+    was an AttributeError at import. They are plain strings now, which reads better but catches
+    nothing on its own -- a typo would silently mean "this parameter is never interpolated" or
+    "this parameter keeps the default 40 km search radius", both of which change results quietly
+    rather than failing. This test is what replaces the enum's guard.
+    """
+    from wetterdienst.core.interpolate import _OCCURRENCE_BASED_PARAMETERS  # noqa: PLC0415
+    from wetterdienst.model.request import TimeseriesRequest  # noqa: PLC0415
+    from wetterdienst.settings import _default_geo_station_distance  # noqa: PLC0415
+
+    hard_coded = {
+        "TimeseriesRequest.interpolatable_parameters": TimeseriesRequest.interpolatable_parameters,
+        "interpolate._OCCURRENCE_BASED_PARAMETERS": _OCCURRENCE_BASED_PARAMETERS,
+        "settings ts_geo_station_distance defaults": _default_geo_station_distance(),
+    }
+    for label, names in hard_coded.items():
+        unknown = sorted(name for name in names if name not in PARAMETERS)
+        assert not unknown, f"{label} contains names that are not canonical parameters: {unknown}"
+
+
 def test_parameter_table_names_unique() -> None:
     """Test that no canonical name is declared twice.
 

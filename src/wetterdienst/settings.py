@@ -15,7 +15,6 @@ import platformdirs
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.model.unit import UnitConverter
 
 log = logging.getLogger(__name__)
@@ -67,41 +66,41 @@ def _default_geo_station_distance() -> defaultdict[str, float]:
     d: defaultdict[str, float] = defaultdict(lambda: 40.0)
     # heterogeneous parameters: shorter spatial correlation length, use 20 km
     # precipitation — all variants are convectively driven and spatially variable
-    for p in (
-        Parameter.PRECIPITATION_HEIGHT,
-        Parameter.PRECIPITATION_HEIGHT_DAY,
-        Parameter.PRECIPITATION_HEIGHT_NIGHT,
-        Parameter.PRECIPITATION_HEIGHT_LIQUID,
-        Parameter.PRECIPITATION_HEIGHT_DROPLET,
-        Parameter.PRECIPITATION_HEIGHT_ROCKER,
-        Parameter.PRECIPITATION_HEIGHT_LAST_1H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_3H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_6H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_9H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_12H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_15H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_18H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_21H,
-        Parameter.PRECIPITATION_HEIGHT_LAST_24H,
-        Parameter.PRECIPITATION_HEIGHT_MULTIDAY,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_1H,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_3H,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_6H,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_12H,
-        Parameter.PRECIPITATION_HEIGHT_SIGNIFICANT_WEATHER_LAST_24H,
-        Parameter.PRECIPITATION_HEIGHT_LIQUID_SIGNIFICANT_WEATHER_LAST_1H,
-        Parameter.PRECIPITATION_HEIGHT_MAX,
-        Parameter.PRECIPITATION_DURATION,
+    for name in (
+        "precipitation_height",
+        "precipitation_height_day",
+        "precipitation_height_night",
+        "precipitation_height_liquid",
+        "precipitation_height_droplet",
+        "precipitation_height_rocker",
+        "precipitation_height_last_1h",
+        "precipitation_height_last_3h",
+        "precipitation_height_last_6h",
+        "precipitation_height_last_9h",
+        "precipitation_height_last_12h",
+        "precipitation_height_last_15h",
+        "precipitation_height_last_18h",
+        "precipitation_height_last_21h",
+        "precipitation_height_last_24h",
+        "precipitation_height_multiday",
+        "precipitation_height_significant_weather_last_1h",
+        "precipitation_height_significant_weather_last_3h",
+        "precipitation_height_significant_weather_last_6h",
+        "precipitation_height_significant_weather_last_12h",
+        "precipitation_height_significant_weather_last_24h",
+        "precipitation_height_liquid_significant_weather_last_1h",
+        "precipitation_height_max",
+        "precipitation_duration",
         # new snow per period — heterogeneous like precipitation
-        Parameter.SNOW_DEPTH_NEW,
-        Parameter.SNOW_DEPTH_NEW_MULTIDAY,
-        Parameter.SNOW_DEPTH_NEW_MAX,
+        "snow_depth_new",
+        "snow_depth_new_multiday",
+        "snow_depth_new_max",
         # new SWE — heterogeneous like precipitation
-        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW,
-        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_1H,
-        Parameter.WATER_EQUIVALENT_SNOW_DEPTH_NEW_LAST_3H,
+        "water_equivalent_snow_depth_new",
+        "water_equivalent_snow_depth_new_last_1h",
+        "water_equivalent_snow_depth_new_last_3h",
     ):
-        d[p.value.lower()] = 20.0
+        d[name] = 20.0
     return d
 
 
