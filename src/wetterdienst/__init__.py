@@ -7,7 +7,6 @@ from textwrap import dedent
 
 from wetterdienst import boot
 from wetterdienst.api import Wetterdienst
-from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
@@ -69,7 +68,6 @@ class Info:
 __all__ = [
     "Author",
     "Info",
-    "Parameter",
     "Period",
     "Resolution",
     "Settings",

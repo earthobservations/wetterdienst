@@ -119,6 +119,14 @@ Types of changes:
 
 ### Removed
 
+- **Breaking**: the `Parameter` enum, exported from the package root. It listed the canonical
+  parameter names but could not be used to request them — `parameters=` accepts strings, tuples,
+  `ParameterModel` and `DatasetModel`, so passing a member raised
+  `AttributeError: 'Parameter' object has no attribute 'strip'`. It appeared in no example and no
+  documentation page, and its last internal uses are gone (see Changed). The canonical names live
+  in `wetterdienst.metadata.parameter_table`, which also carries each parameter's unit type and
+  description, and are discoverable through the new glossary endpoint, MCP tool and
+  `wetterdienst about glossary`. Callers who used it to spell a name should use the string directly
 - The `unit_type` key from provider metadata declarations — 1575 of them across 29 files. It is a
   property of the measured quantity rather than of the provider, and restating it once per
   declaration is what let the same canonical name pick different output units in different

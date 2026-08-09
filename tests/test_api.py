@@ -13,7 +13,7 @@ from fsspec.exceptions import FSTimeoutError
 from pydantic import ValidationError
 
 from tests.conftest import IS_CI, IS_WINDOWS
-from wetterdienst import Parameter, Settings
+from wetterdienst import Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.unit_type import UnitType
@@ -116,12 +116,6 @@ def _is_complete_values_df(
 
 
 @pytest.fixture
-def parameter_names() -> set[str]:
-    """Provide parameter names."""
-    return {parameter.name.lower() for parameter in Parameter}
-
-
-@pytest.fixture
 def unit_converter() -> UnitConverter:
     """Provide unit converter."""
     return UnitConverter()
@@ -141,18 +135,6 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
     """Test wetterdienst API."""
     request = Wetterdienst.resolve(provider, network)
     assert request
-
-
-@pytest.mark.parametrize(
-    "metadata",
-    ALL_METADATA,
-)
-def test_metadata_parameter_names(parameter_names: set[str], metadata: dict) -> None:
-    """Test metadata parameter names."""
-    for resolution in metadata:
-        for dataset in resolution:
-            for parameter in dataset:
-                assert parameter.name in parameter_names
 
 
 @pytest.mark.parametrize(
@@ -272,17 +254,6 @@ def test_parameter_model_unit_type_unknown_name() -> None:
     parameter = ParameterModel(name="not_a_real_parameter", name_original="x", unit="meter")
     with pytest.raises(KeyError, match="not_a_real_parameter"):
         _ = parameter.unit_type
-
-
-def test_parameter_table_matches_enum(parameter_names: set[str]) -> None:
-    """Test that the table and the `Parameter` enum stay in sync.
-
-    Both are hand-maintained in separate files until the enum is derived from the table, so nothing
-    but this stops one from gaining a name the other lacks. Quality parameters are exempt: they are
-    filtered out by `DatasetModel.__iter__` and deliberately have no enum members.
-    """
-    table_names = {p.name for p in PARAMETER_TABLE if not p.name.startswith("quality")}
-    assert table_names == parameter_names
 
 
 @pytest.mark.parametrize(
