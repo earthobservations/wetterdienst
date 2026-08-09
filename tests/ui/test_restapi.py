@@ -154,7 +154,7 @@ def test_glossary_limit(client: TestClient) -> None:
     assert len(response.json()) == 3
 
 
-def test_glossary_reports_unit_target_override(client: TestClient) -> None:
+def test_glossary_reports_unit_target_override() -> None:
     """Test that the reported unit follows ts_unit_targets rather than the built-in default.
 
     Reporting degree_celsius while a values request hands back Fahrenheit would make the glossary

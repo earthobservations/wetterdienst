@@ -804,7 +804,7 @@ def coverage(
 )
 @debug_opt
 def glossary(
-    parameter: str,
+    parameter: str | None,
     unit_type: UnitType | None,
     limit: int | None,
     debug: bool,  # noqa: FBT001

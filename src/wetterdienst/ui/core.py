@@ -687,7 +687,7 @@ class GlossaryEntry(TypedDict):
     unit_type: UnitType
     unit: str
     unit_symbol: str
-    description: str | None
+    description: str
 
 
 def get_glossary(

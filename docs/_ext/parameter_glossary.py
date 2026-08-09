@@ -34,9 +34,8 @@ class ParameterGlossaryDirective(SphinxDirective):
         for parameter in PARAMETER_TABLE:
             target = unit_converter.targets[parameter.unit_type]
             lines.append(parameter.name)
-            if parameter.description:
-                lines.append(f"  {parameter.description}")
-                lines.append("")
+            lines.append(f"  {parameter.description}")
+            lines.append("")
             lines.append(f"  Unit type `{parameter.unit_type}`, returned in `{target.name}` ({target.symbol}).")
             lines.append("")
         lines.append("```")

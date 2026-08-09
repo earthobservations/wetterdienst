@@ -43,7 +43,9 @@ class CanonicalParameter:
 
     name: str
     unit_type: UnitType
-    description: str | None = None
+    # required rather than defaulted: every parameter has one, and a new entry without a
+    # description should not be constructible in the first place
+    description: str
 
 
 PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (

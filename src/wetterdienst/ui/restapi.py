@@ -14,7 +14,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import ApiNotFoundError, StartDateEndDateError
-from wetterdienst.metadata.unit_type import UnitType
+
+# needed at runtime: FastAPI resolves this annotation to build the query parameter's enum
+from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,

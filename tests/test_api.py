@@ -196,12 +196,13 @@ def test_parameter_table_descriptions() -> None:
     """Test that every canonical parameter says what it is, in one well-formed sentence.
 
     The description is what the docs glossary, the REST API and the MCP tools show a user who does
-    not already know what a parameter measures, so an entry added without one silently reintroduces
-    the gap this filled. Distinctness is checked too: a description repeated across two parameters
-    means at least one of them is not actually describing itself.
+    not already know what a parameter measures. `CanonicalParameter.description` is a required
+    field, so omitting one is a type error; what remains for this test is that it is not empty,
+    that it reads as a sentence, and that it is distinct. That last check is the one with teeth: a
+    description repeated across two parameters means at least one is not describing itself.
     """
     missing = sorted(p.name for p in PARAMETER_TABLE if not p.description)
-    assert not missing, f"canonical parameters without a description: {missing}"
+    assert not missing, f"canonical parameters with an empty description: {missing}"
     malformed = sorted(
         p.name for p in PARAMETER_TABLE if not p.description[0].isupper() or not p.description.endswith(".")
     )
