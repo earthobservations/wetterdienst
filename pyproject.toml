@@ -129,7 +129,7 @@ dependencies = [
     "tqdm>=4.64,<5",
     # imported unconditionally by model/result.py and ui/core.py, not just as a 3.10 backport:
     # pydantic refuses typing.TypedDict as a response model below 3.12
-    "typing-extensions>=4.15.0",
+    "typing-extensions>=4.15.0,<5",
     "tzdata>=2024.2",
     "tzfpy>=0.15.2,<2",
 ]
