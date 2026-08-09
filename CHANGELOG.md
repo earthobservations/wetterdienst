@@ -56,6 +56,14 @@ Types of changes:
 
 ### Changed
 
+- The `Parameter` enum is no longer used inside the library. The three places that hard-coded
+  parameter names — `TimeseriesRequest.interpolatable_parameters`, interpolation's
+  occurrence-based set and the `ts_geo_station_distance` defaults — used it purely to spell a
+  lowercased string, and now spell the canonical name directly. All 186 references resolve to the
+  same 126/30/30 names as before. `test_internal_parameter_lists_are_canonical` replaces the
+  typo-safety the enum was providing, since a misspelled string would otherwise quietly mean "never
+  interpolated" or "keeps the default search radius" rather than failing
+
 - **Breaking**: irradiance (`power_per_area`) is now returned in W/m² rather than W/cm², so
   affected values are 10⁴ times larger. W/m² is what WMO specifies and what every source in this
   library actually publishes — MeteoSwiss global radiation now reads 0–1344 W/m² where it used to
@@ -111,6 +119,14 @@ Types of changes:
 
 ### Removed
 
+- **Breaking**: the `Parameter` enum, exported from the package root. It listed the canonical
+  parameter names but could not be used to request them — `parameters=` accepts strings, tuples,
+  `ParameterModel` and `DatasetModel`, so passing a member raised
+  `AttributeError: 'Parameter' object has no attribute 'strip'`. It appeared in no example and no
+  documentation page, and its last internal uses are gone (see Changed). The canonical names live
+  in `wetterdienst.metadata.parameter_table`, which also carries each parameter's unit type and
+  description, and are discoverable through the new glossary endpoint, MCP tool and
+  `wetterdienst about glossary`. Callers who used it to spell a name should use the string directly
 - The `unit_type` key from provider metadata declarations — 1575 of them across 29 files. It is a
   property of the measured quantity rather than of the provider, and restating it once per
   declaration is what let the same canonical name pick different output units in different
