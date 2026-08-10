@@ -2,7 +2,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for WSV Pegelonline, in particular its per-station source units."""
 
-import polars as pl
 import pytest
 
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
@@ -97,8 +96,8 @@ def test_wsv_stage_is_scaled_for_metre_gauges() -> None:
     level, which used to be reported unscaled as centimetres -- 56.5 where the true figure is 5650.
     The datum still differs between the two groups; `gauge_zero` in the station metadata says which.
     """
-    df = WsvPegelRequest(parameters=[("dynamic", "data", "stage")]).filter_by_station_id("27800090")
-    series = df.values.all().df.get_column("value").drop_nulls()
+    stations = WsvPegelRequest(parameters=[("dynamic", "data", "stage")]).filter_by_station_id("27800090")
+    series = stations.values.all().df.get_column("value").drop_nulls()
     assert not series.is_empty()
     # metres above sea level for this canal gauge, so thousands of centimetres rather than tens
     assert series.mean() > 1000
@@ -116,4 +115,38 @@ def test_wsv_multiple_parameters_with_missing_data() -> None:
         parameters=[("dynamic", "data", p) for p in ("wave_period", "flow_direction", "wave_height_sign")],
     )
     df = request.filter_by_station_id("9460041").values.all().df
-    assert isinstance(df, pl.DataFrame)
+    # flow_direction has no data at this station while the other two do, which is the whole point:
+    # the empty one must not take the populated ones down with it
+    assert not df.is_empty()
+    assert "sigh" in df.get_column("parameter").unique().to_list()
+
+
+def test_wsv_source_units_are_not_cached_when_the_listing_is_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a failed station listing is retried rather than remembered as "no units known".
+
+    An empty mapping cached after a transient failure makes every unit lookup miss, which skips
+    every scaled parameter for the lifetime of the process -- long after the listing came back.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+    from wetterdienst.util.network import File, NoInternetError  # noqa: PLC0415
+
+    values = WsvPegelRequest(parameters=[("dynamic", "data", "stage")]).all().values
+    settings = values.sr.stations.settings
+
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=NoInternetError(), status=-1),
+    )
+    assert values._source_units(settings) == {}  # noqa: SLF001
+    assert values._source_units_cache is None, "a failed listing must not be cached"  # noqa: SLF001
+
+    listing = b'[{"number": "1", "timeseries": [{"shortname": "W", "unit": "cm"}]}]'
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(listing), status=200),
+    )
+    assert values._source_units(settings) == {("1", "W"): "cm"}  # noqa: SLF001

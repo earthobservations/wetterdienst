@@ -220,13 +220,18 @@ class WsvPegelValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            # deliberately not cached: an empty mapping makes every lookup below miss, which would
+            # skip every scaled parameter for the lifetime of the process, long after the listing
+            # became reachable again
+            return {}
         units: dict[tuple[str, str], str] = {}
-        if not isinstance(file.content, Exception):
-            for station in json.load(file.content):
-                for timeseries in station.get("timeseries") or []:
-                    shortname, unit = timeseries.get("shortname"), timeseries.get("unit")
-                    if shortname and unit:
-                        units[station["number"], shortname] = unit
+        for station in json.load(file.content):
+            for timeseries in station.get("timeseries") or []:
+                shortname, unit = timeseries.get("shortname"), timeseries.get("unit")
+                if shortname and unit:
+                    units[station["number"], shortname] = unit
         self._source_units_cache = units
         return units
 
@@ -266,6 +271,14 @@ class WsvPegelValues(TimeseriesValues):
         factor = 1.0
         if factors is not None:
             source_unit = self._source_units(settings).get((station_id, name_original))
+            if source_unit is None:
+                # either the station listing was unreachable or this station does not publish the
+                # timeseries; in both cases the unit is unknown rather than known to be unhandled
+                log.error(
+                    f"WSV station {station_id} has no published unit for {name_original} in the "
+                    f"station listing; skipping rather than assuming {parameter_or_dataset.unit}",
+                )
+                return pl.DataFrame()
             if source_unit not in factors:
                 # An unrecognised source unit is why this scaling exists at all: values used to be
                 # passed through as if every station published the declared unit. Dropping the
