@@ -116,7 +116,9 @@ Types of changes:
   mean "this station has no such file" and it has to stay cheap
 - The EA hydrology test is marked `xfail` like the other live third-party services. EA rate-limits
   the CI matrix, which hits it from every job at once, so it answered 429 or timed out on nearly
-  every run and made the whole matrix unreadable at a glance The service
+  every run and made the whole matrix unreadable at a glance. The marker names the three exceptions
+  that reach us — a timeout, a 404 on the readings, and the 429 — so an `AssertionError` still
+  fails: a real regression in parsing EA's response must not hide behind the flake The service
   publishes the unit per *timeseries*, not per parameter, and its stations disagree, so a single
   declaration was silently wrong wherever a station differed. Water level is `cm` at most gauges but
   `m+NN` at 66 of them and `m+PNP` at 2; conductivity `µS/cm` or `mS/cm`; flow speed `m/s` or
