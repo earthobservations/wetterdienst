@@ -183,19 +183,21 @@ class UnitConverter:
             ("kilogram_per_cubic_meter", "milligram_per_liter"): lambda x: x * 1000,
             ("kilogram_per_cubic_meter", "gram_per_liter"): lambda x: x,
             ("kilogram_per_cubic_meter", "gram_per_cubic_meter"): lambda x: x * 1000,
-            # conductivity
-            ("microsiemens_per_centimeter", "microsiemens_per_meter"): lambda x: x / 100,
+            # conductivity; conductivity is per unit *length*, so a shorter length in the
+            # denominator means a larger number: 1 S/cm is 100 S/m, not 1/100 of one. Combined with
+            # the µ prefix that gives 1 µS/cm == 1e-4 S/m.
+            ("microsiemens_per_centimeter", "microsiemens_per_meter"): lambda x: x * 100,
             ("microsiemens_per_centimeter", "siemens_per_centimeter"): lambda x: x / 1000000,
-            ("microsiemens_per_centimeter", "siemens_per_meter"): lambda x: x / 1000000,
-            ("microsiemens_per_meter", "microsiemens_per_centimeter"): lambda x: x * 100,
-            ("microsiemens_per_meter", "siemens_per_centimeter"): lambda x: x / 1000000,
+            ("microsiemens_per_centimeter", "siemens_per_meter"): lambda x: x / 10000,
+            ("microsiemens_per_meter", "microsiemens_per_centimeter"): lambda x: x / 100,
+            ("microsiemens_per_meter", "siemens_per_centimeter"): lambda x: x / 100000000,
             ("microsiemens_per_meter", "siemens_per_meter"): lambda x: x / 1000000,
             ("siemens_per_centimeter", "microsiemens_per_centimeter"): lambda x: x * 1000000,
-            ("siemens_per_centimeter", "microsiemens_per_meter"): lambda x: x * 1000000,
-            ("siemens_per_centimeter", "siemens_per_meter"): lambda x: x / 100,
-            ("siemens_per_meter", "microsiemens_per_centimeter"): lambda x: x * 1000000,
+            ("siemens_per_centimeter", "microsiemens_per_meter"): lambda x: x * 100000000,
+            ("siemens_per_centimeter", "siemens_per_meter"): lambda x: x * 100,
+            ("siemens_per_meter", "microsiemens_per_centimeter"): lambda x: x * 10000,
             ("siemens_per_meter", "microsiemens_per_meter"): lambda x: x * 1000000,
-            ("siemens_per_meter", "siemens_per_centimeter"): lambda x: x * 100,
+            ("siemens_per_meter", "siemens_per_centimeter"): lambda x: x / 100,
             # energy_per_area
             ("joule_per_square_centimeter", "joule_per_square_meter"): lambda x: x * 10000,
             ("joule_per_square_centimeter", "kilojoule_per_square_meter"): lambda x: x * 10,
