@@ -139,7 +139,10 @@ class UnitConverter:
             "concentration": self.units["concentration"][0],
             # g/m³ is the convention for water vapour in air, and numerically identical to mg/l
             "mass_per_volume": self.units["mass_per_volume"][2],
-            "conductivity": self.units["conductivity"][3],
+            # µS/cm is the convention in hydrology and water quality, and what the sources publish;
+            # S/m is a large enough unit that rounding to 4 decimals leaves river values with one
+            # or two significant figures
+            "conductivity": self.units["conductivity"][0],
             "dimensionless": self.units["dimensionless"][0],
             "energy_per_area": self.units["energy_per_area"][0],
             # W/m² is what every source publishes irradiance in, and what WMO specifies
@@ -183,19 +186,21 @@ class UnitConverter:
             ("kilogram_per_cubic_meter", "milligram_per_liter"): lambda x: x * 1000,
             ("kilogram_per_cubic_meter", "gram_per_liter"): lambda x: x,
             ("kilogram_per_cubic_meter", "gram_per_cubic_meter"): lambda x: x * 1000,
-            # conductivity
-            ("microsiemens_per_centimeter", "microsiemens_per_meter"): lambda x: x / 100,
-            ("microsiemens_per_centimeter", "siemens_per_centimeter"): lambda x: x / 1000000,
-            ("microsiemens_per_centimeter", "siemens_per_meter"): lambda x: x / 1000000,
-            ("microsiemens_per_meter", "microsiemens_per_centimeter"): lambda x: x * 100,
-            ("microsiemens_per_meter", "siemens_per_centimeter"): lambda x: x / 1000000,
-            ("microsiemens_per_meter", "siemens_per_meter"): lambda x: x / 1000000,
-            ("siemens_per_centimeter", "microsiemens_per_centimeter"): lambda x: x * 1000000,
-            ("siemens_per_centimeter", "microsiemens_per_meter"): lambda x: x * 1000000,
-            ("siemens_per_centimeter", "siemens_per_meter"): lambda x: x / 100,
-            ("siemens_per_meter", "microsiemens_per_centimeter"): lambda x: x * 1000000,
-            ("siemens_per_meter", "microsiemens_per_meter"): lambda x: x * 1000000,
-            ("siemens_per_meter", "siemens_per_centimeter"): lambda x: x * 100,
+            # conductivity; conductivity is per unit *length*, so a shorter length in the
+            # denominator means a larger number: 1 S/cm is 100 S/m, not 1/100 of one. Combined with
+            # the µ prefix that gives 1 µS/cm == 1e-4 S/m.
+            ("microsiemens_per_centimeter", "microsiemens_per_meter"): lambda x: x * 100,
+            ("microsiemens_per_centimeter", "siemens_per_centimeter"): lambda x: x / 1_000_000,
+            ("microsiemens_per_centimeter", "siemens_per_meter"): lambda x: x / 10_000,
+            ("microsiemens_per_meter", "microsiemens_per_centimeter"): lambda x: x / 100,
+            ("microsiemens_per_meter", "siemens_per_centimeter"): lambda x: x / 100_000_000,
+            ("microsiemens_per_meter", "siemens_per_meter"): lambda x: x / 1_000_000,
+            ("siemens_per_centimeter", "microsiemens_per_centimeter"): lambda x: x * 1_000_000,
+            ("siemens_per_centimeter", "microsiemens_per_meter"): lambda x: x * 100_000_000,
+            ("siemens_per_centimeter", "siemens_per_meter"): lambda x: x * 100,
+            ("siemens_per_meter", "microsiemens_per_centimeter"): lambda x: x * 10_000,
+            ("siemens_per_meter", "microsiemens_per_meter"): lambda x: x * 1_000_000,
+            ("siemens_per_meter", "siemens_per_centimeter"): lambda x: x / 100,
             # energy_per_area
             ("joule_per_square_centimeter", "joule_per_square_meter"): lambda x: x * 10000,
             ("joule_per_square_centimeter", "kilojoule_per_square_meter"): lambda x: x * 10,

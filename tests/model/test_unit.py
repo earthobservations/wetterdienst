@@ -19,7 +19,7 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
     assert unit_converter_targets_defaults == {
         "angle": "degree",
         "concentration": "milligram_per_liter",
-        "conductivity": "siemens_per_meter",
+        "conductivity": "microsiemens_per_centimeter",
         "dimensionless": "dimensionless",
         "energy_per_area": "joule_per_square_centimeter",
         "fraction": "decimal",
@@ -104,10 +104,21 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("kilogram_per_cubic_meter", "gram_per_cubic_meter", 0.042, 42),
         ("milligram_per_liter", "kilogram_per_cubic_meter", 42, 0.042),
         ("kilogram_per_cubic_meter", "milligram_per_liter", 0.042, 42),
-        # conductivity
+        # conductivity; 1 S/cm == 100 S/m and 1 µS/cm == 1e-4 S/m, so every cm<->m pair moves the
+        # value by 100 in the direction that makes the shorter length the larger number
         ("siemens_per_meter", "siemens_per_meter", 42, 42),
         ("siemens_per_meter", "microsiemens_per_meter", 42, 42000000),
         ("microsiemens_per_meter", "siemens_per_meter", 42000000, 42),
+        ("microsiemens_per_centimeter", "siemens_per_meter", 1633, 0.1633),
+        ("siemens_per_meter", "microsiemens_per_centimeter", 0.1633, 1633),
+        ("microsiemens_per_centimeter", "microsiemens_per_meter", 1633, 163300),
+        ("microsiemens_per_meter", "microsiemens_per_centimeter", 163300, 1633),
+        ("microsiemens_per_centimeter", "siemens_per_centimeter", 1633, 0.001633),
+        ("siemens_per_centimeter", "microsiemens_per_centimeter", 0.001633, 1633),
+        ("siemens_per_centimeter", "siemens_per_meter", 0.001633, 0.1633),
+        ("siemens_per_meter", "siemens_per_centimeter", 0.1633, 0.001633),
+        ("siemens_per_centimeter", "microsiemens_per_meter", 0.001633, 163300),
+        ("microsiemens_per_meter", "siemens_per_centimeter", 163300, 0.001633),
         # energy_per_area
         ("joule_per_square_centimeter", "joule_per_square_centimeter", 42, 42),
         ("joule_per_square_centimeter", "joule_per_square_meter", 42, 420000),
