@@ -26,6 +26,9 @@ from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 
+HTTP_TOO_MANY_REQUESTS = 429
+HTTP_SERVER_ERROR = 500
+
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
@@ -434,6 +437,43 @@ def list_remote_directory_fsspec(
     return fs.ls(url, detail=True)
 
 
+def _is_retryable(exc: Exception) -> bool:
+    """Decide whether a failed download is worth waiting out and trying again.
+
+    A response the server meant is not: 401, 403 and the like are its final word, and retrying only
+    delays the error. 429 and 5xx are the opposite -- they say "not now" rather than "no" -- and are
+    the ones worth waiting out, which matters when several jobs hit the same endpoint at once.
+
+    ``FileNotFoundError`` is deliberately absent: a 404 is a legitimate answer here, since providers
+    use it to mean "this station has no such file", so it gets the short retry in ``_cat_file``
+    instead of a backoff measured in seconds.
+    """
+    if isinstance(exc, ClientResponseError):
+        return exc.status == HTTP_TOO_MANY_REQUESTS or exc.status >= HTTP_SERVER_ERROR
+    return isinstance(exc, (FSTimeoutError, ClientConnectorError, ClientPayloadError))
+
+
+def _cat_file(filesystem: HTTPFileSystem | WholeFileCacheFileSystem, url: str) -> bytes:
+    """Fetch the file, retrying a 404 once and cheaply.
+
+    Kept separate from the backoff in ``download_file`` because a 404 is normal control flow rather
+    than a fault -- every request for a parameter a station does not carry ends here -- so it must
+    stay fast. It is still worth one retry, since opendata servers occasionally 404 a file that does
+    exist.
+    """
+    for attempt in stamina.retry_context(
+        on=FileNotFoundError,
+        attempts=2,
+        wait_initial=0.1,
+        wait_max=0.5,
+        wait_jitter=0.1,
+    ):
+        with attempt:
+            return filesystem.cat_file(url)
+    msg = "unreachable"
+    raise AssertionError(msg)
+
+
 def download_file(
     url: str,
     cache_dir: Path,
@@ -467,11 +507,17 @@ def download_file(
     log.info(f"Downloading file {url}")
     try:
         for attempt in stamina.retry_context(
-            on=(FileNotFoundError, FSTimeoutError, ClientConnectorError, ClientResponseError, ClientPayloadError),
-            attempts=2,
+            on=_is_retryable,
+            attempts=4,
+            # a rate limit or an overloaded server needs real time to clear, and the default 0.1 s
+            # first wait is short enough that the retries land inside the same window that caused
+            # the failure. The other retryable errors are cheap to sit out for a second.
+            wait_initial=1.0,
+            wait_max=30.0,
+            wait_jitter=1.0,
         ):
             with attempt:
-                payload = filesystem.cat_file(url)
+                payload = _cat_file(filesystem, url)
                 log.info(f"Downloaded file {url}")
                 return File(url=url, content=BytesIO(payload), status=200)
         msg = "unreachable"

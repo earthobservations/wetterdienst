@@ -213,3 +213,34 @@ def test_download_file_returns_file_after_exhausting_retries() -> None:
     assert mock_fs.cat_file.call_count == 2
     assert result.status == 500
     assert isinstance(result.content, ClientResponseError)
+
+
+@pytest.mark.parametrize("status", [401, 403, 410])
+def test_download_file_does_not_retry_client_errors(status: int) -> None:
+    """download_file() gives up immediately on a status the server meant.
+
+    A 401 or 403 is the server's final word, so retrying only delays the error and, when several
+    processes share an endpoint, adds load that helps nobody. Contrast 429 and 5xx above, which say
+    "not now" rather than "no" and are retried.
+    """
+    error = ClientResponseError(request_info=MagicMock(), history=(), status=status)
+
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    default_settings = Settings(cache_disable=True)
+
+    with (
+        stamina.set_testing(True, attempts=3),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+    ):
+        result = download_file(
+            url="http://example.com/file.txt",
+            cache_dir=default_settings.cache_dir,
+            ttl=CacheExpiry.NO_CACHE,
+            client_kwargs=default_settings.fsspec_client_kwargs,
+            cache_disable=default_settings.cache_disable,
+        )
+
+    assert mock_fs.cat_file.call_count == 1
+    assert result.status == status

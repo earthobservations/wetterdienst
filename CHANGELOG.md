@@ -108,7 +108,15 @@ Types of changes:
 
 ### Fixed
 
-- **Breaking**: WSV Pegelonline values are now scaled to the unit the metadata declares. The service
+- Downloads back off properly when a server says "not now". A 429 or 5xx is now retried up to four
+  times starting at a one-second wait rather than twice starting at a tenth of a second, which is
+  short enough that both attempts land inside the window that caused the failure. Conversely a 401,
+  403 or similar is no longer retried at all: that is the server's final word, and retrying only
+  delays the error while adding load. A 404 keeps its own short retry, since providers use it to
+  mean "this station has no such file" and it has to stay cheap
+- The EA hydrology test is marked `xfail` like the other live third-party services. EA rate-limits
+  the CI matrix, which hits it from every job at once, so it answered 429 or timed out on nearly
+  every run and made the whole matrix unreadable at a glance The service
   publishes the unit per *timeseries*, not per parameter, and its stations disagree, so a single
   declaration was silently wrong wherever a station differed. Water level is `cm` at most gauges but
   `m+NN` at 66 of them and `m+PNP` at 2; conductivity `µS/cm` or `mS/cm`; flow speed `m/s` or
