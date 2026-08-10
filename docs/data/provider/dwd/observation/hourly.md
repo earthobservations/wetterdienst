@@ -113,7 +113,7 @@ Code (cloud_cover_total_indicator):
 
 | name                                  | original name | description                        | unit | constraints |
 |---------------------------------------|---------------|------------------------------------|------|-------------|
-| {term}`humidity_absolute`             | absf_std      | absolute humidity                  | -    | >=0,<=100   |
+| {term}`humidity_absolute`             | absf_std      | absolute humidity                  | g/m³ | >=0         |
 | {term}`pressure_vapor`                | vp_std        | vapor pressure                     | hPa  | >=0         |
 | {term}`temperature_wet_mean_2m`       | tf_std        | wet temperature                    | °C   | -           |
 | {term}`pressure_air_site`             | p_std         | air pressure at site level         | hPa  | >=0         |

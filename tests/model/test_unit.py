@@ -24,6 +24,7 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
         "energy_per_area": "joule_per_square_centimeter",
         "fraction": "decimal",
         "length_short": "centimeter",
+        "mass_per_volume": "gram_per_cubic_meter",
         "length_medium": "meter",
         "length_long": "kilometer",
         "power_per_area": "watt_per_square_meter",
@@ -38,6 +39,7 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
         "volume_per_time": "cubic_meter_per_second",
         "wind_scale": "beaufort",
         "degree_day": "degree_celsius_day",
+        "degree_hour": "degree_celsius_hour",
     }
 
 
@@ -87,10 +89,21 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("degree", "gradian", 42, 46.666666666666664),
         ("radian", "degree", 0.733, 41.99780638308934),
         ("radian", "gradian", 0.733, 46.66422931454371),
-        # concentration
+        # concentration / mass_per_volume
         ("milligram_per_liter", "milligram_per_liter", 42, 42),
         ("milligram_per_liter", "gram_per_liter", 42, 0.042),
         ("gram_per_liter", "milligram_per_liter", 0.042, 42),
+        # mg/l and g/m³ are the same quantity, as are g/l and kg/m³
+        ("milligram_per_liter", "gram_per_cubic_meter", 42, 42),
+        ("gram_per_cubic_meter", "milligram_per_liter", 42, 42),
+        ("gram_per_liter", "kilogram_per_cubic_meter", 42, 42),
+        ("kilogram_per_cubic_meter", "gram_per_liter", 42, 42),
+        ("gram_per_cubic_meter", "gram_per_liter", 42, 0.042),
+        ("gram_per_liter", "gram_per_cubic_meter", 0.042, 42),
+        ("gram_per_cubic_meter", "kilogram_per_cubic_meter", 42, 0.042),
+        ("kilogram_per_cubic_meter", "gram_per_cubic_meter", 0.042, 42),
+        ("milligram_per_liter", "kilogram_per_cubic_meter", 42, 0.042),
+        ("kilogram_per_cubic_meter", "milligram_per_liter", 0.042, 42),
         # conductivity
         ("siemens_per_meter", "siemens_per_meter", 42, 42),
         ("siemens_per_meter", "microsiemens_per_meter", 42, 42000000),
@@ -183,6 +196,14 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("degree_kelvin_day", "degree_fahrenheit_day", 50, 90),
         ("degree_fahrenheit_day", "degree_celsius_day", 90, 50),
         ("degree_fahrenheit_day", "degree_kelvin_day", 90, 50),
+        # degree_hour
+        ("degree_celsius_hour", "degree_celsius_hour", 42, 42),
+        ("degree_celsius_hour", "degree_kelvin_hour", 42, 42),
+        ("degree_kelvin_hour", "degree_celsius_hour", 42, 42),
+        ("degree_celsius_hour", "degree_fahrenheit_hour", 50, 90),
+        ("degree_kelvin_hour", "degree_fahrenheit_hour", 50, 90),
+        ("degree_fahrenheit_hour", "degree_celsius_hour", 90, 50),
+        ("degree_fahrenheit_hour", "degree_kelvin_hour", 90, 50),
     ],
 )
 def test_unit_converter_lambdas(

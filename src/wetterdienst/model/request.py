@@ -165,6 +165,7 @@ class TimeseriesRequest:
         "temperature_soil_max_2m",
         # derived temperature aggregates
         "heating_degree_day",
+        "cooling_degree_day",
         "cooling_degree_hour",
         # ---- humidity ----
         # all humidity variants are spatially smooth (~40 km)

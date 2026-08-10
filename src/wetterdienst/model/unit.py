@@ -30,6 +30,15 @@ class UnitConverter:
             Unit("mile", "mi"),
             Unit("nautical_mile", "nmi"),
         ]
+        # mass per volume, used for both concentration and mass_per_volume, which differ only in their
+        # default target: dissolved substances in water are conventionally given in mg/l, water vapour
+        # in air in g/m³. The two are the same quantity, 1 mg/l == 1 g/m³.
+        _mass_per_volume = [
+            Unit("milligram_per_liter", "mg/l"),
+            Unit("gram_per_liter", "g/l"),
+            Unit("gram_per_cubic_meter", "g/m³"),
+            Unit("kilogram_per_cubic_meter", "kg/m³"),
+        ]
         # dict of unit types and their possible units
         self.units: dict[str, list[Unit]] = {
             "angle": [
@@ -37,10 +46,8 @@ class UnitConverter:
                 Unit("radian", "rad"),
                 Unit("gradian", "grad"),
             ],
-            "concentration": [
-                Unit("milligram_per_liter", "mg/l"),  # == g/m³
-                Unit("gram_per_liter", "g/l"),
-            ],
+            "concentration": _mass_per_volume,
+            "mass_per_volume": _mass_per_volume,
             "conductivity": [
                 Unit("microsiemens_per_centimeter", "µS/cm"),
                 Unit("microsiemens_per_meter", "µS/m"),
@@ -116,12 +123,22 @@ class UnitConverter:
                 Unit("degree_kelvin_day", "Kd"),
                 Unit("degree_fahrenheit_day", "°Fd"),
             ],
+            # degree hours are the same quantity as degree days over a shorter accumulation interval;
+            # they are kept apart so that a parameter accumulated per hour is not reported per day
+            "degree_hour": [
+                Unit("degree_celsius_hour", "°Ch"),
+                Unit("degree_kelvin_hour", "Kh"),
+                Unit("degree_fahrenheit_hour", "°Fh"),
+            ],
         }
-        # dict of target unit types and their default unit, default is the first unit in the list, can be changed with
-        # update_targets
+        # dict of target unit types and the unit values of that type are returned in. Usually the
+        # first unit in the list, but not always -- where a different one is conventional it is
+        # picked by index and the reason given inline. Overridable per type with update_targets.
         self.targets: dict[str, Unit] = {
             "angle": self.units["angle"][0],
             "concentration": self.units["concentration"][0],
+            # g/m³ is the convention for water vapour in air, and numerically identical to mg/l
+            "mass_per_volume": self.units["mass_per_volume"][2],
             "conductivity": self.units["conductivity"][3],
             "dimensionless": self.units["dimensionless"][0],
             "energy_per_area": self.units["energy_per_area"][0],
@@ -142,6 +159,7 @@ class UnitConverter:
             "volume_per_time": self.units["volume_per_time"][1],
             "wind_scale": self.units["wind_scale"][0],
             "degree_day": self.units["degree_day"][0],
+            "degree_hour": self.units["degree_hour"][0],
         }
         # dict of lambdas for conversion between units (described by names)
         self.lambdas: dict[tuple[str, str], Callable[[Any], Any]] = {
@@ -152,9 +170,19 @@ class UnitConverter:
             ("radian", "gradian"): lambda x: x * 200 / math.pi,
             ("gradian", "degree"): lambda x: x * 360 / 400,
             ("gradian", "radian"): lambda x: x * math.pi / 200,
-            # concentration
+            # concentration / mass_per_volume, 1 mg/l == 1 g/m³ and 1 g/l == 1 kg/m³
             ("milligram_per_liter", "gram_per_liter"): lambda x: x / 1000,
+            ("milligram_per_liter", "gram_per_cubic_meter"): lambda x: x,
+            ("milligram_per_liter", "kilogram_per_cubic_meter"): lambda x: x / 1000,
             ("gram_per_liter", "milligram_per_liter"): lambda x: x * 1000,
+            ("gram_per_liter", "gram_per_cubic_meter"): lambda x: x * 1000,
+            ("gram_per_liter", "kilogram_per_cubic_meter"): lambda x: x,
+            ("gram_per_cubic_meter", "milligram_per_liter"): lambda x: x,
+            ("gram_per_cubic_meter", "gram_per_liter"): lambda x: x / 1000,
+            ("gram_per_cubic_meter", "kilogram_per_cubic_meter"): lambda x: x / 1000,
+            ("kilogram_per_cubic_meter", "milligram_per_liter"): lambda x: x * 1000,
+            ("kilogram_per_cubic_meter", "gram_per_liter"): lambda x: x,
+            ("kilogram_per_cubic_meter", "gram_per_cubic_meter"): lambda x: x * 1000,
             # conductivity
             ("microsiemens_per_centimeter", "microsiemens_per_meter"): lambda x: x / 100,
             ("microsiemens_per_centimeter", "siemens_per_centimeter"): lambda x: x / 1000000,
@@ -271,6 +299,13 @@ class UnitConverter:
             ("degree_kelvin_day", "degree_fahrenheit_day"): lambda x: 9 / 5 * x,
             ("degree_fahrenheit_day", "degree_celsius_day"): lambda x: 5 / 9 * x,
             ("degree_fahrenheit_day", "degree_kelvin_day"): lambda x: 5 / 9 * x,
+            # degree_hour, the same conversions as degree_day since only the temperature scale changes
+            ("degree_celsius_hour", "degree_kelvin_hour"): lambda x: x,
+            ("degree_kelvin_hour", "degree_celsius_hour"): lambda x: x,
+            ("degree_celsius_hour", "degree_fahrenheit_hour"): lambda x: 9 / 5 * x,
+            ("degree_kelvin_hour", "degree_fahrenheit_hour"): lambda x: 9 / 5 * x,
+            ("degree_fahrenheit_hour", "degree_celsius_hour"): lambda x: 5 / 9 * x,
+            ("degree_fahrenheit_hour", "degree_kelvin_hour"): lambda x: 5 / 9 * x,
         }
 
     def update_targets(self, targets: dict[str, str]) -> None:

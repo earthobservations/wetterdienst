@@ -199,6 +199,17 @@ class EcccObservationValues(TimeseriesValues):
             )
             df = df.rename(str.lower)
             df = self._tidy_up_df(df)
+            # ECCC publishes the gust direction in tens of degrees -- its own docs call the column
+            # "Dir of Max Gust (10s deg)" -- so 23 means 230 degrees. Decoded here rather than
+            # declared as a unit, because tens of degrees is a source encoding rather than a unit
+            # anyone reports in. Without it every bearing came back 10x too small and inside
+            # 0..36, which no range check on degrees would ever flag.
+            df = df.with_columns(
+                pl.when(pl.col("parameter") == "direction_max_gust")
+                .then(pl.col("value") * 10)
+                .otherwise(pl.col("value"))
+                .alias("value"),
+            )
             df = df.select(
                 pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
                 pl.lit(dataset.name, dtype=pl.String).alias("dataset"),

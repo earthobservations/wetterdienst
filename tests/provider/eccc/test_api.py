@@ -62,7 +62,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "station_id": "2",
                 "resolution": "daily",
                 "dataset": "data",
-                "parameter": "count_days_cooling_degree",
+                "parameter": "cooling_degree_day",
                 "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": None,
@@ -71,7 +71,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "station_id": "2",
                 "resolution": "daily",
                 "dataset": "data",
-                "parameter": "count_days_heating_degree",
+                "parameter": "heating_degree_day",
                 "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 11.7,
                 "quality": None,
@@ -137,8 +137,8 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             "dataset": pl.Enum(["data"]),
             "parameter": pl.Enum(
                 [
-                    "count_days_cooling_degree",
-                    "count_days_heating_degree",
+                    "cooling_degree_day",
+                    "heating_degree_day",
                     "precipitation_height",
                     "precipitation_height_liquid",
                     "snow_depth_new",
@@ -154,3 +154,25 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
         orient="row",
     )
     assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.xfail(raises=FSTimeoutError, strict=False, reason="ECCC server regularly times out")
+@pytest.mark.remote
+def test_eccc_degree_days_are_degree_days_not_day_counts(settings_convert_units_false: Settings) -> None:
+    """Test that ECCC heating degree days hold a degree day value rather than a count of days.
+
+    ECCC publishes the degree day total for the single day the record covers, ``18 - mean``, and not
+    the number of days on which heating was required. The two were conflated once, which is what
+    ``count_days_heating_degree`` used to mean here.
+    """
+    request = EcccObservationRequest(
+        parameters=[("daily", "data")],
+        start_date="1979-11-02",
+        end_date="1979-11-03",
+        settings=settings_convert_units_false,
+    ).filter_by_station_id(station_id=("2",))
+    df = request.values.all().df
+    values = dict(df.select("parameter", "value").iter_rows())
+    assert values["heating_degree_day"] == pytest.approx(18 - values["temperature_air_mean_2m"])
+    # a count of days would be a whole number, and could never exceed the single day requested
+    assert values["heating_degree_day"] > 1

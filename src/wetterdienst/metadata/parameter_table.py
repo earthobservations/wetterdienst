@@ -139,8 +139,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "cloud_type_layer4_abbreviation", "dimensionless", "Abbreviated cloud genus of the fourth reported cloud layer."
     ),
     CanonicalParameter(
-        "cooling_degree_hour",
+        "cooling_degree_day",
         "degree_day",
+        "Cooling degree days, the temperature excess above a base value summed over each day.",
+    ),
+    CanonicalParameter(
+        "cooling_degree_hour",
+        "degree_hour",
         "Cooling degree hours, the temperature excess above a base value summed over each hour.",
     ),
     CanonicalParameter("count_days_cooling_degree", "dimensionless", "Number of days on which cooling was required."),
@@ -303,7 +308,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Relative humidity of the air, the fraction of the moisture it could hold at that temperature.",
     ),
     CanonicalParameter(
-        "humidity_absolute", "dimensionless", "Absolute humidity, the mass of water vapour per volume of air."
+        "humidity_absolute", "mass_per_volume", "Absolute humidity, the mass of water vapour per volume of air."
     ),
     CanonicalParameter("humidity_max", "fraction", "Highest relative humidity over the period."),
     CanonicalParameter("humidity_min", "fraction", "Lowest relative humidity over the period."),
