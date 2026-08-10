@@ -19,7 +19,7 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
     assert unit_converter_targets_defaults == {
         "angle": "degree",
         "concentration": "milligram_per_liter",
-        "conductivity": "siemens_per_meter",
+        "conductivity": "microsiemens_per_centimeter",
         "dimensionless": "dimensionless",
         "energy_per_area": "joule_per_square_centimeter",
         "fraction": "decimal",

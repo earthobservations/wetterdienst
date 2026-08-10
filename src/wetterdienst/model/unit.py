@@ -139,7 +139,10 @@ class UnitConverter:
             "concentration": self.units["concentration"][0],
             # g/m³ is the convention for water vapour in air, and numerically identical to mg/l
             "mass_per_volume": self.units["mass_per_volume"][2],
-            "conductivity": self.units["conductivity"][3],
+            # µS/cm is the convention in hydrology and water quality, and what the sources publish;
+            # S/m is a large enough unit that rounding to 4 decimals leaves river values with one
+            # or two significant figures
+            "conductivity": self.units["conductivity"][0],
             "dimensionless": self.units["dimensionless"][0],
             "energy_per_area": self.units["energy_per_area"][0],
             # W/m² is what every source publishes irradiance in, and what WMO specifies
