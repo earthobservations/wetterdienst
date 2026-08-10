@@ -131,8 +131,9 @@ class UnitConverter:
                 Unit("degree_fahrenheit_hour", "°Fh"),
             ],
         }
-        # dict of target unit types and their default unit, default is the first unit in the list, can be changed with
-        # update_targets
+        # dict of target unit types and the unit values of that type are returned in. Usually the
+        # first unit in the list, but not always -- where a different one is conventional it is
+        # picked by index and the reason given inline. Overridable per type with update_targets.
         self.targets: dict[str, Unit] = {
             "angle": self.units["angle"][0],
             "concentration": self.units["concentration"][0],
