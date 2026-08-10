@@ -22,7 +22,7 @@ Types of changes:
   version its specifier allows (`UV_RESOLUTION=lowest-direct`) and runs the test suite against it,
   so that declared floors are actually exercised
 - Canonical parameter table (`wetterdienst.metadata.parameter_table`) holding the `unit_type` of
-  each of the 504 canonical parameter names in one place, plus a test that checks every provider
+  each of the 505 canonical parameter names in one place, plus a test that checks every provider
   declaration against it — that the name is canonical and that the declared `unit` is a unit of
   that quantity. The table is now the single source of `unit_type`; see below
 - New canonical parameters `radiation_global_intensity`, `radiation_sky_long_wave_intensity` and
@@ -31,7 +31,7 @@ Types of changes:
 - Docs: a parameter glossary on the Parameters page, built from the canonical parameter table at
   build time by the local Sphinx extension `docs/_ext/parameter_glossary.py`. Every parameter in
   every provider's metadata table now links to its glossary entry
-- `wetterdienst.metadata.unit_type.UnitType`, a literal of the 23 unit types the unit converter
+- `wetterdienst.metadata.unit_type.UnitType`, a literal of the unit types the unit converter
   knows. `CanonicalParameter.unit_type` is typed with it, so a mistyped unit type in the parameter
   table is a type error rather than something only a test can catch. A test pins the literal to
   `UnitConverter` in both directions, since the converter builds its unit types as a runtime dict
@@ -44,14 +44,14 @@ Types of changes:
 - Parameter discovery across all three interfaces: `GET /api/glossary`, the `glossary` MCP tool and
   `wetterdienst about glossary`. `coverage` answers which parameters a given provider offers; the
   glossary answers what any of them measures and which unit it comes back in — neither of which
-  `coverage` reports. Filter with `parameter=` (substring match over the 504 names), `unit_type=`
+  `coverage` reports. Filter with `parameter=` (substring match over the 505 names), `unit_type=`
   (a closed vocabulary, so an unknown one is a 422 or a CLI usage error rather than an empty
   result) and `limit=` to cap the response. The unit reported is the one a values request would
   actually return, including any `ts_unit_targets` override. This is what puts the canonical
   descriptions in front of users rather than only in the docs. A filter matching nothing is an
   empty list over HTTP and a non-zero exit on the CLI, the latter following grep so a shell script
   can tell
-- A one-sentence description for all 504 canonical parameters, so the glossary now says what each
+- A one-sentence description for all 505 canonical parameters, so the glossary now says what each
   quantity *is* rather than only which unit it comes back in — that soil temperatures are at a
   stated depth under a stated cover, that `wind_movement_24h` is wind run, that
   `radiation_global` is accumulated energy while `radiation_global_intensity` is power. They are
@@ -160,14 +160,22 @@ Types of changes:
   (separately captured `stderr` in `CliRunner`)
 - Raise the development tooling floors to the versions we develop against, so that the minimum
   versions job only exercises runtime dependency floors
-- **Breaking**: ECCC daily and hourly `cooling_degree_days` and `heating_degree_days` were mapped
-  onto the canonical names `count_days_cooling_degree` and `count_days_heating_degree`, which mean
-  a number of days. ECCC publishes the degree day total for the single day the record covers, so
-  the values were degree days labelled as a count of days — for station 2 on 1979-11-02 the mean
-  temperature is 6.3 °C and the reported value is 11.7, which is `18 - 6.3` and not any count.
-  They now use the canonical names `heating_degree_day` and the new `cooling_degree_day`, in °Cd.
-  The values are unchanged; queries using the old names against ECCC need to switch. DWD keeps
-  both quantities under their own names, and is unaffected
+- **Breaking**: ECCC daily `cooling_degree_days` and `heating_degree_days` were mapped onto the
+  canonical names `count_days_cooling_degree` and `count_days_heating_degree`, which mean a number
+  of days. ECCC publishes the degree day total for the single day the record covers, so the values
+  were degree days labelled as a count of days — for station 2 on 1979-11-02 the mean temperature
+  is 6.3 °C and the reported value is 11.7, which is `18 - 6.3` and not any count. They now use
+  the canonical names `heating_degree_day` and the new `cooling_degree_day`, in °Cd. The values
+  are unchanged; queries using the old names against ECCC need to switch. DWD keeps both
+  quantities under their own names, and is unaffected. The same two declarations exist in the
+  ECCC *hourly* block and were renamed with them, but that block declares the daily field list
+  wholesale and the hourly collection publishes none of those fields, so nothing there returns
+  data either way — see below
+- **Breaking**: ECCC `wind_direction_gust_max` is returned in degrees rather than tens of degrees.
+  ECCC publishes `DIRECTION_MAX_GUST` in tens — its own docs call the column
+  `Dir of Max Gust (10s deg)` — and the declaration said `degree`, so every bearing came back 10×
+  too small: 17–26 across a sample where the true directions are 170–260. Because the wrong values
+  still sit inside 0–360, no range check could have caught it. Found while auditing the same file
 - DWD `humidity_absolute` (`absf_std`) was declared `dimensionless`. It is a mass of water vapour
   per volume of air, published in g/m³ — station 00433 reads 1.6 to 19.1. It now uses the new
   `mass_per_volume` unit type, so it is labelled g/m³ and can be converted. The values are

@@ -25,8 +25,8 @@
 
 | name                                | original name             | description                         | unit | constraints |
 |-------------------------------------|---------------------------|-------------------------------------|------|-------------|
-| {term}`cooling_degree_day`          | cool deg days (°c)        | cooling degree days                 | °Cd  | >=0         |
-| {term}`heating_degree_day`          | heat deg days (°c)        | heating degree days                 | °Cd  | >=0         |
+| {term}`cooling_degree_day`          | cooling_degree_days       | cooling degree days                 | °Cd  | >=0         |
+| {term}`heating_degree_day`          | heating_degree_days       | heating degree days                 | °Cd  | >=0         |
 | {term}`precipitation_height`        | total precip (mm)         | total precipitation                 | mm   | >=0         |
 | {term}`precipitation_height_liquid` | total rain (mm)           | total liquid precipitation          | mm   | >=0         |
 | {term}`snow_depth`                  | snow on grnd (cm)         | total snow depth                    | cm   | >=0         |
@@ -34,5 +34,5 @@
 | {term}`temperature_air_max_2m`      | max temp (°c)             | daily maximum 2m air temperature    | °C   | -           |
 | {term}`temperature_air_mean_2m`     | mean temp (°c)            | daily mean 2m air temperature       | °C   | -           |
 | {term}`temperature_air_min_2m`      | min temp (°c)             | daily minimum 2m air temperature    | °C   | -           |
-| {term}`wind_direction_gust_max`     | dir of max gust (10s deg) | wind direction of maximum wind gust | °    | >=0,<=360   |
+| {term}`wind_direction_gust_max`     | direction_max_gust        | wind direction of maximum wind gust | °    | >=0,<=360   |
 | {term}`wind_gust_max`               | spd of max gust (km/h)    | maximum wind gust                   | km/h | >=0         |
