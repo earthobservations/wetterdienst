@@ -194,7 +194,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Number of days with wind reaching at least Beaufort 6.",
     ),
     CanonicalParameter("count_weather_type_thunder", "dimensionless", "Number of days on which thunder was heard."),
-    CanonicalParameter("current", "magnetic_field_intensity", "Strength of the measured current."),
     CanonicalParameter("discharge", "volume_per_time", "Volume of water passing the gauge per unit of time."),
     CanonicalParameter("discharge_max", "volume_per_time", "Highest discharge observed over the period."),
     CanonicalParameter("discharge_mean", "volume_per_time", "Mean discharge over the period."),
@@ -271,6 +270,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "evapotranspiration_potential_last_24h",
         "precipitation",
         "Potential evapotranspiration in the preceding 24 hours.",
+    ),
+    CanonicalParameter(
+        "flow_direction",
+        "angle",
+        "Direction the water current is flowing towards, clockwise from magnetic north.",
     ),
     CanonicalParameter("flow_speed", "speed", "Speed at which the water is flowing past the gauge."),
     CanonicalParameter(
@@ -1670,7 +1674,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "length_short",
         "Significant wave height, the mean height of the highest third of the waves.",
     ),
-    CanonicalParameter("wave_period", "wave_period", "Mean time between successive wave crests."),
+    CanonicalParameter("wave_period", "time", "Mean time between successive wave crests."),
     CanonicalParameter("weather", "dimensionless", "Coded present weather at the time of observation."),
     CanonicalParameter("weather_last_6h", "dimensionless", "Coded weather observed over the preceding 6 hours."),
     CanonicalParameter(

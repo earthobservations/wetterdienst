@@ -351,7 +351,13 @@ class TimeseriesValues(ABC):
                     station_id=station_id,
                     parameter_or_dataset=parameter,
                 )
-                data.append(df)
+                # a parameter with no data for this station yields a bare frame with no columns,
+                # which cannot be concatenated with the populated ones -- polars raises
+                # "unable to append to a DataFrame of width 6 with a DataFrame of width 0". It
+                # contributes no rows either way, so drop it rather than let one absent parameter
+                # fail the whole request.
+                if not df.is_empty():
+                    data.append(df)
             df = pl.concat(data) if data else pl.DataFrame()
         if df.is_empty():
             return df

@@ -103,6 +103,28 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: WSV Pegelonline values are now scaled to the unit the metadata declares. The service
+  publishes the unit per *timeseries*, not per parameter, and its stations disagree, so a single
+  declaration was silently wrong wherever a station differed. Water level is `cm` at most gauges but
+  `m+NN` at 66 of them and `m+PNP` at 2; conductivity `µS/cm` or `mS/cm`; flow speed `m/s` or
+  `cm/s`; wave height `cm` or `m`; wave period `s` or `1/100s`. Significant wave height at
+  MELLUMPLATE came back as 0.07–1.32 next to 12.66–280.6 at LT ALTE WESER for the same quantity,
+  both labelled cm. Affected values change by the corresponding factor. A station publishing a unit
+  the provider does not know is now skipped with an error rather than reported under the wrong one.
+  Note that the `m+NN` gauges have no gauge zero and so measure against sea level rather than the
+  gauge datum even once scaled — the `gauge_zero` station column says which
+- **Breaking**: WSV `current` is renamed `flow_direction` and returned in degrees. The source gives
+  it the unit `MGN`, degrees relative to magnetic north, which had been read as a magnetic quantity
+  and declared as magnetic field strength in A/m; the values are compass bearings of 0–360
+- **Breaking**: WSV `wave_period` is returned in seconds. It was declared with a `wave_period` unit
+  whose symbol was `1/s`, a frequency rather than a duration, and carried a `TODO` questioning it
+- **Breaking**: WSV `clearance_height` is returned in centimetres. It was declared in metres while
+  every station publishes centimetres, so values were 100× too large
+- Requesting several parameters at once no longer fails when one of them has no data for the
+  station. Concatenating the empty result raised `polars.exceptions.ShapeError: unable to append to
+  a DataFrame of width 6 with a DataFrame of width 0`; the empty frame is skipped instead. This
+  affected every provider that reports parameters separately rather than grouped
+
 - The three new `radiation_*_intensity` parameters are now listed in
   `TimeseriesRequest.interpolatable_parameters`. Without them, `interpolate()` and `summarize()`
   silently dropped the renamed radiation parameters for the affected providers
@@ -119,6 +141,9 @@ Types of changes:
 
 ### Removed
 
+- The `magnetic_field_intensity` and `wave_period` unit types. Each existed for exactly one
+  parameter, and both of those turned out to be mis-typed: WSV `current` is a bearing in degrees and
+  WSV `wave_period` is a duration in seconds, so neither unit type has anything left to describe
 - **Breaking**: the `Parameter` enum, exported from the package root. It listed the canonical
   parameter names but could not be used to request them — `parameters=` accepts strings, tuples,
   `ParameterModel` and `DatasetModel`, so passing a member raised
