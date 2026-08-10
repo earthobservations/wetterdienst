@@ -22,18 +22,37 @@ def test_wsv_source_unit_factors_are_identity_for_the_declared_unit() -> None:
         for dataset in resolution
         for parameter in dataset.parameters
     }
+    # the source's spelling of each declared unit; a declared unit missing here is a KeyError
+    # rather than a silent skip, so this cannot go stale unnoticed
     unit_names = {
-        "centimeter": ("cm",),
-        "meter_per_second": ("m/s",),
-        "microsiemens_per_centimeter": ("µS/cm",),
-        "second": ("s",),
+        "centimeter": "cm",
+        "meter_per_second": "m/s",
+        "microsiemens_per_centimeter": "µS/cm",
+        "nephelometric_turbidity": "NTU",
+        "second": "s",
     }
     for name_original, factors in _SOURCE_UNIT_FACTORS.items():
-        source_units = unit_names[declared[name_original]]
-        identity = [unit for unit in source_units if unit in factors]
-        assert identity, f"{name_original}: no source unit matches the declared {declared[name_original]}"
-        for unit in identity:
-            assert factors[unit] == 1.0, f"{name_original}: {unit} is the declared unit but is scaled"
+        source_unit = unit_names[declared[name_original]]
+        assert source_unit in factors, f"{name_original}: no source unit matches the declared unit"
+        assert factors[source_unit] == 1.0, f"{name_original}: {source_unit} is the declared unit but is scaled"
+
+
+def test_wsv_source_unit_factors_convert_the_other_units_correctly() -> None:
+    """Test the factors that actually rescale, which the identity check above cannot reach.
+
+    A typo in one of these is the failure mode this whole mechanism exists to prevent, and it would
+    be invisible: the value is simply wrong by a power of ten at the minority of stations.
+    """
+    expected = {
+        "W": {"cm": 1.0, "m+NN": 100.0, "m+PNP": 100.0},  # metres above a datum -> centimetres
+        "LF": {"µS/cm": 1.0, "mS/cm": 1000.0},  # 1 mS == 1000 µS
+        "VA": {"m/s": 1.0, "cm/s": 0.01},
+        "SIGH": {"cm": 1.0, "m": 100.0},
+        "MAXH": {"cm": 1.0, "m": 100.0},
+        "TP": {"s": 1.0, "1/100s": 0.01},  # hundredths of a second -> seconds
+        "TR": {"NTU": 1.0, "FNU": 1.0, "TE/F": 1.0},  # one formazin scale under three names
+    }
+    assert expected == _SOURCE_UNIT_FACTORS
 
 
 @pytest.mark.remote
@@ -118,7 +137,7 @@ def test_wsv_multiple_parameters_with_missing_data() -> None:
     # flow_direction has no data at this station while the other two do, which is the whole point:
     # the empty one must not take the populated ones down with it
     assert not df.is_empty()
-    assert "sigh" in df.get_column("parameter").unique().to_list()
+    assert "wave_height_sign" in df.get_column("parameter").unique().to_list()
 
 
 def test_wsv_source_units_are_not_cached_when_the_listing_is_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -129,11 +148,25 @@ def test_wsv_source_units_are_not_cached_when_the_listing_is_unreachable(monkeyp
     """
     from io import BytesIO  # noqa: PLC0415
 
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
     from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+    from wetterdienst.provider.wsv.pegel.api import WsvPegelValues  # noqa: PLC0415
     from wetterdienst.util.network import File, NoInternetError  # noqa: PLC0415
 
-    values = WsvPegelRequest(parameters=[("dynamic", "data", "stage")]).all().values
-    settings = values.sr.stations.settings
+    # deliberately not `.all()`: that eagerly downloads the 1.2 MB station listing, which would
+    # make this a network test in all but the marker
+    request = WsvPegelRequest(parameters=[("dynamic", "data", "stage")])
+    values = WsvPegelValues(
+        sr=StationsResult(
+            stations=request,
+            df=pl.DataFrame(),
+            df_all=pl.DataFrame(),
+            stations_filter=StationsFilter.ALL,
+        ),
+    )
+    settings = request.settings
 
     monkeypatch.setattr(
         api,

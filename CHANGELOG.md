@@ -120,10 +120,27 @@ Types of changes:
   whose symbol was `1/s`, a frequency rather than a duration, and carried a `TODO` questioning it
 - **Breaking**: WSV `clearance_height` is returned in centimetres. It was declared in metres while
   every station publishes centimetres, so values were 100× too large
+- **Breaking**: WSV parameter names are humanized like every other provider's. The parser wrote the
+  source name lowercased while the humanizing map is keyed on it as declared, so the two never
+  matched and values came back as `sigh`, `tp` and `r` rather than `wave_height_sign`,
+  `wave_period` and `flow_direction`. Unit conversion keys case-insensitively and was unaffected,
+  which is why this went unnoticed. With `ts_humanize=False` the names are now the source's own
+  casing (`SIGH`) rather than lowercased (`sigh`)
+- WSV `gauge_zero` is populated rather than always null. The station frame built the column as
+  `gauge_datum`, which `_base_columns` then dropped, leaving `gauge_zero` null for all 738
+  stations. This is the column that says which datum a water level is on, so it matters most for
+  exactly the `m+NN` gauges above
+- WSV turbidity is checked against the station's own unit like the other scaled parameters. The
+  service publishes `TR` as `FNU` at two stations, `TE/F` at two and `NTU` at one; all three name
+  the same formazin scale so no value changes, but a turbidity unit that is *not* on that scale is
+  now skipped rather than passed through as NTU
 - Requesting several parameters at once no longer fails when one of them has no data for the
   station. Concatenating the empty result raised `polars.exceptions.ShapeError: unable to append to
   a DataFrame of width 6 with a DataFrame of width 0`; the empty frame is skipped instead. This
-  affected every provider that reports parameters separately rather than grouped
+  affected every provider that reports parameters separately rather than grouped. Note that a
+  parameter whose *download* fails is indistinguishable from one that simply has no data at this
+  point — both surface as an empty frame — so such a parameter is now omitted from the result
+  rather than failing the whole request with the `ShapeError` above
 
 - The three new `radiation_*_intensity` parameters are now listed in
   `TimeseriesRequest.interpolatable_parameters`. Without them, `interpolate()` and `summarize()`

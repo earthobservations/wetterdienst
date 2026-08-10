@@ -35,13 +35,17 @@ FLOAT_9_TIMES = tuple[
 ]
 
 
-_STATIONS_ENDPOINT = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true&includeCharacteristicValues=true"
+_STATIONS_ENDPOINT = (
+    "https://pegelonline.wsv.de/webservices/rest-api/v2/"
+    "stations.json?includeTimeseries=true&includeCharacteristicValues=true"
+)
 
 # Pegelonline publishes the unit per timeseries rather than per parameter, and stations disagree,
 # so the declared unit in the metadata below is the unit values are scaled *to*. Each entry maps
-# every source unit the service is known to use onto that declared unit. A parameter absent from
-# this table is published in one unit everywhere; a unit absent from an entry is unhandled and the
-# series is skipped rather than reported under the wrong unit.
+# every source unit the service is known to use onto that declared unit. A unit absent from an
+# entry is unhandled and the series is skipped rather than reported under the wrong unit. Every
+# parameter observed with more than one source unit is listed here; the rest were checked once and
+# published one unit everywhere, so a table entry would only ever be an identity.
 #
 # `m+NN` is metres above sea level and is used by the 66 gauges that have no gauge zero, so the
 # datum differs from the cm gauges even after scaling -- see the `gauge_zero` station column.
@@ -52,6 +56,10 @@ _SOURCE_UNIT_FACTORS: dict[str, dict[str, float]] = {
     "SIGH": {"cm": 1.0, "m": 100.0},
     "MAXH": {"cm": 1.0, "m": 100.0},
     "TP": {"s": 1.0, "1/100s": 0.01},
+    # FNU and TE/F are the infrared and German names for the same formazin scale as NTU, so they
+    # need no scaling; they are listed so that a turbidity unit that is *not* on that scale is
+    # skipped rather than passed through
+    "TR": {"NTU": 1.0, "FNU": 1.0, "TE/F": 1.0},
 }
 
 
@@ -295,7 +303,11 @@ class WsvPegelValues(TimeseriesValues):
         return df.with_columns(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
-            pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
+            # not lowercased: `_create_humanized_parameters_mapping` keys on `name_original` as
+            # declared, so a lowercased value never matched and WSV silently never humanized --
+            # values came back as `sigh` and `r` rather than `wave_height_sign` and
+            # `flow_direction`. Unit conversion keys case-insensitively and is unaffected.
+            pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
             (pl.col("value") * factor) if factor != 1.0 else pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
@@ -409,7 +421,9 @@ class WsvPegelRequest(TimeseriesRequest):
             pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
             pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
             pl.all().exclude(["timeseries", "ts", "ts_water"]),
-            pl.col("ts_water").struct.field("gaugeZero").struct.field("value").alias("gauge_datum"),
+            # must match the name in `_base_columns`, or the reindex there drops it and leaves an
+            # all-null `gauge_zero` -- which is the column that says which datum a stage is on
+            pl.col("ts_water").struct.field("gaugeZero").struct.field("value").alias("gauge_zero"),
             pl.col("ts_water")
             .struct.field("characteristicValues")
             .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "M_I"))
