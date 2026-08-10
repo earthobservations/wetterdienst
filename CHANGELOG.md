@@ -154,13 +154,6 @@ Types of changes:
   target, every conductivity value the library returned was affected: WSV at station 71160198 read
   0.0021 S/m where the correct figure is 0.2059. Only the two pairs the tests happened to cover
   (µS/m ↔ S/m) were right. All 12 pairs are now checked against 1 µS/cm = 10⁻⁴ S/m
-- **Breaking**: conductivity conversions between per-centimetre and per-metre units were wrong, 8
-  of the 12 pairs by 10²–10⁴. Conductivity is per unit *length*, so a shorter length in the
-  denominator means a larger number — 1 S/cm is 100 S/m, not 1/100 of one — and the conversions
-  had that inverted on top of mishandling the µ prefix. Since `siemens_per_meter` was the default
-  target, every conductivity value the library returned was affected: WSV at station 71160198 read
-  0.0021 S/m where the correct figure is 0.2059. Only the two pairs the tests happened to cover
-  (µS/m ↔ S/m) were right. All 12 pairs are now checked against 1 µS/cm = 10⁻⁴ S/m
 - **Breaking**: conductivity is returned in µS/cm rather than S/m. That is the convention in
   hydrology and water quality and what the sources publish, and S/m is a large enough unit that
   rounding to 4 decimals cost real precision — 8.481 µS/cm came back as `0.0008`, a single
