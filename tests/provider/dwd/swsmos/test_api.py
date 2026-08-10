@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos.api import DwdForecastDate, _read_run_csv, _run_url
@@ -57,7 +59,13 @@ def test_issue_string_parsed_to_utc_hour() -> None:
 # time-dependent; assert structure/ranges. xfail on outage matches the DWD/CHMI precedent.
 # ---------------------------------------------------------------------------
 
-xfail_if_dwd_unavailable = pytest.mark.xfail(strict=False, reason="DWD opendata intermittently unavailable")
+# scoped to the ways an upstream failure now reaches us: the providers raise transport errors
+# instead of returning an empty frame, so an AssertionError here is our bug, not theirs
+xfail_if_dwd_unavailable = pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="DWD opendata intermittently unavailable",
+)
 
 
 @pytest.mark.remote

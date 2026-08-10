@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.aemet.observation.api import (
@@ -35,7 +37,13 @@ requires_aemet_credentials = pytest.mark.skipif(
 # provider's own (deliberately modest) retry budget -- see api.py. Same treatment as ECCC
 # elsewhere in this test suite: xfail rather than skip, so a pass is still recorded when
 # AEMET is up, but a failure here doesn't block CI/merges on AEMET's own availability.
-xfail_if_aemet_unavailable = pytest.mark.xfail(strict=False, reason="AEMET server intermittently unavailable")
+# scoped to the ways an upstream failure now reaches us: the providers raise transport errors
+# instead of returning an empty frame, so an AssertionError here is our bug, not theirs
+xfail_if_aemet_unavailable = pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="AEMET server intermittently unavailable",
+)
 
 
 @pytest.mark.remote
@@ -302,14 +310,16 @@ def test_aemet_observation_daily_normalizes_non_utc_start_end_date_to_utc(monkey
         if "todasestaciones" in url:
             return station_payload
         captured_urls.append(url)
-        return Exception("stop after capturing the request URL")
+        # a routine absence rather than a bare Exception: a transport failure is now raised
+        # instead of swallowed, and only the URL matters here
+        return FileNotFoundError("stop after capturing the request URL")
 
     monkeypatch.setattr("wetterdienst.provider.aemet.observation.api._fetch_datos", fake_fetch_datos)
 
     madrid = ZoneInfo("Europe/Madrid")
     with contextlib.suppress(ValueError):
         # ValueError("cannot concat empty list"): expected, since the daily fetch above
-        # deliberately fails after capturing the URL -- only the URL matters here.
+        # deliberately reports no data after capturing the URL -- only the URL matters here.
         AemetObservationRequest(
             parameters=[("daily", "data")],
             start_date=dt.datetime(2020, 1, 1, 0, 30, tzinfo=madrid),

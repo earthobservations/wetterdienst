@@ -101,9 +101,12 @@ class DwdSwsmosValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a run that has not been published yet has no file, which is a 404 and routine; a
+        # timeout or a 5xx is not, and must not be reported as "no forecast for this run"
+        file.raise_unless_absent()
         if isinstance(file.content, Exception):
             if not file.is_no_internet_error:
-                log.warning(f"Failed to fetch SWSMOS run {url}: {file.content}")
+                log.debug(f"No SWSMOS run {url}: {file.content}")
             return None
         return file.content.read()
 
@@ -180,8 +183,11 @@ class DwdSwsmosRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a catalogue that failed to download is not an empty catalogue -- only a missing
+        # connection stays soft
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to fetch SWSMOS station catalogue: {file.content}")
+            log.warning("No internet connection while fetching the SWSMOS station catalogue")
             return pl.LazyFrame()
         # the catalogue is latin-1 encoded (German station names carry umlauts)
         catalogue = bz2.decompress(file.content.read()).decode("latin-1").encode("utf-8")

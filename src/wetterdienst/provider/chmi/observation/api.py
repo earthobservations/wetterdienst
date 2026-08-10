@@ -146,8 +146,11 @@ class ChmiObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a station that does not measure an element (or has no data for a month) has no file,
+        # which is a 404 and routine; a timeout or a 5xx is not, and must not be reported as
+        # "this station has nothing"
+        file.raise_unless_absent()
         if isinstance(file.content, Exception):
-            # a station that does not measure an element (or has no data for a month) has no file
             if not file.is_no_internet_error:
                 log.debug(f"No CHMI file {url} for station {station_id}: {file.content}")
             return None
@@ -256,8 +259,12 @@ class ChmiObservationRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a catalogue that failed to download is not an empty catalogue -- returning one
+        # turns an outage into "this provider has no stations", which no caller can tell
+        # apart from the real thing. Only a missing connection stays soft.
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to fetch CHMI station catalogue: {file.content}")
+            log.warning("No internet connection while fetching the CHMI station catalogue")
             return pl.LazyFrame()
         stations = parse_chmi_stations(file.content.read())
         if stations.is_empty():

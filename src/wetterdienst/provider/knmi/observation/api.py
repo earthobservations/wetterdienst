@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 import stamina
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -228,9 +229,12 @@ class KnmiObservationValues(TimeseriesValues):
             filename = _filename_for(resolution, moment)
             payload = _fetch_netcdf(dataset_name, version, filename, settings)
             if isinstance(payload, Exception):
-                # a single missing/failed timestamp shouldn't sink the whole range --
-                # rate-limit/transient retries (if applicable) are already exhausted here.
-                log.warning(f"Failed to acquire KNMI data for station {station_id}, file {filename}: {payload}")
+                # a missing timestamp is routine and shouldn't sink the whole range, but a timeout
+                # or a rate limit is not the same thing as "that moment has no data" -- returning
+                # rows for some moments and silently none for others is worse than failing
+                if not isinstance(payload, (FileNotFoundError, NoInternetError)):
+                    raise payload
+                log.debug(f"No KNMI data for station {station_id}, file {filename}: {payload}")
                 continue
             df = parse_knmi_netcdf(payload, station_id, parameter_names, moment)
             if not df.is_empty():
@@ -353,11 +357,18 @@ class KnmiObservationRequest(TimeseriesRequest):
         dataset_name, version = _DATASET_BY_RESOLUTION[resolution]
         filename = _latest_filename(dataset_name, version, settings)
         if isinstance(filename, Exception):
-            log.warning(f"Failed to look up latest KNMI {resolution.value} file: {filename}")
+            # without the listing there is no station inventory at all, so this is fatal for the
+            # same reason the catalogue below is; only a missing connection stays soft
+            if not isinstance(filename, NoInternetError):
+                raise filename
+            log.warning(f"No internet connection while looking up the latest KNMI {resolution.value} file")
             return None
         payload = _fetch_netcdf(dataset_name, version, filename, settings)
         if isinstance(payload, Exception):
-            log.warning(f"Failed to fetch KNMI {resolution.value} stations: {payload}")
+            # an empty station list is never a correct answer, so only a missing connection is soft
+            if not isinstance(payload, NoInternetError):
+                raise payload
+            log.warning(f"No internet connection while fetching KNMI {resolution.value} stations")
             return None
 
         import h5netcdf  # noqa: PLC0415

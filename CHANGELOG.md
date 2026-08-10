@@ -108,6 +108,20 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: a failed download is no longer reported as "there is no data". AEMET, CHMI, FMI,
+  IPMA, KNMI, LHMT, SMHI and DWD SWSMOS all logged a warning and returned an empty frame when a
+  request timed out, hit a rate limit or got a 5xx, which is indistinguishable from a station that
+  genuinely has nothing — a whole-provider outage came back as an empty result rather than an
+  error. Those failures now raise. A 404 stays routine, because providers use it to mean "this
+  station does not report this parameter", and a missing internet connection stays soft; the
+  distinction is `File.raise_unless_absent` for data requests against `File.raise_if_exception`
+  for a station catalogue, where an empty answer is never correct either. Code that relied on an
+  empty frame during an outage now sees the exception instead
+- The eight remaining `xfail` markers for live third-party services name the exceptions they
+  tolerate rather than tolerating everything. That only became possible with the change above:
+  while an outage arrived as an empty frame, the test failed with an `AssertionError` that no
+  marker could tell apart from a real regression
+
 - **Breaking**: WSV Pegelonline values are now scaled to the unit the metadata declares. The service
   publishes the unit per *timeseries*, not per parameter, and its stations disagree, so a single
   declaration was silently wrong wherever a station differed. Water level is `cm` at most gauges but

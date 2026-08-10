@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import stamina
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -274,7 +275,11 @@ class AemetObservationValues(TimeseriesValues):
         url = self._endpoint_realtime.format(station_id=station_id)
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
         if isinstance(payload, Exception):
-            log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
+            # a 404 means this station has nothing for the window, which is routine; a timeout or
+            # an exhausted rate limit does not, and an empty frame there reports an outage as data
+            if not isinstance(payload, (FileNotFoundError, NoInternetError)):
+                raise payload
+            log.debug(f"No AEMET data for station {station_id}, chunk {url}: {payload}")
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         records = json.loads(payload.decode("latin-1"))
         if not records:
@@ -320,9 +325,12 @@ class AemetObservationValues(TimeseriesValues):
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             if isinstance(payload, Exception):
-                # rate-limit retries (if applicable) are already exhausted at this point,
-                # so this chunk's data is genuinely missing from the result.
-                log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
+                # rate-limit retries are already exhausted here, so a non-404 failure means this
+                # chunk is missing from a result that will otherwise look complete -- raise rather
+                # than return a partial series nobody can tell from a short one
+                if not isinstance(payload, (FileNotFoundError, NoInternetError)):
+                    raise payload
+                log.debug(f"No AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
@@ -386,7 +394,9 @@ class AemetObservationValues(TimeseriesValues):
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             if isinstance(payload, Exception):
-                log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
+                if not isinstance(payload, (FileNotFoundError, NoInternetError)):
+                    raise payload
+                log.debug(f"No AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
@@ -466,7 +476,10 @@ class AemetObservationRequest(TimeseriesRequest):
         settings = cast("Settings", self.settings)
         payload = _fetch_datos(self._endpoint, settings, CacheExpiry.METAINDEX)
         if isinstance(payload, Exception):
-            log.warning(f"Failed to fetch AEMET stations: {payload}")
+            # an empty station list is never a correct answer, so only a missing connection is soft
+            if not isinstance(payload, NoInternetError):
+                raise payload
+            log.warning("No internet connection while fetching AEMET stations")
             return pl.LazyFrame()
 
         df = pl.DataFrame(json.loads(payload.decode("latin-1")))

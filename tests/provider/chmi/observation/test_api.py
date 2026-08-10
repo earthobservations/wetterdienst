@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation.parser import (
@@ -105,7 +107,13 @@ def test_parse_chmi_values_aggregate_annual_has_no_month() -> None:
 
 # CHMI's open-data portal is a live third-party service; xfail rather than a hard failure keeps a
 # transient blip from blocking CI/merges, matching the AEMET/FMI precedent.
-xfail_if_chmi_unavailable = pytest.mark.xfail(strict=False, reason="CHMI server intermittently unavailable")
+# scoped to the ways an upstream failure now reaches us: the providers raise transport errors
+# instead of returning an empty frame, so an AssertionError here is our bug, not theirs
+xfail_if_chmi_unavailable = pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="CHMI server intermittently unavailable",
+)
 
 
 def _values(resolution: str, start: dt.datetime, end: dt.datetime) -> pl.DataFrame:

@@ -191,12 +191,12 @@ class FmiObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a station reporting no data for a window yields an empty (200) response, so any exception
+        # here is a real transport/HTTP failure rather than an absence -- raise it instead of
+        # returning the same empty frame a genuinely quiet station would produce
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            # a station reporting no data for a window yields an empty (200) response, so any
-            # exception here is a real transport/HTTP failure; NoInternetError is already logged
-            # at debug upstream.
-            if not file.is_no_internet_error:
-                log.warning(f"Failed to fetch FMI data for station {station_id}: {file.content}")
+            log.warning(f"No internet connection while fetching FMI data for station {station_id}")
             return pl.DataFrame(
                 schema={
                     "date": pl.Datetime(time_unit="us", time_zone="UTC"),
@@ -239,8 +239,12 @@ class FmiObservationRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a catalogue that failed to download is not an empty catalogue -- returning one
+        # turns an outage into "this provider has no stations", which no caller can tell
+        # apart from the real thing. Only a missing connection stays soft.
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to fetch FMI station catalogue: {file.content}")
+            log.warning("No internet connection while fetching the FMI station catalogue")
             return pl.LazyFrame()
         stations = parse_fmi_stations(file.content.read())
         if stations.is_empty():

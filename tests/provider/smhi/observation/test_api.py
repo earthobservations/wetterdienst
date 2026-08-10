@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.provider.smhi.observation import SmhiObservationRequest
 
@@ -16,7 +18,13 @@ UTC = ZoneInfo("UTC")
 # SMHI's live service has not been observed to be chronically flaky the way AEMET/Frost
 # have been, but it's a live third-party API like any other -- xfail rather than a hard
 # failure keeps a transient blip from blocking CI/merges, matching the AEMET/ECCC precedent.
-xfail_if_smhi_unavailable = pytest.mark.xfail(strict=False, reason="SMHI server intermittently unavailable")
+# scoped to the ways an upstream failure now reaches us: the providers raise transport errors
+# instead of returning an empty frame, so an AssertionError here is our bug, not theirs
+xfail_if_smhi_unavailable = pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="SMHI server intermittently unavailable",
+)
 
 
 @pytest.mark.remote

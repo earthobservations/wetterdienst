@@ -80,6 +80,24 @@ class File:
         if isinstance(self.content, Exception):
             raise self.content
 
+    def raise_unless_absent(self) -> None:
+        """Raise unless the download failed in a way the caller may treat as "there is no data".
+
+        A 404 is a legitimate answer for a per-station or per-parameter request -- not every station
+        reports every parameter -- and a missing internet connection is handled softly everywhere.
+        Anything else (a timeout, a rate limit, a 5xx) means the data may well exist and we simply
+        did not get it. Returning an empty frame there is what makes a server outage indistinguishable
+        from "this station has nothing", which hides the outage from the caller and, in the test
+        suite, from anyone reading a red build.
+
+        Use this for data requests. Use ``raise_if_exception`` for a station catalogue, where a 404
+        is not routine either: an empty station list is never a correct answer.
+        """
+        if isinstance(self.content, (NoInternetError, FileNotFoundError)):
+            return
+        if isinstance(self.content, Exception):
+            raise self.content
+
     @property
     def is_no_internet_error(self) -> bool:
         """Check if the content is a NoInternetError."""

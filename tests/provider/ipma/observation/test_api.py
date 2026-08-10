@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
 from wetterdienst.provider.ipma.observation.parser import (
@@ -123,7 +125,13 @@ def test_parse_ipma_observations_skips_absent_station() -> None:
 # outage keeps a transient blip from blocking CI, matching the CHMI/AEMET precedent.
 # ---------------------------------------------------------------------------
 
-xfail_if_ipma_unavailable = pytest.mark.xfail(strict=False, reason="IPMA API intermittently unavailable")
+# scoped to the ways an upstream failure now reaches us: the providers raise transport errors
+# instead of returning an empty frame, so an AssertionError here is our bug, not theirs
+xfail_if_ipma_unavailable = pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="IPMA API intermittently unavailable",
+)
 
 
 @pytest.mark.remote

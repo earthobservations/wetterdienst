@@ -9,6 +9,7 @@ from typing import get_args
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError
 from fsspec.exceptions import FSTimeoutError
 from pydantic import ValidationError
 
@@ -773,7 +774,11 @@ def test_api_meteoswiss_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail(strict=False, reason="AEMET server intermittently unavailable")
+@pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="AEMET server intermittently unavailable",
+)
 @pytest.mark.remote
 @pytest.mark.skipif(
     not AemetObservationRequest.is_configured(),
@@ -801,7 +806,11 @@ def test_api_aemet_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail(strict=False, reason="CHMI server intermittently unavailable")
+@pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="CHMI server intermittently unavailable",
+)
 @pytest.mark.remote
 def test_api_chmi_observation(default_settings: Settings) -> None:
     """Test CHMI observation API."""
@@ -825,7 +834,11 @@ def test_api_chmi_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail(strict=False, reason="SMHI server intermittently unavailable")
+@pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="SMHI server intermittently unavailable",
+)
 @pytest.mark.remote
 def test_api_smhi_observation(default_settings: Settings) -> None:
     """Test SMHI observation API."""
@@ -848,7 +861,11 @@ def test_api_smhi_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail(strict=False, reason="FMI server intermittently unavailable")
+@pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="FMI server intermittently unavailable",
+)
 @pytest.mark.remote
 def test_api_fmi_observation(default_settings: Settings) -> None:
     """Test FMI observation API."""
@@ -872,7 +889,11 @@ def test_api_fmi_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail(strict=False, reason="KNMI server intermittently unavailable")
+@pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="KNMI server intermittently unavailable",
+)
 @pytest.mark.remote
 @pytest.mark.skipif(
     not KnmiObservationRequest.is_configured(),

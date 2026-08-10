@@ -107,14 +107,12 @@ class SmhiObservationValues(TimeseriesValues):
             url = f"{_BASE_URL}/parameter/{parameter.name_original}/station/{station_id}/period/{period}/data.csv"
             payload = _fetch(url, settings)
             if isinstance(payload, Exception):
-                # a 404 (FileNotFoundError) just means this station doesn't report this
-                # parameter -- routine, since not every SMHI station measures everything -- and
-                # a NoInternetError is already logged at debug upstream. Anything else is an
-                # unexpected failure worth surfacing rather than silently dropping the data.
+                # a 404 just means this station doesn't report this parameter -- routine, since
+                # not every SMHI station measures everything -- and a NoInternetError is already
+                # logged at debug upstream. Anything else means the data may well exist and we
+                # simply did not get it, so it is raised rather than passed off as "no data".
                 if not isinstance(payload, (FileNotFoundError, NoInternetError)):
-                    log.warning(
-                        f"Failed to fetch SMHI parameter {parameter.name_original} for station {station_id}: {payload}",
-                    )
+                    raise payload
                 continue
             try:
                 df = parse_smhi_csv(payload.decode("utf-8-sig"))
@@ -177,8 +175,12 @@ class SmhiObservationRequest(TimeseriesRequest):
         )
         frames_by_group: defaultdict[tuple[str, str], list[pl.DataFrame]] = defaultdict(list)
         for parameter, file in zip(parameters, files, strict=True):
+            # a catalogue that failed to download is not an empty catalogue -- skipping it here
+            # turns an outage into "this parameter has no stations", which no caller can tell apart
+            # from the real thing. Only a missing connection stays soft.
+            file.raise_if_exception()
             if isinstance(file.content, Exception):
-                log.warning(f"Failed to fetch SMHI stations for parameter {parameter.name_original}: {file.content}")
+                log.warning(f"No internet connection while fetching SMHI stations for {parameter.name_original}")
                 continue
             stations = json.loads(file.content.read().decode("utf-8-sig")).get("station", [])
             if not stations:

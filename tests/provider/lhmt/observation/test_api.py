@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.provider.lhmt.observation.parser import (
@@ -141,7 +143,13 @@ def test_days_covers_range_inclusive(start: dt.datetime, end: dt.datetime, expec
 # can be asserted. xfail (not hard-fail) on an outage matches the CHMI/AEMET precedent.
 # ---------------------------------------------------------------------------
 
-xfail_if_lhmt_unavailable = pytest.mark.xfail(strict=False, reason="LHMT API intermittently unavailable")
+# scoped to the ways an upstream failure now reaches us: the providers raise transport errors
+# instead of returning an empty frame, so an AssertionError here is our bug, not theirs
+xfail_if_lhmt_unavailable = pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="LHMT API intermittently unavailable",
+)
 
 
 @pytest.mark.remote

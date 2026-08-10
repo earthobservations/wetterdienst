@@ -113,8 +113,10 @@ class LhmtObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a day before the station's record has no file, which is a 404 and routine; an outage
+        # is not, and used to contribute no rows in exactly the same way
+        file.raise_unless_absent()
         if isinstance(file.content, Exception):
-            # a day before the station's record (or an outage) simply contributes no rows
             if not file.is_no_internet_error:
                 log.debug(f"No LHMT data for {station_id} on {day}: {file.content}")
             return None
@@ -138,8 +140,12 @@ class LhmtObservationRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a catalogue that failed to download is not an empty catalogue -- returning one
+        # turns an outage into "this provider has no stations", which no caller can tell
+        # apart from the real thing. Only a missing connection stays soft.
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to fetch LHMT station catalogue: {file.content}")
+            log.warning("No internet connection while fetching the LHMT station catalogue")
             return pl.LazyFrame()
         stations = parse_lhmt_stations(file.content.read())
         if stations.is_empty():

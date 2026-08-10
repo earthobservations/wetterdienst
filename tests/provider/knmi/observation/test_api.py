@@ -17,6 +17,8 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
@@ -49,7 +51,13 @@ requires_knmi_credentials = pytest.mark.skipif(
 )
 # Live third-party API; xfail rather than a hard failure keeps a transient blip (or KNMI's
 # per-key rate limit) from blocking CI/merges, matching the AEMET/SMHI/ECCC precedent.
-xfail_if_knmi_unavailable = pytest.mark.xfail(strict=False, reason="KNMI server intermittently unavailable")
+# scoped to the ways an upstream failure now reaches us: the providers raise transport errors
+# instead of returning an empty frame, so an AssertionError here is our bug, not theirs
+xfail_if_knmi_unavailable = pytest.mark.xfail(
+    raises=(FSTimeoutError, FileNotFoundError, ClientResponseError, ClientPayloadError),
+    strict=False,
+    reason="KNMI server intermittently unavailable",
+)
 
 
 def _write_netcdf(path: Path) -> bytes:

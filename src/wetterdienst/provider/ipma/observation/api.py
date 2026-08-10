@@ -76,9 +76,12 @@ class IpmaObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # this is the single all-stations feed rather than a per-station file, so a failure is
+        # never "that station has no data" -- an empty result here would misreport an outage as a
+        # provider with nothing to offer
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            if not file.is_no_internet_error:
-                log.warning(f"Failed to fetch IPMA observations: {file.content}")
+            log.warning("No internet connection while fetching IPMA observations")
             return None
         feed = parse_ipma_observations_feed(file.content.read())
         self._feed_cache = feed
@@ -130,8 +133,12 @@ class IpmaObservationRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a catalogue that failed to download is not an empty catalogue -- returning one
+        # turns an outage into "this provider has no stations", which no caller can tell
+        # apart from the real thing. Only a missing connection stays soft.
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to fetch IPMA station catalogue: {file.content}")
+            log.warning("No internet connection while fetching the IPMA station catalogue")
             return pl.LazyFrame()
         stations = parse_ipma_stations(file.content.read())
         if stations.is_empty():
