@@ -69,9 +69,6 @@ class UnitConverter:
             "length_short": _length,
             "length_medium": _length,
             "length_long": _length,
-            "magnetic_field_intensity": [
-                Unit("magnetic_field_strength", "A/m"),
-            ],
             "precipitation": [
                 Unit("millimeter", "mm"),
                 Unit("liter_per_square_meter", "l/m²"),
@@ -111,9 +108,6 @@ class UnitConverter:
                 Unit("liter_per_second", "l/s"),
                 Unit("cubic_meter_per_second", "m³/s"),
             ],
-            "wave_period": [
-                Unit("wave_period", "1/s"),  # TODO: check if this is correct
-            ],
             "wind_scale": [
                 Unit("beaufort", "bft"),
             ],
@@ -136,7 +130,6 @@ class UnitConverter:
             "length_short": self.units["length_short"][1],
             "length_medium": self.units["length_medium"][2],
             "length_long": self.units["length_long"][3],
-            "magnetic_field_intensity": self.units["magnetic_field_intensity"][0],
             "fraction": self.units["fraction"][0],
             "precipitation": self.units["precipitation"][0],
             "precipitation_intensity": self.units["precipitation_intensity"][0],
@@ -147,7 +140,6 @@ class UnitConverter:
             "time": self.units["time"][0],
             "turbidity": self.units["turbidity"][0],
             "volume_per_time": self.units["volume_per_time"][1],
-            "wave_period": self.units["wave_period"][0],
             "wind_scale": self.units["wind_scale"][0],
             "degree_day": self.units["degree_day"][0],
         }

@@ -26,7 +26,6 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
         "length_short": "centimeter",
         "length_medium": "meter",
         "length_long": "kilometer",
-        "magnetic_field_intensity": "magnetic_field_strength",
         "power_per_area": "watt_per_square_meter",
         "precipitation": "millimeter",
         "precipitation_intensity": "millimeter_per_hour",
@@ -37,7 +36,6 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
         "time": "second",
         "turbidity": "nephelometric_turbidity",
         "volume_per_time": "cubic_meter_per_second",
-        "wave_period": "wave_period",
         "wind_scale": "beaufort",
         "degree_day": "degree_celsius_day",
     }

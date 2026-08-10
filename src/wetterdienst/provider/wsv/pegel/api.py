@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
@@ -18,6 +20,8 @@ from wetterdienst.util.network import download_file
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
+log = logging.getLogger(__name__)
+
 FLOAT_9_TIMES = tuple[
     float | None,
     float | None,
@@ -29,6 +33,34 @@ FLOAT_9_TIMES = tuple[
     float | None,
     float | None,
 ]
+
+
+_STATIONS_ENDPOINT = (
+    "https://pegelonline.wsv.de/webservices/rest-api/v2/"
+    "stations.json?includeTimeseries=true&includeCharacteristicValues=true"
+)
+
+# Pegelonline publishes the unit per timeseries rather than per parameter, and stations disagree,
+# so the declared unit in the metadata below is the unit values are scaled *to*. Each entry maps
+# every source unit the service is known to use onto that declared unit. A unit absent from an
+# entry is unhandled and the series is skipped rather than reported under the wrong unit. Every
+# parameter observed with more than one source unit is listed here; the rest were checked once and
+# published one unit everywhere, so a table entry would only ever be an identity.
+#
+# `m+NN` is metres above sea level and is used by the 66 gauges that have no gauge zero, so the
+# datum differs from the cm gauges even after scaling -- see the `gauge_zero` station column.
+_SOURCE_UNIT_FACTORS: dict[str, dict[str, float]] = {
+    "W": {"cm": 1.0, "m+NN": 100.0, "m+PNP": 100.0},
+    "LF": {"µS/cm": 1.0, "mS/cm": 1000.0},
+    "VA": {"m/s": 1.0, "cm/s": 0.01},
+    "SIGH": {"cm": 1.0, "m": 100.0},
+    "MAXH": {"cm": 1.0, "m": 100.0},
+    "TP": {"s": 1.0, "1/100s": 0.01},
+    # FNU and TE/F are the infrared and German names for the same formazin scale as NTU, so they
+    # need no scaling; they are listed so that a turbidity unit that is *not* on that scale is
+    # skipped rather than passed through
+    "TR": {"NTU": 1.0, "FNU": 1.0, "TE/F": 1.0},
+}
 
 
 WsvPegelMetadata = {
@@ -76,7 +108,7 @@ WsvPegelMetadata = {
                         {
                             "name": "clearance_height",
                             "name_original": "DFH",
-                            "unit": "meter",
+                            "unit": "centimeter",
                         },
                         {
                             "name": "temperature_air_mean_2m",
@@ -114,9 +146,9 @@ WsvPegelMetadata = {
                             "unit": "nephelometric_turbidity",
                         },
                         {
-                            "name": "current",
+                            "name": "flow_direction",
                             "name_original": "R",
-                            "unit": "magnetic_field_strength",
+                            "unit": "degree",
                         },
                         {
                             "name": "wind_direction",
@@ -136,7 +168,7 @@ WsvPegelMetadata = {
                         {
                             "name": "wave_period",
                             "name_original": "TP",
-                            "unit": "wave_period",
+                            "unit": "second",
                         },
                         {
                             "name": "wave_height_sign",
@@ -173,6 +205,43 @@ class WsvPegelValues(TimeseriesValues):
     _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/measurements.json"
     # Used for getting frequency of timeseries
     _station_endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/"
+    _source_units_cache: dict[tuple[str, str], str] | None = None
+
+    def _source_units(self, settings: Settings) -> dict[tuple[str, str], str]:
+        """Map (station id, parameter) to the unit that station publishes that parameter in.
+
+        Pegelonline reports the unit per *timeseries*, and stations disagree: water level is cm at
+        most gauges but m+NN at 66 of them, conductivity µS/cm or mS/cm, wave height cm or m, wave
+        period s or 1/100s. No single declaration in the metadata can be right for all of them, so
+        the value has to be scaled to the declared unit per station.
+
+        Read from the same station listing the request already downloads, so this costs no extra
+        request beyond what a cached response serves.
+        """
+        if self._source_units_cache is not None:
+            return self._source_units_cache
+        file = download_file(
+            url=_STATIONS_ENDPOINT,
+            cache_dir=settings.cache_dir,
+            ttl=CacheExpiry.ONE_HOUR,
+            client_kwargs=settings.fsspec_client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+        )
+        file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            # deliberately not cached: an empty mapping makes every lookup below miss, which would
+            # skip every scaled parameter for the lifetime of the process, long after the listing
+            # became reachable again
+            return {}
+        units: dict[tuple[str, str], str] = {}
+        for station in json.load(file.content):
+            for timeseries in station.get("timeseries") or []:
+                shortname, unit = timeseries.get("shortname"), timeseries.get("unit")
+                if shortname and unit:
+                    units[station["number"], shortname] = unit
+        self._source_units_cache = units
+        return units
 
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
@@ -204,12 +273,43 @@ class WsvPegelValues(TimeseriesValues):
             raise file.content
         df = pl.read_json(file.content)
         df = df.rename(mapping={"timestamp": "date", "value": "value"})
+
+        name_original = parameter_or_dataset.name_original
+        factors = _SOURCE_UNIT_FACTORS.get(name_original)
+        factor = 1.0
+        if factors is not None:
+            source_unit = self._source_units(settings).get((station_id, name_original))
+            if source_unit is None:
+                # either the station listing was unreachable or this station does not publish the
+                # timeseries; in both cases the unit is unknown rather than known to be unhandled
+                log.error(
+                    f"WSV station {station_id} has no published unit for {name_original} in the "
+                    f"station listing; skipping rather than assuming {parameter_or_dataset.unit}",
+                )
+                return pl.DataFrame()
+            if source_unit not in factors:
+                # An unrecognised source unit is why this scaling exists at all: values used to be
+                # passed through as if every station published the declared unit. Dropping the
+                # series is worse than returning it, but returning a number that is silently wrong
+                # by a factor of 100 is worse still.
+                log.error(
+                    f"WSV station {station_id} publishes {name_original} in unhandled unit "
+                    f"{source_unit!r}; skipping rather than reporting it as "
+                    f"{parameter_or_dataset.unit}",
+                )
+                return pl.DataFrame()
+            factor = factors[source_unit]
+
         return df.with_columns(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
-            pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
+            # not lowercased: `_create_humanized_parameters_mapping` keys on `name_original` as
+            # declared, so a lowercased value never matched and WSV silently never humanized --
+            # values came back as `sigh` and `r` rather than `wave_height_sign` and
+            # `flow_direction`. Unit conversion keys case-insensitively and is unaffected.
+            pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
-            pl.col("value"),
+            (pl.col("value") * factor) if factor != 1.0 else pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
@@ -225,10 +325,7 @@ class WsvPegelRequest(TimeseriesRequest):
     metadata = WsvPegelMetadata
     _values = WsvPegelValues
 
-    _endpoint = (
-        "https://pegelonline.wsv.de/webservices/rest-api/v2/"
-        "stations.json?includeTimeseries=true&includeCharacteristicValues=true"
-    )
+    _endpoint = _STATIONS_ENDPOINT
 
     # Characteristic/statistical values may be provided for stations_result
     characteristic_values: ClassVar = {
@@ -324,7 +421,9 @@ class WsvPegelRequest(TimeseriesRequest):
             pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
             pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
             pl.all().exclude(["timeseries", "ts", "ts_water"]),
-            pl.col("ts_water").struct.field("gaugeZero").struct.field("value").alias("gauge_datum"),
+            # must match the name in `_base_columns`, or the reindex there drops it and leaves an
+            # all-null `gauge_zero` -- which is the column that says which datum a stage is on
+            pl.col("ts_water").struct.field("gaugeZero").struct.field("value").alias("gauge_zero"),
             pl.col("ts_water")
             .struct.field("characteristicValues")
             .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "M_I"))

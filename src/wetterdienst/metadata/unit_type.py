@@ -31,7 +31,6 @@ UnitType = Literal[
     "length_long",
     "length_medium",
     "length_short",
-    "magnetic_field_intensity",
     "power_per_area",
     "precipitation",
     "precipitation_intensity",
@@ -42,6 +41,5 @@ UnitType = Literal[
     "time",
     "turbidity",
     "volume_per_time",
-    "wave_period",
     "wind_scale",
 ]
