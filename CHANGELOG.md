@@ -36,6 +36,11 @@ Types of changes:
   table is a type error rather than something only a test can catch. A test pins the literal to
   `UnitConverter` in both directions, since the converter builds its unit types as a runtime dict
   that no static type can be derived from
+- Two unit types the audit of the canonical table turned up as missing: `mass_per_volume`
+  (g/m³, kg/m³, and mg/l and g/l shared with `concentration`, which is the same quantity under a
+  different convention — 1 mg/l is 1 g/m³) and `degree_hour` (°Ch, Kh, °Fh), kept apart from
+  `degree_day` so that a quantity accumulated per hour is not reported per day
+- New canonical parameter `cooling_degree_day`, the counterpart of `heating_degree_day`
 - Parameter discovery across all three interfaces: `GET /api/glossary`, the `glossary` MCP tool and
   `wetterdienst about glossary`. `coverage` answers which parameters a given provider offers; the
   glossary answers what any of them measures and which unit it comes back in — neither of which
@@ -155,6 +160,21 @@ Types of changes:
   (separately captured `stderr` in `CliRunner`)
 - Raise the development tooling floors to the versions we develop against, so that the minimum
   versions job only exercises runtime dependency floors
+- **Breaking**: ECCC daily and hourly `cooling_degree_days` and `heating_degree_days` were mapped
+  onto the canonical names `count_days_cooling_degree` and `count_days_heating_degree`, which mean
+  a number of days. ECCC publishes the degree day total for the single day the record covers, so
+  the values were degree days labelled as a count of days — for station 2 on 1979-11-02 the mean
+  temperature is 6.3 °C and the reported value is 11.7, which is `18 - 6.3` and not any count.
+  They now use the canonical names `heating_degree_day` and the new `cooling_degree_day`, in °Cd.
+  The values are unchanged; queries using the old names against ECCC need to switch. DWD keeps
+  both quantities under their own names, and is unaffected
+- DWD `humidity_absolute` (`absf_std`) was declared `dimensionless`. It is a mass of water vapour
+  per volume of air, published in g/m³ — station 00433 reads 1.6 to 19.1. It now uses the new
+  `mass_per_volume` unit type, so it is labelled g/m³ and can be converted. The values are
+  unchanged
+- DWD `cooling_degree_hour` (`Kuehlgradstunden`) was declared in degree days while it accumulates
+  per hour, so a monthly total of 4179.8 °Ch was reported as 4179.8 °Cd — a figure no month can
+  reach. It now uses the new `degree_hour` unit type. The values are unchanged
 
 ### Removed
 

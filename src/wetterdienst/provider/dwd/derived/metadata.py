@@ -19,7 +19,7 @@ cooling_degree_hours_common_parameters = [
     {
         "name": "cooling_degree_hour",
         "name_original": "Kuehlgradstunden",
-        "unit": "degree_celsius_day",
+        "unit": "degree_celsius_hour",
     },
     {
         "name": "count_days_cooling_degree",

@@ -29,14 +29,14 @@ EcccObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "count_days_cooling_degree",
+                            "name": "cooling_degree_day",
                             "name_original": "cooling_degree_days",
-                            "unit": "dimensionless",
+                            "unit": "degree_celsius_day",
                         },
                         {
-                            "name": "count_days_heating_degree",
+                            "name": "heating_degree_day",
                             "name_original": "heating_degree_days",
-                            "unit": "dimensionless",
+                            "unit": "degree_celsius_day",
                         },
                         {
                             "name": "humidity_max",
@@ -109,14 +109,14 @@ EcccObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "count_days_cooling_degree",
+                            "name": "cooling_degree_day",
                             "name_original": "cooling_degree_days",
-                            "unit": "dimensionless",
+                            "unit": "degree_celsius_day",
                         },
                         {
-                            "name": "count_days_heating_degree",
+                            "name": "heating_degree_day",
                             "name_original": "heating_degree_days",
-                            "unit": "dimensionless",
+                            "unit": "degree_celsius_day",
                         },
                         {
                             "name": "humidity_max",

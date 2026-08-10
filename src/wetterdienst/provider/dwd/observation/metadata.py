@@ -630,7 +630,7 @@ DwdObservationMetadata = {
                         {
                             "name": "humidity_absolute",
                             "name_original": "absf_std",
-                            "unit": "dimensionless",
+                            "unit": "gram_per_cubic_meter",
                         },
                         {
                             "name": "pressure_vapor",

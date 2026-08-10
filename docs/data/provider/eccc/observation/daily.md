@@ -25,8 +25,8 @@
 
 | name                                | original name             | description                         | unit | constraints |
 |-------------------------------------|---------------------------|-------------------------------------|------|-------------|
-| {term}`count_days_cooling_degree`   | cool deg days (°c)        | count of cooling degree days        | -    | >=0         |
-| {term}`count_days_heating_degree`   | heat deg days (°c)        | count of heating degree days        | -    | >=0         |
+| {term}`cooling_degree_day`          | cool deg days (°c)        | cooling degree days                 | °Cd  | >=0         |
+| {term}`heating_degree_day`          | heat deg days (°c)        | heating degree days                 | °Cd  | >=0         |
 | {term}`precipitation_height`        | total precip (mm)         | total precipitation                 | mm   | >=0         |
 | {term}`precipitation_height_liquid` | total rain (mm)           | total liquid precipitation          | mm   | >=0         |
 | {term}`snow_depth`                  | snow on grnd (cm)         | total snow depth                    | cm   | >=0         |
