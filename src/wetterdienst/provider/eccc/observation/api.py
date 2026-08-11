@@ -25,6 +25,25 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# ECCC publishes ~8600 stations; the OGC default page size is 500
+_STATIONS_LIMIT = 10000
+# the collections page at 500 features by default, which silently truncates a station-year
+_PAGE_SIZE = 10000
+
+
+def _localize(value: dt.datetime | None, timezone: str | None) -> dt.datetime | None:
+    """Attach the station's timezone and convert to UTC.
+
+    Converted here in Python rather than handed to polars tz-aware: stations opened before
+    standard time carry an LMT offset that is not a whole number of minutes (America/Toronto is
+    -5:17:32 in 1895), which polars rejects outright. A handful of stations publish no timezone at
+    all, which only shows up once the full catalogue is fetched rather than its first 500 rows.
+    """
+    if value is None:
+        return None
+    tz = ZoneInfo(timezone) if timezone else dt.timezone.utc
+    return value.replace(tzinfo=tz).astimezone(dt.timezone.utc)
+
 
 class EcccObservationValues(TimeseriesValues):
     """Values class for Environment and Climate Change Canada (ECCC) observation data."""
@@ -86,6 +105,22 @@ class EcccObservationValues(TimeseriesValues):
             dataset = parameter_or_dataset
         else:
             dataset = parameter_or_dataset.dataset
+        # Derived from the declarations rather than hard-coded: the three lists used to be
+        # maintained by hand and the hourly one had drifted to a copy of the daily fields, none of
+        # which the hourly collection publishes, so the resolution returned nothing. Built once
+        # here rather than per year, since it depends only on the dataset.
+        fields = []
+        for parameter in dataset.parameters:
+            if parameter.name == "quality":
+                continue
+            field = parameter.name_original.upper()
+            fields.append(field)
+            if dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
+                # monthly carries no per-value flags
+                fields.append(f"{field}_FLAG")
+        _properties_schema = pl.Struct(
+            {"LOCAL_DATE": pl.String} | {f: (pl.String if f.endswith("FLAG") else pl.Float64) for f in fields}
+        )
         data = []
         start_year = self.sr.start_date.year if self.sr.start_date else station_meta["start_date"].year
         end_year = self.sr.end_date.year if self.sr.end_date else station_meta["end_date"].year
@@ -104,108 +139,62 @@ class EcccObservationValues(TimeseriesValues):
                 .astimezone(ZoneInfo(station_tz))
                 .strftime("%Y-%m-%dT%H:%M:%S")
             )
-            url = (
-                f"{self._endpoint}/collections/"
-                f"{self._resolution_to_dataset_mapping[dataset.resolution.value]}/"
-                f"items?STN_ID={station_id}&datetime={start}/{end}&f=json"
-            )
-            file = download_file(
-                url=url,
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES,
-                client_kwargs=settings.fsspec_client_kwargs,
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
-            if dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
-                parameters = [
-                    "COOLING_DEGREE_DAYS",
-                    "COOLING_DEGREE_DAYS_FLAG",
-                    "DIRECTION_MAX_GUST",
-                    "DIRECTION_MAX_GUST_FLAG",
-                    "HEATING_DEGREE_DAYS",
-                    "HEATING_DEGREE_DAYS_FLAG",
-                    "MAX_REL_HUMIDITY",
-                    "MAX_REL_HUMIDITY_FLAG",
-                    "MAX_TEMPERATURE",
-                    "MAX_TEMPERATURE_FLAG",
-                    "MEAN_TEMPERATURE",
-                    "MEAN_TEMPERATURE_FLAG",
-                    "MIN_REL_HUMIDITY",
-                    "MIN_REL_HUMIDITY_FLAG",
-                    "MIN_TEMPERATURE",
-                    "MIN_TEMPERATURE_FLAG",
-                    "SNOW_ON_GROUND",
-                    "SNOW_ON_GROUND_FLAG",
-                    "SPEED_MAX_GUST",
-                    "SPEED_MAX_GUST_FLAG",
-                    "TOTAL_PRECIPITATION",
-                    "TOTAL_PRECIPITATION_FLAG",
-                    "TOTAL_RAIN",
-                    "TOTAL_RAIN_FLAG",
-                    "TOTAL_SNOW",
-                    "TOTAL_SNOW_FLAG",
-                ]
-            else:
-                parameters = [
-                    "BRIGHT_SUNSHINE",
-                    "COOLING_DEGREE_DAYS",
-                    "DAYS_WITH_PRECIP_GE_1MM",
-                    "DAYS_WITH_VALID_MAX_TEMP",
-                    "DAYS_WITH_VALID_MEAN_TEMP",
-                    "DAYS_WITH_VALID_MIN_TEMP",
-                    "DAYS_WITH_VALID_PRECIP",
-                    "DAYS_WITH_VALID_SNOWFALL",
-                    "DAYS_WITH_VALID_SUNSHINE",
-                    "HEATING_DEGREE_DAYS",
-                    "MAX_TEMPERATURE",
-                    "MEAN_TEMPERATURE",
-                    "MIN_TEMPERATURE",
-                    "NORMAL_MEAN_TEMPERATURE",
-                    "NORMAL_PRECIPITATION",
-                    "NORMAL_SNOWFALL",
-                    "NORMAL_SUNSHINE",
-                    "SNOW_ON_GROUND_LAST_DAY",
-                    "TOTAL_PRECIPITATION",
-                    "TOTAL_SNOWFALL",
-                ]
-
-            _properties_schema = pl.Struct(
-                {
-                    "LOCAL_DATE": pl.String,
-                }
-                | {parameter: (pl.String if parameter.endswith("FLAG") else pl.Float64) for parameter in parameters}
-            )
-            file.raise_if_exception()
-            if isinstance(file.content, Exception):
-                return pl.DataFrame()
-            df = pl.read_json(
-                file.content,
-                schema=pl.Schema(
-                    {
-                        "features": pl.List(
-                            pl.Struct(
-                                {
-                                    "properties": _properties_schema,
-                                }
-                            )
-                        ),
-                    }
-                ),
-            )
-            df = df.lazy()
-            df = df.select(pl.col("features").explode(empty_as_null=True).struct.field("properties")).unnest(
-                "properties"
-            )
-            df = df.rename(str.lower)
+            # The endpoint pages at 500 features and a station-year of hourly data is ~8800, so a
+            # single request returns an arbitrary slice of the year and silently drops the rest.
+            # Page until a short page comes back.
+            pages = []
+            offset = 0
+            while True:
+                url = (
+                    f"{self._endpoint}/collections/"
+                    f"{self._resolution_to_dataset_mapping[dataset.resolution.value]}/"
+                    f"items?STN_ID={station_id}&datetime={start}/{end}"
+                    f"&limit={_PAGE_SIZE}&offset={offset}&f=json"
+                )
+                file = download_file(
+                    url=url,
+                    cache_dir=settings.cache_dir,
+                    ttl=CacheExpiry.FIVE_MINUTES,
+                    client_kwargs=settings.fsspec_client_kwargs,
+                    cache_disable=settings.cache_disable,
+                    use_certifi=settings.use_certifi,
+                )
+                file.raise_if_exception()
+                if isinstance(file.content, Exception):
+                    return pl.DataFrame()
+                df_page = pl.read_json(
+                    file.content,
+                    schema=pl.Schema(
+                        {
+                            "features": pl.List(
+                                pl.Struct(
+                                    {
+                                        "properties": _properties_schema,
+                                    }
+                                )
+                            ),
+                        }
+                    ),
+                )
+                df_page = df_page.lazy()
+                df_page = df_page.select(
+                    pl.col("features").explode(empty_as_null=True).struct.field("properties")
+                ).unnest("properties")
+                df_page = df_page.rename(str.lower).collect()
+                pages.append(df_page)
+                if df_page.height < _PAGE_SIZE:
+                    break
+                offset += _PAGE_SIZE
+            df = pl.concat(pages).lazy()
             df = self._tidy_up_df(df)
-            # ECCC publishes the gust direction in tens of degrees -- its own docs call the column
+            # ECCC publishes both gust direction (daily) and wind direction (hourly) in tens of degrees --
+            # its own docs call the daily column
             # "Dir of Max Gust (10s deg)" -- so 23 means 230 degrees. Decoded here rather than
             # declared as a unit, because tens of degrees is a source encoding rather than a unit
             # anyone reports in. Without it every bearing came back 10x too small and inside
             # 0..36, which no range check on degrees would ever flag.
             df = df.with_columns(
-                pl.when(pl.col("parameter") == "direction_max_gust")
+                pl.when(pl.col("parameter").is_in(["direction_max_gust", "wind_direction"]))
                 .then(pl.col("value") * 10)
                 .otherwise(pl.col("value"))
                 .alias("value"),
@@ -216,8 +205,11 @@ class EcccObservationValues(TimeseriesValues):
                 "parameter",
                 pl.lit(station_id, dtype=pl.String).alias("station_id"),
                 pl.col("local_date")
-                .str.to_datetime("%Y-%m-%d %H:%M:%S")
-                .dt.replace_time_zone(station_tz)
+                # monthly publishes "2023-06"; hourly and daily a full timestamp
+                .str.to_datetime("%Y-%m" if dataset.resolution.value == Resolution.MONTHLY else "%Y-%m-%d %H:%M:%S")
+                # the fall-back hour occurs twice in local time and the spring-forward hour not at
+                # all; both were unreachable while a request returned only a slice of the year
+                .dt.replace_time_zone(station_tz, ambiguous="earliest", non_existent="null")
                 .dt.convert_time_zone("UTC")
                 .alias("date"),
                 "value",
@@ -268,8 +260,11 @@ class EcccObservationRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
+        # The OGC endpoint defaults to 500 features, and ECCC has ~8600 stations, so the default
+        # silently reduced the network to its first 500 station ids -- every other station was
+        # simply unreachable. `limit` is the collection's documented maximum.
         file = download_file(
-            url=f"{self._endpoint}/collections/climate-stations/items",
+            url=f"{self._endpoint}/collections/climate-stations/items?limit={_STATIONS_LIMIT}&f=json",
             cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=settings.fsspec_client_kwargs,
@@ -331,17 +326,17 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col("end_date").str.to_datetime("%Y-%m-%d %H:%M:%S"),
             pl.col("height").cast(pl.Float64),
         )
-        # Convert datetime to the timezone from the timezone column
+        # Convert datetime to the timezone from the timezone column.
         df_raw = df_raw.with_columns(
             pl.struct(["start_date", "timezone"])
             .map_elements(
-                lambda row: row["start_date"].replace(tzinfo=ZoneInfo(row["timezone"])),
+                lambda row: _localize(row["start_date"], row["timezone"]),
                 return_dtype=pl.Datetime(time_zone="UTC"),
             )
             .alias("start_date"),
             pl.struct(["end_date", "timezone"])
             .map_elements(
-                lambda row: row["end_date"].replace(tzinfo=ZoneInfo(row["timezone"])),
+                lambda row: _localize(row["end_date"], row["timezone"]),
                 return_dtype=pl.Datetime(time_zone="UTC"),
             )
             .alias("end_date"),

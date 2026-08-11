@@ -108,6 +108,30 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: ECCC hourly and monthly return data at all. Both resolutions declared parameters
+  the OGC API never publishes -- hourly carried a copy of the *daily* field list
+  (`max_temperature`, `snow_on_ground`, the degree days), monthly carried bulk-CSV column headers
+  (`"total precip (mm)"`) -- so every request came back empty. Monthly additionally crashed on
+  `LOCAL_DATE`, which is `"2023-06"` for that collection against a parser expecting a full
+  timestamp. Both now declare the fields ECCC actually serves; the requested field list is derived
+  from those declarations rather than hand-maintained per resolution, which is what let hourly
+  drift into a copy of daily in the first place. Parameter names change for both resolutions
+- **Breaking**: ECCC value requests return the whole period rather than an arbitrary 500 records.
+  The OGC endpoint pages at 500 features and a station-year of hourly data is ~8800, so every
+  request was silently truncated to a slice of the year -- June 1972 at station 4055 returned 16
+  timestamps where it holds 697. Results grow accordingly
+- ECCC exposes its whole station network rather than the first 500. The OGC endpoint pages at 500
+  by default and ECCC publishes ~8600 stations, so 94% of them could not be requested at all --
+  including every station whose data the hourly collection actually holds
+- ECCC no longer fails on the daylight-saving fall-back hour, which occurs twice in local time.
+  Unreachable while a request returned only part of a year, so it surfaced with the fix above
+- ECCC hourly `wind_direction` is returned in degrees rather than tens of degrees, the same source
+  encoding already decoded for the daily gust direction
+- ECCC stations opened before standard time no longer fail the station listing. `America/Toronto`
+  is `-5:17:32` in 1895, an offset that is not a whole number of minutes and that polars rejects;
+  the conversion to UTC now happens in Python. A handful of stations publish no timezone at all
+  and fall back to UTC. Neither showed up while the listing stopped at 500 rows
+
 - **Breaking**: WSV Pegelonline values are now scaled to the unit the metadata declares. The service
   publishes the unit per *timeseries*, not per parameter, and its stations disagree, so a single
   declaration was silently wrong wherever a station differed. Water level is `cm` at most gauges but

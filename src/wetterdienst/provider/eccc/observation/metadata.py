@@ -27,71 +27,57 @@ EcccObservationMetadata = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    # The fields the climate-hourly collection actually publishes. This block used
+                    # to carry the daily field list -- max_temperature, snow_on_ground, the degree
+                    # days -- none of which exists here, so the whole resolution returned nothing.
                     "parameters": [
                         {
-                            "name": "cooling_degree_day",
-                            "name_original": "cooling_degree_days",
-                            "unit": "degree_celsius_day",
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "temp",
+                            "unit": "degree_celsius",
                         },
                         {
-                            "name": "heating_degree_day",
-                            "name_original": "heating_degree_days",
-                            "unit": "degree_celsius_day",
+                            "name": "temperature_dew_point_mean_2m",
+                            "name_original": "dew_point_temp",
+                            "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_max",
-                            "name_original": "max_rel_humidity",
-                            "unit": "percent",
-                        },
-                        {
-                            "name": "humidity_min",
-                            "name_original": "min_rel_humidity",
+                            "name": "humidity",
+                            "name_original": "relative_humidity",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_height",
-                            "name_original": "total_precipitation",
+                            "name_original": "precip_amount",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_liquid",
-                            "name_original": "total_rain",
-                            "unit": "millimeter",
+                            # ECCC publishes hourly station pressure in kPa, not hPa
+                            "name": "pressure_air_site",
+                            "name_original": "station_pressure",
+                            "unit": "kilopascal",
                         },
                         {
-                            "name": "snow_depth",
-                            "name_original": "snow_on_ground",
-                            "unit": "centimeter",
+                            "name": "visibility_range",
+                            "name_original": "visibility",
+                            "unit": "kilometer",
                         },
                         {
-                            "name": "snow_depth_new",
-                            "name_original": "total_snow",
-                            "unit": "centimeter",
-                        },
-                        {
-                            "name": "temperature_air_max_2m",
-                            "name_original": "max_temperature",
-                            "unit": "degree_celsius",
-                        },
-                        {
-                            "name": "temperature_air_mean_2m",
-                            "name_original": "mean_temperature",
-                            "unit": "degree_celsius",
-                        },
-                        {
-                            "name": "temperature_air_min_2m",
-                            "name_original": "min_temperature",
-                            "unit": "degree_celsius",
-                        },
-                        {
-                            "name": "wind_direction_gust_max",
-                            "name_original": "direction_max_gust",
+                            # published in tens of degrees, decoded in the parser like the daily
+                            # gust direction
+                            "name": "wind_direction",
+                            "name_original": "wind_direction",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_gust_max",
-                            "name_original": "speed_max_gust",
+                            "name": "wind_speed",
+                            "name_original": "wind_speed",
                             "unit": "kilometer_per_hour",
+                        },
+                        {
+                            "name": "temperature_wind_chill",
+                            "name_original": "windchill",
+                            "unit": "degree_celsius",
                         },
                     ],
                 },
@@ -187,116 +173,58 @@ EcccObservationMetadata = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    # The fields the climate-monthly collection actually publishes. This block used
+                    # to carry bulk-CSV column headers ("total precip (mm)", "spd of max gust(km/h)")
+                    # that the OGC API never returns, along with quality parameters -- quality
+                    # arrives in the `quality` column via the *_FLAG join, as it does for daily.
+                    # The DAYS_WITH_* counts and NORMAL_* fields are deliberately left out: they
+                    # have no canonical name yet, and adding vocabulary belongs in its own change
+                    # rather than a repair.
                     "parameters": [
                         {
-                            "name": "precipitation_height",
-                            "name_original": "total precip (mm)",
-                            "unit": "millimeter",
+                            "name": "sunshine_duration",
+                            "name_original": "bright_sunshine",
+                            "unit": "hour",
                         },
                         {
-                            "name": "quality_precipitation_height",
-                            "name_original": "total precip flag",
-                            "unit": "dimensionless",
+                            "name": "cooling_degree_day",
+                            "name_original": "cooling_degree_days",
+                            "unit": "degree_celsius_day",
                         },
                         {
-                            "name": "precipitation_height_liquid",
-                            "name_original": "total rain (mm)",
-                            "unit": "millimeter",
-                        },
-                        {
-                            "name": "quality_precipitation_height_liquid",
-                            "name_original": "total rain flag",
-                            "unit": "dimensionless",
-                        },
-                        {
-                            "name": "snow_depth",
-                            "name_original": "snow grnd last day (cm)",
-                            "unit": "centimeter",
-                        },
-                        {
-                            "name": "quality_snow_depth",
-                            "name_original": "snow grnd last day flag",
-                            "unit": "dimensionless",
-                        },
-                        {
-                            "name": "snow_depth_new",
-                            "name_original": "total snow (cm)",
-                            "unit": "centimeter",
-                        },
-                        {
-                            "name": "quality_snow_depth_new",
-                            "name_original": "total snow flag",
-                            "unit": "dimensionless",
+                            "name": "heating_degree_day",
+                            "name_original": "heating_degree_days",
+                            "unit": "degree_celsius_day",
                         },
                         {
                             "name": "temperature_air_max_2m",
-                            "name_original": "extr max temp (°c)",
+                            "name_original": "max_temperature",
                             "unit": "degree_celsius",
-                        },
-                        {
-                            "name": "quality_temperature_air_max_2m",
-                            "name_original": "extr max temp flag",
-                            "unit": "dimensionless",
-                        },
-                        {
-                            "name": "temperature_air_max_2m_mean",
-                            "name_original": "mean max temp (°c)",
-                            "unit": "degree_celsius",
-                        },
-                        {
-                            "name": "quality_temperature_air_max_2m_mean",
-                            "name_original": "mean max temp flag",
-                            "unit": "dimensionless",
                         },
                         {
                             "name": "temperature_air_mean_2m",
-                            "name_original": "mean temp (°c)",
+                            "name_original": "mean_temperature",
                             "unit": "degree_celsius",
-                        },
-                        {
-                            "name": "quality_temperature_air_mean_2m",
-                            "name_original": "mean temp flag",
-                            "unit": "dimensionless",
                         },
                         {
                             "name": "temperature_air_min_2m",
-                            "name_original": "extr min temp (°c)",
+                            "name_original": "min_temperature",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "quality_temperature_air_min_2m",
-                            "name_original": "extr min temp flag",
-                            "unit": "dimensionless",
+                            "name": "snow_depth",
+                            "name_original": "snow_on_ground_last_day",
+                            "unit": "centimeter",
                         },
                         {
-                            "name": "temperature_air_min_2m_mean",
-                            "name_original": "mean min temp (°c)",
-                            "unit": "degree_celsius",
+                            "name": "precipitation_height",
+                            "name_original": "total_precipitation",
+                            "unit": "millimeter",
                         },
                         {
-                            "name": "quality_temperature_air_min_2m_mean",
-                            "name_original": "mean min temp flag",
-                            "unit": "dimensionless",
-                        },
-                        {
-                            "name": "wind_direction_gust_max",
-                            "name_original": "dir of max gust (10s deg)",
-                            "unit": "degree",
-                        },
-                        {
-                            "name": "quality_wind_direction_gust_max",
-                            "name_original": "dir of max gust flag",
-                            "unit": "dimensionless",
-                        },
-                        {
-                            "name": "wind_gust_max",
-                            "name_original": "spd of max gust(km/h)",
-                            "unit": "kilometer_per_hour",
-                        },
-                        {
-                            "name": "quality_wind_gust_max",
-                            "name_original": "spd of max gust flag",
-                            "unit": "dimensionless",
+                            "name": "snow_depth_new",
+                            "name_original": "total_snowfall",
+                            "unit": "centimeter",
                         },
                     ],
                 },
