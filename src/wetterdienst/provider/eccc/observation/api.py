@@ -103,6 +103,22 @@ class EcccObservationValues(TimeseriesValues):
             dataset = parameter_or_dataset
         else:
             dataset = parameter_or_dataset.dataset
+        # Derived from the declarations rather than hard-coded: the three lists used to be
+        # maintained by hand and the hourly one had drifted to a copy of the daily fields, none of
+        # which the hourly collection publishes, so the resolution returned nothing. Built once
+        # here rather than per year, since it depends only on the dataset.
+        fields = []
+        for parameter in dataset.parameters:
+            if parameter.name == "quality":
+                continue
+            field = parameter.name_original.upper()
+            fields.append(field)
+            if dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
+                # monthly carries no per-value flags
+                fields.append(f"{field}_FLAG")
+        _properties_schema = pl.Struct(
+            {"LOCAL_DATE": pl.String} | {f: (pl.String if f.endswith("FLAG") else pl.Float64) for f in fields}
+        )
         data = []
         start_year = self.sr.start_date.year if self.sr.start_date else station_meta["start_date"].year
         end_year = self.sr.end_date.year if self.sr.end_date else station_meta["end_date"].year
@@ -133,25 +149,6 @@ class EcccObservationValues(TimeseriesValues):
                 client_kwargs=settings.fsspec_client_kwargs,
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
-            )
-            # Derived from the declarations rather than hard-coded: the three lists used to be
-            # maintained by hand and the hourly one had drifted to a copy of the daily fields,
-            # none of which the hourly collection publishes, so the resolution returned nothing.
-            parameters = []
-            for parameter in dataset.parameters:
-                if parameter.name == "quality":
-                    continue
-                field = parameter.name_original.upper()
-                parameters.append(field)
-                if dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
-                    # monthly carries no per-value flags
-                    parameters.append(f"{field}_FLAG")
-
-            _properties_schema = pl.Struct(
-                {
-                    "LOCAL_DATE": pl.String,
-                }
-                | {parameter: (pl.String if parameter.endswith("FLAG") else pl.Float64) for parameter in parameters}
             )
             file.raise_if_exception()
             if isinstance(file.content, Exception):
