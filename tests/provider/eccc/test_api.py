@@ -176,3 +176,52 @@ def test_eccc_degree_days_are_degree_days_not_day_counts(settings_convert_units_
     assert values["heating_degree_day"] == pytest.approx(18 - values["temperature_air_mean_2m"])
     # a count of days would be a whole number, and could never exceed the single day requested
     assert values["heating_degree_day"] > 1
+
+
+@pytest.mark.xfail(raises=FSTimeoutError, strict=False, reason="ECCC server regularly times out")
+@pytest.mark.remote
+def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> None:
+    """Test that the hourly resolution returns data.
+
+    It declared a copy of the *daily* field list, none of which the hourly collection publishes, so
+    every hourly request came back empty. Station 4055 also exercises the station listing: it sits
+    past the first 500 rows the OGC endpoint returns by default.
+    """
+    request = EcccObservationRequest(
+        parameters=[("hourly", "data")],
+        start_date="1972-06-01",
+        end_date="1972-06-30",
+        settings=settings_convert_units_false,
+    ).filter_by_station_id(station_id=("4055",))
+    df = request.values.all().df
+    assert not df.is_empty()
+    values = dict(df.drop_nulls("value").select("parameter", "value").iter_rows())
+    assert "temperature_air_mean_2m" in values
+    # kPa, not hPa -- an hPa reading would be around 988
+    pressure = df.filter(pl.col("parameter") == "pressure_air_site").get_column("value").drop_nulls()
+    assert 80 < pressure.max() < 110
+    # published in tens of degrees; without the decode every bearing sits inside 0..36
+    direction = df.filter(pl.col("parameter") == "wind_direction").get_column("value").drop_nulls()
+    assert direction.max() > 36
+
+
+@pytest.mark.xfail(raises=FSTimeoutError, strict=False, reason="ECCC server regularly times out")
+@pytest.mark.remote
+def test_eccc_monthly_returns_data(settings_convert_units_false: Settings) -> None:
+    """Test that the monthly resolution returns data.
+
+    It declared bulk-CSV column headers the OGC API never returns, and crashed on `LOCAL_DATE`,
+    which is "2023-06" for this collection rather than a full timestamp.
+    """
+    request = EcccObservationRequest(
+        parameters=[("monthly", "data")],
+        start_date="2015-01-01",
+        end_date="2016-12-31",
+        settings=settings_convert_units_false,
+    ).filter_by_station_id(station_id=("26",))
+    df = request.values.all().df
+    assert not df.is_empty()
+    assert "temperature_air_mean_2m" in df.get_column("parameter").unique().to_list()
+    # one row per month over the two years requested, so the year-month date parsed
+    dates = df.get_column("date").unique()
+    assert dates.len() == 24
