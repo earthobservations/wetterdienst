@@ -108,6 +108,16 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: Geosphere `cloud_cover_total` is returned as a fraction rather than a percentage
+  passed off as one. It was declared `decimal` while Geosphere documents `bewm_mittel` as `1/100`
+  and returns 0-100, so the raw percentage went straight through the `fraction` target unconverted
+  and every value was 100x its stated meaning. Geosphere's own `humidity` and
+  `sunshine_duration_relative` already declared `percent`, so this was the odd one out within the
+  provider. Values now read 0-1
+- **Breaking**: DWD road `visibility_range` is returned in metres rather than 1000x too large. It
+  was declared `kilometer`, but BUFR `0 20 001 horizontalVisibility` is metres, nothing in the
+  parser converts, and the provider's own docs page already said `m`
+
 - **Breaking**: ECCC hourly and monthly return data at all. Both resolutions declared parameters
   the OGC API never publishes -- hourly carried a copy of the *daily* field list
   (`max_temperature`, `snow_on_ground`, the degree days), monthly carried bulk-CSV column headers

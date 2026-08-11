@@ -96,7 +96,9 @@ DwdRoadMetadata = {
                         {
                             "name": "visibility_range",
                             "name_original": "horizontalVisibility",
-                            "unit": "kilometer",
+                            # BUFR 0 20 001 horizontalVisibility is metres, and nothing in this
+                            # parser converts; the docs page already said m
+                            "unit": "meter",
                         },
                         {
                             "name": "water_film_thickness",
