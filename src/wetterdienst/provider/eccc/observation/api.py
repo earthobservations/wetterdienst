@@ -27,6 +27,8 @@ log = logging.getLogger(__name__)
 
 # ECCC publishes ~8600 stations; the OGC default page size is 500
 _STATIONS_LIMIT = 10000
+# the collections page at 500 features by default, which silently truncates a station-year
+_PAGE_SIZE = 10000
 
 
 def _localize(value: dt.datetime | None, timezone: str | None) -> dt.datetime | None:
@@ -137,41 +139,53 @@ class EcccObservationValues(TimeseriesValues):
                 .astimezone(ZoneInfo(station_tz))
                 .strftime("%Y-%m-%dT%H:%M:%S")
             )
-            url = (
-                f"{self._endpoint}/collections/"
-                f"{self._resolution_to_dataset_mapping[dataset.resolution.value]}/"
-                f"items?STN_ID={station_id}&datetime={start}/{end}&f=json"
-            )
-            file = download_file(
-                url=url,
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES,
-                client_kwargs=settings.fsspec_client_kwargs,
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
-            file.raise_if_exception()
-            if isinstance(file.content, Exception):
-                return pl.DataFrame()
-            df = pl.read_json(
-                file.content,
-                schema=pl.Schema(
-                    {
-                        "features": pl.List(
-                            pl.Struct(
-                                {
-                                    "properties": _properties_schema,
-                                }
-                            )
-                        ),
-                    }
-                ),
-            )
-            df = df.lazy()
-            df = df.select(pl.col("features").explode(empty_as_null=True).struct.field("properties")).unnest(
-                "properties"
-            )
-            df = df.rename(str.lower)
+            # The endpoint pages at 500 features and a station-year of hourly data is ~8800, so a
+            # single request returns an arbitrary slice of the year and silently drops the rest.
+            # Page until a short page comes back.
+            pages = []
+            offset = 0
+            while True:
+                url = (
+                    f"{self._endpoint}/collections/"
+                    f"{self._resolution_to_dataset_mapping[dataset.resolution.value]}/"
+                    f"items?STN_ID={station_id}&datetime={start}/{end}"
+                    f"&limit={_PAGE_SIZE}&offset={offset}&f=json"
+                )
+                file = download_file(
+                    url=url,
+                    cache_dir=settings.cache_dir,
+                    ttl=CacheExpiry.FIVE_MINUTES,
+                    client_kwargs=settings.fsspec_client_kwargs,
+                    cache_disable=settings.cache_disable,
+                    use_certifi=settings.use_certifi,
+                )
+                file.raise_if_exception()
+                if isinstance(file.content, Exception):
+                    return pl.DataFrame()
+                df_page = pl.read_json(
+                    file.content,
+                    schema=pl.Schema(
+                        {
+                            "features": pl.List(
+                                pl.Struct(
+                                    {
+                                        "properties": _properties_schema,
+                                    }
+                                )
+                            ),
+                        }
+                    ),
+                )
+                df_page = df_page.lazy()
+                df_page = df_page.select(
+                    pl.col("features").explode(empty_as_null=True).struct.field("properties")
+                ).unnest("properties")
+                df_page = df_page.rename(str.lower).collect()
+                pages.append(df_page)
+                if df_page.height < _PAGE_SIZE:
+                    break
+                offset += _PAGE_SIZE
+            df = pl.concat(pages).lazy()
             df = self._tidy_up_df(df)
             # ECCC publishes both gust direction (daily) and wind direction (hourly) in tens of degrees --
             # its own docs call the daily column
@@ -193,7 +207,9 @@ class EcccObservationValues(TimeseriesValues):
                 pl.col("local_date")
                 # monthly publishes "2023-06"; hourly and daily a full timestamp
                 .str.to_datetime("%Y-%m" if dataset.resolution.value == Resolution.MONTHLY else "%Y-%m-%d %H:%M:%S")
-                .dt.replace_time_zone(station_tz)
+                # the fall-back hour occurs twice in local time and the spring-forward hour not at
+                # all; both were unreachable while a request returned only a slice of the year
+                .dt.replace_time_zone(station_tz, ambiguous="earliest", non_existent="null")
                 .dt.convert_time_zone("UTC")
                 .alias("date"),
                 "value",

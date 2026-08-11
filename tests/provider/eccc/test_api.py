@@ -197,6 +197,9 @@ def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> Non
     assert not df.is_empty()
     values = dict(df.drop_nulls("value").select("parameter", "value").iter_rows())
     assert "temperature_air_mean_2m" in values
+    # June has 720 hours; a single unpaged request returns 500 features for the whole *year*, so
+    # truncation shows up here as a couple of dozen timestamps rather than a few hundred
+    assert df.get_column("date").unique().len() > 500
     # kPa, not hPa -- an hPa reading would be around 988
     pressure = df.filter(pl.col("parameter") == "pressure_air_site").get_column("value").drop_nulls()
     assert 80 < pressure.max() < 110
