@@ -297,7 +297,25 @@ class MetadataModel(BaseModel):
 
 
 def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
-    """Build a MetadataModel from a dictionary."""
+    """Build a MetadataModel from a dictionary.
+
+    Attaches the source descriptions kept in ``metadata.source_descriptions``. Those are the
+    curated descriptions the provider docs tables have always carried. A description a provider
+    module already declares wins, since that is a transcription of the source's own wording and is
+    only kept where it says at least as much as the curated text.
+    """
+    from wetterdienst.metadata.source_descriptions import SOURCE_DESCRIPTIONS  # noqa: PLC0415
+
+    descriptions = SOURCE_DESCRIPTIONS.get(name, {})
+    if descriptions:
+        for resolution in metadata["resolutions"]:
+            for dataset in resolution["datasets"]:
+                for parameter in dataset["parameters"]:
+                    if parameter.get("description"):
+                        continue
+                    description = descriptions.get((resolution["name"], dataset["name"], parameter["name_original"]))
+                    if description:
+                        parameter["description"] = description
     validated = MetadataModel.model_validate(metadata)
     validated.__name__ = name  # ty: ignore[unresolved-attribute]
     return validated

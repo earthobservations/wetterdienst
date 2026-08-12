@@ -18,6 +18,23 @@ Types of changes:
 
 ### Added
 
+- Source descriptions for 1057 parameters, in `metadata.source_descriptions` and reported by
+  `discover()` -- so by `GET /api/coverage`, the `coverage` MCP tool and `wetterdienst about
+  coverage`. These say what a given provider's field means, as against the canonical,
+  provider-independent sentence the glossary serves
+- The provider docs tables no longer own that text. It lived only in markdown, where no interface
+  could reach it and where the two copies drifted apart in both directions -- three defects found
+  during the unit audit were each caught by the *other* source being right. The model is the source
+  now and `tests/test_docs.py::test_docs_parameter_descriptions_match_the_model` fails if a table
+  disagrees with it
+- 113 DWD observation descriptions come from the English `DESCRIPTION_*_en.pdf` sheets, which are
+  more specific than the text the docs carried ("The solar incoming radiation includes the direct
+  and the diffuse part ..." against "hourly sum of solar incoming radiation"). DWD CDC is Creative
+  Commons BY 4.0, so its wording is reproduced with attribution. A sheet's cell is used only where
+  it says at least as much as the curated text: some are terse, a few truncated -- `V_S1_NS` reads
+  "cloud cover of 1. laye" and `V_S2_NS` repeats it for the second layer -- and two are left
+  untranslated in an otherwise English sheet
+
 - Source descriptions for DWD observation parameters: what a given DWD field means in DWD's own
   words, alongside the canonical, provider-independent sentence the glossary already served. 133
   parameters across the 30 datasets that publish an English description sheet, transcribed into

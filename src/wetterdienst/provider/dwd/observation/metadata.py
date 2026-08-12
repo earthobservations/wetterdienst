@@ -5,7 +5,6 @@
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import build_metadata_model
 from wetterdienst.provider.dwd.metadata import _METADATA
-from wetterdienst.provider.dwd.observation.descriptions import DWD_OBSERVATION_DESCRIPTIONS
 
 DwdObservationMetadata = {
     **_METADATA,
@@ -1905,18 +1904,6 @@ DwdObservationMetadata = {
         },
     ],
 }
-# DWD documents its own fields in the description sheets it publishes beside the data. Attached
-# here rather than inlined above, so the dict stays readable and the transcription can be
-# regenerated when DWD revises a sheet. See descriptions.py for source and licence.
-for _resolution in DwdObservationMetadata["resolutions"]:
-    for _dataset in _resolution["datasets"]:
-        for _parameter in _dataset["parameters"]:
-            _description = DWD_OBSERVATION_DESCRIPTIONS.get(
-                (_resolution["name"], _dataset["name"], _parameter["name_original"]),
-            )
-            if _description:
-                _parameter["description"] = _description
-
 DwdObservationMetadata = build_metadata_model(DwdObservationMetadata, "DwdObservationMetadata")
 
 DWD_URBAN_DATASETS = [

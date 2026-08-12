@@ -2,8 +2,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD observation metadata."""
 
-import json
-
 import pytest
 
 from wetterdienst.provider.dwd.observation import (
@@ -44,7 +42,19 @@ def test_dwd_observation_metadata_discover_parameters() -> None:
             ],
         },
     }
-    assert json.dumps(expected)[:-1] in json.dumps(metadata)
+    # compare the fields this test is about rather than a serialised substring, which broke as soon
+    # as discover() gained a key
+    actual = {
+        resolution: {
+            dataset: [{k: p[k] for k in ("name", "name_original", "unit_type", "unit")} for p in parameters]
+            for dataset, parameters in datasets.items()
+        }
+        for resolution, datasets in metadata.items()
+        if resolution == "1_minute"
+    }
+    assert actual == expected
+    # descriptions come from the source sheets and are reported alongside
+    assert all(p["description"] for p in metadata["1_minute"]["precipitation"])
 
 
 @pytest.mark.remote

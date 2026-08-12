@@ -900,32 +900,43 @@ def test_api_knmi_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-def test_dwd_observation_source_descriptions() -> None:
-    """Test that DWD's own field descriptions reach the metadata and discover output.
+def test_source_descriptions_reach_the_metadata() -> None:
+    """Test that the per-provider field descriptions reach the metadata and discover output.
 
     Distinct from the canonical descriptions in the parameter table: those say what a quantity is,
-    provider-independent, while these are DWD's wording for its own field. `description` was a
-    declared but entirely unused slot on every metadata model before this.
+    provider-independent, while these describe one source's own field. `description` was a declared
+    but entirely unused slot on every metadata model before this.
     """
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.metadata.source_descriptions import SOURCE_DESCRIPTIONS  # noqa: PLC0415
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation.descriptions import (  # noqa: PLC0415
-        DWD_OBSERVATION_DESCRIPTIONS,
-    )
 
-    assert DWD_OBSERVATION_DESCRIPTIONS
+    assert SOURCE_DESCRIPTIONS
 
-    # every transcribed key must still name a real declaration, or the transcription has gone stale
-    declared = {
-        (resolution.name, dataset.name, parameter.name_original)
-        for resolution in DwdObservationRequest.metadata
-        for dataset in resolution
-        for parameter in dataset.parameters
-    }
-    unknown = set(DWD_OBSERVATION_DESCRIPTIONS) - declared
-    assert not unknown, f"descriptions for parameters that no longer exist: {sorted(unknown)[:5]}"
+    # every key must still name a real declaration, or a description has been orphaned by a rename
+    unknown = []
+    for provider, networks in Wetterdienst.registry.items():
+        for network in networks:
+            try:
+                api = Wetterdienst(provider, network)
+            except Exception:  # noqa: BLE001, S112
+                continue
+            metadata = getattr(api, "metadata", None)
+            if metadata is None:
+                continue
+            declared = {
+                (resolution.name, dataset.name, parameter.name_original)
+                for resolution in metadata
+                for dataset in resolution
+                for parameter in dataset.parameters
+            }
+            unknown.extend(sorted(set(SOURCE_DESCRIPTIONS.get(metadata.__name__, {})) - declared))
+    assert not unknown, f"descriptions for parameters that no longer exist: {unknown[:5]}"
 
     parameter = DwdObservationRequest.metadata["10_minutes"]["solar"]["radiation_global"]
     assert parameter.description == "Sum of global radiation during the previous 10 minutes."
+    # a provider without a machine-readable sheet still gets the curated text
+    assert DwdObservationRequest.metadata["daily"]["climate_summary"]["snow_depth"].description
 
     discovered = DwdObservationRequest.discover(resolutions="10_minutes", datasets="solar")
     entry = next(p for p in discovered["10_minutes"]["solar"] if p["name"] == "radiation_global")

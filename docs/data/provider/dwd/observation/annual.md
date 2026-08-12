@@ -25,17 +25,17 @@
 
 | name                                | original name | description                                             | unit | constraints |
 |-------------------------------------|---------------|---------------------------------------------------------|------|-------------|
-| {term}`cloud_cover_total`           | ja_n          | annual mean of cloud cover                              | 1/8  | >=0,<=8     |
-| {term}`temperature_air_mean_2m`     | ja_tt         | annual mean of daily temperature means in 2m height     | °C   | -           |
-| {term}`temperature_air_max_2m_mean` | ja_tx         | annual mean of daily temperature maxima in 2m height    | °C   | -           |
-| {term}`temperature_air_min_2m_mean` | ja_tn         | annual mean of daily temperature minima in 2m height    | °C   | -           |
-| {term}`sunshine_duration`           | ja_sd_s       | annual sum of sunshine duration                         | h    | >=0         |
-| {term}`wind_force_beaufort`         | ja_fk         | annual mean of daily wind speed                         | Bft  | >=0         |
-| {term}`temperature_air_max_2m`      | ja_mx_tx      | annual maximum of daily temperature maxima in 2m height | °C   | -           |
-| {term}`wind_gust_max`               | ja_mx_fx      | annual maximum of daily wind speed                      | Bft  | >=0         |
-| {term}`temperature_air_min_2m`      | ja_mx_tn      | annual minimum of daily temperature minima in 2m height | °C   | -           |
-| {term}`precipitation_height`        | ja_rr         | annual sum of precipitation height                      | mm   | >=0         |
-| {term}`precipitation_height_max`    | ja_mx_rs      | annual maximum of daily precipitation height            | mm   | >=0         |
+| {term}`cloud_cover_total` | ja_n | Annual mean of cloud cover. | 1/8 | >=0,<=8 |
+| {term}`temperature_air_mean_2m` | ja_tt | Annual mean of daily temperature means in 2m height. | °C | - |
+| {term}`temperature_air_max_2m_mean` | ja_tx | Annual mean of daily temperature maxima in 2m height. | °C | - |
+| {term}`temperature_air_min_2m_mean` | ja_tn | Annual mean of daily temperature minima in 2m height. | °C | - |
+| {term}`sunshine_duration` | ja_sd_s | Annual sum of sunshine duration. | h | >=0 |
+| {term}`wind_force_beaufort` | ja_fk | Annual mean of daily wind speed. | Bft | >=0 |
+| {term}`temperature_air_max_2m` | ja_mx_tx | Annual maximum of daily temperature maxima in 2m height. | °C | - |
+| {term}`wind_gust_max` | ja_mx_fx | Annual maximum of daily wind speed. | Bft | >=0 |
+| {term}`temperature_air_min_2m` | ja_mx_tn | Annual minimum of daily temperature minima in 2m height. | °C | - |
+| {term}`precipitation_height` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
+| {term}`precipitation_height_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |
 
 ### precipitation_more
 
@@ -52,10 +52,10 @@
 
 | name                             | original name | description                              | unit | constraints |
 |----------------------------------|---------------|------------------------------------------|------|-------------|
-| {term}`snow_depth_new`           | ja_nsh        | annual sum of daily fresh snow           | cm   | >=0         |
-| {term}`precipitation_height`     | ja_rr         | annual sum of daily precipitation height | mm   | >=0         |
-| {term}`snow_depth`               | ja_sh_s       | annual sum of daily height of snow pack  | cm   | >=0         |
-| {term}`precipitation_height_max` | ja_mx_rs      | annual max of daily precipitation height | mm   | >=0         |
+| {term}`snow_depth_new` | ja_nsh | Annual sum of daily fresh snow. | cm | >=0 |
+| {term}`precipitation_height` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
+| {term}`snow_depth` | ja_sh_s | Annual sum of daily height of snow pack. | cm | >=0 |
+| {term}`precipitation_height_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |
 
 ### weather_phenomena
 
@@ -72,11 +72,11 @@
 
 | name                                           | original name | description                                                     | unit | constraints |
 |------------------------------------------------|---------------|-----------------------------------------------------------------|------|-------------|
-| {term}`count_weather_type_fog`                 | ja_nebel      | count of days with fog of stations in Germany                   | -    | >=0         |
-| {term}`count_weather_type_thunder`             | ja_gewitter   | count of days with thunder of stations in Germany               | -    | >=0         |
-| {term}`count_weather_type_storm_strong_wind`   | ja_sturm_6    | count of days with storm (strong wind) of stations in Germany   | -    | >=0         |
-| {term}`count_weather_type_storm_stormier_wind` | ja_sturm_8    | count of days with storm (stormier wind) of stations in Germany | -    | >=0         |
-| {term}`count_weather_type_dew`                 | ja_tau        | count of days with dew of stations in Germany                   | -    | >=0         |
-| {term}`count_weather_type_glaze`               | ja_glatteis   | count of days with glaze of stations in Germany                 | -    | >=0         |
-| {term}`count_weather_type_sleet`               | ja_graupel    | count of days with sleet of stations in Germany                 | -    | >=0         |
-| {term}`count_weather_type_hail`                | ja_hagel      | count of days with hail of stations in Germany                  | -    | >=0         |
+| {term}`count_weather_type_fog` | ja_nebel | Count of days with fog of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_thunder` | ja_gewitter | Count of days with thunder of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_storm_strong_wind` | ja_sturm_6 | Count of days with storm (strong wind) of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_storm_stormier_wind` | ja_sturm_8 | Count of days with storm (stormier wind) of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_dew` | ja_tau | Count of days with dew of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_glaze` | ja_glatteis | Count of days with glaze of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_sleet` | ja_graupel | Count of days with sleet of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_hail` | ja_hagel | Count of days with hail of stations in Germany. | - | >=0 |

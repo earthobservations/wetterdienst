@@ -26,8 +26,8 @@
 
 | name                      | original name | description       | unit | constraints |
 |---------------------------|---------------|-------------------|------|-------------|
-| {term}`cloud_cover_total` | n_ter         | total cloud cover | 1/8  | >=0,<=8     |
-| {term}`cloud_density`     | cd_ter        | cloud density     | -    |             |
+| {term}`cloud_cover_total` | n_ter | Total cloud cover. | 1/8 | >=0,<=8 |
+| {term}`cloud_density` | cd_ter | Cloud density. | - |  |
 
 ### moisture
 
@@ -44,10 +44,10 @@
 
 | name                               | original name | description         | unit | constraints |
 |------------------------------------|---------------|---------------------|------|-------------|
-| {term}`pressure_vapor`             | vp_ter        | vapor pressure      | hPa  | >=0         |
-| {term}`temperature_wet_ice_formation` | e_tf_ter | ice on the wet bulb thermometer | -  |          |
+| {term}`pressure_vapor` | vp_ter | Vapor pressure. | hPa | >=0 |
+| {term}`temperature_wet_ice_formation` | e_tf_ter | Ice on the wet bulb thermometer. | - |  |
 | {term}`temperature_wet_mean_2m`    | tf_ter        | 2m wet bulb temperature | °C |           |
-| {term}`humidity`                   | rf_ter        | humidity            | %    | >=0,<=100   |
+| {term}`humidity` | rf_ter | 2m relative humidity. | % | >=0,<=100 |
 
 ### pressure
 
@@ -64,7 +64,7 @@
 
 | name                      | original name | description          | unit | constraints |
 |---------------------------|---------------|----------------------|------|-------------|
-| {term}`pressure_air_site` | pp_ter        | air pressure of site | hPa  | >=0         |
+| {term}`pressure_air_site` | pp_ter | Air pressure of site. | hPa | >=0 |
 
 ### soil
 
@@ -81,7 +81,7 @@
 
 | name                                | original name | description          | unit | constraints |
 |-------------------------------------|---------------|----------------------|------|-------------|
-| {term}`soil_state_index` | ek_ter        | coded ground state              | -      | -           |
+| {term}`soil_state_index` | ek_ter | Coded ground state. | - | - |
 
 ### temperature_air
 
@@ -116,7 +116,7 @@
 
 | name                     | original name | description      | unit | constraints |
 |--------------------------|---------------|------------------|------|-------------|
-| {term}`visibility_range_class` | vk_ter        | coded visibility class          | -      | >=0         |
+| {term}`visibility_range_class` | vk_ter | Coded visibility class. | - | >=0 |
 
 ### wind
 
@@ -133,8 +133,8 @@
 
 | name                        | original name | description           | unit | constraints |
 |-----------------------------|---------------|-----------------------|------|-------------|
-| {term}`wind_direction`      | dk_ter        | wind direction        | °    | >=0,<=360   |
-| {term}`wind_force_beaufort` | fk_ter        | wind force (beaufort) | Bft  | >=0         |
+| {term}`wind_direction` | dk_ter | Wind direction. | ° | >=0,<=360 |
+| {term}`wind_force_beaufort` | fk_ter | Wind force (beaufort). | Bft | >=0 |
 
 ### wind_extreme
 
@@ -151,5 +151,5 @@
 
 | name                          | original name | description      | unit | constraints |
 |-------------------------------|---------------|------------------|------|-------------|
-| {term}`wind_gust_max_last_3h` | fx_911_3      | wind gust max 3h | m/s  | >=0         |
-| {term}`wind_gust_max_last_6h` | fx_911_6      | wind gust max 6h | m/s  | >=0         |
+| {term}`wind_gust_max_last_3h` | fx_911_3 | Wind gust max 3h. | m/s | >=0 |
+| {term}`wind_gust_max_last_6h` | fx_911_6 | Wind gust max 6h. | m/s | >=0 |
