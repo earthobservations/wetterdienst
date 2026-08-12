@@ -26,4 +26,4 @@
 | name              | original name | description | unit | constraints |
 |-------------------|---------------|-------------|------|-------------|
 | {term}`discharge` | q             | flow        | l/s  | >=0         |
-| {term}`stage`     | stage         | stage       | mm   | -           |
+| {term}`stage` | H | Stage. | mm | - |

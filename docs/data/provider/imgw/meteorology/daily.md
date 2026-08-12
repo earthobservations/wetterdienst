@@ -25,8 +25,8 @@
 
 | name                               | original name                      | description                | unit | constraints |
 |------------------------------------|------------------------------------|----------------------------|------|-------------|
-| {term}`cloud_cover_total`          | średnie dobowe zachmurzenie        | cloud cover total          | 1/8  | >=0,<=100   |
-| {term}`humidity`                   | średnia dobowa wilgotność          | humidity                   | %    | >=0,<=100   |
+| {term}`cloud_cover_total` | średnie dobowe zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
+| {term}`humidity` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`precipitation_height`       | suma dobowa opadów                 | precipitation height       | mm   | >=0         |
 | {term}`snow_depth`                 | wysokość pokrywy śnieżnej          | snow depth                 | cm   | >=0         |
 | {term}`temperature_air_max_2m`     | maksymalna temperatura dobowa      | temperature air max 2m     | °C   | -           |
@@ -69,10 +69,10 @@
 
 | name                            | original name                  | description          | unit | constraints |
 |---------------------------------|--------------------------------|----------------------|------|-------------|
-| {term}`cloud_cover_total`       | średnie dobowe zachmurzenie    | cloud cover total    | 1/8  | >=0,<=100   |
-| {term}`humidity`                | średnia dobowa wilgotność      | humidity             | %    | >=0,<=100   |
+| {term}`cloud_cover_total` | średnie dobowe zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
+| {term}`humidity` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`precipitation_height`    | suma dobowa opadów             | precipitation height | mm   | >=0         |
-| {term}`pressure_air_site`       | średnia dobowe ciśnienie       | pressure air site    | hPa  | >=0         |
-| {term}`pressure_vapor`          | średnie dobowe ciśnienie pary  | pressure vapor       | hPa  | >=0         |
+| {term}`pressure_air_site` | średnia dobowe ciśnienie na poziomie stacji | Pressure air site. | hPa | >=0 |
+| {term}`pressure_vapor` | średnia dobowe ciśnienie pary wodnej | Pressure vapor. | hPa | >=0 |
 | {term}`temperature_air_mean_2m` | średnia dobowa temperatura     | temperature air mean | °C   | -           |
 | {term}`wind_speed`              | średnia dobowa prędkość wiatru | wind speed           | m/s  | >=0         |

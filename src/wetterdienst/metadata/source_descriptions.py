@@ -24,7 +24,12 @@ Keyed by metadata model name, then ``(resolution, dataset, name_original)``. App
 """
 
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
+    "HubeauMetadata": {
+        ("dynamic", "data", "H"): "Stage.",
+    },
     "DwdDerivedMetadata": {
+        ("hourly", "radiation_global", "qn_952"): "Quality flag.",
+        ("hourly", "sunshine_duration", "qn_952"): "Quality flag.",
         ("daily", "soil", "bfgl01_ag"): "soil moisture for meadow on loamy silt 0-10cm",
         ("daily", "soil", "bfgl02_ag"): "soil moisture for meadow on loamy silt 10-20cm",
         ("daily", "soil", "bfgl03_ag"): "soil moisture for meadow on loamy silt 20-30cm",
@@ -122,6 +127,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "soil", "summe von vrws_ag"): "sum of evaporation height for winter wheat on sand",
     },
     "DwdDmoMetadata": {
+        ("hourly", "icon", "nl"): "Low cloud cover (lower than 2 km).",
+        ("hourly", "icon_eu", "nl"): "Low cloud cover (lower than 2 km).",
         ("hourly", "icon", "dd"): "Wind direction",
         ("hourly", "icon", "drr1"): "Duration of precipitation within the last hour",
         ("hourly", "icon", "e_dd"): "Absolute error wind direction",
@@ -764,6 +771,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "level-min-86400"): "daily minimum groundwater level",
     },
     "EcccObservationMetadata": {
+        ("daily", "data", "max_temperature"): "Daily maximum 2m air temperature.",
+        ("daily", "data", "mean_temperature"): "Daily mean 2m air temperature.",
+        ("daily", "data", "min_temperature"): "Daily minimum 2m air temperature.",
+        ("daily", "data", "snow_on_ground"): "Total snow depth.",
+        ("daily", "data", "speed_max_gust"): "Maximum wind gust.",
+        ("daily", "data", "total_precipitation"): "Total precipitation.",
+        ("daily", "data", "total_rain"): "Total liquid precipitation.",
+        ("daily", "data", "total_snow"): "New snow depth.",
         ("daily", "data", "cooling_degree_days"): "cooling degree days",
         ("daily", "data", "direction_max_gust"): "wind direction of maximum wind gust",
         ("daily", "data", "heating_degree_days"): "heating degree days",
@@ -909,6 +924,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "hydrology", "średnia temperatura wody"): "temperature water mean",
     },
     "ImgwMeteorologyMetadata": {
+        ("daily", "climate", "średnia dobowa wilgotność względna"): "Humidity.",
+        ("daily", "climate", "średnie dobowe zachmurzenie ogólne"): "Cloud cover total.",
+        ("daily", "synop", "średnia dobowa wilgotność względna"): "Humidity.",
+        ("daily", "synop", "średnia dobowe ciśnienie na poziomie stacji"): "Pressure air site.",
+        ("daily", "synop", "średnia dobowe ciśnienie pary wodnej"): "Pressure vapor.",
+        ("daily", "synop", "średnie dobowe zachmurzenie ogólne"): "Cloud cover total.",
+        ("monthly", "climate", "średnia miesięczna wilgotność względna"): "Humidity.",
+        ("monthly", "climate", "średnie miesięczne zachmurzenie ogólne"): "Cloud cover total.",
+        ("monthly", "synop", "średnia miesięczna wilgotność względna"): "Humidity.",
+        ("monthly", "synop", "średnie miesięczne zachmurzenie ogólne"): "Cloud cover total.",
         ("daily", "climate", "maksymalna temperatura dobowa"): "temperature air max 2m",
         ("daily", "climate", "minimalna temperatura dobowa"): "temperature air min 2m",
         ("daily", "climate", "suma dobowa opadów"): "precipitation height",
@@ -947,6 +972,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "synop", "średnie miesięczne ciśnienie pary wodnej"): "pressure vapor",
     },
     "NoaaGhcnMetadata": {
+        ("daily", "data", "tavg"): (
+            "Mean temperature calculated from tmean = (temperature_air_max_2m + temperature_air_min_2m) / 2."
+        ),
+        ("daily", "data", "wdfm"): "Fastest mile wind direction (degrees).",
         ("daily", "data", "acmc"): "Average cloudiness midnight to midnight from 30-second ceilometer data (percent)",
         ("daily", "data", "acmh"): "Average cloudiness midnight to midnight from manual observation (percent)",
         ("daily", "data", "acsc"): "Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)",
@@ -1531,5 +1560,146 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
     },
     "EAHydrologyMetadata": {
         "15_minutes": "no specific dataset is provided but parameters can be queried individually.",
+    },
+}
+
+# Derived rather than sourced: DWD publishes no prose for these fields in either language, so the
+# text is taken from the same canonical parameter at the same resolution elsewhere -- same quantity
+# over the same interval -- or, failing that, from the canonical sentence in ``parameter_table``.
+# Kept apart from SOURCE_DESCRIPTIONS so that a description here is not mistaken for the wording of
+# the source itself, and applied only where nothing else supplies one.
+DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
+    "DwdDerivedMetadata": {
+        ("monthly", "cooling_degreehours_13", "Kuehltage"): "Number of days on which cooling was required.",
+        ("monthly", "cooling_degreehours_16", "Kuehltage"): "Number of days on which cooling was required.",
+        ("monthly", "cooling_degreehours_18", "Kuehltage"): "Number of days on which cooling was required.",
+    },
+    "DwdDmoMetadata": {
+        ("hourly", "icon", "wwpd"): "Probability of precipitation of any kind over the preceding 24 hours.",
+    },
+    "DwdMosmixMetadata": {
+        ("hourly", "large", "nl"): "Low cloud cover (lower than 2 km).",
+        ("hourly", "large", "wwpd"): "Probability of precipitation of any kind over the preceding 24 hours.",
+        ("hourly", "small", "nl"): "Low cloud cover (lower than 2 km).",
+    },
+    "DwdObservationMetadata": {
+        ("10_minutes", "precipitation", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "solar", "qn"): "Quality flag published by the source for the values in the same dataset.",
+        ("10_minutes", "temperature_air", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "temperature_extreme", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "urban_precipitation", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "urban_pressure", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "urban_solar", "qn"): "Quality flag published by the source for the values in the same dataset.",
+        ("10_minutes", "urban_temperature_air", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "urban_temperature_extreme", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "urban_temperature_soil", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "urban_wind_extreme", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "urban_wind", "qn"): "Quality flag published by the source for the values in the same dataset.",
+        ("10_minutes", "wind_extreme", "qn"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("10_minutes", "wind", "qn"): "Quality flag published by the source for the values in the same dataset.",
+        ("1_minute", "precipitation", "qn"): "Quality flag published by the source for the values in the same dataset.",
+        ("5_minutes", "precipitation", "qn_5min"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("annual", "climate_summary", "qn_4"): (
+            "Quality flag published by the source, applying to the dataset as a whole."
+        ),
+        ("annual", "climate_summary", "qn_6"): (
+            "Quality flag published by the source for `precipitation` in the same dataset."
+        ),
+        ("annual", "precipitation_more", "qn_6"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("annual", "weather_phenomena", "qn_4"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("daily", "precipitation_more", "qn_6"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("daily", "solar", "qn_592"): "Quality flag published by the source for the values in the same dataset.",
+        ("daily", "temperature_soil", "qn_2"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("daily", "water_equivalent", "qn_6"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("daily", "weather_phenomena_more", "qn_6"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("daily", "weather_phenomena", "qn_4"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("hourly", "cloud_type", "qn_8"): "Quality flag.",
+        ("hourly", "cloudiness", "qn_8"): "Quality flag.",
+        ("hourly", "dew_point", "qn_8"): "Quality flag.",
+        ("hourly", "moisture", "qn_4"): "Quality flag.",
+        ("hourly", "precipitation", "qn_8"): "Quality flag.",
+        ("hourly", "pressure", "qn_8"): "Quality flag.",
+        ("hourly", "solar", "qn_592"): "Quality flag.",
+        ("hourly", "sun", "qn_7"): "Quality flag.",
+        ("hourly", "temperature_air", "qn_9"): "Quality flag.",
+        ("hourly", "temperature_soil", "qn_2"): "Quality flag.",
+        ("hourly", "urban_precipitation", "qualitaets_niveau"): "Quality flag.",
+        ("hourly", "urban_pressure", "qualitaets_niveau"): "Quality flag.",
+        ("hourly", "urban_sun", "qualitaets_niveau"): "Quality flag.",
+        ("hourly", "urban_temperature_air", "qualitaets_niveau"): "Quality flag.",
+        ("hourly", "urban_temperature_soil", "qualitaets_niveau"): "Quality flag.",
+        ("hourly", "urban_wind", "qualitaets_niveau"): "Quality flag.",
+        ("hourly", "visibility", "qn_8"): "Quality flag.",
+        ("hourly", "weather_phenomena", "qn_8"): "Quality flag.",
+        ("hourly", "wind_extreme", "qn_8"): "Quality flag.",
+        ("hourly", "wind_synoptic", "qn_8"): "Quality flag.",
+        ("hourly", "wind", "qn_3"): "Quality flag.",
+        ("monthly", "precipitation_more", "qn_6"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("monthly", "weather_phenomena", "qn_4"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("subdaily", "cloudiness", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
+        ("subdaily", "moisture", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
+        ("subdaily", "pressure", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
+        ("subdaily", "soil", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
+        ("subdaily", "temperature_air", "qn_4"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("subdaily", "visibility", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
+        ("subdaily", "wind_extreme", "qn_8_3"): (
+            "Quality flag for the 3-hourly maximum wind gust reported in the same dataset."
+        ),
+        ("subdaily", "wind_extreme", "qn_8_6"): (
+            "Quality flag for the 6-hourly maximum wind gust reported in the same dataset."
+        ),
+        ("subdaily", "wind", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
+    },
+    "DwdSwsmosMetadata": {
+        ("hourly", "data", "R650"): "Probability of precipitation > 5.0mm during the last 6 hours.",
+        ("hourly", "data", "RC"): "Coded condition of the road surface, such as dry, wet or icy.",
+        ("hourly", "data", "RR6"): "Total precipitation during the last 6 hours.",
+        ("hourly", "data", "RRL1c"): "Depth of the liquid part of the precipitation.",
+        ("hourly", "data", "TD"): "Dewpoint 2m above surface.",
+        ("hourly", "data", "TL"): "Temperature 2m above surface.",
+        ("hourly", "data", "TS"): "Mean temperature of the ground surface.",
+        ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours.",
     },
 }

@@ -53,7 +53,7 @@
 | {term}`temperature_air_2m`                                 | tobs          | Temperature at the time of observation  (Fahrenheit or Celsius as per user preference)                                          | °C   | -           |
 | {term}`temperature_air_max_2m` | tmax | Maximum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to tenths on Daily Form pdf file | °C | - |
 | {term}`temperature_air_max_2m_multiday`                    | mdtx          | Multiday maximum temperature (Fahrenheit or Celsius as per user preference ; use with DATX)                                     | °C   | -           |
-| {term}`temperature_air_mean_2m`                            | tmin          | mean temperature calculated from tmean = (temperature_air_max_2m + temperature_air_min_2m) / 2                                  | °C   | -           |
+| {term}`temperature_air_mean_2m` | tavg | Mean temperature calculated from tmean = (temperature_air_max_2m + temperature_air_min_2m) / 2. | °C | - |
 | {term}`temperature_air_min_2m` | tmin | Minimum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to tenths  on Daily Form pdf file | °C | - |
 | {term}`temperature_air_min_2m_multiday`                    | mdtn          | Multiday minimum temperature (Fahrenheit or Celsius as per user preference ; use with DATN)                                     | °C   | -           |
 | {term}`temperature_soil_max_bare_ground_0_05m`             | sx31          | Maximum soil temperature of bare_ground ground at 5cm depth                                                                     | °C   | -           |
@@ -213,7 +213,7 @@
 | {term}`weather_type_vicinity_snow_ice_crystals`            | wv18          | Snow or ice crystals in the Vicinity                                                                                            | -    | -           |
 | {term}`weather_type_vicinity_thunder`                      | wv03          | Thunder in the Vicinity                                                                                                         | -    | -           |
 | {term}`wind_direction_gust_max`                            | wdfg          | Direction of peak wind gust (degrees)                                                                                           | °    | >=0,<=360   |
-| {term}`wind_direction_gust_max_1mile`                      | wsfm          | Fastest mile wind direction (degrees)                                                                                           | °    | >=0,<=360   |
+| {term}`wind_direction_gust_max_1mile` | wdfm | Fastest mile wind direction (degrees) | ° | >=0,<=360 |
 | {term}`wind_direction_gust_max_1min`                       | wdf1          | Direction of fastest 1-minute wind (degrees)                                                                                    | °    | >=0,<=360   |
 | {term}`wind_direction_gust_max_2min`                       | wdf2          | Direction of fastest 2-minute wind (degrees)                                                                                    | °    | >=0,<=360   |
 | {term}`wind_direction_gust_max_5sec`                       | wdf5          | Direction of fastest 5-second wind (degrees)                                                                                    | °    | >=0,<=360   |
