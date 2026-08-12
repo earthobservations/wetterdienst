@@ -1278,3 +1278,256 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "windspeed"): "wind speed",
     },
 }
+
+
+# What a dataset holds, keyed by metadata model name then ``(resolution, dataset)``.
+# The docs tables carry a trailing "([details](url))" pointer; that is page formatting and
+# is not part of the description here.
+DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
+    "DwdDerivedMetadata": {
+        ("daily", "soil"): (
+            "Daily soil data including temperature at various depths, soil moisture, and evapotranspiration estimates."
+        ),
+        ("hourly", "radiation_global"): "Hourly global radiation data with quality flags and uncertainty estimates.",
+        ("hourly", "sunshine_duration"): "Hourly sunshine duration data with quality flags and uncertainty estimates.",
+        ("monthly", "climate_correction_factor"): (
+            "Data on climate correction factors, comparing the degree days between a postal code and "
+            "a reference station."
+        ),
+        ("monthly", "heating_degreedays"): (
+            "Data on degree days, comparing the monthly temperatures to the reference temperature of 20 degree Celsius."
+        ),
+        ("monthly", "soil"): (
+            "Monthly aggregated soil data including temperature at various depths, soil moisture, and "
+            "evapotranspiration estimates."
+        ),
+    },
+    "DwdDmoMetadata": {
+        ("hourly", "icon"): (
+            "Local forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours."
+        ),
+        ("hourly", "icon_eu"): (
+            "Local forecast of 40 parameters for worldwide stations, 24 times a day with a lead-time of 240 hours."
+        ),
+    },
+    "DwdObservationMetadata": {
+        ("10_minutes", "precipitation"): "10-minute station observations of precipitation for Germany.",
+        ("10_minutes", "solar"): "10-minute station observations of solar and sunshine for Germany.",
+        ("10_minutes", "temperature_air"): "10-minute station observations of air temperature for Germany.",
+        ("10_minutes", "temperature_extreme"): "10-minute station observations of extreme temperatures for Germany.",
+        ("10_minutes", "urban_precipitation"): (
+            "Recent 10-minute precipitation, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("10_minutes", "urban_pressure"): (
+            "Recent 10-minute pressure, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("10_minutes", "urban_solar"): (
+            "Recent 10-minute solar radiation and sunshine, observed at urban stations for selected "
+            "urban areas in Germany."
+        ),
+        ("10_minutes", "urban_temperature_air"): (
+            "Recent 10-minute air temperature and humidity, observed at urban stations for selected "
+            "urban areas in Germany."
+        ),
+        ("10_minutes", "urban_temperature_extreme"): (
+            "Recent 10-minute extreme air temperatures, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("10_minutes", "urban_temperature_soil"): (
+            "Recent 10-minute soil temperature, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("10_minutes", "urban_wind"): (
+            "Recent 10-minute wind speed and direction, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("10_minutes", "urban_wind_extreme"): (
+            "Recent 10-minute extreme wind, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("10_minutes", "wind"): "10-minute station observations of wind for Germany.",
+        ("10_minutes", "wind_extreme"): "10-minute station observations of extreme wind for Germany.",
+        ("1_minute", "precipitation"): "1-minute station observations of precipitation for Germany.",
+        ("5_minutes", "precipitation"): "5-minute station observations of precipitation for Germany.",
+        ("annual", "climate_summary"): (
+            "Historical annual station observations (temperature, pressure, precipitation, sunshine "
+            "duration, etc.) for Germany (details missing, parameter descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("annual", "precipitation_more"): (
+            "Historical annual precipitation observations for Germany (details missing, parameter "
+            "descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("annual", "weather_phenomena"): (
+            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
+            "dew, glaze, ripe, sleet and hail for stations of Germany (details missing, parameter "
+            "descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("daily", "climate_summary"): (
+            "Daily station observations (temperature, pressure, precipitation, sunshine duration, etc.) for Germany."
+        ),
+        ("daily", "precipitation_more"): "Daily precipitation observations for Germany.",
+        ("daily", "solar"): (
+            "Daily station observations of solar incoming (total/diffuse) and longwave downward radiation for Germany."
+        ),
+        ("daily", "temperature_soil"): "Daily station observations of soil temperature station data for Germany.",
+        ("daily", "water_equivalent"): "Daily observations of snow height and water equivalent for Germany.",
+        ("daily", "weather_phenomena"): (
+            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
+            "dew, glaze, ripe, sleet and hail for stations of Germany (details missing, parameter "
+            "descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("daily", "weather_phenomena_more"): (
+            "Counts of (additional) weather phenomena sleet, hail, fog and thunder for stations of "
+            "Germany (details missing, parameter descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("hourly", "cloud_type"): (
+            "Hourly station observations of cloud cover, cloud type and cloud height in up to 4 layers for Germany."
+        ),
+        ("hourly", "cloudiness"): "Hourly station observations of cloudiness for Germany.",
+        ("hourly", "dew_point"): "Hourly station observations of air and dew point temperature for Germany.",
+        ("hourly", "moisture"): "Hourly station observations of moisture parameters for Germany.",
+        ("hourly", "precipitation"): "Hourly station observations of precipitation for Germany.",
+        ("hourly", "pressure"): "Hourly station observations of pressure for Germany.",
+        ("hourly", "solar"): (
+            "Hourly station observations of solar incoming (total/diffuse) and longwave downward radiation for Germany."
+        ),
+        ("hourly", "sun"): "Hourly station observations of sunshine duration for Germany.",
+        ("hourly", "temperature_air"): "Hourly station observations of 2 m air temperature and humidity for Germany.",
+        ("hourly", "temperature_soil"): "Hourly station observations of of soil temperature for Germany.",
+        ("hourly", "urban_precipitation"): (
+            "Recent hourly precipitation, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("hourly", "urban_pressure"): (
+            "Recent hourly pressure, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("hourly", "urban_sun"): (
+            "Recent hourly sunshine duration, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("hourly", "urban_temperature_air"): (
+            "Recent hourly air temperature and humidity, observed at urban stations for selected "
+            "urban areas in Germany."
+        ),
+        ("hourly", "urban_temperature_soil"): (
+            "Recent hourly soil temperature, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("hourly", "urban_wind"): (
+            "Recent hourly wind speed and direction, observed at urban stations for selected urban areas in Germany."
+        ),
+        ("hourly", "visibility"): "Hourly station observations of visibility for Germany.",
+        ("hourly", "weather_phenomena"): "Hourly station observations of weather phenomena for Germany.",
+        ("hourly", "wind"): "Hourly mean value from station observations of wind speed and wind direction for Germany.",
+        ("hourly", "wind_extreme"): "Hourly maximum value from station observations of windspeed for Germany.",
+        ("hourly", "wind_synoptic"): "Hourly station observations of wind speed and wind direction for Germany.",
+        ("monthly", "climate_summary"): (
+            "Monthly station observations (temperature, precipitation, sunshine duration, wind and "
+            "cloud cover) for Germany."
+        ),
+        ("monthly", "precipitation_more"): "Monthly precipitation observations for Germany.",
+        ("monthly", "weather_phenomena"): (
+            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
+            "dew, glaze, ripe, sleet and hail for stations of Germany (details missing, parameter "
+            "descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("subdaily", "cloudiness"): (
+            "Recent subdaily cloud cover and cloud density of stations in Germany (details missing, "
+            "parameter descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("subdaily", "moisture"): (
+            "Recent subdaily vapor pressure, mean temperature in 2m height, mean temperature in 5cm "
+            "height and humidity of stations in Germany (details missing, parameter descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("subdaily", "pressure"): (
+            "Recent air pressure at site of stations in Germany (details missing, parameter "
+            "descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("subdaily", "soil"): (
+            "Recent soil temperature in 5cm depth of stations in Germany (details missing, parameter "
+            "descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("subdaily", "temperature_air"): (
+            "Recent subdaily air temperature and humidity of stations in Germany (details missing, "
+            "parameter descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("subdaily", "visibility"): (
+            "Recent visibility range of stations in Germany (details missing, parameter descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("subdaily", "wind"): (
+            "Recent wind direction and wind force (beaufort) of stations in Germany (details missing, "
+            "parameter descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("subdaily", "wind_extreme"): (
+            "Recent subdaily extreme wind of stations in Germany (details missing, parameter "
+            "descriptions "
+            "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+    },
+    "DwdRoadMetadata": {
+        ("15_minutes", "data"): "15-minute road weather data of German highway stations.",
+    },
+    "EAHydrologyMetadata": {
+        ("15_minutes", "data"): "Historical 15 minute station observations of flow and groundwater level for the UK.",
+        ("daily", "data"): "Historical daily station observations of flow and groundwater level for the UK.",
+    },
+    "EcccObservationMetadata": {
+        ("daily", "data"): "Historical daily station observations for Canada.",
+        ("hourly", "data"): (
+            "Historical hourly station observations of 2m air temperature, humidity, wind direction, "
+            "wind speed, visibility range, air pressure, wind gust and weather for Canada."
+        ),
+        ("monthly", "data"): "Historical monthly station observations for Canada.",
+    },
+    "GeosphereObservationMetadata": {
+        ("10_minutes", "data"): "historical 10 minute data.",
+        ("daily", "data"): "Historical daily station observations of 2m air temperature and humidity for Germany.",
+        ("hourly", "data"): "Historical hourly station observations of 2m air temperature and humidity for Germany.",
+        ("monthly", "data"): "Historical monthly station observations of 2m air temperature and humidity for Germany.",
+    },
+    "HubeauMetadata": {
+        ("dynamic", "data"): "Flow and stage for France.",
+    },
+    "ImgwHydrologyMetadata": {
+        ("daily", "hydrology"): "historical daily hydrology data.",
+        ("monthly", "hydrology"): "historical daily climate data.",
+    },
+    "ImgwMeteorologyMetadata": {
+        ("daily", "climate"): "historical daily climate data.",
+        ("daily", "precipitation"): "historical daily precipitation data.",
+        ("daily", "synop"): "historical daily synop data.",
+        ("monthly", "precipitation"): "historical monthly precipitation data.",
+        ("monthly", "synop"): "historical monthly synop data.",
+    },
+    "NoaaGhcnMetadata": {
+        ("daily", "data"): "Historical daily weather data from the Global Historical Climatology Network (GHCN).",
+        ("hourly", "data"): "Historical hourly weather data from the Global Historical Climatology Network (GHCN).",
+    },
+    "NwsObservationMetadata": {
+        ("hourly", "data"): (
+            "Historical hourly station observations (temperature, pressure, precipitation, etc.) for the US."
+        ),
+    },
+    "WsvPegelMetadata": {
+        ("dynamic", "data"): (
+            "Recent data (last 30 days) of German waterways including water level and discharge for "
+            "most stations but may also include chemical, meteorologic and other types of values."
+        ),
+    },
+}
+
+# What a resolution holds, keyed by metadata model name then resolution name.
+RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
+    "DwdObservationMetadata": {
+        "subdaily": "measurements at 7am, 2pm, 9pm.",
+    },
+    "EAHydrologyMetadata": {
+        "15_minutes": "no specific dataset is provided but parameters can be queried individually.",
+    },
+}

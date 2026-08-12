@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- Dataset and resolution descriptions on the metadata models: 88 of 148 datasets and 2 resolutions,
+  lifted out of the provider docs metadata tables the same way the parameter descriptions were.
+  `DatasetModel.description` and `ResolutionModel.description` had been declared but never
+  populated, so `metadata["hourly"]["data"].description` returned `None` for every provider.
+  `tests/test_docs.py` checks the tables still agree with the model, ignoring the trailing
+  `([details](url))` pointer the pages add, which is page formatting rather than description
+
 - Source descriptions for 1057 parameters, in `metadata.source_descriptions` and reported by
   `discover()` -- so by `GET /api/coverage`, the `coverage` MCP tool and `wetterdienst about
   coverage`. These say what a given provider's field means, as against the canonical,
