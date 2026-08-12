@@ -152,6 +152,13 @@ Types of changes:
 
 ### Fixed
 
+- DWD's layer cloud cover descriptions are correct. Its English sheet truncates `V_S1_NS` to "cloud
+  cover of 1. laye" and then repeats that same string for `V_S2_NS`, so the second layer was
+  described as the first. The German `Metadaten_Parameter` file inside the data ZIPs has both right
+  ("Bedeckungsgrad in der ersten/zweiten Schicht"), and all four layers now read consistently.
+  `end_of_interval` and `luftdruck_nn`, which DWD documents in neither language, are described
+  plainly; every non-quality DWD observation parameter now has a description
+
 - **Breaking**: DWD's `v_n_i` and `v_vv_i` are named for what they hold. Both are *measurement
   method* indicators -- P for a human observer, I for an instrument, which is why the parser lists
   them among its string parameters -- while `cloud_cover_total_index` and `visibility_range_index`

@@ -28,16 +28,16 @@
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
 | {term}`cloud_type_layer1` | v_s1_cs | Cloud type of 1. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
 | {term}`cloud_height_layer1` | v_s1_hhs | Lower boundary height of 1.layer. | m | >=0 |
-| {term}`cloud_cover_layer1` | v_s1_ns | Cloud cover of 1. laye. | 1/8 | >=0,<=8 |
+| {term}`cloud_cover_layer1` | v_s1_ns | Cloud cover in the first layer. | 1/8 | >=0,<=8 |
 | {term}`cloud_type_layer2` | v_s2_cs | Cloud type of 2. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
 | {term}`cloud_height_layer2` | v_s2_hhs | Lower boundary height of 2.layer. | m | >=0 |
-| {term}`cloud_cover_layer2` | v_s2_ns | Cloud cover of 1. laye. | 1/8 | >=0,<=8 |
+| {term}`cloud_cover_layer2` | v_s2_ns | Cloud cover in the second layer. | 1/8 | >=0,<=8 |
 | {term}`cloud_type_layer3` | v_s3_cs | Cloud type of 3. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
 | {term}`cloud_height_layer3` | v_s3_hhs | Lower boundary height of 3.layer. | m | >=0 |
-| {term}`cloud_cover_layer3` | v_s3_ns | Cloud cover of 3. layer. | 1/8 | >=0,<=8 |
+| {term}`cloud_cover_layer3` | v_s3_ns | Cloud cover in the third layer. | 1/8 | >=0,<=8 |
 | {term}`cloud_type_layer4` | v_s4_cs | Cloud type of 4. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
 | {term}`cloud_height_layer4` | v_s4_hhs | Lower boundary height of 4.layer. | m | >=0 |
-| {term}`cloud_cover_layer4` | v_s4_ns | Cloud cover of 4. layer. | 1/8 | >=0,<=8 |
+| {term}`cloud_cover_layer4` | v_s4_ns | Cloud cover in the fourth layer. | 1/8 | >=0,<=8 |
 
 Code (cloud_type_layer):
 
