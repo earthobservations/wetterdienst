@@ -487,7 +487,9 @@ DwdObservationMetadata = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "cloud_cover_total_index",
+                            # v_n_i says how the cover was determined (P = person, I = instrument),
+                            # not what the cover was
+                            "name": "cloud_cover_total_measurement_method",
                             "name_original": "v_n_i",
                             "unit": "dimensionless",
                         },
@@ -584,7 +586,9 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "cloud_cover_total_index",
+                            # v_n_i says how the cover was determined (P = person, I = instrument),
+                            # not what the cover was
+                            "name": "cloud_cover_total_measurement_method",
                             "name_original": "v_n_i",
                             "unit": "dimensionless",
                         },
@@ -844,7 +848,9 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "visibility_range_index",
+                            # v_vv_i is DWD's "visibility index, noting how the measurement is
+                            # taken", a method indicator rather than a coded visibility
+                            "name": "visibility_range_measurement_method",
                             "name_original": "v_vv_i",
                             "unit": "dimensionless",
                         },
@@ -1199,7 +1205,7 @@ DwdObservationMetadata = {
                         {
                             # "Terminwerte Sichtweite", unit CODE -- a visibility class, not a
                             # distance. Declared as metres it read "5 metres" for class 5.
-                            "name": "visibility_range_class",
+                            "name": "visibility_range_index",
                             "name_original": "vk_ter",
                             "unit": "dimensionless",
                         },

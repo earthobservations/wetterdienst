@@ -34,15 +34,15 @@ DROPPABLE_PARAMETERS = {
     # STRING_PARAMETERS
     # hourly
     # cloud_type
-    DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_index.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
     # cloudiness
-    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_index.name_original,
+    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
     # visibility
-    DwdObservationMetadata.hourly.visibility.visibility_range_index.name_original,
+    DwdObservationMetadata.hourly.visibility.visibility_range_measurement_method.name_original,
     # DATE_PARAMETERS_IRREGULAR
     DwdObservationMetadata.hourly.solar.true_local_time.name_original,
     DwdObservationMetadata.hourly.solar.end_of_interval.name_original,

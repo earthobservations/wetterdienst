@@ -152,6 +152,17 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: DWD's `v_n_i` and `v_vv_i` are named for what they hold. Both are *measurement
+  method* indicators -- P for a human observer, I for an instrument, which is why the parser lists
+  them among its string parameters -- while `cloud_cover_total_index` and `visibility_range_index`
+  both described a coded *value*. They are now `cloud_cover_total_measurement_method` and
+  `visibility_range_measurement_method`
+- **Breaking**: `visibility_range_class` is renamed `visibility_range_index`. It only existed
+  because `visibility_range_index` was occupied by the method indicator above, and its description
+  ("Coded indicator of the visibility range") always described DWD subdaily `vk_ter` rather than
+  what it was attached to. `cloud_cover_total_index` is removed; no provider declares a coded cloud
+  cover
+
 - **Breaking**: four DWD subdaily parameters named the wrong quantity, not merely the wrong unit.
   DWD's own `Metadaten_Parameter_*.txt`, shipped inside every data ZIP, gives each field a
   description and a unit, and for these four it disagreed with what wetterdienst declared:

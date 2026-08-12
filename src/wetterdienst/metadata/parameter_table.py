@@ -85,9 +85,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter("cloud_cover_total", "fraction", "Fraction of the sky covered by cloud of any kind."),
     CanonicalParameter(
-        "cloud_cover_total_index",
+        "cloud_cover_total_measurement_method",
         "dimensionless",
-        "Coded index describing total cloud cover, as published by the source.",
+        "Coded indicator of how the total cloud cover was determined, such as by a person or an instrument.",
     ),
     CanonicalParameter(
         "cloud_cover_total_midnight_to_midnight",
@@ -1713,11 +1713,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "visibility_range", "length_medium", "Horizontal distance at which an object can still be made out."
     ),
     CanonicalParameter(
-        "visibility_range_class",
+        "visibility_range_index",
         "dimensionless",
         "Coded class the visibility range falls into, rather than a measured distance.",
     ),
-    CanonicalParameter("visibility_range_index", "dimensionless", "Coded indicator of the visibility range."),
+    CanonicalParameter(
+        "visibility_range_measurement_method",
+        "dimensionless",
+        "Coded indicator of how the visibility range was determined, such as by a person or an instrument.",
+    ),
     CanonicalParameter(
         "water_equivalent_snow_depth",
         "precipitation",
