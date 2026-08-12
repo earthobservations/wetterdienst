@@ -212,7 +212,10 @@ class HubeauValues(TimeseriesValues):
         return df.select(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
-            pl.lit(parameter_or_dataset.name_original.lower()).alias("parameter"),
+            # not lowercased: `_create_humanized_parameters_mapping` and the skip-criteria check
+            # both key on `name_original` as declared, so a lowercased value never matched --
+            # Hubeau silently never humanized and every station counted as having no data
+            pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             "station_id",
             pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%SZ").dt.replace_time_zone("UTC"),
             "value",

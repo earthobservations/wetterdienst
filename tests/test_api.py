@@ -659,6 +659,9 @@ def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert not values.drop_nulls(subset="value").is_empty()
+    # humanizing keys on `name_original` as declared, so emitting a lowercased "q" left the values
+    # un-humanized and made the skip criteria count the station as having no data
+    assert values.get_column("parameter").unique().to_list() == ["discharge"]
 
 
 @pytest.mark.remote

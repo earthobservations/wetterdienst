@@ -405,11 +405,11 @@ class WsvPegelRequest(TimeseriesRequest):
         df = df.rename(mapping={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
         df = df.with_columns(
             pl.col("water").struct.field("shortname"),
-            pl.col("timeseries").list.eval(pl.element().struct.field("shortname").str.to_lowercase()).alias("ts"),
+            # matched as published: Pegelonline names every timeseries in upper case, the same case
+            # the parameters are declared in, so there is nothing to normalize away here
+            pl.col("timeseries").list.eval(pl.element().struct.field("shortname")).alias("ts"),
         )
-        parameters = {
-            parameter.name_original.lower() for parameter in self.parameters if isinstance(parameter, ParameterModel)
-        }
+        parameters = {parameter.name_original for parameter in self.parameters if isinstance(parameter, ParameterModel)}
         df = df.filter(pl.col("ts").list.set_intersection(list(parameters)).list.len() > 0)
         df = df.with_columns(
             pl.col("timeseries")
