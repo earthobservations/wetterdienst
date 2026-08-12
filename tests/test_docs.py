@@ -179,3 +179,51 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
                         f"docs {shown!r} != model {parameter.description!r}",
                     )
     assert not mismatches, "\n".join(mismatches[:10])
+
+
+def _documented_dataset_descriptions(path: Path) -> dict[str, str]:
+    """Return {dataset: description} from the '#### metadata' tables of one docs page."""
+    documented = {}
+    dataset = None
+    in_table = False
+    prop = {}
+    for line in path.read_text(encoding="utf8").splitlines():
+        if line.startswith("### ") and not line.startswith("#### "):
+            dataset = line[4:].strip()
+        if line.startswith("|"):
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if cells[:1] == ["property"]:
+                in_table, prop = True, {}
+                continue
+            if in_table and not all(set(cell) <= {"-", ":"} for cell in cells) and len(cells) >= 2:
+                prop[cells[0]] = cells[1]
+        elif in_table:
+            if dataset and prop.get("description"):
+                documented[dataset] = prop["description"]
+            in_table, prop = False, {}
+    if in_table and dataset and prop.get("description"):
+        documented[dataset] = prop["description"]
+    return documented
+
+
+def test_docs_dataset_descriptions_match_the_model() -> None:
+    """Test that the docs dataset metadata tables agree with the model.
+
+    Same reason as the parameter descriptions: the text used to live only in markdown. The docs
+    append a "([details](url))" pointer that is page formatting rather than part of the
+    description, so it is ignored here.
+    """
+    mismatches = []
+    for provider, network, resolution, path in _documented_resolutions():
+        documented = _documented_dataset_descriptions(path)
+        for dataset in resolution:
+            shown = documented.get(dataset.name)
+            if not shown or not dataset.description:
+                continue
+            shown = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", shown).strip().rstrip(".")
+            if shown != dataset.description.rstrip("."):
+                mismatches.append(
+                    f"{provider}/{network}/{resolution.name}/{dataset.name}: "
+                    f"docs {shown!r} != model {dataset.description!r}",
+                )
+    assert not mismatches, "\n".join(mismatches[:10])
