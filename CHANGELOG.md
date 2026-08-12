@@ -108,6 +108,26 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: four DWD subdaily parameters named the wrong quantity, not merely the wrong unit.
+  DWD's own `Metadaten_Parameter_*.txt`, shipped inside every data ZIP, gives each field a
+  description and a unit, and for these four it disagreed with what wetterdienst declared:
+  - `e_tf_ter` is "Eisansatz bei der Messung der Feuchttemperatur", unit YES/NO -- whether ice had
+    formed on the wet bulb thermometer. It was declared `temperature_air_mean_0_05m` in °C, and
+    carries only 0 and 1 across 82901 values at station 00003. Now
+    `temperature_wet_ice_formation`, dimensionless
+  - `ek_ter` is "Terminwerte des Erdbodenzustand", unit CODE -- values 0-9, exactly 10 distinct. It
+    was declared `temperature_soil_mean_0_05m` in °C. Now `soil_state_index`, dimensionless
+  - `vk_ter` is "Terminwerte Sichtweite", unit CODE -- also 0-9. It was declared `visibility_range`
+    in metres, so a request for subdaily visibility returned "5 metres" for visibility class 5. Now
+    `visibility_range_class`, dimensionless
+  - `tf_ter` is the wet bulb temperature and was declared `temperature_air_mean_2m`. DWD's *hourly*
+    moisture dataset already maps the same quantity (`tf_std`) to `temperature_wet_mean_2m`, so the
+    two resolutions disagreed with each other. Confirmed against 83994 paired observations: it sits
+    a median 1.6 °C below the air temperature and never exceeds it, which is the wet bulb
+    signature. Now `temperature_wet_mean_2m`
+- Three new canonical parameters for the above: `temperature_wet_ice_formation`,
+  `soil_state_index` and `visibility_range_class`, all dimensionless
+
 - **Breaking**: Geosphere `cloud_cover_total` is returned as a fraction rather than a percentage
   passed off as one. It was declared `decimal` while Geosphere documents `bewm_mittel` as `1/100`
   and returns 0-100, so the raw percentage went straight through the `fraction` target unconverted

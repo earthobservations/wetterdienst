@@ -45,8 +45,8 @@
 | name                               | original name | description         | unit | constraints |
 |------------------------------------|---------------|---------------------|------|-------------|
 | {term}`pressure_vapor`             | vp_ter        | vapor pressure      | hPa  | >=0         |
-| {term}`temperature_air_mean_0_05m` | e_tf_ter      | 5cm air temperature | °C   |             |
-| {term}`temperature_air_mean_2m`    | tf_ter        | 2m air temperature  | °C   |             |
+| {term}`temperature_wet_ice_formation` | e_tf_ter | ice on the wet bulb thermometer | -  |          |
+| {term}`temperature_wet_mean_2m`    | tf_ter        | 2m wet bulb temperature | °C |           |
 | {term}`humidity`                   | rf_ter        | humidity            | %    | >=0,<=100   |
 
 ### pressure
@@ -81,7 +81,7 @@
 
 | name                                | original name | description          | unit | constraints |
 |-------------------------------------|---------------|----------------------|------|-------------|
-| {term}`temperature_soil_mean_0_05m` | ek_ter        | soil temperature 5cm | °C   | -           |
+| {term}`soil_state_index` | ek_ter        | coded ground state              | -      | -           |
 
 ### temperature_air
 
@@ -116,7 +116,7 @@
 
 | name                     | original name | description      | unit | constraints |
 |--------------------------|---------------|------------------|------|-------------|
-| {term}`visibility_range` | vk_ter        | visibility range | m    | >=0         |
+| {term}`visibility_range_class` | vk_ter        | coded visibility class          | -      | >=0         |
 
 ### wind
 

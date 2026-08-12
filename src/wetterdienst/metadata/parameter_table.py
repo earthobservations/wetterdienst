@@ -923,6 +923,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "fraction",
         "Soil moisture in sand under winter wheat, between the surface and 60 cm.",
     ),
+    CanonicalParameter(
+        "soil_state_index",
+        "dimensionless",
+        "Coded state of the ground surface, such as dry, moist, frozen or snow-covered.",
+    ),
     CanonicalParameter("stage", "length_short", "Water level at the gauge, measured against the gauge datum."),
     CanonicalParameter("stage_max", "length_short", "Highest water level at the gauge over the period."),
     CanonicalParameter("stage_mean", "length_short", "Mean water level at the gauge over the period."),
@@ -1615,6 +1620,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("temperature_water_max", "temperature", "Highest water temperature over the period."),
     CanonicalParameter("temperature_water_mean", "temperature", "Mean water temperature over the period."),
     CanonicalParameter("temperature_water_min", "temperature", "Lowest water temperature over the period."),
+    CanonicalParameter(
+        "temperature_wet_ice_formation",
+        "dimensionless",
+        "Whether ice had formed on the thermometer during the wet bulb measurement.",
+    ),
     CanonicalParameter("temperature_wet_mean_2m", "temperature", "Wet-bulb temperature at 2 m above ground."),
     CanonicalParameter(
         "temperature_wind_chill",
@@ -1641,6 +1651,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
     CanonicalParameter(
         "visibility_range", "length_medium", "Horizontal distance at which an object can still be made out."
+    ),
+    CanonicalParameter(
+        "visibility_range_class",
+        "dimensionless",
+        "Coded class the visibility range falls into, rather than a measured distance.",
     ),
     CanonicalParameter("visibility_range_index", "dimensionless", "Coded indicator of the visibility range."),
     CanonicalParameter(
