@@ -70,7 +70,7 @@ Code (cloud_type_layer):
 
 | name                            | original name | description                    | unit | constraints                         |
 |---------------------------------|---------------|--------------------------------|------|-------------------------------------|
-| {term}`cloud_cover_total_index` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. | - | ∈ \[P, I\] |
+| {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. | - | ∈ \[P, I\] |
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, -1\] |
 
 Code (cloud_cover_total_indicator):
@@ -379,7 +379,7 @@ Code (precipitation_form):
 
 | name                           | original name | description                    | unit | constraints |
 |--------------------------------|---------------|--------------------------------|------|-------------|
-| {term}`visibility_range_index` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. | - | ∈ \[P, I\] |
+| {term}`visibility_range_measurement_method` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. | - | ∈ \[P, I\] |
 | {term}`visibility_range` | v_vv | Visibility range. | m | >=0 |
 
 Code (visibility_range_indicator):
