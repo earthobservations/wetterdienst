@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- ECCC monthly and hourly expose the fields that were previously left undeclared, with twelve new
+  canonical parameters for them. Monthly gains the day counts
+  (`count_days_precipitation_height_ge_1mm` and the six `count_days_valid_*`) and the
+  climatological normals (`temperature_air_mean_2m_normal`, `precipitation_height_normal`,
+  `snow_depth_new_normal`, `sunshine_duration_normal`); hourly gains `temperature_humidex`. Units
+  were taken from the values rather than assumed: each normal matches the range of the quantity it
+  is a normal of in the same response, and humidex sits at or above the air temperature in all 233
+  paired observations sampled, which is what an apparent temperature does
+
 - CI: new `Minimum dependency versions` job that resolves every direct dependency to the lowest
   version its specifier allows (`UV_RESOLUTION=lowest-direct`) and runs the test suite against it,
   so that declared floors are actually exercised

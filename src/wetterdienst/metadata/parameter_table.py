@@ -180,6 +180,41 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "count_days_multiday_wind_movement", "dimensionless", "Number of days covered by a multi-day wind run total."
     ),
     CanonicalParameter(
+        "count_days_precipitation_height_ge_1mm",
+        "dimensionless",
+        "Number of days on which at least 1 mm of precipitation fell.",
+    ),
+    CanonicalParameter(
+        "count_days_valid_precipitation_height",
+        "dimensionless",
+        "Number of days in the period carrying a valid precipitation observation.",
+    ),
+    CanonicalParameter(
+        "count_days_valid_snow_depth_new",
+        "dimensionless",
+        "Number of days in the period carrying a valid fresh snow observation.",
+    ),
+    CanonicalParameter(
+        "count_days_valid_sunshine_duration",
+        "dimensionless",
+        "Number of days in the period carrying a valid sunshine duration observation.",
+    ),
+    CanonicalParameter(
+        "count_days_valid_temperature_air_max_2m",
+        "dimensionless",
+        "Number of days in the period carrying a valid maximum air temperature observation.",
+    ),
+    CanonicalParameter(
+        "count_days_valid_temperature_air_mean_2m",
+        "dimensionless",
+        "Number of days in the period carrying a valid mean air temperature observation.",
+    ),
+    CanonicalParameter(
+        "count_days_valid_temperature_air_min_2m",
+        "dimensionless",
+        "Number of days in the period carrying a valid minimum air temperature observation.",
+    ),
+    CanonicalParameter(
         "count_hours_cooling_degree", "dimensionless", "Number of hours during which cooling was required."
     ),
     CanonicalParameter("count_weather_type_dew", "dimensionless", "Number of days on which dew was observed."),
@@ -387,6 +422,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter(
         "precipitation_height_night", "precipitation", "Depth of precipitation collected during the night hours."
+    ),
+    CanonicalParameter(
+        "precipitation_height_normal",
+        "precipitation",
+        "Climatological normal of the precipitation height for the period.",
     ),
     CanonicalParameter(
         "precipitation_height_rocker",
@@ -864,6 +904,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "snow_depth_new_multiday", "length_short", "Depth of fresh snow over several days, reported as one total."
     ),
     CanonicalParameter(
+        "snow_depth_new_normal",
+        "length_short",
+        "Climatological normal of the fresh snow total for the period.",
+    ),
+    CanonicalParameter(
         "soil_moisture_corn_loamysilt_00cm_60cm",
         "fraction",
         "Soil moisture in loamy silt under corn, between the surface and 60 cm.",
@@ -938,6 +983,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "sunshine_duration_last_3h", "time", "Length of time the sun shone unobstructed in the preceding 3 hours."
     ),
     CanonicalParameter(
+        "sunshine_duration_normal",
+        "time",
+        "Climatological normal of the sunshine duration for the period.",
+    ),
+    CanonicalParameter(
         "sunshine_duration_relative",
         "fraction",
         "Sunshine duration as a fraction of the longest possible for the location and date.",
@@ -979,6 +1029,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Mean air temperature at 2 m above ground over the preceding 24 hours.",
     ),
+    CanonicalParameter(
+        "temperature_air_mean_2m_normal",
+        "temperature",
+        "Climatological normal of the mean air temperature at 2 m above ground.",
+    ),
     CanonicalParameter("temperature_air_min_0_05m", "temperature", "Minimum air temperature at 0.05 m above ground."),
     CanonicalParameter(
         "temperature_air_min_0_05m_last_12h",
@@ -1014,6 +1069,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_dew_point_mean_2m",
         "temperature",
         "Dew point at 2 m above ground, the temperature at which the air would become saturated.",
+    ),
+    CanonicalParameter(
+        "temperature_humidex",
+        "temperature",
+        "Humidex, the apparent temperature combining air temperature and humidity.",
     ),
     CanonicalParameter(
         "temperature_radiant_mean_2m",
