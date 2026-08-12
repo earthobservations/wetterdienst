@@ -271,7 +271,8 @@ GeosphereObservationMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "bewm_mittel",
-                            "unit": "decimal",
+                            # Geosphere documents bewm_mittel as "1/100", i.e. percent
+                            "unit": "percent",
                         },
                         {
                             "name": "humidity",
@@ -366,7 +367,8 @@ GeosphereObservationMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "bewm_mittel",
-                            "unit": "decimal",
+                            # Geosphere documents bewm_mittel as "1/100", i.e. percent
+                            "unit": "percent",
                         },
                         {
                             "name": "humidity",

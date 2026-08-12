@@ -79,6 +79,12 @@ EcccObservationMetadata = {
                             "name_original": "windchill",
                             "unit": "degree_celsius",
                         },
+                        {
+                            # apparent temperature, always at or above the air temperature
+                            "name": "temperature_humidex",
+                            "name_original": "humidex",
+                            "unit": "degree_celsius",
+                        },
                     ],
                 },
             ],
@@ -225,6 +231,62 @@ EcccObservationMetadata = {
                             "name": "snow_depth_new",
                             "name_original": "total_snowfall",
                             "unit": "centimeter",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_1mm",
+                            "name_original": "days_with_precip_ge_1mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_valid_temperature_air_max_2m",
+                            "name_original": "days_with_valid_max_temp",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_valid_temperature_air_mean_2m",
+                            "name_original": "days_with_valid_mean_temp",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_valid_temperature_air_min_2m",
+                            "name_original": "days_with_valid_min_temp",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_valid_precipitation_height",
+                            "name_original": "days_with_valid_precip",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_valid_snow_depth_new",
+                            "name_original": "days_with_valid_snowfall",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_valid_sunshine_duration",
+                            "name_original": "days_with_valid_sunshine",
+                            "unit": "dimensionless",
+                        },
+                        # climatological normals, in the same units as the quantities above
+                        {
+                            "name": "temperature_air_mean_2m_normal",
+                            "name_original": "normal_mean_temperature",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "precipitation_height_normal",
+                            "name_original": "normal_precipitation",
+                            "unit": "millimeter",
+                        },
+                        {
+                            "name": "snow_depth_new_normal",
+                            "name_original": "normal_snowfall",
+                            "unit": "centimeter",
+                        },
+                        {
+                            "name": "sunshine_duration_normal",
+                            "name_original": "normal_sunshine",
+                            "unit": "hour",
                         },
                     ],
                 },

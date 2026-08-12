@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- ECCC monthly and hourly expose the fields that were previously left undeclared, with twelve new
+  canonical parameters for them. Monthly gains the day counts
+  (`count_days_precipitation_height_ge_1mm` and the six `count_days_valid_*`) and the
+  climatological normals (`temperature_air_mean_2m_normal`, `precipitation_height_normal`,
+  `snow_depth_new_normal`, `sunshine_duration_normal`); hourly gains `temperature_humidex`. Units
+  were taken from the values rather than assumed: each normal matches the range of the quantity it
+  is a normal of in the same response, and humidex sits at or above the air temperature in all 233
+  paired observations sampled, which is what an apparent temperature does
+
 - CI: new `Minimum dependency versions` job that resolves every direct dependency to the lowest
   version its specifier allows (`UV_RESOLUTION=lowest-direct`) and runs the test suite against it,
   so that declared floors are actually exercised
@@ -107,6 +116,36 @@ Types of changes:
   because its provider path pointed at `<root>/wetterdienst/provider` instead of `<root>/src/...`
 
 ### Fixed
+
+- **Breaking**: four DWD subdaily parameters named the wrong quantity, not merely the wrong unit.
+  DWD's own `Metadaten_Parameter_*.txt`, shipped inside every data ZIP, gives each field a
+  description and a unit, and for these four it disagreed with what wetterdienst declared:
+  - `e_tf_ter` is "Eisansatz bei der Messung der Feuchttemperatur", unit YES/NO -- whether ice had
+    formed on the wet bulb thermometer. It was declared `temperature_air_mean_0_05m` in °C, and
+    carries only 0 and 1 across 82901 values at station 00003. Now
+    `temperature_wet_ice_formation`, dimensionless
+  - `ek_ter` is "Terminwerte des Erdbodenzustand", unit CODE -- values 0-9, exactly 10 distinct. It
+    was declared `temperature_soil_mean_0_05m` in °C. Now `soil_state_index`, dimensionless
+  - `vk_ter` is "Terminwerte Sichtweite", unit CODE -- also 0-9. It was declared `visibility_range`
+    in metres, so a request for subdaily visibility returned "5 metres" for visibility class 5. Now
+    `visibility_range_class`, dimensionless
+  - `tf_ter` is the wet bulb temperature and was declared `temperature_air_mean_2m`. DWD's *hourly*
+    moisture dataset already maps the same quantity (`tf_std`) to `temperature_wet_mean_2m`, so the
+    two resolutions disagreed with each other. Confirmed against 83994 paired observations: it sits
+    a median 1.6 °C below the air temperature and never exceeds it, which is the wet bulb
+    signature. Now `temperature_wet_mean_2m`
+- Three new canonical parameters for the above: `temperature_wet_ice_formation`,
+  `soil_state_index` and `visibility_range_class`, all dimensionless
+
+- **Breaking**: Geosphere `cloud_cover_total` is returned as a fraction rather than a percentage
+  passed off as one. It was declared `decimal` while Geosphere documents `bewm_mittel` as `1/100`
+  and returns 0-100, so the raw percentage went straight through the `fraction` target unconverted
+  and every value was 100x its stated meaning. Geosphere's own `humidity` and
+  `sunshine_duration_relative` already declared `percent`, so this was the odd one out within the
+  provider. Values now read 0-1
+- **Breaking**: DWD road `visibility_range` is returned in metres rather than 1000x too large. It
+  was declared `kilometer`, but BUFR `0 20 001 horizontalVisibility` is metres, nothing in the
+  parser converts, and the provider's own docs page already said `m`
 
 - **Breaking**: ECCC hourly and monthly return data at all. Both resolutions declared parameters
   the OGC API never publishes -- hourly carried a copy of the *daily* field list

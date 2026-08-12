@@ -1114,12 +1114,18 @@ DwdObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
+                            # "Eisansatz bei der Messung der Feuchttemperatur", unit YES/NO -- a
+                            # flag for ice on the wet bulb thermometer, not a temperature. Only
+                            # ever 0 or 1 across 82901 values at station 00003.
+                            "name": "temperature_wet_ice_formation",
                             "name_original": "e_tf_ter",
-                            "unit": "degree_celsius",
+                            "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            # Feuchttemperatur -- wet bulb, not air temperature. DWD's hourly
+                            # moisture dataset already maps the same quantity (tf_std) to
+                            # temperature_wet_mean_2m; subdaily disagreed with it.
+                            "name": "temperature_wet_mean_2m",
                             "name_original": "tf_ter",
                             "unit": "degree_celsius",
                         },
@@ -1154,9 +1160,11 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_soil_mean_0_05m",
+                            # "Terminwerte des Erdbodenzustand", unit CODE -- a coded ground
+                            # state, not a soil temperature. Values run 0-9, exactly 10 distinct.
+                            "name": "soil_state_index",
                             "name_original": "ek_ter",
-                            "unit": "degree_celsius",
+                            "unit": "dimensionless",
                         },
                     ],
                 },
@@ -1189,9 +1197,11 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "visibility_range",
+                            # "Terminwerte Sichtweite", unit CODE -- a visibility class, not a
+                            # distance. Declared as metres it read "5 metres" for class 5.
+                            "name": "visibility_range_class",
                             "name_original": "vk_ter",
-                            "unit": "meter",
+                            "unit": "dimensionless",
                         },
                     ],
                 },
