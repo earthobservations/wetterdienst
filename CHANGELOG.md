@@ -18,6 +18,17 @@ Types of changes:
 
 ### Added
 
+- Source descriptions for DWD observation parameters: what a given DWD field means in DWD's own
+  words, alongside the canonical, provider-independent sentence the glossary already served. 133
+  parameters across the 30 datasets that publish an English description sheet, transcribed into
+  `provider/dwd/observation/descriptions.py` and attached to the metadata at import. DWD CDC is
+  Creative Commons BY 4.0, so the wording is reproduced with attribution to the Deutscher
+  Wetterdienst; the module records the source URL and licence
+- `description` now appears in `discover()`, and therefore in `GET /api/coverage`, the `coverage`
+  MCP tool and `wetterdienst about coverage`. `ParameterModel.description` had been a declared but
+  entirely unused field -- as are `DatasetModel.description` and `ResolutionModel.description`,
+  which remain unpopulated
+
 - ECCC monthly and hourly expose the fields that were previously left undeclared, with twelve new
   canonical parameters for them. Monthly gains the day counts
   (`count_days_precipitation_height_ge_1mm` and the six `count_days_valid_*`) and the

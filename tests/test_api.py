@@ -898,3 +898,35 @@ def test_api_knmi_observation(default_settings: Settings) -> None:
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert not values.drop_nulls(subset="value").is_empty()
+
+
+def test_dwd_observation_source_descriptions() -> None:
+    """Test that DWD's own field descriptions reach the metadata and discover output.
+
+    Distinct from the canonical descriptions in the parameter table: those say what a quantity is,
+    provider-independent, while these are DWD's wording for its own field. `description` was a
+    declared but entirely unused slot on every metadata model before this.
+    """
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.descriptions import (  # noqa: PLC0415
+        DWD_OBSERVATION_DESCRIPTIONS,
+    )
+
+    assert DWD_OBSERVATION_DESCRIPTIONS
+
+    # every transcribed key must still name a real declaration, or the transcription has gone stale
+    declared = {
+        (resolution.name, dataset.name, parameter.name_original)
+        for resolution in DwdObservationRequest.metadata
+        for dataset in resolution
+        for parameter in dataset.parameters
+    }
+    unknown = set(DWD_OBSERVATION_DESCRIPTIONS) - declared
+    assert not unknown, f"descriptions for parameters that no longer exist: {sorted(unknown)[:5]}"
+
+    parameter = DwdObservationRequest.metadata["10_minutes"]["solar"]["radiation_global"]
+    assert parameter.description == "Sum of global radiation during the previous 10 minutes."
+
+    discovered = DwdObservationRequest.discover(resolutions="10_minutes", datasets="solar")
+    entry = next(p for p in discovered["10_minutes"]["solar"] if p["name"] == "radiation_global")
+    assert entry["description"] == parameter.description
