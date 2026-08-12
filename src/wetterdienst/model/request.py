@@ -413,6 +413,9 @@ class TimeseriesRequest:
                             "name_original": parameter.name_original,
                             "unit_type": parameter.unit_type,
                             "unit": parameter.unit,
+                            # the source's own words for its own field, where we have them; the
+                            # canonical, provider-independent sentence lives in the glossary
+                            "description": parameter.description,
                         },
                     )
             if not data[resolution.name]:

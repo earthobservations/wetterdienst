@@ -25,10 +25,10 @@
 
 | name                                 | original name | description                                                          | unit | constraints |
 |--------------------------------------|---------------|----------------------------------------------------------------------|------|-------------|
-| {term}`precipitation_height`         | rs_05         | precipitation height of last 5min                                    | mm   | >=0         |
-| {term}`precipitation_height_droplet` | rth_05        | precipitation height of last 5min measured with droplet              | mm   | >=0         |
-| {term}`precipitation_height_rocker`  | rwh_05        | precipitation height of last 5min measured with rocker               | mm   | >=0         |
-| {term}`precipitation_index`          | rs_ind_05     | precipitation form of last 5min, codes taken from 10_minutes dataset | -    | ∈ \[0,1,3\] |
+| {term}`precipitation_height` | rs_05 | Sum of the precipitation height of the previous 5 minutes. | mm | >=0 |
+| {term}`precipitation_height_droplet` | rth_05 | Precipitation height of last 5min measured with droplet. | mm | >=0 |
+| {term}`precipitation_height_rocker` | rwh_05 | Precipitation height of last 5min measured with rocker. | mm | >=0 |
+| {term}`precipitation_index` | rs_ind_05 | Indicator of precipitation; if QN = 1 then: 0 = no precipitation, permanent sensor installed; 1 = precipitation, permanent sensor installed; 2 = no precipitation, heating in operation, permanent sensor installed; 3 = precipitation, heating in operation, permanent sensor installed; if QN > 1 then: 0 = no precipitation; 1 = precipitation. | - | ∈ \[0,1,3\] |
 
 Codes (precipitation_form):
 

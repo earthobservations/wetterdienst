@@ -25,10 +25,10 @@
 
 | name                                 | original name | description                                              | unit | constraints |
 |--------------------------------------|---------------|----------------------------------------------------------|------|-------------|
-| {term}`precipitation_height`         | rs_01         | precipitation height of last 1min                        | mm   | >=0         |
-| {term}`precipitation_height_droplet` | rth_01        | precipitation height of last 1min measured with droplet  | mm   | >=0         |
-| {term}`precipitation_height_rocker`  | rwh_01        | precipitation height of last 1min measured with rocker   | mm   | >=0         |
-| {term}`precipitation_index`          | rs_ind_01     | precipitation index, codes taken from 10_minutes dataset | -    | ∈ \[0,1,3\] |
+| {term}`precipitation_height` | rs_01 | Sum of the precipitation height. | mm | >=0 |
+| {term}`precipitation_height_droplet` | rth_01 | Precipitation height during the previous minute from the tipping bucket rain gauge. | mm | >=0 |
+| {term}`precipitation_height_rocker` | rwh_01 | Precipitation height during the previous minute from the electronic rain gauge with tilting scales. | mm | >=0 |
+| {term}`precipitation_index` | rs_ind_01 | Indicator of precipitation; the codes are those of the 10 minutes dataset. | - | ∈ \[0,1,3\] |
 
 Codes (precipitation_form):
 

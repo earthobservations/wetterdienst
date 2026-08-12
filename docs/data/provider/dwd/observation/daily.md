@@ -25,20 +25,20 @@
 
 | name                              | original name | description                                          | unit | constraints |
 |-----------------------------------|---------------|------------------------------------------------------|------|-------------|
-| {term}`wind_gust_max`             | fx            | daily maximum of wind gust                           | m/s  | >=0         |
-| {term}`wind_speed`                | fm            | daily mean of wind speed                             | m/s  | >=0         |
-| {term}`precipitation_height`      | rsk           | daily precipitation height                           | mm   | >=0         |
-| {term}`precipitation_form`        | rskf          | precipitation form                                   | -    | >=0         |
-| {term}`sunshine_duration`         | sdk           | daily sunshine duration                              | h    | >=0         |
-| {term}`snow_depth`                | shk_tag       | daily snow depth                                     | cm   | >=0         |
-| {term}`cloud_cover_total`         | nm            | daily mean of cloud cover                            | 1/8  | >=0,<=8     |
-| {term}`pressure_vapor`            | vpm           | daily mean of vapor pressure                         | hPa  | >=0         |
-| {term}`pressure_air_site`         | pm            | daily mean of pressure                               | hPa  | >=0         |
-| {term}`temperature_air_mean_2m`   | tmk           | daily mean of temperature                            | °C   | -           |
-| {term}`humidity`                  | upm           | daily mean of relative humidity                      | %    | >=0,<=100   |
-| {term}`temperature_air_max_2m`    | txk           | daily maximum of temperature at 2m height            | °C   | -           |
-| {term}`temperature_air_min_2m`    | tnk           | daily minimum of temperature at 2m height            | °C   | -           |
-| {term}`temperature_air_min_0_05m` | tgk           | daily minimum of air temperature at 5cm above ground | °C   | -           |
+| {term}`wind_gust_max` | fx | Daily maximum of windgust. | m/s | >=0 |
+| {term}`wind_speed` | fm | Daily mean of wind velocity. | m/s | >=0 |
+| {term}`precipitation_height` | rsk | Daily precipitation height. | mm | >=0 |
+| {term}`precipitation_form` | rskf | Precipitation form. | - | >=0 |
+| {term}`sunshine_duration` | sdk | Daily sunshine duration. | h | >=0 |
+| {term}`snow_depth` | shk_tag | Daily snow depth. | cm | >=0 |
+| {term}`cloud_cover_total` | nm | Daily mean of cloud cover. | 1/8 | >=0,<=8 |
+| {term}`pressure_vapor` | vpm | Daily mean of vapor pressure. | hPa | >=0 |
+| {term}`pressure_air_site` | pm | Daily mean of pressure. | hPa | >=0 |
+| {term}`temperature_air_mean_2m` | tmk | Daily mean of temperature. | °C | - |
+| {term}`humidity` | upm | Daily mean of relative humidity. | % | >=0,<=100 |
+| {term}`temperature_air_max_2m` | txk | Daily maximum of temperature at 2 m height. | °C | - |
+| {term}`temperature_air_min_2m` | tnk | Daily minimum of temperature at 2m height. | °C | - |
+| {term}`temperature_air_min_0_05m` | tgk | Daily minimum of air temperature at 5 cm above ground. | °C | - |
 
 Codes (precipitation_form):
 
@@ -67,10 +67,10 @@ Codes (precipitation_form):
 
 | name                         | original name | description                | unit | constraints |
 |------------------------------|---------------|----------------------------|------|-------------|
-| {term}`precipitation_height` | rs            | daily precipitation height | mm   | >=0         |
-| {term}`precipitation_form`   | rsf           | precipitation form         | -    | >=0         |
-| {term}`snow_depth`           | sh_tag        | height of snow pack        | cm   | >=0         |
-| {term}`snow_depth_new`       | nsh_tag       | fresh snow depth           | cm   | >=0         |
+| {term}`precipitation_height` | rs | Daily precipitation height. | mm | >=0 |
+| {term}`precipitation_form` | rsf | Precipitation form. | - | >=0 |
+| {term}`snow_depth` | sh_tag | Height of snow pack. | cm | >=0 |
+| {term}`snow_depth_new` | nsh_tag | Fresh snow depth. | cm | >=0 |
 
 Codes (precipitation_form):
 
@@ -99,10 +99,10 @@ Codes (precipitation_form):
 
 | name                                     | original name | description                           | unit  | constraints |
 |------------------------------------------|---------------|---------------------------------------|-------|-------------|
-| {term}`radiation_sky_long_wave`          | atmo_strahl   | longwave downward radiation           | J/cm² | >=0         |
-| {term}`radiation_sky_short_wave_diffuse` | fd_strahl     | daily sum of diffuse solar radiation  | J/cm² | >=0         |
-| {term}`radiation_global`                 | fg_strahl     | daily sum of solar incoming radiation | J/cm² | >=0         |
-| {term}`sunshine_duration`                | sd_strahl     | daily sum of sunshine duration        | h     | >=0         |
+| {term}`radiation_sky_long_wave` | atmo_strahl | Longwave downward radiation. | J/cm² | >=0 |
+| {term}`radiation_sky_short_wave_diffuse` | fd_strahl | Daily sum of diffuse solar radiation. | J/cm² | >=0 |
+| {term}`radiation_global` | fg_strahl | Daily sum of solar incoming radiation. | J/cm² | >=0 |
+| {term}`sunshine_duration` | sd_strahl | Daily sum of sunshine duration. | h | >=0 |
 
 ### temperature_soil
 
@@ -119,12 +119,12 @@ Codes (precipitation_form):
 
 | name                                | original name | description                            | unit | constraints |
 |-------------------------------------|---------------|----------------------------------------|------|-------------|
-| {term}`temperature_soil_mean_0_02m` | v_te002m      | daily soil temperature in 2 cm depth   | °C   | -           |
-| {term}`temperature_soil_mean_0_05m` | v_te005m      | daily soil temperature in 5 cm depth   | °C   | -           |
-| {term}`temperature_soil_mean_0_1m`  | v_te010m      | daily soil temperature in 10 cm depth  | °C   | -           |
-| {term}`temperature_soil_mean_0_2m`  | v_te020m      | daily soil temperature in 20 cm depth  | °C   | -           |
-| {term}`temperature_soil_mean_0_5m`  | v_te050m      | daily soil temperature in 50 cm depth  | °C   | -           |
-| {term}`temperature_soil_mean_1m`    | v_te100m      | daily soil temperature in 100 cm depth | °C   | -           |
+| {term}`temperature_soil_mean_0_02m` | v_te002m | Daily soil temperature in 2 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_05m` | v_te005m | Daily soil temperature in 5 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_1m` | v_te010m | Daily soil temperature in 10 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_2m` | v_te020m | Daily soil temperature in 20 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_5m` | v_te050m | Daily soil temperature in 50 cm depth. | °C | - |
+| {term}`temperature_soil_mean_1m` | v_te100m | Daily soil temperature in 100 cm depth. | °C | - |
 
 ### water_equivalent
 
@@ -141,10 +141,10 @@ Codes (precipitation_form):
 
 | name                                         | original name | description                        | unit | constraints |
 |----------------------------------------------|---------------|------------------------------------|------|-------------|
-| {term}`snow_depth_excelled`                  | ash_6         | height of snow pack sample         | cm   | >=0         |
-| {term}`snow_depth`                           | sh_tag        | total snow depth                   | cm   | >=0         |
-| {term}`water_equivalent_snow_depth`          | wash_6        | total snow water equivalent        | mm   | >=0         |
-| {term}`water_equivalent_snow_depth_excelled` | waas_6        | sampled snow pack water equivalent | mm   | >=0         |
+| {term}`snow_depth_excelled` | ash_6 | Height of the sampled snow pack. | cm | >=0 |
+| {term}`snow_depth` | sh_tag | Height of the snow pack. | cm | >=0 |
+| {term}`water_equivalent_snow_depth` | wash_6 | Water equivalent of the total snow pack. | mm | >=0 |
+| {term}`water_equivalent_snow_depth_excelled` | waas_6 | Water equivalent of the sampled snow pack. | mm | >=0 |
 
 ### weather_phenomena
 
@@ -161,15 +161,15 @@ Codes (precipitation_form):
 
 | name                                           | original name | description                                                     | unit | constraints |
 |------------------------------------------------|---------------|-----------------------------------------------------------------|------|-------------|
-| {term}`count_weather_type_fog`                 | nebel         | count of days with fog of stations in Germany                   | -    | >=0         |
-| {term}`count_weather_type_thunder`             | gewitter      | count of days with thunder of stations in Germany               | -    | >=0         |
-| {term}`count_weather_type_storm_strong_wind`   | sturm_6       | count of days with storm (strong wind) of stations in Germany   | -    | >=0         |
-| {term}`count_weather_type_storm_stormier_wind` | sturm_8       | count of days with storm (stormier wind) of stations in Germany | -    | >=0         |
-| {term}`count_weather_type_dew`                 | tau           | count of days with dew of stations in Germany                   | -    | >=0         |
-| {term}`count_weather_type_glaze`               | glatteis      | count of days with glaze of stations in Germany                 | -    | >=0         |
-| {term}`count_weather_type_ripe`                | reif          | count of days with ripe of stations in Germany                  | -    | >=0         |
-| {term}`count_weather_type_sleet`               | graupel       | count of days with sleet of stations in Germany                 | -    | >=0         |
-| {term}`count_weather_type_hail`                | hagel         | count of days with hail of stations in Germany                  | -    | >=0         |
+| {term}`count_weather_type_fog` | nebel | Count of days with fog of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_thunder` | gewitter | Count of days with thunder of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_storm_strong_wind` | sturm_6 | Count of days with storm (strong wind) of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_storm_stormier_wind` | sturm_8 | Count of days with storm (stormier wind) of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_dew` | tau | Count of days with dew of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_glaze` | glatteis | Count of days with glaze of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_ripe` | reif | Count of days with ripe of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_sleet` | graupel | Count of days with sleet of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_hail` | hagel | Count of days with hail of stations in Germany. | - | >=0 |
 
 ### weather_phenomena_more
 
@@ -186,7 +186,7 @@ Codes (precipitation_form):
 
 | name                               | original name | description                                       | unit | constraints |
 |------------------------------------|---------------|---------------------------------------------------|------|-------------|
-| {term}`count_weather_type_sleet`   | rr_graupel    | count of days with sleet of stations in Germany   | -    | >=0         |
-| {term}`count_weather_type_hail`    | rr_hagel      | count of days with hail of stations in Germany    | -    | >=0         |
-| {term}`count_weather_type_fog`     | rr_nebel      | count of days with fog of stations in Germany     | -    | >=0         |
-| {term}`count_weather_type_thunder` | rr_gewitter   | count of days with thunder of stations in Germany | -    | >=0         |
+| {term}`count_weather_type_sleet` | rr_graupel | Count of days with sleet of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_hail` | rr_hagel | Count of days with hail of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_fog` | rr_nebel | Count of days with fog of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_thunder` | rr_gewitter | Count of days with thunder of stations in Germany. | - | >=0 |

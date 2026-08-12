@@ -25,19 +25,19 @@
 
 | name                        | original name | description              | unit | constraints                            |
 |-----------------------------|---------------|--------------------------|------|----------------------------------------|
-| {term}`cloud_cover_total`   | v_n           | total cloud cover        | 1/8  | >=0,<=8                                |
-| {term}`cloud_type_layer1`   | v_s1_cs       | cloud type of 1st layer  | -    | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
-| {term}`cloud_height_layer1` | v_s1_hhs      | height of 1st layer      | m    | >=0                                    |
-| {term}`cloud_cover_layer1`  | v_s1_ns       | cloud cover of 1st layer | 1/8  | >=0,<=8                                |
-| {term}`cloud_type_layer2`   | v_s2_cs       | cloud type of 2nd layer  | -    | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
-| {term}`cloud_height_layer2` | v_s2_hhs      | height of 2nd layer      | m    | >=0                                    |
-| {term}`cloud_cover_layer2`  | v_s2_ns       | cloud cover of 2nd layer | 1/8  | >=0,<=8                                |
-| {term}`cloud_type_layer3`   | v_s3_cs       | cloud type of 3rd layer  | -    | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
-| {term}`cloud_height_layer3` | v_s3_hhs      | height of 3rd layer      | m    | >=0                                    |
-| {term}`cloud_cover_layer3`  | v_s3_ns       | cloud cover of 3rd layer | 1/8  | >=0,<=8                                |
-| {term}`cloud_type_layer4`   | v_s4_cs       | cloud type of 4th layer  | -    | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
-| {term}`cloud_height_layer4` | v_s4_hhs      | height of 4th layer      | m    | >=0                                    |
-| {term}`cloud_cover_layer4`  | v_s4_ns       | cloud cover of 4th layer | 1/8  | >=0,<=8                                |
+| {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
+| {term}`cloud_type_layer1` | v_s1_cs | Cloud type of 1. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
+| {term}`cloud_height_layer1` | v_s1_hhs | Lower boundary height of 1.layer. | m | >=0 |
+| {term}`cloud_cover_layer1` | v_s1_ns | Cloud cover of 1. laye. | 1/8 | >=0,<=8 |
+| {term}`cloud_type_layer2` | v_s2_cs | Cloud type of 2. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
+| {term}`cloud_height_layer2` | v_s2_hhs | Lower boundary height of 2.layer. | m | >=0 |
+| {term}`cloud_cover_layer2` | v_s2_ns | Cloud cover of 1. laye. | 1/8 | >=0,<=8 |
+| {term}`cloud_type_layer3` | v_s3_cs | Cloud type of 3. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
+| {term}`cloud_height_layer3` | v_s3_hhs | Lower boundary height of 3.layer. | m | >=0 |
+| {term}`cloud_cover_layer3` | v_s3_ns | Cloud cover of 3. layer. | 1/8 | >=0,<=8 |
+| {term}`cloud_type_layer4` | v_s4_cs | Cloud type of 4. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
+| {term}`cloud_height_layer4` | v_s4_hhs | Lower boundary height of 4.layer. | m | >=0 |
+| {term}`cloud_cover_layer4` | v_s4_ns | Cloud cover of 4. layer. | 1/8 | >=0,<=8 |
 
 Code (cloud_type_layer):
 
@@ -70,8 +70,8 @@ Code (cloud_type_layer):
 
 | name                            | original name | description                    | unit | constraints                         |
 |---------------------------------|---------------|--------------------------------|------|-------------------------------------|
-| {term}`cloud_cover_total_index` | v_n_i         | index how measurement is taken | -    | ∈ \[P, I\]                          |
-| {term}`cloud_cover_total`       | v_n           | total cloud cover              | 1/8  | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, -1\] |
+| {term}`cloud_cover_total_index` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. | - | ∈ \[P, I\] |
+| {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, -1\] |
 
 Code (cloud_cover_total_indicator):
 
@@ -95,8 +95,8 @@ Code (cloud_cover_total_indicator):
 
 | name                                  | original name | description           | unit | constraints |
 |---------------------------------------|---------------|-----------------------|------|-------------|
-| {term}`temperature_air_mean_2m`       | tt            | air temperature       | °C   | -           |
-| {term}`temperature_dew_point_mean_2m` | td            | dew point temperature | °C   | -           |
+| {term}`temperature_air_mean_2m` | tt | Air temperature. | °C | - |
+| {term}`temperature_dew_point_mean_2m` | td | Dew point temperature. | °C | - |
 
 ### moisture
 
@@ -113,13 +113,13 @@ Code (cloud_cover_total_indicator):
 
 | name                                  | original name | description                        | unit | constraints |
 |---------------------------------------|---------------|------------------------------------|------|-------------|
-| {term}`humidity_absolute`             | absf_std      | absolute humidity                  | g/m³ | >=0         |
-| {term}`pressure_vapor`                | vp_std        | vapor pressure                     | hPa  | >=0         |
-| {term}`temperature_wet_mean_2m`       | tf_std        | wet temperature                    | °C   | -           |
-| {term}`pressure_air_site`             | p_std         | air pressure at site level         | hPa  | >=0         |
-| {term}`temperature_air_mean_2m`       | tt_std        | air temperature at 2m height       | °C   | -           |
-| {term}`humidity`                      | rf_std        | humidity                           | %    | >=0,<=100   |
-| {term}`temperature_dew_point_mean_2m` | td_std        | dew point temperature at 2m height | °C   | -           |
+| {term}`humidity_absolute` | absf_std | Computed hourly value of absolute humidity. | g/m³ | >=0 |
+| {term}`pressure_vapor` | vp_std | Computed hourly value of vapour pressure. | hPa | >=0 |
+| {term}`temperature_wet_mean_2m` | tf_std | Computed hourly value of wet bulb temperature. | °C | - |
+| {term}`pressure_air_site` | p_std | Hourly value of barometric pressure. | hPa | >=0 |
+| {term}`temperature_air_mean_2m` | tt_std | Air temperatur in 2m above ground. | °C | - |
+| {term}`humidity` | rf_std | Relative humidity. | % | >=0,<=100 |
+| {term}`temperature_dew_point_mean_2m` | td_std | Dew point temperature in 2m above ground. | °C | - |
 
 ### precipitation
 
@@ -136,9 +136,9 @@ Code (cloud_cover_total_indicator):
 
 | name                         | original name | description           | unit | constraints                  |
 |------------------------------|---------------|-----------------------|------|------------------------------|
-| {term}`precipitation_height` | r1            | hourly precipitation  | mm   | >=0                          |
-| {term}`precipitation_index`  | rs_ind        | precipitation index   | -    | ∈ \[0, 1\]                   |
-| {term}`precipitation_form`   | wrtr          | form of precipitation | -    | ∈ \[0, 1, 2, 3, 6, 7, 8, 9\] |
+| {term}`precipitation_height` | r1 | Precipitation height during the previous hour. | mm | >=0 |
+| {term}`precipitation_index` | rs_ind | Precipitation indicator; 0 = no; 1 = yes. | - | ∈ \[0, 1\] |
+| {term}`precipitation_form` | wrtr | Precipitation form; 0=No precipitation. | - | ∈ \[0, 1, 2, 3, 6, 7, 8, 9\] |
 
 Code (precipitation_indicator):
 
@@ -175,8 +175,8 @@ Code (precipitation_form):
 
 | name                           | original name | description             | unit | constraints |
 |--------------------------------|---------------|-------------------------|------|-------------|
-| {term}`pressure_air_sea_level` | p             | mean sea level pressure | hPa  | >=0         |
-| {term}`pressure_air_site`      | p0            | mean sea level pressure | hPa  | >=0         |
+| {term}`pressure_air_sea_level` | p | Mean sea level pressure. | hPa | >=0 |
+| {term}`pressure_air_site` | p0 | Barometric pressure at station height. | hPa | >=0 |
 
 ### solar
 
@@ -193,11 +193,11 @@ Code (precipitation_form):
 
 | name                                     | original name | description                               | unit  | constraints |
 |------------------------------------------|---------------|-------------------------------------------|-------|-------------|
-| {term}`radiation_sky_long_wave`          | atmo_lberg    | hourly sum of longwave downward radiation | J/cm² | >=0         |
-| {term}`radiation_sky_short_wave_diffuse` | fd_lberg      | hourly sum of diffuse solar radiation     | J/cm² | >=0         |
-| {term}`radiation_global`                 | fg_lberg      | hourly sum of solar incoming radiation    | J/cm² | >=0         |
-| {term}`sunshine_duration`                | sd_lberg      | hourly sum of sunshine duration           | min   | >=0         |
-| {term}`sun_zenith_angle`                 | zenit         | solar zenith angle at mid of interval     | °     | >=0,<=180   |
+| {term}`radiation_sky_long_wave` | atmo_lberg | Hourly sum of longwave downward radiation. | J/cm² | >=0 |
+| {term}`radiation_sky_short_wave_diffuse` | fd_lberg | Hourly sum of diffuse solar radiation. | J/cm² | >=0 |
+| {term}`radiation_global` | fg_lberg | The solar incoming radiation includes the direct and the diffuse part of the solar radiation with respect to the horizontal plane. It is sometimes also referred to as shortwave, including the solar spectrum up to 2.8 micron, as opposed to longwave , which refers to the thermal radiation of the atmosphere. | J/cm² | >=0 |
+| {term}`sunshine_duration` | sd_lberg | Hourly sum of sunshine duration. | min | >=0 |
+| {term}`sun_zenith_angle` | zenit | Solar zenith angle at mid of interval. The solar zenith angle is between 0-180 and is defined as: ZENIT= 90 - solar_height. | ° | >=0,<=180 |
 
 ### sun
 
@@ -214,7 +214,7 @@ Code (precipitation_form):
 
 | name                      | original name | description              | unit | constraints |
 |---------------------------|---------------|--------------------------|------|-------------|
-| {term}`sunshine_duration` | sd_so         | hourly sunshine duration | min  | >=0         |
+| {term}`sunshine_duration` | sd_so | Hourly sunshine duration. | min | >=0 |
 
 ### temperature_air
 
@@ -231,8 +231,8 @@ Code (precipitation_form):
 
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
-| {term}`temperature_air_mean_2m` | tt_tu         | 2m air temperature   | °C   | -           |
-| {term}`humidity`                | rf_tu         | 2m relative humidity | %    | >=0,<=100   |
+| {term}`temperature_air_mean_2m` | tt_tu | Air temperature 2 m above ground. | °C | - |
+| {term}`humidity` | rf_tu | Relative humidity. | % | >=0,<=100 |
 
 ### temperature_soil
 
@@ -249,12 +249,12 @@ Code (precipitation_form):
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_mean_0_02m` | v_te002       | soil temperature in 2 cm depth   | °C   | -           |
-| {term}`temperature_soil_mean_0_05m` | v_te005       | soil temperature in 5 cm depth   | °C   | -           |
-| {term}`temperature_soil_mean_0_1m`  | v_te010       | soil temperature in 10 cm depth  | °C   | -           |
-| {term}`temperature_soil_mean_0_2m`  | v_te020       | soil temperature in 20 cm depth  | °C   | -           |
-| {term}`temperature_soil_mean_0_5m`  | v_te050       | soil temperature in 50 cm depth  | °C   | -           |
-| {term}`temperature_soil_mean_1m`    | v_te100       | soil temperature in 100 cm depth | °C   | -           |
+| {term}`temperature_soil_mean_0_02m` | v_te002 | Soil temperature in 2 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_05m` | v_te005 | Soil temperature in 5 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_1m` | v_te010 | Soil temperature in 10 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_2m` | v_te020 | Soil temperature in 20 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_5m` | v_te050 | Soil temperature in 50 cm depth. | °C | - |
+| {term}`temperature_soil_mean_1m` | v_te100 | Soil temperature in 100 cm depth. | °C | - |
 
 ### urban_precipitation
 
@@ -271,7 +271,7 @@ Code (precipitation_form):
 
 | name                         | original name      | description          | unit | constraints |
 |------------------------------|--------------------|----------------------|------|-------------|
-| {term}`precipitation_height` | niederschlagshoehe | precipitation height | mm   | >=0         |
+| {term}`precipitation_height` | niederschlagshoehe | Precipitation height. | mm | >=0 |
 
 ### urban_pressure
 
@@ -288,7 +288,7 @@ Code (precipitation_form):
 
 | name                      | original name           | description                | unit | constraints |
 |---------------------------|-------------------------|----------------------------|------|-------------|
-| {term}`pressure_air_site` | luftdruck_stationshoehe | pressure at station height | hPa  | >=0         |
+| {term}`pressure_air_site` | luftdruck_stationshoehe | Pressure at station height. | hPa | >=0 |
 
 ### urban_temperature_air
 
@@ -323,11 +323,11 @@ Code (precipitation_form):
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_mean_0_05m` | erdbt_005     | soil temperature in 5 cm depth   | °C   | -           |
-| {term}`temperature_soil_mean_0_1m`  | erdbt_010     | soil temperature in 10 cm depth  | °C   | -           |
-| {term}`temperature_soil_mean_0_2m`  | erdbt_020     | soil temperature in 20 cm depth  | °C   | -           |
-| {term}`temperature_soil_mean_0_5m`  | erdbt_050     | soil temperature in 50 cm depth  | °C   | -           |
-| {term}`temperature_soil_mean_1m`    | erdbt_100     | soil temperature in 100 cm depth | °C   | -           |
+| {term}`temperature_soil_mean_0_05m` | erdbt_005 | Soil temperature in 5 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_1m` | erdbt_010 | Soil temperature in 10 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_2m` | erdbt_020 | Soil temperature in 20 cm depth. | °C | - |
+| {term}`temperature_soil_mean_0_5m` | erdbt_050 | Soil temperature in 50 cm depth. | °C | - |
+| {term}`temperature_soil_mean_1m` | erdbt_100 | Soil temperature in 100 cm depth. | °C | - |
 
 ### urban_sun
 
@@ -344,7 +344,7 @@ Code (precipitation_form):
 
 | name                      | original name     | description       | unit | constraints |
 |---------------------------|-------------------|-------------------|------|-------------|
-| {term}`sunshine_duration` | sonnenscheindauer | sunshine duration | min  | >=0         |
+| {term}`sunshine_duration` | sonnenscheindauer | Sunshine duration. | min | >=0 |
 
 ### urban_wind
 
@@ -361,8 +361,8 @@ Code (precipitation_form):
 
 | name                   | original name       | description         | unit | constraints |
 |------------------------|---------------------|---------------------|------|-------------|
-| {term}`wind_speed`     | windgeschwindigkeit | mean wind speed     | m/s  | >=0         |
-| {term}`wind_direction` | windrichtung        | mean wind direction | °    | >=0,<=360   |
+| {term}`wind_speed` | windgeschwindigkeit | Mean wind speed. | m/s | >=0 |
+| {term}`wind_direction` | windrichtung | Mean wind direction. | ° | >=0,<=360 |
 
 ### visibility
 
@@ -379,8 +379,8 @@ Code (precipitation_form):
 
 | name                           | original name | description                    | unit | constraints |
 |--------------------------------|---------------|--------------------------------|------|-------------|
-| {term}`visibility_range_index` | v_vv_i        | index how measurement is taken | -    | ∈ \[P, I\]  |
-| {term}`visibility_range`       | v_vv          | visibility                     | m    | >=0         |
+| {term}`visibility_range_index` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. | - | ∈ \[P, I\] |
+| {term}`visibility_range` | v_vv | Visibility range. | m | >=0 |
 
 Code (visibility_range_indicator):
 
@@ -404,8 +404,8 @@ Code (visibility_range_indicator):
 
 | name                 | original name | description                       | unit | constraints |
 |----------------------|---------------|-----------------------------------|------|-------------|
-| {term}`weather`      | ww            | weather code of current condition | -    | -           |
-| {term}`weather_text` | ww_text       | weather text of current condition | -    | -           |
+| {term}`weather` | ww | Weather code of current condition. | - | - |
+| {term}`weather_text` | ww_text | Weather description of the current condition. | - | - |
 
 weather codes and descriptions: [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/weather_phenomena/historical/Wetter_Beschreibung.txt)
 
@@ -424,8 +424,8 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
-| {term}`wind_speed`     | f             | mean wind speed     | m/s  | >=0         |
-| {term}`wind_direction` | d             | mean wind direction | °    | >=0,<=360   |
+| {term}`wind_speed` | f | Mean wind speed. | m/s | >=0 |
+| {term}`wind_direction` | d | Mean wind direction. | ° | >=0,<=360 |
 
 ### wind_extreme
 
@@ -442,7 +442,7 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 
 | name                  | original name | description                      | unit | constraints |
 |-----------------------|---------------|----------------------------------|------|-------------|
-| {term}`wind_gust_max` | fx_911        | maximum wind speed in 10m height | m/s  | >=0         |
+| {term}`wind_gust_max` | fx_911 | Maximum wind gust 10 m above ground. | m/s | >=0 |
 
 ### wind_synoptic
 
@@ -459,5 +459,5 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
-| {term}`wind_speed`     | ff            | mean wind speed     | m/s  | >=0         |
-| {term}`wind_direction` | dd            | mean wind direction | °    | >=0,<=360   |
+| {term}`wind_speed` | ff | Mean wind speed. | m/s | >=0 |
+| {term}`wind_direction` | dd | Mean wind direction. | ° | >=0,<=360 |

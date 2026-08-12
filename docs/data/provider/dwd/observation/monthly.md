@@ -25,17 +25,17 @@
 
 | name                                | original name | description                                              | unit | constraints |
 |-------------------------------------|---------------|----------------------------------------------------------|------|-------------|
-| {term}`cloud_cover_total`           | mo_n          | monthly mean of cloud cover                              | 1/8  | >=0,<=8     |
-| {term}`temperature_air_mean_2m`     | mo_tt         | monthly mean of daily temperature means in 2m height     | °C   | -           |
-| {term}`temperature_air_max_2m_mean` | mo_tx         | monthly mean of daily temperature maxima in 2m height    | °C   | -           |
-| {term}`temperature_air_min_2m_mean` | mo_tn         | monthly mean of daily temperature minima in 2m height    | °C   | -           |
-| {term}`sunshine_duration`           | mo_sd_s       | monthly sum of sunshine duration                         | h    | >=0         |
-| {term}`wind_force_beaufort`         | mo_fk         | monthly mean of daily wind speed                         | Bft  | >=0         |
-| {term}`temperature_air_max_2m`      | mx_tx         | monthly maximum of daily temperature maxima in 2m height | °C   | -           |
-| {term}`wind_gust_max`               | mx_fx         | monthly maximum of daily wind speed                      | Bft  | >=0         |
-| {term}`temperature_air_min_2m`      | mx_tn         | monthly minimum of daily temperature minima in 2m height | °C   | -           |
-| {term}`precipitation_height`        | mo_rr         | monthly sum of precipitation height                      | mm   | >=0         |
-| {term}`precipitation_height_max`    | mx_rs         | monthly maximum of daily precipitation height            | mm   | >=0         |
+| {term}`cloud_cover_total` | mo_n | Monthly mean of cloud cover. | 1/8 | >=0,<=8 |
+| {term}`temperature_air_mean_2m` | mo_tt | Monthly mean of the daily mean air temperature 2 m above ground. | °C | - |
+| {term}`temperature_air_max_2m_mean` | mo_tx | Monthly mean of daily temperature maxima at 2 m above ground. | °C | - |
+| {term}`temperature_air_min_2m_mean` | mo_tn | Monthly mean of daily temperature minima in 2 m above ground. | °C | - |
+| {term}`sunshine_duration` | mo_sd_s | Monthly sum of sunshine duration. | h | >=0 |
+| {term}`wind_force_beaufort` | mo_fk | Monthly mean of daily wind speed Bft. | Bft | >=0 |
+| {term}`temperature_air_max_2m` | mx_tx | Monthly maximum of daily temperature maxima in 2 m above ground. | °C | - |
+| {term}`wind_gust_max` | mx_fx | Monthly maximum of daily wind speed. | Bft | >=0 |
+| {term}`temperature_air_min_2m` | mx_tn | Monthly minimum of daily temperature minima in 2 m above ground. | °C | - |
+| {term}`precipitation_height` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
+| {term}`precipitation_height_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |
 
 ### precipitation_more
 
@@ -52,10 +52,10 @@
 
 | name                             | original name | description                               | unit | constraints |
 |----------------------------------|---------------|-------------------------------------------|------|-------------|
-| {term}`snow_depth_new`           | mo_nsh        | monthly sum of daily fresh snow           | cm   | >=0         |
-| {term}`precipitation_height`     | mo_rr         | monthly sum of daily precipitation height | mm   | >=0         |
-| {term}`snow_depth`               | mo_sh_s       | monthly sum of daily height of snow pack  | cm   | >=0         |
-| {term}`precipitation_height_max` | mx_rs         | monthly max of daily precipitation height | mm   | >=0         |
+| {term}`snow_depth_new` | mo_nsh | Monthly sum of daily fresh snow. | cm | >=0 |
+| {term}`precipitation_height` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
+| {term}`snow_depth` | mo_sh_s | Monthly sum of daily height of snow pack. | cm | >=0 |
+| {term}`precipitation_height_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |
 
 ### weather_phenomena
 
@@ -72,11 +72,11 @@
 
 | name                                           | original name | description                                                     | unit | constraints |
 |------------------------------------------------|---------------|-----------------------------------------------------------------|------|-------------|
-| {term}`count_weather_type_fog`                 | mo_nebel      | count of days with fog of stations in Germany                   | -    | >=0         |
-| {term}`count_weather_type_thunder`             | mo_gewitter   | count of days with thunder of stations in Germany               | -    | >=0         |
-| {term}`count_weather_type_storm_strong_wind`   | mo_sturm_6    | count of days with storm (strong wind) of stations in Germany   | -    | >=0         |
-| {term}`count_weather_type_storm_stormier_wind` | mo_sturm_8    | count of days with storm (stormier wind) of stations in Germany | -    | >=0         |
-| {term}`count_weather_type_dew`                 | mo_tau        | count of days with dew of stations in Germany                   | -    | >=0         |
-| {term}`count_weather_type_glaze`               | mo_glatteis   | count of days with glaze of stations in Germany                 | -    | >=0         |
-| {term}`count_weather_type_sleet`               | mo_graupel    | count of days with sleet of stations in Germany                 | -    | >=0         |
-| {term}`count_weather_type_hail`                | mo_hagel      | count of days with hail of stations in Germany                  | -    | >=0         |
+| {term}`count_weather_type_fog` | mo_nebel | Count of days with fog of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_thunder` | mo_gewitter | Count of days with thunder of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_storm_strong_wind` | mo_sturm_6 | Count of days with storm (strong wind) of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_storm_stormier_wind` | mo_sturm_8 | Count of days with storm (stormier wind) of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_dew` | mo_tau | Count of days with dew of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_glaze` | mo_glatteis | Count of days with glaze of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_sleet` | mo_graupel | Count of days with sleet of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_hail` | mo_hagel | Count of days with hail of stations in Germany. | - | >=0 |

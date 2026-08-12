@@ -106,3 +106,76 @@ def test_docs_parameters_link_to_glossary() -> None:
             elif match.group(1) not in PARAMETERS:
                 errors.append(f"{page}: {match.group(1)!r} is not a canonical parameter")
     assert not errors, "\n".join(errors)
+
+
+def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], str]:
+    """Return {(dataset, canonical name, original name): description} for one provider docs page.
+
+    Keyed by dataset as well: one page can document the same parameter in two datasets with
+    different wording, e.g. daily ``snow_depth`` in climate_summary and in water_equivalent.
+    """
+    documented = {}
+    dataset = None
+    header = None
+    for line in path.read_text(encoding="utf8").splitlines():
+        if line.startswith("### "):
+            dataset, header = line[4:].strip(), None
+            continue
+        if not line.startswith("|"):
+            header = None
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells and cells[0] == "name" and "original name" in cells:
+            header = cells if "description" in cells else None
+            continue
+        if header is None or all(set(cell) <= {"-", ":"} for cell in cells) or len(cells) < len(header):
+            continue
+        name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[header.index("name")])
+        documented[dataset, name, cells[header.index("original name")]] = cells[header.index("description")]
+    return documented
+
+
+def _documented_resolutions() -> list[tuple[str, str, object, Path]]:
+    """Yield (provider, network, resolution model, docs page) for every documented resolution."""
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+
+    found = []
+    for provider, networks in Wetterdienst.registry.items():
+        for network in networks:
+            try:
+                api = Wetterdienst(provider, network)
+            except Exception:  # noqa: BLE001, S112
+                continue
+            metadata = getattr(api, "metadata", None)
+            if metadata is None:
+                continue
+            for resolution in metadata:
+                path = Path(COVERAGE / provider / network / f"{resolution.name}.md")
+                if path.exists():
+                    found.append((provider, network, resolution, path))
+    return found
+
+
+def test_docs_parameter_descriptions_match_the_model() -> None:
+    """Test that the docs description column agrees with the model.
+
+    The model is the source: these descriptions used to live only in the markdown tables, where the
+    REST API, MCP and CLI could not reach them and where the two copies drifted apart in both
+    directions. Editing a description in the docs alone now fails here.
+    """
+    mismatches = []
+    for provider, network, resolution, path in _documented_resolutions():
+        documented = _documented_descriptions(path)
+        for dataset in resolution:
+            for parameter in dataset.parameters:
+                if parameter.name == "quality" or not parameter.description:
+                    continue
+                shown = documented.get((dataset.name, parameter.name, parameter.name_original))
+                if shown in (None, "", "-"):
+                    continue
+                if shown.rstrip(".") != parameter.description.rstrip("."):
+                    mismatches.append(
+                        f"{provider}/{network}/{resolution.name} {parameter.name}: "
+                        f"docs {shown!r} != model {parameter.description!r}",
+                    )
+    assert not mismatches, "\n".join(mismatches[:10])
