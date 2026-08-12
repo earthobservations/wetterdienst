@@ -71,8 +71,8 @@
 
 | name                                | original name                                   | description                 | unit | constraints |
 |-------------------------------------|-------------------------------------------------|-----------------------------|------|-------------|
-| {term}`cloud_cover_total`           | średnie miesięczne zachmurzenie                 | cloud cover total           | 1/8  | >=0,<=100   |
-| {term}`humidity`                    | średnia miesięczna wilgotność                   | humidity                    | %    | >=0,<=100   |
+| {term}`cloud_cover_total` | średnie miesięczne zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
+| {term}`humidity` | średnia miesięczna wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`pressure_air_site`           | średnie miesięczne ciśnienie na poziomie stacji | pressure air site           | hPa  | >=0         |
 | {term}`pressure_air_sea_level`      | średnie miesięczne ciśnienie na pozimie morza   | pressure air sea level      | hPa  | >=0         |
 | {term}`pressure_vapor`              | średnie miesięczne ciśnienie pary wodnej        | pressure vapor              | hPa  | >=0         |

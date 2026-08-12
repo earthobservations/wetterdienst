@@ -299,18 +299,24 @@ class MetadataModel(BaseModel):
 def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     """Build a MetadataModel from a dictionary.
 
-    Attaches the descriptions kept in ``metadata.source_descriptions`` -- for parameters, datasets
-    and resolutions alike. Those are the curated descriptions the provider docs tables have always
+    Attaches the descriptions kept in ``metadata.source_descriptions``, for parameters, datasets and
+    resolutions alike. Those are the curated descriptions the provider docs tables have always
     carried. A description a provider module already declares wins, since that is a transcription of
     the source's own wording and is only kept where it says at least as much as the curated text.
+    ``DERIVED_DESCRIPTIONS`` fills only what no source supplies at all.
     """
     from wetterdienst.metadata.source_descriptions import (  # noqa: PLC0415
         DATASET_DESCRIPTIONS,
+        DERIVED_DESCRIPTIONS,
         RESOLUTION_DESCRIPTIONS,
         SOURCE_DESCRIPTIONS,
     )
 
-    parameters = SOURCE_DESCRIPTIONS.get(name, {})
+    # a derived description only fills a gap, never displaces one the source wrote
+    parameters = {
+        **DERIVED_DESCRIPTIONS.get(name, {}),
+        **SOURCE_DESCRIPTIONS.get(name, {}),
+    }
     datasets = DATASET_DESCRIPTIONS.get(name, {})
     resolutions = RESOLUTION_DESCRIPTIONS.get(name, {})
     for resolution in metadata["resolutions"]:

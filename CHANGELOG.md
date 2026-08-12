@@ -18,6 +18,22 @@ Types of changes:
 
 ### Added
 
+- Every DWD parameter now carries a description, 717 of 717 across observation, mosmix, dmo,
+  derived, road and swsmos. 25 came from correcting the docs (below), the rest are derived: where a
+  source publishes no prose at all, the text is taken from the same canonical parameter at the same
+  resolution elsewhere -- the same quantity over the same interval, so the wording transfers -- or
+  from the canonical sentence. Those sit in `DERIVED_DESCRIPTIONS`, apart from
+  `SOURCE_DESCRIPTIONS` and applied only where nothing else supplies one, so a derived sentence is
+  never mistaken for a source's own wording
+
+### Fixed
+
+- 21 docs rows named a field the provider does not use. DWD MOSMIX and DMO documented low cloud
+  cover as `n1` where the element is `nl`, DWD derived used the label "Anzahl Kühltage" where the
+  column is `Kuehltage`, and ECCC and IMGW carried names from before their APIs changed. Each was
+  a row whose description could not reach the model, so correcting them recovered 25 descriptions
+  that already existed
+
 - Dataset and resolution descriptions on the metadata models: 88 of 148 datasets and 2 resolutions,
   lifted out of the provider docs metadata tables the same way the parameter descriptions were.
   `DatasetModel.description` and `ResolutionModel.description` had been declared but never
