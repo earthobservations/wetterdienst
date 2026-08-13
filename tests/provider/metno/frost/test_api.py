@@ -181,3 +181,37 @@ def test_metno_frost_values_6hour_fallback() -> None:
     dates = df["date"].to_list()
     assert dt.datetime(2005, 9, 7, 0, 0, 0, tzinfo=UTC) in dates
     assert dt.datetime(2005, 10, 13, 12, 0, 0, tzinfo=UTC) in dates
+
+
+def test_metno_frost_decodes_sentinels() -> None:
+    """Test that Frost's in-band codes become the value they stand for.
+
+    Frost states these in the element descriptions it publishes and then writes them into the
+    value, where nothing distinguishes them from a measurement: snow depth -1 is "no snow", a depth
+    of zero rather than an absent one, and cloud cover -3 and 9 both mean the cover could not be
+    estimated. In eighths the latter two convert to -0.375 and 1.125 of the sky.
+    """
+    from wetterdienst.provider.metno.frost.api import _decode_sentinels  # noqa: PLC0415
+
+    given = pl.DataFrame(
+        {
+            "parameter": [
+                "surface_snow_thickness",
+                "surface_snow_thickness",
+                "cloud_area_fraction",
+                "cloud_area_fraction",
+                "cloud_area_fraction",
+                "air_temperature",
+            ],
+            "value": [-1.0, 12.0, -3.0, 9.0, 4.0, -1.0],
+        },
+    )
+    values = _decode_sentinels(given).get_column("value").to_list()
+    # "no snow" is a depth of zero; a measured depth is untouched
+    assert values[:2] == [0.0, 12.0]
+    # both codes for "could not be estimated" become null; a real eighth is untouched
+    assert values[2] is None
+    assert values[3] is None
+    assert values[4] == 4.0
+    # -1 means nothing special anywhere else, and a temperature may legitimately be negative
+    assert values[5] == -1.0

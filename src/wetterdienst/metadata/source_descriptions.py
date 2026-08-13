@@ -1632,7 +1632,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "sum(precipitation_amount P1D)"): "Daily precipitation sum (between 06-06 UTC).",
         ("daily", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
-            "snow."
+            "snow, and is returned as a depth of 0."
         ),
         ("hourly", "data", "air_pressure_at_sea_level"): (
             "Air pressure reduced to mean sea level. The parameter is usually called QFF in aviation and shows the "
@@ -1642,7 +1642,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "cloud_area_fraction"): (
             "Total cloud cover is registered using a code 0 - 8 describing how many eights of the sky are covered by "
             "clouds (0 = no clouds, 8 = completely overcast). Code -3 or 9 means the cloud cover cannot be estimated "
-            "because the sky is obstructed from view by fog, drifting snow and the like."
+            "because the sky is obstructed from view by fog, drifting snow and the like; both are returned as null."
         ),
         ("hourly", "data", "dew_point_temperature"): (
             "Dew-point temperature - the temperature at which the air, when cooled, will become saturated (and dew is "
@@ -1662,7 +1662,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
-            "snow."
+            "snow, and is returned as a depth of 0."
         ),
         ("hourly", "data", "wind_from_direction"): (
             "Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as "

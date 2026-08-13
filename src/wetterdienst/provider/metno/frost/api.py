@@ -387,6 +387,35 @@ _EMPTY_VALUES_SCHEMA = {
     "quality": pl.Float64,
 }
 
+# Frost states two codes in the element descriptions it publishes and then writes them into the
+# value itself, where nothing tells them apart from a measurement:
+#
+# - snow depth -1 is "no snow", which is a depth of zero rather than an absent one. It reaches the
+#   caller as -1 cm otherwise, and it is not rare: at SN18700 across one summer, 93 of 185 daily
+#   observations are -1 against 92 measured zeros
+# - cloud cover -3 and 9 both mean the cover could not be estimated, the sky being obscured. In
+#   eighths those convert to -0.375 and 1.125 of the sky, the second of which looks like a
+#   plausible reading rather than a code
+#
+# Only the elements themselves. Frost leaves the codes out of its own monthly and annual means --
+# checked over nine years at SN18700, where neither mean goes negative or above eight.
+_SNOW_DEPTH = "surface_snow_thickness"
+_NO_SNOW = -1.0
+_CLOUD_COVER = "cloud_area_fraction"
+_CLOUD_COVER_NOT_ESTIMATED = (-3.0, 9.0)
+
+
+def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
+    """Turn Frost's in-band codes into the value they stand for, before anything reads them."""
+    return df.with_columns(
+        pl.when((pl.col("parameter") == _SNOW_DEPTH) & (pl.col("value") == _NO_SNOW))
+        .then(pl.lit(0.0))
+        .when((pl.col("parameter") == _CLOUD_COVER) & pl.col("value").is_in(_CLOUD_COVER_NOT_ESTIMATED))
+        .then(pl.lit(None, dtype=pl.Float64))
+        .otherwise(pl.col("value"))
+        .alias("value"),
+    )
+
 
 class MetnoFrostValues(TimeseriesValues):
     """Values class for MET Norway Frost API."""
@@ -495,14 +524,16 @@ class MetnoFrostValues(TimeseriesValues):
         )
         df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
-        return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("elementId").alias("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("referenceTime").alias("date"),
-            pl.col("value").cast(pl.Float64),
-            pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+        return _decode_sentinels(
+            df.select(
+                pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
+                pl.col("elementId").alias("parameter"),
+                pl.lit(station_id, dtype=pl.String).alias("station_id"),
+                pl.col("referenceTime").alias("date"),
+                pl.col("value").cast(pl.Float64),
+                pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+            ),
         )
 
     def _collect_single_parameter(
@@ -564,14 +595,16 @@ class MetnoFrostValues(TimeseriesValues):
         df = df.unnest("observations")
         # keep only matching elementId (the Frost response may include multiple elements)
         df = df.filter(pl.col("elementId").eq(parameter.name_original))
-        return df.select(
-            pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
-            pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("referenceTime").alias("date"),
-            pl.col("value").cast(pl.Float64),
-            pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+        return _decode_sentinels(
+            df.select(
+                pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
+                pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
+                pl.lit(station_id, dtype=pl.String).alias("station_id"),
+                pl.col("referenceTime").alias("date"),
+                pl.col("value").cast(pl.Float64),
+                pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+            ),
         )
 
     def _collect_via_time_series_discovery(
@@ -660,14 +693,16 @@ class MetnoFrostValues(TimeseriesValues):
             df = df.explode("observations", empty_as_null=True).unnest("observations")
             df = df.filter(pl.col("elementId").eq(element))
             frames.append(
-                df.select(
-                    pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                    pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
-                    pl.lit(element, dtype=pl.String).alias("parameter"),
-                    pl.lit(station_id, dtype=pl.String).alias("station_id"),
-                    pl.col("referenceTime").alias("date"),
-                    pl.col("value").cast(pl.Float64),
-                    pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+                _decode_sentinels(
+                    df.select(
+                        pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                        pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
+                        pl.lit(element, dtype=pl.String).alias("parameter"),
+                        pl.lit(station_id, dtype=pl.String).alias("station_id"),
+                        pl.col("referenceTime").alias("date"),
+                        pl.col("value").cast(pl.Float64),
+                        pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+                    ),
                 )
             )
 

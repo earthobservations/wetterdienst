@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Breaking**: MET Norway's in-band codes are decoded rather than returned as measurements. Frost
+  states both in the element descriptions it publishes and then writes them into the value itself:
+  snow depth -1 is "no snow", which is a depth of zero rather than an absent one, and cloud cover
+  -3 and 9 both mean the cover could not be estimated. Being declared in eighths those two
+  converted to -0.375 and 1.125 of the sky, the second looking like a plausible reading rather than
+  a code. Snow depth -1 now returns 0, cloud cover -3 and 9 return null. Frost keeps the codes out
+  of its own monthly and annual means, so only the elements themselves are touched
+
 ### Removed
 
 - **Breaking**: seven DWD observation parameters that were declared but never returned a value are
