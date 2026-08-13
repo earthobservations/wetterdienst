@@ -199,6 +199,7 @@ Code (precipitation_form):
 | {term}`radiation_global` | fg_lberg | The solar incoming radiation includes the direct and the diffuse part of the solar radiation with respect to the horizontal plane. It is sometimes also referred to as shortwave, including the solar spectrum up to 2.8 micron, as opposed to longwave , which refers to the thermal radiation of the atmosphere. | J/cm² | >=0 |
 | {term}`sunshine_duration` | sd_lberg | Hourly sum of sunshine duration. | min | >=0 |
 | {term}`sun_zenith_angle` | zenit | Solar zenith angle at mid of interval. The solar zenith angle is between 0-180 and is defined as: ZENIT= 90 - solar_height. | ° | >=0,<=180 |
+| {term}`true_local_time_offset` | mess_datum_woz | Local true solar time, published as a whole timestamp and returned as its distance from the timestamp of the record: the longitude correction plus the equation of time. | min | - |
 
 ### sun
 

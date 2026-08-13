@@ -1443,6 +1443,34 @@ def test_dwd_observation_measurement_method_indicators(
 
 
 @pytest.mark.remote
+def test_dwd_observation_true_local_time_offset(settings_convert_units_false: Settings) -> None:
+    """Test that the true local time offset carries the seasonal solar correction.
+
+    The offset is the longitude correction plus the equation of time, so it has to *move* over the
+    year -- a value that came out constant would mean the correction had been rounded away, which
+    is exactly what happens to it in the timestamp.
+    """
+
+    def offsets(month: int) -> list[float]:
+        request = DwdObservationRequest(
+            parameters=[("hourly", "solar", "true_local_time_offset")],
+            start_date=dt.datetime(2023, month, 10, 0, 0, tzinfo=ZoneInfo("UTC")),
+            end_date=dt.datetime(2023, month, 10, 6, 0, tzinfo=ZoneInfo("UTC")),
+            settings=settings_convert_units_false,
+        ).filter_by_station_id("00183")
+        return request.values.all().df.get_column("value").to_list()
+
+    february, november = offsets(2), offsets(11)
+    assert february
+    assert november
+    # the equation of time is near its minimum in February and its maximum in November, roughly
+    # half an hour apart, about this station's ~55 minute longitude term
+    assert max(february) < min(november)
+    assert min(november) - max(february) > 20
+    assert all(0 < offset < 120 for offset in february + november)
+
+
+@pytest.mark.remote
 def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
     """Test for custom unit conversion."""
     unit_targets = {

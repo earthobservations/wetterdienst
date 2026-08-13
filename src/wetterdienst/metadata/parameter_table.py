@@ -1688,6 +1688,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "length_short",
         "Greatest depth to which ground under plant cover thawed in the month.",
     ),
+    CanonicalParameter(
+        "true_local_time_offset",
+        "time",
+        "How far true local solar time runs ahead of the timestamp of the record, being the "
+        "longitude correction plus the equation of time.",
+    ),
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
     CanonicalParameter(
         "visibility_range", "length_medium", "Horizontal distance at which an object can still be made out."

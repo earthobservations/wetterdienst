@@ -43,12 +43,6 @@ DROPPABLE_PARAMETERS = {
     "v_s2_csa",
     "v_s3_csa",
     "v_s4_csa",
-    # hourly solar: the true local solar time, published as a whole hour. What carries the solar
-    # correction is the minute of `mess_datum` beside it (0-20 and 49-59, moving with the season),
-    # and that is rounded away when the record's own timestamp is rounded to the hour. What is left
-    # is the hour label, which then sits a fixed 1 hour from the returned timestamp at station
-    # 00183 over all 387,120 of its records, and 0 or 1 at stations further west.
-    "mess_datum_woz",
     # hourly weather_phenomena: German free text spelling out the numeric `ww` code beside it
     # ("Wetter wurde nicht gemeldet" for -1)
     "ww_text",
@@ -88,6 +82,36 @@ def _decode_measurement_method(series: pl.Series) -> pl.Series:
             f"expected one of {sorted(MEASUREMENT_METHOD_CODES)}. These values are returned as null.",
         )
     return series.replace_strict(MEASUREMENT_METHOD_CODES, default=None, return_dtype=pl.String)
+
+
+# hourly solar stamps each record with the UTC instant of a whole true-solar-time hour, so the two
+# timestamps sit apart by the solar correction: `1981010101:00` beside `1981010100:09`. That
+# distance is the parameter -- longitude correction plus the equation of time, 40 to 71 minutes at
+# station 00183, its monthly mean tracing the equation of time from 40.4 in February to 69.1 in
+# November about a 54.7 minute longitude term.
+#
+# It has to be taken here, from the two timestamps as published. `mess_datum` is rounded to the hour
+# a few lines further down so that a solar series lines up with every other hourly series, and that
+# rounding is what discards the correction.
+TIME_FORMAT_SOLAR = "%Y%m%d%H:%M"
+TRUE_LOCAL_TIME = DwdObservationMetadata.hourly.solar.true_local_time_offset.name_original
+
+
+def _encode_true_local_time_offset(series: pl.Series) -> pl.Series:
+    """Express the true local time as its distance in minutes from the record's own timestamp."""
+    frame = series.struct.unnest()
+    published = frame.get_column(TRUE_LOCAL_TIME)
+    true_local_time = published.str.to_datetime(TIME_FORMAT_SOLAR, strict=False)
+    stamp = frame.get_column("mess_datum").str.to_datetime(TIME_FORMAT_SOLAR, strict=False)
+    # a format change would otherwise turn every value null without a word, leaving a declared
+    # parameter that answers with nothing -- the failure this whole area exists to prevent
+    unparsed = published.filter(published.is_not_null() & true_local_time.is_null())
+    if not unparsed.is_empty():
+        log.warning(
+            f"{unparsed.len()} value(s) of {TRUE_LOCAL_TIME!r} do not parse as "
+            f"{TIME_FORMAT_SOLAR!r} and are returned as null, e.g. {unparsed.head(1).to_list()}.",
+        )
+    return (true_local_time - stamp).dt.total_minutes().cast(pl.String)
 
 
 COLUMNS_MAPPING = {
@@ -167,6 +191,12 @@ def _parse_climate_observations_data(  # noqa: C901
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
         for parameter in sorted(CODED_STRING_PARAMETERS & columns)
     )
+    if TRUE_LOCAL_TIME in columns:
+        df = df.with_columns(
+            pl.struct("mess_datum", TRUE_LOCAL_TIME)
+            .map_batches(_encode_true_local_time_offset, return_dtype=pl.String)
+            .alias(TRUE_LOCAL_TIME),
+        )
     # Assign meaningful column names (baseline).
     df = df.rename(mapping=lambda col: COLUMNS_MAPPING.get(col, col))
     if dataset == DwdObservationMetadata.minute_1.precipitation:
