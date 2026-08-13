@@ -243,7 +243,13 @@ describe('parameterSelection Component', () => {
         new Response(
           JSON.stringify({
             daily: {
-              climate_summary: [{ name: 'temperature_air_max_200' }],
+              description: null,
+              datasets: {
+                climate_summary: {
+                  description: null,
+                  parameters: [{ name: 'temperature_air_max_200' }],
+                },
+              },
             },
           }),
           { status: 200 },

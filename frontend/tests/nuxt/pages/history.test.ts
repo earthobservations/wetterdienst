@@ -10,7 +10,7 @@ describe('history Page', () => {
     registerEndpoint('/api/coverage', (event) => {
       const q = getQuery(event)
       if (q.provider)
-        return { daily: { climate_summary: [{ name: 'temperature_air_max_200' }] } }
+        return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
       return { dwd: { observation: {} } }
     })
   })
