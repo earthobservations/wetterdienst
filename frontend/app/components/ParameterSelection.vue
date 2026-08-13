@@ -111,6 +111,13 @@ const datasets = computed((): string[] => {
   const resolutionData = providerNetworkCoverage.value[resolution.value as Resolution]
   return resolutionData ? Object.keys(resolutionData.datasets).sort() : []
 })
+const parameterDescriptions = computed<Record<string, string>>(() => {
+  if (!providerNetworkCoverage.value || !resolution.value || !dataset.value)
+    return {}
+  const resolutionData = providerNetworkCoverage.value[resolution.value as Resolution]
+  const entries = resolutionData?.datasets[dataset.value]?.parameters ?? []
+  return Object.fromEntries(entries.map((p: CoverageParameter) => [p.name, p.description ?? '']))
+})
 const params = computed<string[]>(() => {
   if (!providerNetworkCoverage.value || !resolution.value || !dataset.value)
     return []
@@ -124,6 +131,20 @@ const params = computed<string[]>(() => {
     .map((p: CoverageParameter) => p.name)
     .sort()
 })
+// the source's own words for the selected resolution and dataset, which `/api/coverage` carries
+// since the backend nested its answer; absent for most resolutions, so the hint just disappears
+const resolutionDescription = computed<string>(() => {
+  if (!providerNetworkCoverage.value || !resolution.value)
+    return ''
+  return providerNetworkCoverage.value[resolution.value as Resolution]?.description ?? ''
+})
+const datasetDescription = computed<string>(() => {
+  if (!providerNetworkCoverage.value || !resolution.value || !dataset.value)
+    return ''
+  const resolutionData = providerNetworkCoverage.value[resolution.value as Resolution]
+  return resolutionData?.datasets[dataset.value]?.description ?? ''
+})
+
 const dateRequired = computed<boolean>(() => {
   if (!coverage.value || !provider.value || !network.value)
     return false
@@ -133,7 +154,11 @@ const dateRequired = computed<boolean>(() => {
 // Friendly, locale-aware labels for the select menus (value stays the raw backend id).
 const resolutionItems = computed(() => resolutions.value.map(r => ({ label: resolutionLabel(r), value: r })))
 const datasetItems = computed(() => datasets.value.map(d => ({ label: datasetLabel(d), value: d })))
-const paramItems = computed(() => params.value.map(p => ({ label: parameterLabel(p), value: p })))
+const paramItems = computed(() => params.value.map(p => ({
+  label: parameterLabel(p),
+  value: p,
+  description: parameterDescriptions.value[p] ?? '',
+})))
 
 // Initialize from query params and validate step by step
 async function initializeFromProps() {
@@ -335,15 +360,22 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
       <UFormField :label="t('parameterSelection.networkLabel')">
         <USelect v-model="network" :items="networkItems" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider || !!restrictNetwork" class="w-full" :class="{ 'needs-input': activeField === 'network' }" />
       </UFormField>
-      <UFormField :label="t('parameterSelection.resolutionLabel')">
+      <UFormField :label="t('parameterSelection.resolutionLabel')" :help="resolutionDescription">
         <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network || networkCoveragePending" class="w-full" :class="{ 'needs-input': activeField === 'resolution' }" />
       </UFormField>
-      <UFormField :label="t('parameterSelection.datasetLabel')">
+      <UFormField :label="t('parameterSelection.datasetLabel')" :help="datasetDescription">
         <USelect v-model="dataset" :items="datasetItems" :placeholder="t('parameterSelection.selectDataset')" :disabled="!resolution || networkCoveragePending" class="w-full" :class="{ 'needs-input': activeField === 'dataset' }" />
       </UFormField>
       <UFormField v-if="props.showParameters !== false" :label="t('parameterSelection.parametersLabel')">
         <div class="flex gap-2 items-center min-w-0">
-          <USelectMenu v-model="parameters" :items="paramItems" value-key="value" multiple :placeholder="t('parameterSelection.selectParameters')" :disabled="!dataset" class="flex-1 min-w-0 overflow-hidden" :class="{ 'needs-input': activeField === 'parameters' }" />
+          <USelectMenu v-model="parameters" :items="paramItems" value-key="value" multiple :placeholder="t('parameterSelection.selectParameters')" :disabled="!dataset" class="flex-1 min-w-0 overflow-hidden" :class="{ 'needs-input': activeField === 'parameters' }">
+            <template #item-label="{ item }">
+              <span>{{ item.label }}</span>
+              <span v-if="item.description" class="block text-xs text-gray-500 dark:text-gray-400 whitespace-normal">
+                {{ item.description }}
+              </span>
+            </template>
+          </USelectMenu>
           <UButton
             v-if="dataset && !allSelected"
             size="xs"
