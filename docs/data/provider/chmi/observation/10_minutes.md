@@ -13,9 +13,9 @@
 
 #### parameters
 
-| name                            | original name | unit |
-|---------------------------------|---------------|------|
-| {term}`temperature_air_mean_2m` | T             | °C   |
-| {term}`humidity`                | H             | %    |
-| {term}`pressure_air_site`       | P             | hPa  |
-| {term}`wind_speed`              | F             | m/s  |
+| name                            | original name | description                                                                                   | unit |
+|---------------------------------|---------------|-----------------------------------------------------------------------------------------------|------|
+| {term}`temperature_air_mean_2m` | T             | Mean air temperature at 2 m above ground.                                                     | °C   |
+| {term}`humidity`                | H             | Relative humidity of the air, the fraction of the moisture it could hold at that temperature. | %    |
+| {term}`pressure_air_site`       | P             | Air pressure as measured at station height.                                                   | hPa  |
+| {term}`wind_speed`              | F             | Mean speed of the wind over the period.                                                       | m/s  |

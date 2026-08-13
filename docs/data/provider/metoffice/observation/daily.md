@@ -20,9 +20,9 @@
 
 #### parameters
 
-| name                         | original name | unit |
-|------------------------------|---------------|------|
-| {term}`precipitation_height` | prcp_amt      | mm   |
+| name                         | original name | description                                       | unit |
+|------------------------------|---------------|---------------------------------------------------|------|
+| {term}`precipitation_height` | prcp_amt      | Depth of precipitation collected over the period. | mm   |
 
 ### temperature
 
@@ -35,11 +35,11 @@
 
 #### parameters
 
-| name                              | original name | unit |
-|-----------------------------------|---------------|------|
-| {term}`temperature_air_max_2m`    | max_air_temp  | °C   |
-| {term}`temperature_air_min_2m`    | min_air_temp  | °C   |
-| {term}`temperature_air_min_0_05m` | min_grss_temp | °C   |
+| name                              | original name | description                                     | unit |
+|-----------------------------------|---------------|-------------------------------------------------|------|
+| {term}`temperature_air_max_2m`    | max_air_temp  | Maximum air temperature at 2 m above ground.    | °C   |
+| {term}`temperature_air_min_2m`    | min_air_temp  | Minimum air temperature at 2 m above ground.    | °C   |
+| {term}`temperature_air_min_0_05m` | min_grss_temp | Minimum air temperature at 0.05 m above ground. | °C   |
 
 ### weather
 
@@ -52,8 +52,8 @@
 
 #### parameters
 
-| name                      | original name    | unit |
-|---------------------------|------------------|------|
-| {term}`sunshine_duration` | drv_24hr_sun_dur | h    |
-| {term}`snow_depth`        | snow_depth       | cm   |
-| {term}`snow_depth_new`    | frsh_snw_amt     | cm   |
+| name                      | original name    | description                                | unit |
+|---------------------------|------------------|--------------------------------------------|------|
+| {term}`sunshine_duration` | drv_24hr_sun_dur | Length of time the sun shone unobstructed. | h    |
+| {term}`snow_depth`        | snow_depth       | Depth of the snow lying on the ground.     | cm   |
+| {term}`snow_depth_new`    | frsh_snw_amt     | Depth of snow that fell during the period. | cm   |

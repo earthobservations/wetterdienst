@@ -136,7 +136,7 @@ MetnoFrostMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "cloud_area_fraction",
-                            "unit": "percent",
+                            "unit": "one_eighth",
                         },
                         {
                             "name": "radiation_global_intensity",
@@ -316,7 +316,7 @@ MetnoFrostMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "mean(cloud_area_fraction P1M)",
-                            "unit": "percent",
+                            "unit": "one_eighth",
                         },
                         {
                             "name": "snow_depth",
@@ -366,7 +366,7 @@ MetnoFrostMetadata = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "mean(cloud_area_fraction P1Y)",
-                            "unit": "percent",
+                            "unit": "one_eighth",
                         },
                     ],
                 },
