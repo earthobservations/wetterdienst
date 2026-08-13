@@ -660,10 +660,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "shortwave, including the solar spectrum up to 2.8 micron, as opposed to longwave , which "
             "refers to the thermal radiation of the atmosphere."
         ),
-        ("hourly", "solar", "mess_datum_woz"): (
-            "Local true solar time. Published as a whole timestamp, returned as the time of day it "
-            "names: hours elapsed since local midnight."
-        ),
         ("hourly", "solar", "sd_lberg"): "Hourly sum of sunshine duration.",
         ("hourly", "solar", "zenit"): (
             "Solar zenith angle at mid of interval. The solar zenith angle is between 0-180 and is "

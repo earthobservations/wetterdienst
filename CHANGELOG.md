@@ -18,27 +18,22 @@ Types of changes:
 
 ### Removed
 
-- **Breaking**: six DWD observation parameters that were declared but never returned a value are no
-  longer declared, so a request for one now says so instead of answering with an empty frame:
+- **Breaking**: seven DWD observation parameters that were declared but never returned a value are
+  no longer declared, so a request for one now says so instead of answering with an empty frame:
   `cloud_type_layer1..4_abbreviation` (`v_sN_csa`, hourly cloud_type), `weather_text` (`ww_text`,
-  hourly weather_phenomena) and `end_of_interval` (hourly solar). The first five are the letter
-  form of a numeric code declared beside them -- across 398,381 cloud_type records `v_sN_csa`
-  matches `v_sN_cs` exactly, and across 443,827 weather records every `ww` maps to one text while
-  two codes share a text, so the text says strictly less than the code. `end_of_interval` names a
-  column that does not exist in the solar files at all. Their canonical entries are dropped too,
-  since no provider can express text in a `Float64` value column
+  hourly weather_phenomena), `end_of_interval` and `true_local_time` (`mess_datum_woz`, hourly
+  solar). Each was checked against the archive rather than assumed: `v_sN_csa` is the letter form
+  of `v_sN_cs` and matches it exactly across 398,381 records; every `ww` maps to one text across
+  443,827 records while two codes share a text, so the text says strictly less than the code;
+  `end_of_interval` names a column that does not exist in the solar files at all; and
+  `mess_datum_woz` is published as a whole hour, leaving it a fixed one hour from the returned
+  timestamp at station 00183 once the solar timestamps are rounded, which is where the sub-hour
+  solar correction actually lives. Their canonical entries are dropped too, since no provider can
+  express text in a `Float64` value column
 - `DwdObservationValues.DROPPABLE_COLUMNS`, which duplicated the parser's drop list and had already
   drifted from it. Dropping happens once, in the parser
 
 ### Added
-
-- **Breaking**: DWD hourly solar `true_local_time` (`mess_datum_woz`) is returned rather than
-  dropped, the one of the seven declared-but-dropped parameters carrying something its neighbours
-  do not. DWD publishes it as a whole timestamp; what it adds over the record's own timestamp is
-  the offset -- 28 to 71 minutes across the stations sampled, moving with the season rather than
-  fixed per station. It is returned as the time of day it names, hours elapsed since local
-  midnight, and its canonical unit type changes from `dimensionless` to `time`, so it follows the
-  `time` target like any other duration and arrives in seconds by default
 
 - DWD's two measurement method indicators are returned instead of dropped:
   `cloud_cover_total_measurement_method` (`v_n_i`, hourly cloud_type and cloudiness) and

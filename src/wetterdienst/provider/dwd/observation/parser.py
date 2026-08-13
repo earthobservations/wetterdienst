@@ -43,6 +43,12 @@ DROPPABLE_PARAMETERS = {
     "v_s2_csa",
     "v_s3_csa",
     "v_s4_csa",
+    # hourly solar: the true local solar time, published as a whole hour. What carries the solar
+    # correction is the minute of `mess_datum` beside it (0-20 and 49-59, moving with the season),
+    # and that is rounded away when the record's own timestamp is rounded to the hour. What is left
+    # is the hour label, which then sits a fixed 1 hour from the returned timestamp at station
+    # 00183 over all 387,120 of its records, and 0 or 1 at stations further west.
+    "mess_datum_woz",
     # hourly weather_phenomena: German free text spelling out the numeric `ww` code beside it
     # ("Wetter wurde nicht gemeldet" for -1)
     "ww_text",
@@ -82,20 +88,6 @@ def _decode_measurement_method(series: pl.Series) -> pl.Series:
             f"expected one of {sorted(MEASUREMENT_METHOD_CODES)}. These values are returned as null.",
         )
     return series.replace_strict(MEASUREMENT_METHOD_CODES, default=None, return_dtype=pl.String)
-
-
-# hourly solar publishes the true local solar time as a whole timestamp (`1981010101:00` beside a
-# record stamped `1981010100:09`). What it adds over the record's own timestamp is the offset --
-# 28 to 71 minutes across the stations sampled, moving with the season, so not a per-station
-# constant -- and that is worth keeping. It is returned as the time of day it names: hours elapsed
-# since local midnight. Text, for the same reason the method codes are.
-TRUE_LOCAL_TIME = DwdObservationMetadata.hourly.solar.true_local_time.name_original
-
-
-def _encode_true_local_time() -> pl.Expr:
-    """Express the true local time timestamp as hours elapsed since local midnight."""
-    parsed = pl.col(TRUE_LOCAL_TIME).str.to_datetime("%Y%m%d%H:%M", strict=False)
-    return (parsed.dt.hour() + parsed.dt.minute() / 60).cast(pl.String).alias(TRUE_LOCAL_TIME)
 
 
 COLUMNS_MAPPING = {
@@ -175,8 +167,6 @@ def _parse_climate_observations_data(  # noqa: C901
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
         for parameter in sorted(CODED_STRING_PARAMETERS & columns)
     )
-    if TRUE_LOCAL_TIME in columns:
-        df = df.with_columns(_encode_true_local_time())
     # Assign meaningful column names (baseline).
     df = df.rename(mapping=lambda col: COLUMNS_MAPPING.get(col, col))
     if dataset == DwdObservationMetadata.minute_1.precipitation:

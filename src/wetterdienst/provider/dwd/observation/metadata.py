@@ -728,13 +728,6 @@ DwdObservationMetadata = {
                             "name_original": "zenit",
                             "unit": "degree",
                         },
-                        {
-                            # published as a full timestamp, returned as the time of day it names:
-                            # hours elapsed since local midnight, true solar time
-                            "name": "true_local_time",
-                            "name_original": "mess_datum_woz",
-                            "unit": "hour",
-                        },
                     ],
                 },
                 {

@@ -1443,31 +1443,6 @@ def test_dwd_observation_measurement_method_indicators(
 
 
 @pytest.mark.remote
-def test_dwd_observation_true_local_time(settings_convert_units_false: Settings) -> None:
-    """Test that the true local solar time is returned as the time of day it names.
-
-    DWD publishes it as a whole timestamp, which the Float64 value column cannot hold, so it was
-    declared but dropped. It is the offset against the record's own timestamp that makes it worth
-    keeping -- tens of minutes, moving with the season -- so that is what is checked here.
-    """
-    request = DwdObservationRequest(
-        parameters=[("hourly", "solar", "true_local_time")],
-        start_date=dt.datetime(2024, 6, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2024, 6, 1, 6, 0, tzinfo=ZoneInfo("UTC")),
-        settings=settings_convert_units_false,
-    ).filter_by_station_id("00183")
-    values = request.values.all().df
-    assert not values.is_empty()
-    hours = values.get_column("value").to_list()
-    # hours of the day, so within a day and running with the clock
-    assert all(0 <= hour < 24 for hour in hours)
-    assert hours == sorted(hours)
-    # ahead of UTC at this station, by less than the hour that would make it just the timestamp
-    offsets = [hour - date.hour for hour, date in zip(hours, values.get_column("date").to_list(), strict=True)]
-    assert set(offsets) == {1}
-
-
-@pytest.mark.remote
 def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
     """Test for custom unit conversion."""
     unit_targets = {
