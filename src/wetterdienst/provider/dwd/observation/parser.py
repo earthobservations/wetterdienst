@@ -31,24 +31,54 @@ DROPPABLE_PARAMETERS = {
     # EOR
     "eor",
     "struktur_version",
-    # STRING_PARAMETERS
+    # the cloud type abbreviations are the same information as the numeric `v_sN_cs` codes
+    # declared beside them, in letters rather than digits, so there is nothing here to recover
     # hourly
     # cloud_type
-    DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
-    # cloudiness
-    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
-    # visibility
-    DwdObservationMetadata.hourly.visibility.visibility_range_measurement_method.name_original,
     # DATE_PARAMETERS_IRREGULAR
     DwdObservationMetadata.hourly.solar.true_local_time.name_original,
     DwdObservationMetadata.hourly.solar.end_of_interval.name_original,
     # URBAN_TEMPERATURE_AIR
     "strahlungstemperatur",
 }
+
+# DWD writes the two measurement-method indicators as letters -- P for a human person, I for an
+# instrument -- in files that are otherwise numeric. Decoding them here is what lets them be
+# returned at all: the value column is Float64, so a letter has nowhere to go and both parameters
+# used to be dropped on the way out despite being declared.
+#
+# The digits are ours, not DWD's: 1 for P and 2 for I, following the order DWD lists them in. 0 is
+# deliberately unused so that "not measured" stays distinguishable from either method.
+#
+# Written as text because DWD pads its fields with spaces, so every data column is read as text and
+# cast to Float64 only at the very end; a numeric column here would not stack with its neighbours.
+MEASUREMENT_METHOD_CODES = {"P": "1", "I": "2"}
+CODED_STRING_PARAMETERS = {
+    DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_measurement_method.name_original,
+    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
+    DwdObservationMetadata.hourly.visibility.visibility_range_measurement_method.name_original,
+}
+
+
+def _decode_measurement_method(series: pl.Series) -> pl.Series:
+    """Decode the letter-coded measurement method indicators, reporting anything unexpected.
+
+    Only P and I have ever been observed in the files. A letter outside the table has to become
+    null, since there is no digit to give it, but that would otherwise make it indistinguishable
+    from "not measured" -- the very thing the reserved 0 is meant to keep apart. So say so.
+    """
+    unknown = set(series.drop_nulls().unique()) - set(MEASUREMENT_METHOD_CODES)
+    if unknown:
+        log.warning(
+            f"Unknown measurement method indicator(s) {sorted(unknown)} in column {series.name!r}; "
+            f"expected one of {sorted(MEASUREMENT_METHOD_CODES)}. These values are returned as null.",
+        )
+    return series.replace_strict(MEASUREMENT_METHOD_CODES, default=None, return_dtype=pl.String)
+
 
 COLUMNS_MAPPING = {
     "stations_id": "station_id",
@@ -120,6 +150,11 @@ def _parse_climate_observations_data(  # noqa: C901
     df = df.rename(mapping=lambda col: col.strip().lower())
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
+    # decode the letter-coded indicators before anything downstream expects a number
+    df = df.with_columns(
+        pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
+        for parameter in sorted(CODED_STRING_PARAMETERS & set(df.collect_schema().names()))
+    )
     # Assign meaningful column names (baseline).
     df = df.rename(mapping=lambda col: COLUMNS_MAPPING.get(col, col))
     if dataset == DwdObservationMetadata.minute_1.precipitation:
