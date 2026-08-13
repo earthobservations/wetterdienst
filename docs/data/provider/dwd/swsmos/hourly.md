@@ -20,13 +20,13 @@
 
 #### parameters
 
-| name                                                    | original name | unit |
-|---------------------------------------------------------|---------------|------|
-| {term}`temperature_air_mean_2m`                         | TL            | °C   |
-| {term}`temperature_dew_point_mean_2m`                   | TD            | °C   |
-| {term}`temperature_surface_mean`                        | TS            | °C   |
-| {term}`precipitation_height_liquid`                     | RRL1c         | mm   |
-| {term}`precipitation_height_last_6h`                    | RR6           | mm   |
-| {term}`probability_precipitation_liquid_last_6h`        | WWL6          | %    |
-| {term}`probability_precipitation_height_gt_5mm_last_6h` | R650          | %    |
-| {term}`road_surface_condition`                          | RC            | -    |
+| name                                                    | original name | description                                                              | unit |
+|---------------------------------------------------------|---------------|--------------------------------------------------------------------------|------|
+| {term}`temperature_air_mean_2m`                         | TL            | Temperature 2m above surface.                                            | °C   |
+| {term}`temperature_dew_point_mean_2m`                   | TD            | Dewpoint 2m above surface.                                               | °C   |
+| {term}`temperature_surface_mean`                        | TS            | Mean temperature of the ground surface.                                  | °C   |
+| {term}`precipitation_height_liquid`                     | RRL1c         | Depth of the liquid part of the precipitation.                           | mm   |
+| {term}`precipitation_height_last_6h`                    | RR6           | Total precipitation during the last 6 hours.                             | mm   |
+| {term}`probability_precipitation_liquid_last_6h`        | WWL6          | Probability: Occurrence of liquid precipitation within the last 6 hours. | %    |
+| {term}`probability_precipitation_height_gt_5mm_last_6h` | R650          | Probability of precipitation > 5.0mm during the last 6 hours.            | %    |
+| {term}`road_surface_condition`                          | RC            | Coded condition of the road surface, such as dry, wet or icy.            | -    |

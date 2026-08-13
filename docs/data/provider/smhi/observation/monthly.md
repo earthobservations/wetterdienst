@@ -13,7 +13,7 @@
 
 #### parameters
 
-| name                            | original name | unit |
-|---------------------------------|---------------|------|
-| {term}`temperature_air_mean_2m` | 22            | °C   |
-| {term}`precipitation_height`    | 23            | mm   |
+| name                            | original name | description                                | unit |
+|---------------------------------|---------------|--------------------------------------------|------|
+| {term}`temperature_air_mean_2m` | 22            | Air temperature. Mean, once per month.     | °C   |
+| {term}`precipitation_height`    | 23            | Precipitation amount. Sum, once per month. | mm   |

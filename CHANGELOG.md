@@ -35,6 +35,17 @@ Types of changes:
 
 ### Added
 
+- Every parameter of every provider now carries a description, 1681 of 1681, closing the last 508
+  gaps. 271 come from the source itself: MeteoSwiss publishes `ogd-smn_meta_parameters.csv` beside
+  the data, MET Norway has a Frost `/elements` endpoint, KNMI writes a `long_name` on every NetCDF
+  variable, FMI has an `observableProperty` metadata endpoint, and AEMET and SMHI describe their
+  fields in the payloads and listings they already serve (translated here from Spanish and
+  Swedish). The remaining 237 are the canonical sentence for the quantity, kept apart in
+  `DERIVED_DESCRIPTIONS` so generated text is never mistaken for a source's own wording. Sibling
+  prose is now borrowed only within a provider, never across: another source's specifics ("within
+  the last 12 hours") need not hold for the one borrowing them
+- The provider docs tables carry a `description` column for the 46 pages that had none
+
 - DWD hourly solar `true_local_time_offset` (`mess_datum_woz`), a new canonical parameter holding
   how far true local solar time runs ahead of a record's timestamp -- the longitude correction plus
   the equation of time. Solar records are stamped with the UTC instant of a whole true-solar-time

@@ -22,6 +22,6 @@
 
 #### parameters
 
-| name                         | original name | unit       |
-|------------------------------|---------------|------------|
-| {term}`precipitation_height` | RR            | millimeter |
+| name                         | original name | description                                       | unit       |
+|------------------------------|---------------|---------------------------------------------------|------------|
+| {term}`precipitation_height` | RR            | Depth of precipitation collected over the period. | millimeter |
