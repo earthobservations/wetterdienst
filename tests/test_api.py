@@ -944,3 +944,45 @@ def test_source_descriptions_reach_the_metadata() -> None:
     discovered = DwdObservationRequest.discover(resolutions="10_minutes", datasets="solar")
     entry = next(p for p in discovered["10_minutes"]["solar"] if p["name"] == "radiation_global")
     assert entry["description"] == parameter.description
+
+
+def test_source_descriptions_reach_the_parameter_they_name() -> None:
+    """Test that each description lands on the parameter it is keyed to, and only that one.
+
+    Checking that a key names a declared parameter is not enough. Providers commonly build one
+    resolution's parameter list from another's by comprehension, which reuses the very same dicts,
+    so writing a description into one used to attach it to every resolution sharing it: AEMET's
+    annual parameters are its monthly ones minus humidity, and annual read "Monthly mean
+    temperature" while its own seven entries went nowhere.
+    """
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.metadata.source_descriptions import (  # noqa: PLC0415
+        DERIVED_DESCRIPTIONS,
+        SOURCE_DESCRIPTIONS,
+    )
+
+    wrong = []
+    for provider, networks in Wetterdienst.registry.items():
+        for network in networks:
+            try:
+                api = Wetterdienst(provider, network)
+            except Exception:  # noqa: BLE001, S112
+                continue
+            metadata = getattr(api, "metadata", None)
+            if metadata is None:
+                continue
+            # a derived description only fills a gap, never displaces one the source wrote
+            expected = {
+                **DERIVED_DESCRIPTIONS.get(metadata.__name__, {}),
+                **SOURCE_DESCRIPTIONS.get(metadata.__name__, {}),
+            }
+            for resolution in metadata:
+                for dataset in resolution:
+                    for parameter in dataset.parameters:
+                        key = (resolution.name, dataset.name, parameter.name_original)
+                        if key in expected and parameter.description != expected[key]:
+                            wrong.append(
+                                f"{metadata.__name__} {'/'.join(key)}: "
+                                f"got {parameter.description!r}, expected {expected[key]!r}",
+                            )
+    assert not wrong, "\n".join(wrong[:10])

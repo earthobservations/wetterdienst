@@ -28,6 +28,7 @@
 | {term}`precipitation_duration` | rws_dau_10 | Duration of precipitation during the previous 10 minutes. | min | >=0 |
 | {term}`precipitation_height` | rws_10 | Sum of the precipitation height of the previous 10 minutes. | mm | >=0 |
 | {term}`precipitation_index` | rws_ind_10 | Indicator of precipitation; if QN = 1 then: 0 = no precipitation, permanent sensor installed; 1 = precipitation, permanent sensor installed; 2 = no precipitation, heating in operation, permanent sensor installed; 3 = precipitation, heating in operation, permanent sensor installed; if QN > 1 then: 0 = no precipitation; 1 = precipitation. | - | ∈ \[0,1,3\] |
+| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 Codes (precipitation_indicator_wr):
 
@@ -56,6 +57,7 @@ Codes (precipitation_indicator_wr):
 | {term}`radiation_global` | gs_10 | Sum of global radiation during the previous 10 minutes. | J/cm² | >=0 |
 | {term}`sunshine_duration` | sd_10 | Sum of sunshine duration during the previous 10 minutes. | h | >=0 |
 | {term}`radiation_sky_long_wave` | ls_10 | Sum of longwave radiation during the previous 10 minutes. | J/cm² | >=0 |
+| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 ### temperature_air
 
@@ -77,6 +79,7 @@ Codes (precipitation_indicator_wr):
 | {term}`temperature_air_mean_0_05m` | tm5_10 | Air temperature 5 cm above ground, instant. | °C | - |
 | {term}`humidity` | rf_10 | Relative humidity 2 m above ground. | % | >=0,<=100 |
 | {term}`temperature_dew_point_mean_2m` | td_10 | Dew point. The dew point temperature is calculated from the air temperature 2 m above ground and the relative humidity measurement. | °C | - |
+| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 ### temperature_extreme
 
@@ -97,6 +100,7 @@ Codes (precipitation_indicator_wr):
 | {term}`temperature_air_max_0_05m` | tx5_10 | Maximum of air temperature at 5 cm height during the last 10 minutes. | °C | - |
 | {term}`temperature_air_min_2m` | tn_10 | Minimum of air temperature at 2 m height during the last 10 minutes. | °C | - |
 | {term}`temperature_air_min_0_05m` | tn5_10 | Minimum of air temperature at 5 cm height during the last 10 minutes. | °C | - |
+| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 ### wind
 

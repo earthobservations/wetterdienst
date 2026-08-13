@@ -36,3 +36,5 @@
 | {term}`temperature_air_min_2m` | min_temperature | Daily minimum 2m air temperature. | °C | - |
 | {term}`wind_direction_gust_max`     | direction_max_gust        | wind direction of maximum wind gust | °    | >=0,<=360   |
 | {term}`wind_gust_max` | speed_max_gust | Maximum wind gust. | km/h | >=0 |
+| {term}`humidity_max` | max_rel_humidity | Highest relative humidity over the period. | percent | - |
+| {term}`humidity_min` | min_rel_humidity | Lowest relative humidity over the period. | percent | - |

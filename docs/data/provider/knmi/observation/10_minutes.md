@@ -17,21 +17,21 @@ values outside the requested `[start_date, end_date]` range are then trimmed as 
 
 #### parameters
 
-| name                                  | original name | unit |
-|---------------------------------------|---------------|------|
-| {term}`temperature_air_mean_2m`       | ta            | °C   |
-| {term}`temperature_air_mean_0_1m`     | tg            | °C   |
-| {term}`temperature_dew_point_mean_2m` | td            | °C   |
-| {term}`temperature_wet_mean_2m`       | tb            | °C   |
-| {term}`humidity`                      | rh            | %    |
-| {term}`wind_speed`                    | ff            | m/s  |
-| {term}`wind_direction`                | dd            | °    |
-| {term}`wind_gust_max`                 | fx            | m/s  |
-| {term}`pressure_air_site`             | p0            | hPa  |
-| {term}`pressure_air_sea_level`        | pp            | hPa  |
-| {term}`radiation_global_intensity`    | qg            | W/m² |
-| {term}`sunshine_duration`             | ss            | min  |
-| {term}`cloud_cover_total`             | n             | 1/8  |
-| {term}`visibility_range`              | vv            | m    |
-| {term}`precipitation_intensity`       | rg            | mm/h |
-| {term}`precipitation_duration`        | dr            | s    |
+| name                                  | original name | description                               | unit |
+|---------------------------------------|---------------|-------------------------------------------|------|
+| {term}`temperature_air_mean_2m`       | ta            | Air Temperature 1 Min Mean                | °C   |
+| {term}`temperature_air_mean_0_1m`     | tg            | Air Temperature 10 cm Mean                | °C   |
+| {term}`temperature_dew_point_mean_2m` | td            | Dew Point Temperature 1 Min Mean          | °C   |
+| {term}`temperature_wet_mean_2m`       | tb            | Wet Bulb Temperature Mean                 | °C   |
+| {term}`humidity`                      | rh            | Relative Humidity 1 Min Mean              | %    |
+| {term}`wind_speed`                    | ff            | Wind Speed at 10 m Mean with MD           | m/s  |
+| {term}`wind_direction`                | dd            | Wind Direction Mean with MD               | °    |
+| {term}`wind_gust_max`                 | fx            | Wind Gust at 10 m Maximum last Interval   | m/s  |
+| {term}`pressure_air_site`             | p0            | Air Pressure at Station Level 1 Min Mean  | hPa  |
+| {term}`pressure_air_sea_level`        | pp            | Air Pressure at Mean Sea Level 1 Min Mean | hPa  |
+| {term}`radiation_global_intensity`    | qg            | Global Solar Radiation Mean               | W/m² |
+| {term}`sunshine_duration`             | ss            | Sunshine Duration                         | min  |
+| {term}`cloud_cover_total`             | n             | Total Cloud Cover                         | 1/8  |
+| {term}`visibility_range`              | vv            | Horizontal Visibility Mean                | m    |
+| {term}`precipitation_intensity`       | rg            | Precipitation Intensity (Rain Gauge) Mean | mm/h |
+| {term}`precipitation_duration`        | dr            | Precipitation Duration (Rain Gauge)       | s    |
