@@ -1412,6 +1412,37 @@ def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings: 
 
 
 @pytest.mark.remote
+@pytest.mark.parametrize(
+    ("dataset", "parameter"),
+    [
+        ("visibility", "visibility_range_measurement_method"),
+        ("cloudiness", "cloud_cover_total_measurement_method"),
+        ("cloud_type", "cloud_cover_total_measurement_method"),
+    ],
+)
+def test_dwd_observation_measurement_method_indicators(
+    default_settings: Settings,
+    dataset: str,
+    parameter: str,
+) -> None:
+    """Test that the letter-coded measurement method indicators reach the result.
+
+    DWD writes these as `P` and `I`, which the Float64 value column cannot hold, so both were
+    declared but dropped and a request for them returned an empty frame. They are decoded to 1 and
+    2 respectively on the way in.
+    """
+    request = DwdObservationRequest(
+        parameters=[("hourly", dataset, parameter)],
+        periods="recent",
+        settings=default_settings,
+    ).filter_by_station_id("00096")
+    values = request.values.all().df
+    assert not values.is_empty()
+    assert values.get_column("parameter").unique().to_list() == [parameter]
+    assert set(values.get_column("value").drop_nulls().unique()) <= {1.0, 2.0}
+
+
+@pytest.mark.remote
 def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
     """Test for custom unit conversion."""
     unit_targets = {

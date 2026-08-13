@@ -70,13 +70,9 @@ DROPPABLE_COLUMNS = [
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
-    # Cloudiness
-    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
     # Solar
     DwdObservationMetadata.hourly.solar.end_of_interval.name_original,
     DwdObservationMetadata.hourly.solar.true_local_time.name_original,
-    # Visibility
-    DwdObservationMetadata.hourly.visibility.visibility_range_measurement_method.name_original,
     # Weather
     DwdObservationMetadata.hourly.weather_phenomena.weather_text.name_original,
 ]

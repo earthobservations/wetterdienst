@@ -13,6 +13,7 @@ from fsspec.implementations.zip import ZipFileSystem
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Period
+from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
 from wetterdienst.util.network import File
@@ -90,3 +91,45 @@ def test_parse_dwd_data() -> None:
         given_df[[0, -1], :],
         expected_df,
     )
+
+
+@pytest.mark.parametrize(
+    ("dataset", "column", "payload"),
+    [
+        (
+            DwdObservationMetadata.hourly.visibility,
+            "v_vv_i",
+            (
+                "STATIONS_ID;MESS_DATUM;QN_8;V_VV_I;V_VV;eor\n"
+                "  96;2025020800;    3;   P;  18770;eor\n"
+                "  96;2025020801;    3;   I;  23000;eor\n"
+                "  96;2025020802;    3;    ;   -999;eor\n"
+            ),
+        ),
+        (
+            DwdObservationMetadata.hourly.cloudiness,
+            "v_n_i",
+            (
+                "STATIONS_ID;MESS_DATUM;QN_8;V_N_I;V_N;eor\n"
+                "  96;2025020800;    3;   P;      7;eor\n"
+                "  96;2025020801;    3;   I;      8;eor\n"
+                "  96;2025020802;    3;    ;   -999;eor\n"
+            ),
+        ),
+    ],
+)
+def test_parse_dwd_data_decodes_measurement_method(dataset: DatasetModel, column: str, payload: str) -> None:
+    """Test that the letter-coded measurement method indicators are decoded rather than dropped.
+
+    DWD writes these as `P` (human person) and `I` (instrument) in files that are otherwise
+    numeric. The value column is Float64, so a letter has nowhere to go: both parameters were
+    declared but silently dropped, and a request for them returned nothing at all.
+
+    They stay text here because DWD pads its fields with spaces, so every data column is read as
+    text and cast to Float64 only at the very end -- a numeric column would not stack with its
+    neighbours in `_tidy_up_df`.
+    """
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    df = parse_climate_observations_data(files=[file], dataset=dataset, period=Period.RECENT).collect()
+    assert df.get_column(column).to_list() == ["1", "2", None]
+    assert df.schema[column] == pl.String

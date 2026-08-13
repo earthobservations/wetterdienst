@@ -26,6 +26,7 @@
 | name                        | original name | description              | unit | constraints                            |
 |-----------------------------|---------------|--------------------------|------|----------------------------------------|
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
+| {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
 | {term}`cloud_type_layer1` | v_s1_cs | Cloud type of 1. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
 | {term}`cloud_height_layer1` | v_s1_hhs | Lower boundary height of 1.layer. | m | >=0 |
 | {term}`cloud_cover_layer1` | v_s1_ns | Cloud cover in the first layer. | 1/8 | >=0,<=8 |
@@ -70,15 +71,15 @@ Code (cloud_type_layer):
 
 | name                            | original name | description                    | unit | constraints                         |
 |---------------------------------|---------------|--------------------------------|------|-------------------------------------|
-| {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. | - | ∈ \[P, I\] |
+| {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, -1\] |
 
-Code (cloud_cover_total_indicator):
+Code (cloud_cover_total_measurement_method):
 
-| code | meaning      |
-|------|--------------|
-| P    | human person |
-| I    | instrument   |
+| value | source letter | meaning      |
+|-------|---------------|--------------|
+| 1     | P             | human person |
+| 2     | I             | instrument   |
 
 ### dew_point
 
@@ -379,15 +380,15 @@ Code (precipitation_form):
 
 | name                           | original name | description                    | unit | constraints |
 |--------------------------------|---------------|--------------------------------|------|-------------|
-| {term}`visibility_range_measurement_method` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. | - | ∈ \[P, I\] |
+| {term}`visibility_range_measurement_method` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
 | {term}`visibility_range` | v_vv | Visibility range. | m | >=0 |
 
-Code (visibility_range_indicator):
+Code (visibility_range_measurement_method):
 
-| code | meaning         |
-|------|-----------------|
-| P    | by human person |
-| I    | by instrument   |
+| value | source letter | meaning         |
+|-------|---------------|-----------------|
+| 1     | P             | by human person |
+| 2     | I             | by instrument   |
 
 ### weather_phenomena
 
