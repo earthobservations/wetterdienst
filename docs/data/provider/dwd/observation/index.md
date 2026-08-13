@@ -104,6 +104,28 @@ of which only `rs_05` and `rs_ind_05` are available in the `recent` and `now` pe
 | Cumulonimbus    | 9      |
 | Automated       | -1     |
 
+Note that `-1` means two different things in the hourly cloud datasets, depending on the column. In
+the cloud *type* codes above it is DWD's value for an automated observation, and it is returned as
+`-1`. In the cloud *cover* fields it is not a type but an absence, and it is not returned at all —
+see below.
+
+### Obscured sky
+
+The hourly cloud cover fields — `cloud_cover_total` (`v_n`) and `cloud_cover_layer1` to
+`cloud_cover_layer4` (`v_sN_ns`) — carry `-1` where the sky could not be seen at all, which is
+SYNOP's N = 9. It says that no amount could be given, rather than giving one, so wetterdienst
+returns it as null.
+
+Left as it stands it would be read as −1 eighths and converted like any other cloud cover, so a
+default request would report −0.125 of the sky covered.
+
+DWD's own dataset description documents only `-999` as a missing value and says nothing about `-1`,
+so the reading is from the data: across station 00003's hourly record `-1` stands in 1.2% of
+observations, and fog codes (`ww` 40 to 49) accompany 69.1% of those against 0.8% of the rest —
+`45` and `47`, "fog, sky invisible", most of all. If you need to tell an obscured sky from a plain
+gap in the record, the **hourly weather_phenomena** dataset still carries the weather code for that
+hour.
+
 ### Measurement method indicators
 
 Two DWD parameters say *how* a value was obtained rather than what was measured, and DWD writes
