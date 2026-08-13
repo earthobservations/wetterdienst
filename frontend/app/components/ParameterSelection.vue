@@ -109,7 +109,7 @@ const datasets = computed((): string[] => {
   if (!providerNetworkCoverage.value || !resolution.value)
     return []
   const resolutionData = providerNetworkCoverage.value[resolution.value as Resolution]
-  return resolutionData ? Object.keys(resolutionData).sort() : []
+  return resolutionData ? Object.keys(resolutionData.datasets).sort() : []
 })
 const params = computed<string[]>(() => {
   if (!providerNetworkCoverage.value || !resolution.value || !dataset.value)
@@ -117,7 +117,7 @@ const params = computed<string[]>(() => {
   const resolutionData = providerNetworkCoverage.value[resolution.value as Resolution]
   if (!resolutionData)
     return []
-  const datasetParams = resolutionData[dataset.value]
+  const datasetParams = resolutionData.datasets[dataset.value]?.parameters
   if (!datasetParams)
     return []
   return datasetParams

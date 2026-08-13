@@ -942,8 +942,11 @@ def test_source_descriptions_reach_the_metadata() -> None:
     assert DwdObservationRequest.metadata["daily"]["climate_summary"]["snow_depth"].description
 
     discovered = DwdObservationRequest.discover(resolutions="10_minutes", datasets="solar")
-    entry = next(p for p in discovered["10_minutes"]["solar"] if p["name"] == "radiation_global")
+    solar = discovered["10_minutes"]["datasets"]["solar"]
+    entry = next(p for p in solar["parameters"] if p["name"] == "radiation_global")
     assert entry["description"] == parameter.description
+    # the dataset's own description is reachable now too, which is why the shape has this level
+    assert solar["description"]
 
 
 def test_source_descriptions_reach_the_parameter_they_name() -> None:

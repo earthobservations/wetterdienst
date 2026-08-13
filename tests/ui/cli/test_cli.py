@@ -101,9 +101,9 @@ def test_coverage() -> None:
     assert result.exit_code == 0
     response = json.loads(result.stdout)
     assert "1_minute" in response
-    assert "precipitation" in response["1_minute"]
-    assert len(response["1_minute"]["precipitation"]) > 0
-    parameters = [p["name"] for p in response["1_minute"]["precipitation"]]
+    assert "precipitation" in response["1_minute"]["datasets"]
+    assert len(response["1_minute"]["datasets"]["precipitation"]["parameters"]) > 0
+    parameters = [p["name"] for p in response["1_minute"]["datasets"]["precipitation"]["parameters"]]
     assert parameters == [
         "precipitation_height",
         "precipitation_height_droplet",
@@ -143,9 +143,9 @@ def test_coverage_dataset_climate_summary() -> None:
     assert result.exit_code == 0
     response = json.loads(result.stdout)
     assert response.keys() == {"daily", "monthly", "annual"}
-    assert response["daily"].keys() == {"climate_summary"}
-    assert response["monthly"].keys() == {"climate_summary"}
-    assert response["annual"].keys() == {"climate_summary"}
+    assert response["daily"]["datasets"].keys() == {"climate_summary"}
+    assert response["monthly"]["datasets"].keys() == {"climate_summary"}
+    assert response["annual"]["datasets"].keys() == {"climate_summary"}
 
 
 def test_cli_radar_stations_opera() -> None:

@@ -46,15 +46,20 @@ def test_dwd_observation_metadata_discover_parameters() -> None:
     # as discover() gained a key
     actual = {
         resolution: {
-            dataset: [{k: p[k] for k in ("name", "name_original", "unit_type", "unit")} for p in parameters]
-            for dataset, parameters in datasets.items()
+            dataset: [
+                {k: p[k] for k in ("name", "name_original", "unit_type", "unit")} for p in described["parameters"]
+            ]
+            for dataset, described in entry["datasets"].items()
         }
-        for resolution, datasets in metadata.items()
+        for resolution, entry in metadata.items()
         if resolution == "1_minute"
     }
     assert actual == expected
-    # descriptions come from the source sheets and are reported alongside
-    assert all(p["description"] for p in metadata["1_minute"]["precipitation"])
+    # descriptions come from the source sheets and are reported alongside, at every level
+    precipitation = metadata["1_minute"]["datasets"]["precipitation"]
+    assert all(p["description"] for p in precipitation["parameters"])
+    assert precipitation["description"]
+    assert metadata["subdaily"]["description"] == "measurements at 7am, 2pm, 9pm."
 
 
 @pytest.mark.remote

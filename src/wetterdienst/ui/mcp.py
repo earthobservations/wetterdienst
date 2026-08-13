@@ -66,7 +66,9 @@ does this provider have".
 - parameters: "resolution/dataset" (e.g. "daily/kl") for a whole dataset, or \
 "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") for a single \
 measurement. Prefer the single-measurement form to keep responses small. Parameter names are \
-snake_case; `coverage(provider="dwd", network="observation", datasets="climate_summary")` lists them.
+snake_case; `coverage(provider="dwd", network="observation", datasets="climate_summary")` lists them. \
+Its answer is keyed by resolution, then `datasets`, then each dataset's `parameters`, and every one \
+of those three levels carries a `description` saying what the source means by it.
 - periods: "recent" (roughly the last 1.5 years) is the usual choice; "historical" for older data.
 - Handy DWD datasets: daily/kl (= climate_summary: temperature, precipitation, wind, sunshine), \
 hourly/air_temperature, hourly/precipitation.

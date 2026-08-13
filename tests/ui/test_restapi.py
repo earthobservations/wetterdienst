@@ -214,9 +214,9 @@ def test_coverage_dwd_observation(client: TestClient) -> None:
     assert response.status_code == 200
     data = response.json()
     assert "1_minute" in data
-    assert "precipitation" in data["1_minute"]
-    assert len(data["1_minute"]["precipitation"]) > 0
-    parameters = [item["name"] for item in data["1_minute"]["precipitation"]]
+    assert "precipitation" in data["1_minute"]["datasets"]
+    assert len(data["1_minute"]["datasets"]["precipitation"]["parameters"]) > 0
+    parameters = [item["name"] for item in data["1_minute"]["datasets"]["precipitation"]["parameters"]]
     assert parameters == [
         "precipitation_height",
         "precipitation_height_droplet",
@@ -255,9 +255,9 @@ def test_coverage_dwd_observation_dataset_climate_summary(client: TestClient) ->
     assert response.status_code == 200
     data = response.json()
     assert data.keys() == {"daily", "monthly", "annual"}
-    assert data["daily"].keys() == {"climate_summary"}
-    assert data["monthly"].keys() == {"climate_summary"}
-    assert data["annual"].keys() == {"climate_summary"}
+    assert data["daily"]["datasets"].keys() == {"climate_summary"}
+    assert data["monthly"]["datasets"].keys() == {"climate_summary"}
+    assert data["annual"]["datasets"].keys() == {"climate_summary"}
 
 
 @pytest.mark.remote
