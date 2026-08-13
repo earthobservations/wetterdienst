@@ -27,22 +27,26 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+# Columns that arrive in the files but are not parameters, and so are not declared in the metadata
+# either -- `tests/provider/dwd/observation/test_api_metadata.py` holds those two halves apart, so
+# that nothing can be declared and dropped at the same time.
+#
+# Named as literal strings rather than through `DwdObservationMetadata`, because the point is that
+# they have no declaration to refer to.
 DROPPABLE_PARAMETERS = {
-    # EOR
+    # record markers rather than data
     "eor",
     "struktur_version",
-    # the cloud type abbreviations are the same information as the numeric `v_sN_cs` codes
-    # declared beside them, in letters rather than digits, so there is nothing here to recover
-    # hourly
-    # cloud_type
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.name_original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
-    # DATE_PARAMETERS_IRREGULAR
-    DwdObservationMetadata.hourly.solar.true_local_time.name_original,
-    DwdObservationMetadata.hourly.solar.end_of_interval.name_original,
-    # URBAN_TEMPERATURE_AIR
+    # hourly cloud_type: the letter form of the numeric `v_sN_cs` code beside it, one for one
+    # (0 = CI ... 9 = CB, -1 = -1), so it carries nothing the declared parameter does not
+    "v_s1_csa",
+    "v_s2_csa",
+    "v_s3_csa",
+    "v_s4_csa",
+    # hourly weather_phenomena: German free text spelling out the numeric `ww` code beside it
+    # ("Wetter wurde nicht gemeldet" for -1)
+    "ww_text",
+    # 10 minute urban_temperature_air: radiation temperature, an instrument diagnostic
     "strahlungstemperatur",
 }
 
@@ -78,6 +82,20 @@ def _decode_measurement_method(series: pl.Series) -> pl.Series:
             f"expected one of {sorted(MEASUREMENT_METHOD_CODES)}. These values are returned as null.",
         )
     return series.replace_strict(MEASUREMENT_METHOD_CODES, default=None, return_dtype=pl.String)
+
+
+# hourly solar publishes the true local solar time as a whole timestamp (`1981010101:00` beside a
+# record stamped `1981010100:09`). What it adds over the record's own timestamp is the offset --
+# 28 to 71 minutes across the stations sampled, moving with the season, so not a per-station
+# constant -- and that is worth keeping. It is returned as the time of day it names: hours elapsed
+# since local midnight. Text, for the same reason the method codes are.
+TRUE_LOCAL_TIME = DwdObservationMetadata.hourly.solar.true_local_time.name_original
+
+
+def _encode_true_local_time() -> pl.Expr:
+    """Express the true local time timestamp as hours elapsed since local midnight."""
+    parsed = pl.col(TRUE_LOCAL_TIME).str.to_datetime("%Y%m%d%H:%M", strict=False)
+    return (parsed.dt.hour() + parsed.dt.minute() / 60).cast(pl.String).alias(TRUE_LOCAL_TIME)
 
 
 COLUMNS_MAPPING = {
@@ -150,11 +168,15 @@ def _parse_climate_observations_data(  # noqa: C901
     df = df.rename(mapping=lambda col: col.strip().lower())
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
-    # decode the letter-coded indicators before anything downstream expects a number
+    # turn what the file writes as text into the numbers the value column can hold, before anything
+    # downstream expects a number
+    columns = set(df.collect_schema().names())
     df = df.with_columns(
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
-        for parameter in sorted(CODED_STRING_PARAMETERS & set(df.collect_schema().names()))
+        for parameter in sorted(CODED_STRING_PARAMETERS & columns)
     )
+    if TRUE_LOCAL_TIME in columns:
+        df = df.with_columns(_encode_true_local_time())
     # Assign meaningful column names (baseline).
     df = df.rename(mapping=lambda col: COLUMNS_MAPPING.get(col, col))
     if dataset == DwdObservationMetadata.minute_1.precipitation:

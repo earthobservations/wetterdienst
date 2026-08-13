@@ -127,17 +127,32 @@ is deliberately left unused so that "not measured" stays distinguishable from ei
 Before this decoding both parameters were declared but silently dropped, so a request for them
 returned nothing at all.
 
-### Excluded string parameters
+### True local time
 
-A few parameters are still left out, because their content cannot be expressed as a number without
-inventing a meaning for it, or because the same information is already available as a number:
+**hourly solar** publishes the true local solar time of each record as a whole timestamp
+(`1981010101:00` beside a record stamped `1981010100:09`). What it adds over the record's own
+timestamp is the offset -- 28 to 71 minutes across the stations sampled, moving with the season
+rather than fixed per station -- so it is kept, returned as the time of day it names: hours elapsed
+since local midnight. Being a time, it follows the `time` unit target like any other, so it arrives
+in seconds unless you ask for something else.
 
-- cloud type abbreviations (1 - 4) in the **hourly cloud_type** dataset -- the numeric
-  `cloud_type_layerN` (`v_sN_cs`) codes beside them carry the same information
-- true local time and end of interval in the **hourly solar** dataset -- timestamps rather than
-  measurements
-- weather text in the **hourly weather_phenomena** dataset -- free text, alongside the numeric
-  `weather` code
+### Columns that are not parameters
+
+Some columns in the files are not measurements and are not declared as parameters, so they never
+appear in a result and cannot be requested:
+
+- **cloud type abbreviations** (`v_s1_csa` - `v_s4_csa`) in **hourly cloud_type** -- the letter form
+  of the numeric `cloud_type_layerN` (`v_sN_cs`) code beside each one, matching it exactly across
+  the 398,381 records sampled (`0` = CI ... `9` = CB), so nothing would be recovered by decoding
+- **weather text** (`ww_text`) in **hourly weather_phenomena** -- German prose spelling out the
+  numeric `weather` (`ww`) code beside it. Across 443,827 records every code maps to exactly one
+  text, and two codes share a text, so the text says strictly less than the code
+- **record markers** (`eor`, `struktur_version`) and the radiation temperature diagnostic
+  (`strahlungstemperatur`) in **10 minute urban_temperature_air**
+
+`tests/provider/dwd/observation/test_api_metadata.py` keeps the two halves apart, so a parameter
+cannot be declared and dropped at the same time -- which is how several came to be advertised while
+never returning a value.
 
 ### Quality
 

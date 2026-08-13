@@ -459,7 +459,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "DwdObservationMetadata": {
         ("hourly", "urban_pressure", "luftdruck_nn"): "Air pressure reduced to sea level.",
-        ("hourly", "solar", "end_of_interval"): "Timestamp marking the end of the measurement interval.",
         ("10_minutes", "precipitation", "rws_10"): "Sum of the precipitation height of the previous 10 minutes.",
         ("10_minutes", "precipitation", "rws_dau_10"): "Duration of precipitation during the previous 10 minutes.",
         ("10_minutes", "precipitation", "rws_ind_10"): (
@@ -624,19 +623,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I."
         ),
         ("hourly", "cloud_type", "v_s1_cs"): "Cloud type of 1. layer.",
-        ("hourly", "cloud_type", "v_s1_csa"): "Abbrev. cloud type 1.layer.",
         ("hourly", "cloud_type", "v_s1_hhs"): "Lower boundary height of 1.layer.",
         ("hourly", "cloud_type", "v_s1_ns"): "Cloud cover in the first layer.",
         ("hourly", "cloud_type", "v_s2_cs"): "Cloud type of 2. layer.",
-        ("hourly", "cloud_type", "v_s2_csa"): "Abbrev. cloud type 2.layer.",
         ("hourly", "cloud_type", "v_s2_hhs"): "Lower boundary height of 2.layer.",
         ("hourly", "cloud_type", "v_s2_ns"): "Cloud cover in the second layer.",
         ("hourly", "cloud_type", "v_s3_cs"): "Cloud type of 3. layer.",
-        ("hourly", "cloud_type", "v_s3_csa"): "Abbrev. cloud type 3.layer.",
         ("hourly", "cloud_type", "v_s3_hhs"): "Lower boundary height of 3.layer.",
         ("hourly", "cloud_type", "v_s3_ns"): "Cloud cover in the third layer.",
         ("hourly", "cloud_type", "v_s4_cs"): "Cloud type of 4. layer.",
-        ("hourly", "cloud_type", "v_s4_csa"): "Abbrev. cloud type 4.layer.",
         ("hourly", "cloud_type", "v_s4_hhs"): "Lower boundary height of 4.layer.",
         ("hourly", "cloud_type", "v_s4_ns"): "Cloud cover in the fourth layer.",
         ("hourly", "cloudiness", "v_n"): "Total cloud cover.",
@@ -665,7 +660,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "shortwave, including the solar spectrum up to 2.8 micron, as opposed to longwave , which "
             "refers to the thermal radiation of the atmosphere."
         ),
-        ("hourly", "solar", "mess_datum_woz"): "Local true solar time.",
+        ("hourly", "solar", "mess_datum_woz"): (
+            "Local true solar time. Published as a whole timestamp, returned as the time of day it "
+            "names: hours elapsed since local midnight."
+        ),
         ("hourly", "solar", "sd_lberg"): "Hourly sum of sunshine duration.",
         ("hourly", "solar", "zenit"): (
             "Solar zenith angle at mid of interval. The solar zenith angle is between 0-180 and is "
@@ -698,7 +696,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Returned as 1 for P and 2 for I."
         ),
         ("hourly", "weather_phenomena", "ww"): "Weather code of current condition.",
-        ("hourly", "weather_phenomena", "ww_text"): "Weather description of the current condition.",
         ("hourly", "wind", "d"): "Mean wind direction.",
         ("hourly", "wind", "f"): "Mean wind speed.",
         ("hourly", "wind_extreme", "fx_911"): "Maximum wind gust 10 m above ground.",
