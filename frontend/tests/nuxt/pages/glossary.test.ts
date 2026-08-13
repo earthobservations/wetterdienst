@@ -1,5 +1,6 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
+import { clearNuxtData } from '#app'
 import GlossaryPage from '~/pages/glossary.vue'
 
 // the page reads the vocabulary through `useFetch`, which goes via `$fetch` rather than the global
