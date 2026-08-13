@@ -26,6 +26,7 @@ Keyed by metadata model name, then ``(resolution, dataset, name_original)``. App
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "HubeauMetadata": {
         ("dynamic", "data", "H"): "Stage.",
+        ("dynamic", "data", "Q"): "Flow.",
     },
     "DwdDerivedMetadata": {
         ("hourly", "radiation_global", "qn_952"): "Quality flag.",
@@ -1307,6 +1308,31 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "winddirection"): "wind direction",
         ("hourly", "data", "windgust"): "maximum wind gust",
         ("hourly", "data", "windspeed"): "wind speed",
+    },
+    "WsvPegelMetadata": {
+        # Pegelonline names each timeseries in German; the meaning below is the API's own
+        # ``longname`` for that shortname, e.g. HL is LUFTFEUCHTE and SIGH SIGNIFIKANTEWELLENHÖHE.
+        ("dynamic", "data", "CL"): "average chlorid concentration during time scale",
+        ("dynamic", "data", "DFH"): "average clearance height during time scale",
+        ("dynamic", "data", "GRU"): "average groundwater level during time scale",
+        ("dynamic", "data", "HL"): "average relative humidity of the air during time scale",
+        ("dynamic", "data", "LF"): "average electric conductivity during time scale",
+        ("dynamic", "data", "LT"): "average air temperature during time scale",
+        ("dynamic", "data", "MAXH"): "max wave height during time scale",
+        ("dynamic", "data", "NIEDERSCHLAG"): "average precipitation height during time scale",
+        ("dynamic", "data", "NIEDERSCHLAGSINTENSITÄT"): "average precipitation intensity during time scale",
+        ("dynamic", "data", "O2"): "average oxygen level during time scale",
+        ("dynamic", "data", "PH"): "average pH during time scale",
+        ("dynamic", "data", "Q"): "average discharge during time scale",
+        ("dynamic", "data", "R"): "direction of the water current",
+        ("dynamic", "data", "SIGH"): "average significant wave height during time scale",
+        ("dynamic", "data", "TP"): "average wave period during time scale",
+        ("dynamic", "data", "TR"): "average turbidity during time scale",
+        ("dynamic", "data", "VA"): "average flow speed during time scale",
+        ("dynamic", "data", "W"): "average water level during time scale",
+        ("dynamic", "data", "WG"): "average wind speed during time scale",
+        ("dynamic", "data", "WR"): "average wind direction during time scale",
+        ("dynamic", "data", "WT"): "average water temperature during time scale",
     },
 }
 
