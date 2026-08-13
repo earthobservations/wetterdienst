@@ -123,21 +123,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "cloud_height_layer4", "length_medium", "Height above ground of the base of the fourth reported cloud layer."
     ),
     CanonicalParameter("cloud_type_layer1", "dimensionless", "Coded cloud genus of the lowest reported cloud layer."),
-    CanonicalParameter(
-        "cloud_type_layer1_abbreviation", "dimensionless", "Abbreviated cloud genus of the lowest reported cloud layer."
-    ),
     CanonicalParameter("cloud_type_layer2", "dimensionless", "Coded cloud genus of the second reported cloud layer."),
-    CanonicalParameter(
-        "cloud_type_layer2_abbreviation", "dimensionless", "Abbreviated cloud genus of the second reported cloud layer."
-    ),
     CanonicalParameter("cloud_type_layer3", "dimensionless", "Coded cloud genus of the third reported cloud layer."),
-    CanonicalParameter(
-        "cloud_type_layer3_abbreviation", "dimensionless", "Abbreviated cloud genus of the third reported cloud layer."
-    ),
     CanonicalParameter("cloud_type_layer4", "dimensionless", "Coded cloud genus of the fourth reported cloud layer."),
-    CanonicalParameter(
-        "cloud_type_layer4_abbreviation", "dimensionless", "Abbreviated cloud genus of the fourth reported cloud layer."
-    ),
     CanonicalParameter(
         "cooling_degree_day",
         "degree_day",
@@ -245,11 +233,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "electric_conductivity",
         "conductivity",
         "Electrical conductivity of the water, a proxy for its dissolved salt content.",
-    ),
-    CanonicalParameter(
-        "end_of_interval",
-        "dimensionless",
-        "Marker showing that the timestamp denotes the end of the measuring interval.",
     ),
     CanonicalParameter(
         "error_absolute_pressure_air_site", "pressure", "Absolute error attached to the reported air pressure."
@@ -1705,9 +1688,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "length_short",
         "Greatest depth to which ground under plant cover thawed in the month.",
     ),
-    CanonicalParameter(
-        "true_local_time", "dimensionless", "True local solar time at the station, as opposed to zone time."
-    ),
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
     CanonicalParameter(
         "visibility_range", "length_medium", "Horizontal distance at which an object can still be made out."
@@ -1792,7 +1772,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "significant_weather",
         "Coded significant weather over the preceding 6 hours, where reported.",
     ),
-    CanonicalParameter("weather_text", "dimensionless", "Plain-language description of the present weather."),
     CanonicalParameter(
         "weather_type_blowing_drifting_snow", "dimensionless", "Whether blowing or drifting snow was observed."
     ),

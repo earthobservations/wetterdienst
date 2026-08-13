@@ -127,17 +127,41 @@ is deliberately left unused so that "not measured" stays distinguishable from ei
 Before this decoding both parameters were declared but silently dropped, so a request for them
 returned nothing at all.
 
-### Excluded string parameters
+### Columns that are not parameters
 
-A few parameters are still left out, because their content cannot be expressed as a number without
-inventing a meaning for it, or because the same information is already available as a number:
+Some columns in the files are not measurements and are not declared as parameters, so they never
+appear in a result and cannot be requested:
 
-- cloud type abbreviations (1 - 4) in the **hourly cloud_type** dataset -- the numeric
-  `cloud_type_layerN` (`v_sN_cs`) codes beside them carry the same information
-- true local time and end of interval in the **hourly solar** dataset -- timestamps rather than
-  measurements
-- weather text in the **hourly weather_phenomena** dataset -- free text, alongside the numeric
-  `weather` code
+- **cloud type abbreviations** (`v_s1_csa` - `v_s4_csa`) in **hourly cloud_type** -- the letter form
+  of the numeric `cloud_type_layerN` (`v_sN_cs`) code beside each one, matching it exactly across
+  the 398,381 records sampled (`0` = CI ... `9` = CB), so nothing would be recovered by decoding
+- **weather text** (`ww_text`) in **hourly weather_phenomena** -- German prose spelling out the
+  numeric `weather` (`ww`) code beside it. Across 443,827 records every code maps to exactly one
+  text, and two codes share a text, so the text says strictly less than the code
+- **true local time** (`mess_datum_woz`) in **hourly solar** -- the true local solar time of the
+  record, published as a whole hour. What carries the solar correction is the minute of the
+  record's own timestamp beside it, which runs 0-20 and 49-59 over the year at station 00183 and
+  is rounded away when that timestamp is rounded to the hour (see below). What remains is the hour
+  label, a fixed one hour from the returned timestamp across all 387,120 of that station's records,
+  and 0 or 1 at stations further west
+- **record markers** (`eor`, `struktur_version`), which close every DWD observation record at every
+  resolution, and the radiation temperature diagnostic (`strahlungstemperatur`) in **10 minute
+  urban_temperature_air**
+
+`tests/provider/dwd/observation/test_api_metadata.py` keeps the two halves apart, so a parameter
+cannot be declared and dropped at the same time -- which is how several came to be advertised while
+never returning a value.
+
+### Solar timestamps
+
+**hourly solar** does not stamp its records on the hour. The timestamps follow the true solar hour,
+so they carry minutes that move with the season -- 0 to 20 and 49 to 59 over the year at station
+00183 -- and are occasionally off by ten minutes in either direction besides. wetterdienst rounds
+them to the nearest hour, so that a solar series lines up with every other hourly series.
+
+That rounding is what discards the sub-hour solar correction, and `mess_datum_woz` was the only
+other record of it. If you need the exact instant of a solar reading rather than the hour it
+belongs to, this is the thing to be aware of.
 
 ### Quality
 

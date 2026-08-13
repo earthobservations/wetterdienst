@@ -27,22 +27,32 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+# Columns that arrive in the files but are not parameters, and so are not declared in the metadata
+# either -- `tests/provider/dwd/observation/test_api_metadata.py` holds those two halves apart, so
+# that nothing can be declared and dropped at the same time.
+#
+# Named as literal strings rather than through `DwdObservationMetadata`, because the point is that
+# they have no declaration to refer to.
 DROPPABLE_PARAMETERS = {
-    # EOR
+    # record markers rather than data
     "eor",
     "struktur_version",
-    # the cloud type abbreviations are the same information as the numeric `v_sN_cs` codes
-    # declared beside them, in letters rather than digits, so there is nothing here to recover
-    # hourly
-    # cloud_type
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.name_original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
-    # DATE_PARAMETERS_IRREGULAR
-    DwdObservationMetadata.hourly.solar.true_local_time.name_original,
-    DwdObservationMetadata.hourly.solar.end_of_interval.name_original,
-    # URBAN_TEMPERATURE_AIR
+    # hourly cloud_type: the letter form of the numeric `v_sN_cs` code beside it, one for one
+    # (0 = CI ... 9 = CB, -1 = -1), so it carries nothing the declared parameter does not
+    "v_s1_csa",
+    "v_s2_csa",
+    "v_s3_csa",
+    "v_s4_csa",
+    # hourly solar: the true local solar time, published as a whole hour. What carries the solar
+    # correction is the minute of `mess_datum` beside it (0-20 and 49-59, moving with the season),
+    # and that is rounded away when the record's own timestamp is rounded to the hour. What is left
+    # is the hour label, which then sits a fixed 1 hour from the returned timestamp at station
+    # 00183 over all 387,120 of its records, and 0 or 1 at stations further west.
+    "mess_datum_woz",
+    # hourly weather_phenomena: German free text spelling out the numeric `ww` code beside it
+    # ("Wetter wurde nicht gemeldet" for -1)
+    "ww_text",
+    # 10 minute urban_temperature_air: radiation temperature, an instrument diagnostic
     "strahlungstemperatur",
 }
 
@@ -150,10 +160,12 @@ def _parse_climate_observations_data(  # noqa: C901
     df = df.rename(mapping=lambda col: col.strip().lower())
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
-    # decode the letter-coded indicators before anything downstream expects a number
+    # turn what the file writes as text into the numbers the value column can hold, before anything
+    # downstream expects a number
+    columns = set(df.collect_schema().names())
     df = df.with_columns(
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
-        for parameter in sorted(CODED_STRING_PARAMETERS & set(df.collect_schema().names()))
+        for parameter in sorted(CODED_STRING_PARAMETERS & columns)
     )
     # Assign meaningful column names (baseline).
     df = df.rename(mapping=lambda col: COLUMNS_MAPPING.get(col, col))

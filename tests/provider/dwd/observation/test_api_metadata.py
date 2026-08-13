@@ -175,3 +175,24 @@ def test_dwd_observation_metadata_describe_fields_temperature_10minutes() -> Non
         "rf_10",
         "td_10",
     ]
+
+
+def test_dwd_observation_no_declared_parameter_is_dropped() -> None:
+    """Test that nothing is declared as a parameter and dropped from the data at the same time.
+
+    A parameter listed in the metadata is offered everywhere the metadata is read -- `discover()`,
+    the REST coverage endpoint, the MCP tools, the docs tables -- so dropping its column means
+    advertising a field that answers every request with an empty frame. Seven did exactly that
+    before this check existed.
+    """
+    from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.parser import DROPPABLE_PARAMETERS  # noqa: PLC0415
+
+    declared = {
+        (resolution.name, dataset.name, parameter.name_original)
+        for resolution in DwdObservationMetadata
+        for dataset in resolution
+        for parameter in dataset.parameters
+    }
+    both = sorted(site for site in declared if site[2] in DROPPABLE_PARAMETERS)
+    assert not both, f"declared as parameters but dropped from the data: {both}"

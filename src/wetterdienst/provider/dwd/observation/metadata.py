@@ -499,11 +499,6 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "cloud_type_layer1_abbreviation",
-                            "name_original": "v_s1_csa",
-                            "unit": "dimensionless",
-                        },
-                        {
                             "name": "cloud_height_layer1",
                             "name_original": "v_s1_hhs",
                             "unit": "meter",
@@ -516,11 +511,6 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_type_layer2",
                             "name_original": "v_s2_cs",
-                            "unit": "dimensionless",
-                        },
-                        {
-                            "name": "cloud_type_layer2_abbreviation",
-                            "name_original": "v_s2_csa",
                             "unit": "dimensionless",
                         },
                         {
@@ -539,11 +529,6 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "cloud_type_layer3_abbreviation",
-                            "name_original": "v_s3_csa",
-                            "unit": "dimensionless",
-                        },
-                        {
                             "name": "cloud_height_layer3",
                             "name_original": "v_s3_hhs",
                             "unit": "meter",
@@ -556,11 +541,6 @@ DwdObservationMetadata = {
                         {
                             "name": "cloud_type_layer4",
                             "name_original": "v_s4_cs",
-                            "unit": "dimensionless",
-                        },
-                        {
-                            "name": "cloud_type_layer4_abbreviation",
-                            "name_original": "v_s4_csa",
                             "unit": "dimensionless",
                         },
                         {
@@ -724,11 +704,6 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "end_of_interval",
-                            "name_original": "end_of_interval",
-                            "unit": "dimensionless",
-                        },
-                        {
                             "name": "radiation_sky_long_wave",
                             "name_original": "atmo_lberg",
                             "unit": "joule_per_square_centimeter",
@@ -752,11 +727,6 @@ DwdObservationMetadata = {
                             "name": "sun_zenith_angle",
                             "name_original": "zenit",
                             "unit": "degree",
-                        },
-                        {
-                            "name": "true_local_time",
-                            "name_original": "mess_datum_woz",
-                            "unit": "dimensionless",
                         },
                     ],
                 },
@@ -874,11 +844,6 @@ DwdObservationMetadata = {
                         {
                             "name": "weather",
                             "name_original": "ww",
-                            "unit": "dimensionless",
-                        },
-                        {
-                            "name": "weather_text",
-                            "name_original": "ww_text",
                             "unit": "dimensionless",
                         },
                     ],

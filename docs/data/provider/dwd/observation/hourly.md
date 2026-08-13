@@ -406,7 +406,6 @@ Code (visibility_range_measurement_method):
 | name                 | original name | description                       | unit | constraints |
 |----------------------|---------------|-----------------------------------|------|-------------|
 | {term}`weather` | ww | Weather code of current condition. | - | - |
-| {term}`weather_text` | ww_text | Weather description of the current condition. | - | - |
 
 weather codes and descriptions: [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/weather_phenomena/historical/Wetter_Beschreibung.txt)
 
