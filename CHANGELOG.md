@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `discover()` nests its answer so that every level has a place for its description,
+  which had nowhere to go before: `{resolution: {"description": ..., "datasets": {dataset:
+  {"description": ..., "parameters": [...]}}}}`. The 88 dataset descriptions and 2 resolution
+  descriptions were on the model but unreachable over `GET /api/coverage`, the `coverage` MCP tool
+  and `wetterdienst about coverage`, which all pass this dict through as their response. Consumers
+  reading `data[resolution][dataset]` as a list of parameters now read
+  `data[resolution]["datasets"][dataset]["parameters"]`
+
 ### Fixed
 
 - **Breaking**: MET Norway's in-band codes are decoded rather than returned as measurements. Frost

@@ -364,6 +364,12 @@ class TimeseriesRequest:
     ) -> dict:
         """Discover metadata for the given resolutions and datasets.
 
+        Each level carries its own description, so the shape has a place for one::
+
+            {resolution: {"description": ..., "datasets": {dataset: {"description": ...,
+             "parameters": [{"name": ..., "name_original": ..., "unit_type": ..., "unit": ...,
+             "description": ...}]}}}}
+
         Args:
             resolutions: Resolutions to discover metadata for.
             datasets: Datasets to discover metadata for.
@@ -397,7 +403,7 @@ class TimeseriesRequest:
                 and resolution.name_original not in resolution_strings
             ):
                 continue
-            data[resolution.name] = {}
+            described_datasets = {}
             for dataset in resolution:
                 if (
                     dataset_strings
@@ -405,9 +411,9 @@ class TimeseriesRequest:
                     and dataset.name_original not in dataset_strings
                 ):
                     continue
-                data[resolution.name][dataset.name] = []
-                for parameter in dataset:
-                    data[resolution.name][dataset.name].append(
+                described_datasets[dataset.name] = {
+                    "description": dataset.description,
+                    "parameters": [
                         {
                             "name": parameter.name,
                             "name_original": parameter.name_original,
@@ -416,10 +422,16 @@ class TimeseriesRequest:
                             # the source's own words for its own field, where we have them; the
                             # canonical, provider-independent sentence lives in the glossary
                             "description": parameter.description,
-                        },
-                    )
-            if not data[resolution.name]:
-                del data[resolution.name]
+                        }
+                        for parameter in dataset
+                    ],
+                }
+            if not described_datasets:
+                continue
+            data[resolution.name] = {
+                "description": resolution.description,
+                "datasets": described_datasets,
+            }
         return data
 
     @staticmethod

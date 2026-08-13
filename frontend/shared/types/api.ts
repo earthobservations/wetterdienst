@@ -23,6 +23,19 @@ export interface CoverageParameter {
   name_original?: string
   unit?: string
   unit_original?: string
+  description?: string | null
+}
+
+/** A dataset in the coverage response, with the source's own description of it */
+export interface CoverageDataset {
+  description?: string | null
+  parameters: CoverageParameter[]
+}
+
+/** A resolution in the coverage response, with its datasets */
+export interface CoverageResolution {
+  description?: string | null
+  datasets: Record<string, CoverageDataset>
 }
 
 /** Per-network metadata in the coverage response */
@@ -48,7 +61,7 @@ export interface AuthResponse {
 /** Detailed coverage for a provider-network pair */
 export type ProviderNetworkCoverageResponse = Record<
   Resolution,
-  Record<string, CoverageParameter[]>
+  CoverageResolution
 >
 
 export interface CoverageQuery {

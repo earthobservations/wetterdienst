@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Parameter selection]` Follow the nested shape `GET /api/coverage` now returns. Datasets were
+  listed with `Object.keys()` over the resolution, which answers `["description", "datasets"]`
+  under the new shape, and the dataset was indexed as a list of parameters. Both now read through
+  `datasets` and `parameters`, and the types gain `CoverageResolution` and `CoverageDataset` plus a
+  `description` on `CoverageParameter`
+- `[Parameter selection]` Show what the shape change makes reachable: the resolution and dataset
+  selects carry the source's own description as help text, and each parameter in the menu shows its
+  description beneath the label
+
 ### Added
 
 - `[All pages]` Glossary labels for the new `radiation_global_intensity`,
