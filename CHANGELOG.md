@@ -49,6 +49,15 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: DWD hourly cloud cover no longer reports -0.125 of the sky. `cloud_cover_total`
+  (`v_n`) and `cloud_cover_layer1` to `cloud_cover_layer4` (`v_sN_ns`) carry -1 where the sky could
+  not be seen at all, SYNOP's N = 9, and being declared in eighths that converted to -0.125 as a
+  fraction. It is returned as null now. DWD's description documents only -999 and says nothing
+  about -1, so the reading is from the data: -1 stands in 1.2% of station 00003's hourly
+  observations, and fog codes (`ww` 40-49) accompany 69.1% of those against 0.8% of the rest. The
+  cloud *type* codes beside them keep their -1, DWD's own value for an automated observation, which
+  is dimensionless and so passes through unscaled
+
 - Descriptions no longer leak between resolutions. `build_metadata_model` wrote them into the
   metadata dicts it was given, and providers commonly build one resolution's parameter list from
   another's by comprehension, which reuses the very same dicts: AEMET's annual parameters are its
