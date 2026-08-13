@@ -35,6 +35,15 @@ Types of changes:
 
 ### Added
 
+- DWD hourly solar `true_local_time_offset` (`mess_datum_woz`), a new canonical parameter holding
+  how far true local solar time runs ahead of a record's timestamp -- the longitude correction plus
+  the equation of time. Solar records are stamped with the UTC instant of a whole true-solar-time
+  hour, so the correction sits in the minutes of that timestamp, which wetterdienst rounds to the
+  hour so a solar series lines up with every other hourly series. The rounding discarded it and the
+  column that also held it was dropped, so it was not reachable at all. At station 00183 it runs 40
+  to 71 minutes, its monthly mean tracing the equation of time from 40.4 in February to 69.1 in
+  November about a 54.7 minute longitude term
+
 - DWD's two measurement method indicators are returned instead of dropped:
   `cloud_cover_total_measurement_method` (`v_n_i`, hourly cloud_type and cloudiness) and
   `visibility_range_measurement_method` (`v_vv_i`, hourly visibility). DWD writes them as letters

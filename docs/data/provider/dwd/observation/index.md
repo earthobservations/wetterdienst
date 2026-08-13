@@ -138,12 +138,6 @@ appear in a result and cannot be requested:
 - **weather text** (`ww_text`) in **hourly weather_phenomena** -- German prose spelling out the
   numeric `weather` (`ww`) code beside it. Across 443,827 records every code maps to exactly one
   text, and two codes share a text, so the text says strictly less than the code
-- **true local time** (`mess_datum_woz`) in **hourly solar** -- the true local solar time of the
-  record, published as a whole hour. What carries the solar correction is the minute of the
-  record's own timestamp beside it, which runs 0-20 and 49-59 over the year at station 00183 and
-  is rounded away when that timestamp is rounded to the hour (see below). What remains is the hour
-  label, a fixed one hour from the returned timestamp across all 387,120 of that station's records,
-  and 0 or 1 at stations further west
 - **record markers** (`eor`, `struktur_version`), which close every DWD observation record at every
   resolution, and the radiation temperature diagnostic (`strahlungstemperatur`) in **10 minute
   urban_temperature_air**
@@ -152,16 +146,36 @@ appear in a result and cannot be requested:
 cannot be declared and dropped at the same time -- which is how several came to be advertised while
 never returning a value.
 
-### Solar timestamps
+### Solar timestamps and true local time
 
-**hourly solar** does not stamp its records on the hour. The timestamps follow the true solar hour,
-so they carry minutes that move with the season -- 0 to 20 and 49 to 59 over the year at station
-00183 -- and are occasionally off by ten minutes in either direction besides. wetterdienst rounds
-them to the nearest hour, so that a solar series lines up with every other hourly series.
+**hourly solar** does not stamp its records on the hour. Each one is stamped with the UTC instant
+of a whole hour of *true local solar time*, so the minutes move with the season -- 0 to 20 and 49
+to 59 over the year at station 00183. wetterdienst rounds those timestamps to the nearest hour, so
+that a solar series lines up with every other hourly series.
 
-That rounding is what discards the sub-hour solar correction, and `mess_datum_woz` was the only
-other record of it. If you need the exact instant of a solar reading rather than the hour it
-belongs to, this is the thing to be aware of.
+The rounding discards the solar correction, so it is offered as a parameter of its own,
+`true_local_time_offset`: how far true local solar time runs ahead of the record's timestamp. It is
+the longitude correction plus the equation of time, and at station 00183 it runs from 40 to 71
+minutes, its monthly mean tracing the equation of time about a 54.7 minute longitude term:
+
+| month | mean offset |
+|-------|-------------|
+| February | 40.4 min |
+| May | 57.6 min |
+| November | 69.1 min |
+
+Being a time, it follows the `time` unit target like any other duration, so it arrives in seconds
+unless you ask for something else.
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters=[("hourly", "solar", "true_local_time_offset")],
+    start_date="2023-11-10",
+    end_date="2023-11-10 06:00",
+).filter_by_station_id("00183")
+```
 
 ### Quality
 
