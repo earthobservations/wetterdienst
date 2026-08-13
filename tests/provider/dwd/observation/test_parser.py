@@ -3,6 +3,7 @@
 """Tests for DWD historical climate data parsing."""
 
 import datetime as dt
+import logging
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
@@ -133,3 +134,27 @@ def test_parse_dwd_data_decodes_measurement_method(dataset: DatasetModel, column
     df = parse_climate_observations_data(files=[file], dataset=dataset, period=Period.RECENT).collect()
     assert df.get_column(column).to_list() == ["1", "2", None]
     assert df.schema[column] == pl.String
+
+
+def test_parse_dwd_data_reports_unknown_measurement_method(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that an indicator outside the code table is reported rather than quietly nulled.
+
+    Only P and I have ever been observed. A letter outside the table has to become null, as there
+    is no digit to give it, but that leaves it indistinguishable from "not measured" -- which is
+    what the reserved 0 exists to keep apart -- so it must not pass silently.
+    """
+    payload = (
+        "STATIONS_ID;MESS_DATUM;QN_8;V_VV_I;V_VV;eor\n"
+        "  96;2025020800;    3;   P;  18770;eor\n"
+        "  96;2025020801;    3;   X;  23000;eor\n"
+    )
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    with caplog.at_level(logging.WARNING):
+        df = parse_climate_observations_data(
+            files=[file],
+            dataset=DwdObservationMetadata.hourly.visibility,
+            period=Period.RECENT,
+        ).collect()
+    assert df.get_column("v_vv_i").to_list() == ["1", None]
+    assert "['X']" in caplog.text
+    assert "v_vv_i" in caplog.text

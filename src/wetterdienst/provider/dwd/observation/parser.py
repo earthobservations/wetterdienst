@@ -63,6 +63,23 @@ CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.visibility.visibility_range_measurement_method.name_original,
 }
 
+
+def _decode_measurement_method(series: pl.Series) -> pl.Series:
+    """Decode the letter-coded measurement method indicators, reporting anything unexpected.
+
+    Only P and I have ever been observed in the files. A letter outside the table has to become
+    null, since there is no digit to give it, but that would otherwise make it indistinguishable
+    from "not measured" -- the very thing the reserved 0 is meant to keep apart. So say so.
+    """
+    unknown = set(series.drop_nulls().unique()) - set(MEASUREMENT_METHOD_CODES)
+    if unknown:
+        log.warning(
+            f"Unknown measurement method indicator(s) {sorted(unknown)} in column {series.name!r}; "
+            f"expected one of {sorted(MEASUREMENT_METHOD_CODES)}. These values are returned as null.",
+        )
+    return series.replace_strict(MEASUREMENT_METHOD_CODES, default=None, return_dtype=pl.String)
+
+
 COLUMNS_MAPPING = {
     "stations_id": "station_id",
     "mess_datum": "date",
@@ -135,7 +152,7 @@ def _parse_climate_observations_data(  # noqa: C901
     df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
     # decode the letter-coded indicators before anything downstream expects a number
     df = df.with_columns(
-        pl.col(parameter).replace_strict(MEASUREMENT_METHOD_CODES, default=None, return_dtype=pl.String)
+        pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
         for parameter in sorted(CODED_STRING_PARAMETERS & set(df.collect_schema().names()))
     )
     # Assign meaningful column names (baseline).
