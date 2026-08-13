@@ -44,6 +44,7 @@
     "stripes": "Klimasträifen",
     "history": "Historique",
     "api": "API",
+    "glossary": "Glossar",
     "support": "Ënnerstëtzung"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Datum oder Datumberäich (z.B. 2020-01-01/2020-12-31)",
       "format": "Ausgabeformat (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Glossar",
+    "subtitle": "Wat all Parameter mëst an an wéi enger Eenheet d'Wäerter zréckkommen",
+    "parametersTitle": "Parameteren",
+    "searchPlaceholder": "Numm oder Beschreiwung sichen…",
+    "allUnitTypes": "All Gréissten",
+    "loading": "Gëtt gelueden…",
+    "noResults": "Keen Parameter passt zu der Sich.",
+    "count": "{count} vu(n) {total} Parameteren"
   },
   "meteogram": {
     "title": "Wiederprognos",
@@ -478,6 +489,8 @@
     "facetByParameter": "No Parameter opdeelen",
     "trendline": "Trendlinn",
     "emptyHint": "Wielt Parameteren a Statiounen aus a klickt da op Weisen, fir d'Daten ze lueden",
+    "fetchError": "D'Donnéeë konnten net gelueden ginn",
+    "fetchErrorToastTitle": "Datenufro huet net geklappt",
     "dataTitle": "Daten",
     "noChartData": "Keng Daten verfügbar fir d'Diagramm",
     "rowsPerPage": "Zeile pro Säit",

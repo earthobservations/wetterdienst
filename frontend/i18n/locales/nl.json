@@ -44,6 +44,7 @@
     "stripes": "Klimaatstrepen",
     "history": "Geschiedenis",
     "api": "API",
+    "glossary": "Woordenlijst",
     "support": "Ondersteuning"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Datum of datumbereik (bijv. 2020-01-01/2020-12-31)",
       "format": "Uitvoerformaat (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Woordenlijst",
+    "subtitle": "Wat elke parameter meet en in welke eenheid de waarden terugkomen",
+    "parametersTitle": "Parameters",
+    "searchPlaceholder": "Zoek op naam of beschrijving…",
+    "allUnitTypes": "Alle grootheden",
+    "loading": "Laden…",
+    "noResults": "Geen parameter komt overeen met je zoekopdracht.",
+    "count": "{count} van {total} parameters"
   },
   "meteogram": {
     "title": "Weersverwachting",
@@ -478,6 +489,8 @@
     "facetByParameter": "Opsplitsen per parameter",
     "trendline": "Trendlijn",
     "emptyHint": "Selecteer parameters en stations en klik op Tonen om gegevens te laden",
+    "fetchError": "Laden van gegevens mislukt",
+    "fetchErrorToastTitle": "Gegevensaanvraag mislukt",
     "dataTitle": "Gegevens",
     "noChartData": "Geen gegevens beschikbaar voor de grafiek",
     "rowsPerPage": "Rijen per pagina",

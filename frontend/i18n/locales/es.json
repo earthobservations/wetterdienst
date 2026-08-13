@@ -44,6 +44,7 @@
     "stripes": "Franjas climáticas",
     "history": "Historial",
     "api": "API",
+    "glossary": "Glosario",
     "support": "Ayuda"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Fecha o rango de fechas (p. ej. 2020-01-01/2020-12-31)",
       "format": "Formato de salida (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Glosario",
+    "subtitle": "Qué mide cada parámetro y en qué unidad se devuelven los valores",
+    "parametersTitle": "Parámetros",
+    "searchPlaceholder": "Buscar nombre o descripción…",
+    "allUnitTypes": "Todas las magnitudes",
+    "loading": "Cargando…",
+    "noResults": "Ningún parámetro coincide con la búsqueda.",
+    "count": "{count} de {total} parámetros"
   },
   "meteogram": {
     "title": "Pronóstico del tiempo",
@@ -478,6 +489,8 @@
     "facetByParameter": "Separar por parámetro",
     "trendline": "Línea de tendencia",
     "emptyHint": "Selecciona parámetros y estaciones y luego haz clic en Mostrar para cargar los datos",
+    "fetchError": "No se pudieron cargar los datos",
+    "fetchErrorToastTitle": "La solicitud de datos ha fallado",
     "dataTitle": "Datos",
     "noChartData": "No hay datos disponibles para el gráfico",
     "rowsPerPage": "Filas por página",

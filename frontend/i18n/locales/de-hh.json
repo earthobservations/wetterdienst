@@ -44,6 +44,7 @@
     "stripes": "Klimastreifen",
     "history": "Chronik",
     "api": "API",
+    "glossary": "Glossar",
     "support": "Unterstützen"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Datum oder Zeitraum (z. B. 2020-01-01/2020-12-31)",
       "format": "Ausgabeformat (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Glossar",
+    "subtitle": "Wat jeder Parameter misst un in welke Eenheit de Weerten torüchkaamt",
+    "parametersTitle": "Parameter",
+    "searchPlaceholder": "Naam oder Beschrieven söken…",
+    "allUnitTypes": "All Grötten",
+    "loading": "Warrt laadt…",
+    "noResults": "Keen Parameter passt to de Söök.",
+    "count": "{count} vun {total} Parametern"
   },
   "meteogram": {
     "title": "Wettervorhersage",
@@ -478,6 +489,8 @@
     "facetByParameter": "Nach Parameter aufteilen",
     "trendline": "Trendlinie",
     "emptyHint": "Wähl Parameter und Stationen und klick auf „Zeigen“ – denn man tau, dann werden die Daten geladen.",
+    "fetchError": "Daten kunnen nich laadt warrn",
+    "fetchErrorToastTitle": "Datenanfraag is fehlslaan",
     "dataTitle": "Daten",
     "noChartData": "Keine Daten für das Diagramm verfügbar",
     "rowsPerPage": "Zeilen pro Seite",

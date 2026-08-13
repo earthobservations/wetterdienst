@@ -38,6 +38,15 @@ export interface CoverageResolution {
   datasets: Record<string, CoverageDataset>
 }
 
+/** One canonical parameter as `GET /api/glossary` returns it */
+export interface GlossaryEntry {
+  name: string
+  unit_type: string
+  unit: string
+  unit_symbol: string
+  description: string
+}
+
 /** Per-network metadata in the coverage response */
 export interface CoverageNetworkInfo {
   auth: boolean

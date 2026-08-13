@@ -64,11 +64,16 @@ export const parameters: Record<string, string> = {
 
   // Clouds & visibility
   cloud_cover_total: 'Gesamtbedeckung',
-  cloud_cover_total_index: 'Bedeckungsgrad',
-  cloud_height: 'Wolkenuntergrenze',
+  cloud_cover_total_measurement_method: 'Bedeckungsgrad, Messart',
+  cloud_height_layer1: 'Wolkenuntergrenze (1. Schicht)',
   visibility_range: 'Sichtweite',
+  visibility_range_index: 'Sichtweitenklasse',
+  visibility_range_measurement_method: 'Sichtweite, Messart',
 
   // Other
+  soil_state_index: 'Erdbodenzustand',
+  temperature_wet_ice_formation: 'Eis am Feuchtthermometer',
+  true_local_time_offset: 'Abweichung wahre Ortszeit',
   weather: 'Wetter',
   quality: 'Qualität',
 }
