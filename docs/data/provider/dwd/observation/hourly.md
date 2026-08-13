@@ -73,7 +73,7 @@ Code (cloud_type_layer):
 | name                            | original name | description                    | unit | constraints                         |
 |---------------------------------|---------------|--------------------------------|------|-------------------------------------|
 | {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
-| {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, -1\] |
+| {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
 | {term}`quality` | qn_8 | Quality flag. | dimensionless | - |
 
 Code (cloud_cover_total_measurement_method):

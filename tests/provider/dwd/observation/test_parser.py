@@ -181,6 +181,31 @@ def test_parse_dwd_data_reports_unknown_true_local_time(caplog: pytest.LogCaptur
     assert "2023-02-10T06:00:00" in caplog.text
 
 
+def test_parse_dwd_data_drops_obscured_sky_cloud_cover() -> None:
+    """Test that -1 in the hourly cloud cover fields becomes null, while cloud type keeps its -1.
+
+    DWD writes -1 where the sky could not be seen at all, SYNOP's N = 9. It is a statement that no
+    amount could be given, not an amount: left alone it is read as -1 eighths and converts to
+    -0.125 of the sky. `v_sN_cs` beside it is a cloud *type* code where -1 is DWD's own value for
+    an automated observation, so that one has to survive.
+    """
+    payload = (
+        "STATIONS_ID;MESS_DATUM;QN_8;V_N_I;V_N;V_S1_CS;V_S1_CSA;V_S1_HHS;V_S1_NS;eor\n"
+        "    3;1994010100;    5;   I;  -1;      -1;      -1;    -999;      -1;eor\n"
+        "    3;1994010101;    5;   I;   7;       6;      SC;     600;       4;eor\n"
+    )
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    df = parse_climate_observations_data(
+        files=[file],
+        dataset=DwdObservationMetadata.hourly.cloud_type,
+        period=Period.HISTORICAL,
+    ).collect()
+    assert df.get_column("v_n").to_list() == [None, "7"]
+    assert df.get_column("v_s1_ns").to_list() == [None, "4"]
+    # the cloud type code keeps it: -1 is what DWD writes for an automated observation
+    assert df.get_column("v_s1_cs").to_list() == ["-1", "6"]
+
+
 def test_parse_dwd_data_reports_unknown_measurement_method(caplog: pytest.LogCaptureFixture) -> None:
     """Test that an indicator outside the code table is reported rather than quietly nulled.
 

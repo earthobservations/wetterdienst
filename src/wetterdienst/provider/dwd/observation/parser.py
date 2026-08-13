@@ -61,6 +61,24 @@ DROPPABLE_PARAMETERS = {
 # Written as text because DWD pads its fields with spaces, so every data column is read as text and
 # cast to Float64 only at the very end; a numeric column here would not stack with its neighbours.
 MEASUREMENT_METHOD_CODES = {"P": "1", "I": "2"}
+
+# The hourly cloud fields carry -1 where the sky could not be seen at all, SYNOP's N = 9. DWD's own
+# sheet documents only -999 as a missing value, but -1 stands in 1.2% of station 00003's hourly
+# records, and fog codes (`ww` 40-49) accompany 69.1% of those against 0.8% of the rest -- 45 and
+# 47, "fog, sky invisible", most of all. It is a statement that no amount could be given, not an
+# amount: left alone it is read as -1 eighths and converts to -0.125 of the sky.
+#
+# Only the cover fields. `v_sN_cs` beside them is a cloud *type* code where -1 is DWD's own value
+# for an automated observation, and dimensionless, so nothing distorts it.
+SKY_OBSCURED = "-1"
+CLOUD_COVER_PARAMETERS = {
+    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_cover_total.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer1.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer2.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer3.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer4.name_original,
+}
 CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
@@ -190,6 +208,9 @@ def _parse_climate_observations_data(  # noqa: C901
     df = df.with_columns(
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
         for parameter in sorted(CODED_STRING_PARAMETERS & columns)
+    )
+    df = df.with_columns(
+        pl.col(parameter).replace(SKY_OBSCURED, None) for parameter in sorted(CLOUD_COVER_PARAMETERS & columns)
     )
     if TRUE_LOCAL_TIME in columns:
         df = df.with_columns(
