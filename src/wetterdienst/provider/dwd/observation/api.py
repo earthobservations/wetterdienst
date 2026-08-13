@@ -62,21 +62,6 @@ if TYPE_CHECKING:
     from wetterdienst.model.result import StationsResult
 log = logging.getLogger(__name__)
 
-# columns that can't be coerced to float are dropped
-DROPPABLE_COLUMNS = [
-    # Hourly
-    # Cloud type
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.name_original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
-    # Solar
-    DwdObservationMetadata.hourly.solar.end_of_interval.name_original,
-    DwdObservationMetadata.hourly.solar.true_local_time.name_original,
-    # Weather
-    DwdObservationMetadata.hourly.weather_phenomena.weather_text.name_original,
-]
-
 
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
@@ -143,7 +128,6 @@ class DwdObservationValues(TimeseriesValues):
             msg = "Expected DataFrame from collect()"
             raise TypeError(msg)
         parameter_df = result
-        parameter_df = parameter_df.drop(*DROPPABLE_COLUMNS, strict=False)
         if dataset.resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10):
             parameter_df = self._fix_timestamps(parameter_df)
         df = self._tidy_up_df(parameter_df)

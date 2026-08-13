@@ -16,6 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
+### Removed
+
+- **Breaking**: seven DWD observation parameters that were declared but never returned a value are
+  no longer declared, so a request for one now says so instead of answering with an empty frame:
+  `cloud_type_layer1..4_abbreviation` (`v_sN_csa`, hourly cloud_type), `weather_text` (`ww_text`,
+  hourly weather_phenomena), `end_of_interval` and `true_local_time` (`mess_datum_woz`, hourly
+  solar). Each was checked against the archive rather than assumed: `v_sN_csa` is the letter form
+  of `v_sN_cs` and matches it exactly across 398,381 records; every `ww` maps to one text across
+  443,827 records while two codes share a text, so the text says strictly less than the code;
+  `end_of_interval` names a column that does not exist in the solar files at all; and
+  `mess_datum_woz` is published as a whole hour, leaving it a fixed one hour from the returned
+  timestamp at station 00183 once the solar timestamps are rounded, which is where the sub-hour
+  solar correction actually lives. Their canonical entries are dropped too, since no provider can
+  express text in a `Float64` value column
+- `DwdObservationValues.DROPPABLE_COLUMNS`, which duplicated the parser's drop list and had already
+  drifted from it. Dropping happens once, in the parser
+
 ### Added
 
 - DWD's two measurement method indicators are returned instead of dropped:
