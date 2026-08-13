@@ -136,6 +136,51 @@ def test_parse_dwd_data_decodes_measurement_method(dataset: DatasetModel, column
     assert df.schema[column] == pl.String
 
 
+def test_parse_dwd_data_encodes_true_local_time_offset() -> None:
+    """Test that true local time becomes its distance from the record's own timestamp.
+
+    Solar records are stamped with the UTC instant of a whole true-solar-time hour, so the two
+    timestamps sit apart by the solar correction. Taking that here is the whole point: `mess_datum`
+    is rounded to the hour later on, and the rounding is what would discard it.
+    """
+    payload = (
+        "STATIONS_ID;MESS_DATUM;QN_592;FG_LBERG;MESS_DATUM_WOZ;eor\n"
+        # February, near the equation of time's minimum
+        "  183;2023021005:20;    1;      0;2023021006:00;eor\n"
+        # November, near its maximum -- same station, half an hour further ahead
+        "  183;2023111004:50;    1;      0;2023111006:00;eor\n"
+    )
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    df = parse_climate_observations_data(
+        files=[file],
+        dataset=DwdObservationMetadata.hourly.solar,
+        period=Period.HISTORICAL,
+    ).collect()
+    assert df.get_column("mess_datum_woz").to_list() == ["40", "70"]
+
+
+def test_parse_dwd_data_reports_unknown_true_local_time(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a true local time that no longer parses is reported rather than quietly nulled.
+
+    A format change would otherwise turn every value null without a word, leaving a parameter that
+    is declared and answers with nothing -- the failure this area exists to prevent.
+    """
+    payload = (
+        "STATIONS_ID;MESS_DATUM;QN_592;FG_LBERG;MESS_DATUM_WOZ;eor\n"
+        "  183;2023021005:20;    1;      0;2023-02-10T06:00:00;eor\n"
+    )
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    with caplog.at_level(logging.WARNING):
+        df = parse_climate_observations_data(
+            files=[file],
+            dataset=DwdObservationMetadata.hourly.solar,
+            period=Period.HISTORICAL,
+        ).collect()
+    assert df.get_column("mess_datum_woz").to_list() == [None]
+    assert "mess_datum_woz" in caplog.text
+    assert "2023-02-10T06:00:00" in caplog.text
+
+
 def test_parse_dwd_data_reports_unknown_measurement_method(caplog: pytest.LogCaptureFixture) -> None:
     """Test that an indicator outside the code table is reported rather than quietly nulled.
 

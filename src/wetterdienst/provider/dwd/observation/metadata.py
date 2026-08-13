@@ -728,6 +728,14 @@ DwdObservationMetadata = {
                             "name_original": "zenit",
                             "unit": "degree",
                         },
+                        {
+                            # the column holds a whole-hour timestamp; what is returned is its
+                            # distance from the record's own timestamp, which is where the solar
+                            # correction actually sits
+                            "name": "true_local_time_offset",
+                            "name_original": "mess_datum_woz",
+                            "unit": "minute",
+                        },
                     ],
                 },
                 {

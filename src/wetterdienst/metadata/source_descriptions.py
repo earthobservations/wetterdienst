@@ -654,6 +654,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "pressure", "p0"): "Barometric pressure at station height.",
         ("hourly", "solar", "atmo_lberg"): "Hourly sum of longwave downward radiation.",
         ("hourly", "solar", "fd_lberg"): "Hourly sum of diffuse solar radiation.",
+        ("hourly", "solar", "mess_datum_woz"): (
+            "Local true solar time, published as a whole timestamp and returned as its distance from "
+            "the timestamp of the record: the longitude correction plus the equation of time."
+        ),
         ("hourly", "solar", "fg_lberg"): (
             "The solar incoming radiation includes the direct and the diffuse part of the solar "
             "radiation with respect to the horizontal plane. It is sometimes also referred to as "
