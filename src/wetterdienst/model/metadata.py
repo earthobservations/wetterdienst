@@ -319,22 +319,38 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     }
     datasets = DATASET_DESCRIPTIONS.get(name, {})
     resolutions = RESOLUTION_DESCRIPTIONS.get(name, {})
-    for resolution in metadata["resolutions"]:
-        if not resolution.get("description"):
-            description = resolutions.get(resolution["name"])
-            if description:
-                resolution["description"] = description
-        for dataset in resolution["datasets"]:
-            if not dataset.get("description"):
-                description = datasets.get((resolution["name"], dataset["name"]))
-                if description:
-                    dataset["description"] = description
-            for parameter in dataset["parameters"]:
-                if parameter.get("description"):
-                    continue
-                description = parameters.get((resolution["name"], dataset["name"], parameter["name_original"]))
-                if description:
-                    parameter["description"] = description
+    # copied rather than written into: providers commonly build one resolution's parameter list
+    # from another's by comprehension, which reuses the very same dicts. Writing a description
+    # into those would attach it to every resolution sharing them -- AEMET's annual parameters are
+    # its monthly ones minus humidity, so annual read "Monthly mean temperature".
+    metadata = {
+        **metadata,
+        "resolutions": [
+            {
+                **resolution,
+                "description": resolution.get("description") or resolutions.get(resolution["name"]),
+                "datasets": [
+                    {
+                        **dataset,
+                        "description": dataset.get("description")
+                        or datasets.get((resolution["name"], dataset["name"])),
+                        "parameters": [
+                            {
+                                **parameter,
+                                "description": parameter.get("description")
+                                or parameters.get(
+                                    (resolution["name"], dataset["name"], parameter["name_original"]),
+                                ),
+                            }
+                            for parameter in dataset["parameters"]
+                        ],
+                    }
+                    for dataset in resolution["datasets"]
+                ],
+            }
+            for resolution in metadata["resolutions"]
+        ],
+    }
     validated = MetadataModel.model_validate(metadata)
     validated.__name__ = name  # ty: ignore[unresolved-attribute]
     return validated

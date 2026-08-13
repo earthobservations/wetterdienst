@@ -48,7 +48,7 @@ To distinguish different base temperatures, there exist three datasets with the 
 | {term}`number_of_hours_per_month`  | Anzahl Stunden      | number of hours per month                                                                               | dimensionless | >=0         |
 | {term}`count_hours_cooling_degree` | Anzahl Kuehlstunden | number of hours with positive temperature differences between air temperature and reference temperature | dimensionless | >=0         |
 | {term}`cooling_degree_hour`        | Kuehlgradstunden    | accumulated hourly temperature differences between air temperature and reference temperature            | °Ch           | >=0         |
-| {term}`count_days_cooling_degree`  | Anzahl Kühltage     | number of days with at least one cooling hour                                                           | dimensionless | >=0         |
+| {term}`count_days_cooling_degree`  | Kuehltage           | number of days with at least one cooling hour                                                           | dimensionless | >=0         |
 
 ### climate_correction_factor
 

@@ -174,7 +174,9 @@ AemetObservationMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "wind_direction",
+                            # AEMET documents `dir` as the direction of the maximum gust, not the
+                            # mean wind direction -- its hourly block names those `dmax` and `dv`
+                            "name": "wind_direction_gust_max",
                             "name_original": "dir",
                             "unit": "degree",
                         },

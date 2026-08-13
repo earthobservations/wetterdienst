@@ -1595,7 +1595,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Annual mean temperature. The mean is an arithmetic mean of daily values."
         ),
         ("annual", "data", "mean(cloud_area_fraction P1Y)"): (
-            "Annual mean cloud cover. The mean is an arithmetic mean of three daily observations (06, 12 and 18 UTC) ."
+            "Annual mean cloud cover. The mean is an arithmetic mean of three daily observations (06, 12 and 18 UTC)."
         ),
         ("annual", "data", "min(air_temperature P1Y)"): "Lowest recorded air temperature per year",
         ("annual", "data", "sum(precipitation_amount P1Y)"): "Annual precipitation sum.",
@@ -1631,8 +1631,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "sum(duration_of_sunshine P1D)"): "Number of hours of sunshine over the last 24 hours.",
         ("daily", "data", "sum(precipitation_amount P1D)"): "Daily precipitation sum (between 06-06 UTC).",
         ("daily", "data", "surface_snow_thickness"): (
-            "The depth of the snow is measured in cm from the ground to the top of the snow cover. (Code=-1 means no "
-            "snow and can be presented as .)"
+            "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
+            "snow."
         ),
         ("hourly", "data", "air_pressure_at_sea_level"): (
             "Air pressure reduced to mean sea level. The parameter is usually called QFF in aviation and shows the "
@@ -1641,8 +1641,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "air_temperature"): "Air temperature (default 2 m above ground), present value",
         ("hourly", "data", "cloud_area_fraction"): (
             "Total cloud cover is registered using a code 0 - 8 describing how many eights of the sky are covered by "
-            "clouds (0 = no clouds, 8 = completely overcast. Code -3 or 9 = cloud cover can not be estimated because "
-            "the sky is obstructed from view because of fog, drifting snow etc. Code -3 is presented as .)."
+            "clouds (0 = no clouds, 8 = completely overcast). Code -3 or 9 means the cloud cover cannot be estimated "
+            "because the sky is obstructed from view by fog, drifting snow and the like."
         ),
         ("hourly", "data", "dew_point_temperature"): (
             "Dew-point temperature - the temperature at which the air, when cooled, will become saturated (and dew is "
@@ -1661,8 +1661,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "pressure reduced to the reference height of the station."
         ),
         ("hourly", "data", "surface_snow_thickness"): (
-            "The depth of the snow is measured in cm from the ground to the top of the snow cover. (Code=-1 means no "
-            "snow and can be presented as .)"
+            "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
+            "snow."
         ),
         ("hourly", "data", "wind_from_direction"): (
             "Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as "
@@ -1686,7 +1686,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Monthly mean temperature. The mean is an arithmetic mean of daily values."
         ),
         ("monthly", "data", "mean(cloud_area_fraction P1M)"): (
-            "Monthly mean cloud cover. The mean is an arithmetic mean of three daily observations (06, 12 and 18 UTC) ."
+            "Monthly mean cloud cover. The mean is an arithmetic mean of three daily observations (06, 12 and 18 UTC)."
         ),
         ("monthly", "data", "mean(dew_point_temperature P1M)"): (
             "Monthly mean dew-point temperature. Dew-point temperature is the temperature at which the air, when "

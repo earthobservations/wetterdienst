@@ -15,7 +15,7 @@
 
 | name                         | original name                  | description                           | unit |
 |------------------------------|--------------------------------|---------------------------------------|------|
-| {term}`precipitation_height` | sum(precipitation_amount PT6H) | Amount of precipitation per six hours | mm   |
+| {term}`precipitation_height` | sum(precipitation_amount PT6H) | Amount of precipitation per six hours | millimeter |
 
 ## Notes
 

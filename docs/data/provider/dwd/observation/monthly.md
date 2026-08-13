@@ -36,6 +36,8 @@
 | {term}`temperature_air_min_2m` | mx_tn | Monthly minimum of daily temperature minima in 2 m above ground. | °C | - |
 | {term}`precipitation_height` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
 | {term}`precipitation_height_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |
+| {term}`quality_general` | qn_4 | Quality level of the data in the following columns. | dimensionless | - |
+| {term}`quality_precipitation` | qn_6 | Quality level of the data in the following columns. | dimensionless | - |
 
 ### precipitation_more
 
@@ -56,6 +58,7 @@
 | {term}`precipitation_height` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
 | {term}`snow_depth` | mo_sh_s | Monthly sum of daily height of snow pack. | cm | >=0 |
 | {term}`precipitation_height_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |
+| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 ### weather_phenomena
 
@@ -80,3 +83,4 @@
 | {term}`count_weather_type_glaze` | mo_glatteis | Count of days with glaze of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_sleet` | mo_graupel | Count of days with sleet of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_hail` | mo_hagel | Count of days with hail of stations in Germany. | - | >=0 |
+| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
