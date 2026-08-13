@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- DWD's two measurement method indicators are returned instead of dropped:
+  `cloud_cover_total_measurement_method` (`v_n_i`, hourly cloud_type and cloudiness) and
+  `visibility_range_measurement_method` (`v_vv_i`, hourly visibility). DWD writes them as letters
+  -- `P` for a human person, `I` for an instrument -- in files that are otherwise numeric, and the
+  value column is Float64, so both were declared but silently dropped and a request for them
+  returned an empty frame. They are now decoded to 1 for `P` and 2 for `I`. The digits are
+  wetterdienst's, not DWD's: they follow the order DWD lists the letters in, and 0 is left unused
+  so "not measured" stays distinguishable from either method
+
 - Every DWD parameter now carries a description, 717 of 717 across observation, mosmix, dmo,
   derived, road and swsmos. 25 came from correcting the docs (below), the rest are derived: where a
   source publishes no prose at all, the text is taken from the same canonical parameter at the same

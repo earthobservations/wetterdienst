@@ -104,15 +104,40 @@ of which only `rs_05` and `rs_ind_05` are available in the `recent` and `now` pe
 | Cumulonimbus    | 9      |
 | Automated       | -1     |
 
-### Long parameters
+### Measurement method indicators
 
-DWD observation data excludes several parameters
-which contain strings. Those parameters are:
+Two DWD parameters say *how* a value was obtained rather than what was measured, and DWD writes
+them as letters in files that are otherwise numeric: `P` for a human person, `I` for an instrument.
 
-- cloud type abbreviations (1 - 4) in **hourly cloud type** dataset
-- total cloud cover indicator in **hourly cloudiness** dataset
-- true local time in **hourly solar** dataset
-- visibility indicator in **hourly visibility** dataset
+- `cloud_cover_total_measurement_method` (`v_n_i`) in the **hourly cloud_type** and
+  **hourly cloudiness** datasets
+- `visibility_range_measurement_method` (`v_vv_i`) in the **hourly visibility** dataset
+
+Values in wetterdienst are numeric throughout, so a letter has nowhere to go. Both parameters are
+therefore decoded on the way in:
+
+| value | source letter | meaning      |
+|-------|---------------|--------------|
+| 1     | P             | human person |
+| 2     | I             | instrument   |
+
+The digits are wetterdienst's, not DWD's. They follow the order DWD lists the letters in, and `0`
+is deliberately left unused so that "not measured" stays distinguishable from either method.
+
+Before this decoding both parameters were declared but silently dropped, so a request for them
+returned nothing at all.
+
+### Excluded string parameters
+
+A few parameters are still left out, because their content cannot be expressed as a number without
+inventing a meaning for it, or because the same information is already available as a number:
+
+- cloud type abbreviations (1 - 4) in the **hourly cloud_type** dataset -- the numeric
+  `cloud_type_layerN` (`v_sN_cs`) codes beside them carry the same information
+- true local time and end of interval in the **hourly solar** dataset -- timestamps rather than
+  measurements
+- weather text in the **hourly weather_phenomena** dataset -- free text, alongside the numeric
+  `weather` code
 
 ### Quality
 

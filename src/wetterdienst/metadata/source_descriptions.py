@@ -620,7 +620,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "weather_phenomena_more", "rr_hagel"): "Count of days with hail of stations in Germany.",
         ("daily", "weather_phenomena_more", "rr_nebel"): "Count of days with fog of stations in Germany.",
         ("hourly", "cloud_type", "v_n"): "Total cloud cover.",
-        ("hourly", "cloud_type", "v_n_i"): "Index how measurement is taken, P = by human person,I = by instrument.",
+        ("hourly", "cloud_type", "v_n_i"): (
+            "Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I."
+        ),
         ("hourly", "cloud_type", "v_s1_cs"): "Cloud type of 1. layer.",
         ("hourly", "cloud_type", "v_s1_csa"): "Abbrev. cloud type 1.layer.",
         ("hourly", "cloud_type", "v_s1_hhs"): "Lower boundary height of 1.layer.",
@@ -638,7 +640,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "cloud_type", "v_s4_hhs"): "Lower boundary height of 4.layer.",
         ("hourly", "cloud_type", "v_s4_ns"): "Cloud cover in the fourth layer.",
         ("hourly", "cloudiness", "v_n"): "Total cloud cover.",
-        ("hourly", "cloudiness", "v_n_i"): "Index how measurement is taken, P = by human person,I = by instrument.",
+        ("hourly", "cloudiness", "v_n_i"): (
+            "Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I."
+        ),
         ("hourly", "dew_point", "td"): "Dew point temperature.",
         ("hourly", "dew_point", "tt"): "Air temperature.",
         ("hourly", "moisture", "absf_std"): "Computed hourly value of absolute humidity.",
@@ -690,7 +694,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "urban_wind", "windrichtung"): "Mean wind direction.",
         ("hourly", "visibility", "v_vv"): "Visibility range.",
         ("hourly", "visibility", "v_vv_i"): (
-            "Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument."
+            "Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. "
+            "Returned as 1 for P and 2 for I."
         ),
         ("hourly", "weather_phenomena", "ww"): "Weather code of current condition.",
         ("hourly", "weather_phenomena", "ww_text"): "Weather description of the current condition.",
