@@ -33,6 +33,9 @@ are taken as they come:
 - Météo-France: the `*_descriptif_champs*.csv` published beside each resolution, translated from
   French
 - Met Office: the MIDAS table dictionaries CEDA publishes, already in English
+- DWD forecast codes: `MetElementDefinition.xml`. It defines the MOSMIX elements, and swsmos reuses
+  their names while publishing different units -- MOSMIX `TD` is Kelvin, swsmos `TD` is Celsius -- so
+  its wording is used only where it says nothing about the unit
 
 The AEMET, SMHI, LHMT and Météo-France translations are ours. Everything else in this table is the
 source's own wording, so a sentence here can be checked against what the provider says.
@@ -92,7 +95,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "RRL1c"): (
             "Total liquid precipitation during the last hour consistent with significant weather"
         ),
-        ("hourly", "data", "TD"): "DewpointTemperature 2m above surface, measured in Kelvin",
+        ("hourly", "data", "TD"): "Dew point temperature 2m above surface.",
         ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours",
     },
     "DwdDerivedMetadata": {
