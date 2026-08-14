@@ -6,6 +6,7 @@
 |---------------|--------|
 | name          | 6_hour |
 | original name | PT6H   |
+| description   | Synoptic observations reported every six hours. |
 
 ## datasets
 

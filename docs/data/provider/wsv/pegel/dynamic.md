@@ -6,6 +6,7 @@
 |---------------|--------------------------------------------------------------|
 | name          | dynamic                                                      |
 | original name | dynamic                                                      |
+| description   | The interval is a property of the station rather than of the network: 15 minutes at most gauges, 10 at some. |
 | url           | [here](https://www.pegelonline.wsv.de/webservice/ueberblick) |
 
 ## datasets

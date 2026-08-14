@@ -6,7 +6,6 @@
 |---------------|----------------------------------------------------------------------------|
 | name          | 15_minutes                                                                 |
 | original name | 15_minutes                                                                 |
-| description   | no specific dataset is provided but parameters can be queried individually |
 | url           | [here](https://environment.data.gov.uk/hydrology/doc/reference)            |
 
 ## datasets

@@ -18,6 +18,16 @@ Types of changes:
 
 ### Changed
 
+- Resolution descriptions are written where the name underdetermines what arrives, and only there:
+  Météo-France synop (SYNOP's native three-hourly interval), MET Norway's 6 hour, and the two
+  `dynamic` networks, WSV and Hubeau, where the interval is a property of the station rather than
+  the network -- 15 minutes at most gauges, 10 at some, measured across both. `hourly` and `daily`
+  say everything about themselves, so they are left empty rather than filled with text that reads
+  as information without being any. EA hydrology's resolution description is dropped: it described
+  the dataset structure, not the interval, and EA's dataset description already covers that
+
+### Changed
+
 - 84 more descriptions come from the source rather than from the canonical sentence, after finding
   that three providers document their fields after all. Météo-France publishes a
   `*_descriptif_champs*.csv` beside each resolution (43 parameters, translated from French), the

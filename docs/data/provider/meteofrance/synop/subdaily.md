@@ -6,6 +6,7 @@
 |---------------|-------|
 | name          | subdaily |
 | original name | synop |
+| description   | SYNOP reports at their native three-hourly interval. |
 
 ## datasets
 
