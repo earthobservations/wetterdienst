@@ -32,6 +32,14 @@ Types of changes:
   without it an expanded map lost its markers and stayed empty until it was reopened
 - `[Explorer]` The parameter `<datalist>` was rendered inside the `v-for` over distance rows, so
   every row repeated the same element id. It is emitted once for all of them now
+- `[All pages]` 464 of the 514 parameters the backend serves had no label and fell back to the
+  prettified raw id -- "Chlorid Concentration", "Soil Moisture Winterwheat Loamysilt 00cm 60cm" --
+  which reads as English whichever language was selected. All eleven catalogs now cover every
+  parameter, including the agrometeorological long tail
+- `[Glossary]` The quantity filter listed the backend's own ids ("energy per area", "wind scale")
+  in every language, though translations existed for most of them. Six quantities had no label in
+  any language at all: degree hours, dimensionless, mass per volume, significant weather, turbidity
+  and wind scale. All twenty-three are named in all eleven languages now
 
 ### Changed
 
