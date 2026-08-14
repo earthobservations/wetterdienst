@@ -36,6 +36,11 @@ Types of changes:
   prettified raw id -- "Chlorid Concentration", "Soil Moisture Winterwheat Loamysilt 00cm 60cm" --
   which reads as English whichever language was selected. All eleven catalogs now cover every
   parameter, including the agrometeorological long tail
+- `[Glossary]` Parameters were listed in the order the API returns them, which is by raw id and
+  bears no relation to the order of the labels on screen once those are translated. They are sorted
+  by their label in the active language now, with the quantity filter's options likewise. The
+  comparison is a locale collator, not the default one: Czech treats "ch" as a letter sorting after
+  "h", German ignores the umlaut, and a code-point sort gets both wrong
 - `[Glossary]` The quantity filter listed the backend's own ids ("energy per area", "wind scale")
   in every language, though translations existed for most of them. Six quantities had no label in
   any language at all: degree hours, dimensionless, mass per volume, significant weather, turbidity
