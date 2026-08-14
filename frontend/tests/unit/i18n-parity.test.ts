@@ -117,6 +117,14 @@ describe('glossary label parity', () => {
     expect(glossaryLocales).toEqual(locales)
   })
 
+  it('labels every parameter the backend serves', () => {
+    // Before this, 464 of the 514 fell through to a prettified raw id -- "Chlorid Concentration"
+    // -- which reads as English in every language. The count is asserted rather than the list, so
+    // adding a parameter upstream fails here instead of quietly regressing to the fallback.
+    // Refresh with: curl -s localhost:3000/api/glossary | jq 'map(.name) | unique | length'
+    expect(glossaryKeys('en', 'parameters').length).toBeGreaterThanOrEqual(514)
+  })
+
   it.each(records)('has the same %s in every glossary locale', (record) => {
     const reference = glossaryKeys('en', record)
     expect(reference.length, `en glossary has no ${record}`).toBeGreaterThan(0)
