@@ -52,7 +52,6 @@ const chartRef = ref<HTMLDivElement | null>(null)
 const facetChartRefs = ref<Map<string, HTMLDivElement>>(new Map())
 
 // Plotly instance (loaded client-side only)
-const plotlyLoaded = ref(false)
 let Plotly: typeof import('plotly.js-basic-dist-min') | null = null
 // Plotly is ~1 MB, and the default view is the table -- so it is fetched when a chart is first
 // actually wanted rather than on mount. The promise is kept so concurrent callers share one import.
@@ -61,9 +60,14 @@ let plotlyImport: Promise<typeof import('plotly.js-basic-dist-min')> | null = nu
 async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')> {
   if (Plotly)
     return Plotly
-  plotlyImport ??= import('plotly.js-basic-dist-min')
+  // A rejected import must not stay cached: every later call would await the same rejection and the
+  // chart would never render again, though a retry would have worked. The realistic cause is a
+  // redeploy invalidating the hashed chunk under an open tab.
+  plotlyImport ??= import('plotly.js-basic-dist-min').catch((error) => {
+    plotlyImport = null
+    throw error
+  })
   Plotly = await plotlyImport
-  plotlyLoaded.value = true
   return Plotly
 }
 

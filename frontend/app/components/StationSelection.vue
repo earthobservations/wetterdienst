@@ -56,8 +56,8 @@ const { data: stationsData, pending: stationsPending, error: stationsError, refr
     immediate: false,
     // The query is reactive, and `useFetch` refetches on its own when it changes -- which,
     // together with the explicit `refreshStations()` in `fetchStations`, fetched the whole
-    // station list twice. Fetching is driven explicitly here; a parameter change clears the
-    // list and resets `stationsLoaded`, so the next open refetches.
+    // station list twice. Fetching is driven explicitly here instead: a parameter change clears
+    // the list and refetches if a picker is open, otherwise the next open does it.
     watch: false,
     default: () => ({ stations: [] }),
   },
@@ -131,9 +131,10 @@ watch(() => props.parameterSelection, (ps) => {
   // Parameters changed -- any previously fetched station list is now stale.
   stationsData.value = { stations: [] }
   stationsLoaded.value = false
-  // Fetch right away only to restore stations preselected via a shared URL;
-  // otherwise wait until the picker is opened.
-  if (props.initialStationIds?.length && !hasRestoredInitialStations.value) {
+  // Fetch right away only to restore stations preselected via a shared URL, or when a picker is
+  // open on screen right now -- an expanded map whose markers were just cleared would otherwise
+  // stay empty until it is collapsed and reopened. Otherwise wait until the picker is opened.
+  if ((props.initialStationIds?.length && !hasRestoredInitialStations.value) || selectOpen.value || showMap.value) {
     fetchStations()
   }
 }, { deep: true, immediate: true })
