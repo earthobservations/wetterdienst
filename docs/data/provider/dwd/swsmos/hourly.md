@@ -23,7 +23,7 @@
 | name                                                    | original name | description                                                              | unit |
 |---------------------------------------------------------|---------------|--------------------------------------------------------------------------|------|
 | {term}`temperature_air_mean_2m`                         | TL            | Temperature 2m above surface.                                            | °C   |
-| {term}`temperature_dew_point_mean_2m` | TD | DewpointTemperature 2m above surface, measured in Kelvin | °C |
+| {term}`temperature_dew_point_mean_2m` | TD | Dew point temperature 2m above surface. | °C |
 | {term}`temperature_surface_mean`                        | TS            | Mean temperature of the ground surface.                                  | °C   |
 | {term}`precipitation_height_liquid` | RRL1c | Total liquid precipitation during the last hour consistent with significant weather | mm |
 | {term}`precipitation_height_last_6h` | RR6 | Total precipitation during the last 6 hours | mm |
