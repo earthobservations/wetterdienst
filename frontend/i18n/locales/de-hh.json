@@ -95,7 +95,13 @@
     "unitDegreeDay": "Gradtage",
     "unitConcentration": "Konzentration",
     "unitConductivity": "Leitfähigkeit",
-    "unitVolumePerTime": "Durchfluss"
+    "unitVolumePerTime": "Durchfluss",
+    "unitDegreeHour": "Gradstunden",
+    "unitDimensionless": "Dimensionslos / Index",
+    "unitMassPerVolume": "Masse pro Volumen",
+    "unitSignificantWeather": "Signifikantes Wetter",
+    "unitTurbidity": "Trübung",
+    "unitWindScale": "Windskala"
   },
   "units": {
     "degree_celsius": "Grad Celsius (°C)",

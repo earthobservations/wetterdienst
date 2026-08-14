@@ -95,7 +95,13 @@
     "unitDegreeDay": "Graaddagen",
     "unitConcentration": "Concentratie",
     "unitConductivity": "Geleidbaarheid",
-    "unitVolumePerTime": "Debiet"
+    "unitVolumePerTime": "Debiet",
+    "unitDegreeHour": "Graaduren",
+    "unitDimensionless": "Dimensieloos / index",
+    "unitMassPerVolume": "Massa per volume",
+    "unitSignificantWeather": "Significant weer",
+    "unitTurbidity": "Troebelheid",
+    "unitWindScale": "Windschaal"
   },
   "units": {
     "degree_celsius": "Graden Celsius (°C)",

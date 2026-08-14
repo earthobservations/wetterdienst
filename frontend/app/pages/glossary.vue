@@ -3,6 +3,7 @@ import type { GlossaryEntry } from '~~/shared/types/api'
 
 const { t } = useI18n()
 const { parameterLabel } = useParameterLabel()
+const { unitTypeLabel } = useUnitTypeLabel()
 
 // the whole vocabulary in one call -- around 500 entries, small enough to filter in the browser
 // and it saves a round trip per keystroke
@@ -16,7 +17,7 @@ const unitTypes = computed<string[]>(() =>
 )
 const unitTypeItems = computed(() => [
   { label: t('glossary.allUnitTypes'), value: undefined },
-  ...unitTypes.value.map(type => ({ label: type.replace(/_/g, ' '), value: type })),
+  ...unitTypes.value.map(type => ({ label: unitTypeLabel(type), value: type })),
 ])
 
 const entries = computed<GlossaryEntry[]>(() => {

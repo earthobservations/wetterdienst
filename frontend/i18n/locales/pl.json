@@ -95,7 +95,13 @@
     "unitDegreeDay": "Stopniodni",
     "unitConcentration": "Stężenie",
     "unitConductivity": "Przewodność",
-    "unitVolumePerTime": "Przepływ"
+    "unitVolumePerTime": "Przepływ",
+    "unitDegreeHour": "Stopniogodziny",
+    "unitDimensionless": "Bezwymiarowe / indeks",
+    "unitMassPerVolume": "Masa na objętość",
+    "unitSignificantWeather": "Zjawisko pogodowe",
+    "unitTurbidity": "Mętność",
+    "unitWindScale": "Skala wiatru"
   },
   "units": {
     "degree_celsius": "Stopnie Celsjusza (°C)",

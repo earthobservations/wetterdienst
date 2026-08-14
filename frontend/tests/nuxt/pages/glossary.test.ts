@@ -65,4 +65,25 @@ describe('glossary Page', () => {
     const wrapper = await mountSuspended(GlossaryPage)
     expect(wrapper.text()).toContain('No parameter matches your search.')
   })
+
+  // last, because it serves a third entry and the `useFetch` cache is shared across these mounts
+  it('names the quantity filter in the ui language, not the backend id', async () => {
+    // the options were built with `type.replace(/_/g, ' ')`, so every locale read the raw english
+    // id -- "energy per area", "wind scale" -- while translations for them already existed
+    clearNuxtData()
+    served = [...entries, {
+      name: 'radiation_global',
+      unit_type: 'energy_per_area',
+      unit: 'joule_per_square_centimeter',
+      unit_symbol: 'J/cm²',
+      description: 'Global radiation.',
+    }]
+    const wrapper = await mountSuspended(GlossaryPage)
+    // the options live in a popover that is not rendered until the select opens, so what the select
+    // is handed is what gets checked
+    const labels = ((wrapper.vm as any).unitTypeItems as { label: string }[]).map(item => item.label)
+    expect(labels).toContain('Energy per area')
+    expect(labels).not.toContain('energy per area')
+    expect(labels).toContain('Temperature')
+  })
 })
