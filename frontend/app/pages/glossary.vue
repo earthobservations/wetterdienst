@@ -72,12 +72,12 @@ const entries = computed<GlossaryEntry[]>(() => {
         />
       </div>
 
-      <p v-if="pending" class="text-sm text-gray-500 dark:text-gray-400">
-        {{ t('glossary.loading') }}
-      </p>
-      <p v-else-if="!entries.length" class="text-sm text-gray-500 dark:text-gray-400">
-        {{ t('glossary.noResults') }}
-      </p>
+      <UEmpty v-if="pending" loading :title="t('glossary.loading')" />
+      <UEmpty
+        v-else-if="!entries.length"
+        icon="i-lucide-book-open"
+        :title="t('glossary.noResults')"
+      />
       <div v-else class="space-y-4">
         <p class="text-sm text-gray-500 dark:text-gray-400">
           {{ t('glossary.count', { count: entries.length, total: glossary?.length ?? 0 }) }}

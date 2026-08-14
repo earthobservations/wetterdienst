@@ -52,6 +52,14 @@ const unitTypes = [
   { type: 'length_long', units: ['meter', 'kilometer', 'mile', 'nautical_mile'], default: 'kilometer' },
 ]
 
+/** Select items for one unit type: the backend default first, then every unit it can convert to. */
+function unitTargetItems(unitType: { units: string[], default: string }) {
+  return [
+    { label: t('explorer.unitDefault', { unit: unitLabel(unitType.default) }), value: '' },
+    ...unitType.units.map(unit => ({ label: unitLabel(unit), value: unit })),
+  ]
+}
+
 function stationIdsFromQuery(q: Record<string, any>): string[] {
   return q.stations ? q.stations.toString().split(',').filter(Boolean) : []
 }
@@ -676,18 +684,13 @@ function handleUnitTargetChange(unitType: string, value: string) {
                       <label class="text-xs text-gray-600 dark:text-gray-400 w-40">
                         {{ unitTypeLabel(unitType.type) }}:
                       </label>
-                      <select
-                        :value="dataSettings.unitTargets[unitType.type] ?? ''"
-                        class="px-2 py-1 text-xs border rounded dark:bg-gray-800 dark:border-gray-700"
-                        @change="handleUnitTargetChange(unitType.type, ($event.target as HTMLSelectElement).value)"
-                      >
-                        <option value="">
-                          {{ t('explorer.unitDefault', { unit: unitLabel(unitType.default) }) }}
-                        </option>
-                        <option v-for="unit in unitType.units" :key="unit" :value="unit">
-                          {{ unitLabel(unit) }}
-                        </option>
-                      </select>
+                      <USelect
+                        :model-value="dataSettings.unitTargets[unitType.type] ?? ''"
+                        :items="unitTargetItems(unitType)"
+                        size="xs"
+                        class="w-44"
+                        @update:model-value="handleUnitTargetChange(unitType.type, String($event))"
+                      />
                     </div>
                   </div>
                 </template>
@@ -744,14 +747,14 @@ function handleUnitTargetChange(unitType: string, value: string) {
                   />
                 </UFieldGroup>
                 <label class="text-sm">{{ t('explorer.threshold') }}:</label>
-                <input
-                  v-model.number="dataSettings.skipThreshold"
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  class="w-20 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-700"
-                >
+                <UInputNumber
+                  v-model="dataSettings.skipThreshold"
+                  :min="0"
+                  :max="1"
+                  :step="0.05"
+                  size="sm"
+                  class="w-28"
+                />
               </div>
             </div>
           </div>
@@ -771,13 +774,13 @@ function handleUnitTargetChange(unitType: string, value: string) {
               <div class="space-y-2">
                 <div class="flex items-center gap-4">
                   <label class="text-sm font-medium">{{ t('explorer.nearbyDistance') }}:</label>
-                  <input
-                    v-model.number="dataSettings.useNearbyStationDistance"
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    class="w-24 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-700"
-                  >
+                  <UInputNumber
+                    v-model="dataSettings.useNearbyStationDistance"
+                    :min="0"
+                    :step="0.1"
+                    size="sm"
+                    class="w-32"
+                  />
                   <span class="text-sm text-gray-500">km</span>
                 </div>
                 <p class="text-xs text-gray-500">
@@ -805,16 +808,22 @@ function handleUnitTargetChange(unitType: string, value: string) {
                       <!-- Default distance -->
                       <div class="flex items-center gap-2">
                         <span class="text-xs text-gray-600 w-32">{{ t('explorer.defaultAll') }}:</span>
-                        <input
-                          v-model.number="dataSettings.useStationDistancePerParameter.default"
-                          type="number"
-                          min="0"
-                          step="1"
+                        <UInputNumber
+                          v-model="dataSettings.useStationDistancePerParameter.default"
+                          :min="0"
+                          :step="1"
                           placeholder="40"
-                          class="w-20 px-2 py-1 text-xs border rounded dark:bg-gray-800 dark:border-gray-700"
-                        >
+                          size="xs"
+                          class="w-28"
+                        />
                         <span class="text-xs text-gray-500">km</span>
                       </div>
+
+                      <!-- One list for every row: it used to be rendered inside the loop, so each
+                           row repeated the same element id -->
+                      <datalist id="parameter-suggestions">
+                        <option v-for="p in selectedParameters" :key="p" :value="p" />
+                      </datalist>
 
                       <!-- Parameter-specific distances -->
                       <div
@@ -822,32 +831,25 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         :key="entry.id"
                         class="flex items-center gap-2"
                       >
-                        <div class="relative w-32">
-                          <input
-                            :value="entry.paramName"
-                            type="text"
-                            list="parameter-suggestions"
-                            placeholder="parameter_name"
-                            class="w-full px-2 py-1 text-xs border rounded dark:bg-gray-800" :class="[
-                              isValidParameter(entry.paramName)
-                                ? 'border-gray-300 dark:border-gray-700'
-                                : 'border-red-500 dark:border-red-500',
-                            ]"
-                            @input="updateParameterName(entry.id, entry.paramName, ($event.target as HTMLInputElement).value)"
-                          >
-                          <datalist id="parameter-suggestions">
-                            <option v-for="p in selectedParameters" :key="p" :value="p" />
-                          </datalist>
-                        </div>
-                        <input
-                          :value="entry.distance"
-                          type="number"
-                          min="0"
-                          step="1"
+                        <UInput
+                          :model-value="entry.paramName"
+                          list="parameter-suggestions"
+                          placeholder="parameter_name"
+                          size="xs"
+                          class="w-32"
+                          :color="isValidParameter(entry.paramName) ? 'neutral' : 'error'"
+                          :highlight="!isValidParameter(entry.paramName)"
+                          @update:model-value="updateParameterName(entry.id, entry.paramName, String($event))"
+                        />
+                        <UInputNumber
+                          :model-value="entry.distance"
+                          :min="0"
+                          :step="1"
                           placeholder="20"
-                          class="w-20 px-2 py-1 text-xs border rounded dark:bg-gray-800 dark:border-gray-700"
-                          @input="updateParameterDistance(entry.id, entry.paramName, Number(($event.target as HTMLInputElement).value))"
-                        >
+                          size="xs"
+                          class="w-28"
+                          @update:model-value="updateParameterDistance(entry.id, entry.paramName, Number($event))"
+                        />
                         <span class="text-xs text-gray-500">km</span>
                         <UButton
                           icon="i-lucide-trash-2"
@@ -880,14 +882,14 @@ function handleUnitTargetChange(unitType: string, value: string) {
                     <div class="space-y-2">
                       <div class="flex items-center gap-4">
                         <label class="text-sm font-medium">{{ t('explorer.minGain') }}:</label>
-                        <input
-                          v-model.number="dataSettings.minGainOfValuePairs"
-                          type="number"
-                          min="0"
-                          max="1"
-                          step="0.01"
-                          class="w-24 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-700"
-                        >
+                        <UInputNumber
+                          v-model="dataSettings.minGainOfValuePairs"
+                          :min="0"
+                          :max="1"
+                          :step="0.01"
+                          size="sm"
+                          class="w-32"
+                        />
                       </div>
                       <p class="text-xs text-gray-500">
                         {{ t('explorer.minGainHint') }}
@@ -897,13 +899,13 @@ function handleUnitTargetChange(unitType: string, value: string) {
                     <div class="space-y-2">
                       <div class="flex items-center gap-4">
                         <label class="text-sm font-medium">{{ t('explorer.additionalStations') }}:</label>
-                        <input
-                          v-model.number="dataSettings.numAdditionalStations"
-                          type="number"
-                          min="0"
-                          step="1"
-                          class="w-24 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-700"
-                        >
+                        <UInputNumber
+                          v-model="dataSettings.numAdditionalStations"
+                          :min="0"
+                          :step="1"
+                          size="sm"
+                          class="w-32"
+                        />
                       </div>
                       <p class="text-xs text-gray-500">
                         {{ t('explorer.additionalStationsHint') }}
