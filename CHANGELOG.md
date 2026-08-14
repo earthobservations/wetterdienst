@@ -18,6 +18,18 @@ Types of changes:
 
 ### Changed
 
+- 84 more descriptions come from the source rather than from the canonical sentence, after finding
+  that three providers document their fields after all. Météo-France publishes a
+  `*_descriptif_champs*.csv` beside each resolution (43 parameters, translated from French), the
+  Met Office's MIDAS tables are documented by CEDA in English (32), and LHMT lists its fields on
+  api.meteo.lt (9, translated from Lithuanian). They say what the canonical sentence cannot: that
+  Météo-France's daily precipitation runs 06h to 06h UTC and is attributed to the earlier day, that
+  Met Office pressure is uncorrected for altitude, that LHMT returns null for cloud cover it cannot
+  determine through fog. 224 derived descriptions remain, DMI (52) and RMI (42) the largest, neither
+  of which documents its fields anywhere reachable
+
+### Changed
+
 - **Breaking**: `discover()` nests its answer so that every level has a place for its description,
   which had nowhere to go before: `{resolution: {"description": ..., "datasets": {dataset:
   {"description": ..., "parameters": [...]}}}}`. The 88 dataset descriptions and 2 resolution

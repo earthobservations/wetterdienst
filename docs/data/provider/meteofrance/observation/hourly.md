@@ -24,14 +24,14 @@
 
 | name                            | original name | description                                                    | unit             |
 |---------------------------------|---------------|----------------------------------------------------------------|------------------|
-| {term}`precipitation_height`    | RR1           | Depth of precipitation collected over the period.              | millimeter       |
-| {term}`temperature_air_min_2m`  | TN            | Minimum air temperature at 2 m above ground.                   | degree_celsius   |
-| {term}`temperature_air_max_2m`  | TX            | Maximum air temperature at 2 m above ground.                   | degree_celsius   |
-| {term}`temperature_air_mean_2m` | T             | Mean air temperature at 2 m above ground.                      | degree_celsius   |
-| {term}`wind_speed`              | FF            | Mean speed of the wind over the period.                        | meter_per_second |
-| {term}`wind_direction`          | DD            | Direction the wind is blowing from, clockwise from true north. | degree           |
-| {term}`wind_gust_max`           | FXY           | Speed of the strongest gust of the period.                     | meter_per_second |
-| {term}`wind_direction_gust_max` | DXY           | Direction the strongest gust of the period blew from.          | degree           |
+| {term}`precipitation_height` | RR1 | Precipitation amount over 1 hour. | millimeter |
+| {term}`temperature_air_min_2m` | TN | Minimum air temperature under shelter within the hour. | degree_celsius |
+| {term}`temperature_air_max_2m` | TX | Maximum air temperature under shelter within the hour. | degree_celsius |
+| {term}`temperature_air_mean_2m` | T | Instantaneous air temperature under shelter. | degree_celsius |
+| {term}`wind_speed` | FF | Wind force averaged over 10 minutes, measured at 10 m. | meter_per_second |
+| {term}`wind_direction` | DD | Direction of FF, on the 360 degree compass. | degree |
+| {term}`wind_gust_max` | FXY | Maximum value of FF within the hour. | meter_per_second |
+| {term}`wind_direction_gust_max` | DXY | Direction of FXY, on the 360 degree compass. | degree |
 
 ### others
 
@@ -48,11 +48,11 @@
 
 | name                                  | original name | description                                                                                   | unit                        |
 |---------------------------------------|---------------|-----------------------------------------------------------------------------------------------|-----------------------------|
-| {term}`temperature_dew_point_mean_2m` | TD            | Dew point at 2 m above ground, the temperature at which the air would become saturated.       | degree_celsius              |
-| {term}`humidity`                      | U             | Relative humidity of the air, the fraction of the moisture it could hold at that temperature. | percent                     |
-| {term}`pressure_air_sea_level`        | PMER          | Air pressure reduced to mean sea level, so that stations at different heights compare.        | hectopascal                 |
-| {term}`pressure_air_site`             | PSTAT         | Air pressure as measured at station height.                                                   | hectopascal                 |
-| {term}`cloud_cover_total`             | N             | Fraction of the sky covered by cloud of any kind.                                             | one_eighth                  |
-| {term}`visibility_range`              | VV            | Horizontal distance at which an object can still be made out.                                 | meter                       |
-| {term}`radiation_global`              | GLO           | Global radiation received on a horizontal surface, accumulated as energy over the interval.   | joule_per_square_centimeter |
-| {term}`sunshine_duration`             | INS           | Length of time the sun shone unobstructed.                                                    | minute                      |
+| {term}`temperature_dew_point_mean_2m` | TD | Dew point temperature. | degree_celsius |
+| {term}`humidity` | U | Relative humidity. | percent |
+| {term}`pressure_air_sea_level` | PMER | Sea level pressure, only for stations at an altitude of 750 m or less. | hectopascal |
+| {term}`pressure_air_site` | PSTAT | Station pressure. | hectopascal |
+| {term}`cloud_cover_total` | N | Total cloud amount, in octas. 9 means the sky was invisible through fog or another weather phenomenon. | one_eighth |
+| {term}`visibility_range` | VV | Visibility. | meter |
+| {term}`radiation_global` | GLO | Hourly global radiation, in UTC hours. | joule_per_square_centimeter |
+| {term}`sunshine_duration` | INS | Hourly sunshine duration, in UTC hours. | minute |
