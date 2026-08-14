@@ -2130,7 +2130,7 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         ),
     },
     "MeteoFranceSynopMetadata": {
-        "subdaily": "SYNOP reports at their native three-hourly interval.",
+        "subdaily": "SYNOP reports, made at their native three-hourly interval.",
     },
     "MetnoFrostMetadata": {
         "6_hour": "Synoptic observations reported every six hours.",
