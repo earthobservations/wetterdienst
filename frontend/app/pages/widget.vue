@@ -131,9 +131,12 @@ onMounted(async () => {
         />
       </div>
 
-      <div v-else-if="station && !pending" class="flex items-center justify-center py-16 text-gray-400 text-sm">
-        {{ t('widget.noData') }}
-      </div>
+      <UEmpty
+        v-else-if="station && !pending"
+        size="sm"
+        icon="i-lucide-cloud-off"
+        :title="t('widget.noData')"
+      />
     </div>
 
     <!-- Attribution footer -->

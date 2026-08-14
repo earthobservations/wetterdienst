@@ -162,7 +162,7 @@ const paramItems = computed(() => params.value.map(p => ({
 
 // Initialize from query params and validate step by step
 async function initializeFromProps() {
-  const initial = { ...(props.modelValue ?? {}) }
+  const initial = { ...props.modelValue }
 
   // A restricted provider/network overrides anything URL-provided — there's
   // only one valid value, so no point treating a mismatch as "invalid input".

@@ -1905,9 +1905,11 @@ watch(
 
 <template>
   <div>
-    <div v-if="!values || values.length === 0" class="py-12 text-center text-gray-500">
-      {{ t('meteogram.chart.noData') }}
-    </div>
+    <UEmpty
+      v-if="!values || values.length === 0"
+      icon="i-lucide-cloud-off"
+      :title="t('meteogram.chart.noData')"
+    />
 
     <div v-if="values && values.length > 0" class="space-y-5">
       <!-- Premium Overhauled Filter / Controls Toolbar -->
