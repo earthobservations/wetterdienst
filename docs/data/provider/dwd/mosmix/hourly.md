@@ -68,7 +68,7 @@
 | {term}`wind_gust_max_last_3h`                              | fx3           | Maximum wind gust within the last 3 hours                                       | m/s   | >=0         |
 | {term}`wind_gust_max_last_12h`                             | fxh           | Maximum wind gust within the last 12 hours                                      | m/s   | >=0         |
 | {term}`wind_speed`                                         | ff            | Wind speed                                                                      | m/s   | >=0         |
-| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km). | percent | - |
+| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km) | percent | - |
 
 ### Large
 
@@ -206,6 +206,6 @@
 | {term}`wind_gust_max_last_12h`                                   | fxh           | Maximum wind gust within the last 12 hours                                          | m/s   | >=0         |
 | {term}`wind_speed`                                               | ff            | Wind speed                                                                          | m/s   | >=0         |
 | {term}`cloud_base_convective` | h_bsc | Cloud base of convective clouds | meter | - |
-| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km). | percent | - |
+| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km) | percent | - |
 | {term}`cloud_cover_below_7km` | nlm | Cloud cover low and mid level clouds below 7000 m | percent | - |
-| {term}`probability_precipitation_last_24h` | wwpd | Probability of precipitation of any kind over the preceding 24 hours. | percent | - |
+| {term}`probability_precipitation_last_24h` | wwpd | Probability: Occurrence of any precipitation within the last 24 hours | percent | - |

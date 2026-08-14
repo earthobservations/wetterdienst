@@ -29,7 +29,7 @@
 | {term}`cloud_base_convective`                              | h_bsc         | Cloud base of convective clouds                                                 | m     | >=0         |
 | {term}`cloud_cover_above_7km`                              | nh            | High cloud cover (>7 km)                                                        | %     | >=0,<=100   |
 | {term}`cloud_cover_below_500ft`                            | n05           | Cloud cover below 500 ft.                                                       | %     | >=0,<=100   |
-| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km) | % | >=0,<=100 |
+| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km). | % | >=0,<=100 |
 | {term}`cloud_cover_below_7km`                              | nlm           | Cloud cover low and mid level clouds below 7000 m                               | %     | >=0,<=100   |
 | {term}`cloud_cover_between_2km_to_7km`                     | nm            | Midlevel cloud cover (2-7 km)                                                   | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                              | neff          | Effective cloud cover                                                           | %     | >=0,<=100   |
@@ -87,7 +87,7 @@
 |------------------------------------------------------------------|---------------|-------------------------------------------------------------------------------------|-------|-------------|
 | {term}`cloud_cover_above_7km`                                    | nh            | High cloud cover (>7 km)                                                            | %     | >=0,<=100   |
 | {term}`cloud_cover_below_500ft`                                  | n05           | Cloud cover below 500 ft.                                                           | %     | >=0,<=100   |
-| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km) | % | >=0,<=100 |
+| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km). | % | >=0,<=100 |
 | {term}`cloud_cover_between_2km_to_7km`                           | nm            | Midlevel cloud cover (2-7 km)                                                       | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                                    | neff          | Effective cloud cover                                                               | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                                        | n             | Total cloud cover                                                                   | %     | >=0,<=100   |
@@ -206,4 +206,4 @@
 | {term}`wind_speed`                                               | ff            | Wind speed                                                                          | m/s   | >=0         |
 | {term}`cloud_base_convective` | h_bsc | Cloud base of convective clouds | meter | - |
 | {term}`cloud_cover_below_7km` | nlm | Cloud cover low and mid level clouds below 7000 m | percent | - |
-| {term}`probability_precipitation_last_24h` | wwpd | Probability of precipitation of any kind over the preceding 24 hours. | percent | - |
+| {term}`probability_precipitation_last_24h` | wwpd | Probability: Occurrence of any precipitation within the last 24 hours | percent | - |
