@@ -54,6 +54,18 @@ const facetChartRefs = ref<Map<string, HTMLDivElement>>(new Map())
 // Plotly instance (loaded client-side only)
 const plotlyLoaded = ref(false)
 let Plotly: typeof import('plotly.js-basic-dist-min') | null = null
+// Plotly is ~1 MB, and the default view is the table -- so it is fetched when a chart is first
+// actually wanted rather than on mount. The promise is kept so concurrent callers share one import.
+let plotlyImport: Promise<typeof import('plotly.js-basic-dist-min')> | null = null
+
+async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')> {
+  if (Plotly)
+    return Plotly
+  plotlyImport ??= import('plotly.js-basic-dist-min')
+  Plotly = await plotlyImport
+  plotlyLoaded.value = true
+  return Plotly
+}
 
 // Parameter label format options and chart display
 // Options: 'parameter' (default), 'dataset/parameter', 'resolution/dataset/parameter'
@@ -452,10 +464,11 @@ async function downloadValues(format: string, extension: string) {
 }
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
-  if (!Plotly || !chartRef.value)
+  if (!chartRef.value)
     return
 
-  await Plotly.downloadImage(chartRef.value, {
+  const plotly = await ensurePlotly()
+  await plotly.downloadImage(chartRef.value, {
     format: format === 'jpeg' ? 'jpeg' : format === 'svg' ? 'svg' : 'png',
     filename: 'chart',
     // Plotly expects number | undefined for width/height; use undefined to let it auto-size
@@ -784,20 +797,22 @@ const plotlyConfig: Partial<PlotlyConfig> = {
 
 // Render chart helper functions
 async function renderMainChart() {
-  if (!Plotly || !plotlyLoaded.value || viewMode.value !== 'graph' || facetByParameter.value)
+  if (viewMode.value !== 'graph' || facetByParameter.value)
     return
+  const plotly = await ensurePlotly()
 
   await nextTick()
   if (chartRef.value && chartTraces.value.length > 0) {
     // Use newPlot for clean initialization
-    Plotly.purge(chartRef.value)
-    await Plotly.newPlot(chartRef.value, chartTraces.value, chartLayout.value, plotlyConfig)
+    plotly.purge(chartRef.value)
+    await plotly.newPlot(chartRef.value, chartTraces.value, chartLayout.value, plotlyConfig)
   }
 }
 
 async function renderFacetedCharts() {
-  if (!Plotly || !plotlyLoaded.value || viewMode.value !== 'graph' || !facetByParameter.value)
+  if (viewMode.value !== 'graph' || !facetByParameter.value)
     return
+  const plotly = await ensurePlotly()
 
   await nextTick()
   for (const facet of facetedChartData.value) {
@@ -817,17 +832,14 @@ async function renderFacetedCharts() {
         },
         autosize: true,
       }
-      await Plotly.react(el, facet.traces, layout, plotlyConfig)
+      await plotly.react(el, facet.traces, layout, plotlyConfig)
     }
   }
 }
 
-// Load Plotly and render charts
+// Render whatever the current view calls for. In table view -- the default -- this does no work
+// and, importantly, does not reach for Plotly.
 onMounted(async () => {
-  Plotly = await import('plotly.js-basic-dist-min')
-  plotlyLoaded.value = true
-
-  // Initial render after Plotly loads
   if (facetByParameter.value) {
     await renderFacetedCharts()
   }
