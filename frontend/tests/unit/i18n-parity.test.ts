@@ -82,16 +82,30 @@ describe('glossary label parity', () => {
     }
   })
 
+  /** The `key: 'label'` pairs of one record in a glossary module. */
+  function glossaryLabels(locale: string, name: string): Record<string, string> {
+    const source = readFileSync(`${glossaryDir}/${locale}.ts`, 'utf-8')
+    const block = source.split(`export const ${name}`)[1]?.split('export const')[0] ?? ''
+    return Object.fromEntries(
+      [...block.matchAll(/^ {2}'?([a-z0-9_]+)'?: '(.*)',$/gm)].map(match => [match[1], match[2]]),
+    )
+  }
+
   it.each(glossaryLocales)('is actually translated in %s', (locale) => {
     if (locale === 'en')
       return
-    // Not a per-label check: cognates are real (German "Wind", French "Observations"), so a label
+    // Not a per-label check: cognates are real (German "Wind", French "Observations"), so one label
     // matching english proves nothing. A whole catalog matching does -- that is a copied stub.
-    const values = (text: string) =>
-      [...text.matchAll(/^ {2}'?[a-z0-9_]+'?: '(.*)',$/gm)].map(match => match[1])
-    const theirs = values(readFileSync(`${glossaryDir}/${locale}.ts`, 'utf-8'))
-    const ours = values(readFileSync(`${glossaryDir}/en.ts`, 'utf-8'))
-    const same = theirs.filter((label, index) => label === ours[index]).length
-    expect(same / ours.length, `${locale} glossary is largely the english one`).toBeLessThan(0.5)
+    // Compared key by key, and per record, so reordering a copy cannot slip through.
+    for (const record of records) {
+      const theirs = glossaryLabels(locale, record)
+      const ours = glossaryLabels('en', record)
+      const keys = Object.keys(ours)
+      const same = keys.filter(key => theirs[key] === ours[key]).length
+      expect(
+        same / keys.length,
+        `${locale} ${record} are largely the english ones`,
+      ).toBeLessThan(0.5)
+    }
   })
 })
