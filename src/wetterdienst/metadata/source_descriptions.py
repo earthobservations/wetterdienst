@@ -29,9 +29,13 @@ are taken as they come:
   statistical function and aggregation period ("Air temperature. Mean over 1 minute.")
 - AEMET: the ``metadatos`` payload that accompanies every response, translated from Spanish
 - SMHI: the parameter listing of the metobs API, translated from Swedish
+- LHMT: the field list on api.meteo.lt, translated from Lithuanian
+- Météo-France: the `*_descriptif_champs*.csv` published beside each resolution, translated from
+  French
+- Met Office: the MIDAS table dictionaries CEDA publishes, already in English
 
-The two translations are ours. Everything else in this table is the source's own wording, so a
-sentence here can be checked against what the provider says.
+The AEMET, SMHI, LHMT and Météo-France translations are ours. Everything else in this table is the
+source's own wording, so a sentence here can be checked against what the provider says.
 
 Keyed by metadata model name, then ``(resolution, dataset, name_original)``. Applied by
 ``build_metadata_model``.
@@ -1475,6 +1479,138 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "TD"): "Dew point temperature",
         ("hourly", "data", "U"): "Relative atmospheric humidity",
     },
+    "LhmtObservationMetadata": {
+        ("hourly", "data", "airTemperature"): "Air temperature, °C.",
+        ("hourly", "data", "cloudCover"): (
+            "Cloud cover, %. Values: 0 is clear, 100 is overcast. Where the cloud cover cannot be "
+            "determined, for example because of fog, null is returned."
+        ),
+        ("hourly", "data", "precipitation"): "Precipitation amount, mm. The precipitation sum over the hour.",
+        ("hourly", "data", "relativeHumidity"): "Relative humidity of the air, %.",
+        ("hourly", "data", "seaLevelPressure"): "Pressure at sea level, hPa.",
+        ("hourly", "data", "snowDepth"): "Thickness of the snow cover, cm.",
+        ("hourly", "data", "windDirection"): (
+            "Wind direction, °. Values: 0 is from the north, 180 is from the south, and so on."
+        ),
+        ("hourly", "data", "windGust"): "Wind gust, m/s. The maximum gust over the hour.",
+        ("hourly", "data", "windSpeed"): "Wind speed, m/s.",
+    },
+    "MetOfficeObservationMetadata": {
+        ("daily", "rain", "prcp_amt"): "Precipitation amount, reported to the nearest 0.1 mm.",
+        ("daily", "temperature", "max_air_temp"): "Maximum air temperature, to the nearest 0.1 deg C.",
+        ("daily", "temperature", "min_air_temp"): "Minimum air temperature, to the nearest 0.1 deg C.",
+        ("daily", "temperature", "min_grss_temp"): "Minimum grass temperature, to the nearest 0.1 deg C.",
+        ("daily", "weather", "drv_24hr_sun_dur"): (
+            "Derived 24 hour sunshine duration, for stations carrying radiation sensors only, which use the global "
+            "radiation values to derive it."
+        ),
+        ("daily", "weather", "frsh_snw_amt"): "Fresh snow amount, cm.",
+        ("daily", "weather", "snow_depth"): "Snow depth, cm.",
+        ("hourly", "radiation", "difu_irad_amt"): (
+            "Diffuse solar irradiation amount, kJ per square metre over the observation period."
+        ),
+        ("hourly", "radiation", "direct_irad"): (
+            "Direct irradiation amount, kJ per square metre over the observation period."
+        ),
+        ("hourly", "radiation", "glbl_irad_amt"): (
+            "Global solar irradiation amount, kJ per square metre over the observation period."
+        ),
+        ("hourly", "rain", "prcp_amt"): "Precipitation amount, reported to the nearest 0.1 mm.",
+        ("hourly", "rain", "prcp_dur"): "Precipitation duration over less than 24 hours, minutes.",
+        ("hourly", "soil_temperature", "q100cm_soil_temp"): "100 cm soil temperature, to the nearest 0.1 deg C.",
+        ("hourly", "soil_temperature", "q10cm_soil_temp"): "10 cm soil temperature, to the nearest 0.1 deg C.",
+        ("hourly", "soil_temperature", "q20cm_soil_temp"): "20 cm soil temperature, to the nearest 0.1 deg C.",
+        ("hourly", "soil_temperature", "q50cm_soil_temp"): "50 cm soil temperature, to the nearest 0.1 deg C.",
+        ("hourly", "soil_temperature", "q5cm_soil_temp"): "5 cm soil temperature, to the nearest 0.1 deg C.",
+        ("hourly", "weather", "air_temperature"): "Air temperature, to the nearest 0.1 deg C.",
+        ("hourly", "weather", "cld_ttl_amt_id"): "Total cloud amount code.",
+        ("hourly", "weather", "dewpoint"): (
+            "Dewpoint temperature: the temperature to which the air must be cooled to produce saturation with respect "
+            "to water at its existing pressure and humidity."
+        ),
+        ("hourly", "weather", "msl_pressure"): "Mean sea level air pressure, to the nearest 0.1 hPa.",
+        ("hourly", "weather", "prst_wx_id"): "Present weather code.",
+        ("hourly", "weather", "q10mnt_mxgst_spd"): "Maximum gust speed over 10 minutes, knots.",
+        ("hourly", "weather", "rltv_hum"): "Calculated relative humidity.",
+        ("hourly", "weather", "snow_depth"): "Snow depth, cm.",
+        ("hourly", "weather", "stn_pres"): (
+            "Station air pressure, as measured at station level. No correction for altitude is applied."
+        ),
+        ("hourly", "weather", "visibility"): "Visibility, decametres.",
+        ("hourly", "weather", "wind_direction"): (
+            "Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180."
+        ),
+        ("hourly", "weather", "wind_speed"): "Wind speed, knots.",
+        ("hourly", "weather", "wmo_hr_sun_dur"): (
+            "Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder."
+        ),
+        ("hourly", "wind", "max_gust_dir"): "Direction of the maximum gust, degrees true.",
+        ("hourly", "wind", "max_gust_speed"): "Speed of the maximum gust, knots.",
+        ("hourly", "wind", "mean_wind_dir"): (
+            "Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind "
+            "180."
+        ),
+        ("hourly", "wind", "mean_wind_speed"): "Mean wind speed, knots.",
+    },
+    "MeteoFranceObservationMetadata": {
+        ("6_minutes", "data", "RR"): "Precipitation amount over 6 minutes.",
+        ("daily", "core", "DXI"): "Direction of FXI, on the 360 degree compass.",
+        ("daily", "core", "FFM"): "Daily mean of the wind force averaged over 10 minutes, at 10 m.",
+        ("daily", "core", "FXI"): "Daily maximum of the hourly maximum instantaneous wind force, at 10 m.",
+        ("daily", "core", "RR"): (
+            "Precipitation amount over 24 hours, from 06h UTC on day J to 06h UTC on day J+1. The value recorded at "
+            "J+1 is attributed to day J."
+        ),
+        ("daily", "core", "TM"): "Daily mean of the hourly air temperatures under shelter.",
+        ("daily", "core", "TN"): "Minimum air temperature under shelter.",
+        ("daily", "core", "TX"): "Maximum air temperature under shelter.",
+        ("daily", "others", "GLOT"): "Daily global radiation.",
+        ("daily", "others", "HNEIGEF"): (
+            "Depth of fresh snow fallen over 24 hours, from 06h UTC on day J to 06h UTC on day J+1, that remains on "
+            "the ground at 06h UTC."
+        ),
+        ("daily", "others", "INST"): "Daily sunshine duration.",
+        ("daily", "others", "NEIGETOT06"): "Total depth of snow on the ground measured at 06h.",
+        ("daily", "others", "PMERM"): "Daily mean of the hourly sea level pressures.",
+        ("daily", "others", "TSVM"): "Mean vapour pressure.",
+        ("daily", "others", "UM"): "Daily mean of the hourly relative humidities.",
+        ("hourly", "core", "DD"): "Direction of FF, on the 360 degree compass.",
+        ("hourly", "core", "DXY"): "Direction of FXY, on the 360 degree compass.",
+        ("hourly", "core", "FF"): "Wind force averaged over 10 minutes, measured at 10 m.",
+        ("hourly", "core", "FXY"): "Maximum value of FF within the hour.",
+        ("hourly", "core", "RR1"): "Precipitation amount over 1 hour.",
+        ("hourly", "core", "T"): "Instantaneous air temperature under shelter.",
+        ("hourly", "core", "TN"): "Minimum air temperature under shelter within the hour.",
+        ("hourly", "core", "TX"): "Maximum air temperature under shelter within the hour.",
+        ("hourly", "others", "GLO"): "Hourly global radiation, in UTC hours.",
+        ("hourly", "others", "INS"): "Hourly sunshine duration, in UTC hours.",
+        ("hourly", "others", "N"): (
+            "Total cloud amount, in octas. 9 means the sky was invisible through fog or another weather phenomenon."
+        ),
+        ("hourly", "others", "PMER"): "Sea level pressure, only for stations at an altitude of 750 m or less.",
+        ("hourly", "others", "PSTAT"): "Station pressure.",
+        ("hourly", "others", "TD"): "Dew point temperature.",
+        ("hourly", "others", "U"): "Relative humidity.",
+        ("hourly", "others", "VV"): "Visibility.",
+        ("monthly", "data", "FFM"): (
+            "Monthly mean of the daily mean wind force averaged over 10 minutes (FFM), at 10 m."
+        ),
+        ("monthly", "data", "FXIAB"): (
+            "Monthly absolute maximum of the daily maximum instantaneous wind force, at 10 m."
+        ),
+        ("monthly", "data", "GLOT"): "Monthly total of the daily global radiation.",
+        ("monthly", "data", "HNEIGEFTOT"): (
+            "Monthly total of the depth of fresh snow fallen over 24 hours (daily HNEIGEF)."
+        ),
+        ("monthly", "data", "INST"): "Monthly total of the daily sunshine durations.",
+        ("monthly", "data", "PMERM"): "Monthly mean of the daily mean sea level pressures (PMERM).",
+        ("monthly", "data", "RR"): "Monthly total of the precipitation depths.",
+        ("monthly", "data", "TMM"): "Monthly mean of the daily mean temperatures (TM).",
+        ("monthly", "data", "TN"): "Monthly mean of the daily minimum temperatures (TN).",
+        ("monthly", "data", "TSVM"): "Monthly mean of the vapour pressure.",
+        ("monthly", "data", "TX"): "Monthly mean of the daily maximum temperatures (TX).",
+        ("monthly", "data", "UMM"): "Monthly mean of the daily mean humidities (UM).",
+    },
     "MeteoswissObservationMetadata": {
         ("10_minutes", "data", "dkl010z0"): "Wind direction; ten minutes mean",
         ("10_minutes", "data", "fkl010z0"): "Wind speed scalar; ten minutes mean in m/s",
@@ -2280,134 +2416,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Global radiation received on a horizontal surface, accumulated as energy over the interval."
         ),
         ("hourly", "data", "temperatura"): "Mean air temperature at 2 m above ground.",
-    },
-    "LhmtObservationMetadata": {
-        ("hourly", "data", "airTemperature"): "Mean air temperature at 2 m above ground.",
-        ("hourly", "data", "cloudCover"): "Fraction of the sky covered by cloud of any kind.",
-        ("hourly", "data", "precipitation"): "Depth of precipitation collected over the period.",
-        ("hourly", "data", "relativeHumidity"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("hourly", "data", "seaLevelPressure"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("hourly", "data", "snowDepth"): "Depth of the snow lying on the ground.",
-        ("hourly", "data", "windDirection"): "Direction the wind is blowing from, clockwise from true north.",
-        ("hourly", "data", "windGust"): "Speed of the strongest gust of the period.",
-        ("hourly", "data", "windSpeed"): "Mean speed of the wind over the period.",
-    },
-    "MetOfficeObservationMetadata": {
-        ("daily", "rain", "prcp_amt"): "Depth of precipitation collected over the period.",
-        ("daily", "temperature", "max_air_temp"): "Maximum air temperature at 2 m above ground.",
-        ("daily", "temperature", "min_air_temp"): "Minimum air temperature at 2 m above ground.",
-        ("daily", "temperature", "min_grss_temp"): "Minimum air temperature at 0.05 m above ground.",
-        ("daily", "weather", "drv_24hr_sun_dur"): "Length of time the sun shone unobstructed.",
-        ("daily", "weather", "frsh_snw_amt"): "Depth of snow that fell during the period.",
-        ("daily", "weather", "snow_depth"): "Depth of the snow lying on the ground.",
-        ("hourly", "radiation", "difu_irad_amt"): (
-            "Diffuse short-wave radiation from the sky, accumulated as energy over the interval."
-        ),
-        ("hourly", "radiation", "direct_irad"): (
-            "Direct short-wave radiation from the sun, accumulated as energy over the interval."
-        ),
-        ("hourly", "radiation", "glbl_irad_amt"): (
-            "Global radiation received on a horizontal surface, accumulated as energy over the interval."
-        ),
-        ("hourly", "rain", "prcp_amt"): "Depth of precipitation collected over the period.",
-        ("hourly", "rain", "prcp_dur"): "Length of time during which precipitation fell.",
-        ("hourly", "soil_temperature", "q100cm_soil_temp"): "Mean soil temperature at 1 m depth.",
-        ("hourly", "soil_temperature", "q10cm_soil_temp"): "Mean soil temperature at 0.1 m depth.",
-        ("hourly", "soil_temperature", "q20cm_soil_temp"): "Mean soil temperature at 0.2 m depth.",
-        ("hourly", "soil_temperature", "q50cm_soil_temp"): "Mean soil temperature at 0.5 m depth.",
-        ("hourly", "soil_temperature", "q5cm_soil_temp"): "Mean soil temperature at 0.05 m depth.",
-        ("hourly", "weather", "air_temperature"): "Mean air temperature at 2 m above ground.",
-        ("hourly", "weather", "cld_ttl_amt_id"): "Fraction of the sky covered by cloud of any kind.",
-        ("hourly", "weather", "dewpoint"): (
-            "Dew point at 2 m above ground, the temperature at which the air would become saturated."
-        ),
-        ("hourly", "weather", "msl_pressure"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("hourly", "weather", "prst_wx_id"): "Coded present weather at the time of observation.",
-        ("hourly", "weather", "q10mnt_mxgst_spd"): "Speed of the strongest gust of the period.",
-        ("hourly", "weather", "rltv_hum"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("hourly", "weather", "snow_depth"): "Depth of the snow lying on the ground.",
-        ("hourly", "weather", "stn_pres"): "Air pressure as measured at station height.",
-        ("hourly", "weather", "visibility"): "Horizontal distance at which an object can still be made out.",
-        ("hourly", "weather", "wind_direction"): "Direction the wind is blowing from, clockwise from true north.",
-        ("hourly", "weather", "wind_speed"): "Mean speed of the wind over the period.",
-        ("hourly", "weather", "wmo_hr_sun_dur"): "Length of time the sun shone unobstructed.",
-        ("hourly", "wind", "max_gust_dir"): "Direction the strongest gust of the period blew from.",
-        ("hourly", "wind", "max_gust_speed"): "Speed of the strongest gust of the period.",
-        ("hourly", "wind", "mean_wind_dir"): "Direction the wind is blowing from, clockwise from true north.",
-        ("hourly", "wind", "mean_wind_speed"): "Mean speed of the wind over the period.",
-    },
-    "MeteoFranceObservationMetadata": {
-        ("6_minutes", "data", "RR"): "Depth of precipitation collected over the period.",
-        ("daily", "core", "DXI"): "Direction the strongest gust of the period blew from.",
-        ("daily", "core", "FFM"): "Mean speed of the wind over the period.",
-        ("daily", "core", "FXI"): "Speed of the strongest gust of the period.",
-        ("daily", "core", "RR"): "Depth of precipitation collected over the period.",
-        ("daily", "core", "TM"): "Mean air temperature at 2 m above ground.",
-        ("daily", "core", "TN"): "Minimum air temperature at 2 m above ground.",
-        ("daily", "core", "TX"): "Maximum air temperature at 2 m above ground.",
-        ("daily", "others", "GLOT"): (
-            "Global radiation received on a horizontal surface, accumulated as energy over the interval."
-        ),
-        ("daily", "others", "HNEIGEF"): "Depth of snow that fell during the period.",
-        ("daily", "others", "INST"): "Length of time the sun shone unobstructed.",
-        ("daily", "others", "NEIGETOT06"): "Depth of the snow lying on the ground.",
-        ("daily", "others", "PMERM"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("daily", "others", "TSVM"): "Partial pressure of water vapour in the air.",
-        ("daily", "others", "UM"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("hourly", "core", "DD"): "Direction the wind is blowing from, clockwise from true north.",
-        ("hourly", "core", "DXY"): "Direction the strongest gust of the period blew from.",
-        ("hourly", "core", "FF"): "Mean speed of the wind over the period.",
-        ("hourly", "core", "FXY"): "Speed of the strongest gust of the period.",
-        ("hourly", "core", "RR1"): "Depth of precipitation collected over the period.",
-        ("hourly", "core", "T"): "Mean air temperature at 2 m above ground.",
-        ("hourly", "core", "TN"): "Minimum air temperature at 2 m above ground.",
-        ("hourly", "core", "TX"): "Maximum air temperature at 2 m above ground.",
-        ("hourly", "others", "GLO"): (
-            "Global radiation received on a horizontal surface, accumulated as energy over the interval."
-        ),
-        ("hourly", "others", "INS"): "Length of time the sun shone unobstructed.",
-        ("hourly", "others", "N"): "Fraction of the sky covered by cloud of any kind.",
-        ("hourly", "others", "PMER"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("hourly", "others", "PSTAT"): "Air pressure as measured at station height.",
-        ("hourly", "others", "TD"): (
-            "Dew point at 2 m above ground, the temperature at which the air would become saturated."
-        ),
-        ("hourly", "others", "U"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("hourly", "others", "VV"): "Horizontal distance at which an object can still be made out.",
-        ("monthly", "data", "FFM"): "Mean speed of the wind over the period.",
-        ("monthly", "data", "FXIAB"): "Speed of the strongest gust of the period.",
-        ("monthly", "data", "GLOT"): (
-            "Global radiation received on a horizontal surface, accumulated as energy over the interval."
-        ),
-        ("monthly", "data", "HNEIGEFTOT"): "Depth of snow that fell during the period.",
-        ("monthly", "data", "INST"): "Length of time the sun shone unobstructed.",
-        ("monthly", "data", "PMERM"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("monthly", "data", "RR"): "Depth of precipitation collected over the period.",
-        ("monthly", "data", "TMM"): "Mean air temperature at 2 m above ground.",
-        ("monthly", "data", "TN"): "Mean of the daily minimum air temperature at 2 m above ground over the period.",
-        ("monthly", "data", "TSVM"): "Partial pressure of water vapour in the air.",
-        ("monthly", "data", "TX"): "Mean of the daily maximum air temperature at 2 m above ground over the period.",
-        ("monthly", "data", "UMM"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
     },
     "MeteoFranceSynopMetadata": {
         ("subdaily", "data", "dd"): "Direction the wind is blowing from, clockwise from true north.",

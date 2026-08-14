@@ -24,4 +24,4 @@
 
 | name                         | original name | description                                       | unit       |
 |------------------------------|---------------|---------------------------------------------------|------------|
-| {term}`precipitation_height` | RR            | Depth of precipitation collected over the period. | millimeter |
+| {term}`precipitation_height` | RR | Precipitation amount over 6 minutes. | millimeter |

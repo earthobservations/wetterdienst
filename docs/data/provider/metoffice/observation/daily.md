@@ -22,7 +22,7 @@
 
 | name                         | original name | description                                       | unit |
 |------------------------------|---------------|---------------------------------------------------|------|
-| {term}`precipitation_height` | prcp_amt      | Depth of precipitation collected over the period. | mm   |
+| {term}`precipitation_height` | prcp_amt | Precipitation amount, reported to the nearest 0.1 mm. | mm |
 
 ### temperature
 
@@ -37,9 +37,9 @@
 
 | name                              | original name | description                                     | unit |
 |-----------------------------------|---------------|-------------------------------------------------|------|
-| {term}`temperature_air_max_2m`    | max_air_temp  | Maximum air temperature at 2 m above ground.    | °C   |
-| {term}`temperature_air_min_2m`    | min_air_temp  | Minimum air temperature at 2 m above ground.    | °C   |
-| {term}`temperature_air_min_0_05m` | min_grss_temp | Minimum air temperature at 0.05 m above ground. | °C   |
+| {term}`temperature_air_max_2m` | max_air_temp | Maximum air temperature, to the nearest 0.1 deg C. | °C |
+| {term}`temperature_air_min_2m` | min_air_temp | Minimum air temperature, to the nearest 0.1 deg C. | °C |
+| {term}`temperature_air_min_0_05m` | min_grss_temp | Minimum grass temperature, to the nearest 0.1 deg C. | °C |
 
 ### weather
 
@@ -54,6 +54,6 @@
 
 | name                      | original name    | description                                | unit |
 |---------------------------|------------------|--------------------------------------------|------|
-| {term}`sunshine_duration` | drv_24hr_sun_dur | Length of time the sun shone unobstructed. | h    |
-| {term}`snow_depth`        | snow_depth       | Depth of the snow lying on the ground.     | cm   |
-| {term}`snow_depth_new`    | frsh_snw_amt     | Depth of snow that fell during the period. | cm   |
+| {term}`sunshine_duration` | drv_24hr_sun_dur | Derived 24 hour sunshine duration, for stations carrying radiation sensors only, which use the global radiation values to derive it. | h |
+| {term}`snow_depth` | snow_depth | Snow depth, cm. | cm |
+| {term}`snow_depth_new` | frsh_snw_amt | Fresh snow amount, cm. | cm |
