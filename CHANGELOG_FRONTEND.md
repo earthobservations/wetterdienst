@@ -16,6 +16,21 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Explorer]` Plotly, at 1.0 MB the largest chunk in the build, was fetched and parsed as soon as
+  the data viewer mounted -- before any chart existed, and regardless of the view mode, which
+  defaults to the table. It is fetched the first time a chart is actually rendered now, so opening
+  Explorer and reading the table no longer pays for it. Explorer is the only page that mounts the
+  data viewer. This is not an initial-page-load fix: the viewer mounts after a query is run, and
+  Explorer measures the same as the other pages on first load
+- `[Explorer/History]` The station list was fetched twice, 332 KB each time for DWD daily climate
+  summary. `useFetch` refetches on its own when its reactive query changes, and `fetchStations()`
+  also calls `refresh()`; the request is driven explicitly here, so the automatic watch is off now.
+  Measured in a browser against a local build: one request where there were two. Changing
+  parameters with a picker open refetches explicitly, which the automatic watch used to cover --
+  without it an expanded map lost its markers and stayed empty until it was reopened
+
 ### Changed
 
 - `[Parameter selection]` Follow the nested shape `GET /api/coverage` now returns. Datasets were

@@ -132,6 +132,60 @@ describe('stationSelection', () => {
     expect(vm.allStations).toEqual(stationsResponse.stations)
   })
 
+  it('fetches the station list once, not twice', async () => {
+    // `useFetch` refetches on its own when its reactive query changes, and `fetchStations` also
+    // refreshes explicitly -- which fetched the whole list (332 kB for dwd daily) twice per open.
+    let calls = 0
+    registerEndpoint('/api/stations', () => {
+      calls++
+      return stationsResponse
+    })
+
+    const wrapper = await mountSuspended(StationSelection, {
+      props: { parameterSelection, multiple: true },
+      attachTo: document.body,
+    })
+    const vm = wrapper.vm as any
+    vm.selectOpen = true
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await wrapper.vm.$nextTick()
+
+    expect(calls).toBe(1)
+  })
+
+  it('refetches when parameters change while a picker is open', async () => {
+    // Changing parameters clears the list, since it is now for the wrong dataset. With a picker
+    // open on screen -- the map stays expanded while parameters are edited above it -- that leaves
+    // it visibly empty, so the refetch has to happen without waiting for a reopen.
+    let calls = 0
+    registerEndpoint('/api/stations', () => {
+      calls++
+      return stationsResponse
+    })
+
+    const wrapper = await mountSuspended(StationSelection, {
+      props: { parameterSelection, multiple: true },
+      attachTo: document.body,
+    })
+    const vm = wrapper.vm as any
+    vm.selectOpen = true
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await wrapper.vm.$nextTick()
+
+    expect(calls).toBe(1)
+
+    await wrapper.setProps({
+      parameterSelection: { ...parameterSelection, dataset: 'precipitation_more', parameters: ['precipitation_height'] },
+    })
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await wrapper.vm.$nextTick()
+
+    expect(calls).toBe(2)
+    expect(vm.allStations).toEqual(stationsResponse.stations)
+  })
+
   it('does not fetch anything while parameters are unselected', async () => {
     let calls = 0
     registerEndpoint('/api/stations', () => {
