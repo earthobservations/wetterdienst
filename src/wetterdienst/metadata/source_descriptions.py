@@ -2118,11 +2118,28 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
 
 # What a resolution holds, keyed by metadata model name then resolution name.
 RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
+    # Only where the name underdetermines what arrives. "hourly" and "daily" say everything about
+    # themselves, and filling those in would read as information without being any.
     "DwdObservationMetadata": {
         "subdaily": "measurements at 7am, 2pm, 9pm.",
     },
-    "EAHydrologyMetadata": {
-        "15_minutes": "no specific dataset is provided but parameters can be queried individually.",
+    "HubeauMetadata": {
+        "dynamic": (
+            "The interval is a property of the station rather than of the network: 15 minutes at "
+            "most gauges, 10 at some."
+        ),
+    },
+    "MeteoFranceSynopMetadata": {
+        "subdaily": "SYNOP reports, made at their native three-hourly interval.",
+    },
+    "MetnoFrostMetadata": {
+        "6_hour": "Synoptic observations reported every six hours.",
+    },
+    "WsvPegelMetadata": {
+        "dynamic": (
+            "The interval is a property of the station rather than of the network: 15 minutes at "
+            "most gauges, 10 at some."
+        ),
     },
 }
 

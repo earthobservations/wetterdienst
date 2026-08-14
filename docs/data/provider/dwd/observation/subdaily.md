@@ -6,7 +6,7 @@
 |---------------|------------------------------------------------------------------------------------------------|
 | name          | subdaily                                                                                       |
 | original name | subdaily                                                                                       |
-| description   | measurements at 7am, 2pm, 9pm                                                                  |
+| description   | measurements at 7am, 2pm, 9pm. |
 | url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/) |
 
 ## datasets

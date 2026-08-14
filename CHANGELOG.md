@@ -16,8 +16,29 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Every parameter of every provider now carries a description, 1681 of 1681, closing the last 508
+  gaps. 271 come from the source itself: MeteoSwiss publishes `ogd-smn_meta_parameters.csv` beside
+  the data, MET Norway has a Frost `/elements` endpoint, KNMI writes a `long_name` on every NetCDF
+  variable, FMI has an `observableProperty` metadata endpoint, and AEMET and SMHI describe their
+  fields in the payloads and listings they already serve (translated here from Spanish and
+  Swedish). The remaining 237 are the canonical sentence for the quantity, kept apart in
+  `DERIVED_DESCRIPTIONS` so generated text is never mistaken for a source's own wording. Sibling
+  prose is now borrowed only within a provider, never across: another source's specifics ("within
+  the last 12 hours") need not hold for the one borrowing them
+- The provider docs tables carry a `description` column for the 46 pages that had none, and 41 rows
+  for parameters that were declared but never listed at all
+
 ### Changed
 
+- Resolution descriptions are written where the name underdetermines what arrives, and only there:
+  Météo-France synop (SYNOP's native three-hourly interval), MET Norway's 6 hour, and the two
+  `dynamic` networks, WSV and Hubeau, where the interval is a property of the station rather than
+  the network -- 15 minutes at most gauges, 10 at some, measured across both. `hourly` and `daily`
+  say everything about themselves, so they are left empty rather than filled with text that reads
+  as information without being any. EA hydrology's resolution description is dropped: it described
+  the dataset structure, not the interval, and EA's dataset description already covers that
 - 84 more descriptions come from the source rather than from the canonical sentence, after finding
   that three providers document their fields after all. Météo-France publishes a
   `*_descriptif_champs*.csv` beside each resolution (43 parameters, translated from French), the
@@ -28,7 +49,6 @@ Types of changes:
   determine through fog. 224 derived descriptions remain, DMI (52) and RMI (42) the largest, neither
   of which documents its fields anywhere reachable
 
-### Changed
 
 - **Breaking**: `discover()` nests its answer so that every level has a place for its description,
   which had nowhere to go before: `{resolution: {"description": ..., "datasets": {dataset:
@@ -38,15 +58,51 @@ Types of changes:
   reading `data[resolution][dataset]` as a list of parameters now read
   `data[resolution]["datasets"][dataset]["parameters"]`
 
-### Fixed
 
-- **Breaking**: MET Norway's in-band codes are decoded rather than returned as measurements. Frost
-  states both in the element descriptions it publishes and then writes them into the value itself:
-  snow depth -1 is "no snow", which is a depth of zero rather than an absent one, and cloud cover
-  -3 and 9 both mean the cover could not be estimated. Being declared in eighths those two
-  converted to -0.375 and 1.125 of the sky, the second looking like a plausible reading rather than
-  a code. Snow depth -1 now returns 0, cloud cover -3 and 9 return null. Frost keeps the codes out
-  of its own monthly and annual means, so only the elements themselves are touched
+- The `Parameter` enum is no longer used inside the library. The three places that hard-coded
+  parameter names — `TimeseriesRequest.interpolatable_parameters`, interpolation's
+  occurrence-based set and the `ts_geo_station_distance` defaults — used it purely to spell a
+  lowercased string, and now spell the canonical name directly. All 186 references resolve to the
+  same 126/30/30 names as before. `test_internal_parameter_lists_are_canonical` replaces the
+  typo-safety the enum was providing, since a misspelled string would otherwise quietly mean "never
+  interpolated" or "keeps the default search radius" rather than failing
+
+- **Breaking**: irradiance (`power_per_area`) is now returned in W/m² rather than W/cm², so
+  affected values are 10⁴ times larger. W/m² is what WMO specifies and what every source in this
+  library actually publishes — MeteoSwiss global radiation now reads 0–1344 W/m² where it used to
+  read 0–0.1344 W/cm². Affects the 17 declarations using `power_per_area`: KNMI (10 minutes),
+  MeteoSwiss, met.no Frost and RMI. Set `ts_unit_targets={"power_per_area":
+  "watt_per_square_centimeter"}` to keep the old output. Irradiation (`energy_per_area`) is
+  unchanged and still returned in J/cm², which is the conventional unit for it
+- **Breaking**: KNMI (10 minutes), RMI, MeteoSwiss and met.no reported irradiance in W/m² under
+  the `radiation_global`, `radiation_sky_long_wave` and `radiation_sky_short_wave_diffuse` names,
+  which elsewhere mean irradiation in J/cm². These declarations moved to the new
+  `radiation_*_intensity` names. KNMI is the clearest case: its 10-minute `qg` is W/m² while its
+  hourly and daily `Q` is J/cm², so one name was covering two quantities that no unit conversion
+  relates without the accumulation interval. Queries using the old names against these providers
+  need to switch to the `_intensity` names; DWD and every other provider are unaffected
+- **Breaking**: Geosphere 10-minute and hourly radiation is now returned as published rather than
+  silently rescaled. `cglo` and `chim` are irradiance in W/m², but the parser multiplied them by
+  the interval length (600/10000 and 3600/10000) to present them as irradiation in J/cm² under the
+  `radiation_global` and `radiation_sky_short_wave_diffuse` names. That conversion is removed and
+  the three declarations moved to `radiation_global_intensity` and
+  `radiation_sky_short_wave_diffuse_intensity` in W/m². Values are correspondingly 16.67× (10
+  minutes) and 2.78× (hourly) larger; multiply by 0.06 and 0.36 respectively to recover the old
+  numbers. Daily and monthly are unaffected — they use `cglo_j`, a distinct upstream parameter
+  genuinely accumulated over the interval, and keep `radiation_global` in J/cm². This was the only
+  in-parser unit conversion left in the library
+- **Breaking**: Météo-France synop `visibility_range` was the only declaration of that parameter
+  using `length_long`, so it was returned in km while all 15 other declarations return m. It now
+  uses `length_medium` and returns m
+- Docs: provider metadata tables no longer repeat the `unit type` column. The unit type is a
+  property of the canonical parameter, so it is stated once in the glossary; the `unit` column
+  stays, because that really is the individual provider's own
+- Fixed nine provider docs rows that named parameters renamed in the code but not in the docs
+  (`*_indicator` → `*_index` for DWD, `pressure_air_sl` → `pressure_air_sea_level` for
+  Geosphere/NWS, `pressure_air_sh` → `pressure_air_site` for NWS, `flow` → `discharge` for
+  Eaufrance)
+- Fixed `tests/test_docs.py::test_data_coverage`, which had been passing without checking anything
+  because its provider path pointed at `<root>/wetterdienst/provider` instead of `<root>/src/...`
 
 ### Removed
 
@@ -65,21 +121,53 @@ Types of changes:
 - `DwdObservationValues.DROPPABLE_COLUMNS`, which duplicated the parser's drop list and had already
   drifted from it. Dropping happens once, in the parser
 
-### Added
 
-- Every parameter of every provider now carries a description, 1681 of 1681, closing the last 508
-  gaps. 271 come from the source itself: MeteoSwiss publishes `ogd-smn_meta_parameters.csv` beside
-  the data, MET Norway has a Frost `/elements` endpoint, KNMI writes a `long_name` on every NetCDF
-  variable, FMI has an `observableProperty` metadata endpoint, and AEMET and SMHI describe their
-  fields in the payloads and listings they already serve (translated here from Spanish and
-  Swedish). The remaining 237 are the canonical sentence for the quantity, kept apart in
-  `DERIVED_DESCRIPTIONS` so generated text is never mistaken for a source's own wording. Sibling
-  prose is now borrowed only within a provider, never across: another source's specifics ("within
-  the last 12 hours") need not hold for the one borrowing them
-- The provider docs tables carry a `description` column for the 46 pages that had none, and 41 rows
-  for parameters that were declared but never listed at all
+- The `magnetic_field_intensity` and `wave_period` unit types. Each existed for exactly one
+  parameter, and both of those turned out to be mis-typed: WSV `current` is a bearing in degrees and
+  WSV `wave_period` is a duration in seconds, so neither unit type has anything left to describe
+- **Breaking**: the `Parameter` enum, exported from the package root. It listed the canonical
+  parameter names but could not be used to request them — `parameters=` accepts strings, tuples,
+  `ParameterModel` and `DatasetModel`, so passing a member raised
+  `AttributeError: 'Parameter' object has no attribute 'strip'`. It appeared in no example and no
+  documentation page, and its last internal uses are gone (see Changed). The canonical names live
+  in `wetterdienst.metadata.parameter_table`, which also carries each parameter's unit type and
+  description, and are discoverable through the new glossary endpoint, MCP tool and
+  `wetterdienst about glossary`. Callers who used it to spell a name should use the string directly
+- The `unit_type` key from provider metadata declarations — 1575 of them across 29 files. It is a
+  property of the measured quantity rather than of the provider, and restating it once per
+  declaration is what let the same canonical name pick different output units in different
+  providers. `ParameterModel.unit_type` now reads it from the canonical parameter table via the
+  parameter's `name`, and `ParameterModel` rejects the key outright so an override cannot creep
+  back in. All 1692 parameters resolve to exactly the same `unit_type` as before, so nothing
+  changes for users of the library — but a **third-party or custom provider metadata dict that
+  still declares `unit_type` will now fail to validate**, and should simply drop the key.
+  `discover()` and the REST and CLI responses report `unit_type` exactly as before. It is no
+  longer part of `ParameterModel.model_dump()`/`model_dump_json()`, since it is derived from the
+  parameter's `name` and emitting it per declaration would reintroduce at the serialization layer
+  the duplication this removes; look the name up in `wetterdienst.metadata.parameter_table`
+  instead
+- **Breaking**: five `Parameter` enum members that no provider declared, so no request could ever
+  return them: `HUMIDEX`, `PRECIPITATION_FREQUENCY`, `PRECIPITATION_HEIGHT_LIQUID_MAX`,
+  `TIME_WIND_GUST_MAX` and `TIME_WIND_GUST_MAX_1MILE_OR_1MIN`. The dead entries referencing two of
+  them in the interpolation membership lists went with them
+- Docs: `docs/data/provider/eccc/observation/annual.md`. ECCC's `annual` resolution was dropped
+  when observation values moved to the api.weather.gc.ca OGC API, and the docs still described it,
+  along with `humidex` under hourly. The ECCC observation overview also still described bulk CSV
+  downloads and four resolutions; corrected
+- Docs: the `pressure_air_sea` row from IMGW meteorology daily, a parameter that provider no
+  longer exposes
+- Unused `jsonschema` development dependency
 
 ### Fixed
+
+- **Breaking**: MET Norway's in-band codes are decoded rather than returned as measurements. Frost
+  states both in the element descriptions it publishes and then writes them into the value itself:
+  snow depth -1 is "no snow", which is a depth of zero rather than an absent one, and cloud cover
+  -3 and 9 both mean the cover could not be estimated. Being declared in eighths those two
+  converted to -0.375 and 1.125 of the sky, the second looking like a plausible reading rather than
+  a code. Snow depth -1 now returns 0, cloud cover -3 and 9 return null. Frost keeps the codes out
+  of its own monthly and annual means, so only the elements themselves are touched
+
 
 - **Breaking**: DWD hourly cloud cover no longer reports -0.125 of the sky. `cloud_cover_total`
   (`v_n`) and `cloud_cover_layer1` to `cloud_cover_layer4` (`v_sN_ns`) carry -1 where the sky could
@@ -132,7 +220,6 @@ Types of changes:
   `SOURCE_DESCRIPTIONS` and applied only where nothing else supplies one, so a derived sentence is
   never mistaken for a source's own wording
 
-### Fixed
 
 - 21 docs rows named a field the provider does not use. DWD MOSMIX and DMO documented low cloud
   cover as `n1` where the element is `nl`, DWD derived used the label "Anzahl Kühltage" where the
@@ -225,54 +312,6 @@ Types of changes:
   source's version of it. They appear in the docs glossary today; exposing them through the REST
   API, CLI and MCP is a separate change, since `discover()` reports name, unit type and unit only
 
-### Changed
-
-- The `Parameter` enum is no longer used inside the library. The three places that hard-coded
-  parameter names — `TimeseriesRequest.interpolatable_parameters`, interpolation's
-  occurrence-based set and the `ts_geo_station_distance` defaults — used it purely to spell a
-  lowercased string, and now spell the canonical name directly. All 186 references resolve to the
-  same 126/30/30 names as before. `test_internal_parameter_lists_are_canonical` replaces the
-  typo-safety the enum was providing, since a misspelled string would otherwise quietly mean "never
-  interpolated" or "keeps the default search radius" rather than failing
-
-- **Breaking**: irradiance (`power_per_area`) is now returned in W/m² rather than W/cm², so
-  affected values are 10⁴ times larger. W/m² is what WMO specifies and what every source in this
-  library actually publishes — MeteoSwiss global radiation now reads 0–1344 W/m² where it used to
-  read 0–0.1344 W/cm². Affects the 17 declarations using `power_per_area`: KNMI (10 minutes),
-  MeteoSwiss, met.no Frost and RMI. Set `ts_unit_targets={"power_per_area":
-  "watt_per_square_centimeter"}` to keep the old output. Irradiation (`energy_per_area`) is
-  unchanged and still returned in J/cm², which is the conventional unit for it
-- **Breaking**: KNMI (10 minutes), RMI, MeteoSwiss and met.no reported irradiance in W/m² under
-  the `radiation_global`, `radiation_sky_long_wave` and `radiation_sky_short_wave_diffuse` names,
-  which elsewhere mean irradiation in J/cm². These declarations moved to the new
-  `radiation_*_intensity` names. KNMI is the clearest case: its 10-minute `qg` is W/m² while its
-  hourly and daily `Q` is J/cm², so one name was covering two quantities that no unit conversion
-  relates without the accumulation interval. Queries using the old names against these providers
-  need to switch to the `_intensity` names; DWD and every other provider are unaffected
-- **Breaking**: Geosphere 10-minute and hourly radiation is now returned as published rather than
-  silently rescaled. `cglo` and `chim` are irradiance in W/m², but the parser multiplied them by
-  the interval length (600/10000 and 3600/10000) to present them as irradiation in J/cm² under the
-  `radiation_global` and `radiation_sky_short_wave_diffuse` names. That conversion is removed and
-  the three declarations moved to `radiation_global_intensity` and
-  `radiation_sky_short_wave_diffuse_intensity` in W/m². Values are correspondingly 16.67× (10
-  minutes) and 2.78× (hourly) larger; multiply by 0.06 and 0.36 respectively to recover the old
-  numbers. Daily and monthly are unaffected — they use `cglo_j`, a distinct upstream parameter
-  genuinely accumulated over the interval, and keep `radiation_global` in J/cm². This was the only
-  in-parser unit conversion left in the library
-- **Breaking**: Météo-France synop `visibility_range` was the only declaration of that parameter
-  using `length_long`, so it was returned in km while all 15 other declarations return m. It now
-  uses `length_medium` and returns m
-- Docs: provider metadata tables no longer repeat the `unit type` column. The unit type is a
-  property of the canonical parameter, so it is stated once in the glossary; the `unit` column
-  stays, because that really is the individual provider's own
-- Fixed nine provider docs rows that named parameters renamed in the code but not in the docs
-  (`*_indicator` → `*_index` for DWD, `pressure_air_sl` → `pressure_air_sea_level` for
-  Geosphere/NWS, `pressure_air_sh` → `pressure_air_site` for NWS, `flow` → `discharge` for
-  Eaufrance)
-- Fixed `tests/test_docs.py::test_data_coverage`, which had been passing without checking anything
-  because its provider path pointed at `<root>/wetterdienst/provider` instead of `<root>/src/...`
-
-### Fixed
 
 - DWD's layer cloud cover descriptions are correct. Its English sheet truncates `V_S1_NS` to "cloud
   cover of 1. laye" and then repeats that same string for `V_S2_NS`, so the second layer was
@@ -434,44 +473,6 @@ Types of changes:
 - DWD `cooling_degree_hour` (`Kuehlgradstunden`) was declared in degree days while it accumulates
   per hour, so a monthly total of 4179.8 °Ch was reported as 4179.8 °Cd — a figure no month can
   reach. It now uses the new `degree_hour` unit type. The values are unchanged
-
-### Removed
-
-- The `magnetic_field_intensity` and `wave_period` unit types. Each existed for exactly one
-  parameter, and both of those turned out to be mis-typed: WSV `current` is a bearing in degrees and
-  WSV `wave_period` is a duration in seconds, so neither unit type has anything left to describe
-- **Breaking**: the `Parameter` enum, exported from the package root. It listed the canonical
-  parameter names but could not be used to request them — `parameters=` accepts strings, tuples,
-  `ParameterModel` and `DatasetModel`, so passing a member raised
-  `AttributeError: 'Parameter' object has no attribute 'strip'`. It appeared in no example and no
-  documentation page, and its last internal uses are gone (see Changed). The canonical names live
-  in `wetterdienst.metadata.parameter_table`, which also carries each parameter's unit type and
-  description, and are discoverable through the new glossary endpoint, MCP tool and
-  `wetterdienst about glossary`. Callers who used it to spell a name should use the string directly
-- The `unit_type` key from provider metadata declarations — 1575 of them across 29 files. It is a
-  property of the measured quantity rather than of the provider, and restating it once per
-  declaration is what let the same canonical name pick different output units in different
-  providers. `ParameterModel.unit_type` now reads it from the canonical parameter table via the
-  parameter's `name`, and `ParameterModel` rejects the key outright so an override cannot creep
-  back in. All 1692 parameters resolve to exactly the same `unit_type` as before, so nothing
-  changes for users of the library — but a **third-party or custom provider metadata dict that
-  still declares `unit_type` will now fail to validate**, and should simply drop the key.
-  `discover()` and the REST and CLI responses report `unit_type` exactly as before. It is no
-  longer part of `ParameterModel.model_dump()`/`model_dump_json()`, since it is derived from the
-  parameter's `name` and emitting it per declaration would reintroduce at the serialization layer
-  the duplication this removes; look the name up in `wetterdienst.metadata.parameter_table`
-  instead
-- **Breaking**: five `Parameter` enum members that no provider declared, so no request could ever
-  return them: `HUMIDEX`, `PRECIPITATION_FREQUENCY`, `PRECIPITATION_HEIGHT_LIQUID_MAX`,
-  `TIME_WIND_GUST_MAX` and `TIME_WIND_GUST_MAX_1MILE_OR_1MIN`. The dead entries referencing two of
-  them in the interpolation membership lists went with them
-- Docs: `docs/data/provider/eccc/observation/annual.md`. ECCC's `annual` resolution was dropped
-  when observation values moved to the api.weather.gc.ca OGC API, and the docs still described it,
-  along with `humidex` under hourly. The ECCC observation overview also still described bulk CSV
-  downloads and four resolutions; corrected
-- Docs: the `pressure_air_sea` row from IMGW meteorology daily, a parameter that provider no
-  longer exposes
-- Unused `jsonschema` development dependency
 
 ## [0.132.0] - 2026-08-04
 
