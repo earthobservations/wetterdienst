@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Explorer]` Plotly, at 1.0 MB the largest chunk in the build, was fetched and parsed as soon as
+  the data viewer mounted -- before any chart existed, and regardless of the view mode, which
+  defaults to the table. It is fetched the first time a chart is actually rendered now, so opening
+  Explorer and reading the table no longer pays for it. Explorer is the only page that mounts the
+  data viewer, which is why it alone felt slow to appear
+
 ### Changed
 
 - `[Parameter selection]` Follow the nested shape `GET /api/coverage` now returns. Datasets were
