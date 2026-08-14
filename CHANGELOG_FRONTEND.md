@@ -30,9 +30,18 @@ Types of changes:
   Measured in a browser against a local build: one request where there were two. Changing
   parameters with a picker open refetches explicitly, which the automatic watch used to cover --
   without it an expanded map lost its markers and stayed empty until it was reopened
+- `[Explorer]` The parameter `<datalist>` was rendered inside the `v-for` over distance rows, so
+  every row repeated the same element id. It is emitted once for all of them now
 
 ### Changed
 
+- `[Explorer]` The settings drawer held the app's only raw form controls -- seven `<input>` and one
+  `<select>` with hand-maintained borders, padding and `dark:` variants, and none of the focus or
+  accessibility behaviour the rest of the app gets from the design system. They are `UInputNumber`,
+  `UInput` and `USelect` now, with min/max/step as real props, and the parameter-name field marks
+  an unknown parameter with `highlight` rather than open-coded red border classes
+- `[Glossary/Forecast/Widget]` Empty and no-data states use `UEmpty` instead of three differently
+  styled paragraphs of muted text; the glossary shows a real loading state while fetching
 - `[Parameter selection]` Follow the nested shape `GET /api/coverage` now returns. Datasets were
   listed with `Object.keys()` over the resolution, which answers `["description", "datasets"]`
   under the new shape, and the dataset was indexed as a list of parameters. Both now read through
@@ -57,8 +66,6 @@ Types of changes:
   which the backend introduced for sources reporting irradiance (W/m²) rather than irradiation
   accumulated over the interval (J/cm²). Affects KNMI (10 minutes), MeteoSwiss, met.no, RMI and
   Geosphere (10 minutes and hourly), whose radiation parameters are served under the new names.
-
-### Fixed
 
 - `[All pages]` `cloud_cover_total_index` and `cloud_height` were labelled but no longer exist: the
   first was renamed `cloud_cover_total_measurement_method` upstream, the second has always been
