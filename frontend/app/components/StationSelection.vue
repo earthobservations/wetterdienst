@@ -54,6 +54,11 @@ const { data: stationsData, pending: stationsPending, error: stationsError, refr
       all: 'true',
     })),
     immediate: false,
+    // The query is reactive, and `useFetch` refetches on its own when it changes -- which,
+    // together with the explicit `refreshStations()` in `fetchStations`, fetched the whole
+    // station list twice. Fetching is driven explicitly here; a parameter change clears the
+    // list and resets `stationsLoaded`, so the next open refetches.
+    watch: false,
     default: () => ({ stations: [] }),
   },
 )
