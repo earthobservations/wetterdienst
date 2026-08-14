@@ -44,6 +44,7 @@
     "stripes": "Strisce climatiche",
     "history": "Cronologia",
     "api": "API",
+    "glossary": "Glossario",
     "support": "Supporto"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Data o intervallo di date (es. 2020-01-01/2020-12-31)",
       "format": "Formato di output (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Glossario",
+    "subtitle": "Che cosa misura ogni parametro e in quale unità vengono restituiti i valori",
+    "parametersTitle": "Parametri",
+    "searchPlaceholder": "Cerca nome o descrizione…",
+    "allUnitTypes": "Tutte le grandezze",
+    "loading": "Caricamento…",
+    "noResults": "Nessun parametro corrisponde alla ricerca.",
+    "count": "{count} di {total} parametri"
   },
   "meteogram": {
     "title": "Previsioni meteo",
@@ -478,6 +489,8 @@
     "facetByParameter": "Suddividi per parametro",
     "trendline": "Linea di tendenza",
     "emptyHint": "Seleziona parametri e stazioni, quindi fai clic su Mostra per caricare i dati",
+    "fetchError": "Caricamento dei dati non riuscito",
+    "fetchErrorToastTitle": "Richiesta dei dati non riuscita",
     "dataTitle": "Dati",
     "noChartData": "Nessun dato disponibile per il grafico",
     "rowsPerPage": "Righe per pagina",

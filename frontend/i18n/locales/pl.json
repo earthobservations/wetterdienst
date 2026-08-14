@@ -44,6 +44,7 @@
     "stripes": "Paski klimatyczne",
     "history": "Historia",
     "api": "API",
+    "glossary": "Słownik",
     "support": "Wsparcie"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Data lub zakres dat (np. 2020-01-01/2020-12-31)",
       "format": "Format wyjściowy (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Słownik",
+    "subtitle": "Co mierzy każdy parametr i w jakiej jednostce zwracane są wartości",
+    "parametersTitle": "Parametry",
+    "searchPlaceholder": "Szukaj nazwy lub opisu…",
+    "allUnitTypes": "Wszystkie wielkości",
+    "loading": "Ładowanie…",
+    "noResults": "Żaden parametr nie pasuje do wyszukiwania.",
+    "count": "{count} z {total} parametrów"
   },
   "meteogram": {
     "title": "Prognoza pogody",
@@ -478,6 +489,8 @@
     "facetByParameter": "Podziel według parametru",
     "trendline": "Linia trendu",
     "emptyHint": "Wybierz parametry i stacje, a następnie kliknij Pokaż, aby wczytać dane",
+    "fetchError": "Nie udało się wczytać danych",
+    "fetchErrorToastTitle": "Żądanie danych nie powiodło się",
     "dataTitle": "Dane",
     "noChartData": "Brak dostępnych danych do wykresu",
     "rowsPerPage": "Wiersze na stronę",

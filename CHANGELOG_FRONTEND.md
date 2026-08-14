@@ -29,11 +29,28 @@ Types of changes:
 
 ### Added
 
+- `[Glossary]` A page at `/glossary` listing every canonical parameter with what it measures and the
+  unit its values come back in, searchable by name or description and filterable by quantity. It
+  reads `GET /api/glossary`, which the backend has served all along without anything using it
+- Curated labels for the nine locales that had none. `cs`, `da`, `de-hh`, `es`, `fr`, `it`, `lb`,
+  `nl` and `pl` fell back to English before, since only `en.ts` and `de.ts` existed
+- Labels for the parameters the backend has since introduced: the cloud cover and visibility
+  measurement methods, the visibility class, the ground state, ice on the wet bulb, and the true
+  solar time offset
 - `[All pages]` Glossary labels for the new `radiation_global_intensity`,
   `radiation_sky_long_wave_intensity` and `radiation_sky_short_wave_diffuse_intensity` parameters,
   which the backend introduced for sources reporting irradiance (W/m²) rather than irradiation
   accumulated over the interval (J/cm²). Affects KNMI (10 minutes), MeteoSwiss, met.no, RMI and
   Geosphere (10 minutes and hourly), whose radiation parameters are served under the new names.
+
+### Fixed
+
+- `[All pages]` `cloud_cover_total_index` and `cloud_height` were labelled but no longer exist: the
+  first was renamed `cloud_cover_total_measurement_method` upstream, the second has always been
+  per-layer. Both labels silently stopped applying; they now name the parameters that exist
+- The i18n guard covered German and English only, while nine further catalogs went unchecked --
+  which is how `dataViewer.fetchError` and `dataViewer.fetchErrorToastTitle` came to be missing from
+  all nine. It now checks every locale, and the glossary catalogs too
 
 ## [0.12.1] - 2026-08-02
 

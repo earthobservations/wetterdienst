@@ -66,6 +66,12 @@ const items = computed<NavigationMenuItem[]>(() =>
       active: route.path.startsWith('/api'),
     },
     {
+      label: t('nav.glossary'),
+      icon: 'i-lucide-book-open',
+      to: '/glossary',
+      active: route.path.startsWith('/glossary'),
+    },
+    {
       label: t('nav.support'),
       icon: 'i-lucide-heart',
       to: '/support',

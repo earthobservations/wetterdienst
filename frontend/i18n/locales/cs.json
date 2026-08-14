@@ -44,6 +44,7 @@
     "stripes": "Klimatické pruhy",
     "history": "Historie",
     "api": "API",
+    "glossary": "Slovník",
     "support": "Podpora"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Datum nebo rozsah dat (např. 2020-01-01/2020-12-31)",
       "format": "Výstupní formát (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Slovník",
+    "subtitle": "Co každý parametr měří a v jaké jednotce se hodnoty vracejí",
+    "parametersTitle": "Parametry",
+    "searchPlaceholder": "Hledat název nebo popis…",
+    "allUnitTypes": "Všechny veličiny",
+    "loading": "Načítání…",
+    "noResults": "Hledání neodpovídá žádný parametr.",
+    "count": "{count} z {total} parametrů"
   },
   "meteogram": {
     "title": "Předpověď počasí",
@@ -478,6 +489,8 @@
     "facetByParameter": "Rozdělit podle parametru",
     "trendline": "Trendová čára",
     "emptyHint": "Vyberte parametry a stanice a poté kliknutím na Zobrazit načtěte data",
+    "fetchError": "Načtení dat se nezdařilo",
+    "fetchErrorToastTitle": "Požadavek na data selhal",
     "dataTitle": "Data",
     "noChartData": "Pro graf nejsou k dispozici žádná data",
     "rowsPerPage": "Řádků na stránku",

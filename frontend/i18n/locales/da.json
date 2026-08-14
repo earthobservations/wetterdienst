@@ -44,6 +44,7 @@
     "stripes": "Klimastriber",
     "history": "Historik",
     "api": "API",
+    "glossary": "Ordliste",
     "support": "Support"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Dato eller datointerval (f.eks. 2020-01-01/2020-12-31)",
       "format": "Outputformat (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Ordliste",
+    "subtitle": "Hvad hver parameter måler, og hvilken enhed værdierne returneres i",
+    "parametersTitle": "Parametre",
+    "searchPlaceholder": "Søg efter navn eller beskrivelse…",
+    "allUnitTypes": "Alle størrelser",
+    "loading": "Indlæser…",
+    "noResults": "Ingen parameter matcher din søgning.",
+    "count": "{count} af {total} parametre"
   },
   "meteogram": {
     "title": "Vejrudsigt",
@@ -478,6 +489,8 @@
     "facetByParameter": "Opdel efter parameter",
     "trendline": "Tendenslinje",
     "emptyHint": "Vælg parametre og stationer, og klik derefter på Vis for at indlæse data",
+    "fetchError": "Data kunne ikke indlæses",
+    "fetchErrorToastTitle": "Dataforespørgslen mislykkedes",
     "dataTitle": "Data",
     "noChartData": "Ingen data tilgængelige til diagrammet",
     "rowsPerPage": "Rækker pr. side",

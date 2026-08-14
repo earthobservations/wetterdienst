@@ -44,6 +44,7 @@
     "stripes": "Climate stripes",
     "history": "History",
     "api": "API",
+    "glossary": "Glossary",
     "support": "Support"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Date or date range (e.g., 2020-01-01/2020-12-31)",
       "format": "Output format (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Glossary",
+    "subtitle": "What each parameter measures, and the unit its values come back in",
+    "parametersTitle": "Parameters",
+    "searchPlaceholder": "Search name or description…",
+    "allUnitTypes": "All quantities",
+    "loading": "Loading…",
+    "noResults": "No parameter matches your search.",
+    "count": "{count} of {total} parameters"
   },
   "meteogram": {
     "title": "Weather forecast",

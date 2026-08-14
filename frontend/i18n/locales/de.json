@@ -44,6 +44,7 @@
     "stripes": "Klimastreifen",
     "history": "Chronik",
     "api": "API",
+    "glossary": "Glossar",
     "support": "Unterstützen"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Datum oder Zeitraum (z. B. 2020-01-01/2020-12-31)",
       "format": "Ausgabeformat (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Glossar",
+    "subtitle": "Was jeder Parameter misst und in welcher Einheit die Werte zurückkommen",
+    "parametersTitle": "Parameter",
+    "searchPlaceholder": "Name oder Beschreibung suchen…",
+    "allUnitTypes": "Alle Größen",
+    "loading": "Wird geladen…",
+    "noResults": "Kein Parameter passt zur Suche.",
+    "count": "{count} von {total} Parametern"
   },
   "meteogram": {
     "title": "Wettervorhersage",

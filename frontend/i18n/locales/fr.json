@@ -44,6 +44,7 @@
     "stripes": "Bandes climatiques",
     "history": "Historique",
     "api": "API",
+    "glossary": "Glossaire",
     "support": "Aide"
   },
   "header": {
@@ -219,6 +220,16 @@
       "date": "Date ou plage de dates (p. ex. 2020-01-01/2020-12-31)",
       "format": "Format de sortie (json, csv, geojson, html)"
     }
+  },
+  "glossary": {
+    "title": "Glossaire",
+    "subtitle": "Ce que mesure chaque paramètre et l'unité dans laquelle les valeurs sont renvoyées",
+    "parametersTitle": "Paramètres",
+    "searchPlaceholder": "Rechercher un nom ou une description…",
+    "allUnitTypes": "Toutes les grandeurs",
+    "loading": "Chargement…",
+    "noResults": "Aucun paramètre ne correspond à la recherche.",
+    "count": "{count} sur {total} paramètres"
   },
   "meteogram": {
     "title": "Prévisions météo",
@@ -478,6 +489,8 @@
     "facetByParameter": "Diviser par paramètre",
     "trendline": "Ligne de tendance",
     "emptyHint": "Sélectionnez des paramètres et des stations, puis cliquez sur Afficher pour charger les données",
+    "fetchError": "Échec du chargement des données",
+    "fetchErrorToastTitle": "La requête de données a échoué",
     "dataTitle": "Données",
     "noChartData": "Aucune donnée disponible pour le graphique",
     "rowsPerPage": "Lignes par page",
