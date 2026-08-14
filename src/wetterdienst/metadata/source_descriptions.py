@@ -46,6 +46,55 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("dynamic", "data", "H"): "Stage.",
         ("dynamic", "data", "Q"): "Flow.",
     },
+    "ChmiObservationMetadata": {
+        ("10_minutes", "data", "F"): "Wind speed at 10 m, measured every ten minutes.",
+        ("10_minutes", "data", "H"): "Relative humidity at 2 m, measured every ten minutes.",
+        ("10_minutes", "data", "P"): "Air pressure at station level, measured every ten minutes.",
+        ("10_minutes", "data", "T"): "Air temperature at 2 m, measured every ten minutes.",
+        ("annual", "data", "SRA"): "Precipitation, read at 06:00 each day.",
+        ("annual", "data", "T"): (
+            "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+        ),
+        ("annual", "data", "TMA"): "Maximum air temperature at 2 m, read at 20:00 each day.",
+        ("annual", "data", "TMI"): "Minimum air temperature at 2 m, read at 20:00 each day.",
+        ("daily", "data", "F"): (
+            "Wind speed at 10 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+        ),
+        ("daily", "data", "Fmax"): "Maximum wind speed at 10 m.",
+        ("daily", "data", "H"): (
+            "Relative humidity at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+        ),
+        ("daily", "data", "P"): (
+            "Air pressure at station level, the daily value being the average of the 06:00, 13:00 and "
+            "20:00 observations."
+        ),
+        ("daily", "data", "SCE"): "Snow depth at ground level, read at 06:00.",
+        ("daily", "data", "SRA"): "Precipitation, read at 06:00.",
+        ("daily", "data", "SSV"): "Sunshine duration, in hours.",
+        ("daily", "data", "T"): (
+            "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+        ),
+        ("daily", "data", "TMA"): "Maximum air temperature at 2 m, read at 20:00.",
+        ("daily", "data", "TMI"): "Minimum air temperature at 2 m, read at 20:00.",
+        ("hourly", "data", "P"): "Air pressure at station level.",
+        ("hourly", "data", "SRA1H"): "Precipitation over one hour.",
+        ("hourly", "data", "Td"): "Dew point temperature at 2 m.",
+        ("monthly", "data", "SRA"): "Precipitation, read at 06:00 each day.",
+        ("monthly", "data", "T"): (
+            "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+        ),
+        ("monthly", "data", "TMA"): "Maximum air temperature at 2 m, read at 20:00 each day.",
+        ("monthly", "data", "TMI"): "Minimum air temperature at 2 m, read at 20:00 each day.",
+    },
+    "DwdSwsmosMetadata": {
+        ("hourly", "data", "R650"): "Probability of precipitation > 5.0mm during the last 6 hours",
+        ("hourly", "data", "RR6"): "Total precipitation during the last 6 hours",
+        ("hourly", "data", "RRL1c"): (
+            "Total liquid precipitation during the last hour consistent with significant weather"
+        ),
+        ("hourly", "data", "TD"): "DewpointTemperature 2m above surface, measured in Kelvin",
+        ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours",
+    },
     "DwdDerivedMetadata": {
         ("hourly", "radiation_global", "qn_952"): "Quality flag.",
         ("hourly", "sunshine_duration", "qn_952"): "Quality flag.",
@@ -146,6 +195,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "soil", "summe von vrws_ag"): "sum of evaporation height for winter wheat on sand",
     },
     "DwdDmoMetadata": {
+        ("hourly", "icon", "wwpd"): "Probability: Occurrence of any precipitation within the last 24 hours",
         ("hourly", "icon", "nl"): "Low cloud cover (lower than 2 km).",
         ("hourly", "icon_eu", "nl"): "Low cloud cover (lower than 2 km).",
         ("hourly", "icon", "dd"): "Wind direction",
@@ -313,6 +363,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "wwmh"): "Probability for fog within the last 12 hours",
     },
     "DwdMosmixMetadata": {
+        ("hourly", "large", "nl"): "Low cloud cover (lower than 2 km)",
+        ("hourly", "small", "nl"): "Low cloud cover (lower than 2 km)",
+        ("hourly", "large", "wwpd"): "Probability: Occurrence of any precipitation within the last 24 hours",
         ("hourly", "large", "dd"): "Wind direction",
         ("hourly", "large", "drr1"): "Duration of precipitation within the last hour",
         ("hourly", "large", "e_dd"): "Absolute error wind direction",
@@ -2154,14 +2207,8 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "cooling_degreehours_16", "Kuehltage"): "Number of days on which cooling was required.",
         ("monthly", "cooling_degreehours_18", "Kuehltage"): "Number of days on which cooling was required.",
     },
-    "DwdDmoMetadata": {
-        ("hourly", "icon", "wwpd"): "Probability of precipitation of any kind over the preceding 24 hours.",
-    },
-    "DwdMosmixMetadata": {
-        ("hourly", "large", "nl"): "Low cloud cover (lower than 2 km).",
-        ("hourly", "large", "wwpd"): "Probability of precipitation of any kind over the preceding 24 hours.",
-        ("hourly", "small", "nl"): "Low cloud cover (lower than 2 km).",
-    },
+    "DwdDmoMetadata": {},
+    "DwdMosmixMetadata": {},
     "DwdObservationMetadata": {
         ("10_minutes", "precipitation", "qn"): (
             "Quality flag published by the source for the values in the same dataset."
@@ -2273,47 +2320,9 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "wind", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
     },
     "DwdSwsmosMetadata": {
-        ("hourly", "data", "R650"): "Probability of precipitation > 5.0mm during the last 6 hours.",
         ("hourly", "data", "RC"): "Coded condition of the road surface, such as dry, wet or icy.",
-        ("hourly", "data", "RR6"): "Total precipitation during the last 6 hours.",
-        ("hourly", "data", "RRL1c"): "Depth of the liquid part of the precipitation.",
-        ("hourly", "data", "TD"): "Dewpoint 2m above surface.",
         ("hourly", "data", "TL"): "Temperature 2m above surface.",
         ("hourly", "data", "TS"): "Mean temperature of the ground surface.",
-        ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours.",
-    },
-    "ChmiObservationMetadata": {
-        ("10_minutes", "data", "F"): "Mean speed of the wind over the period.",
-        ("10_minutes", "data", "H"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("10_minutes", "data", "P"): "Air pressure as measured at station height.",
-        ("10_minutes", "data", "T"): "Mean air temperature at 2 m above ground.",
-        ("annual", "data", "SRA"): "Depth of precipitation collected over the period.",
-        ("annual", "data", "T"): "Mean air temperature at 2 m above ground.",
-        ("annual", "data", "TMA"): "Maximum air temperature at 2 m above ground.",
-        ("annual", "data", "TMI"): "Minimum air temperature at 2 m above ground.",
-        ("daily", "data", "F"): "Mean speed of the wind over the period.",
-        ("daily", "data", "Fmax"): "Speed of the strongest gust of the period.",
-        ("daily", "data", "H"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("daily", "data", "P"): "Air pressure as measured at station height.",
-        ("daily", "data", "SCE"): "Depth of the snow lying on the ground.",
-        ("daily", "data", "SRA"): "Depth of precipitation collected over the period.",
-        ("daily", "data", "SSV"): "Length of time the sun shone unobstructed.",
-        ("daily", "data", "T"): "Mean air temperature at 2 m above ground.",
-        ("daily", "data", "TMA"): "Maximum air temperature at 2 m above ground.",
-        ("daily", "data", "TMI"): "Minimum air temperature at 2 m above ground.",
-        ("hourly", "data", "P"): "Air pressure as measured at station height.",
-        ("hourly", "data", "SRA1H"): "Depth of precipitation collected over the period.",
-        ("hourly", "data", "Td"): (
-            "Dew point at 2 m above ground, the temperature at which the air would become saturated."
-        ),
-        ("monthly", "data", "SRA"): "Depth of precipitation collected over the period.",
-        ("monthly", "data", "T"): "Mean air temperature at 2 m above ground.",
-        ("monthly", "data", "TMA"): "Maximum air temperature at 2 m above ground.",
-        ("monthly", "data", "TMI"): "Minimum air temperature at 2 m above ground.",
     },
     "DmiObservationMetadata": {
         ("annual", "data", "acc_heating_degree_days_17"): (

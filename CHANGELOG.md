@@ -32,6 +32,13 @@ Types of changes:
 
 ### Changed
 
+- 34 more descriptions come from the source. CHMI publishes per-element metadata beside its csv
+  archive -- name, unit, sensor height and measurement schedule -- which gives all 25 of its
+  parameters, translated from Czech and carrying facts the canonical sentence cannot: its daily
+  temperature, humidity, pressure and wind speed are averages of the 06:00, 13:00 and 20:00
+  observations, its daily extremes are read at 20:00 and its snow depth at 06:00. DWD's
+  `MetElementDefinition.xml` covers nine more codes across swsmos, mosmix and dmo. 190 derived
+  descriptions remain
 - Resolution descriptions are written where the name underdetermines what arrives, and only there:
   Météo-France synop (SYNOP's native three-hourly interval), MET Norway's 6 hour, and the two
   `dynamic` networks, WSV and Hubeau, where the interval is a property of the station rather than
