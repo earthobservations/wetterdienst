@@ -54,8 +54,8 @@ jobs:
           cache-to: type=gha,mode=max
 
   # Computes the version/tags/labels once, shared by the per-platform build jobs
-  # and the final manifest-merge job. Both of those are release/nightly only, so this is too --
-  # on a pull request it would compute tags no remaining job reads.
+  # and the final manifest-merge job. Skipped on pull requests along with both of them, so it
+  # does not burn a runner computing tags no remaining job reads.
   docker_meta:
     needs: build_and_test_frontend
     runs-on: ubuntu-latest
@@ -97,10 +97,11 @@ jobs:
           echo "Tags:      ${{ steps.meta.outputs.tags }}"
           echo "Labels:    ${{ steps.meta.outputs.labels }}"
 
-  # Builds each platform natively on its own runner (no QEMU emulation) and
-  # pushes an untagged, digest-addressed image. Releases and the nightly schedule only --
-  # a pull request is checked by build_and_test_frontend above, which does not push, and a
-  # workflow_dispatch produces tags only when it is dispatched from a frontend-v* tag.
+  # Builds each platform natively on its own runner (no QEMU emulation) and pushes an untagged,
+  # digest-addressed image. Not on pull requests: those are checked by build_and_test_frontend
+  # above, which builds the same target without pushing. Every other event does run this --
+  # a workflow_dispatch from a branch included, though that one cannot get as far as deploying,
+  # since no tag is computed for it and the merge job fails on the empty tag list.
   # linux/arm64 under QEMU
   # emulation on an amd64 runner took ~17 minutes (mostly `pnpm run build`,
   # which is CPU-bound and emulates very poorly); native arm64 runners
