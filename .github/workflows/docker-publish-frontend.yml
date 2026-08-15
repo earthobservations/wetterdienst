@@ -53,6 +53,41 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # A build proves the image assembles, not that it boots. A missing runtime file, a bad CMD or
+      # a server that exits on start all produce an image that builds green and serves nothing, and
+      # this is the artifact that gets deployed -- so it is started and asked for a page first.
+      - name: Serve a page from the image
+        run: |
+          docker run -d --name wd-frontend -p 4000:4000 wd-frontend:test
+
+          for _ in $(seq 40); do
+            if curl -fsS -o index.html http://127.0.0.1:4000/; then
+              served=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ -z "${served:-}" ]; then
+            echo "::error::the image served nothing on :4000 within 80s"
+            docker logs wd-frontend
+            exit 1
+          fi
+
+          # 200 from something is not enough: it has to be our shell, with the client bundle
+          # mounted into it. SSR is off, so this page renders without the backend.
+          if ! grep -q '<title>Wetterdienst</title>' index.html || ! grep -q 'id="__nuxt"' index.html; then
+            echo "::error::the page served on :4000 is not the wetterdienst spa shell"
+            head -c 2000 index.html
+            docker logs wd-frontend
+            exit 1
+          fi
+
+      - name: Stop the image
+        if: always()
+        # cleanup must not turn a passing run red, nor mask why a failing one failed
+        run: docker rm -f wd-frontend || true
+
   # Computes the version/tags/labels once, shared by the per-platform build jobs
   # and the final manifest-merge job. Skipped on pull requests along with both of them, so it
   # does not burn a runner computing tags no remaining job reads.

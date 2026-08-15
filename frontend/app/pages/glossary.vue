@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GlossaryEntry } from '~~/shared/types/api'
+import type { GlossaryEntry } from '#shared/types/api'
 
 const { t, locale } = useI18n()
 const { parameterLabel } = useParameterLabel()
