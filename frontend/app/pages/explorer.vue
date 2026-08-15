@@ -25,13 +25,10 @@ const stationTableColumns = computed<TableColumn<Station>[]>(() => [
 const route = useRoute()
 const router = useRouter()
 
-// Friendly labels for unit types and units, reusing the shared settings/units
-// catalogs (e.g. "temperature" -> settings.unitTemperature, "degree_celsius"
-// -> units.degree_celsius).
-function unitTypeLabel(type: string): string {
-  const pascal = type.replace(/(?:^|_)(\w)/g, (_, c: string) => c.toUpperCase())
-  return t(`settings.unit${pascal}`)
-}
+// Friendly labels for units, reusing the shared catalog (e.g. "degree_celsius" -> units.degree_celsius).
+// Unit *types* come from the shared composable, which the glossary filter uses too.
+const { unitTypeLabel } = useUnitTypeLabel()
+
 function unitLabel(unit: string): string {
   return t(`units.${unit}`)
 }

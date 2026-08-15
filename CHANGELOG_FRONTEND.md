@@ -32,6 +32,36 @@ Types of changes:
   without it an expanded map lost its markers and stayed empty until it was reopened
 - `[Explorer]` The parameter `<datalist>` was rendered inside the `v-for` over distance rows, so
   every row repeated the same element id. It is emitted once for all of them now
+- `[All pages]` `cloud_cover_total_index` and `cloud_height` were labelled but no longer exist: the
+  first was renamed `cloud_cover_total_measurement_method` upstream, the second has always been
+  per-layer. Both labels silently stopped applying; they now name the parameters that exist
+- The i18n guard covered German and English only, while nine further catalogs went unchecked --
+  which is how `dataViewer.fetchError` and `dataViewer.fetchErrorToastTitle` came to be missing from
+  all nine. It now checks every locale, and the glossary catalogs too
+- `[All pages]` 464 of the 514 parameters the backend serves had no label and fell back to the
+  prettified raw id -- "Chlorid Concentration", "Soil Moisture Winterwheat Loamysilt 00cm 60cm" --
+  which reads as English whichever language was selected. All eleven catalogs now cover every
+  parameter, including the agrometeorological long tail
+- `[Glossary]` Parameters were listed in the order the API returns them, which is by raw id and
+  bears no relation to the order of the labels on screen once those are translated. They are sorted
+  by their label in the active language now, with the quantity filter's options likewise. The
+  comparison is a locale collator, not the default one: Czech treats "ch" as a letter sorting after
+  "h", German ignores the umlaut, and a code-point sort gets both wrong
+- `[Glossary]` The quantity filter listed the backend's own ids ("energy per area", "wind scale")
+  in every language, though translations existed for most of them. Six quantities had no label in
+  any language at all: degree hours, dimensionless, mass per volume, significant weather, turbidity
+  and wind scale. All twenty-three are named in all eleven languages now
+- `[Explorer/Glossary]` Four pairs of distinct parameters shared one label in all eleven languages,
+  so the picker showed two identical rows and one of each pair was labelled with the other's
+  meaning: `count_days_heating_degree` is a count of days, `heating_degree_day` the summed
+  temperature shortfall, and both read "Heating degree days". Same for the cooling day and cooling
+  hour pairs, which `dwd/derived` serves together, and for `temperature_air_2m` against
+  `temperature_air_mean_2m`, which `noaa/ghcn` serves together. The counts are named as counts now,
+  and the mean temperature as a mean
+- `[Glossary]` French, Spanish and Italian dropped the "soil" head noun from every covered soil
+  temperature, leaving "Température maximale sous gazon (20 cm)" indistinguishable in kind from an
+  air temperature. The head noun was dropped to avoid "Température du sol sous sol nu", but that
+  only repeats where the cover names the soil itself, so it is kept everywhere else now
 
 ### Changed
 
@@ -66,13 +96,6 @@ Types of changes:
   which the backend introduced for sources reporting irradiance (W/m²) rather than irradiation
   accumulated over the interval (J/cm²). Affects KNMI (10 minutes), MeteoSwiss, met.no, RMI and
   Geosphere (10 minutes and hourly), whose radiation parameters are served under the new names.
-
-- `[All pages]` `cloud_cover_total_index` and `cloud_height` were labelled but no longer exist: the
-  first was renamed `cloud_cover_total_measurement_method` upstream, the second has always been
-  per-layer. Both labels silently stopped applying; they now name the parameters that exist
-- The i18n guard covered German and English only, while nine further catalogs went unchecked --
-  which is how `dataViewer.fetchError` and `dataViewer.fetchErrorToastTitle` came to be missing from
-  all nine. It now checks every locale, and the glossary catalogs too
 
 ## [0.12.1] - 2026-08-02
 

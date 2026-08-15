@@ -95,7 +95,13 @@
     "unitDegreeDay": "Graddeeg",
     "unitConcentration": "Konzentratioun",
     "unitConductivity": "Leetfäegkeet",
-    "unitVolumePerTime": "Duerchfloss"
+    "unitVolumePerTime": "Duerchfloss",
+    "unitDegreeHour": "Gradstonnen",
+    "unitDimensionless": "Dimensiounslos / Index",
+    "unitMassPerVolume": "Mass pro Volumen",
+    "unitSignificantWeather": "Signifikant Wieder",
+    "unitTurbidity": "Tribheet",
+    "unitWindScale": "Wandskala"
   },
   "units": {
     "degree_celsius": "Grad Celsius (°C)",

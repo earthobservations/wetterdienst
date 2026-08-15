@@ -95,7 +95,13 @@
     "unitDegreeDay": "Degree days",
     "unitConcentration": "Concentration",
     "unitConductivity": "Conductivity",
-    "unitVolumePerTime": "Flow rate"
+    "unitVolumePerTime": "Flow rate",
+    "unitDegreeHour": "Degree hours",
+    "unitDimensionless": "Dimensionless / index",
+    "unitMassPerVolume": "Mass per volume",
+    "unitSignificantWeather": "Significant weather",
+    "unitTurbidity": "Turbidity",
+    "unitWindScale": "Wind scale"
   },
   "units": {
     "degree_celsius": "Degrees Celsius (°C)",

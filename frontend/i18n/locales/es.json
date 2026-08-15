@@ -95,7 +95,13 @@
     "unitDegreeDay": "Grados-día",
     "unitConcentration": "Concentración",
     "unitConductivity": "Conductividad",
-    "unitVolumePerTime": "Caudal"
+    "unitVolumePerTime": "Caudal",
+    "unitDegreeHour": "Grados-hora",
+    "unitDimensionless": "Adimensional / índice",
+    "unitMassPerVolume": "Masa por volumen",
+    "unitSignificantWeather": "Tiempo significativo",
+    "unitTurbidity": "Turbidez",
+    "unitWindScale": "Escala de viento"
   },
   "units": {
     "degree_celsius": "Grados Celsius (°C)",

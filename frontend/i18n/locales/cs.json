@@ -95,7 +95,13 @@
     "unitDegreeDay": "Denostupně",
     "unitConcentration": "Koncentrace",
     "unitConductivity": "Vodivost",
-    "unitVolumePerTime": "Průtok"
+    "unitVolumePerTime": "Průtok",
+    "unitDegreeHour": "Denostupňohodiny",
+    "unitDimensionless": "Bezrozměrné / index",
+    "unitMassPerVolume": "Hmotnost na objem",
+    "unitSignificantWeather": "Významné počasí",
+    "unitTurbidity": "Zákal",
+    "unitWindScale": "Stupnice větru"
   },
   "units": {
     "degree_celsius": "Stupně Celsia (°C)",

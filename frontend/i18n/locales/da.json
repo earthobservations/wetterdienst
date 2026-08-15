@@ -95,7 +95,13 @@
     "unitDegreeDay": "Graddage",
     "unitConcentration": "Koncentration",
     "unitConductivity": "Ledningsevne",
-    "unitVolumePerTime": "Vandføring"
+    "unitVolumePerTime": "Vandføring",
+    "unitDegreeHour": "Gradtimer",
+    "unitDimensionless": "Dimensionsløs / indeks",
+    "unitMassPerVolume": "Masse pr. volumen",
+    "unitSignificantWeather": "Signifikant vejr",
+    "unitTurbidity": "Turbiditet",
+    "unitWindScale": "Vindskala"
   },
   "units": {
     "degree_celsius": "Grader Celsius (°C)",

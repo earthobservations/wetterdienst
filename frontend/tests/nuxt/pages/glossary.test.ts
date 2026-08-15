@@ -65,4 +65,38 @@ describe('glossary Page', () => {
     const wrapper = await mountSuspended(GlossaryPage)
     expect(wrapper.text()).toContain('No parameter matches your search.')
   })
+
+  it('lists parameters by their label, not by the raw id the api orders them by', async () => {
+    clearNuxtData()
+    // served in id order, which is the opposite of the label order: sunshine_duration labels as
+    // "Sunshine duration" and temperature_air_mean_2m as "Mean air temperature (2 m)". Without the
+    // sort the page would hand them back in the order received, so this fails.
+    served = [...entries].reverse()
+    expect(served.map(entry => entry.name)).toEqual(['sunshine_duration', 'temperature_air_mean_2m'])
+
+    const wrapper = await mountSuspended(GlossaryPage)
+    const shown = (wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)
+    expect(shown).toEqual(['temperature_air_mean_2m', 'sunshine_duration'])
+  })
+
+  // last, because it serves a third entry and the `useFetch` cache is shared across these mounts
+  it('names the quantity filter in the ui language, not the backend id', async () => {
+    // the options were built with `type.replace(/_/g, ' ')`, so every locale read the raw english
+    // id -- "energy per area", "wind scale" -- while translations for them already existed
+    clearNuxtData()
+    served = [...entries, {
+      name: 'radiation_global',
+      unit_type: 'energy_per_area',
+      unit: 'joule_per_square_centimeter',
+      unit_symbol: 'J/cm²',
+      description: 'Global radiation.',
+    }]
+    const wrapper = await mountSuspended(GlossaryPage)
+    // the options live in a popover that is not rendered until the select opens, so what the select
+    // is handed is what gets checked
+    const labels = ((wrapper.vm as any).unitTypeItems as { label: string }[]).map(item => item.label)
+    expect(labels).toContain('Energy per area')
+    expect(labels).not.toContain('energy per area')
+    expect(labels).toContain('Temperature')
+  })
 })

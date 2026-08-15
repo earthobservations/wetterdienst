@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import type { GlossaryEntry } from '~~/shared/types/api'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { parameterLabel } = useParameterLabel()
+const { unitTypeLabel } = useUnitTypeLabel()
+
+// Sorting the translated labels with the default comparison orders them by code point, which puts
+// German "Ökologie" after "Zenit" and Czech "Čas" last instead of first. A collator for the active
+// language puts each where a reader of that language looks for it.
+const collator = computed(() => new Intl.Collator(locale.value, { numeric: true }))
 
 // the whole vocabulary in one call -- around 500 entries, small enough to filter in the browser
 // and it saves a round trip per keystroke
@@ -12,16 +18,19 @@ const search = ref('')
 const unitType = ref<string | undefined>(undefined)
 
 const unitTypes = computed<string[]>(() =>
-  [...new Set((glossary.value ?? []).map(entry => entry.unit_type))].sort(),
+  [...new Set((glossary.value ?? []).map(entry => entry.unit_type))],
 )
 const unitTypeItems = computed(() => [
   { label: t('glossary.allUnitTypes'), value: undefined },
-  ...unitTypes.value.map(type => ({ label: type.replace(/_/g, ' '), value: type })),
+  // by the label the reader sees, not the backend id it is built from
+  ...unitTypes.value
+    .map(type => ({ label: unitTypeLabel(type), value: type }))
+    .sort((a, b) => collator.value.compare(a.label, b.label)),
 ])
 
 const entries = computed<GlossaryEntry[]>(() => {
   const term = search.value.trim().toLowerCase()
-  return (glossary.value ?? []).filter((entry) => {
+  const matching = (glossary.value ?? []).filter((entry) => {
     if (unitType.value && entry.unit_type !== unitType.value)
       return false
     if (!term)
@@ -32,6 +41,9 @@ const entries = computed<GlossaryEntry[]>(() => {
       || parameterLabel(entry.name).toLowerCase().includes(term)
       || entry.description.toLowerCase().includes(term)
   })
+  // the API returns them ordered by raw id, which bears no relation to the order of the labels on
+  // screen once those are translated
+  return matching.sort((a, b) => collator.value.compare(parameterLabel(a.name), parameterLabel(b.name)))
 })
 </script>
 

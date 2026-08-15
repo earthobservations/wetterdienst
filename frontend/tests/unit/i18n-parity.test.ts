@@ -35,6 +35,51 @@ function glossaryKeys(locale: string, name: string): string[] {
   return [...block.matchAll(/^ {2}'?([a-z0-9_]+)'?:/gm)].map(match => match[1] as string).sort()
 }
 
+describe('unit type labels', () => {
+  // The glossary filter and the Explorer unit-target rows name the quantity a parameter is measured
+  // in. Six of the backend's types had no label at all and fell through to the raw id, so the filter
+  // read "energy per area" and "wind scale" in every language. This list is a copy of what the
+  // backend serves via GET /api/glossary, so it holds all eleven locales to the same set -- but a
+  // quantity added upstream would be missing from this copy too. tests/test_frontend_i18n.py checks
+  // that direction against `UnitConverter().targets` itself.
+  const unitTypes = [
+    'angle',
+    'concentration',
+    'conductivity',
+    'degree_day',
+    'degree_hour',
+    'dimensionless',
+    'energy_per_area',
+    'fraction',
+    'length_long',
+    'length_medium',
+    'length_short',
+    'mass_per_volume',
+    'power_per_area',
+    'precipitation',
+    'precipitation_intensity',
+    'pressure',
+    'significant_weather',
+    'speed',
+    'temperature',
+    'time',
+    'turbidity',
+    'volume_per_time',
+    'wind_scale',
+  ]
+
+  /** `energy_per_area` -> `unitEnergyPerArea`, the key `useUnitTypeLabel` builds. */
+  function settingsKey(type: string): string {
+    return `unit${type.replace(/(?:^|_)(\w)/g, (_, c: string) => c.toUpperCase())}`
+  }
+
+  it.each(locales)('names every quantity in %s', (locale) => {
+    const settings = (load(locale).settings ?? {}) as Record<string, string>
+    const missing = unitTypes.filter(type => !settings[settingsKey(type)]?.trim())
+    expect(missing, `${locale} has no label for these unit types`).toEqual([])
+  })
+})
+
 describe('i18n catalog parity', () => {
   const english = flatten(load('en')).sort()
 
@@ -72,6 +117,15 @@ describe('glossary label parity', () => {
   it('ships a glossary for every ui locale', () => {
     // a locale without one silently falls back to english labels
     expect(glossaryLocales).toEqual(locales)
+  })
+
+  it('has not lost the labels it had', () => {
+    // Before these were curated, 464 of the 514 fell through to a prettified raw id -- "Chlorid
+    // Concentration" -- which reads as English in every language. This is a ratchet against
+    // deleting them again; it cannot notice a parameter *added* upstream, since the catalog and
+    // the number below would both stay put. That direction is checked from the backend, where the
+    // addition happens, by tests/test_frontend_i18n.py.
+    expect(glossaryKeys('en', 'parameters').length).toBeGreaterThanOrEqual(514)
   })
 
   it.each(records)('has the same %s in every glossary locale', (record) => {
