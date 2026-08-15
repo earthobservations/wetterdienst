@@ -98,13 +98,16 @@ jobs:
           echo "Labels:    ${{ steps.meta.outputs.labels }}"
 
   # Builds each platform natively on its own runner (no QEMU emulation) and
-  # pushes an untagged, digest-addressed image. linux/arm64 under QEMU
+  # pushes an untagged, digest-addressed image (release/nightly/manual only --
+  # a pull request is checked by build_and_test_frontend above, which does not
+  # push). linux/arm64 under QEMU
   # emulation on an amd64 runner took ~17 minutes (mostly `pnpm run build`,
   # which is CPU-bound and emulates very poorly); native arm64 runners
   # (free for public repos: https://github.blog/changelog/2025-08-07-arm64-hosted-runners-for-public-repositories-are-now-generally-available/)
   # build at native speed instead.
   docker_frontend_build:
     needs: docker_meta
+    if: ${{ github.event_name != 'pull_request' }}
     strategy:
       fail-fast: false
       matrix:
@@ -163,9 +166,12 @@ jobs:
           retention-days: 1
 
   # Combines the per-platform digests into a single multi-arch manifest under
-  # the real tags, then deploys.
+  # the real tags, then deploys. Not on pull requests: the last step calls the Coolify deploy
+  # hook, which redeploys the live site, and a proposed change must not do that. The backend
+  # workflow guards its publish jobs the same way.
   docker_frontend_merge:
     needs: [ docker_meta, docker_frontend_build ]
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
