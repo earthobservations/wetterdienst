@@ -54,11 +54,12 @@ jobs:
           cache-to: type=gha,mode=max
 
   # Computes the version/tags/labels once, shared by the per-platform build jobs
-  # and the final manifest-merge job.
+  # and the final manifest-merge job. Both of those are release/nightly only, so this is too --
+  # on a pull request it would compute tags no remaining job reads.
   docker_meta:
     needs: build_and_test_frontend
     runs-on: ubuntu-latest
-    if: ${{ ! (startsWith(github.actor, 'dependabot') || github.event.pull_request.head.repo.fork ) }}
+    if: ${{ github.event_name != 'pull_request' && ! startsWith(github.actor, 'dependabot') }}
     outputs:
       tags: ${{ steps.meta.outputs.tags }}
       labels: ${{ steps.meta.outputs.labels }}
@@ -88,7 +89,6 @@ jobs:
             ghcr.io/${{ env.IMAGE_NAME_FRONTEND }}
           tags: |
             type=schedule,pattern=nightly
-            type=ref,event=pr
             type=semver,pattern={{version}},value=v${{ steps.version.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=v${{ steps.version.outputs.version }}
 
@@ -98,9 +98,10 @@ jobs:
           echo "Labels:    ${{ steps.meta.outputs.labels }}"
 
   # Builds each platform natively on its own runner (no QEMU emulation) and
-  # pushes an untagged, digest-addressed image (release/nightly/manual only --
-  # a pull request is checked by build_and_test_frontend above, which does not
-  # push). linux/arm64 under QEMU
+  # pushes an untagged, digest-addressed image. Releases and the nightly schedule only --
+  # a pull request is checked by build_and_test_frontend above, which does not push, and a
+  # workflow_dispatch produces tags only when it is dispatched from a frontend-v* tag.
+  # linux/arm64 under QEMU
   # emulation on an amd64 runner took ~17 minutes (mostly `pnpm run build`,
   # which is CPU-bound and emulates very poorly); native arm64 runners
   # (free for public repos: https://github.blog/changelog/2025-08-07-arm64-hosted-runners-for-public-repositories-are-now-generally-available/)
