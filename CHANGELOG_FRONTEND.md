@@ -62,6 +62,11 @@ Types of changes:
   temperature, leaving "Température maximale sous gazon (20 cm)" indistinguishable in kind from an
   air temperature. The head noun was dropped to avoid "Température du sol sous sol nu", but that
   only repeats where the cover names the soil itself, so it is kept everywhere else now
+- The production image never copied `frontend/shared`, though seven components import types from
+  it. Every one of those is an `import type`, which the transpiler strips before
+  resolving, so the image built regardless -- and would have kept building until the first value
+  exported from `shared/` turned one of those into a real import and broke the deploy instead. The
+  `dev` target copies the whole of `frontend/`, so only production was ever a step away from this
 
 ### Changed
 
