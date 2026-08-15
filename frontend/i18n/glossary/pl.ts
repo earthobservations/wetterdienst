@@ -8,7 +8,7 @@
  */
 
 export const parameters: Record<string, string> = {
-  temperature_air_mean_2m: 'Temperatura powietrza (2 m)',
+  temperature_air_mean_2m: 'Średnia temperatura powietrza (2 m)',
   temperature_air_mean_0_05m: 'Temperatura powietrza (5 cm)',
   temperature_air_max_2m: 'Temperatura maksymalna (2 m)',
   temperature_air_max_0_05m: 'Temperatura maksymalna (5 cm)',
@@ -209,8 +209,8 @@ export const parameters: Record<string, string> = {
   cloud_type_layer2: 'Rodzaj chmur, warstwa 2',
   cloud_type_layer3: 'Rodzaj chmur, warstwa 3',
   cloud_type_layer4: 'Rodzaj chmur, warstwa 4',
-  count_days_cooling_degree: 'Stopniodni chłodzenia',
-  count_days_heating_degree: 'Stopniodni grzania',
+  count_days_cooling_degree: 'Liczba dni chłodzenia',
+  count_days_heating_degree: 'Liczba dni grzewczych',
   count_days_multiday_evaporation: 'Dni objęte sumą parowania',
   count_days_multiday_precipitation: 'Dni objęte sumą opadu',
   count_days_multiday_precipitation_height_gt_0mm: 'Dni objęte sumą opadu > 0 mm',
@@ -225,7 +225,7 @@ export const parameters: Record<string, string> = {
   count_days_valid_temperature_air_max_2m: 'Dni z prawidłową temperaturą maksymalną',
   count_days_valid_temperature_air_mean_2m: 'Dni z prawidłową temperaturą średnią',
   count_days_valid_temperature_air_min_2m: 'Dni z prawidłową temperaturą minimalną',
-  count_hours_cooling_degree: 'Stopniogodziny chłodzenia',
+  count_hours_cooling_degree: 'Liczba godzin chłodzenia',
   count_weather_type_dew: 'Dni z rosą',
   count_weather_type_fog: 'Dni z mgłą',
   count_weather_type_glaze: 'Dni z gołoledzią',

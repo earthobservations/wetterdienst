@@ -8,7 +8,7 @@
  */
 
 export const parameters: Record<string, string> = {
-  temperature_air_mean_2m: 'Lofttemperatur (2 m)',
+  temperature_air_mean_2m: 'Mëttler Lofttemperatur (2 m)',
   temperature_air_mean_0_05m: 'Lofttemperatur (5 cm)',
   temperature_air_max_2m: 'Maximaltemperatur (2 m)',
   temperature_air_max_0_05m: 'Maximaltemperatur (5 cm)',
@@ -209,8 +209,8 @@ export const parameters: Record<string, string> = {
   cloud_type_layer2: 'Wollekenaart, Schicht 2',
   cloud_type_layer3: 'Wollekenaart, Schicht 3',
   cloud_type_layer4: 'Wollekenaart, Schicht 4',
-  count_days_cooling_degree: 'Killgraddeeg',
-  count_days_heating_degree: 'Heizgraddeeg',
+  count_days_cooling_degree: 'Zuel vun de Killdeeg',
+  count_days_heating_degree: 'Zuel vun den Heizdeeg',
   count_days_multiday_evaporation: 'Deeg am Verdonstungswäert',
   count_days_multiday_precipitation: 'Deeg an der Nidderschlagssumm',
   count_days_multiday_precipitation_height_gt_0mm: 'Deeg an der Nidderschlagssumm > 0 mm',
@@ -225,7 +225,7 @@ export const parameters: Record<string, string> = {
   count_days_valid_temperature_air_max_2m: 'Deeg mat gëlteger Maximaltemperatur',
   count_days_valid_temperature_air_mean_2m: 'Deeg mat gëlteger Mëtteltemperatur',
   count_days_valid_temperature_air_min_2m: 'Deeg mat gëlteger Minimaltemperatur',
-  count_hours_cooling_degree: 'Killgradstonnen',
+  count_hours_cooling_degree: 'Zuel vun de Killstonnen',
   count_weather_type_dew: 'Deeg mat Tau',
   count_weather_type_fog: 'Deeg mat Niwwel',
   count_weather_type_glaze: 'Deeg mat Glatäis',

@@ -51,6 +51,17 @@ Types of changes:
   in every language, though translations existed for most of them. Six quantities had no label in
   any language at all: degree hours, dimensionless, mass per volume, significant weather, turbidity
   and wind scale. All twenty-three are named in all eleven languages now
+- `[Explorer/Glossary]` Four pairs of distinct parameters shared one label in all eleven languages,
+  so the picker showed two identical rows and one of each pair was labelled with the other's
+  meaning: `count_days_heating_degree` is a count of days, `heating_degree_day` the summed
+  temperature shortfall, and both read "Heating degree days". Same for the cooling day and cooling
+  hour pairs, which `dwd/derived` serves together, and for `temperature_air_2m` against
+  `temperature_air_mean_2m`, which `noaa/ghcn` serves together. The counts are named as counts now,
+  and the mean temperature as a mean
+- `[Glossary]` French, Spanish and Italian dropped the "soil" head noun from every covered soil
+  temperature, leaving "Température maximale sous gazon (20 cm)" indistinguishable in kind from an
+  air temperature. The head noun was dropped to avoid "Température du sol sous sol nu", but that
+  only repeats where the cover names the soil itself, so it is kept everywhere else now
 
 ### Changed
 

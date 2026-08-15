@@ -10,7 +10,7 @@
 
 export const parameters: Record<string, string> = {
   // Temperature
-  temperature_air_mean_2m: 'Air temperature (2 m)',
+  temperature_air_mean_2m: 'Mean air temperature (2 m)',
   temperature_air_mean_0_05m: 'Air temperature (5 cm)',
   temperature_air_max_2m: 'Maximum temperature (2 m)',
   temperature_air_max_0_05m: 'Maximum temperature (5 cm)',
@@ -262,8 +262,8 @@ export const parameters: Record<string, string> = {
   soil_moisture_winterwheat_loamysilt_00cm_60cm: 'Soil moisture, loamy silt under winter wheat (0-60 cm)',
   soil_moisture_winterwheat_sand_00cm_60cm: 'Soil moisture, sand under winter wheat (0-60 cm)',
   sunshine_duration_uncertainty: 'Sunshine duration, uncertainty',
-  count_days_cooling_degree: 'Cooling degree days',
-  count_days_heating_degree: 'Heating degree days',
+  count_days_cooling_degree: 'Number of cooling days',
+  count_days_heating_degree: 'Number of heating days',
   count_days_multiday_evaporation: 'Days covered by the evaporation total',
   count_days_multiday_precipitation: 'Days covered by the precipitation total',
   count_days_multiday_precipitation_height_gt_0mm: 'Days covered by the precipitation total > 0 mm',
@@ -278,7 +278,7 @@ export const parameters: Record<string, string> = {
   count_days_valid_temperature_air_max_2m: 'Days with a valid maximum temperature',
   count_days_valid_temperature_air_mean_2m: 'Days with a valid mean temperature',
   count_days_valid_temperature_air_min_2m: 'Days with a valid minimum temperature',
-  count_hours_cooling_degree: 'Cooling degree hours',
+  count_hours_cooling_degree: 'Number of cooling hours',
   count_weather_type_dew: 'Days with dew',
   count_weather_type_fog: 'Days with fog',
   count_weather_type_glaze: 'Days with glaze ice',

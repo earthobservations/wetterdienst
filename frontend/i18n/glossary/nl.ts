@@ -8,7 +8,7 @@
  */
 
 export const parameters: Record<string, string> = {
-  temperature_air_mean_2m: 'Luchttemperatuur (2 m)',
+  temperature_air_mean_2m: 'Gemiddelde luchttemperatuur (2 m)',
   temperature_air_mean_0_05m: 'Luchttemperatuur (5 cm)',
   temperature_air_max_2m: 'Maximumtemperatuur (2 m)',
   temperature_air_max_0_05m: 'Maximumtemperatuur (5 cm)',
@@ -209,8 +209,8 @@ export const parameters: Record<string, string> = {
   cloud_type_layer2: 'Wolkentype, laag 2',
   cloud_type_layer3: 'Wolkentype, laag 3',
   cloud_type_layer4: 'Wolkentype, laag 4',
-  count_days_cooling_degree: 'Koeldagen',
-  count_days_heating_degree: 'Graaddagen verwarming',
+  count_days_cooling_degree: 'Aantal koeldagen',
+  count_days_heating_degree: 'Aantal verwarmingsdagen',
   count_days_multiday_evaporation: 'Dagen in de verdampingssom',
   count_days_multiday_precipitation: 'Dagen in de neerslagsom',
   count_days_multiday_precipitation_height_gt_0mm: 'Dagen in de neerslagsom > 0 mm',
@@ -225,7 +225,7 @@ export const parameters: Record<string, string> = {
   count_days_valid_temperature_air_max_2m: 'Dagen met een geldige maximumtemperatuur',
   count_days_valid_temperature_air_mean_2m: 'Dagen met een geldige gemiddelde temperatuur',
   count_days_valid_temperature_air_min_2m: 'Dagen met een geldige minimumtemperatuur',
-  count_hours_cooling_degree: 'Koeluren',
+  count_hours_cooling_degree: 'Aantal koeluren',
   count_weather_type_dew: 'Dagen met dauw',
   count_weather_type_fog: 'Dagen met mist',
   count_weather_type_glaze: 'Dagen met ijzel',

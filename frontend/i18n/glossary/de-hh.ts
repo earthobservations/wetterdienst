@@ -8,7 +8,7 @@
  */
 
 export const parameters: Record<string, string> = {
-  temperature_air_mean_2m: 'Lufttemperatur (2 m)',
+  temperature_air_mean_2m: 'Middlere Lufttemperatur (2 m)',
   temperature_air_mean_0_05m: 'Lufttemperatur (5 cm)',
   temperature_air_max_2m: 'Hööchsttemperatur (2 m)',
   temperature_air_max_0_05m: 'Hööchsttemperatur (5 cm)',
@@ -244,8 +244,8 @@ export const parameters: Record<string, string> = {
   soil_moisture_winterwheat_loamysilt_00cm_60cm: 'Bodenfüchtigkeit, lehmigen Slick ünner Winterweten (0-60 cm)',
   soil_moisture_winterwheat_sand_00cm_60cm: 'Bodenfüchtigkeit, Sand ünner Winterweten (0-60 cm)',
   sunshine_duration_uncertainty: 'Sünnenschiendüer, Unsekerheit',
-  count_days_cooling_degree: 'Köhlgraddaag',
-  count_days_heating_degree: 'Heizgraddaag',
+  count_days_cooling_degree: 'Antall Köhldaag',
+  count_days_heating_degree: 'Antall Heizdaag',
   count_days_multiday_evaporation: 'Daag in\'n Verdunstenswert',
   count_days_multiday_precipitation: 'Daag in de Nedderslagssumm',
   count_days_multiday_precipitation_height_gt_0mm: 'Daag in de Nedderslagssumm > 0 mm',
@@ -260,7 +260,7 @@ export const parameters: Record<string, string> = {
   count_days_valid_temperature_air_max_2m: 'Daag mit gülliger Hööchsttemperatur',
   count_days_valid_temperature_air_mean_2m: 'Daag mit gülliger Middeltemperatur',
   count_days_valid_temperature_air_min_2m: 'Daag mit gülliger Sietsttemperatur',
-  count_hours_cooling_degree: 'Köhlgradstunnen',
+  count_hours_cooling_degree: 'Antall Köhlstunnen',
   count_weather_type_dew: 'Daag mit Dau',
   count_weather_type_fog: 'Daag mit Nevel',
   count_weather_type_glaze: 'Daag mit Glatties',

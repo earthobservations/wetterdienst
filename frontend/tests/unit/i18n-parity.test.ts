@@ -38,8 +38,10 @@ function glossaryKeys(locale: string, name: string): string[] {
 describe('unit type labels', () => {
   // The glossary filter and the Explorer unit-target rows name the quantity a parameter is measured
   // in. Six of the backend's types had no label at all and fell through to the raw id, so the filter
-  // read "energy per area" and "wind scale" in every language. This is the list the backend serves
-  // via GET /api/glossary; a new quantity there needs a label here.
+  // read "energy per area" and "wind scale" in every language. This list is a copy of what the
+  // backend serves via GET /api/glossary, so it holds all eleven locales to the same set -- but a
+  // quantity added upstream would be missing from this copy too. tests/test_frontend_i18n.py checks
+  // that direction against `UnitConverter().targets` itself.
   const unitTypes = [
     'angle',
     'concentration',
@@ -117,11 +119,12 @@ describe('glossary label parity', () => {
     expect(glossaryLocales).toEqual(locales)
   })
 
-  it('labels every parameter the backend serves', () => {
-    // Before this, 464 of the 514 fell through to a prettified raw id -- "Chlorid Concentration"
-    // -- which reads as English in every language. The count is asserted rather than the list, so
-    // adding a parameter upstream fails here instead of quietly regressing to the fallback.
-    // Refresh with: curl -s localhost:3000/api/glossary | jq 'map(.name) | unique | length'
+  it('has not lost the labels it had', () => {
+    // Before these were curated, 464 of the 514 fell through to a prettified raw id -- "Chlorid
+    // Concentration" -- which reads as English in every language. This is a ratchet against
+    // deleting them again; it cannot notice a parameter *added* upstream, since the catalog and
+    // the number below would both stay put. That direction is checked from the backend, where the
+    // addition happens, by tests/test_frontend_i18n.py.
     expect(glossaryKeys('en', 'parameters').length).toBeGreaterThanOrEqual(514)
   })
 

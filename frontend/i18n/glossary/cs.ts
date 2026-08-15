@@ -8,7 +8,7 @@
  */
 
 export const parameters: Record<string, string> = {
-  temperature_air_mean_2m: 'Teplota vzduchu (2 m)',
+  temperature_air_mean_2m: 'Průměrná teplota vzduchu (2 m)',
   temperature_air_mean_0_05m: 'Teplota vzduchu (5 cm)',
   temperature_air_max_2m: 'Maximální teplota (2 m)',
   temperature_air_max_0_05m: 'Maximální teplota (5 cm)',
@@ -309,8 +309,8 @@ export const parameters: Record<string, string> = {
   probability_wind_gust_ge_40kn_last_6h: 'Pravděpodobnost nárazů větru ≥ 40 kn (posledních 6 h)',
   probability_wind_gust_ge_55kn_last_12h: 'Pravděpodobnost nárazů větru ≥ 55 kn (posledních 12 h)',
   probability_wind_gust_ge_55kn_last_6h: 'Pravděpodobnost nárazů větru ≥ 55 kn (posledních 6 h)',
-  count_days_cooling_degree: 'Chladicí denostupně',
-  count_days_heating_degree: 'Topné denostupně',
+  count_days_cooling_degree: 'Počet chladicích dnů',
+  count_days_heating_degree: 'Počet topných dnů',
   count_days_multiday_evaporation: 'Dny zahrnuté v úhrnu výparu',
   count_days_multiday_precipitation: 'Dny zahrnuté v úhrnu srážek',
   count_days_multiday_precipitation_height_gt_0mm: 'Dny zahrnuté v úhrnu srážek > 0 mm',
@@ -325,7 +325,7 @@ export const parameters: Record<string, string> = {
   count_days_valid_temperature_air_max_2m: 'Dny s platnou maximální teplotou',
   count_days_valid_temperature_air_mean_2m: 'Dny s platnou průměrnou teplotou',
   count_days_valid_temperature_air_min_2m: 'Dny s platnou minimální teplotou',
-  count_hours_cooling_degree: 'Chladicí denostupňohodiny',
+  count_hours_cooling_degree: 'Počet chladicích hodin',
   count_weather_type_dew: 'Dny s rosou',
   count_weather_type_fog: 'Dny s mlhou',
   count_weather_type_glaze: 'Dny s ledovkou',

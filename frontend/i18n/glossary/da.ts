@@ -8,7 +8,7 @@
  */
 
 export const parameters: Record<string, string> = {
-  temperature_air_mean_2m: 'Lufttemperatur (2 m)',
+  temperature_air_mean_2m: 'Middellufttemperatur (2 m)',
   temperature_air_mean_0_05m: 'Lufttemperatur (5 cm)',
   temperature_air_max_2m: 'Maksimumtemperatur (2 m)',
   temperature_air_max_0_05m: 'Maksimumtemperatur (5 cm)',
@@ -309,8 +309,8 @@ export const parameters: Record<string, string> = {
   probability_wind_gust_ge_40kn_last_6h: 'Sandsynlighed for vindstød ≥ 40 kn (seneste 6 t)',
   probability_wind_gust_ge_55kn_last_12h: 'Sandsynlighed for vindstød ≥ 55 kn (seneste 12 t)',
   probability_wind_gust_ge_55kn_last_6h: 'Sandsynlighed for vindstød ≥ 55 kn (seneste 6 t)',
-  count_days_cooling_degree: 'Køledage',
-  count_days_heating_degree: 'Graddage til opvarmning',
+  count_days_cooling_degree: 'Antal køledage',
+  count_days_heating_degree: 'Antal opvarmningsdage',
   count_days_multiday_evaporation: 'Dage i fordampningssummen',
   count_days_multiday_precipitation: 'Dage i nedbørsummen',
   count_days_multiday_precipitation_height_gt_0mm: 'Dage i nedbørsummen > 0 mm',
@@ -325,7 +325,7 @@ export const parameters: Record<string, string> = {
   count_days_valid_temperature_air_max_2m: 'Dage med gyldig maksimumtemperatur',
   count_days_valid_temperature_air_mean_2m: 'Dage med gyldig middeltemperatur',
   count_days_valid_temperature_air_min_2m: 'Dage med gyldig minimumtemperatur',
-  count_hours_cooling_degree: 'Køletimer',
+  count_hours_cooling_degree: 'Antal køletimer',
   count_weather_type_dew: 'Dage med dug',
   count_weather_type_fog: 'Dage med tåge',
   count_weather_type_glaze: 'Dage med isslag',

@@ -63,7 +63,10 @@ describe('useParameterLabel', () => {
 
   it('maps known ids to friendly labels (en default locale in tests)', async () => {
     const wrapper = await mount()
-    expect(wrapper.vm.parameterLabel('temperature_air_mean_2m')).toBe('Air temperature (2 m)')
+    expect(wrapper.vm.parameterLabel('temperature_air_mean_2m')).toBe('Mean air temperature (2 m)')
+    // the two are distinct parameters -- noaa/ghcn daily/data serves both -- so they must not
+    // share a label, or the picker shows two identical rows
+    expect(wrapper.vm.parameterLabel('temperature_air_2m')).toBe('Air temperature (2 m)')
     expect(wrapper.vm.resolutionLabel('daily')).toBe('Daily')
     expect(wrapper.vm.datasetLabel('climate_summary')).toBe('Climate summary')
   })

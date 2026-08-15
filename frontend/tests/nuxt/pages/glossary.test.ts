@@ -69,8 +69,8 @@ describe('glossary Page', () => {
   it('lists parameters by their label, not by the raw id the api orders them by', async () => {
     clearNuxtData()
     // served in id order, which is the opposite of the label order: sunshine_duration labels as
-    // "Sunshine duration" and temperature_air_mean_2m as "Air temperature (2 m)". Without the sort
-    // the page would hand them back in the order received, so this fails.
+    // "Sunshine duration" and temperature_air_mean_2m as "Mean air temperature (2 m)". Without the
+    // sort the page would hand them back in the order received, so this fails.
     served = [...entries].reverse()
     expect(served.map(entry => entry.name)).toEqual(['sunshine_duration', 'temperature_air_mean_2m'])
 

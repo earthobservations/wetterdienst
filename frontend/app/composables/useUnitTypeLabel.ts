@@ -4,7 +4,8 @@
  *
  * The catalog keys are camelCased (`unitEnergyPerArea`), so the backend's snake_case is converted
  * rather than listed twice. A type with no entry falls back to its raw id with the underscores
- * removed, which is what the glossary filter used to show for every type in every language.
+ * turned into spaces -- "energy per area" -- which is what the glossary filter used to show for
+ * every type in every language.
  */
 export function useUnitTypeLabel() {
   const { t, te } = useI18n()

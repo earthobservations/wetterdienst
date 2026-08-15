@@ -10,7 +10,7 @@
 
 export const parameters: Record<string, string> = {
   // Temperature
-  temperature_air_mean_2m: 'Lufttemperatur (2 m)',
+  temperature_air_mean_2m: 'Mittlere Lufttemperatur (2 m)',
   temperature_air_mean_0_05m: 'Lufttemperatur (5 cm)',
   temperature_air_max_2m: 'Höchsttemperatur (2 m)',
   temperature_air_max_0_05m: 'Höchsttemperatur (5 cm)',
@@ -327,8 +327,8 @@ export const parameters: Record<string, string> = {
   probability_wind_gust_ge_40kn_last_6h: 'Wahrscheinlichkeit für Böen ≥ 40 kn (letzte 6 h)',
   probability_wind_gust_ge_55kn_last_12h: 'Wahrscheinlichkeit für Böen ≥ 55 kn (letzte 12 h)',
   probability_wind_gust_ge_55kn_last_6h: 'Wahrscheinlichkeit für Böen ≥ 55 kn (letzte 6 h)',
-  count_days_cooling_degree: 'Kühlgradtage',
-  count_days_heating_degree: 'Heizgradtage',
+  count_days_cooling_degree: 'Anzahl Kühltage',
+  count_days_heating_degree: 'Anzahl Heiztage',
   count_days_multiday_evaporation: 'Tage im Verdunstungswert',
   count_days_multiday_precipitation: 'Tage in der Niederschlagssumme',
   count_days_multiday_precipitation_height_gt_0mm: 'Tage in der Niederschlagssumme > 0 mm',
@@ -343,7 +343,7 @@ export const parameters: Record<string, string> = {
   count_days_valid_temperature_air_max_2m: 'Tage mit gültiger Höchsttemperatur',
   count_days_valid_temperature_air_mean_2m: 'Tage mit gültiger Mitteltemperatur',
   count_days_valid_temperature_air_min_2m: 'Tage mit gültiger Tiefsttemperatur',
-  count_hours_cooling_degree: 'Kühlgradstunden',
+  count_hours_cooling_degree: 'Anzahl Kühlstunden',
   count_weather_type_dew: 'Tage mit Tau',
   count_weather_type_fog: 'Tage mit Nebel',
   count_weather_type_glaze: 'Tage mit Glatteis',
