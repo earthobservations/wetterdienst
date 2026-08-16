@@ -23,6 +23,20 @@ test.describe('API proxy', () => {
     expect(await viaProxy.json()).toEqual(await direct.json())
   })
 
+  test('does not republish the backend\'s own response headers', async ({ request }) => {
+    // Streaming relays upstream response headers, which buffering never did. uvicorn sends
+    // `server: uvicorn` on every response, so this asserts against something the backend really
+    // emits rather than passing vacuously.
+    const viaProxy = await request.get('/api/coverage', { timeout: REQUEST_TIMEOUT })
+    expect(viaProxy.ok()).toBeTruthy()
+
+    const headers = viaProxy.headers()
+    expect(headers.server).not.toBe('uvicorn')
+    expect(headers['alt-svc']).toBeUndefined()
+    // The backend sets no cookies today; this guards the boundary if that ever changes.
+    expect(headers['set-cookie']).toBeUndefined()
+  })
+
   test('preserves the backend error status and FastAPI error shape', async ({ request }) => {
     // `/api/values` without parameters is a validation error. The proxy must not turn it into a
     // 500 or swallow `detail`, because the UI renders that field verbatim.
