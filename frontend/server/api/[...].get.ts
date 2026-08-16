@@ -41,14 +41,28 @@ export default defineEventHandler(async (event): Promise<unknown> => {
     return await sendProxy(event, url)
   }
   catch (error: unknown) {
-    // Only reached when the backend is unreachable -- `sendProxy` raises a 502 with no upstream
-    // response to forward, so we synthesize the FastAPI-compatible error shape ourselves.
-    const fetchError = error as { statusCode?: number, status?: number, message?: string }
+    // A failure part-way through the body cannot be reported as an error. `sendProxy` writes the
+    // status line with the first chunk, after which `setResponseStatus` is a no-op and h3 skips
+    // `res.end()` for an already-handled event -- leaving the client on a truncated 200 that hangs
+    // until it times out. Destroy the socket instead, so the transfer visibly breaks.
+    if (event.handled) {
+      event.node.res.destroy()
+      return
+    }
+
+    // Backend unreachable. h3 wraps the connection failure as a 502 whose `message` is the constant
+    // "Bad Gateway", so the diagnostic worth surfacing (ECONNREFUSED, DNS failure) is on `cause`.
+    const fetchError = error as {
+      statusCode?: number
+      status?: number
+      message?: string
+      cause?: { message?: string }
+    }
     const statusCode = fetchError?.statusCode || fetchError?.status || 502
     setResponseStatus(event, statusCode)
 
     return {
-      detail: fetchError?.message || 'An error occurred',
+      detail: fetchError?.cause?.message || fetchError?.message || 'An error occurred',
     } satisfies ApiErrorResponse
   }
 })
