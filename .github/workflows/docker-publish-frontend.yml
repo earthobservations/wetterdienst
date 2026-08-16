@@ -33,6 +33,9 @@ env:
 jobs:
   build_and_test_frontend:
     runs-on: ubuntu-latest
+    # a backstop under the 6h default: nothing here should take half an hour, and a job that hangs
+    # holds the concurrency group against every later push to the branch
+    timeout-minutes: 30
     steps:
       - name: Acquire sources
         uses: actions/checkout@v7
@@ -52,6 +55,46 @@ jobs:
           tags: wd-frontend:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # A build proves the image assembles, not that it boots. A missing runtime file, a bad CMD or
+      # a server that exits on start all produce an image that builds green and serves nothing, and
+      # this is the artifact that gets deployed -- so it is started and asked for a page first.
+      - name: Serve a page from the image
+        run: |
+          docker run -d --name wd-frontend -p 4000:4000 wd-frontend:test
+
+          # `--max-time` matters more than it looks: `-p` binds the host port the moment the
+          # container starts, so a server that accepts connections and then never answers -- one of
+          # the half-boots this step exists to catch -- would block the first curl indefinitely and
+          # hang the job rather than fail it. The deadline is wall clock for the same reason.
+          deadline=$((SECONDS + 90))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if curl -fsS --max-time 5 -o index.html http://127.0.0.1:4000/; then
+              served=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ -z "${served:-}" ]; then
+            echo "::error::the image served nothing on :4000 within 90s"
+            docker logs wd-frontend
+            exit 1
+          fi
+
+          # 200 from something is not enough: it has to be our shell, with the client bundle
+          # mounted into it. SSR is off, so this page renders without the backend.
+          if ! grep -q '<title>Wetterdienst</title>' index.html || ! grep -q 'id="__nuxt"' index.html; then
+            echo "::error::the page served on :4000 is not the wetterdienst spa shell"
+            head -c 2000 index.html
+            docker logs wd-frontend
+            exit 1
+          fi
+
+      - name: Stop the image
+        if: always()
+        # cleanup must not turn a passing run red, nor mask why a failing one failed
+        run: docker rm -f wd-frontend || true
 
   # Computes the version/tags/labels once, shared by the per-platform build jobs
   # and the final manifest-merge job. Skipped on pull requests along with both of them, so it

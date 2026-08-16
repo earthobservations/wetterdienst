@@ -32,6 +32,10 @@ COPY frontend/app ./app
 COPY frontend/i18n ./i18n
 COPY frontend/public ./public
 COPY frontend/server ./server
+# Seven components import from `shared/`. Every one of those is an `import type`, which the
+# transpiler strips before resolving, so the build survives without it -- until the first value
+# exported from there turns one of them into a real import and the image stops building.
+COPY frontend/shared ./shared
 COPY frontend/nuxt.config.ts ./
 
 RUN pnpm run build
