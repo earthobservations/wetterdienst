@@ -21,7 +21,9 @@ Types of changes:
 - `[API]` The API page documents the MCP endpoint the app has been serving unannounced: what it is,
   the URL, a ready-to-paste client configuration, and that it needs no key or account. The URL is
   built from the origin the page is served from rather than hard-coded, so a self-hosted or local
-  instance shows its own address and the snippet can be copied as-is
+  instance shows its own address and the snippet can be copied as-is. The card appears only when
+  the backend reports `mcp_enabled`: the endpoint is behind an optional extra, and an instance
+  installed without it would otherwise hand every visitor a client configuration pointing at a 404
 
 ### Fixed
 

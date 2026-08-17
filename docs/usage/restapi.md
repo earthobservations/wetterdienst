@@ -148,7 +148,14 @@ Point any MCP client (streamable HTTP) at that URL — for example:
 ```
 
 Without the `[mcp]` extra installed, the REST API behaves exactly as before and the `/mcp` route is
-simply absent.
+simply absent. `GET /api/version` says which of the two an instance is:
+
+```json
+{"version": "0.132.0", "mcp_enabled": true}
+```
+
+The app reads that flag before offering an MCP client configuration, so an instance installed
+without the extra is never advertised as having an endpoint it does not serve.
 
 ### Hosted instance
 

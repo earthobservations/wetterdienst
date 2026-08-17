@@ -1,6 +1,15 @@
 <script setup lang="ts">
 const { t } = useI18n()
 
+// Whether this backend serves an MCP endpoint at all: it lives behind the optional `[mcp]` extra,
+// so an instance installed without it has no /mcp route and must not be told to point a client at
+// one. The backend reports it next to its version, which is the only thing the card waits for.
+// `$fetch` rather than `useFetch`: the answer is a fact about the backend, not page state, and
+// `useFetch` would key it by URL and hand back whatever the app shell already cached for
+// /api/version -- which is the version, fetched before this page existed.
+const backend = await $fetch<{ version: string, mcp_enabled?: boolean }>('/api/version').catch(() => null)
+const mcpEnabled = computed(() => backend?.mcp_enabled === true)
+
 // The MCP endpoint is served on this app's own origin: the frontend proxies /mcp through to the
 // backend, preserving the streamable-HTTP transport. Reading the origin rather than hard-coding
 // the public URL means the snippet is also correct on a self-hosted or local instance.
@@ -117,7 +126,7 @@ const examples = [
       </ul>
     </UCard>
 
-    <UCard>
+    <UCard v-if="mcpEnabled">
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-bot" class="text-primary-500 shrink-0" />

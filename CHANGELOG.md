@@ -29,6 +29,11 @@ Types of changes:
   the last 12 hours") need not hold for the one borrowing them
 - The provider docs tables carry a `description` column for the 46 pages that had none, and 41 rows
   for parameters that were declared but never listed at all
+- `GET /api/version` reports `mcp_enabled` alongside the version. The MCP endpoint sits behind the
+  optional `[mcp]` extra, so whether `/mcp` exists is a property of the installation, and a client
+  had no way to find out short of probing `/mcp` -- which on the streamable-HTTP transport means
+  opening a session rather than asking a question. The index page has always known (it prints the
+  endpoint only when mounted); this exposes the same flag over JSON
 - 216 more parameters can be interpolated and summarized, 343 of 514 rather than 127. Soil
   temperature under a named cover and depth (114, NOAA GHCNd), forecast probabilities (65, MOSMIX
   and DMO), soil moisture (12, DWD's agrometeorological model), evaporation per crop and soil (6),
