@@ -218,6 +218,12 @@
       "stripesValues": "Klimasträifen-Wäerter (Temperatur)",
       "stripesImage": "Klimasträifen-Bild (Temperatur)"
     },
+    "mcpTitle": "MCP-Endpunkt",
+    "mcpText": "Wetterdienst schwätzt och d'Model Context Protocol, sou datt KI-Assistenten Wiederdaten als Tools ofruffe kënnen: eng Statioun fannen an duerno hir Miessunge liesen. Et ginn déiselwecht Endpunkten wéi hei uewen, iwwer den Streamable-HTTP-Transport.",
+    "mcpUrlLabel": "Endpunkt-URL",
+    "mcpClientLabel": "Client-Konfiguratioun",
+    "mcpNoAuth": "Keen API-Schlëssel a kee Kont néideg.",
+    "mcpDocs": "MCP-Dokumentatioun",
     "params": {
       "provider": "Datenubidder (z.B. dwd, noaa)",
       "network": "Datennetzwierk (z.B. observation, forecast)",

@@ -218,6 +218,12 @@
       "stripesValues": "Valeurs des bandes climatiques (température)",
       "stripesImage": "Image des bandes climatiques (température)"
     },
+    "mcpTitle": "Point d'accès MCP",
+    "mcpText": "Wetterdienst parle aussi le Model Context Protocol : les assistants IA peuvent interroger les données météo comme des outils — trouver une station, puis lire ses mesures. Les mêmes points d'accès que ci-dessus sont exposés, via le transport HTTP en flux.",
+    "mcpUrlLabel": "URL du point d'accès",
+    "mcpClientLabel": "Configuration du client",
+    "mcpNoAuth": "Aucune clé d'API ni compte n'est nécessaire.",
+    "mcpDocs": "Documentation MCP",
     "params": {
       "provider": "Fournisseur de données (p. ex. dwd, noaa)",
       "network": "Réseau de données (p. ex. observation, forecast)",

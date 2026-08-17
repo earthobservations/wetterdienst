@@ -1,6 +1,25 @@
 <script setup lang="ts">
 const { t } = useI18n()
 
+// Whether this backend serves an MCP endpoint at all: it lives behind the optional `[mcp]` extra,
+// so an instance installed without it has no /mcp route and must not be told to point a client at
+// one. The backend reports it next to its version, which is the only thing the card waits for.
+// `$fetch` rather than `useFetch`: the answer is a fact about the backend, not page state, and
+// `useFetch` would key it by URL and hand back whatever the app shell already cached for
+// /api/version -- which is the version, fetched before this page existed.
+const backend = await $fetch<{ version: string, mcp_enabled?: boolean }>('/api/version').catch(() => null)
+const mcpEnabled = computed(() => backend?.mcp_enabled === true)
+
+// The MCP endpoint is served on this app's own origin: the frontend proxies /mcp through to the
+// backend, preserving the streamable-HTTP transport. Reading the origin rather than hard-coding
+// the public URL means the snippet is also correct on a self-hosted or local instance.
+const mcpUrl = computed(() => `${useRequestURL().origin}/mcp`)
+const mcpClientConfig = computed(() => JSON.stringify(
+  { mcpServers: { wetterdienst: { url: mcpUrl.value } } },
+  null,
+  2,
+))
+
 const endpoints = [
   { name: 'coverage', path: '/api/coverage', descKey: 'api.endpoints.coverage' },
   { name: 'stations', path: '/api/stations', descKey: 'api.endpoints.stations' },
@@ -105,6 +124,41 @@ const examples = [
         <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">geojson</code> - {{ t('api.formatGeojson') }}</li>
         <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">html</code> - {{ t('api.formatHtml') }}</li>
       </ul>
+    </UCard>
+
+    <UCard v-if="mcpEnabled">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-bot" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('api.mcpTitle') }}
+          </h2>
+        </div>
+      </template>
+      <p class="text-gray-600 dark:text-gray-400 mb-4">
+        {{ t('api.mcpText') }}
+      </p>
+      <p class="text-gray-600 dark:text-gray-400 mb-2">
+        {{ t('api.mcpUrlLabel') }}
+      </p>
+      <pre class="bg-gray-100 dark:bg-gray-800 rounded p-3 mb-4 overflow-x-auto text-sm"><code>{{ mcpUrl }}</code></pre>
+      <p class="text-gray-600 dark:text-gray-400 mb-2">
+        {{ t('api.mcpClientLabel') }}
+      </p>
+      <pre class="bg-gray-100 dark:bg-gray-800 rounded p-3 mb-4 overflow-x-auto text-sm"><code>{{ mcpClientConfig }}</code></pre>
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        {{ t('api.mcpNoAuth') }}
+      </p>
+      <UButton
+        to="https://wetterdienst.readthedocs.io/en/latest/usage/restapi.html#mcp-endpoint"
+        target="_blank"
+        size="sm"
+        variant="link"
+        icon="i-lucide-book-open"
+        class="px-0"
+      >
+        {{ t('api.mcpDocs') }}
+      </UButton>
     </UCard>
 
     <UCard>

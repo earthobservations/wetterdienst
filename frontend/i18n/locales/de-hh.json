@@ -218,6 +218,12 @@
       "stripesValues": "Klimastreifen-Werte (Temperatur)",
       "stripesImage": "Klimastreifen-Bild (Temperatur)"
     },
+    "mcpTitle": "MCP-Endpunkt",
+    "mcpText": "Wetterdienst schnackt auch Model Context Protocol: KI-Assistenten können Wetterdaten als Werkzeuge abfragen – erst 'ne Station finden, dann ihre Messwerte lesen. Es gibt dieselben Endpunkte wie oben, über den Streamable-HTTP-Transport.",
+    "mcpUrlLabel": "Endpunkt-URL",
+    "mcpClientLabel": "Client-Konfiguration",
+    "mcpNoAuth": "Kein API-Schlüssel und kein Konto nötig.",
+    "mcpDocs": "MCP-Dokumentation",
     "params": {
       "provider": "Datenanbieter (z. B. dwd, noaa)",
       "network": "Datennetzwerk (z. B. observation, forecast)",

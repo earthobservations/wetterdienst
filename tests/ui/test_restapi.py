@@ -8,8 +8,9 @@ import pytest
 from dirty_equals import IsApprox, IsNumber, IsStr
 from starlette.testclient import TestClient
 
-from wetterdienst import Settings
+from wetterdienst import Settings, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
+from wetterdienst.ui import restapi
 from wetterdienst.ui.core import get_glossary
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 
@@ -53,6 +54,21 @@ def test_health(client: TestClient) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "OK"}
+
+
+def test_version(client: TestClient) -> None:
+    """Test that the version endpoint reports the version and whether MCP is served.
+
+    `mcp_enabled` is what the app reads before offering an MCP client configuration: the endpoint
+    is behind the optional `[mcp]` extra, so an instance without it must not be advertised as
+    having one. The value tracks `_mount_mcp`, which is why this asserts agreement with the module
+    flag rather than a fixed answer -- the test suite installs the extra, a bare install does not.
+    """
+    response = client.get("/api/version")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["version"] == __version__
+    assert data["mcp_enabled"] is restapi.mcp_enabled
 
 
 @pytest.mark.remote

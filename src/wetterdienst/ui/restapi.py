@@ -233,8 +233,15 @@ def health() -> JSONResponse:
 
 @app.get("/api/version")
 def version() -> JSONResponse:
-    """Get version information."""
-    return JSONResponse(content={"version": __version__})
+    """Get version information, and whether this instance serves an MCP endpoint.
+
+    `mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at
+    the bottom of this module, after the routes are declared. It is reported here because the
+    endpoint is optional -- an instance installed without the `[mcp]` extra has no `/mcp` route --
+    and a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP
+    transport means opening a session rather than asking a question.
+    """
+    return JSONResponse(content={"version": __version__, "mcp_enabled": mcp_enabled})
 
 
 # OAuth discovery endpoints. The `/mcp` server is open (no auth), so MCP clients such as Claude
