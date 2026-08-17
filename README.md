@@ -1,295 +1,167 @@
 # Wetterdienst - Open weather data for humans
 
-<p>
-  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/german_weather_stations.png" alt="German weather stations managed by Deutscher Wetterdienst" width="32%"/>
-  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/temperature_ts.png" alt="temperature timeseries of Hohenpeissenberg/Germany" width="32%"/>
-  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/hohenpeissenberg_warming_stripes.png" alt="warming stripes of Hohenpeissenberg/Germany" width="32%"/>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/hohenpeissenberg_warming_stripes.png" alt="Warming stripes of Hohenpeissenberg, Germany, drawn from data fetched with wetterdienst" width="100%"/>
 </p>
 
-
 > "What do we want? Climate Justice! When do we want it? Now!" - FFF
+
+[![CI status](https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/earthobservations/wetterdienst/actions?workflow=Tests)
+[![Documentation status](https://readthedocs.org/projects/wetterdienst/badge/?version=latest)](https://wetterdienst.readthedocs.io/en/latest/?badge=latest)
+[![Code coverage](https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg)](https://codecov.io/gh/earthobservations/wetterdienst)
+[![PyPI version](https://img.shields.io/pypi/v/wetterdienst.svg)](https://pypi.org/project/wetterdienst/)
+[![Conda version](https://img.shields.io/conda/vn/conda-forge/wetterdienst.svg)](https://anaconda.org/conda-forge/wetterdienst)
+[![Python version compatibility](https://img.shields.io/pypi/pyversions/wetterdienst.svg)](https://pypi.python.org/pypi/wetterdienst/)
+[![Project license](https://img.shields.io/github/license/earthobservations/wetterdienst)](https://github.com/earthobservations/wetterdienst/blob/main/LICENSE)
+[![PyPI downloads](https://static.pepy.tech/personalized-badge/wetterdienst?period=month&units=international_system&left_color=grey&right_color=blue&left_text=PyPI%20downloads/month)](https://pepy.tech/project/wetterdienst)
+[![Citation reference](https://zenodo.org/badge/160953150.svg)](https://zenodo.org/badge/latestdoi/160953150)
 
 > [!WARNING]
 > This library is a work in progress!
 > Breaking changes should be expected until a 1.0 release, so version pinning is recommended.
 
-### Badges
+Wetterdienst gives you weather, climate and hydrology data from 22 national services through one
+interface: one way to find a station, one way to ask for values, one shape of result. It is a
+[polars](https://www.pola.rs/)-based Python library, a command line client, a REST API, an MCP
+endpoint and a web app, all serving the same data.
 
-#### CI
+Contributions and feedback are very welcome — we do not use most of this data ourselves, so what
+you need is what tells us what to build next. Hand in an issue or a PR.
 
-[![CI status](https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/earthobservations/wetterdienst/actions?workflow=Tests)
-[![Documentation status](https://readthedocs.org/projects/wetterdienst/badge/?version=latest)](https://wetterdienst.readthedocs.io/en/latest/?badge=latest)
-[![Code coverage](https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg)](https://codecov.io/gh/earthobservations/wetterdienst)
+## What we support
 
-#### Meta
+| Provider                                                                                       | Country       | What you get                                                          |
+|------------------------------------------------------------------------------------------------|---------------|-----------------------------------------------------------------------|
+| [DWD](https://www.dwd.de/)                                                                     | 🇩🇪 Germany     | observations, MOSMIX/DMO forecasts, radar, warnings, road weather, derived indices |
+| [AEMET](https://www.aemet.es/)                                                                 | 🇪🇸 Spain       | observations (API key)                                                |
+| [CHMI](https://www.chmi.cz/)                                                                   | 🇨🇿 Czechia     | observations                                                          |
+| [DMI](https://www.dmi.dk/)                                                                     | 🇩🇰 Denmark     | observations, incl. Greenland and the Faroe Islands (API key)         |
+| [EA](https://environment.data.gov.uk/)                                                         | 🇬🇧 England     | hydrology                                                             |
+| [Eaufrance](https://hubeau.eaufrance.fr/)                                                      | 🇫🇷 France      | hydrology                                                             |
+| [ECCC](https://climate.weather.gc.ca/)                                                         | 🇨🇦 Canada      | observations                                                          |
+| [FMI](https://en.ilmatieteenlaitos.fi/)                                                        | 🇫🇮 Finland     | observations                                                          |
+| [GeoSphere](https://www.geosphere.at/)                                                         | 🇦🇹 Austria     | observations                                                          |
+| [IMGW](https://www.imgw.pl/)                                                                   | 🇵🇱 Poland      | meteorology, hydrology                                                |
+| [IPMA](https://www.ipma.pt/)                                                                   | 🇵🇹 Portugal    | observations                                                          |
+| [KNMI](https://www.knmi.nl/)                                                                   | 🇳🇱 Netherlands | observations (API key)                                                |
+| [LHMT](https://www.meteo.lt/)                                                                  | 🇱🇹 Lithuania   | observations                                                          |
+| [Met Office](https://www.metoffice.gov.uk/)                                                    | 🇬🇧 UK          | MIDAS Open observations (CEDA account)                                |
+| [Météo-France](https://meteofrance.com/)                                                       | 🇫🇷 France      | observations, SYNOP                                                   |
+| [MeteoSwiss](https://www.meteoswiss.admin.ch/)                                                 | 🇨🇭 Switzerland | observations                                                          |
+| [met.no](https://www.met.no/)                                                                  | 🇳🇴 Norway      | Frost observations (API key)                                          |
+| [NOAA](https://www.ncei.noaa.gov/)                                                             | 🌍 worldwide   | GHCN daily and hourly, stations across the globe                      |
+| [NWS](https://www.weather.gov/)                                                                | 🇺🇸 USA         | observations                                                          |
+| [RMI](https://www.meteo.be/)                                                                   | 🇧🇪 Belgium     | observations                                                          |
+| [SMHI](https://www.smhi.se/)                                                                   | 🇸🇪 Sweden      | observations                                                          |
+| [WSV](https://www.pegelonline.wsv.de/)                                                         | 🇩🇪 Germany     | hydrology (Pegelonline)                                               |
 
-[![PyPI version](https://img.shields.io/pypi/v/wetterdienst.svg)](https://pypi.org/project/wetterdienst/)
-[![Conda version](https://img.shields.io/conda/vn/conda-forge/wetterdienst.svg)](https://anaconda.org/conda-forge/wetterdienst)
-[![Project license](https://img.shields.io/github/license/earthobservations/wetterdienst)](https://github.com/earthobservations/wetterdienst/blob/main/LICENSE)
-[![Project status (alpha, beta, stable)](https://img.shields.io/pypi/status/wetterdienst.svg)](https://pypi.python.org/pypi/wetterdienst/)
-[![Python version compatibility](https://img.shields.io/pypi/pyversions/wetterdienst.svg)](https://pypi.python.org/pypi/wetterdienst/)
+Across those: **514 canonical parameters**, resolutions from **1 minute to annual**, and archives
+reaching back centuries where the service keeps them. Every provider is reached the same way, and a
+parameter means the same thing whichever service reports it — `temperature_air_mean_2m` is the mean
+air temperature at 2 m, converted to the same unit, everywhere.
 
-#### Downloads
-
-[![PyPI downloads](https://static.pepy.tech/personalized-badge/wetterdienst?period=month&units=international_system&left_color=grey&right_color=blue&left_text=PyPI%20downloads/month)](https://pepy.tech/project/wetterdienst)
-[![Conda downloads](https://img.shields.io/conda/dn/conda-forge/wetterdienst.svg?label=Conda%20downloads)](https://anaconda.org/conda-forge/wetterdienst)
-
-#### Citation
-
-[![Citation reference](https://zenodo.org/badge/160953150.svg)](https://zenodo.org/badge/latestdoi/160953150)
-
-## Overview
-
-Welcome to Wetterdienst, your friendly weather service library for Python.
-
-We are a group of like-minded people trying to make access to weather data in Python feel like a warm summer breeze,
-similar to other projects like [rdwd](https://github.com/brry/rdwd) for the R language, which originally drew our
-interest in this project. Our long-term goal is to provide access to multiple weather services as well as other related
-agencies such as river measurements. With ``wetterdienst`` we try to use modern Python technologies all over the place.
-The library is based on [polars](https://www.pola.rs/) (we <3 [pandas](https://pandas.pydata.org/), it is still part of
-some IO processes) across the board, uses [uv](https://github.com/astral-sh/uv) for package administration and GitHub
-Actions for all things CI. Our users are an important part of the development as we are not currently using the data we
-are providing and only implement what we think would be the best. Therefore, contributions and feedback whether it be
-data related or library related are very welcome! Just hand in a PR or Issue if you think we should include a new
-feature or data source.
-
-## Data
-
-For an overview of the data we have currently made available and under which license it is published take a look at the
-[data](https://wetterdienst.readthedocs.io/en/latest/data/index.html) section. Detailed information on datasets and
-parameters is given at the [coverage](https://wetterdienst.readthedocs.io/en/improve-documentation/data/coverage.html)
-subsection. Licenses and usage requirements may differ for each provider so check this out before including the data in
-your project to be sure that you fulfill copyright requirements!
-
-For a closer look on the DWD data, you can use
-the [interactive map](https://bookdown.org/brry/rdwd/interactive-map.html)
-or the [table](https://bookdown.org/brry/rdwd/available-datasets.html) provided by the `rdwd` package.
+Licenses and usage requirements differ per provider, so check the
+[data](https://wetterdienst.readthedocs.io/en/latest/data/index.html) chapter before you publish
+anything built on them. It also lists every dataset and parameter per provider.
 
 ## Features
 
-- APIs for stations, values and history (station metadata changes)
-- DWD weather alerts (CAP warnings) with GeoJSON geometry, on community or district basis
-- Get stations nearby a selected location
-- Define your request by arguments such as `parameters`, `periods`, `start date`, `end date`
-- Define general settings in Settings context
-- Command line interfaced
-- Modern app with interactive data explorer, settings interface, visualization and separate REST API, hosted
-  on [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
-- Optional MCP (Model Context Protocol) endpoint so LLM agents can query the data as tools
-- Run SQL queries on the results
-- Export results to databases and other data sinks
-- Public Docker image
-- Interpolation and Summary of station values
-
-## App
-
-The modern app provides an interactive interface for exploring weather data:
-
-- **Explorer**: Interactive data exploration with map-based station selection, parameter filtering, and real-time data
-  visualization
-- **Settings Interface**: Comprehensive controls for all backend API parameters including unit conversion, data shape,
-  interpolation options, and more
-- **Climate Stripes**: Visual representation of temperature trends over time
-- **Customization**: Theme color picker and dark mode support
-
-Visit the live instance at [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
+- Stations, values and station history (metadata changes) through one request model
+- Find stations by name, id, distance from a point, bounding box or rank
+- Request by `parameters`, `periods`, `start_date`, `end_date`; tune the rest through `Settings`
+- Unit conversion, interpolation and summarization for a point between stations
+- DWD weather alerts (CAP warnings) with GeoJSON geometry, by community or district
+- SQL queries over results, export to CSV/JSON/Excel/Parquet/Zarr and to SQLite, PostgreSQL,
+  CrateDB, InfluxDB and DuckDB
+- Command line client, REST API and a public Docker image
+- MCP (Model Context Protocol) endpoint, so LLM agents can query the data as tools
+- Web app with map-based explorer, forecasts, climate stripes and a glossary, at
+  [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
 
 ## Setup
 
-### Native
-
-Via PyPi (standard):
-
 ```bash
-pip install wetterdienst
+pip install wetterdienst           # from PyPI
+pip install wetterdienst[export]   # with an extra
+pip install git+https://github.com/earthobservations/wetterdienst  # most recent
 ```
 
-Via Github (most recent):
+Extras: `bufr`, `cratedb`, `duckdb`, `eccodes`, `excel`, `export`, `influxdb`, `interpolation`,
+`knmi`, `mcp`, `mysql`, `pdf`, `plotting`, `postgresql`, `radar`, `radarplus`, `restapi`, `sql`.
+Check the installation with `wetterdienst --help`.
 
-```bash
-pip install git+https://github.com/earthobservations/wetterdienst
-```
-
-There are some extras available for ``wetterdienst``. Use them like:
-
-```bash
-pip install wetterdienst[sql]
-```
-
-- cratedb: Install support for CrateDB.
-- duckdb: Install support for DuckDB.
-- export: Install openpyxl for Excel export and pyarrow for writing files in Feather- and Parquet-format.
-- influxdb: Install support for InfluxDB.
-- interpolation: Install support for station interpolation.
-- mysql: Install support for MySQL.
-- matplotlib: Install support for plotting (matplotlib), only used in radar examples.
-- pdf: Install support for PDF to get extra information on DWD Observation metadata.
-- plotting: Install support for plotting (plotly).
-- postgresql: Install support for PostgreSQL.
-- sql: Install DuckDB for querying data using SQL.
-
-To check the installation, invoke:
-
-```bash
-wetterdienst --help
-```
-
-### Docker
-
-Docker images for each stable release will get pushed to GitHub Container Registry.
-
-``wetterdienst`` serves a full environment, including *all* the optional dependencies of Wetterdienst.
-
-Pull the Docker image:
+Prefer Docker? The image ships with the optional dependencies included:
 
 ```bash
 docker pull ghcr.io/earthobservations/wetterdienst
+docker run -ti ghcr.io/earthobservations/wetterdienst wetterdienst --version
 ```
 
-#### Library
-
-Use the latest stable version of ``wetterdienst``:
-
-```bash
-$ docker run -ti ghcr.io/earthobservations/wetterdienst
-Python 3.8.5 (default, Sep 10 2020, 16:58:22)
-[GCC 8.3.0] on linux
-```
-
-```python
-import wetterdienst
-
-wetterdienst.__version__
-```
-
-#### Command line script
-
-The ``wetterdienst`` command is also available:
-
-```bash
-# Make an alias to use it conveniently from your shell.
-alias wetterdienst='docker run -ti ghcr.io/earthobservations/wetterdienst wetterdienst'
-
-wetterdienst --help
-wetterdienst --version
-wetterdienst info
-```
-
-### Raspberry Pi / LINUX ARM
-
-Running wetterdienst on Raspberry Pi, you need to install **numpy**
-and **lxml** prior to installing wetterdienst by running the following
-lines:
-
-```bash
-# not all installations may be required to get lxml running
-sudo apt-get install gfortran
-sudo apt-get install libopenblas-base
-sudo apt-get install libopenblas-dev
-sudo apt-get install libatlas-base-dev
-sudo apt-get install python3-lxml
-```
-
-Additionally expanding the Swap to 2048 mb may be required and can be done via swap-file:
-
-```bash
-sudo nano /etc/dphys-swapfile
-```
-
-Thanks [chr-sto](https://github.com/chr-sto) for reporting back to us!
+See the [Docker](https://wetterdienst.readthedocs.io/en/latest/usage/docker.html) chapter for
+running the REST API and the app from the image.
 
 ## Example
 
-### Task
-
-Get historical climate summary for two German stations between 1990 and 2020
-
-### Library
+Daily precipitation for Zinnwald-Georgenfeld, August 2002 — the flood:
 
 ```python
-from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-settings = Settings(  # default
-    ts_shape="long",  # tidy data
-    ts_humanize=True,  # humanized parameters
-    ts_convert_units=True  # convert values to SI units
-)
-
 request = DwdObservationRequest(
-    parameters=[
-        ("daily", "climate_summary", "precipitation_height"),
-    ],
-    start_date="2002-08-11",  # if not given timezone defaulted to UTC
-    end_date="2002-08-13",  # if not given timezone defaulted to UTC
-    settings=settings
+    parameters=[("daily", "climate_summary", "precipitation_height")],
+    start_date="2002-08-11",
+    end_date="2002-08-13",
 ).filter_by_station_id(station_id=(5779,))
 
-stations = request.df
-stations.head()
-# ┌────────────┬─────────────────┬────────────┬─────────────────────────┬───┬───────────┬────────┬──────────────────────┬─────────┐
-# │ resolution ┆ dataset         ┆ station_id ┆ start_date              ┆ … ┆ longitude ┆ height ┆ name                 ┆ state   │
-# │ ---        ┆ ---             ┆ ---        ┆ ---                     ┆   ┆ ---       ┆ ---    ┆ ---                  ┆ ---     │
-# │ str        ┆ str             ┆ str        ┆ datetime[μs, UTC]       ┆   ┆ f64       ┆ f64    ┆ str                  ┆ str     │
-# ╞════════════╪═════════════════╪════════════╪═════════════════════════╪═══╪═══════════╪════════╪══════════════════════╪═════════╡
-# │ daily      ┆ climate_summary ┆ 05779      ┆ 1971-01-01 00:00:00 UTC ┆ … ┆ 13.7516   ┆ 877.0  ┆ Zinnwald-Georgenfeld ┆ Sachsen │
-# └────────────┴─────────────────┴────────────┴─────────────────────────┴───┴───────────┴────────┴──────────────────────┴─────────┘
-
+request.df  # the station
 values = request.values.all().df
 values.head()
 # ┌────────────┬────────────┬─────────────────┬──────────────────────┬─────────────────────────┬───────┬─────────┐
 # │ station_id ┆ resolution ┆ dataset         ┆ parameter            ┆ date                    ┆ value ┆ quality │
-# │ ---        ┆ ---        ┆ ---             ┆ ---                  ┆ ---                     ┆ ---   ┆ ---     │
-# │ enum       ┆ enum       ┆ enum            ┆ enum                 ┆ datetime[μs, UTC]       ┆ f64   ┆ f64     │
 # ╞════════════╪════════════╪═════════════════╪══════════════════════╪═════════════════════════╪═══════╪═════════╡
 # │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_height ┆ 2002-08-11 00:00:00 UTC ┆ 67.9  ┆ 10.0    │
 # │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_height ┆ 2002-08-12 00:00:00 UTC ┆ 312.0 ┆ 10.0    │
 # │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_height ┆ 2002-08-13 00:00:00 UTC ┆ 26.3  ┆ 10.0    │
 # └────────────┴────────────┴─────────────────┴──────────────────────┴─────────────────────────┴───────┴─────────┘
 
-# to get a pandas DataFrame and e.g. create some matplotlib plots    
-values.to_pandas()
+values.to_pandas()  # if you would rather have pandas
 ```
 
-### Client
+The same thing from the command line:
 
 ```bash
-# Get list of all stations for daily climate summary data in JSON format
 wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all
-
-# Get daily climate summary data for specific stations
 wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --station=1048,4411
 ```
 
-### Other
+More in [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) and in the
+[usage](https://wetterdienst.readthedocs.io/en/latest/usage/) chapter.
 
-Checkout [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) for more examples.
+## Links
+
+- App: [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
+- Documentation: [wetterdienst.readthedocs.io](https://wetterdienst.readthedocs.io/)
+  ([usage](https://wetterdienst.readthedocs.io/en/latest/usage/),
+  [contribution](https://wetterdienst.readthedocs.io/en/latest/contribution/),
+  [changelog](https://wetterdienst.readthedocs.io/en/latest/changelog.html))
+- [Examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) and
+  [benchmarks](https://github.com/earthobservations/wetterdienst/tree/main/benchmarks)
 
 ## Acknowledgements
 
-We want to acknowledge all environmental agencies which provide their data open and free of charge first and foremost
-for the sake of endless research possibilities.
+We want to acknowledge all environmental agencies which provide their data open and free of charge
+first and foremost for the sake of endless research possibilities.
 
-We want to acknowledge all contributors for being part of the improvements to this library that make it better and
-better every day.
-
-## Important Links
-
-- App: https://wetterdienst.eobs.org/
-- Documentation: https://wetterdienst.readthedocs.io/
-
-    - Usage: https://wetterdienst.readthedocs.io/en/latest/usage/
-    - Contribution: https://wetterdienst.readthedocs.io/en/latest/contribution/
-    - Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html
-
-- Examples (runnable scripts): https://github.com/earthobservations/wetterdienst/tree/main/examples
-- Benchmarks: https://github.com/earthobservations/wetterdienst/tree/main/benchmarks
+We want to acknowledge all contributors for being part of the improvements to this library that make
+it better and better every day.
 
 ## Supported by
 
 [![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSourceSupport)
 
-Special thanks to the kind people at [JetBrains] s.r.o. for supporting us with
-excellent development tooling.
+Special thanks to the kind people at [JetBrains] s.r.o. for supporting us with excellent development
+tooling, and to [Anthropic] for a Claude Max subscription through their support programme for
+open-source maintainers.
 
 [JetBrains]: https://www.jetbrains.com/
+[Anthropic]: https://www.anthropic.com/
