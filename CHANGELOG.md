@@ -167,6 +167,12 @@ Types of changes:
 
 ### Fixed
 
+- `summarize()` searched for stations within 20 km whatever the parameter. It bounded its search
+  with `max(ts_geo_station_distance.values())`, and that mapping only holds entries for the
+  parameters that get the *shorter* radius — everything else is answered by the default factory and
+  so is not in `values()` at all. It now takes the widest radius among the requested parameters, as
+  interpolation already did, so a summary of e.g. `temperature_air_mean_2m` reaches the full 40 km
+  and finds stations it used to walk past
 - **Breaking**: MET Norway's in-band codes are decoded rather than returned as measurements. Frost
   states both in the element descriptions it publishes and then writes them into the value itself:
   snow depth -1 is "no snow", which is a depth of zero rather than an absent one, and cloud cover
