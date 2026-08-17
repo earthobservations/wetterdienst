@@ -128,6 +128,25 @@ test.describe('Support Page', () => {
   })
 })
 
+test.describe('About Page', () => {
+  test('should be reachable from the footer', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+
+    await page.getByRole('contentinfo').getByRole('link', { name: /about/i }).click()
+    await expect(page).toHaveURL(/\/about/)
+  })
+
+  test('should introduce the project and the maintainer', async ({ page }) => {
+    await page.goto('/about')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByRole('heading', { name: /About Wetterdienst/i })).toBeVisible()
+    await expect(page.getByText('Benjamin Gutzmann')).toBeVisible()
+    await expect(page.getByText('Andreas Motl')).toBeVisible()
+  })
+})
+
 test.describe('Impressum Page', () => {
   test('should navigate to impressum page', async ({ page }) => {
     // Go directly to impressum page instead of trying to find the link

@@ -248,6 +248,10 @@ const items = computed<NavigationMenuItem[]>(() =>
             <span>{{ t('footer.antifascist') }}</span>
           </span>
           <span class="text-gray-400">|</span>
+          <NuxtLink to="/about" class="text-gray-500 hover:text-primary-500 transition-colors">
+            {{ t('footer.about') }}
+          </NuxtLink>
+          <span class="text-gray-400">|</span>
           <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">
             {{ t('footer.legal') }}
           </NuxtLink>

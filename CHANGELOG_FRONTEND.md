@@ -24,6 +24,22 @@ Types of changes:
   instance shows its own address and the snippet can be copied as-is. The card appears only when
   the backend reports `mcp_enabled`: the endpoint is behind an optional extra, and an instance
   installed without it would otherwise hand every visitor a client configuration pointing at a 404
+- `[About]` A page at `/about` carrying what the home page used to say about the project, plus a
+  proper introduction to the maintainer -- what he works on, where he is, how to reach him -- and a
+  flat entry for the co-author, with a pointer to the full contributor list. Reachable from the
+  footer and from the bottom of the home page. The maintainer's own paragraph is a marked
+  placeholder for now, with a reminder banner that disappears once it is written
+- `[Home]` A "what data you get" section, which is what a first-time visitor actually needs: the
+  headline numbers, all 22 weather services named with their flags, and the six kinds of data
+  behind them -- measurements, forecasts, water levels, radar, warnings and road weather. The
+  provider list is pinned to the backend registry by
+  `tests/test_frontend_i18n.py::test_frontend_home_lists_every_provider`, so a provider added
+  upstream fails a test rather than quietly going unmentioned
+
+### Changed
+
+- `[Home]` The project description and the author avatars are gone from the home page, which is
+  about the data now; both live on `/about`
 
 ### Fixed
 
