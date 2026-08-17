@@ -55,7 +55,10 @@ if TYPE_CHECKING:
 #   condition), quality flags, counts and bookkeeping have no meaningful value between two
 #   stations, and neither do quantities tied to a particular body of water (discharge, stage,
 #   water temperature) or to a station's own instrument (measurement errors, uncertainties).
-#   Directions are excluded too: interpolating 350 deg and 10 deg linearly gives south.
+#   Directions are excluded too: interpolating 350 deg and 10 deg linearly gives south. So are the
+#   soil temperatures whose surface cover is recorded as "unknown": the rest of that family is
+#   interpolatable because the cover is part of the name, and that is exactly what does not hold
+#   when the cover was never recorded and two stations may be measuring under different surfaces.
 #
 # A ``Literal`` rather than an enum, for the same reason as ``UnitType``: a typo in a table entry
 # is then a type error under ``ty`` rather than something only a test can catch.
@@ -1849,43 +1852,36 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_soil_max_unknown_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_mean_0_02m",
@@ -2299,43 +2295,36 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_soil_min_unknown_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth under an unrecorded surface cover.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_surface_mean",

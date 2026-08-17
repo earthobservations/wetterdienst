@@ -29,15 +29,21 @@ Types of changes:
   the last 12 hours") need not hold for the one borrowing them
 - The provider docs tables carry a `description` column for the 46 pages that had none, and 41 rows
   for parameters that were declared but never listed at all
-- 230 more parameters can be interpolated and summarized, 357 of 514 rather than 127. Soil
-  temperature under a named cover and depth (128, NOAA GHCNd), forecast probabilities (65, MOSMIX
+- 216 more parameters can be interpolated and summarized, 343 of 514 rather than 127. Soil
+  temperature under a named cover and depth (114, NOAA GHCNd), forecast probabilities (65, MOSMIX
   and DMO), soil moisture (12, DWD's agrometeorological model), evaporation per crop and soil (6),
   concrete slab temperature (3), humidex and mean radiant temperature, cloud cover in a fixed
   height band, climatological normals, and — at the shorter radius — precipitation intensity and
   visibility. The classification was never about the data being unavailable, only about which names
   had been written into the list by hand. What stays out stays out on purpose: coded observations,
   quality flags, counts, quantities tied to one body of water, a station's own measurement errors,
-  and directions, which cannot be averaged linearly at all
+  directions, which cannot be averaged linearly at all, and the 14 GHCNd soil temperatures whose
+  surface cover is recorded as `unknown` — the rest of that family qualifies because the cover is
+  part of the name, which is precisely what an unrecorded cover does not give you.
+  One cost to know about: `interpolate()` and `summarize()` stop querying stations once *every*
+  requested parameter has enough of them, so a whole-dataset request against MOSMIX or DMO now has
+  65 probabilities to satisfy and will walk further down the station ranking than it used to.
+  Requesting the parameters you actually want keeps it where it was
 
 ### Changed
 
@@ -94,6 +100,9 @@ Types of changes:
   `_OCCURRENCE_BASED_PARAMETERS` is gone; ask the table, `PARAMETERS[name].zero_inflated`.
   The parameter glossary in the docs now states per parameter whether it can be interpolated and
   from how far away
+- **Breaking**, mildly: `TimeseriesRequest.interpolatable_parameters` is a `frozenset` rather than
+  a `list`. Every caller in the library only tests membership, but it is a public class attribute,
+  so code that indexes or slices it, or relies on its order, needs updating
 
 - **Breaking**: irradiance (`power_per_area`) is now returned in W/m² rather than W/cm², so
   affected values are 10⁴ times larger. W/m² is what WMO specifies and what every source in this

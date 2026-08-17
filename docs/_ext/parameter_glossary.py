@@ -15,7 +15,7 @@ from sphinx.util.docutils import SphinxDirective
 
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.model.unit import UnitConverter
-from wetterdienst.settings import Settings
+from wetterdienst.settings import _default_geo_station_distance
 
 if TYPE_CHECKING:
     from docutils import nodes
@@ -31,8 +31,9 @@ class ParameterGlossaryDirective(SphinxDirective):
     def run(self) -> list[nodes.Node]:
         """Build the glossary from the canonical parameter table."""
         unit_converter = UnitConverter()
-        # the default radii, read from the setting itself rather than restated here
-        station_distance = Settings().ts_geo_station_distance
+        # the built-in default radii rather than `Settings()`, which would read WD_* env vars and a
+        # .env from wherever the docs are built and so document the builder's configuration
+        station_distance = _default_geo_station_distance()
         lines = ["```{glossary}"]
         for parameter in PARAMETER_TABLE:
             target = unit_converter.targets[parameter.unit_type]
