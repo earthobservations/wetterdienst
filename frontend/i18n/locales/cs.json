@@ -63,7 +63,7 @@
     "projectText3": "Je to otevřený software pod licencí MIT, vyvíjený veřejně na GitHubu a volně použitelný – včetně této hostované aplikace.",
     "maintainerTitle": "Správce",
     "maintainerRole": "Správce projektu Wetterdienst",
-    "maintainerText1": "Benjamin spravuje Wetterdienst od dubna 2020, pár dní po vzniku projektu, a píše jeho většinu: knihovnu v Pythonu, REST API, nástroj příkazové řádky i tuto webovou aplikaci.",
+    "maintainerText1": "Benjamin spravuje Wetterdienst od dubna 2020, pár dní po vzniku projektu – knihovnu v Pythonu, REST API, nástroj příkazové řádky i tuto webovou aplikaci.",
     "maintainerText2": "Provozuje také hostovanou instanci na wetterdienst.eobs.org, která zdarma poskytuje tuto aplikaci, API i koncový bod MCP.",
     "bioPlaceholderNote": "Poznámka pro správce: nahraďte níže uvedený zástupný odstavec vlastním textem.",
     "coAuthorTitle": "Spoluautor",

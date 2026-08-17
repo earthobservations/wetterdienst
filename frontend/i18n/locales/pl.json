@@ -63,7 +63,7 @@
     "projectText3": "To oprogramowanie open source na licencji MIT, rozwijane otwarcie na GitHubie i darmowe w użyciu – łącznie z tą hostowaną aplikacją.",
     "maintainerTitle": "Opiekun",
     "maintainerRole": "Opiekun projektu Wetterdienst",
-    "maintainerText1": "Benjamin opiekuje się Wetterdienst od kwietnia 2020 roku, kilka dni po starcie projektu, i pisze jego większość: bibliotekę w Pythonie, API REST, klienta wiersza poleceń i tę aplikację webową.",
+    "maintainerText1": "Benjamin opiekuje się Wetterdienst od kwietnia 2020 roku, kilka dni po starcie projektu – biblioteką w Pythonie, API REST, klientem wiersza poleceń i tą aplikacją webową.",
     "maintainerText2": "Prowadzi też hostowaną instancję pod adresem wetterdienst.eobs.org, która bezpłatnie udostępnia tę aplikację, API oraz punkt końcowy MCP.",
     "bioPlaceholderNote": "Uwaga dla opiekuna: zastąp poniższy akapit zastępczy własnymi słowami.",
     "coAuthorTitle": "Współautor",

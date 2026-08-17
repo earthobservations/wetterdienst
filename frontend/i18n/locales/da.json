@@ -63,7 +63,7 @@
     "projectText3": "Det er open source under MIT-licensen, udviklet i det åbne på GitHub og frit at bruge – også denne hostede app.",
     "maintainerTitle": "Vedligeholder",
     "maintainerRole": "Vedligeholder af Wetterdienst",
-    "maintainerText1": "Benjamin har vedligeholdt Wetterdienst siden april 2020, få dage efter projektet startede, og skriver størstedelen af det: Python-biblioteket, REST-API'et, kommandolinjeklienten og denne webapp.",
+    "maintainerText1": "Benjamin har vedligeholdt Wetterdienst siden april 2020, få dage efter projektet startede – Python-biblioteket, REST-API'et, kommandolinjeklienten og denne webapp.",
     "maintainerText2": "Han driver også den hostede instans på wetterdienst.eobs.org, der gratis leverer denne app, API'et og MCP-endepunktet.",
     "bioPlaceholderNote": "Note til vedligeholderen: erstat pladsholderafsnittet nedenfor med dine egne ord.",
     "coAuthorTitle": "Medforfatter",

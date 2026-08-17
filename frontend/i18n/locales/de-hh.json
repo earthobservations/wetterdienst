@@ -63,7 +63,7 @@
     "projectText3": "Es ist Open Source unter der MIT-Lizenz, wird offen auf GitHub entwickelt und ist frei nutzbar – diese gehostete App auch.",
     "maintainerTitle": "Maintainer",
     "maintainerRole": "Maintainer von Wetterdienst",
-    "maintainerText1": "Benjamin betreut Wetterdienst seit April 2020, ein paar Tage nach dem Start vom Projekt, und schreibt den größten Teil davon: die Python-Bibliothek, die REST-API, das Kommandozeilenprogramm und diese Web-App.",
+    "maintainerText1": "Benjamin betreut Wetterdienst seit April 2020, ein paar Tage nach dem Start vom Projekt – die Python-Bibliothek, die REST-API, das Kommandozeilenprogramm und diese Web-App.",
     "maintainerText2": "Er betreibt außerdem die gehostete Instanz unter wetterdienst.eobs.org, die diese App, die API und den MCP-Endpunkt umsonst bereitstellt.",
     "bioPlaceholderNote": "Hinweis an den Maintainer: den Platzhalter-Absatz unten durch eigene Worte ersetzen.",
     "coAuthorTitle": "Co-Autor",

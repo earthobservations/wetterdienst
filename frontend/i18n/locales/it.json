@@ -63,7 +63,7 @@
     "projectText3": "È software libero con licenza MIT, sviluppato apertamente su GitHub e gratuito da usare, compresa questa applicazione ospitata.",
     "maintainerTitle": "Manutentore",
     "maintainerRole": "Manutentore di Wetterdienst",
-    "maintainerText1": "Benjamin cura Wetterdienst da aprile 2020, pochi giorni dopo l'avvio del progetto, e ne scrive la maggior parte: la libreria Python, l'API REST, il client da riga di comando e questa applicazione web.",
+    "maintainerText1": "Benjamin cura Wetterdienst da aprile 2020, pochi giorni dopo l'avvio del progetto: la libreria Python, l'API REST, il client da riga di comando e questa applicazione web.",
     "maintainerText2": "Gestisce inoltre l'istanza ospitata su wetterdienst.eobs.org, che offre gratuitamente questa applicazione, l'API e l'endpoint MCP.",
     "bioPlaceholderNote": "Nota per il manutentore: sostituisci il paragrafo segnaposto qui sotto con parole tue.",
     "coAuthorTitle": "Coautore",

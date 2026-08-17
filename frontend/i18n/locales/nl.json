@@ -63,7 +63,7 @@
     "projectText3": "Het is opensource onder de MIT-licentie, openlijk ontwikkeld op GitHub en gratis te gebruiken – deze gehoste app inbegrepen.",
     "maintainerTitle": "Beheerder",
     "maintainerRole": "Beheerder van Wetterdienst",
-    "maintainerText1": "Benjamin beheert Wetterdienst sinds april 2020, enkele dagen na de start van het project, en schrijft het grootste deel ervan: de Python-bibliotheek, de REST-API, de opdrachtregelclient en deze webapp.",
+    "maintainerText1": "Benjamin beheert Wetterdienst sinds april 2020, enkele dagen na de start van het project – de Python-bibliotheek, de REST-API, de opdrachtregelclient en deze webapp.",
     "maintainerText2": "Hij draait ook de gehoste instantie op wetterdienst.eobs.org, die deze app, de API en het MCP-eindpunt gratis aanbiedt.",
     "bioPlaceholderNote": "Notitie voor de beheerder: vervang de tijdelijke alinea hieronder door je eigen woorden.",
     "coAuthorTitle": "Medeauteur",
