@@ -65,7 +65,7 @@
     "maintainerRole": "Maintainer of Wetterdienst",
     "maintainerText1": "Benjamin has maintained Wetterdienst since April 2020, days after the project started — the Python library, the REST API, the command-line client and this web app.",
     "maintainerText2": "He also runs the hosted instance at wetterdienst.eobs.org, which serves this app, the API and the MCP endpoint free of charge.",
-    "bioPlaceholderNote": "Note for the maintainer: replace the placeholder paragraph below with your own words.",
+    "maintainerBio": "He studied hydrology in Dresden from 2013 to 2020, and the interest in hydrology and meteorology stayed. His bachelor's thesis got him scripting in R; when he wanted to learn Python as well, he needed a real project to learn on, and Wetterdienst became it. It shows in the library, which covers river levels and discharge alongside the weather.",
     "coAuthorTitle": "Co-author",
     "contributorsText": "Many more people have contributed adapters, features and fixes over the years.",
     "contributorsLink": "See the full list",

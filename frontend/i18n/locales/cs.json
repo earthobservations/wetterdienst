@@ -65,7 +65,7 @@
     "maintainerRole": "Správce projektu Wetterdienst",
     "maintainerText1": "Benjamin spravuje Wetterdienst od dubna 2020, pár dní po vzniku projektu – knihovnu v Pythonu, REST API, nástroj příkazové řádky i tuto webovou aplikaci.",
     "maintainerText2": "Provozuje také hostovanou instanci na wetterdienst.eobs.org, která zdarma poskytuje tuto aplikaci, API i koncový bod MCP.",
-    "bioPlaceholderNote": "Poznámka pro správce: nahraďte níže uvedený zástupný odstavec vlastním textem.",
+    "maintainerBio": "V letech 2013 až 2020 studoval hydrologii v Drážďanech a zájem o hydrologii a meteorologii mu zůstal. Při bakalářské práci začal psát skripty v R; když se chtěl naučit i Python, potřeboval k tomu skutečný projekt – stal se jím Wetterdienst. Na knihovně je to znát: vedle počasí pokrývá i vodní stavy a průtoky.",
     "coAuthorTitle": "Spoluautor",
     "contributorsText": "V průběhu let přispěla řada dalších lidí adaptéry, funkcemi a opravami.",
     "contributorsLink": "Zobrazit celý seznam",

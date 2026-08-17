@@ -46,6 +46,19 @@ describe('about Page', () => {
     expect(text).toContain('andreas.motl@panodata.org')
   })
 
+  it('carries the maintainer\'s own account, not a placeholder', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(AboutPage)
+    const text = wrapper.text()
+
+    expect(text).toContain('Dresden')
+    // the placeholder this replaced was marked with guillemets and shipped with a warning banner
+    expect(text).not.toContain('«')
+  })
+
   it('links to the source, the docs and the package', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),

@@ -1,16 +1,6 @@
 <script setup lang="ts">
 const { t } = useI18n()
 
-// The maintainer's own words. Everything else on this page is a fact the repository already
-// states; this paragraph is not, so it stays a marked placeholder rather than being invented.
-//
-// To fill it in: replace the string below with the text, then move it into the locale files as
-// `about.maintainerBio` and translate it, the way every other string on this page is handled.
-// The reminder banner disappears on its own once the « » markers are gone.
-const maintainerBio = '«Ein paar Sätze über mich – Hintergrund, was ich mache, warum es Wetterdienst gibt.»'
-
-const hasBioPlaceholder = computed(() => maintainerBio.includes('«'))
-
 // Maintainer: the person who runs the project and the hosted instance at wetterdienst.eobs.org.
 const maintainer = {
   name: 'Benjamin Gutzmann',
@@ -106,15 +96,8 @@ const coAuthor = {
             {{ t('about.maintainerText2') }}
           </p>
 
-          <UAlert
-            v-if="hasBioPlaceholder"
-            color="warning"
-            variant="subtle"
-            icon="i-lucide-triangle-alert"
-            :title="t('about.bioPlaceholderNote')"
-          />
           <p class="text-gray-600 dark:text-gray-400">
-            {{ maintainerBio }}
+            {{ t('about.maintainerBio') }}
           </p>
 
           <div class="flex flex-wrap gap-2 pt-1">

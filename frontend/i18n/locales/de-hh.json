@@ -65,7 +65,7 @@
     "maintainerRole": "Maintainer von Wetterdienst",
     "maintainerText1": "Benjamin betreut Wetterdienst seit April 2020, ein paar Tage nach dem Start vom Projekt – die Python-Bibliothek, die REST-API, das Kommandozeilenprogramm und diese Web-App.",
     "maintainerText2": "Er betreibt außerdem die gehostete Instanz unter wetterdienst.eobs.org, die diese App, die API und den MCP-Endpunkt umsonst bereitstellt.",
-    "bioPlaceholderNote": "Hinweis an den Maintainer: den Platzhalter-Absatz unten durch eigene Worte ersetzen.",
+    "maintainerBio": "Er hat von 2013 bis 2020 in Dresden Hydrologie studiert, und das Interesse an Hydrologie und Meteorologie ist geblieben. Bei seiner Bachelorarbeit hat er angefangen, in R zu skripten; als er dann auch noch Python lernen wollte, brauchte er ein richtiges Projekt dafür – Wetterdienst wurde es. Man sieht's der Bibliothek an: Neben dem Wetter gibt's auch Pegelstände und Abflüsse.",
     "coAuthorTitle": "Co-Autor",
     "contributorsText": "Noch viele mehr haben über die Jahre Adapter, Funktionen und Korrekturen beigesteuert.",
     "contributorsLink": "Zur vollständigen Liste",
