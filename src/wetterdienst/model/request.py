@@ -25,6 +25,7 @@ from wetterdienst.exceptions import (
     StartDateEndDateError,
     StationNotFoundError,
 )
+from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import (
     DatasetModel,
@@ -117,165 +118,10 @@ class TimeseriesRequest:
         "state",
     )
 
-    #   - heterogeneous parameters such as precipitation_height (short distance, ~20 km)
-    #   - homogeneous parameters such as temperature_air_2m (large distance, ~40 km)
-    interpolatable_parameters: ClassVar = [
-        # ---- temperature ----
-        # air temperature at 2 m — large spatial correlation, suitable for ~40 km interpolation
-        "temperature_air_2m",
-        "temperature_air_mean_2m",
-        "temperature_air_mean_2m_last_24h",
-        "temperature_air_max_2m",
-        "temperature_air_max_2m_last_24h",
-        "temperature_air_max_2m_mean",
-        "temperature_air_max_2m_multiday",
-        "temperature_air_min_2m",
-        "temperature_air_min_2m_last_24h",
-        "temperature_air_min_2m_mean",
-        "temperature_air_min_2m_multiday",
-        # air temperature at 0.05 m / 0.1 m (near-surface)
-        "temperature_air_mean_0_05m",
-        "temperature_air_mean_0_1m",
-        "temperature_air_max_0_05m",
-        "temperature_air_min_0_05m",
-        "temperature_air_min_0_05m_last_12h",
-        # derived air temperature quantities
-        "temperature_dew_point_mean_2m",
-        "temperature_wet_mean_2m",
-        "temperature_wind_chill",
-        # surface temperature
-        "temperature_surface_mean",
-        # soil temperature — depth-dependent but spatially smooth at regional scale
-        "temperature_soil_mean_0_02m",
-        "temperature_soil_mean_0_05m",
-        "temperature_soil_mean_0_1m",
-        "temperature_soil_mean_0_2m",
-        "temperature_soil_mean_0_5m",
-        "temperature_soil_mean_1m",
-        "temperature_soil_mean_2m",
-        "temperature_soil_min_0_1m",
-        "temperature_soil_min_0_2m",
-        "temperature_soil_min_0_5m",
-        "temperature_soil_min_1m",
-        "temperature_soil_min_2m",
-        "temperature_soil_max_0_1m",
-        "temperature_soil_max_0_2m",
-        "temperature_soil_max_0_5m",
-        "temperature_soil_max_1m",
-        "temperature_soil_max_2m",
-        # derived temperature aggregates
-        "heating_degree_day",
-        "cooling_degree_day",
-        "cooling_degree_hour",
-        # ---- humidity ----
-        # all humidity variants are spatially smooth (~40 km)
-        "humidity",
-        "humidity_absolute",
-        "humidity_max",
-        "humidity_min",
-        # ---- wind ----
-        # wind speed variants — regional-scale field (~40 km)
-        "wind_speed",
-        "wind_speed_arithmetic",
-        "wind_speed_min",
-        "wind_speed_rolling_mean_max",
-        "wind_force_beaufort",
-        "wind_movement_24h",
-        "wind_movement_multiday",
-        # wind gust variants — regional-scale (~40 km)
-        "wind_gust_max",
-        "wind_gust_max_last_1h",
-        "wind_gust_max_last_3h",
-        "wind_gust_max_last_6h",
-        "wind_gust_max_last_12h",
-        "wind_gust_max_5sec",
-        "wind_gust_max_1min",
-        "wind_gust_max_2min",
-        "wind_gust_max_instant",
-        "wind_gust_max_1mile",
-        # ---- precipitation ----
-        # precipitation is heterogeneous — shorter spatial correlation length (~20 km)
-        "precipitation_height",
-        "precipitation_height_day",
-        "precipitation_height_night",
-        "precipitation_height_liquid",
-        "precipitation_height_droplet",
-        "precipitation_height_rocker",
-        "precipitation_height_last_1h",
-        "precipitation_height_last_3h",
-        "precipitation_height_last_6h",
-        "precipitation_height_last_9h",
-        "precipitation_height_last_12h",
-        "precipitation_height_last_15h",
-        "precipitation_height_last_18h",
-        "precipitation_height_last_21h",
-        "precipitation_height_last_24h",
-        "precipitation_height_multiday",
-        "precipitation_height_significant_weather_last_1h",
-        "precipitation_height_significant_weather_last_3h",
-        "precipitation_height_significant_weather_last_6h",
-        "precipitation_height_significant_weather_last_12h",
-        "precipitation_height_significant_weather_last_24h",
-        "precipitation_height_liquid_significant_weather_last_1h",
-        "precipitation_height_max",
-        "precipitation_duration",
-        # ---- snow ----
-        # accumulated snow depth — smooth regional field (~40 km)
-        "snow_depth",
-        "snow_depth_excelled",
-        "snow_depth_manual",
-        "snow_depth_max",
-        # new snow per period — more heterogeneous like precipitation (~20 km)
-        "snow_depth_new",
-        "snow_depth_new_multiday",
-        "snow_depth_new_max",
-        # ---- water equivalent ----
-        # accumulated SWE — smooth regional field (~40 km)
-        "water_equivalent_snow_depth",
-        "water_equivalent_snow_depth_excelled",
-        # new SWE — heterogeneous like precipitation (~20 km)
-        "water_equivalent_snow_depth_new",
-        "water_equivalent_snow_depth_new_last_1h",
-        "water_equivalent_snow_depth_new_last_3h",
-        # ---- solar / radiation ----
-        # sunshine and radiation — driven by synoptic cloud patterns, large spatial correlation (~40 km)
-        "sunshine_duration",
-        "sunshine_duration_last_3h",
-        "sunshine_duration_yesterday",
-        "sunshine_duration_relative",
-        "sunshine_duration_relative_last_24h",
-        "radiation_global",
-        "radiation_global_intensity",
-        "radiation_global_last_3h",
-        "radiation_sky_short_wave_diffuse",
-        "radiation_sky_short_wave_diffuse_intensity",
-        "radiation_sky_short_wave_direct",
-        "radiation_sky_long_wave",
-        "radiation_sky_long_wave_intensity",
-        "radiation_sky_long_wave_last_3h",
-        # ---- pressure ----
-        # pressure — synoptic-scale field, most spatially homogeneous of all met parameters (~40 km)
-        "pressure_air_sea_level",
-        "pressure_air_site",
-        "pressure_air_site_reduced",
-        "pressure_air_site_max",
-        "pressure_air_site_min",
-        "pressure_air_site_delta_last_3h",
-        "pressure_vapor",
-        # ---- cloud cover ----
-        # cloud cover — regional-scale field, viable for ~40 km interpolation
-        "cloud_cover_total",
-        "cloud_cover_total_midnight_to_midnight",
-        "cloud_cover_total_sunrise_to_sunset",
-        "cloud_cover_effective",
-        # ---- evapotranspiration ----
-        # driven by temperature, humidity, radiation — large spatial correlation (~40 km)
-        "evapotranspiration_potential_last_24h",
-        "evapotranspiration_potential_gras_fao_last_24h",
-        "evapotranspiration_potential_gras_haude_last_24h",
-        "evaporation_height",
-        "evaporation_height_multiday",
-    ]
+    # The parameters that may be interpolated or summarized, which is a property of the measured
+    # quantity rather than of a request -- see `CanonicalParameter.interpolation`. Kept here as a
+    # class attribute because that is where callers look for it.
+    interpolatable_parameters: ClassVar = INTERPOLATABLE_PARAMETERS
 
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:

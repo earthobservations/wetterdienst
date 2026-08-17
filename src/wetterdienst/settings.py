@@ -15,6 +15,7 @@ import platformdirs
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.model.unit import UnitConverter
 
 log = logging.getLogger(__name__)
@@ -62,45 +63,24 @@ class Auth(BaseModel):
         return str(as_tuple[0]), str(as_tuple[1])
 
 
+#: how far a station may be from the target point to still be used, in km
+_STATION_DISTANCE_HOMOGENEOUS = 40.0
+#: the same for a quantity that decorrelates faster -- see `CanonicalParameter.interpolation`
+_STATION_DISTANCE_HETEROGENEOUS = 20.0
+
+
 def _default_geo_station_distance() -> defaultdict[str, float]:
-    d: defaultdict[str, float] = defaultdict(lambda: 40.0)
-    # heterogeneous parameters: shorter spatial correlation length, use 20 km
-    # precipitation — all variants are convectively driven and spatially variable
-    for name in (
-        "precipitation_height",
-        "precipitation_height_day",
-        "precipitation_height_night",
-        "precipitation_height_liquid",
-        "precipitation_height_droplet",
-        "precipitation_height_rocker",
-        "precipitation_height_last_1h",
-        "precipitation_height_last_3h",
-        "precipitation_height_last_6h",
-        "precipitation_height_last_9h",
-        "precipitation_height_last_12h",
-        "precipitation_height_last_15h",
-        "precipitation_height_last_18h",
-        "precipitation_height_last_21h",
-        "precipitation_height_last_24h",
-        "precipitation_height_multiday",
-        "precipitation_height_significant_weather_last_1h",
-        "precipitation_height_significant_weather_last_3h",
-        "precipitation_height_significant_weather_last_6h",
-        "precipitation_height_significant_weather_last_12h",
-        "precipitation_height_significant_weather_last_24h",
-        "precipitation_height_liquid_significant_weather_last_1h",
-        "precipitation_height_max",
-        "precipitation_duration",
-        # new snow per period — heterogeneous like precipitation
-        "snow_depth_new",
-        "snow_depth_new_multiday",
-        "snow_depth_new_max",
-        # new SWE — heterogeneous like precipitation
-        "water_equivalent_snow_depth_new",
-        "water_equivalent_snow_depth_new_last_1h",
-        "water_equivalent_snow_depth_new_last_3h",
-    ):
-        d[name] = 20.0
+    """Build the per-parameter search radius from the canonical parameter table.
+
+    Which names get the shorter radius used to be written out here, a copy of a classification the
+    table already holds. Only those names are put in the dict; the default factory answers for
+    every other parameter, so the setting a user sees and overrides stays the short list of
+    exceptions rather than all 514 names.
+    """
+    d: defaultdict[str, float] = defaultdict(lambda: _STATION_DISTANCE_HOMOGENEOUS)
+    for parameter in PARAMETER_TABLE:
+        if parameter.interpolation == "heterogeneous":
+            d[parameter.name] = _STATION_DISTANCE_HETEROGENEOUS
     return d
 
 
