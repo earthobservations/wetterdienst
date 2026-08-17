@@ -15,6 +15,7 @@ from sphinx.util.docutils import SphinxDirective
 
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.model.unit import UnitConverter
+from wetterdienst.settings import Settings
 
 if TYPE_CHECKING:
     from docutils import nodes
@@ -30,6 +31,8 @@ class ParameterGlossaryDirective(SphinxDirective):
     def run(self) -> list[nodes.Node]:
         """Build the glossary from the canonical parameter table."""
         unit_converter = UnitConverter()
+        # the default radii, read from the setting itself rather than restated here
+        station_distance = Settings().ts_geo_station_distance
         lines = ["```{glossary}"]
         for parameter in PARAMETER_TABLE:
             target = unit_converter.targets[parameter.unit_type]
@@ -37,6 +40,17 @@ class ParameterGlossaryDirective(SphinxDirective):
             lines.append(f"  {parameter.description}")
             lines.append("")
             lines.append(f"  Unit type `{parameter.unit_type}`, returned in `{target.name}` ({target.symbol}).")
+            lines.append("")
+            if not parameter.interpolation:
+                lines.append("  Not interpolatable.")
+            else:
+                sentence = (
+                    f"  Interpolatable, using stations up to {station_distance[parameter.name]:g} km from the "
+                    f"target point."
+                )
+                if parameter.zero_inflated:
+                    sentence += " Interpolated values are thresholded on occurrence."
+                lines.append(sentence)
             lines.append("")
         lines.append("```")
         return self.parse_text_to_nodes("\n".join(lines))

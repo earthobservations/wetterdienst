@@ -94,16 +94,30 @@ df
 
 ### Supported parameters
 
-Interpolation is only meaningful for parameters whose fields vary smoothly in space. Two
-default search radii apply depending on how strongly a parameter is spatially correlated:
+Interpolation is only meaningful for parameters whose fields vary smoothly in space. Which
+parameters those are is declared per parameter in the
+[parameter glossary](../data/parameters.md), which says for each name whether it can be
+interpolated and out of how far stations may be drawn. Two default search radii apply,
+depending on how strongly a parameter is spatially correlated:
 
 **Large spatial correlation (~40 km default search radius)** — homogeneous fields that vary
-slowly across regions: air, soil, dew-point, wet-bulb and surface temperatures, humidity,
-wind speed/gust, snow depth (accumulated), sunshine and radiation, air pressure, cloud
-cover and evapotranspiration/evaporation.
+slowly across regions: air, soil, concrete, dew-point, wet-bulb and surface temperatures,
+humidity, wind speed/gust, snow depth (accumulated), sunshine and radiation, air pressure,
+cloud cover, soil moisture, evapotranspiration/evaporation and forecast probabilities.
 
 **Short spatial correlation (~20 km default search radius)** — heterogeneous fields that
-vary more locally: precipitation (all variants) and new-snow-per-period parameters.
+vary more locally: precipitation (all variants), new-snow-per-period parameters and
+visibility.
+
+Parameters that are not interpolated at all are those with no meaningful value between two
+stations: coded observations such as weather type or cloud genus, quality flags and counts,
+quantities tied to one body of water such as discharge or stage, a station's own measurement
+errors, and directions — interpolating 350° and 10° linearly would give south.
+
+For the zero-inflated parameters — precipitation and fresh snow, which are zero whenever
+nothing fell — interpolation additionally thresholds on occurrence: the value is set to zero
+unless at least half of the surrounding stations recorded something, so that a station with
+rain and a station without do not average into a drizzle that fell nowhere.
 
 ### Settings
 
@@ -112,7 +126,7 @@ Several settings control the interpolation behaviour (see also the
 
 | Name                               | Type             | Default                                                       | Description                                                                                                                     |
 |------------------------------------|------------------|--------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-| ts_geo_station_distance            | dict[str, float] | 20.0 (precipitation and new-snow variants)<br/>40.0 (other)  | Max distance for stations used for interpolation (in km).                                                                       |
+| ts_geo_station_distance            | dict[str, float] | 20.0 (heterogeneous parameters)<br/>40.0 (other)             | Max distance for stations used for interpolation (in km).                                                                       |
 | ts_geo_use_nearby_station_distance | float            | 1.0                                                          | Distance (in km) up to which a nearby station's value is used directly instead of interpolating.                               |
 | ts_geo_min_gain_of_value_pairs     | float            | 0.1                                                          | Minimum gain of value pairs for an additional station to be included, to avoid using every station in a dense network.         |
 | ts_geo_num_additional_stations     | int              | 3                                                            | Number of additional stations used regardless of the gain, to guarantee a minimum number of stations.                          |
@@ -152,9 +166,10 @@ the summarized values of the parameter ``temperature_air_mean_2m`` from multiple
 
 ![summary example](../assets/summary.png)
 
-It currently only works for ``DwdObservationRequest`` and individual parameters. Currently
-the following parameters are supported (more will be added if useful):
-``temperature_air_mean_2m``, ``wind_speed``, ``precipitation_height``.
+It currently only works for ``DwdObservationRequest`` and individual parameters. It supports
+the same parameters as interpolation, listed in the
+[parameter glossary](../data/parameters.md), and applies the same per-parameter search radius
+when deciding whether a station is close enough to be used.
 
 ```{code-cell}
 ---

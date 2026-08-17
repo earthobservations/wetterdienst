@@ -29,6 +29,15 @@ Types of changes:
   the last 12 hours") need not hold for the one borrowing them
 - The provider docs tables carry a `description` column for the 46 pages that had none, and 41 rows
   for parameters that were declared but never listed at all
+- 230 more parameters can be interpolated and summarized, 357 of 514 rather than 127. Soil
+  temperature under a named cover and depth (128, NOAA GHCNd), forecast probabilities (65, MOSMIX
+  and DMO), soil moisture (12, DWD's agrometeorological model), evaporation per crop and soil (6),
+  concrete slab temperature (3), humidex and mean radiant temperature, cloud cover in a fixed
+  height band, climatological normals, and — at the shorter radius — precipitation intensity and
+  visibility. The classification was never about the data being unavailable, only about which names
+  had been written into the list by hand. What stays out stays out on purpose: coded observations,
+  quality flags, counts, quantities tied to one body of water, a station's own measurement errors,
+  and directions, which cannot be averaged linearly at all
 
 ### Changed
 
@@ -70,9 +79,21 @@ Types of changes:
   parameter names — `TimeseriesRequest.interpolatable_parameters`, interpolation's
   occurrence-based set and the `ts_geo_station_distance` defaults — used it purely to spell a
   lowercased string, and now spell the canonical name directly. All 186 references resolve to the
-  same 126/30/30 names as before. `test_internal_parameter_lists_are_canonical` replaces the
-  typo-safety the enum was providing, since a misspelled string would otherwise quietly mean "never
-  interpolated" or "keeps the default search radius" rather than failing
+  same 126/30/30 names as before. Those three lists have since moved into the canonical parameter
+  table, see below
+
+- How a parameter behaves in space is declared once, on `CanonicalParameter`, rather than as three
+  hand-maintained name lists that had to agree with each other:
+  `TimeseriesRequest.interpolatable_parameters`, the `ts_geo_station_distance` defaults in
+  `Settings` and `_OCCURRENCE_BASED_PARAMETERS` in `core.interpolate` are all views of the new
+  `interpolation` (`"homogeneous"` at the 40 km default radius, `"heterogeneous"` at 20 km, or
+  `None` for a quantity that is not interpolated) and `zero_inflated` (whether interpolated values
+  are thresholded on occurrence) fields. The two are separate because they are separate facts:
+  visibility decorrelates over a few kilometres without being zero-inflated, and a precipitation
+  normal is as orographically variable as precipitation while never being zero.
+  `_OCCURRENCE_BASED_PARAMETERS` is gone; ask the table, `PARAMETERS[name].zero_inflated`.
+  The parameter glossary in the docs now states per parameter whether it can be interpolated and
+  from how far away
 
 - **Breaking**: irradiance (`power_per_area`) is now returned in W/m² rather than W/cm², so
   affected values are 10⁴ times larger. W/m² is what WMO specifies and what every source in this

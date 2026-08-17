@@ -17,6 +17,7 @@ from shapely.geometry import Point, Polygon
 from tqdm import tqdm
 
 from wetterdienst.core.util import _ParameterData, extract_station_values
+from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
@@ -28,51 +29,12 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# Parameters for which precipitation-occurrence thresholding is applied during interpolation:
-# linear interpolation between zero-value and non-zero-value stations can produce spurious small
-# positives.  We suppress those by also interpolating a binary occurrence field and zeroing out
-# the result when fewer than half of the surrounding stations recorded a positive value.
-# This applies to all accumulation-type parameters that can legitimately be zero
-# (i.e. "it didn't rain / snow at this timestep"), but NOT to continuous fields like accumulated
-# snow depth or evaporation that are rarely exactly zero and have a different physical character.
-_OCCURRENCE_BASED_PARAMETERS: frozenset[str] = frozenset(
-    (
-        # precipitation height — all temporal variants
-        "precipitation_height",
-        "precipitation_height_day",
-        "precipitation_height_night",
-        "precipitation_height_liquid",
-        "precipitation_height_droplet",
-        "precipitation_height_rocker",
-        "precipitation_height_last_1h",
-        "precipitation_height_last_3h",
-        "precipitation_height_last_6h",
-        "precipitation_height_last_9h",
-        "precipitation_height_last_12h",
-        "precipitation_height_last_15h",
-        "precipitation_height_last_18h",
-        "precipitation_height_last_21h",
-        "precipitation_height_last_24h",
-        "precipitation_height_multiday",
-        "precipitation_height_significant_weather_last_1h",
-        "precipitation_height_significant_weather_last_3h",
-        "precipitation_height_significant_weather_last_6h",
-        "precipitation_height_significant_weather_last_12h",
-        "precipitation_height_significant_weather_last_24h",
-        "precipitation_height_liquid_significant_weather_last_1h",
-        "precipitation_height_max",
-        # precipitation duration — zero when no precipitation occurred
-        "precipitation_duration",
-        # new snow per period — heterogeneous and zero-inflated like precipitation
-        "snow_depth_new",
-        "snow_depth_new_multiday",
-        "snow_depth_new_max",
-        # new snow water equivalent — same zero-inflated character
-        "water_equivalent_snow_depth_new",
-        "water_equivalent_snow_depth_new_last_1h",
-        "water_equivalent_snow_depth_new_last_3h",
-    )
-)
+# Occurrence thresholding is applied to the quantities the canonical parameter table marks
+# `zero_inflated`: linear interpolation between a station that recorded rain and one that recorded
+# none produces a spurious small positive, a drizzle that fell nowhere. We suppress those by also
+# interpolating a binary occurrence field and zeroing out the result when fewer than half of the
+# surrounding stations recorded a positive value. Which quantities those are is a property of the
+# quantity, so it is declared once in `metadata.parameter_table` rather than listed here.
 
 
 def get_interpolated_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
@@ -377,7 +339,7 @@ def apply_interpolation(
     distance_mean = sum(distances) / len(distances)
     f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
     value = f(utm_x, utm_y)
-    if parameter in _OCCURRENCE_BASED_PARAMETERS:
+    if PARAMETERS[parameter].zero_inflated:
         f_index = LinearNDInterpolator(points=(xs, ys), values=[float(v > 0) for v in list(vals.values())])
         value_index = f_index(utm_x, utm_y)
         value = value if value_index >= 0.5 else 0

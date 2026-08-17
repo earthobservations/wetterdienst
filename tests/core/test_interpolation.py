@@ -11,11 +11,11 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
 from wetterdienst.core.interpolate import (
-    _OCCURRENCE_BASED_PARAMETERS,
     apply_interpolation,
     get_valid_station_groups,
 )
 from wetterdienst.exceptions import StationNotFoundError
+from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -136,19 +136,19 @@ def test_occurrence_threshold_applies_to_snow_depth_new() -> None:
 
 
 def test_occurrence_based_parameters_set_contains_all_precipitation_variants() -> None:
-    """Smoke-test that _OCCURRENCE_BASED_PARAMETERS covers core precipitation and new-snow parameters."""
+    """Smoke-test that the zero-inflated flag covers core precipitation and new-snow parameters."""
     required = {
         "precipitation_height",
         "precipitation_height_liquid",
         "precipitation_height_last_1h",
         "precipitation_height_last_24h",
         "precipitation_duration",
+        "precipitation_intensity",
         "snow_depth_new",
         "water_equivalent_snow_depth_new",
     }
-    assert required.issubset(_OCCURRENCE_BASED_PARAMETERS), (
-        f"Missing from _OCCURRENCE_BASED_PARAMETERS: {required - _OCCURRENCE_BASED_PARAMETERS}"
-    )
+    missing = sorted(name for name in required if not PARAMETERS[name].zero_inflated)
+    assert not missing, f"not marked zero_inflated in the canonical parameter table: {missing}"
 
 
 @pytest.fixture

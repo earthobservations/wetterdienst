@@ -194,27 +194,39 @@ def test_parameter_table_descriptions() -> None:
     assert not duplicated, f"descriptions shared by more than one parameter: {duplicated}"
 
 
-def test_internal_parameter_lists_are_canonical() -> None:
-    """Test that the parameter names hard-coded inside the library are real canonical names.
+def test_interpolation_behaviour_derives_from_parameter_table() -> None:
+    """Test that nothing keeps its own copy of which parameters may be interpolated.
 
-    These lists used to be written as `Parameter.PRECIPITATION_HEIGHT` members, so a misspelling
-    was an AttributeError at import. They are plain strings now, which reads better but catches
-    nothing on its own -- a typo would silently mean "this parameter is never interpolated" or
-    "this parameter keeps the default 40 km search radius", both of which change results quietly
-    rather than failing. This test is what replaces the enum's guard.
+    Which parameters may be interpolated, which get the shorter search radius and which get
+    occurrence thresholding used to be three hand-written name lists in three modules, kept in step
+    by a test that they were at least spelled correctly. They are views of
+    `CanonicalParameter.interpolation` and `.zero_inflated` now, and this asserts they still are --
+    a list written out again by hand would drift from the table exactly as before.
     """
-    from wetterdienst.core.interpolate import _OCCURRENCE_BASED_PARAMETERS  # noqa: PLC0415
     from wetterdienst.model.request import TimeseriesRequest  # noqa: PLC0415
-    from wetterdienst.settings import _default_geo_station_distance  # noqa: PLC0415
+    from wetterdienst.settings import (  # noqa: PLC0415
+        _STATION_DISTANCE_HETEROGENEOUS,
+        _default_geo_station_distance,
+    )
 
-    hard_coded = {
-        "TimeseriesRequest.interpolatable_parameters": TimeseriesRequest.interpolatable_parameters,
-        "interpolate._OCCURRENCE_BASED_PARAMETERS": _OCCURRENCE_BASED_PARAMETERS,
-        "settings ts_geo_station_distance defaults": _default_geo_station_distance(),
+    assert set(TimeseriesRequest.interpolatable_parameters) == {p.name for p in PARAMETER_TABLE if p.interpolation}
+    shorter_radius = {
+        name
+        for name, distance in _default_geo_station_distance().items()
+        if distance == _STATION_DISTANCE_HETEROGENEOUS
     }
-    for label, names in hard_coded.items():
-        unknown = sorted(name for name in names if name not in PARAMETERS)
-        assert not unknown, f"{label} contains names that are not canonical parameters: {unknown}"
+    assert shorter_radius == {p.name for p in PARAMETER_TABLE if p.interpolation == "heterogeneous"}
+
+
+def test_parameter_table_zero_inflated_parameters_are_interpolated() -> None:
+    """Test that no parameter asks for occurrence thresholding it will never receive.
+
+    `zero_inflated` is only ever read while interpolating, so marking a parameter that is not
+    interpolated at all says something about it that nothing acts on -- a declaration that reads as
+    intent but has no effect.
+    """
+    unreachable = sorted(p.name for p in PARAMETER_TABLE if p.zero_inflated and not p.interpolation)
+    assert not unreachable, f"zero_inflated but never interpolated: {unreachable}"
 
 
 def test_parameter_table_names_unique() -> None:
