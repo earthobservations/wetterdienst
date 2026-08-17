@@ -63,9 +63,12 @@ describe('aPI Page', () => {
     const text = wrapper.text()
 
     expect(text).toContain('MCP endpoint')
-    // the URL is built from the request origin rather than hard-coded, so a self-hosted instance
-    // shows its own address and the config snippet can be pasted as-is
-    expect(text).toContain('/mcp')
+    // the whole point is that the URL follows the origin the page is served from rather than being
+    // hard-coded to the hosted instance, so assert the origin this test runs under -- `/mcp` alone
+    // would pass on a hard-coded wetterdienst.eobs.org too
+    expect(text).toContain(`${window.location.origin}/mcp`)
+    // and the config snippet a user pastes carries that same URL
     expect(text).toContain('mcpServers')
+    expect(text).toContain(`"url": "${window.location.origin}/mcp"`)
   })
 })
