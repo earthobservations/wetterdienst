@@ -218,6 +218,12 @@
       "stripesValues": "Wartości pasków klimatycznych (temperatura)",
       "stripesImage": "Obraz pasków klimatycznych (temperatura)"
     },
+    "mcpTitle": "Punkt końcowy MCP",
+    "mcpText": "Wetterdienst mówi także w Model Context Protocol, dzięki czemu asystenci AI mogą pobierać dane pogodowe jako narzędzia: znaleźć stację, a potem odczytać jej pomiary. Udostępnione są te same punkty końcowe co powyżej, przez transport streamable HTTP.",
+    "mcpUrlLabel": "URL punktu końcowego",
+    "mcpClientLabel": "Konfiguracja klienta",
+    "mcpNoAuth": "Nie jest potrzebny klucz API ani konto.",
+    "mcpDocs": "Dokumentacja MCP",
     "params": {
       "provider": "Dostawca danych (np. dwd, noaa)",
       "network": "Sieć danych (np. observation, forecast)",

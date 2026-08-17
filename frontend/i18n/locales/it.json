@@ -218,6 +218,12 @@
       "stripesValues": "Valori delle strisce climatiche (temperatura)",
       "stripesImage": "Immagine delle strisce climatiche (temperatura)"
     },
+    "mcpTitle": "Endpoint MCP",
+    "mcpText": "Wetterdienst parla anche il Model Context Protocol: gli assistenti IA possono interrogare i dati meteo come strumenti — trovare una stazione e poi leggerne le misurazioni. Sono esposti gli stessi endpoint indicati sopra, tramite il trasporto HTTP in streaming.",
+    "mcpUrlLabel": "URL dell'endpoint",
+    "mcpClientLabel": "Configurazione del client",
+    "mcpNoAuth": "Non servono chiave API né account.",
+    "mcpDocs": "Documentazione MCP",
     "params": {
       "provider": "Fornitore di dati (es. dwd, noaa)",
       "network": "Rete di dati (es. observation, forecast)",

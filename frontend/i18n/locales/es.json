@@ -218,6 +218,12 @@
       "stripesValues": "Valores de franjas climáticas (temperatura)",
       "stripesImage": "Imagen de franjas climáticas (temperatura)"
     },
+    "mcpTitle": "Punto de acceso MCP",
+    "mcpText": "Wetterdienst también habla el Model Context Protocol, de modo que los asistentes de IA pueden consultar datos meteorológicos como herramientas: buscar una estación y luego leer sus mediciones. Se exponen los mismos puntos de acceso que arriba, mediante el transporte HTTP en streaming.",
+    "mcpUrlLabel": "URL del punto de acceso",
+    "mcpClientLabel": "Configuración del cliente",
+    "mcpNoAuth": "No hace falta clave de API ni cuenta.",
+    "mcpDocs": "Documentación de MCP",
     "params": {
       "provider": "Proveedor de datos (p. ej. dwd, noaa)",
       "network": "Red de datos (p. ej. observation, forecast)",

@@ -53,4 +53,19 @@ describe('aPI Page', () => {
 
     expect(text).toContain('Examples')
   })
+
+  it('advertises the MCP endpoint on this origin', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(ApiPage)
+    const text = wrapper.text()
+
+    expect(text).toContain('MCP endpoint')
+    // the URL is built from the request origin rather than hard-coded, so a self-hosted instance
+    // shows its own address and the config snippet can be pasted as-is
+    expect(text).toContain('/mcp')
+    expect(text).toContain('mcpServers')
+  })
 })

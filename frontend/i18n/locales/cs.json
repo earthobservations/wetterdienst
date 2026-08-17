@@ -218,6 +218,12 @@
       "stripesValues": "Hodnoty klimatických pruhů (teplota)",
       "stripesImage": "Obrázek klimatických pruhů (teplota)"
     },
+    "mcpTitle": "Koncový bod MCP",
+    "mcpText": "Wetterdienst mluví také protokolem Model Context Protocol, takže asistenti s umělou inteligencí mohou získávat meteorologická data jako nástroje: najít stanici a pak přečíst její měření. K dispozici jsou stejné koncové body jako výše, přes přenos streamable HTTP.",
+    "mcpUrlLabel": "URL koncového bodu",
+    "mcpClientLabel": "Konfigurace klienta",
+    "mcpNoAuth": "Není potřeba API klíč ani účet.",
+    "mcpDocs": "Dokumentace MCP",
     "params": {
       "provider": "Poskytovatel dat (např. dwd, noaa)",
       "network": "Síť dat (např. observation, forecast)",

@@ -218,6 +218,12 @@
       "stripesValues": "Klimaatstrepen-waarden (temperatuur)",
       "stripesImage": "Klimaatstrepen-afbeelding (temperatuur)"
     },
+    "mcpTitle": "MCP-eindpunt",
+    "mcpText": "Wetterdienst spreekt ook het Model Context Protocol, zodat AI-assistenten weergegevens als tools kunnen opvragen: eerst een station zoeken, daarna de metingen lezen. Dezelfde eindpunten als hierboven zijn beschikbaar, via het streamable HTTP-transport.",
+    "mcpUrlLabel": "Eindpunt-URL",
+    "mcpClientLabel": "Clientconfiguratie",
+    "mcpNoAuth": "Geen API-sleutel of account nodig.",
+    "mcpDocs": "MCP-documentatie",
     "params": {
       "provider": "Gegevensaanbieder (bijv. dwd, noaa)",
       "network": "Gegevensnetwerk (bijv. observation, forecast)",
