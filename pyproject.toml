@@ -242,6 +242,7 @@ dev = [
     "pytest-cov>=7.1",
     "pytest-rerunfailures>=16.4",
     "pytest-xdist>=3.8",
+    "pyyaml>=6",
     # formatting and linting
     "ruff>=0.16.0",
     "poethepoet>=0.48.0",
