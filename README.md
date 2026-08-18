@@ -1,7 +1,7 @@
 # Wetterdienst - Open weather data for humans
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/hohenpeissenberg_warming_stripes.png" alt="Warming stripes for Hohenpeissenberg, Germany: one stripe per year since 1781, blue for cold years and red for warm ones, drawn with wetterdienst" width="72%"/>
+  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/hohenpeissenberg_warming_stripes.png" alt="Warming stripes for Hohenpeissenberg, Germany: one stripe per year since 1781, blue for cold years and red for warm ones, drawn with wetterdienst" width="880" height="440"/>
 </p>
 
 > **Global warming is not an opinion.** — Erderwärmung ist keine Meinung.
@@ -173,9 +173,13 @@ it better and better every day.
 
 ## Supported by
 
-[![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSourceSupport)
-&nbsp;&nbsp;
-[![Anthropic logo.](https://cdn.simpleicons.org/anthropic/181818/ffffff)](https://www.anthropic.com/)
+<p>
+  <!-- same height, each at its own aspect ratio: the JetBrains file is a 298x64 wordmark and the
+       Anthropic one a 24x24 glyph, so equal width and height would squash the first. -->
+  <a href="https://jb.gg/OpenSourceSupport"><img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg" alt="JetBrains logo" width="224" height="48"/></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://www.anthropic.com/"><img src="https://cdn.simpleicons.org/anthropic/181818/ffffff" alt="Anthropic logo" width="48" height="48"/></a>
+</p>
 
 Special thanks to the kind people at [JetBrains] s.r.o. for a PyCharm licence through their
 open-source support programme, and to [Anthropic] for a Claude Max subscription for open-source
