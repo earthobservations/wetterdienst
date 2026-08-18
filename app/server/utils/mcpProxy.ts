@@ -1,5 +1,5 @@
-// Shared handler that proxies the frontend's `/mcp` (and any sub-path) through to the backend's MCP
-// endpoint so it is reachable on the frontend origin (e.g. https://wetterdienst.eobs.org/mcp).
+// Shared handler that proxies the app's `/mcp` (and any sub-path) through to the backend's MCP
+// endpoint so it is reachable on the app origin (e.g. https://wetterdienst.eobs.org/mcp).
 //
 // Unlike the JSON `/api/**` proxy, MCP uses the streamable-HTTP transport (POST for requests, GET for
 // the SSE stream, DELETE to end a session, plus the `mcp-session-id` header), so this forwards the

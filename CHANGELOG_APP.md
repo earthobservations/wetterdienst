@@ -78,6 +78,11 @@ Types of changes:
   name -- so the footer went on calling the app by a name nothing else in the project uses. The
   backend half is untouched; `frontendVersion` is `appVersion`, and its counterpart is
   `backendVersion` rather than a bare `version`, since the two sit side by side
+- `[Build]` The word "frontend" is gone from the rest of the app too -- the proxy and route
+  comments, the parameter-label lookup chain, and the E2E guide, which told the reader to start a
+  "frontend dev server" that no longer goes by that name. Two references stay on purpose: the
+  `COOLIFY_FRONTEND_UUID` deploy secret, whose name lives in GitHub settings rather than in this
+  repo, and the release-strategy note recording what the tags and image used to be called
 - `[Build]` **Breaking for anyone pulling the image or tagging a release.** `frontend/` is now
   `app/`, and every artifact named after it followed: the image is
   `ghcr.io/earthobservations/wetterdienst-app`, releases are tagged `app-v*` rather than

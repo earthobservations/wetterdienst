@@ -12,7 +12,7 @@ Wetterdienst can generate climate stripes from **DWD** daily observations for tw
 - `precipitation` — based on the annual precipitation sum
 
 The feature is exposed via the [command line interface](#command-line-interface) and the
-[REST API](#rest-api). The hosted [web frontend](https://www.wetterdienst.eobs.org) also
+[REST API](#rest-api). The hosted [web app](https://www.wetterdienst.eobs.org) also
 offers an interactive Climate Stripes view.
 
 ## Command Line Interface

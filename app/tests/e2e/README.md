@@ -1,6 +1,6 @@
 # E2E Testing Guide
 
-This directory contains end-to-end (E2E) tests using Playwright that test the frontend with a real backend.
+This directory contains end-to-end (E2E) tests using Playwright that test the app with a real backend.
 
 ## Browsers
 
@@ -36,7 +36,7 @@ npx playwright install chromium webkit
 
 The E2E test suite includes automatic health checks that verify:
 - ✅ Backend API is running and accessible (via `/health` endpoint)
-- ✅ Frontend dev server is running
+- ✅ App dev server is running
 
 If the backend is not available, you'll see a clear error message:
 
@@ -77,8 +77,8 @@ pip install -e .
 wetterdienst restapi --listen 0.0.0.0:3000
 ```
 
-### Frontend Server
-The Playwright config is set to automatically start the frontend dev server on `http://localhost:4000`
+### App Server
+The Playwright config is set to automatically start the app dev server on `http://localhost:4000`
 
 ## Running E2E Tests
 
@@ -123,7 +123,7 @@ npx playwright test  # Runs on all configured browsers
 
 ```
 tests/e2e/
-├── global-setup.ts       # Health checks for backend/frontend
+├── global-setup.ts       # Health checks for backend/app
 ├── api.spec.ts           # API endpoint tests
 ├── pages.spec.ts         # Page navigation and UI tests
 └── integration.spec.ts   # Full user flow tests
@@ -143,7 +143,7 @@ tests/e2e/
 
 ### Integration Tests (`integration.spec.ts`)
 - Tests complete user workflows
-- Verifies frontend-backend integration
+- Verifies app-backend integration
 - Tests data loading and API calls
 
 ## Environment Variables
@@ -151,7 +151,7 @@ tests/e2e/
 You can override the URLs for testing:
 
 ```bash
-# Override frontend URL
+# Override app URL
 BASE_URL=http://localhost:4000 npm run test:e2e
 
 # Override backend URL
@@ -164,7 +164,7 @@ BASE_URL=http://localhost:4000 BACKEND_URL=http://localhost:3000 npm run test:e2
 **Note:** The health check will verify the backend is accessible before running any tests.
 ## CI/CD
 
-For continuous integration, ensure both backend and frontend are running:
+For continuous integration, ensure both backend and app are running:
 
 ```bash
 # Start backend

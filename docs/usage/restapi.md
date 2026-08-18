@@ -8,9 +8,9 @@ wetterdienst restapi
 
 There's also a hosted version at [wetterdienst.eobs.org](https://www.wetterdienst.eobs.org).
 
-## Web Frontend
+## Web App
 
-The REST API is complemented by a modern web frontend built with Nuxt.js, providing an interactive interface for exploring weather data.
+The REST API is complemented by a modern web app built with Nuxt.js, providing an interactive interface for exploring weather data.
 
 ### Features
 
@@ -159,7 +159,7 @@ without the extra is never advertised as having an endpoint it does not serve.
 
 ### Hosted instance
 
-The `[mcp]` extra is included in the backend Docker image, and the frontend proxies `/mcp` through
+The `[mcp]` extra is included in the backend Docker image, and the app proxies `/mcp` through
 to the backend (preserving the streamable-HTTP POST/SSE transport), so the hosted app serves the MCP
 endpoint on its own origin:
 
