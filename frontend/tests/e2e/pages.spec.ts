@@ -103,10 +103,20 @@ test.describe('Climate Stripes Page', () => {
 })
 
 test.describe('Support Page', () => {
-  test('should navigate to support page', async ({ page }) => {
+  test('should be reachable from the header icon', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('link', { name: /support/i }).click()
+    // Support is not a nav entry: it is a heart in the header's project links, and a footer link.
+    // Both are named "Support", hence the scoping.
+    await page.getByRole('banner').getByRole('link', { name: /support/i }).click()
+
+    await expect(page).toHaveURL(/\/support/)
+  })
+
+  test('should be reachable from the footer', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('contentinfo').getByRole('link', { name: /support/i }).click()
 
     await expect(page).toHaveURL(/\/support/)
   })

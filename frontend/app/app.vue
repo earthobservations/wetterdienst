@@ -71,12 +71,6 @@ const items = computed<NavigationMenuItem[]>(() =>
       to: '/glossary',
       active: route.path.startsWith('/glossary'),
     },
-    {
-      label: t('nav.support'),
-      icon: 'i-lucide-heart',
-      to: '/support',
-      active: route.path.startsWith('/support'),
-    },
   ],
 )
 </script>
@@ -123,6 +117,18 @@ const items = computed<NavigationMenuItem[]>(() =>
               color="neutral"
               variant="ghost"
               :aria-label="t('header.pypi')"
+            />
+          </UTooltip>
+          <!-- Support is about the project rather than the data, so it sits with the other
+               project links rather than in the task nav -- but as an icon, not a footer line,
+               because issues, pull requests and donations all start here. -->
+          <UTooltip :text="t('nav.support')">
+            <UButton
+              to="/support"
+              icon="i-lucide-heart"
+              color="neutral"
+              variant="ghost"
+              :aria-label="t('nav.support')"
             />
           </UTooltip>
           <SettingsMenu />
@@ -211,6 +217,18 @@ const items = computed<NavigationMenuItem[]>(() =>
                   :aria-label="t('header.pypi')"
                 />
               </UTooltip>
+              <!-- matches the desktop header: Support left the nav list, so it has to be here or
+                   the hamburger menu loses it entirely -->
+              <UTooltip :text="t('nav.support')">
+                <UButton
+                  to="/support"
+                  icon="i-lucide-heart"
+                  color="neutral"
+                  variant="ghost"
+                  :aria-label="t('nav.support')"
+                  @click="mobileMenuOpen = false"
+                />
+              </UTooltip>
             </div>
             <UButton
               to="/settings"
@@ -250,6 +268,10 @@ const items = computed<NavigationMenuItem[]>(() =>
           <span class="text-gray-400">|</span>
           <NuxtLink to="/about" class="text-gray-500 hover:text-primary-500 transition-colors">
             {{ t('footer.about') }}
+          </NuxtLink>
+          <span class="text-gray-400">|</span>
+          <NuxtLink to="/support" class="text-gray-500 hover:text-primary-500 transition-colors">
+            {{ t('nav.support') }}
           </NuxtLink>
           <span class="text-gray-400">|</span>
           <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">

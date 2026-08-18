@@ -61,6 +61,11 @@ Types of changes:
 - `[Home]` The values statement closes the page instead of sitting between the task cards and the
   data, where it interrupted the path from "what would you like to do" to "what data you get". The
   footer carries the same stance on every page regardless
+- `[All pages]` Support leaves the main navigation, which is now seven entries with one rule
+  between them: they are all things you do with weather data. Support is about the project, like
+  About and the legal notice, so it joins them -- as a heart in the header's project links, where
+  "sponsor this" is conventionally found, and as a footer link. It is in the mobile menu's bottom
+  bar for the same reason it is in the desktop header
 
 - `[Explorer]` The settings drawer held the app's only raw form controls -- seven `<input>` and one
   `<select>` with hand-maintained borders, padding and `dark:` variants, and none of the focus or
