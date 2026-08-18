@@ -29,7 +29,9 @@ Types of changes:
   flat entry for the co-author, with a pointer to the full contributor list. Reachable from the
   footer and from the bottom of the home page
 - `[About]` LinkedIn and Mastodon next to the GitHub and email buttons in the maintainer card. The
-  Mastodon link carries `rel="me"`, so the profile there can verify the link back to this site
+  Mastodon link carries `rel="me"`, so the profile there can verify the link back to this site, and
+  wears the real Mastodon logo from simple-icons -- Lucide has no such glyph, and icons resolve
+  through Iconify either way, so it adds no dependency
 - `[Home]` A "what data you get" section, which is what a first-time visitor actually needs: the
   headline numbers, all 22 weather services named with their flags, and the six kinds of data
   behind them -- measurements, forecasts, water levels, radar, warnings and road weather. The

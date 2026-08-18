@@ -143,16 +143,16 @@ const coAuthor = {
               LinkedIn
             </UButton>
             <!-- rel="me" is what lets the Mastodon profile verify a link back to this site, so it
-                 is spelled out rather than left to the default rel for a _blank link. Lucide has no
-                 mastodon glyph, and the at-sign says "fediverse handle" without pulling in a second
-                 icon set for one button. -->
+                 is spelled out rather than left to the default rel for a _blank link. The icon
+                 comes from simple-icons because Lucide has no mastodon glyph; icons are resolved
+                 through Iconify either way, so this costs no new dependency. -->
             <UButton
               :to="maintainer.mastodon"
               target="_blank"
               rel="me noopener noreferrer"
               size="sm"
               variant="outline"
-              icon="i-lucide-at-sign"
+              icon="i-simple-icons-mastodon"
             >
               {{ maintainer.mastodonHandle }}
             </UButton>
