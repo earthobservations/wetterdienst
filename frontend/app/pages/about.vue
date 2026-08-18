@@ -157,20 +157,21 @@ const people = computed(() => [
                 {{ link.label }}
               </UButton>
             </div>
-
-            <p v-if="person.key === 'coauthor'" class="text-sm text-gray-600 dark:text-gray-400">
-              {{ t('about.contributorsText') }}
-              <a
-                href="https://github.com/earthobservations/wetterdienst/blob/main/CONTRIBUTORS.md"
-                target="_blank"
-                class="text-primary-500 hover:underline"
-              >
-                {{ t('about.contributorsLink') }}
-              </a>
-            </p>
           </div>
         </div>
       </div>
+
+      <!-- about the project rather than about either person, so it sits under both of them -->
+      <p class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 text-sm text-gray-600 dark:text-gray-400">
+        {{ t('about.contributorsText') }}
+        <a
+          href="https://github.com/earthobservations/wetterdienst/blob/main/CONTRIBUTORS.md"
+          target="_blank"
+          class="text-primary-500 hover:underline"
+        >
+          {{ t('about.contributorsLink') }}
+        </a>
+      </p>
     </UCard>
 
     <UCard>
