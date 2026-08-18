@@ -130,7 +130,9 @@ Types of changes:
   today; the living register is Hamburgisch, High German carrying the Low German layer. Fourteen
   further strings still addressed the reader as "Sie", inherited unchanged from `de`, so a reader
   met both forms. One register now: High German, "du" throughout, and the Hamburg vocabulary where
-  a Hamburger would actually use it
+  a Hamburger would actually use it -- including the tagline, which read "för de Lüüd": the noun is
+  Hamburg, the preposition and article were Low German, and the same page says "die Lüüd dahinter"
+  a screen further down
 
 - `[Explorer]` Plotly, at 1.0 MB the largest chunk in the build, was fetched and parsed as soon as
   the data viewer mounted -- before any chart existed, and regardless of the view mode, which
