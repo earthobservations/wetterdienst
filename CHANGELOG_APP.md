@@ -73,6 +73,11 @@ Types of changes:
 
 ### Changed
 
+- `[Footer]` The version line says `App` rather than `Frontend`. The rename below moved the
+  directory, the image and the release tags, but left the one place a visitor actually reads the
+  name -- so the footer went on calling the app by a name nothing else in the project uses. The
+  backend half is untouched; `frontendVersion` is `appVersion`, and its counterpart is
+  `backendVersion` rather than a bare `version`, since the two sit side by side
 - `[Build]` **Breaking for anyone pulling the image or tagging a release.** `frontend/` is now
   `app/`, and every artifact named after it followed: the image is
   `ghcr.io/earthobservations/wetterdienst-app`, releases are tagged `app-v*` rather than

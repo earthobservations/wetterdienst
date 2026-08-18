@@ -18,8 +18,8 @@ const isWidget = computed(() => route.path.startsWith('/widget'))
 
 const { data: versionData } = await useFetch<{ version: string }>('/api/version')
 
-const version = computed(() => versionData.value?.version ?? 'unknown')
-const frontendVersion = pkg.version || 'unknown'
+const backendVersion = computed(() => versionData.value?.version ?? 'unknown')
+const appVersion = pkg.version || 'unknown'
 
 // The same four statements the home page spells out, as icons here: the footer is on every page,
 // and four sentences at the foot of every one of them is a banner rather than a footer. The full
@@ -259,9 +259,9 @@ const items = computed<NavigationMenuItem[]>(() =>
     <UFooter v-if="!isWidget">
       <div class="w-full flex flex-col items-center gap-2 text-center">
         <div class="text-xs text-gray-400 dark:text-gray-600">
-          <span class="text-green-600 dark:text-green-400 font-medium">Frontend</span> {{ frontendVersion === 'unknown' ? frontendVersion : `v${frontendVersion}` }}
+          <span class="text-green-600 dark:text-green-400 font-medium">App</span> {{ appVersion === 'unknown' ? appVersion : `v${appVersion}` }}
           <span class="mx-1">|</span>
-          <span class="text-blue-600 dark:text-blue-400 font-medium">Backend</span> {{ version === 'unknown' ? version : `v${version}` }}
+          <span class="text-blue-600 dark:text-blue-400 font-medium">Backend</span> {{ backendVersion === 'unknown' ? backendVersion : `v${backendVersion}` }}
         </div>
         <!-- Two rows by kind rather than one list of six. In one row the values statements sat in
              the same register as the links, separated by the same pipe, and the separators -- flex
