@@ -106,11 +106,10 @@ const coAuthor = {
             </p>
           </div>
 
+          <!-- one paragraph, two strings: the sentences read on from each other, and a break
+               between them left the card looking like two half-written blocks -->
           <p class="text-gray-600 dark:text-gray-400">
-            {{ t('about.maintainerBio') }}
-          </p>
-          <p class="text-gray-600 dark:text-gray-400">
-            {{ t('about.maintainerText2') }}
+            {{ t('about.maintainerBio') }} {{ t('about.maintainerText2') }}
           </p>
 
           <div class="flex flex-wrap gap-2 pt-1">
