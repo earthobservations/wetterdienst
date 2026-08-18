@@ -61,7 +61,7 @@
     "maintainerRole": "Skaber og vedligeholder",
     "maintainerAge": "{age} år gammel",
     "maintainerText2": "Han driver også den hostede instans på wetterdienst.eobs.org, der gratis leverer denne app, API'et og MCP-endepunktet.",
-    "maintainerBio": "Benjamin har opfundet Wetterdienst og udvikler det den dag i dag. Han studerede hydrologi i Dresden fra 2013 til 2020 og startede projektet i april 2020 for at lære Python; hydrologien blev hængende – biblioteket dækker vandstande og vandføring ved siden af vejret.",
+    "maintainerBio": "Benjamin har opfundet Wetterdienst og udvikler det den dag i dag. Han afsluttede sin kandidatgrad i hydrologi i Dresden i 2020 og har siden arbejdet som data engineer – hydrologien blev hængende: biblioteket dækker vandstande og vandføring ved siden af vejret.",
     "coAuthorTitle": "Medforfatter",
     "contributorsText": "Mange flere har gennem årene bidraget med adaptere, funktioner og rettelser.",
     "contributorsLink": "Se hele listen",

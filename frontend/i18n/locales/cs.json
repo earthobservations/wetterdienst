@@ -61,7 +61,7 @@
     "maintainerRole": "Tvůrce a správce",
     "maintainerAge": "věk: {age}",
     "maintainerText2": "Provozuje také hostovanou instanci na wetterdienst.eobs.org, která zdarma poskytuje tuto aplikaci, API i koncový bod MCP.",
-    "maintainerBio": "Benjamin Wetterdienst vymyslel a dodnes jej rozvíjí. V letech 2013 až 2020 studoval hydrologii v Drážďanech a projekt začal v dubnu 2020, aby se naučil Python; hydrologie mu zůstala – knihovna vedle počasí pokrývá i vodní stavy a průtoky.",
+    "maintainerBio": "Benjamin Wetterdienst vymyslel a dodnes jej rozvíjí. V roce 2020 dokončil v Drážďanech magisterské studium hydrologie a od té doby pracuje jako datový inženýr – hydrologie mu zůstala: knihovna vedle počasí pokrývá i vodní stavy a průtoky.",
     "coAuthorTitle": "Spoluautor",
     "contributorsText": "V průběhu let přispěla řada dalších lidí adaptéry, funkcemi a opravami.",
     "contributorsLink": "Zobrazit celý seznam",

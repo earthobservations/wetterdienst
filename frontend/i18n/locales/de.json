@@ -61,7 +61,7 @@
     "maintainerRole": "Erfinder und Maintainer",
     "maintainerAge": "{age} Jahre alt",
     "maintainerText2": "Er betreibt außerdem die öffentliche Instanz unter wetterdienst.eobs.org, die diese App, die API und den MCP-Endpunkt kostenlos bereitstellt.",
-    "maintainerBio": "Benjamin hat Wetterdienst erfunden und entwickelt es bis heute weiter. Von 2013 bis 2020 hat er in Dresden Hydrologie studiert und das Projekt im April 2020 begonnen, um Python zu lernen; die Hydrologie ist ihm geblieben – die Bibliothek deckt neben dem Wetter auch Pegelstände und Abflüsse ab.",
+    "maintainerBio": "Benjamin hat Wetterdienst erfunden und entwickelt es bis heute weiter. Er hat 2020 in Dresden seinen MSc in Hydrologie abgeschlossen und arbeitet seitdem als Data Engineer – die Hydrologie ist ihm geblieben: Die Bibliothek deckt neben dem Wetter auch Pegelstände und Abflüsse ab.",
     "coAuthorTitle": "Co-Autor",
     "contributorsText": "Viele weitere Menschen haben über die Jahre Adapter, Funktionen und Korrekturen beigetragen.",
     "contributorsLink": "Zur vollständigen Liste",

@@ -61,7 +61,7 @@
     "maintainerRole": "Twórca i opiekun",
     "maintainerAge": "wiek: {age}",
     "maintainerText2": "Prowadzi też hostowaną instancję pod adresem wetterdienst.eobs.org, która bezpłatnie udostępnia tę aplikację, API oraz punkt końcowy MCP.",
-    "maintainerBio": "Benjamin wymyślił Wetterdienst i rozwija go do dziś. W latach 2013–2020 studiował hydrologię w Dreźnie, a projekt zaczął w kwietniu 2020, żeby nauczyć się Pythona; hydrologia została – biblioteka obok pogody obejmuje stany i przepływy rzek.",
+    "maintainerBio": "Benjamin wymyślił Wetterdienst i rozwija go do dziś. W 2020 roku ukończył w Dreźnie studia magisterskie z hydrologii i od tego czasu pracuje jako data engineer – hydrologia została: biblioteka obok pogody obejmuje stany i przepływy rzek.",
     "coAuthorTitle": "Współautor",
     "contributorsText": "Przez lata wiele innych osób wniosło adaptery, funkcje i poprawki.",
     "contributorsLink": "Zobacz pełną listę",
