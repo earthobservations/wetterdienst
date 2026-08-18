@@ -27,7 +27,8 @@ Types of changes:
 - `[About]` A page at `/about` carrying what the home page used to say about the project, plus a
   proper introduction to the maintainer -- what he works on, where he is, how to reach him -- and a
   the same for the co-author, with a pointer to the full contributor list. Both cards render from
-  one shape, so neither is a lesser layout than the other. Nothing about a person is stated that
+  one shape under a single "the people behind it" heading, so neither is a lesser layout than the
+  other and no card header repeats the role beneath it. Nothing about a person is stated that
   they have not published themselves: the co-author's card carries no employer, location or age,
   because his GitHub profile gives none. Reachable from the footer and from the bottom of the home
   page

@@ -20,7 +20,6 @@ const age = computed(() => {
 const people = computed(() => [
   {
     key: 'maintainer',
-    title: t('about.maintainerTitle'),
     name: 'Benjamin Gutzmann',
     role: t('about.maintainerRole'),
     // one paragraph: the sentences read on from each other
@@ -40,7 +39,6 @@ const people = computed(() => [
   },
   {
     key: 'coauthor',
-    title: t('about.coAuthorTitle'),
     name: 'Andreas Motl',
     role: t('about.coAuthorRole'),
     bio: t('about.coAuthorBio'),
@@ -87,16 +85,16 @@ const people = computed(() => [
       </p>
     </UCard>
 
-    <UCard v-for="person in people" :key="person.key">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-user" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ person.title }}
-          </h2>
-        </div>
-      </template>
+    <!-- One heading for both, rather than a card header per person: "Maintainer" over a card whose
+         first line already reads "Creator and maintainer" said it twice. -->
+    <div class="flex items-center gap-2 pt-2">
+      <UIcon name="i-lucide-users" class="text-primary-500 shrink-0" />
+      <h2 class="text-lg font-bold">
+        {{ t('about.peopleTitle') }}
+      </h2>
+    </div>
 
+    <UCard v-for="person in people" :key="person.key">
       <div class="flex flex-col sm:flex-row gap-6">
         <div class="flex flex-col items-center gap-2 shrink-0">
           <a
