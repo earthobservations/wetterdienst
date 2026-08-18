@@ -123,6 +123,15 @@ Types of changes:
 
 ### Fixed
 
+- `[de-hh]` The Hamburg locale spoke three languages at once. Sixteen strings were full Hamburger
+  Platt -- "Wat jeder Parameter misst un in welke Eenheit de Weerten torüchkaamt", "Datenanfraag is
+  fehlslaan" -- sitting between High German ones, and Platt is a separate language that the
+  [Wikipedia article](https://de.wikipedia.org/wiki/Hamburger_Dialekt) describes as rarely spoken
+  today; the living register is Hamburgisch, High German carrying the Low German layer. Fourteen
+  further strings still addressed the reader as "Sie", inherited unchanged from `de`, so a reader
+  met both forms. One register now: High German, "du" throughout, and the Hamburg vocabulary where
+  a Hamburger would actually use it
+
 - `[Explorer]` Plotly, at 1.0 MB the largest chunk in the build, was fetched and parsed as soon as
   the data viewer mounted -- before any chart existed, and regardless of the view mode, which
   defaults to the table. It is fetched the first time a chart is actually rendered now, so opening
