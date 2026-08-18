@@ -25,10 +25,6 @@
     "featureExportDesc": "Luet Daten als CSV, JSON oder GeoJSON erof.",
     "featureAnalysisTitle": "Interpolatioun a Resumé",
     "featureAnalysisDesc": "Wäerter fir e Punkt tëscht de Statioune schätzen, oder zu all Zäitpunkt déi nootste Statioun huelen, déi Donnéeë huet.",
-    "valuesTitle": "Wofir mir stinn",
-    "lgbtq": "Mir ënnerstëtzen d'LGBTQI+-Communautéit.",
-    "antifascist": "Kee Plaz fir Nazien. FCKNZS.",
-    "climate": "D'Äerderwiermung ass keng Meenung.",
     "dataTitle": "Wéi eng Daten Dir kritt",
     "dataIntro": "Offiziell Miessunge vun den nationale Wiederdéngschter. Kee Schlëssel, kee Kont, keng Limite.",
     "statProviders": "Wiederdéngschter",
@@ -50,6 +46,13 @@
     "kindRoadTitle": "Stroossewieder",
     "kindRoadDesc": "Fahrbunnzoustand an -temperature vun de DWD-Stroossewiederstatiounen, mat hire Prognosen.",
     "aboutLink": "Iwwer d'Projet an d'Leit dohannert"
+  },
+  "values": {
+    "title": "Wofir mir stinn",
+    "lgbtq": "Mir ënnerstëtzen d'LGBTQI+-Communautéit.",
+    "antifascist": "Kee Plaz fir Nazien. FCKNZS.",
+    "climate": "D'Äerderwiermung ass keng Meenung.",
+    "openData": "Wiederdaten gehéieren allen."
   },
   "about": {
     "title": "Iwwer eis",
@@ -91,8 +94,6 @@
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",
-    "lgbtq": "Gär hunn, wie s de wëlls",
-    "antifascist": "FCKNZS",
     "about": "Iwwer eis"
   },
   "language": {

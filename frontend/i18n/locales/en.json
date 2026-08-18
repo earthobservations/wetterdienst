@@ -25,10 +25,6 @@
     "featureExportDesc": "Download data as CSV, JSON or GeoJSON.",
     "featureAnalysisTitle": "Interpolation & summary",
     "featureAnalysisDesc": "Estimate values for a point between stations, or take the nearest station that has data at each timestamp.",
-    "valuesTitle": "What we stand for",
-    "lgbtq": "We stand with the LGBTQI+ community.",
-    "antifascist": "No place for Nazis. FCKNZS.",
-    "climate": "Global warming is not an opinion.",
     "dataTitle": "What data you get",
     "dataIntro": "Official measurements from national weather services. No key, no account, no rate limit.",
     "statProviders": "weather services",
@@ -50,6 +46,13 @@
     "kindRoadTitle": "Road weather",
     "kindRoadDesc": "Road surface conditions and temperatures from the DWD road weather stations, and their forecasts.",
     "aboutLink": "About the project and the people behind it"
+  },
+  "values": {
+    "title": "What we stand for",
+    "lgbtq": "We stand with the LGBTQI+ community.",
+    "antifascist": "No place for Nazis. FCKNZS.",
+    "climate": "Global warming is not an opinion.",
+    "openData": "Weather data belongs to everyone."
   },
   "about": {
     "title": "About",
@@ -91,8 +94,6 @@
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Legal notice",
-    "lgbtq": "Love who you want",
-    "antifascist": "FCKNZS",
     "about": "About"
   },
   "language": {

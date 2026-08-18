@@ -75,6 +75,14 @@ const stats = computed(() => [
   { value: '0 €', label: t('home.statPrice') },
 ])
 
+// What the project stands for. Shared with the footer, which shows the same four as icons.
+const values = computed(() => [
+  { key: 'lgbtq', emoji: '🏳️‍🌈🏳️‍⚧️', text: t('values.lgbtq') },
+  { key: 'antifascist', emoji: '✊', text: t('values.antifascist') },
+  { key: 'climate', emoji: '🌡️', text: t('values.climate') },
+  { key: 'openData', emoji: '🔓', text: t('values.openData') },
+])
+
 // What kinds of data the networks behind those providers actually serve.
 const dataKinds = computed(() => [
   { icon: 'i-lucide-thermometer', title: t('home.kindObservationsTitle'), description: t('home.kindObservationsDesc') },
@@ -213,22 +221,12 @@ const dataKinds = computed(() => [
     <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
     <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
       <h2 class="text-lg font-bold mb-3">
-        {{ t('home.valuesTitle') }}
+        {{ t('values.title') }}
       </h2>
       <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8">
-        <p class="flex items-center gap-2 text-base font-medium">
-          <span aria-hidden="true">🏳️‍🌈</span>
-          <span aria-hidden="true">🏳️‍⚧️</span>
-          {{ t('home.lgbtq') }}
-        </p>
-        <p class="flex items-center gap-2 text-base font-medium">
-          <span aria-hidden="true">✊</span>
-          {{ t('home.antifascist') }}
-        </p>
-        <!-- the one stance this project backs up by existing: it serves the measurements -->
-        <p class="flex items-center gap-2 text-base font-medium">
-          <span aria-hidden="true">🌡️</span>
-          {{ t('home.climate') }}
+        <p v-for="value in values" :key="value.key" class="flex items-center gap-2 text-base font-medium">
+          <span aria-hidden="true">{{ value.emoji }}</span>
+          {{ value.text }}
         </p>
       </div>
     </section>

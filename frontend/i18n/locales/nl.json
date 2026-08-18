@@ -25,10 +25,6 @@
     "featureExportDesc": "Download gegevens als CSV, JSON of GeoJSON.",
     "featureAnalysisTitle": "Interpolatie en samenvatting",
     "featureAnalysisDesc": "Waarden schatten voor een punt tussen stations, of op elk tijdstip het dichtstbijzijnde station met gegevens nemen.",
-    "valuesTitle": "Waar wij voor staan",
-    "lgbtq": "Wij staan achter de LGBTQI+-gemeenschap.",
-    "antifascist": "Geen plaats voor nazi's. FCKNZS.",
-    "climate": "Opwarming van de aarde is geen mening.",
     "dataTitle": "Welke data je krijgt",
     "dataIntro": "Officiële metingen van nationale weerdiensten. Geen sleutel, geen account, geen limiet.",
     "statProviders": "weerdiensten",
@@ -50,6 +46,13 @@
     "kindRoadTitle": "Wegweer",
     "kindRoadDesc": "Wegdekcondities en -temperaturen van de DWD-wegweerstations, met hun verwachtingen.",
     "aboutLink": "Over het project en de mensen erachter"
+  },
+  "values": {
+    "title": "Waar wij voor staan",
+    "lgbtq": "Wij staan achter de LGBTQI+-gemeenschap.",
+    "antifascist": "Geen plaats voor nazi's. FCKNZS.",
+    "climate": "Opwarming van de aarde is geen mening.",
+    "openData": "Weergegevens zijn van iedereen."
   },
   "about": {
     "title": "Over",
@@ -91,8 +94,6 @@
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Colofon",
-    "lgbtq": "Hou van wie je wilt",
-    "antifascist": "FCKNZS",
     "about": "Over"
   },
   "language": {

@@ -25,10 +25,6 @@
     "featureExportDesc": "Stáhněte data ve formátu CSV, JSON nebo GeoJSON.",
     "featureAnalysisTitle": "Interpolace a souhrn",
     "featureAnalysisDesc": "Odhad hodnot pro bod mezi stanicemi, nebo pro každý časový okamžik nejbližší stanice, která má data.",
-    "valuesTitle": "Za čím si stojíme",
-    "lgbtq": "Podporujeme LGBTQI+ komunitu.",
-    "antifascist": "Žádné místo pro nacisty. FCKNZS.",
-    "climate": "Globální oteplování není názor.",
     "dataTitle": "Jaká data dostanete",
     "dataIntro": "Oficiální měření národních meteorologických služeb. Bez klíče, bez účtu, bez limitu.",
     "statProviders": "meteorologických služeb",
@@ -50,6 +46,13 @@
     "kindRoadTitle": "Silniční počasí",
     "kindRoadDesc": "Stav a teplota vozovky ze silničních stanic DWD, včetně jejich předpovědí.",
     "aboutLink": "O projektu a lidech za ním"
+  },
+  "values": {
+    "title": "Za čím si stojíme",
+    "lgbtq": "Podporujeme LGBTQI+ komunitu.",
+    "antifascist": "Žádné místo pro nacisty. FCKNZS.",
+    "climate": "Globální oteplování není názor.",
+    "openData": "Meteorologická data patří všem."
   },
   "about": {
     "title": "O projektu",
@@ -91,8 +94,6 @@
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Právní informace",
-    "lgbtq": "Miluj, koho chceš",
-    "antifascist": "FCKNZS",
     "about": "O projektu"
   },
   "language": {

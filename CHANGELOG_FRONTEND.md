@@ -81,6 +81,9 @@ Types of changes:
 - `[Home]` Only the cards that go somewhere answer the pointer. The two feature cards lifted and
   ringed on hover exactly like the task cards above them, but nothing happens when you click one --
   a hover state is how a card promises it is a link, and those two were promising nothing
+- `[All pages]` The footer carries all four statements as icons, with the full wording on hover and
+  as the accessible name, rather than two of them in short form. The four now live in one `values`
+  section shared with the home page, so the two places cannot drift apart
 - `[All pages]` The footer is two rows split by kind -- copyright and links on one, the stance on
   its own line -- rather than one list of six items where "Love who you want" sat in the same
   register as "About", separated by the same pipe. The separators were flex siblings that cannot

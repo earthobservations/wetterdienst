@@ -25,10 +25,6 @@
     "featureExportDesc": "Descarga los datos en formato CSV, JSON o GeoJSON.",
     "featureAnalysisTitle": "Interpolación y resumen",
     "featureAnalysisDesc": "Estimar valores para un punto entre estaciones, o tomar en cada instante la estación más cercana con datos.",
-    "valuesTitle": "Lo que defendemos",
-    "lgbtq": "Apoyamos a la comunidad LGBTQI+.",
-    "antifascist": "Sin lugar para los nazis. FCKNZS.",
-    "climate": "El calentamiento global no es una opinión.",
     "dataTitle": "Qué datos obtiene",
     "dataIntro": "Mediciones oficiales de los servicios meteorológicos nacionales. Sin clave, sin cuenta, sin límite.",
     "statProviders": "servicios meteorológicos",
@@ -50,6 +46,13 @@
     "kindRoadTitle": "Meteorología vial",
     "kindRoadDesc": "Estado y temperatura del firme de las estaciones viales del DWD, junto con sus predicciones.",
     "aboutLink": "Sobre el proyecto y quienes están detrás"
+  },
+  "values": {
+    "title": "Lo que defendemos",
+    "lgbtq": "Apoyamos a la comunidad LGBTQI+.",
+    "antifascist": "Sin lugar para los nazis. FCKNZS.",
+    "climate": "El calentamiento global no es una opinión.",
+    "openData": "Los datos meteorológicos son de todos."
   },
   "about": {
     "title": "Acerca de",
@@ -91,8 +94,6 @@
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Aviso legal",
-    "lgbtq": "Ama a quien quieras",
-    "antifascist": "FCKNZS",
     "about": "Acerca de"
   },
   "language": {

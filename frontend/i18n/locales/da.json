@@ -25,10 +25,6 @@
     "featureExportDesc": "Download data som CSV, JSON eller GeoJSON.",
     "featureAnalysisTitle": "Interpolation og opsummering",
     "featureAnalysisDesc": "Estimer værdier for et punkt mellem stationer, eller tag den nærmeste station med data på hvert tidspunkt.",
-    "valuesTitle": "Det, vi står for",
-    "lgbtq": "Vi støtter LGBTQI+-fællesskabet.",
-    "antifascist": "Ingen plads til nazister. FCKNZS.",
-    "climate": "Global opvarmning er ikke en holdning.",
     "dataTitle": "Hvilke data du får",
     "dataIntro": "Officielle målinger fra nationale vejrtjenester. Ingen nøgle, ingen konto, ingen grænse.",
     "statProviders": "vejrtjenester",
@@ -50,6 +46,13 @@
     "kindRoadTitle": "Vejrvejr på vejene",
     "kindRoadDesc": "Vejbaneforhold og -temperaturer fra DWD's vejvejrstationer samt deres prognoser.",
     "aboutLink": "Om projektet og menneskene bag"
+  },
+  "values": {
+    "title": "Det, vi står for",
+    "lgbtq": "Vi støtter LGBTQI+-fællesskabet.",
+    "antifascist": "Ingen plads til nazister. FCKNZS.",
+    "climate": "Global opvarmning er ikke en holdning.",
+    "openData": "Vejrdata tilhører alle."
   },
   "about": {
     "title": "Om",
@@ -91,8 +94,6 @@
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Juridisk meddelelse",
-    "lgbtq": "Elsk hvem du vil",
-    "antifascist": "FCKNZS",
     "about": "Om"
   },
   "language": {

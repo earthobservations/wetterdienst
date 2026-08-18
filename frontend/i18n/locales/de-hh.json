@@ -25,10 +25,6 @@
     "featureExportDesc": "Daten als CSV, JSON oder GeoJSON herunterladen.",
     "featureAnalysisTitle": "Interpolation & Zusammenfassung",
     "featureAnalysisDesc": "Werte für einen Punkt zwischen den Stationen schätzen – oder zu jedem Zeitpunkt die nächste Station nehmen, die Daten hat.",
-    "valuesTitle": "Wofür wir stehen",
-    "lgbtq": "Moin – wir stehen an der Seite der LGBTQI+-Community.",
-    "antifascist": "Hier is kein Platz für Nazis. FCKNZS.",
-    "climate": "Erderwärmung ist keine Meinung.",
     "dataTitle": "Welche Daten du kriegst",
     "dataIntro": "Amtliche Messwerte der nationalen Wetterdienste. Kein Schlüssel, kein Konto, kein Limit.",
     "statProviders": "Wetterdienste",
@@ -50,6 +46,13 @@
     "kindRoadTitle": "Straßenwetter",
     "kindRoadDesc": "Fahrbahnzustand und -temperaturen von den DWD-Straßenwetterstationen, mitsamt ihren Vorhersagen.",
     "aboutLink": "Über das Projekt und die Lüüd dahinter"
+  },
+  "values": {
+    "title": "Wofür wir stehen",
+    "lgbtq": "Moin – wir stehen an der Seite der LGBTQI+-Community.",
+    "antifascist": "Hier is kein Platz für Nazis. FCKNZS.",
+    "climate": "Erderwärmung ist keine Meinung.",
+    "openData": "Wetterdaten gehören allen."
   },
   "about": {
     "title": "Über uns",
@@ -91,8 +94,6 @@
   "footer": {
     "copyright": "© {year} earthobservations",
     "legal": "Impressum",
-    "lgbtq": "Liebe, wen du magst",
-    "antifascist": "FCKNZS",
     "about": "Über uns"
   },
   "language": {

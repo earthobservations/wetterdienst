@@ -21,6 +21,16 @@ const { data: versionData } = await useFetch<{ version: string }>('/api/version'
 const version = computed(() => versionData.value?.version ?? 'unknown')
 const frontendVersion = pkg.version || 'unknown'
 
+// The same four statements the home page spells out, as icons here: the footer is on every page,
+// and four sentences at the foot of every one of them is a banner rather than a footer. The full
+// wording is one hover away, and is the accessible name either way.
+const values = computed(() => [
+  { key: 'lgbtq', emoji: '🏳️‍🌈🏳️‍⚧️', text: t('values.lgbtq') },
+  { key: 'antifascist', emoji: '✊', text: t('values.antifascist') },
+  { key: 'climate', emoji: '🌡️', text: t('values.climate') },
+  { key: 'openData', emoji: '🔓', text: t('values.openData') },
+])
+
 const mobileMenuOpen = ref(false)
 
 watch(() => route.path, () => {
@@ -273,16 +283,15 @@ const items = computed<NavigationMenuItem[]>(() =>
           </NuxtLink>
         </div>
         <!-- The stance closes the footer, as it closes the home page, and on a line of its own so
-             it reads as a statement rather than as two more entries in a link list. -->
-        <div class="flex flex-wrap justify-center items-center gap-x-6 gap-y-1">
-          <span class="flex items-center gap-1.5 font-medium">
-            <span aria-hidden="true">🏳️‍🌈</span>
-            <span>{{ t('footer.lgbtq') }}</span>
-          </span>
-          <span class="flex items-center gap-1.5 font-medium">
-            <span aria-hidden="true">✊</span>
-            <span>{{ t('footer.antifascist') }}</span>
-          </span>
+             it reads as a statement rather than as more entries in a link list. -->
+        <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-1">
+          <UTooltip v-for="value in values" :key="value.key" :text="value.text">
+            <span
+              class="text-lg leading-none cursor-default"
+              role="img"
+              :aria-label="value.text"
+            >{{ value.emoji }}</span>
+          </UTooltip>
         </div>
       </div>
     </UFooter>

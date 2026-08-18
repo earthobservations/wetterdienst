@@ -68,6 +68,7 @@ describe('index Page', () => {
     expect(text).toContain('LGBTQI+')
     expect(text).toContain('FCKNZS')
     expect(text).toContain('Global warming is not an opinion')
+    expect(text).toContain('Weather data belongs to everyone')
   })
 
   it('sends the project and the people to the about page', async () => {
