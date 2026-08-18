@@ -128,24 +128,6 @@ const dataKinds = computed(() => [
       </NuxtLink>
     </div>
 
-    <!-- Values: a prominent, unmistakable stance for inclusion and against fascism. -->
-    <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
-      <h2 class="text-lg font-bold mb-3">
-        {{ t('home.valuesTitle') }}
-      </h2>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8">
-        <p class="flex items-center gap-2 text-base font-medium">
-          <span aria-hidden="true">🏳️‍🌈</span>
-          <span aria-hidden="true">🏳️‍⚧️</span>
-          {{ t('home.lgbtq') }}
-        </p>
-        <p class="flex items-center gap-2 text-base font-medium">
-          <span aria-hidden="true">✊</span>
-          {{ t('home.antifascist') }}
-        </p>
-      </div>
-    </section>
-
     <!-- What actually arrives when you press a button above: who publishes it, how much of it
          there is, and in what shapes. -->
     <h2 class="text-lg font-bold mb-1">
@@ -224,6 +206,24 @@ const dataKinds = computed(() => [
         </div>
       </UCard>
     </div>
+
+    <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
+    <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
+      <h2 class="text-lg font-bold mb-3">
+        {{ t('home.valuesTitle') }}
+      </h2>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8">
+        <p class="flex items-center gap-2 text-base font-medium">
+          <span aria-hidden="true">🏳️‍🌈</span>
+          <span aria-hidden="true">🏳️‍⚧️</span>
+          {{ t('home.lgbtq') }}
+        </p>
+        <p class="flex items-center gap-2 text-base font-medium">
+          <span aria-hidden="true">✊</span>
+          {{ t('home.antifascist') }}
+        </p>
+      </div>
+    </section>
 
     <!-- The project and the people behind it live on their own page now, so the home page can
          stay about the data. -->
