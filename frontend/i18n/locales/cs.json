@@ -25,7 +25,7 @@
     "featureExportDesc": "Stáhněte data ve formátu CSV, JSON nebo GeoJSON.",
     "featureAnalysisTitle": "Interpolace a souhrn",
     "featureAnalysisDesc": "Odhad hodnot pro bod mezi stanicemi, nebo pro každý časový okamžik nejbližší stanice, která má data.",
-    "supportedByTitle": "Již podporují",
+    "supportedByTitle": "Podporují",
     "supportedByJetbrains": "licence PyCharm v rámci jejich programu podpory otevřeného softwaru",
     "supportedByAnthropic": "předplatné Claude Max pro správce otevřeného softwaru",
     "dataTitle": "Jaká data dostanete",

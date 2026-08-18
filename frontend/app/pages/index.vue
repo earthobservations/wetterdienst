@@ -228,7 +228,7 @@ const dataKinds = computed(() => [
     </div>
 
     <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
-    <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
+    <section class="mb-6 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
       <h2 class="text-lg font-bold mb-3">
         {{ t('values.title') }}
       </h2>
@@ -238,27 +238,28 @@ const dataKinds = computed(() => [
           {{ value.text }}
         </p>
       </div>
+    </section>
 
-      <!-- Who backs the work, inside the same block: both are the project talking about itself,
-           and as a separate row of badges in bare whitespace it read as something left over. -->
-      <div class="mt-6 pt-5 border-t border-primary-200/70 dark:border-primary-900/70">
-        <h3 class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
-          {{ t('home.supportedByTitle') }}
-        </h3>
-        <div class="flex flex-wrap justify-center gap-2">
-          <a
-            v-for="supporter in supporters"
-            :key="supporter.key"
-            :href="supporter.to"
-            target="_blank"
-            :title="supporter.detail"
-            :aria-label="`${supporter.name} — ${supporter.detail}`"
-            class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
-          >
-            <UIcon :name="supporter.icon" class="size-4 shrink-0" />
-            {{ supporter.name }}
-          </a>
-        </div>
+    <!-- Who backs the work: its own block, in the same gradient as the stance above it. Two
+         statements the project makes about itself, told apart by the gap rather than by one of
+         them looking like a footnote to the other. -->
+    <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
+      <h2 class="text-lg font-bold mb-3">
+        {{ t('home.supportedByTitle') }}
+      </h2>
+      <div class="flex flex-wrap justify-center gap-2">
+        <a
+          v-for="supporter in supporters"
+          :key="supporter.key"
+          :href="supporter.to"
+          target="_blank"
+          :title="supporter.detail"
+          :aria-label="`${supporter.name} — ${supporter.detail}`"
+          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
+        >
+          <UIcon :name="supporter.icon" class="size-4 shrink-0" />
+          {{ supporter.name }}
+        </a>
       </div>
     </section>
 

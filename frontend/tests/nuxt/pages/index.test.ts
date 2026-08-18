@@ -66,7 +66,7 @@ describe('index Page', () => {
     const text = wrapper.text()
     const html = wrapper.html()
 
-    expect(text).toContain('Already supported by')
+    expect(text).toContain('Supported by')
     expect(text).toContain('JetBrains')
     expect(text).toContain('Anthropic')
     expect(html).toContain('jb.gg/OpenSourceSupport')

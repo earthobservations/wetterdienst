@@ -25,7 +25,7 @@
     "featureExportDesc": "Download data som CSV, JSON eller GeoJSON.",
     "featureAnalysisTitle": "Interpolation og opsummering",
     "featureAnalysisDesc": "Estimer værdier for et punkt mellem stationer, eller tag den nærmeste station med data på hvert tidspunkt.",
-    "supportedByTitle": "Allerede støttet af",
+    "supportedByTitle": "Støttet af",
     "supportedByJetbrains": "en PyCharm-licens gennem deres open source-støtteprogram",
     "supportedByAnthropic": "et Claude Max-abonnement til open source-vedligeholdere",
     "dataTitle": "Hvilke data du får",

@@ -25,7 +25,7 @@
     "featureExportDesc": "Scarica i dati in formato CSV, JSON o GeoJSON.",
     "featureAnalysisTitle": "Interpolazione e sintesi",
     "featureAnalysisDesc": "Stimare i valori per un punto tra le stazioni, oppure prendere a ogni istante la stazione più vicina che ha dati.",
-    "supportedByTitle": "Già sostenuto da",
+    "supportedByTitle": "Sostenuto da",
     "supportedByJetbrains": "una licenza PyCharm tramite il loro programma di supporto all'open source",
     "supportedByAnthropic": "un abbonamento Claude Max per i manutentori open source",
     "dataTitle": "Quali dati ottieni",

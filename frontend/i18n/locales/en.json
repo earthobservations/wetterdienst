@@ -25,7 +25,7 @@
     "featureExportDesc": "Download data as CSV, JSON or GeoJSON.",
     "featureAnalysisTitle": "Interpolation & summary",
     "featureAnalysisDesc": "Estimate values for a point between stations, or take the nearest station that has data at each timestamp.",
-    "supportedByTitle": "Already supported by",
+    "supportedByTitle": "Supported by",
     "supportedByJetbrains": "a PyCharm licence through their open-source support programme",
     "supportedByAnthropic": "a Claude Max subscription for open-source maintainers",
     "dataTitle": "What data you get",

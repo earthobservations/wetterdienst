@@ -25,7 +25,7 @@
     "featureExportDesc": "Luet Daten als CSV, JSON oder GeoJSON erof.",
     "featureAnalysisTitle": "Interpolatioun a Resumé",
     "featureAnalysisDesc": "Wäerter fir e Punkt tëscht de Statioune schätzen, oder zu all Zäitpunkt déi nootste Statioun huelen, déi Donnéeë huet.",
-    "supportedByTitle": "Scho ënnerstëtzt vun",
+    "supportedByTitle": "Ënnerstëtzt vun",
     "supportedByJetbrains": "eng PyCharm-Lizenz iwwer hire Programm fir Open-Source-Ënnerstëtzung",
     "supportedByAnthropic": "en Claude-Max-Abo fir Open-Source-Maintainer",
     "dataTitle": "Wéi eng Daten Dir kritt",

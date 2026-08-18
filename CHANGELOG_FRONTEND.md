@@ -68,9 +68,10 @@ Types of changes:
   anywhere else
 - `[Home]` The tail of the page is one block rather than three. "What you can do with it" is a
   subsection of the data block, where it belongs, instead of a peer heading over two cards; the
-  supporters moved inside the closing band under a rule. Badges floating in bare whitespace between
-  two structured blocks were what made the end of the page read as unstructured
-- `[Home]` The two open-source programmes the project runs on, as badges in the closing band:
+  supporters are a band of their own in the same gradient as the stance above them, separated by a
+  gap rather than a rule inside one box. Badges floating in bare whitespace between two structured
+  blocks were what made the end of the page read as unstructured
+- `[Home]` The two open-source programmes the project runs on, as badges in a closing band:
   JetBrains for a PyCharm licence and Anthropic for a Claude Max subscription, each linking to the
   programme and naming what it gives on hover
 - `[Home]` A third line in the values statement: "Erderwärmung ist keine Meinung" / "Global warming

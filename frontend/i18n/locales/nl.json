@@ -25,7 +25,7 @@
     "featureExportDesc": "Download gegevens als CSV, JSON of GeoJSON.",
     "featureAnalysisTitle": "Interpolatie en samenvatting",
     "featureAnalysisDesc": "Waarden schatten voor een punt tussen stations, of op elk tijdstip het dichtstbijzijnde station met gegevens nemen.",
-    "supportedByTitle": "Al gesteund door",
+    "supportedByTitle": "Gesteund door",
     "supportedByJetbrains": "een PyCharm-licentie via hun opensource-ondersteuningsprogramma",
     "supportedByAnthropic": "een Claude Max-abonnement voor opensourcebeheerders",
     "dataTitle": "Welke data je krijgt",
