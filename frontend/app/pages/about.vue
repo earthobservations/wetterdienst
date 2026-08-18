@@ -43,9 +43,11 @@ const people = computed(() => [
     role: t('about.coAuthorRole'),
     bio: t('about.coAuthorBio'),
     githubAvatarId: '453543',
-    // no location or age here: his GitHub profile gives neither, and nothing about a person goes
-    // on this page that he has not published about himself
-    meta: [],
+    // the city comes from the maintainer, who works with him; there is no age here because
+    // Andreas has not published one, and his is not ours to go looking for
+    meta: [
+      { icon: 'i-lucide-map-pin', text: 'Berlin' },
+    ],
     links: [
       { icon: 'i-lucide-github', label: 'amotl', to: 'https://github.com/amotl' },
       { icon: 'i-lucide-mail', label: 'andreas.motl@panodata.org', to: 'mailto:andreas.motl@panodata.org' },
