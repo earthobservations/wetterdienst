@@ -28,11 +28,12 @@ const tasks = computed(() => [
   },
 ])
 
+// What you can do with the data once you have it. Two cards rather than four: "multiple data
+// sources" and "geospatial queries" said what the services card and the Explorer card above now
+// say better, and a home page that repeats itself reads as padding.
 const features = computed(() => [
-  { icon: 'i-lucide-database', title: t('home.feature1Title'), description: t('home.feature1Desc') },
-  { icon: 'i-lucide-map-pin', title: t('home.feature2Title'), description: t('home.feature2Desc') },
-  { icon: 'i-lucide-download', title: t('home.feature3Title'), description: t('home.feature3Desc') },
-  { icon: 'i-lucide-line-chart', title: t('home.feature4Title'), description: t('home.feature4Desc') },
+  { icon: 'i-lucide-download', title: t('home.featureExportTitle'), description: t('home.featureExportDesc') },
+  { icon: 'i-lucide-line-chart', title: t('home.featureAnalysisTitle'), description: t('home.featureAnalysisDesc') },
 ])
 
 // The weather services behind the data, one entry per provider in the backend's registry. Kept in

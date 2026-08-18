@@ -39,6 +39,14 @@ Types of changes:
 
 - `[Home]` The project description and the author avatars are gone from the home page, which is
   about the data now; both live on `/about`
+- `[Home]` The features section is two cards rather than four, and titled for what it actually
+  lists: what you can do with the data. "Multiple data sources" repeated the 22-service card, the
+  `0 €` tile and the intro line; "geospatial queries" repeated the Explorer card's own pitch. What
+  is left is export formats and interpolation/summarization, neither of which the page says
+  anywhere else
+- `[Home]` The values statement closes the page instead of sitting between the task cards and the
+  data, where it interrupted the path from "what would you like to do" to "what data you get". The
+  footer carries the same stance on every page regardless
 
 ### Fixed
 
