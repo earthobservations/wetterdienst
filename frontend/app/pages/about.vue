@@ -107,14 +107,10 @@ const coAuthor = {
           </div>
 
           <p class="text-gray-600 dark:text-gray-400">
-            {{ t('about.maintainerText1') }}
+            {{ t('about.maintainerBio') }}
           </p>
           <p class="text-gray-600 dark:text-gray-400">
             {{ t('about.maintainerText2') }}
-          </p>
-
-          <p class="text-gray-600 dark:text-gray-400">
-            {{ t('about.maintainerBio') }}
           </p>
 
           <div class="flex flex-wrap gap-2 pt-1">

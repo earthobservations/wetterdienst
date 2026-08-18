@@ -37,7 +37,7 @@ describe('about Page', () => {
     const text = wrapper.text()
 
     expect(text).toContain('Benjamin Gutzmann')
-    expect(text).toContain('Maintainer of Wetterdienst')
+    expect(text).toContain('Creator and maintainer')
     expect(text).toContain('Hamburg')
     expect(text).toContain('benjamin@eobs.org')
 
