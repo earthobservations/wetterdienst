@@ -57,6 +57,19 @@ describe('index Page', () => {
     expect(text).toContain('MeteoSwiss')
   })
 
+  it('states what the project stands for, measurements included', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(IndexPage)
+    const text = wrapper.text()
+
+    expect(text).toContain('LGBTQI+')
+    expect(text).toContain('FCKNZS')
+    expect(text).toContain('Global warming is not an opinion')
+  })
+
   it('sends the project and the people to the about page', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),

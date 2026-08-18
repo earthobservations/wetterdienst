@@ -66,6 +66,10 @@ Types of changes:
   `0 €` tile and the intro line; "geospatial queries" repeated the Explorer card's own pitch. What
   is left is export formats and interpolation/summarization, neither of which the page says
   anywhere else
+- `[Home]` A third line in the values statement: "Erderwärmung ist keine Meinung" / "Global warming
+  is not an opinion". It is the one stance this project backs up by existing -- it serves the
+  measurements, and the warming stripes are two clicks away. The solidarity line also reads LGBTQI+
+  rather than LGBTQ+, in all eleven locales
 - `[Home]` The values statement closes the page instead of sitting between the task cards and the
   data, where it interrupted the path from "what would you like to do" to "what data you get". The
   footer carries the same stance on every page regardless

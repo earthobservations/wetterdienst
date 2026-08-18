@@ -225,6 +225,11 @@ const dataKinds = computed(() => [
           <span aria-hidden="true">✊</span>
           {{ t('home.antifascist') }}
         </p>
+        <!-- the one stance this project backs up by existing: it serves the measurements -->
+        <p class="flex items-center gap-2 text-base font-medium">
+          <span aria-hidden="true">🌡️</span>
+          {{ t('home.climate') }}
+        </p>
       </div>
     </section>
 
