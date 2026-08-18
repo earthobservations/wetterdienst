@@ -25,7 +25,7 @@ Types of changes:
   the backend reports `mcp_enabled`: the endpoint is behind an optional extra, and an instance
   installed without it would otherwise hand every visitor a client configuration pointing at a 404
 - `[About]` A page at `/about` carrying what the home page used to say about the project, plus a
-  proper introduction to the maintainer -- what he works on, where he is, how to reach him -- and a
+  proper introduction to the maintainer -- what he works on, where he is, how to reach him -- and
   the same for the co-author, with a pointer to the full contributor list. Both cards render from
   one shape under a single "the people behind it" heading, so neither is a lesser layout than the
   other and no card header repeats the role beneath it. Nothing about a person is stated that
@@ -43,6 +43,20 @@ Types of changes:
   `tests/test_frontend_i18n.py::test_frontend_home_lists_every_provider`, so a provider added
   upstream fails a test rather than quietly going unmentioned
 
+- `[App]` `/docs` and `/openapi.json` are proxied onto this origin, so the hosted app serves the
+  backend's Swagger UI as its own API reference. Only `/api/**` and `/mcp` were proxied before, and
+  `/docs` on the app origin answered with the SPA shell
+- `[Home]` A row pointing developers at the same data without clicking: the Python package on PyPI,
+  the REST API at `/docs`, and the MCP endpoint at `/mcp`. The MCP chip says on hover that it is an
+  endpoint rather than a page, because a browser GET to it answers 400 by design. The "514
+  parameters" tile also leads to the glossary now, which is where each of them is explained
+- `[Home]` The two open-source programmes the project runs on, as badges in a band of their own:
+  JetBrains for a PyCharm licence and Anthropic for a Claude Max subscription, each linking to the
+  programme and naming what it gives on hover
+- `[Home]` A third line in the values statement: "Erderwärmung ist keine Meinung" / "Global warming
+  is not an opinion". It is the one stance this project backs up by existing -- it serves the
+  measurements, and the warming stripes are two clicks away. The solidarity line also reads LGBTQI+
+  rather than LGBTQ+, in all eleven locales
 - `[Glossary]` A page at `/glossary` listing every canonical parameter with what it measures and the
   unit its values come back in, searchable by name or description and filterable by quantity. It
   reads `GET /api/glossary`, which the backend has served all along without anything using it
@@ -66,24 +80,11 @@ Types of changes:
   `0 €` tile and the intro line; "geospatial queries" repeated the Explorer card's own pitch. What
   is left is export formats and interpolation/summarization, neither of which the page says
   anywhere else
-- `[App]` `/docs` and `/openapi.json` are proxied onto this origin, so the hosted app serves the
-  backend's Swagger UI as its own API reference. Only `/api/**` and `/mcp` were proxied before, and
-  `/docs` on the app origin answered with the SPA shell
-- `[Home]` A row pointing developers at the same data without clicking: the Python package on PyPI,
-  the REST API at `/docs`, and the MCP endpoint at `/mcp`. The MCP chip says on hover that it is an
-  endpoint rather than a page, because a browser GET to it answers 400 by design
-- `[Home]` The tail of the page is one block rather than three. "What you can do with it" is a
-  subsection of the data block, where it belongs, instead of a peer heading over two cards; the
+- `[Home]` The end of the page has a structure. "What you can do with it" is a subsection of the
+  data block, where it belongs, instead of a peer heading over two cards; the
   supporters are a band of their own in the same gradient as the stance above them, separated by a
   gap rather than a rule inside one box. Badges floating in bare whitespace between two structured
   blocks were what made the end of the page read as unstructured
-- `[Home]` The two open-source programmes the project runs on, as badges in a closing band:
-  JetBrains for a PyCharm licence and Anthropic for a Claude Max subscription, each linking to the
-  programme and naming what it gives on hover
-- `[Home]` A third line in the values statement: "Erderwärmung ist keine Meinung" / "Global warming
-  is not an opinion". It is the one stance this project backs up by existing -- it serves the
-  measurements, and the warming stripes are two clicks away. The solidarity line also reads LGBTQI+
-  rather than LGBTQ+, in all eleven locales
 - `[Home]` The values statement closes the page instead of sitting between the task cards and the
   data, where it interrupted the path from "what would you like to do" to "what data you get". The
   footer carries the same stance on every page regardless
