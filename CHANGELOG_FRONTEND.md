@@ -66,6 +66,9 @@ Types of changes:
   About and the legal notice, so it joins them -- as a heart in the header's project links, where
   "sponsor this" is conventionally found, and as a footer link. It is in the mobile menu's bottom
   bar for the same reason it is in the desktop header
+- `[Home]` Only the cards that go somewhere answer the pointer. The two feature cards lifted and
+  ringed on hover exactly like the task cards above them, but nothing happens when you click one --
+  a hover state is how a card promises it is a link, and those two were promising nothing
 - `[All pages]` The footer is two rows split by kind -- copyright and links on one, the stance on
   its own line -- rather than one list of six items where "Love who you want" sat in the same
   register as "About", separated by the same pipe. The separators were flex siblings that cannot

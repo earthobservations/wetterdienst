@@ -193,7 +193,9 @@ const dataKinds = computed(() => [
       {{ t('home.featuresTitle') }}
     </h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-      <UCard v-for="feature in features" :key="feature.title" class="transition-all hover:ring-2 hover:ring-primary-400 hover:-translate-y-0.5">
+      <!-- No hover lift here: these cards are text, not links. On the page only the task cards
+           above are clickable, so they are the only ones that answer the pointer. -->
+      <UCard v-for="feature in features" :key="feature.title">
         <div class="flex items-start gap-3">
           <UIcon :name="feature.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
           <div>
