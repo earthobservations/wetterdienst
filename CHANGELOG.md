@@ -52,6 +52,15 @@ Types of changes:
 
 ### Changed
 
+- Locked dependencies refreshed to their latest compatible versions (cryptography 50, fastapi
+  0.141.1, starlette 1.6, uvicorn 0.52.3, numpy 2.5.2, zarr 3.3, mcp 1.29, and others), and the dev
+  toolchain with them (ruff 0.16.3, ty 0.0.72, zizmor 1.29) -- both still pass with no source
+  changes needed
+- `uv` now resolves with a three-day cooldown (`tool.uv.exclude-newer = "3 days"`), so a release
+  has to survive its first days in the wild before it can enter the lockfile. Yanks and
+  publish-day breakage are most often caught in that window. The lockfile records it as a relative
+  span (`exclude-newer-span = "P3D"`), not a timestamp, so it does not churn between runs and
+  `uv lock --check` stays stable
 - Docs: the README states what the project stands for, in the same four lines the app closes with,
   and opens with "Global warming is not an opinion" rather than the Fridays for Future chant -- the
   one claim a weather-data library backs up by existing. Anthropic gets a logo next to JetBrains
