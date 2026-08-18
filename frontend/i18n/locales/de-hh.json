@@ -63,6 +63,7 @@
     "projectText3": "Es ist Open Source unter der MIT-Lizenz, wird offen auf GitHub entwickelt und ist frei nutzbar – diese gehostete App auch.",
     "maintainerTitle": "Maintainer",
     "maintainerRole": "Maintainer von Wetterdienst",
+    "maintainerAge": "{age} Jahre alt",
     "maintainerText1": "Benjamin betreut Wetterdienst seit April 2020, ein paar Tage nach dem Start vom Projekt – die Python-Bibliothek, die REST-API, das Kommandozeilenprogramm und diese Web-App.",
     "maintainerText2": "Er betreibt außerdem die gehostete Instanz unter wetterdienst.eobs.org, die diese App, die API und den MCP-Endpunkt umsonst bereitstellt.",
     "maintainerBio": "Er hat von 2013 bis 2020 in Dresden Hydrologie studiert; das Interesse daran und an der Meteorologie ist ihm geblieben. Für seine Bachelorarbeit hat er seine ersten Skripte in R geschrieben, und als er bald darauf auch noch Python lernen wollte, brauchte er ein Projekt dafür – daraus wurde Wetterdienst. Der Bibliothek merkt man das bis heute an: Neben dem Wetter gibt's da auch Pegelstände und Abflüsse.",

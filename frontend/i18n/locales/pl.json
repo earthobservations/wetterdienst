@@ -63,6 +63,7 @@
     "projectText3": "To oprogramowanie open source na licencji MIT, rozwijane otwarcie na GitHubie i darmowe w użyciu – łącznie z tą hostowaną aplikacją.",
     "maintainerTitle": "Opiekun",
     "maintainerRole": "Opiekun projektu Wetterdienst",
+    "maintainerAge": "wiek: {age}",
     "maintainerText1": "Benjamin opiekuje się Wetterdienst od kwietnia 2020 roku, kilka dni po starcie projektu – biblioteką w Pythonie, API REST, klientem wiersza poleceń i tą aplikacją webową.",
     "maintainerText2": "Prowadzi też hostowaną instancję pod adresem wetterdienst.eobs.org, która bezpłatnie udostępnia tę aplikację, API oraz punkt końcowy MCP.",
     "maintainerBio": "W latach 2013–2020 studiował hydrologię w Dreźnie i zainteresowanie hydrologią oraz meteorologią mu zostało. Praca licencjacka skłoniła go do pisania skryptów w R; gdy chciał nauczyć się też Pythona, potrzebował prawdziwego projektu, na którym mógłby się uczyć — został nim Wetterdienst. Widać to po bibliotece, która obok pogody obejmuje stany i przepływy rzek.",

@@ -63,6 +63,7 @@
     "projectText3": "It is open source under the MIT licence, developed in the open on GitHub, and free to use — including this hosted app.",
     "maintainerTitle": "Maintainer",
     "maintainerRole": "Maintainer of Wetterdienst",
+    "maintainerAge": "{age} years old",
     "maintainerText1": "Benjamin has maintained Wetterdienst since April 2020, days after the project started — the Python library, the REST API, the command-line client and this web app.",
     "maintainerText2": "He also runs the hosted instance at wetterdienst.eobs.org, which serves this app, the API and the MCP endpoint free of charge.",
     "maintainerBio": "He studied hydrology in Dresden from 2013 to 2020, and the interest in hydrology and meteorology stayed. His bachelor's thesis got him scripting in R; when he wanted to learn Python as well, he needed a real project to learn on, and Wetterdienst became it. It shows in the library, which covers river levels and discharge alongside the weather.",

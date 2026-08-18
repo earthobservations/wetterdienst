@@ -59,6 +59,26 @@ describe('about Page', () => {
     expect(text).not.toContain('«')
   })
 
+  it('counts the age from the birthday rather than printing a fixed number', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+    // only Date is faked: faking timers as well would stall the async mount
+    vi.useFakeTimers({ toFake: ['Date'] })
+
+    try {
+      vi.setSystemTime(new Date('2026-11-27T12:00:00'))
+      expect((await mountSuspended(AboutPage)).text()).toContain('32 years old')
+
+      // the day itself counts
+      vi.setSystemTime(new Date('2026-11-28T12:00:00'))
+      expect((await mountSuspended(AboutPage)).text()).toContain('33 years old')
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('links to the source, the docs and the package', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),

@@ -1,6 +1,19 @@
 <script setup lang="ts">
 const { t } = useI18n()
 
+// Counted rather than written down: an age is wrong from the next birthday onwards, and nobody
+// remembers to edit it. Kept as parts rather than a Date, so parsing never lands on the wrong side
+// of a timezone boundary and turns the birthday into the day before.
+const BIRTHDAY = { year: 1993, month: 11, day: 28 }
+
+const age = computed(() => {
+  const now = new Date()
+  const years = now.getFullYear() - BIRTHDAY.year
+  const hadBirthday = now.getMonth() + 1 > BIRTHDAY.month
+    || (now.getMonth() + 1 === BIRTHDAY.month && now.getDate() >= BIRTHDAY.day)
+  return hadBirthday ? years : years - 1
+})
+
 // Maintainer: the person who runs the project and the hosted instance at wetterdienst.eobs.org.
 const maintainer = {
   name: 'Benjamin Gutzmann',
@@ -76,6 +89,10 @@ const coAuthor = {
           <span class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
             <UIcon name="i-lucide-map-pin" class="shrink-0" />
             {{ maintainer.location }}
+          </span>
+          <span class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <UIcon name="i-lucide-cake" class="shrink-0" />
+            {{ t('about.maintainerAge', { age }) }}
           </span>
         </div>
 

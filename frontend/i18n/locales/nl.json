@@ -63,6 +63,7 @@
     "projectText3": "Het is opensource onder de MIT-licentie, openlijk ontwikkeld op GitHub en gratis te gebruiken – deze gehoste app inbegrepen.",
     "maintainerTitle": "Beheerder",
     "maintainerRole": "Beheerder van Wetterdienst",
+    "maintainerAge": "{age} jaar oud",
     "maintainerText1": "Benjamin beheert Wetterdienst sinds april 2020, enkele dagen na de start van het project – de Python-bibliotheek, de REST-API, de opdrachtregelclient en deze webapp.",
     "maintainerText2": "Hij draait ook de gehoste instantie op wetterdienst.eobs.org, die deze app, de API en het MCP-eindpunt gratis aanbiedt.",
     "maintainerBio": "Hij studeerde van 2013 tot 2020 hydrologie in Dresden, en de belangstelling voor hydrologie en meteorologie is gebleven. Zijn bachelorscriptie bracht hem tot scripten in R; toen hij er ook Python bij wilde leren, had hij een echt project nodig om op te leren — dat werd Wetterdienst. Je ziet het aan de bibliotheek, die naast het weer ook waterstanden en afvoer dekt.",
