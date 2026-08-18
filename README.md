@@ -1,7 +1,7 @@
 # Wetterdienst - Open weather data for humans
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/hohenpeissenberg_warming_stripes.png" alt="Warming stripes of Hohenpeissenberg, Germany, drawn from data fetched with wetterdienst" width="100%"/>
+  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/hohenpeissenberg_warming_stripes.png" alt="Warming stripes for Hohenpeissenberg, Germany: one stripe per year since 1781, blue for cold years and red for warm ones, drawn with wetterdienst" width="72%"/>
 </p>
 
 > **Global warming is not an opinion.** — Erderwärmung ist keine Meinung.
