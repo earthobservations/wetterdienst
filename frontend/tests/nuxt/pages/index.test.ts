@@ -57,6 +57,26 @@ describe('index Page', () => {
     expect(text).toContain('MeteoSwiss')
   })
 
+  it('points developers at the library, the API and MCP', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(IndexPage)
+    const text = wrapper.text()
+    const html = wrapper.html()
+
+    // anchors with hrefs, not just the words: an earlier version rendered two of these three as
+    // plain text and the wording assertions passed anyway
+    const chips = wrapper.findAll('a').map(a => `${a.attributes('href')} ${a.text()}`)
+    expect(chips).toContain('https://pypi.org/project/wetterdienst/ pip install wetterdienst')
+    expect(chips).toContain('/api REST API')
+    expect(chips).toContain('/api MCP')
+    expect(text).toContain('Also for developers')
+    // and the 514 parameters lead somewhere that explains them
+    expect(html).toContain('/glossary')
+  })
+
   it('names who already supports the work', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),

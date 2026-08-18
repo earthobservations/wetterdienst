@@ -82,6 +82,15 @@ const supporters = computed(() => [
   { key: 'anthropic', name: 'Anthropic', icon: 'i-simple-icons-anthropic', to: 'https://www.anthropic.com/', detail: t('home.supportedByAnthropic') },
 ])
 
+// The same data, for people who would rather not click: the library the project started as, the
+// API the app itself runs on, and the MCP endpoint. Home linked to four routes before this and
+// none of them said the data was reachable programmatically at all.
+const devEntries = [
+  { key: 'pypi', label: 'pip install wetterdienst', icon: 'i-simple-icons-python', to: 'https://pypi.org/project/wetterdienst/', external: true },
+  { key: 'api', label: 'REST API', icon: 'i-lucide-code', to: '/api', external: false },
+  { key: 'mcp', label: 'MCP', icon: 'i-lucide-bot', to: '/api', external: false },
+]
+
 // What the project stands for. Shared with the footer, which shows the same four as icons.
 const values = computed(() => [
   { key: 'lgbtq', emoji: '🏳️‍🌈🏳️‍⚧️', text: t('values.lgbtq') },
@@ -185,6 +194,9 @@ const dataKinds = computed(() => [
       </div>
       <p class="text-sm text-gray-500 dark:text-gray-400 mt-4">
         {{ t('home.dataProvidersDesc') }}
+        <NuxtLink to="/glossary" class="text-primary-500 hover:underline">
+          {{ t('home.glossaryHint') }}
+        </NuxtLink>
       </p>
     </UCard>
 
@@ -225,6 +237,31 @@ const dataKinds = computed(() => [
           </div>
         </div>
       </UCard>
+    </div>
+
+    <!-- The developer path, which the page did not mention at all: same data, no clicking. -->
+    <div class="text-center mb-12">
+      <h3 class="font-bold mb-1">
+        {{ t('home.devTitle') }}
+      </h3>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+        {{ t('home.devText') }}
+      </p>
+      <div class="flex flex-wrap justify-center gap-2">
+        <!-- NuxtLink for all three: it renders an external URL as a plain anchor by itself, which
+             is simpler than switching the component per entry -- and switching it via
+             `resolveComponent` in the template silently rendered two of these as text, not links. -->
+        <NuxtLink
+          v-for="entry in devEntries"
+          :key="entry.key"
+          :to="entry.to"
+          :target="entry.external ? '_blank' : undefined"
+          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
+        >
+          <UIcon :name="entry.icon" class="size-4 shrink-0" />
+          {{ entry.label }}
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
