@@ -28,17 +28,89 @@ const tasks = computed(() => [
   },
 ])
 
+// What you can do with the data once you have it. Two cards rather than four: "multiple data
+// sources" and "geospatial queries" said what the services card and the Explorer card above now
+// say better, and a home page that repeats itself reads as padding.
 const features = computed(() => [
-  { icon: 'i-lucide-database', title: t('home.feature1Title'), description: t('home.feature1Desc') },
-  { icon: 'i-lucide-map-pin', title: t('home.feature2Title'), description: t('home.feature2Desc') },
-  { icon: 'i-lucide-download', title: t('home.feature3Title'), description: t('home.feature3Desc') },
-  { icon: 'i-lucide-line-chart', title: t('home.feature4Title'), description: t('home.feature4Desc') },
+  { icon: 'i-lucide-download', title: t('home.featureExportTitle'), description: t('home.featureExportDesc') },
+  { icon: 'i-lucide-line-chart', title: t('home.featureAnalysisTitle'), description: t('home.featureAnalysisDesc') },
 ])
 
-const authors = [
-  { name: 'Benjamin Gutzmann', email: 'benjamin@eobs.org', githubUsername: 'gutzbenj', githubAvatarId: '29654631' },
-  { name: 'Andreas Motl', email: 'andreas.motl@panodata.org', githubUsername: 'amotl', githubAvatarId: '453543' },
+// The weather services behind the data, one entry per provider in the backend's registry. Kept in
+// sync by `tests/test_frontend_i18n.py::test_frontend_home_lists_every_provider`, so a provider
+// added upstream fails a test here rather than quietly going unmentioned. Names and flags are
+// proper nouns and stay untranslated; the flag is the service's own country, and NOAA's GHCN is
+// worldwide despite the US flag, which `home.dataProvidersDesc` says.
+const providers = [
+  { key: 'aemet', name: 'AEMET', flag: '🇪🇸' },
+  { key: 'chmi', name: 'CHMI', flag: '🇨🇿' },
+  { key: 'dmi', name: 'DMI', flag: '🇩🇰' },
+  { key: 'dwd', name: 'DWD', flag: '🇩🇪' },
+  { key: 'ea', name: 'EA', flag: '🇬🇧' },
+  { key: 'eaufrance', name: 'Eaufrance', flag: '🇫🇷' },
+  { key: 'eccc', name: 'ECCC', flag: '🇨🇦' },
+  { key: 'fmi', name: 'FMI', flag: '🇫🇮' },
+  { key: 'geosphere', name: 'GeoSphere', flag: '🇦🇹' },
+  { key: 'imgw', name: 'IMGW', flag: '🇵🇱' },
+  { key: 'ipma', name: 'IPMA', flag: '🇵🇹' },
+  { key: 'knmi', name: 'KNMI', flag: '🇳🇱' },
+  { key: 'lhmt', name: 'LHMT', flag: '🇱🇹' },
+  { key: 'meteofrance', name: 'Météo-France', flag: '🇫🇷' },
+  { key: 'meteoswiss', name: 'MeteoSwiss', flag: '🇨🇭' },
+  { key: 'metno', name: 'met.no', flag: '🇳🇴' },
+  { key: 'metoffice', name: 'Met Office', flag: '🇬🇧' },
+  { key: 'noaa', name: 'NOAA', flag: '🇺🇸' },
+  { key: 'nws', name: 'NWS', flag: '🇺🇸' },
+  { key: 'rmi', name: 'RMI', flag: '🇧🇪' },
+  { key: 'smhi', name: 'SMHI', flag: '🇸🇪' },
+  { key: 'wsv', name: 'WSV', flag: '🇩🇪' },
 ]
+
+// Headline numbers, pinned to the backend by the same test: 22 providers and the 514 canonical
+// parameters of `metadata/parameter_table.py`.
+const stats = computed(() => [
+  { value: String(providers.length), label: t('home.statProviders') },
+  { value: '514', label: t('home.statParameters') },
+  { value: '1 min – 1 a', label: t('home.statResolutions') },
+  { value: '0 €', label: t('home.statPrice') },
+])
+
+// The two open-source programmes the project runs on. Named on the page that asks nothing of the
+// reader, rather than on the support page, which asks: who already gives is context for whether to.
+const supporters = computed(() => [
+  { key: 'jetbrains', name: 'JetBrains', icon: 'i-simple-icons-jetbrains', to: 'https://jb.gg/OpenSourceSupport', detail: t('home.supportedByJetbrains') },
+  { key: 'anthropic', name: 'Anthropic', icon: 'i-simple-icons-anthropic', to: 'https://www.anthropic.com/', detail: t('home.supportedByAnthropic') },
+])
+
+// The same data, for people who would rather not click: the library the project started as, the
+// API the app itself runs on, and the MCP endpoint. Home linked to four routes before this and
+// none of them said the data was reachable programmatically at all.
+const devEntries = computed(() => [
+  { key: 'pypi', label: 'pip install wetterdienst', icon: 'i-simple-icons-python', to: 'https://pypi.org/project/wetterdienst/', title: undefined },
+  // this instance's own endpoints rather than the page that describes them: /docs is the backend's
+  // Swagger UI, proxied onto this origin, and /mcp is the endpoint itself. Both are served by
+  // nitro rather than by the Vue router, so they need a full navigation, not a client-side one.
+  { key: 'api', label: 'REST API', icon: 'i-lucide-code', to: '/docs', title: undefined },
+  { key: 'mcp', label: 'MCP', icon: 'i-lucide-bot', to: '/mcp', title: t('home.devMcpHint') },
+])
+
+// What the project stands for. Shared with the footer, which shows the same four as icons.
+const values = computed(() => [
+  { key: 'lgbtq', emoji: '🏳️‍🌈🏳️‍⚧️', text: t('values.lgbtq') },
+  { key: 'antifascist', emoji: '✊', text: t('values.antifascist') },
+  { key: 'climate', emoji: '🌡️', text: t('values.climate') },
+  { key: 'openData', emoji: '🔓', text: t('values.openData') },
+])
+
+// What kinds of data the networks behind those providers actually serve.
+const dataKinds = computed(() => [
+  { icon: 'i-lucide-thermometer', title: t('home.kindObservationsTitle'), description: t('home.kindObservationsDesc') },
+  { icon: 'i-lucide-cloud-sun', title: t('home.kindForecastsTitle'), description: t('home.kindForecastsDesc') },
+  { icon: 'i-lucide-waves', title: t('home.kindHydrologyTitle'), description: t('home.kindHydrologyDesc') },
+  { icon: 'i-lucide-radar', title: t('home.kindRadarTitle'), description: t('home.kindRadarDesc') },
+  { icon: 'i-lucide-triangle-alert', title: t('home.kindAlertsTitle'), description: t('home.kindAlertsDesc') },
+  { icon: 'i-lucide-car-front', title: t('home.kindRoadTitle'), description: t('home.kindRoadDesc') },
+])
 </script>
 
 <template>
@@ -84,46 +156,78 @@ const authors = [
       </NuxtLink>
     </div>
 
-    <!-- Values: a prominent, unmistakable stance for inclusion and against fascism. -->
-    <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
-      <h2 class="text-lg font-bold mb-3">
-        {{ t('home.valuesTitle') }}
-      </h2>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8">
-        <p class="flex items-center gap-2 text-base font-medium">
-          <span aria-hidden="true">🏳️‍🌈</span>
-          <span aria-hidden="true">🏳️‍⚧️</span>
-          {{ t('home.lgbtq') }}
-        </p>
-        <p class="flex items-center gap-2 text-base font-medium">
-          <span aria-hidden="true">✊</span>
-          {{ t('home.antifascist') }}
-        </p>
-      </div>
-    </section>
+    <!-- What actually arrives when you press a button above: who publishes it, how much of it
+         there is, and in what shapes. -->
+    <h2 class="text-lg font-bold mb-1">
+      {{ t('home.dataTitle') }}
+    </h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+      {{ t('home.dataIntro') }}
+    </p>
 
-    <UCard class="mb-8">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <UCard v-for="stat in stats" :key="stat.label" :ui="{ body: 'text-center py-4' }">
+        <div class="text-2xl font-bold text-primary-500">
+          {{ stat.value }}
+        </div>
+        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+          {{ stat.label }}
+        </div>
+      </UCard>
+    </div>
+
+    <UCard class="mb-6">
       <template #header>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-info" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('home.aboutTitle') }}
-          </h2>
+          <UIcon name="i-lucide-building-2" class="text-primary-500 shrink-0" />
+          <h3 class="font-bold">
+            {{ t('home.dataProvidersTitle') }}
+          </h3>
         </div>
       </template>
-      <p class="text-gray-600 dark:text-gray-400 mb-4">
-        {{ t('home.aboutText1') }}
-      </p>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('home.aboutText2') }}
+      <div class="flex flex-wrap gap-2">
+        <span
+          v-for="provider in providers"
+          :key="provider.key"
+          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm"
+        >
+          <span aria-hidden="true">{{ provider.flag }}</span>
+          {{ provider.name }}
+        </span>
+      </div>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-4">
+        {{ t('home.dataProvidersDesc') }}
+        <NuxtLink to="/glossary" class="text-primary-500 hover:underline">
+          {{ t('home.glossaryHint') }}
+        </NuxtLink>
       </p>
     </UCard>
 
-    <h2 class="text-lg font-bold mb-4">
-      {{ t('home.featuresTitle') }}
-    </h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-      <UCard v-for="feature in features" :key="feature.title" class="transition-all hover:ring-2 hover:ring-primary-400 hover:-translate-y-0.5">
+      <UCard v-for="kind in dataKinds" :key="kind.title">
+        <div class="flex items-start gap-3">
+          <UIcon :name="kind.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
+          <div>
+            <h3 class="font-medium mb-1">
+              {{ kind.title }}
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+              {{ kind.description }}
+            </p>
+          </div>
+        </div>
+      </UCard>
+    </div>
+
+    <!-- A subsection of the data block rather than a section of its own: it is still about the
+         data, and as a peer heading over two cards it read as a stub after the block above. -->
+    <h3 class="font-bold mb-3">
+      {{ t('home.featuresTitle') }}
+    </h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+      <!-- No hover lift here: these cards are text, not links. On the page only the task cards
+           above are clickable, so they are the only ones that answer the pointer. -->
+      <UCard v-for="feature in features" :key="feature.title">
         <div class="flex items-start gap-3">
           <UIcon :name="feature.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
           <div>
@@ -138,43 +242,80 @@ const authors = [
       </UCard>
     </div>
 
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-users" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('home.authorsTitle') }}
-          </h2>
-        </div>
-      </template>
-      <div class="flex flex-wrap gap-8 justify-center">
-        <div
-          v-for="author in authors"
-          :key="author.githubUsername"
-          class="flex flex-col items-center gap-2"
+    <!-- The developer path, which the page did not mention at all: same data, no clicking. -->
+    <div class="text-center mb-12">
+      <h3 class="font-bold mb-1">
+        {{ t('home.devTitle') }}
+      </h3>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+        {{ t('home.devText') }}
+      </p>
+      <div class="flex flex-wrap justify-center gap-2">
+        <!-- NuxtLink for all three: it renders an external URL as a plain anchor by itself, which
+             is simpler than switching the component per entry -- and switching it via
+             `resolveComponent` in the template silently rendered two of these as text, not links. -->
+        <NuxtLink
+          v-for="entry in devEntries"
+          :key="entry.key"
+          :to="entry.to"
+          external
+          target="_blank"
+          :title="entry.title"
+          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
         >
-          <a
-            :href="`https://github.com/${author.githubUsername}`"
-            target="_blank"
-            class="group flex flex-col items-center gap-2"
-          >
-            <img
-              :src="`https://avatars.githubusercontent.com/u/${author.githubAvatarId}`"
-              :alt="author.name"
-              class="w-16 h-16 rounded-full ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-primary-500 transition-all"
-            >
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-primary-500 transition-colors">
-              {{ author.name }}
-            </span>
-          </a>
-          <a
-            :href="`mailto:${author.email}`"
-            class="text-xs text-gray-500 dark:text-gray-500 hover:text-primary-500 transition-colors"
-          >
-            {{ author.email }}
-          </a>
-        </div>
+          <UIcon :name="entry.icon" class="size-4 shrink-0" />
+          {{ entry.label }}
+        </NuxtLink>
       </div>
-    </UCard>
+    </div>
+
+    <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
+    <section class="mb-6 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
+      <h2 class="text-lg font-bold mb-3">
+        {{ t('values.title') }}
+      </h2>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8">
+        <p v-for="value in values" :key="value.key" class="flex items-center gap-2 text-base font-medium">
+          <span aria-hidden="true">{{ value.emoji }}</span>
+          {{ value.text }}
+        </p>
+      </div>
+    </section>
+
+    <!-- Who backs the work: its own block, in the same gradient as the stance above it. Two
+         statements the project makes about itself, told apart by the gap rather than by one of
+         them looking like a footnote to the other. -->
+    <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
+      <h2 class="text-lg font-bold mb-3">
+        {{ t('home.supportedByTitle') }}
+      </h2>
+      <div class="flex flex-wrap justify-center gap-2">
+        <a
+          v-for="supporter in supporters"
+          :key="supporter.key"
+          :href="supporter.to"
+          target="_blank"
+          :title="supporter.detail"
+          :aria-label="`${supporter.name} — ${supporter.detail}`"
+          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
+        >
+          <UIcon :name="supporter.icon" class="size-4 shrink-0" />
+          {{ supporter.name }}
+        </a>
+      </div>
+    </section>
+
+    <!-- The project and the people behind it live on their own page now, so the home page can
+         stay about the data. -->
+    <div class="text-center">
+      <UButton
+        to="/about"
+        variant="link"
+        icon="i-lucide-info"
+        trailing-icon="i-lucide-arrow-right"
+      >
+        {{ t('home.aboutLink') }}
+      </UButton>
+    </div>
   </div>
 </template>

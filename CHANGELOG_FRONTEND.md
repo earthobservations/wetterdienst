@@ -24,8 +24,115 @@ Types of changes:
   instance shows its own address and the snippet can be copied as-is. The card appears only when
   the backend reports `mcp_enabled`: the endpoint is behind an optional extra, and an instance
   installed without it would otherwise hand every visitor a client configuration pointing at a 404
+- `[About]` A page at `/about` carrying what the home page used to say about the project, plus a
+  proper introduction to the maintainer -- what he works on, where he is, how to reach him -- and
+  the same for the co-author, with a pointer to the full contributor list. Both cards render from
+  one shape under a single "the people behind it" heading, so neither is a lesser layout than the
+  other and no card header repeats the role beneath it. Nothing about a person is stated that
+  they have not published themselves: the co-author's card carries no employer, location or age,
+  because his GitHub profile gives none. Reachable from the footer and from the bottom of the home
+  page
+- `[About]` LinkedIn and Mastodon next to the GitHub and email buttons in the maintainer card. The
+  Mastodon link carries `rel="me"`, so the profile there can verify the link back to this site, and
+  wears the real Mastodon logo from simple-icons -- Lucide has no such glyph, and icons resolve
+  through Iconify either way, so it adds no dependency
+- `[Home]` A "what data you get" section, which is what a first-time visitor actually needs: the
+  headline numbers, all 22 weather services named with their flags, and the six kinds of data
+  behind them -- measurements, forecasts, water levels, radar, warnings and road weather. The
+  provider list is pinned to the backend registry by
+  `tests/test_frontend_i18n.py::test_frontend_home_lists_every_provider`, so a provider added
+  upstream fails a test rather than quietly going unmentioned
+
+- `[App]` `/docs` and `/openapi.json` are proxied onto this origin, so the hosted app serves the
+  backend's Swagger UI as its own API reference. Only `/api/**` and `/mcp` were proxied before, and
+  `/docs` on the app origin answered with the SPA shell
+- `[Home]` A row pointing developers at the same data without clicking: the Python package on PyPI,
+  the REST API at `/docs`, and the MCP endpoint at `/mcp`. The MCP chip says on hover that it is an
+  endpoint rather than a page, because a browser GET to it answers 400 by design. The "514
+  parameters" tile also leads to the glossary now, which is where each of them is explained
+- `[Home]` The two open-source programmes the project runs on, as badges in a band of their own:
+  JetBrains for a PyCharm licence and Anthropic for a Claude Max subscription, each linking to the
+  programme and naming what it gives on hover
+- `[Home]` A third line in the values statement: "Erderwärmung ist keine Meinung" / "Global warming
+  is not an opinion". It is the one stance this project backs up by existing -- it serves the
+  measurements, and the warming stripes are two clicks away. The solidarity line also reads LGBTQI+
+  rather than LGBTQ+, in all eleven locales
+- `[Glossary]` A page at `/glossary` listing every canonical parameter with what it measures and the
+  unit its values come back in, searchable by name or description and filterable by quantity. It
+  reads `GET /api/glossary`, which the backend has served all along without anything using it
+- Curated labels for the nine locales that had none. `cs`, `da`, `de-hh`, `es`, `fr`, `it`, `lb`,
+  `nl` and `pl` fell back to English before, since only `en.ts` and `de.ts` existed
+- Labels for the parameters the backend has since introduced: the cloud cover and visibility
+  measurement methods, the visibility class, the ground state, ice on the wet bulb, and the true
+  solar time offset
+- `[All pages]` Glossary labels for the new `radiation_global_intensity`,
+  `radiation_sky_long_wave_intensity` and `radiation_sky_short_wave_diffuse_intensity` parameters,
+  which the backend introduced for sources reporting irradiance (W/m²) rather than irradiation
+  accumulated over the interval (J/cm²). Affects KNMI (10 minutes), MeteoSwiss, met.no, RMI and
+  Geosphere (10 minutes and hourly), whose radiation parameters are served under the new names.
+
+### Changed
+
+- `[Home]` The project description and the author avatars are gone from the home page, which is
+  about the data now; both live on `/about`
+- `[Home]` The features section is two cards rather than four, and titled for what it actually
+  lists: what you can do with the data. "Multiple data sources" repeated the 22-service card, the
+  `0 €` tile and the intro line; "geospatial queries" repeated the Explorer card's own pitch. What
+  is left is export formats and interpolation/summarization, neither of which the page says
+  anywhere else
+- `[Home]` The end of the page has a structure. "What you can do with it" is a subsection of the
+  data block, where it belongs, instead of a peer heading over two cards; the
+  supporters are a band of their own in the same gradient as the stance above them, separated by a
+  gap rather than a rule inside one box. Badges floating in bare whitespace between two structured
+  blocks were what made the end of the page read as unstructured
+- `[Home]` The values statement closes the page instead of sitting between the task cards and the
+  data, where it interrupted the path from "what would you like to do" to "what data you get". The
+  footer carries the same stance on every page regardless
+- `[All pages]` Support leaves the main navigation, which is now seven entries with one rule
+  between them: they are all things you do with weather data. Support is about the project, like
+  About and the legal notice, so it joins them -- as a heart in the header's project links, where
+  "sponsor this" is conventionally found, and as a footer link. It is in the mobile menu's bottom
+  bar for the same reason it is in the desktop header
+- `[Home]` Only the cards that go somewhere answer the pointer. The two feature cards lifted and
+  ringed on hover exactly like the task cards above them, but nothing happens when you click one --
+  a hover state is how a card promises it is a link, and those two were promising nothing
+- `[All pages]` The footer carries all four statements as icons, with the full wording on hover and
+  as the accessible name, rather than two of them in short form. The four now live in one `values`
+  section shared with the home page, so the two places cannot drift apart
+- `[All pages]` The footer is two rows split by kind -- copyright and links on one, the stance on
+  its own line -- rather than one list of six items where "Love who you want" sat in the same
+  register as "About", separated by the same pipe. The separators were flex siblings that cannot
+  see where a line breaks, so a wrapped row ended on a dangling one; each row owns its separators
+  now, and below the `sm` breakpoint the links row drops them for wider gaps instead
+
+- `[Explorer]` The settings drawer held the app's only raw form controls -- seven `<input>` and one
+  `<select>` with hand-maintained borders, padding and `dark:` variants, and none of the focus or
+  accessibility behaviour the rest of the app gets from the design system. They are `UInputNumber`,
+  `UInput` and `USelect` now, with min/max/step as real props, and the parameter-name field marks
+  an unknown parameter with `highlight` rather than open-coded red border classes
+- `[Glossary/Forecast/Widget]` Empty and no-data states use `UEmpty` instead of three differently
+  styled paragraphs of muted text; the glossary shows a real loading state while fetching
+- `[Parameter selection]` Follow the nested shape `GET /api/coverage` now returns. Datasets were
+  listed with `Object.keys()` over the resolution, which answers `["description", "datasets"]`
+  under the new shape, and the dataset was indexed as a list of parameters. Both now read through
+  `datasets` and `parameters`, and the types gain `CoverageResolution` and `CoverageDataset` plus a
+  `description` on `CoverageParameter`
+- `[Parameter selection]` Show what the shape change makes reachable: the resolution and dataset
+  selects carry the source's own description as help text, and each parameter in the menu shows its
+  description beneath the label
 
 ### Fixed
+
+- `[de-hh]` The Hamburg locale spoke three languages at once. Sixteen strings were full Hamburger
+  Platt -- "Wat jeder Parameter misst un in welke Eenheit de Weerten torüchkaamt", "Datenanfraag is
+  fehlslaan" -- sitting between High German ones, and Platt is a separate language that the
+  [Wikipedia article](https://de.wikipedia.org/wiki/Hamburger_Dialekt) describes as rarely spoken
+  today; the living register is Hamburgisch, High German carrying the Low German layer. Fourteen
+  further strings still addressed the reader as "Sie", inherited unchanged from `de`, so a reader
+  met both forms. One register now: High German, "du" throughout, and the Hamburg vocabulary where
+  a Hamburger would actually use it -- including the tagline, which read "för de Lüüd": the noun is
+  Hamburg, the preposition and article were Low German, and the same page says "die Lüüd dahinter"
+  a screen further down
 
 - `[Explorer]` Plotly, at 1.0 MB the largest chunk in the build, was fetched and parsed as soon as
   the data viewer mounted -- before any chart existed, and regardless of the view mode, which
@@ -76,40 +183,6 @@ Types of changes:
   resolving, so the image built regardless -- and would have kept building until the first value
   exported from `shared/` turned one of those into a real import and broke the deploy instead. The
   `dev` target copies the whole of `frontend/`, so only production was ever a step away from this
-
-### Changed
-
-- `[Explorer]` The settings drawer held the app's only raw form controls -- seven `<input>` and one
-  `<select>` with hand-maintained borders, padding and `dark:` variants, and none of the focus or
-  accessibility behaviour the rest of the app gets from the design system. They are `UInputNumber`,
-  `UInput` and `USelect` now, with min/max/step as real props, and the parameter-name field marks
-  an unknown parameter with `highlight` rather than open-coded red border classes
-- `[Glossary/Forecast/Widget]` Empty and no-data states use `UEmpty` instead of three differently
-  styled paragraphs of muted text; the glossary shows a real loading state while fetching
-- `[Parameter selection]` Follow the nested shape `GET /api/coverage` now returns. Datasets were
-  listed with `Object.keys()` over the resolution, which answers `["description", "datasets"]`
-  under the new shape, and the dataset was indexed as a list of parameters. Both now read through
-  `datasets` and `parameters`, and the types gain `CoverageResolution` and `CoverageDataset` plus a
-  `description` on `CoverageParameter`
-- `[Parameter selection]` Show what the shape change makes reachable: the resolution and dataset
-  selects carry the source's own description as help text, and each parameter in the menu shows its
-  description beneath the label
-
-### Added
-
-- `[Glossary]` A page at `/glossary` listing every canonical parameter with what it measures and the
-  unit its values come back in, searchable by name or description and filterable by quantity. It
-  reads `GET /api/glossary`, which the backend has served all along without anything using it
-- Curated labels for the nine locales that had none. `cs`, `da`, `de-hh`, `es`, `fr`, `it`, `lb`,
-  `nl` and `pl` fell back to English before, since only `en.ts` and `de.ts` existed
-- Labels for the parameters the backend has since introduced: the cloud cover and visibility
-  measurement methods, the visibility class, the ground state, ice on the wet bulb, and the true
-  solar time offset
-- `[All pages]` Glossary labels for the new `radiation_global_intensity`,
-  `radiation_sky_long_wave_intensity` and `radiation_sky_short_wave_diffuse_intensity` parameters,
-  which the backend introduced for sources reporting irradiance (W/m²) rather than irradiation
-  accumulated over the interval (J/cm²). Affects KNMI (10 minutes), MeteoSwiss, met.no, RMI and
-  Geosphere (10 minutes and hourly), whose radiation parameters are served under the new names.
 
 ## [0.12.1] - 2026-08-02
 
@@ -230,7 +303,6 @@ Types of changes:
 - `[Explorer]` When a date range is required and stations are selected, the date range
   auto-fills from the min start date / max end date across the selected stations
   (stations still collecting data are treated as ending today).
-
 
 ## [0.8.0] - 2026-07-06
 

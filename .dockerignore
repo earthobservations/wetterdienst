@@ -1,0 +1,39 @@
+# Build contexts are the repository root for both images (see compose.yml), so everything below
+# would otherwise be uploaded to the daemon on every build -- roughly 2 GB of it, most of which the
+# images rebuild from lockfiles anyway.
+
+# local environments and installed dependencies
+.venv/
+venv/
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# version control and CI metadata
+.git/
+.github/
+
+# build output and caches
+dist/
+.output/
+.nuxt/
+.nitro/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+**/__pycache__/
+*.py[cod]
+
+# editor, OS and agent scratch
+.idea/
+.vscode/
+.DS_Store
+.claude/
+notes/
+
+# docs and examples are not needed to run the app
+docs/_build/

@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pytest
 
+from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.model.unit import UnitConverter
 
@@ -58,6 +59,25 @@ def test_frontend_labels_every_canonical_parameter() -> None:
     stale = sorted(labelled - served)
     assert not unlabelled, f"canonical parameters with no frontend label: {unlabelled}"
     assert not stale, f"frontend labels for parameters that are no longer served: {stale}"
+
+
+def test_frontend_home_lists_every_provider() -> None:
+    """The home page's provider list must be the registry's providers, exactly.
+
+    The list is written out in `pages/index.vue` rather than fetched, because it is a static claim
+    about what the app offers and not worth a request on the landing page. That makes it the one
+    place on the frontend that can silently fall behind: a provider added here would keep serving
+    data while the home page went on advertising the old set, and one removed would be advertised
+    after it was gone. Neither is visible from the frontend's own tests, so it is checked here.
+    """
+    home = (FRONTEND / "app" / "pages" / "index.vue").read_text(encoding="utf-8")
+    block = home.split("const providers = [")[1].split("]", maxsplit=1)[0]
+    listed = set(re.findall(r"key: '([a-z]+)'", block))
+    registered = set(Wetterdienst.registry)
+    missing = sorted(registered - listed)
+    stale = sorted(listed - registered)
+    assert not missing, f"providers the home page does not mention: {missing}"
+    assert not stale, f"providers the home page mentions but the registry does not have: {stale}"
 
 
 def test_frontend_names_every_unit_type() -> None:
