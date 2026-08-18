@@ -52,6 +52,10 @@ Types of changes:
 
 ### Changed
 
+- Docs: the README states what the project stands for, in the same four lines the app closes with,
+  and opens with "Global warming is not an opinion" rather than the Fridays for Future chant -- the
+  one claim a weather-data library backs up by existing. Anthropic gets a logo next to JetBrains
+  under "Supported by", where it had been a mention in prose
 - Docs: the README is rewritten around what a first-time reader needs. One header image rather than
   three, one badge block rather than four, and a table of all 22 providers with their country and
   what each one serves -- which the README never stated, though it is the first question anyone

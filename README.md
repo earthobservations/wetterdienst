@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/hohenpeissenberg_warming_stripes.png" alt="Warming stripes of Hohenpeissenberg, Germany, drawn from data fetched with wetterdienst" width="100%"/>
 </p>
 
-> "What do we want? Climate Justice! When do we want it? Now!" - FFF
+> **Global warming is not an opinion.** — Erderwärmung ist keine Meinung.
 
 [![CI status](https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/earthobservations/wetterdienst/actions?workflow=Tests)
 [![Documentation status](https://readthedocs.org/projects/wetterdienst/badge/?version=latest)](https://wetterdienst.readthedocs.io/en/latest/?badge=latest)
@@ -113,7 +113,16 @@ request = DwdObservationRequest(
     end_date="2002-08-13",
 ).filter_by_station_id(station_id=(5779,))
 
-request.df  # the station
+stations = request.df
+stations.head()
+# ┌────────────┬─────────────────┬────────────┬─────────────────────────┬───┬───────────┬────────┬──────────────────────┬─────────┐
+# │ resolution ┆ dataset         ┆ station_id ┆ start_date              ┆ … ┆ longitude ┆ height ┆ name                 ┆ state   │
+# │ ---        ┆ ---             ┆ ---        ┆ ---                     ┆   ┆ ---       ┆ ---    ┆ ---                  ┆ ---     │
+# │ str        ┆ str             ┆ str        ┆ datetime[μs, UTC]       ┆   ┆ f64       ┆ f64    ┆ str                  ┆ str     │
+# ╞════════════╪═════════════════╪════════════╪═════════════════════════╪═══╪═══════════╪════════╪══════════════════════╪═════════╡
+# │ daily      ┆ climate_summary ┆ 05779      ┆ 1971-01-01 00:00:00 UTC ┆ … ┆ 13.7516   ┆ 877.0  ┆ Zinnwald-Georgenfeld ┆ Sachsen │
+# └────────────┴─────────────────┴────────────┴─────────────────────────┴───┴───────────┴────────┴──────────────────────┴─────────┘
+
 values = request.values.all().df
 values.head()
 # ┌────────────┬────────────┬─────────────────┬──────────────────────┬─────────────────────────┬───────┬─────────┐
@@ -147,6 +156,13 @@ More in [examples](https://github.com/earthobservations/wetterdienst/tree/main/e
 - [Examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) and
   [benchmarks](https://github.com/earthobservations/wetterdienst/tree/main/benchmarks)
 
+## What we stand for
+
+- 🏳️‍🌈🏳️‍⚧️ We stand with the LGBTQI+ community.
+- ✊ No place for Nazis. FCKNZS.
+- 🌡️ Global warming is not an opinion.
+- 🔓 Weather data belongs to everyone.
+
 ## Acknowledgements
 
 We want to acknowledge all environmental agencies which provide their data open and free of charge
@@ -158,10 +174,12 @@ it better and better every day.
 ## Supported by
 
 [![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSourceSupport)
+&nbsp;&nbsp;
+[![Anthropic logo.](https://cdn.simpleicons.org/anthropic/181818/ffffff)](https://www.anthropic.com/)
 
-Special thanks to the kind people at [JetBrains] s.r.o. for supporting us with excellent development
-tooling, and to [Anthropic] for a Claude Max subscription through their support programme for
-open-source maintainers.
+Special thanks to the kind people at [JetBrains] s.r.o. for a PyCharm licence through their
+open-source support programme, and to [Anthropic] for a Claude Max subscription for open-source
+maintainers.
 
 [JetBrains]: https://www.jetbrains.com/
 [Anthropic]: https://www.anthropic.com/
