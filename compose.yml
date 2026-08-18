@@ -1,6 +1,6 @@
 services:
   backend:
-    profiles: [ "backend", "app" ]
+    profiles: [ "backend", "full" ]
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -26,14 +26,14 @@ services:
         - path: ./uv.lock
           action: rebuild
 
-  frontend:
-    profiles: [ "frontend", "app" ]
+  app:
+    profiles: [ "app", "full" ]
     build:
       context: .
-      dockerfile: docker/frontend.Dockerfile
+      dockerfile: docker/app.Dockerfile
       target: dev
-    image: wetterdienst-frontend:dev
-    container_name: wetterdienst-frontend
+    image: wetterdienst-app:dev
+    container_name: wetterdienst-app
     restart: unless-stopped
     environment:
       - HOST=0.0.0.0
@@ -44,14 +44,14 @@ services:
       - "4000:4000"
     develop:
       watch:
-        - path: frontend/package.json
+        - path: app/package.json
           action: rebuild
-        - path: frontend/pnpm-lock.yaml
+        - path: app/pnpm-lock.yaml
           action: rebuild
-        - path: frontend/
+        - path: app/
           action: sync
           target: /app
           ignore:
-            - frontend/node_modules
-            - frontend/.nuxt
-            - frontend/.output
+            - app/node_modules
+            - app/.nuxt
+            - app/.output

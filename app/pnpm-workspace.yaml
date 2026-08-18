@@ -1,5 +1,11 @@
 dangerouslyAllowAllBuilds: true
 confirmModulesPurge: false
+# Supply-chain cooldown: refuse versions published less than three days ago, so a
+# compromised release has time to be caught and pulled before it reaches us. 4320
+# minutes matches the cooldown Dependabot already applies by default to the uv,
+# docker and github-actions ecosystems in .github/dependabot.yml, so both halves of
+# the repo wait the same length of time. pnpm 11's own default is a shorter 1440.
+minimumReleaseAge: 4320
 minimumReleaseAgeExclude:
   - '@nuxt/kit@3.21.10'
   - '@nuxt/test-utils@4.1.0'

@@ -40,7 +40,7 @@ Types of changes:
   headline numbers, all 22 weather services named with their flags, and the six kinds of data
   behind them -- measurements, forecasts, water levels, radar, warnings and road weather. The
   provider list is pinned to the backend registry by
-  `tests/test_frontend_i18n.py::test_frontend_home_lists_every_provider`, so a provider added
+  `tests/test_app_i18n.py::test_app_home_lists_every_provider`, so a provider added
   upstream fails a test rather than quietly going unmentioned
 
 - `[App]` `/docs` and `/openapi.json` are proxied onto this origin, so the hosted app serves the
@@ -73,6 +73,26 @@ Types of changes:
 
 ### Changed
 
+- `[Build]` **Breaking for anyone pulling the image or tagging a release.** `frontend/` is now
+  `app/`, and every artifact named after it followed: the image is
+  `ghcr.io/earthobservations/wetterdienst-app`, releases are tagged `app-v*` rather than
+  `frontend-v*`, and the workflows, Dockerfile and changelog were renamed to match. The 13
+  historical tags were renamed on the remote and their GitHub Releases repointed, so the compare
+  links below still resolve; the old image tags were copied to the new package, so nothing
+  published becomes unpullable. A deployment pulling `wetterdienst-frontend` must be repointed --
+  that package receives no further pushes
+- `[Build]` `docker compose --profile app` now starts the app alone. The combined
+  backend-plus-app profile is `--profile full`, because a service named `app` and a profile named
+  `app` meaning something else could not both stand
+- `[Build]` Node 24 (Krypton, the active LTS) everywhere. The image was on Node 25, which stopped
+  at 25.9.0 and is end-of-life, and the release workflow was still on Node 20; the test workflow
+  was already on 24. `engines.node` is `>=24.15.0` -- not a round number, but the floor the
+  strictest dependency in the lockfile actually asks for
+- `[Build]` pnpm pinned to 11.22.0 in the image, up from 11.9.0, which is what CI's `version: 11`
+  already resolved to
+- `[Build]` pnpm refuses dependency versions published less than three days ago
+  (`minimumReleaseAge: 4320`), matching the cooldown Dependabot already applies by default to the
+  other ecosystems in this repo. pnpm 11 defaults to one day
 - `[Home]` The project description and the author avatars are gone from the home page, which is
   about the data now; both live on `/about`
 - `[Home]` The features section is two cards rather than four, and titled for what it actually
@@ -506,17 +526,17 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.12.1...HEAD
-[0.12.1]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.12.0...frontend-v0.12.1
-[0.12.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.11.0...frontend-v0.12.0
-[0.11.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.10.0...frontend-v0.11.0
-[0.10.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.9.0...frontend-v0.10.0
-[0.9.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.8.0...frontend-v0.9.0
-[0.8.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.7.0...frontend-v0.8.0
-[0.7.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.6.0...frontend-v0.7.0
-[0.6.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.5.0...frontend-v0.6.0
-[0.5.0]: https://github.com/earthobservations/wetterdienst/compare/frontend-v0.4.0...frontend-v0.5.0
-[0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.3.0...frontend-v0.4.0
-[0.3.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.2.0...frontend-v0.3.0
-[0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.1.0...frontend-v0.2.0
-[0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/frontend-v0.1.0
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.12.1...HEAD
+[0.12.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.12.0...app-v0.12.1
+[0.12.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.11.0...app-v0.12.0
+[0.11.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.10.0...app-v0.11.0
+[0.10.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.9.0...app-v0.10.0
+[0.9.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.8.0...app-v0.9.0
+[0.8.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.7.0...app-v0.8.0
+[0.7.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.6.0...app-v0.7.0
+[0.6.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.5.0...app-v0.6.0
+[0.5.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.4.0...app-v0.5.0
+[0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.3.0...app-v0.4.0
+[0.3.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.2.0...app-v0.3.0
+[0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0...app-v0.2.0
+[0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0

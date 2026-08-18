@@ -25,7 +25,7 @@ uv run pytest tests/provider/dwd/observation/test_api.py -vvv
 uv run pytest tests/ -k "test_my_function" -vvv
 ```
 
-### Frontend (`cd frontend`, Nuxt 3 / Vue 3, pnpm)
+### App (`cd app`, Nuxt 3 / Vue 3, pnpm)
 
 ```bash
 pnpm install
@@ -39,9 +39,9 @@ pnpm test:e2e       # playwright
 ### Docker (`compose.yml`)
 
 ```bash
-docker compose --profile app up        # backend + frontend
+docker compose --profile full up       # backend + app
 docker compose --profile backend up    # backend only, port 3000
-docker compose --profile frontend up   # frontend only, port 4000
+docker compose --profile app up        # app only, port 4000
 ```
 
 ### CLI / REST API
@@ -96,7 +96,7 @@ All HTTP goes through `util/network.py`, wrapping fsspec with TTL caching and `s
 - **CLI** (`ui/cli.py`): click/cloup-based.
 - **REST API** (`ui/restapi.py`): FastAPI app mirroring the CLI; starts via `wetterdienst restapi`.
 - **MCP** (`ui/mcp.py`): Model Context Protocol server exposing the same tools.
-- **Frontend** (`frontend/`): Nuxt 3 SPA (SSR disabled) calling the REST API; `NUXT_PUBLIC_API_BASE` sets the backend URL.
+- **App** (`app/`): Nuxt 3 SPA (SSR disabled) calling the REST API; `NUXT_PUBLIC_API_BASE` sets the backend URL.
 
 ### Export / interpolation
 

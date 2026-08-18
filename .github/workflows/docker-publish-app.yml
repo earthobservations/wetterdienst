@@ -1,17 +1,17 @@
-name: Release Docker Frontend
+name: Release Docker App
 
 on:
   push:
     tags:
-      - 'frontend-v*.*.*'  # Frontend releases only (frontend-v1.0.0)
+      - 'app-v*.*.*'  # App releases only (app-v1.0.0)
   pull_request:
     branches: [ main ]
     paths:
-      - 'frontend/**'
-      - 'docker/frontend.Dockerfile'
-      - 'frontend/package.json'
-      - 'frontend/pnpm-lock.yaml'
-      - '.github/workflows/docker-publish-frontend.yml'
+      - 'app/**'
+      - 'docker/app.Dockerfile'
+      - 'app/package.json'
+      - 'app/pnpm-lock.yaml'
+      - '.github/workflows/docker-publish-app.yml'
 
   schedule:
     - cron: '0 10 * * *' # everyday at 10am
@@ -28,10 +28,10 @@ concurrency:
 
 # The name for the produced image at ghcr.io.
 env:
-  IMAGE_NAME_FRONTEND: "${{ github.repository }}-frontend"
+  IMAGE_NAME_APP: "${{ github.repository }}-app"
 
 jobs:
-  build_and_test_frontend:
+  build_and_test_app:
     runs-on: ubuntu-latest
     # a backstop under the 6h default: nothing here should take half an hour, and a job that hangs
     # holds the concurrency group against every later push to the branch
@@ -45,14 +45,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4 # zizmor: ignore[cache-poisoning]
 
-      - name: Build frontend image
+      - name: Build app image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/frontend.Dockerfile
+          file: docker/app.Dockerfile
           target: prod
           load: true
-          tags: wd-frontend:test
+          tags: wd-app:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -61,7 +61,7 @@ jobs:
       # this is the artifact that gets deployed -- so it is started and asked for a page first.
       - name: Serve a page from the image
         run: |
-          docker run -d --name wd-frontend -p 4000:4000 wd-frontend:test
+          docker run -d --name wd-app -p 4000:4000 wd-app:test
 
           # `--max-time` matters more than it looks: `-p` binds the host port the moment the
           # container starts, so a server that accepts connections and then never answers -- one of
@@ -78,7 +78,7 @@ jobs:
 
           if [ -z "${served:-}" ]; then
             echo "::error::the image served nothing on :4000 within 90s"
-            docker logs wd-frontend
+            docker logs wd-app
             exit 1
           fi
 
@@ -87,20 +87,20 @@ jobs:
           if ! grep -q '<title>Wetterdienst</title>' index.html || ! grep -q 'id="__nuxt"' index.html; then
             echo "::error::the page served on :4000 is not the wetterdienst spa shell"
             head -c 2000 index.html
-            docker logs wd-frontend
+            docker logs wd-app
             exit 1
           fi
 
       - name: Stop the image
         if: always()
         # cleanup must not turn a passing run red, nor mask why a failing one failed
-        run: docker rm -f wd-frontend || true
+        run: docker rm -f wd-app || true
 
   # Computes the version/tags/labels once, shared by the per-platform build jobs
   # and the final manifest-merge job. Skipped on pull requests along with both of them, so it
   # does not burn a runner computing tags no remaining job reads.
   docker_meta:
-    needs: build_and_test_frontend
+    needs: build_and_test_app
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'pull_request' && ! startsWith(github.actor, 'dependabot') }}
     outputs:
@@ -118,7 +118,7 @@ jobs:
         env:
           REF_NAME: ${{ github.ref_name }}
         run: |
-          if [[ "$REF_NAME" =~ ^frontend-v(.+)$ ]]; then
+          if [[ "$REF_NAME" =~ ^app-v(.+)$ ]]; then
             echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
           else
             echo "version=latest" >> $GITHUB_OUTPUT
@@ -129,7 +129,7 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: |
-            ghcr.io/${{ env.IMAGE_NAME_FRONTEND }}
+            ghcr.io/${{ env.IMAGE_NAME_APP }}
           tags: |
             type=schedule,pattern=nightly
             type=semver,pattern={{version}},value=v${{ steps.version.outputs.version }}
@@ -141,7 +141,7 @@ jobs:
           echo "Labels:    ${{ steps.meta.outputs.labels }}"
 
   # Builds each platform natively on its own runner (no QEMU emulation) and pushes an untagged,
-  # digest-addressed image. Not on pull requests: those are checked by build_and_test_frontend
+  # digest-addressed image. Not on pull requests: those are checked by build_and_test_app
   # above, which builds the same target without pushing. Every other event does run this --
   # a workflow_dispatch from a branch included, though that one cannot get as far as deploying,
   # since no tag is computed for it and the merge job fails on the empty tag list.
@@ -150,7 +150,7 @@ jobs:
   # which is CPU-bound and emulates very poorly); native arm64 runners
   # (free for public repos: https://github.blog/changelog/2025-08-07-arm64-hosted-runners-for-public-repositories-are-now-generally-available/)
   # build at native speed instead.
-  docker_frontend_build:
+  docker_app_build:
     needs: docker_meta
     if: ${{ github.event_name != 'pull_request' }}
     strategy:
@@ -186,13 +186,13 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/frontend.Dockerfile
+          file: docker/app.Dockerfile
           target: prod
           platforms: linux/${{ matrix.arch }}
           labels: ${{ needs.docker_meta.outputs.labels }}
-          outputs: type=image,name=ghcr.io/${{ env.IMAGE_NAME_FRONTEND }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=frontend-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=frontend-${{ matrix.arch }}
+          outputs: type=image,name=ghcr.io/${{ env.IMAGE_NAME_APP }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=app-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=app-${{ matrix.arch }}
           provenance: false
 
       - name: Export digest
@@ -214,8 +214,8 @@ jobs:
   # the real tags, then deploys. Not on pull requests: the last step calls the Coolify deploy
   # hook, which redeploys the live site, and a proposed change must not do that. The backend
   # workflow guards its publish jobs the same way.
-  docker_frontend_merge:
-    needs: [ docker_meta, docker_frontend_build ]
+  docker_app_merge:
+    needs: [ docker_meta, docker_app_build ]
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
@@ -249,7 +249,7 @@ jobs:
         working-directory: /tmp/digests
         env:
           META_TAGS: ${{ needs.docker_meta.outputs.tags }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME_FRONTEND }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME_APP }}
         run: |
           tags=()
           while IFS= read -r tag; do
@@ -274,6 +274,9 @@ jobs:
           git describe --tags
           git status
 
+      # COOLIFY_FRONTEND_UUID keeps its old name on purpose: it is a repository secret in
+      # GitHub settings, not a file in this repo, so renaming it here would only break the
+      # deploy. Rename the secret in settings first, then this reference.
       - name: Deploy to Coolify
         run: |
           curl --fail --request GET \
