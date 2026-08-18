@@ -44,3 +44,24 @@ export WD_USE_CERTIFI=true
 
 This uses Mozilla's curated collection of root certificates instead of your system certificates.
 For more information, see the [settings documentation](usage/settings.md).
+
+## Raspberry Pi / Linux ARM
+
+On a Raspberry Pi, **numpy** and **lxml** have to be in place before wetterdienst is installed:
+
+```bash
+# not all of these may be required to get lxml running
+sudo apt-get install gfortran
+sudo apt-get install libopenblas-base
+sudo apt-get install libopenblas-dev
+sudo apt-get install libatlas-base-dev
+sudo apt-get install python3-lxml
+```
+
+Expanding the swap to 2048 MB may be required as well, via the swap file:
+
+```bash
+sudo nano /etc/dphys-swapfile
+```
+
+Thanks [chr-sto](https://github.com/chr-sto) for reporting back to us!
