@@ -63,6 +63,8 @@
     "maintainerText2": "Il fait aussi tourner l'instance hébergée sur wetterdienst.eobs.org, qui sert gratuitement cette application, l'API et le point d'accès MCP.",
     "maintainerBio": "Benjamin a inventé Wetterdienst et le développe encore aujourd'hui. Il a obtenu son master en hydrologie à Dresde en 2020 et travaille depuis comme data engineer ; l'hydrologie est restée : la bibliothèque couvre les hauteurs et les débits des cours d'eau autant que la météo.",
     "coAuthorTitle": "Co-auteur",
+    "coAuthorRole": "Co-mainteneur",
+    "coAuthorBio": "Andreas est sur Wetterdienst depuis juin 2020 et s'occupe de ce qui garde une bibliothèque en vie plutôt que de ce qui se voit : intégration continue, empaquetage, tests radar et documentation. Au-delà de ce projet, il construit des outils de données open source, dont Kotori et PatZilla, et il est cité comme co-auteur de Wetterdienst.",
     "contributorsText": "Bien d'autres personnes ont contribué des adaptateurs, des fonctionnalités et des corrections au fil des ans.",
     "contributorsLink": "Voir la liste complète",
     "linksTitle": "Liens",

@@ -63,6 +63,8 @@
     "maintainerText2": "Han driver også den hostede instans på wetterdienst.eobs.org, der gratis leverer denne app, API'et og MCP-endepunktet.",
     "maintainerBio": "Benjamin har opfundet Wetterdienst og udvikler det den dag i dag. Han afsluttede sin kandidatgrad i hydrologi i Dresden i 2020 og har siden arbejdet som data engineer – hydrologien blev hængende: biblioteket dækker vandstande og vandføring ved siden af vejret.",
     "coAuthorTitle": "Medforfatter",
+    "coAuthorRole": "Medvedligeholder",
+    "coAuthorBio": "Andreas har været med i Wetterdienst siden juni 2020 og tager sig af det, der holder et bibliotek i live, snarere end det, brugerne ser: continuous integration, pakning, radartestene og dokumentationen. Ud over dette projekt bygger han open source-værktøjer til data, heriblandt Kotori og PatZilla, og han er nævnt som medforfatter til Wetterdienst.",
     "contributorsText": "Mange flere har gennem årene bidraget med adaptere, funktioner og rettelser.",
     "contributorsLink": "Se hele listen",
     "linksTitle": "Links",

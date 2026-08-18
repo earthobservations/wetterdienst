@@ -14,25 +14,46 @@ const age = computed(() => {
   return hadBirthday ? years : years - 1
 })
 
-// Maintainer: the person who runs the project and the hosted instance at wetterdienst.eobs.org.
-const maintainer = {
-  name: 'Benjamin Gutzmann',
-  email: 'benjamin@eobs.org',
-  githubUsername: 'gutzbenj',
-  githubAvatarId: '29654631',
-  location: 'Hamburg',
-  linkedin: 'https://www.linkedin.com/in/benjamin-gutzmann-3792b1141/',
-  mastodon: 'https://mastodon.social/@gutzb3nj',
-  mastodonHandle: '@gutzb3nj',
-}
-
-// Co-author, listed flat on purpose: name, avatar and how to reach him, no write-up.
-const coAuthor = {
-  name: 'Andreas Motl',
-  email: 'andreas.motl@panodata.org',
-  githubUsername: 'amotl',
-  githubAvatarId: '453543',
-}
+// The two people the project is credited to. Both cards render from the same shape, so the
+// co-author is not a lesser layout than the maintainer -- only the facts differ, and the optional
+// meta line is what carries the ones that exist for one and not the other.
+const people = computed(() => [
+  {
+    key: 'maintainer',
+    title: t('about.maintainerTitle'),
+    name: 'Benjamin Gutzmann',
+    role: t('about.maintainerRole'),
+    // one paragraph: the sentences read on from each other
+    bio: `${t('about.maintainerBio')} ${t('about.maintainerText2')}`,
+    githubAvatarId: '29654631',
+    meta: [
+      { icon: 'i-lucide-map-pin', text: 'Hamburg' },
+      { icon: 'i-lucide-cake', text: t('about.maintainerAge', { age: age.value }) },
+    ],
+    links: [
+      { icon: 'i-lucide-github', label: 'gutzbenj', to: 'https://github.com/gutzbenj' },
+      { icon: 'i-lucide-mail', label: 'benjamin@eobs.org', to: 'mailto:benjamin@eobs.org' },
+      { icon: 'i-lucide-linkedin', label: 'LinkedIn', to: 'https://www.linkedin.com/in/benjamin-gutzmann-3792b1141/' },
+      // rel="me" is what lets the Mastodon profile verify a link back to this site
+      { icon: 'i-simple-icons-mastodon', label: '@gutzb3nj', to: 'https://mastodon.social/@gutzb3nj', rel: 'me noopener noreferrer' },
+    ],
+  },
+  {
+    key: 'coauthor',
+    title: t('about.coAuthorTitle'),
+    name: 'Andreas Motl',
+    role: t('about.coAuthorRole'),
+    bio: t('about.coAuthorBio'),
+    githubAvatarId: '453543',
+    // no location or age here: his GitHub profile gives neither, and nothing about a person goes
+    // on this page that he has not published about himself
+    meta: [],
+    links: [
+      { icon: 'i-lucide-github', label: 'amotl', to: 'https://github.com/amotl' },
+      { icon: 'i-lucide-mail', label: 'andreas.motl@panodata.org', to: 'mailto:andreas.motl@panodata.org' },
+    ],
+  },
+])
 </script>
 
 <template>
@@ -66,12 +87,12 @@ const coAuthor = {
       </p>
     </UCard>
 
-    <UCard>
+    <UCard v-for="person in people" :key="person.key">
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-user" class="text-primary-500 shrink-0" />
           <h2 class="text-lg font-bold">
-            {{ t('about.maintainerTitle') }}
+            {{ person.title }}
           </h2>
         </div>
       </template>
@@ -79,131 +100,67 @@ const coAuthor = {
       <div class="flex flex-col sm:flex-row gap-6">
         <div class="flex flex-col items-center gap-2 shrink-0">
           <a
-            :href="`https://github.com/${maintainer.githubUsername}`"
+            :href="person.links[0]?.to"
             target="_blank"
             class="group"
           >
             <img
-              :src="`https://avatars.githubusercontent.com/u/${maintainer.githubAvatarId}`"
-              :alt="maintainer.name"
+              :src="`https://avatars.githubusercontent.com/u/${person.githubAvatarId}`"
+              :alt="person.name"
               class="w-24 h-24 rounded-full ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-primary-500 transition-all"
             >
           </a>
-          <span class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-            <UIcon name="i-lucide-map-pin" class="shrink-0" />
-            {{ maintainer.location }}
-          </span>
-          <span class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-            <UIcon name="i-lucide-cake" class="shrink-0" />
-            {{ t('about.maintainerAge', { age }) }}
+          <span
+            v-for="item in person.meta"
+            :key="item.text"
+            class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1"
+          >
+            <UIcon :name="item.icon" class="shrink-0" />
+            {{ item.text }}
           </span>
         </div>
 
         <div class="flex-1 space-y-3">
           <div>
             <h3 class="text-xl font-bold">
-              {{ maintainer.name }}
+              {{ person.name }}
             </h3>
             <p class="text-sm text-primary-600 dark:text-primary-400 font-medium">
-              {{ t('about.maintainerRole') }}
+              {{ person.role }}
             </p>
           </div>
 
-          <!-- one paragraph, two strings: the sentences read on from each other, and a break
-               between them left the card looking like two half-written blocks -->
           <p class="text-gray-600 dark:text-gray-400">
-            {{ t('about.maintainerBio') }} {{ t('about.maintainerText2') }}
+            {{ person.bio }}
           </p>
 
           <div class="flex flex-wrap gap-2 pt-1">
             <UButton
-              :to="`https://github.com/${maintainer.githubUsername}`"
-              target="_blank"
+              v-for="link in person.links"
+              :key="link.to"
+              :to="link.to"
+              :target="link.to.startsWith('mailto:') ? undefined : '_blank'"
+              :rel="link.rel"
               size="sm"
               variant="outline"
-              icon="i-lucide-github"
+              :icon="link.icon"
             >
-              {{ maintainer.githubUsername }}
-            </UButton>
-            <UButton
-              :to="`mailto:${maintainer.email}`"
-              size="sm"
-              variant="outline"
-              icon="i-lucide-mail"
-            >
-              {{ maintainer.email }}
-            </UButton>
-            <UButton
-              :to="maintainer.linkedin"
-              target="_blank"
-              size="sm"
-              variant="outline"
-              icon="i-lucide-linkedin"
-            >
-              LinkedIn
-            </UButton>
-            <!-- rel="me" is what lets the Mastodon profile verify a link back to this site, so it
-                 is spelled out rather than left to the default rel for a _blank link. The icon
-                 comes from simple-icons because Lucide has no mastodon glyph; icons are resolved
-                 through Iconify either way, so this costs no new dependency. -->
-            <UButton
-              :to="maintainer.mastodon"
-              target="_blank"
-              rel="me noopener noreferrer"
-              size="sm"
-              variant="outline"
-              icon="i-simple-icons-mastodon"
-            >
-              {{ maintainer.mastodonHandle }}
+              {{ link.label }}
             </UButton>
           </div>
-        </div>
-      </div>
-    </UCard>
 
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-users" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('about.coAuthorTitle') }}
-          </h2>
-        </div>
-      </template>
-      <div class="flex items-center gap-4">
-        <a
-          :href="`https://github.com/${coAuthor.githubUsername}`"
-          target="_blank"
-          class="group shrink-0"
-        >
-          <img
-            :src="`https://avatars.githubusercontent.com/u/${coAuthor.githubAvatarId}`"
-            :alt="coAuthor.name"
-            class="w-12 h-12 rounded-full ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-primary-500 transition-all"
-          >
-        </a>
-        <div>
-          <p class="font-medium">
-            {{ coAuthor.name }}
+          <p v-if="person.key === 'coauthor'" class="text-sm text-gray-600 dark:text-gray-400">
+            {{ t('about.contributorsText') }}
+            <a
+              href="https://github.com/earthobservations/wetterdienst/blob/main/CONTRIBUTORS.md"
+              target="_blank"
+              class="text-primary-500 hover:underline"
+            >
+              {{ t('about.contributorsLink') }}
+            </a>
           </p>
-          <a
-            :href="`mailto:${coAuthor.email}`"
-            class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary-500 transition-colors"
-          >
-            {{ coAuthor.email }}
-          </a>
         </div>
       </div>
-      <p class="text-sm text-gray-600 dark:text-gray-400 mt-4">
-        {{ t('about.contributorsText') }}
-        <a
-          href="https://github.com/earthobservations/wetterdienst/blob/main/CONTRIBUTORS.md"
-          target="_blank"
-          class="text-primary-500 hover:underline"
-        >
-          {{ t('about.contributorsLink') }}
-        </a>
-      </p>
     </UCard>
 
     <UCard>

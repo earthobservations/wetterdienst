@@ -63,6 +63,8 @@
     "maintainerText2": "Hie bedreift och déi gehost Instanz op wetterdienst.eobs.org, déi dës App, d'API an den MCP-Endpunkt gratis ubitt.",
     "maintainerBio": "De Benjamin huet Wetterdienst erfonnt an entwéckelt et bis haut weider. 2020 huet hien zu Dresden säi Master an Hydrologie ofgeschloss a schafft zanterhier als Data Engineer – d'Hydrologie ass him bliwwen: d'Bibliothéik deckt nieft dem Wieder och Waasserstänn an Offlëss of.",
     "coAuthorTitle": "Co-Auteur",
+    "coAuthorRole": "Co-Maintainer",
+    "coAuthorBio": "Den Andreas ass zanter Juni 2020 bei Wetterdienst dobäi a këmmert sech ëm dat, wat eng Bibliothéik um Liewen hält, an net ëm dat, wat ee gesäit: Continuous Integration, Paketéierung, d'Radar-Tester an d'Dokumentatioun. Doriwwer eraus baut hien Open-Source-Tools fir Donnéeën, dorënner Kotori a PatZilla, an hie steet als Co-Auteur vu Wetterdienst.",
     "contributorsText": "Vill weider Leit hunn iwwer d'Joren Adapteren, Funktiounen a Korrekturen bäigedroen.",
     "contributorsLink": "Déi ganz Lëscht kucken",
     "linksTitle": "Linken",

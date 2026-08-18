@@ -63,6 +63,8 @@
     "maintainerText2": "Er betreibt außerdem die öffentliche Instanz unter wetterdienst.eobs.org, die diese App, die API und den MCP-Endpunkt umsonst bereitstellt.",
     "maintainerBio": "Benjamin hat Wetterdienst erfunden und entwickelt es bis heute weiter. Er hat 2020 in Dresden seinen MSc in Hydrologie gemacht und arbeitet seitdem als Data Engineer – die Hydrologie ist ihm geblieben: Neben dem Wetter deckt die Bibliothek auch Pegelstände und Abflüsse ab.",
     "coAuthorTitle": "Co-Autor",
+    "coAuthorRole": "Co-Maintainer",
+    "coAuthorBio": "Andreas ist seit Juni 2020 bei Wetterdienst dabei und kümmert sich um das, was eine Bibliothek am Leben hält, statt um das, was man sieht: Continuous Integration, Paketierung, die Radar-Tests und die Dokumentation. Darüber hinaus baut er Open-Source-Werkzeuge für Daten, darunter Kotori und PatZilla, und ist als Co-Autor von Wetterdienst genannt.",
     "contributorsText": "Noch viele mehr haben über die Jahre Adapter, Funktionen und Korrekturen beigesteuert.",
     "contributorsLink": "Zur vollständigen Liste",
     "linksTitle": "Links",

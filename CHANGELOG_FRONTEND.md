@@ -26,8 +26,11 @@ Types of changes:
   installed without it would otherwise hand every visitor a client configuration pointing at a 404
 - `[About]` A page at `/about` carrying what the home page used to say about the project, plus a
   proper introduction to the maintainer -- what he works on, where he is, how to reach him -- and a
-  flat entry for the co-author, with a pointer to the full contributor list. Reachable from the
-  footer and from the bottom of the home page
+  the same for the co-author, with a pointer to the full contributor list. Both cards render from
+  one shape, so neither is a lesser layout than the other. Nothing about a person is stated that
+  they have not published themselves: the co-author's card carries no employer, location or age,
+  because his GitHub profile gives none. Reachable from the footer and from the bottom of the home
+  page
 - `[About]` LinkedIn and Mastodon next to the GitHub and email buttons in the maintainer card. The
   Mastodon link carries `rel="me"`, so the profile there can verify the link back to this site, and
   wears the real Mastodon logo from simple-icons -- Lucide has no such glyph, and icons resolve

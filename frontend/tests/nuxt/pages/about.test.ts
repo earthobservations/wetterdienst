@@ -28,7 +28,7 @@ describe('about Page', () => {
     expect(text).toContain('MIT')
   })
 
-  it('gives the maintainer a write-up and the co-author a flat entry', async () => {
+  it('gives both people the same kind of write-up', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     )
@@ -41,9 +41,11 @@ describe('about Page', () => {
     expect(text).toContain('Hamburg')
     expect(text).toContain('benjamin@eobs.org')
 
-    // Andreas is listed flat on purpose: name and contact, no write-up
     expect(text).toContain('Andreas Motl')
+    expect(text).toContain('Co-maintainer')
     expect(text).toContain('andreas.motl@panodata.org')
+    // his part of this project, from the commit record rather than from anywhere else
+    expect(text).toContain('continuous integration')
   })
 
   it('carries the maintainer\'s own account, not a placeholder', async () => {
