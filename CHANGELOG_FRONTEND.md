@@ -35,6 +35,20 @@ Types of changes:
   `tests/test_frontend_i18n.py::test_frontend_home_lists_every_provider`, so a provider added
   upstream fails a test rather than quietly going unmentioned
 
+- `[Glossary]` A page at `/glossary` listing every canonical parameter with what it measures and the
+  unit its values come back in, searchable by name or description and filterable by quantity. It
+  reads `GET /api/glossary`, which the backend has served all along without anything using it
+- Curated labels for the nine locales that had none. `cs`, `da`, `de-hh`, `es`, `fr`, `it`, `lb`,
+  `nl` and `pl` fell back to English before, since only `en.ts` and `de.ts` existed
+- Labels for the parameters the backend has since introduced: the cloud cover and visibility
+  measurement methods, the visibility class, the ground state, ice on the wet bulb, and the true
+  solar time offset
+- `[All pages]` Glossary labels for the new `radiation_global_intensity`,
+  `radiation_sky_long_wave_intensity` and `radiation_sky_short_wave_diffuse_intensity` parameters,
+  which the backend introduced for sources reporting irradiance (W/m²) rather than irradiation
+  accumulated over the interval (J/cm²). Affects KNMI (10 minutes), MeteoSwiss, met.no, RMI and
+  Geosphere (10 minutes and hourly), whose radiation parameters are served under the new names.
+
 ### Changed
 
 - `[Home]` The project description and the author avatars are gone from the home page, which is
@@ -47,6 +61,22 @@ Types of changes:
 - `[Home]` The values statement closes the page instead of sitting between the task cards and the
   data, where it interrupted the path from "what would you like to do" to "what data you get". The
   footer carries the same stance on every page regardless
+
+- `[Explorer]` The settings drawer held the app's only raw form controls -- seven `<input>` and one
+  `<select>` with hand-maintained borders, padding and `dark:` variants, and none of the focus or
+  accessibility behaviour the rest of the app gets from the design system. They are `UInputNumber`,
+  `UInput` and `USelect` now, with min/max/step as real props, and the parameter-name field marks
+  an unknown parameter with `highlight` rather than open-coded red border classes
+- `[Glossary/Forecast/Widget]` Empty and no-data states use `UEmpty` instead of three differently
+  styled paragraphs of muted text; the glossary shows a real loading state while fetching
+- `[Parameter selection]` Follow the nested shape `GET /api/coverage` now returns. Datasets were
+  listed with `Object.keys()` over the resolution, which answers `["description", "datasets"]`
+  under the new shape, and the dataset was indexed as a list of parameters. Both now read through
+  `datasets` and `parameters`, and the types gain `CoverageResolution` and `CoverageDataset` plus a
+  `description` on `CoverageParameter`
+- `[Parameter selection]` Show what the shape change makes reachable: the resolution and dataset
+  selects carry the source's own description as help text, and each parameter in the menu shows its
+  description beneath the label
 
 ### Fixed
 
@@ -99,40 +129,6 @@ Types of changes:
   resolving, so the image built regardless -- and would have kept building until the first value
   exported from `shared/` turned one of those into a real import and broke the deploy instead. The
   `dev` target copies the whole of `frontend/`, so only production was ever a step away from this
-
-### Changed
-
-- `[Explorer]` The settings drawer held the app's only raw form controls -- seven `<input>` and one
-  `<select>` with hand-maintained borders, padding and `dark:` variants, and none of the focus or
-  accessibility behaviour the rest of the app gets from the design system. They are `UInputNumber`,
-  `UInput` and `USelect` now, with min/max/step as real props, and the parameter-name field marks
-  an unknown parameter with `highlight` rather than open-coded red border classes
-- `[Glossary/Forecast/Widget]` Empty and no-data states use `UEmpty` instead of three differently
-  styled paragraphs of muted text; the glossary shows a real loading state while fetching
-- `[Parameter selection]` Follow the nested shape `GET /api/coverage` now returns. Datasets were
-  listed with `Object.keys()` over the resolution, which answers `["description", "datasets"]`
-  under the new shape, and the dataset was indexed as a list of parameters. Both now read through
-  `datasets` and `parameters`, and the types gain `CoverageResolution` and `CoverageDataset` plus a
-  `description` on `CoverageParameter`
-- `[Parameter selection]` Show what the shape change makes reachable: the resolution and dataset
-  selects carry the source's own description as help text, and each parameter in the menu shows its
-  description beneath the label
-
-### Added
-
-- `[Glossary]` A page at `/glossary` listing every canonical parameter with what it measures and the
-  unit its values come back in, searchable by name or description and filterable by quantity. It
-  reads `GET /api/glossary`, which the backend has served all along without anything using it
-- Curated labels for the nine locales that had none. `cs`, `da`, `de-hh`, `es`, `fr`, `it`, `lb`,
-  `nl` and `pl` fell back to English before, since only `en.ts` and `de.ts` existed
-- Labels for the parameters the backend has since introduced: the cloud cover and visibility
-  measurement methods, the visibility class, the ground state, ice on the wet bulb, and the true
-  solar time offset
-- `[All pages]` Glossary labels for the new `radiation_global_intensity`,
-  `radiation_sky_long_wave_intensity` and `radiation_sky_short_wave_diffuse_intensity` parameters,
-  which the backend introduced for sources reporting irradiance (W/m²) rather than irradiation
-  accumulated over the interval (J/cm²). Affects KNMI (10 minutes), MeteoSwiss, met.no, RMI and
-  Geosphere (10 minutes and hourly), whose radiation parameters are served under the new names.
 
 ## [0.12.1] - 2026-08-02
 
@@ -253,7 +249,6 @@ Types of changes:
 - `[Explorer]` When a date range is required and stations are selected, the date range
   auto-fills from the min start date / max end date across the selected stations
   (stations still collecting data are treated as ending today).
-
 
 ## [0.8.0] - 2026-07-06
 
