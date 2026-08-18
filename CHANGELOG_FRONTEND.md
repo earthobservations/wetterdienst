@@ -66,6 +66,11 @@ Types of changes:
   About and the legal notice, so it joins them -- as a heart in the header's project links, where
   "sponsor this" is conventionally found, and as a footer link. It is in the mobile menu's bottom
   bar for the same reason it is in the desktop header
+- `[All pages]` The footer is two rows split by kind -- copyright and links on one, the stance on
+  its own line -- rather than one list of six items where "Love who you want" sat in the same
+  register as "About", separated by the same pipe. The separators were flex siblings that cannot
+  see where a line breaks, so a wrapped row ended on a dangling one; each row owns its separators
+  now, and below the `sm` breakpoint the links row drops them for wider gaps instead
 
 - `[Explorer]` The settings drawer held the app's only raw form controls -- seven `<input>` and one
   `<select>` with hand-maintained borders, padding and `dark:` variants, and none of the focus or

@@ -253,30 +253,36 @@ const items = computed<NavigationMenuItem[]>(() =>
           <span class="mx-1">|</span>
           <span class="text-blue-600 dark:text-blue-400 font-medium">Backend</span> {{ version === 'unknown' ? version : `v${version}` }}
         </div>
-        <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-1">
+        <!-- Two rows by kind rather than one list of six. In one row the values statements sat in
+             the same register as the links, separated by the same pipe, and the separators -- flex
+             siblings that cannot see where a line breaks -- left a dangling "|" at the end of a
+             wrapped line on narrow screens. Each row owns its separators now. -->
+        <div class="flex flex-wrap justify-center items-center gap-x-4 sm:gap-x-3 gap-y-1">
           <span>{{ t('footer.copyright', { year: new Date().getFullYear() }) }}</span>
-          <span class="text-gray-400">|</span>
+          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
+          <NuxtLink to="/about" class="text-gray-500 hover:text-primary-500 transition-colors">
+            {{ t('footer.about') }}
+          </NuxtLink>
+          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
+          <NuxtLink to="/support" class="text-gray-500 hover:text-primary-500 transition-colors">
+            {{ t('nav.support') }}
+          </NuxtLink>
+          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
+          <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">
+            {{ t('footer.legal') }}
+          </NuxtLink>
+        </div>
+        <!-- The stance closes the footer, as it closes the home page, and on a line of its own so
+             it reads as a statement rather than as two more entries in a link list. -->
+        <div class="flex flex-wrap justify-center items-center gap-x-6 gap-y-1">
           <span class="flex items-center gap-1.5 font-medium">
             <span aria-hidden="true">🏳️‍🌈</span>
             <span>{{ t('footer.lgbtq') }}</span>
           </span>
-          <span class="text-gray-400">|</span>
           <span class="flex items-center gap-1.5 font-medium">
             <span aria-hidden="true">✊</span>
             <span>{{ t('footer.antifascist') }}</span>
           </span>
-          <span class="text-gray-400">|</span>
-          <NuxtLink to="/about" class="text-gray-500 hover:text-primary-500 transition-colors">
-            {{ t('footer.about') }}
-          </NuxtLink>
-          <span class="text-gray-400">|</span>
-          <NuxtLink to="/support" class="text-gray-500 hover:text-primary-500 transition-colors">
-            {{ t('nav.support') }}
-          </NuxtLink>
-          <span class="text-gray-400">|</span>
-          <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">
-            {{ t('footer.legal') }}
-          </NuxtLink>
         </div>
       </div>
     </UFooter>
