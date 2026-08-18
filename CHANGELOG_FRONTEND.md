@@ -28,6 +28,8 @@ Types of changes:
   proper introduction to the maintainer -- what he works on, where he is, how to reach him -- and a
   flat entry for the co-author, with a pointer to the full contributor list. Reachable from the
   footer and from the bottom of the home page
+- `[About]` LinkedIn and Mastodon next to the GitHub and email buttons in the maintainer card. The
+  Mastodon link carries `rel="me"`, so the profile there can verify the link back to this site
 - `[Home]` A "what data you get" section, which is what a first-time visitor actually needs: the
   headline numbers, all 22 weather services named with their flags, and the six kinds of data
   behind them -- measurements, forecasts, water levels, radar, warnings and road weather. The

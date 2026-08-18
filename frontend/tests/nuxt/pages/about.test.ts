@@ -87,6 +87,10 @@ describe('about Page', () => {
     const wrapper = await mountSuspended(AboutPage)
     const html = wrapper.html()
 
+    expect(html).toContain('linkedin.com/in/benjamin-gutzmann')
+    expect(html).toContain('mastodon.social/@gutzb3nj')
+    // rel="me" is what makes the Mastodon profile able to verify the link back
+    expect(html).toMatch(/rel="[^"]*\bme\b[^"]*"/)
     expect(html).toContain('github.com/earthobservations/wetterdienst')
     expect(html).toContain('wetterdienst.readthedocs.io')
     expect(html).toContain('pypi.org/project/wetterdienst')

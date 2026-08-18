@@ -21,6 +21,9 @@ const maintainer = {
   githubUsername: 'gutzbenj',
   githubAvatarId: '29654631',
   location: 'Hamburg',
+  linkedin: 'https://www.linkedin.com/in/benjamin-gutzmann-3792b1141/',
+  mastodon: 'https://mastodon.social/@gutzb3nj',
+  mastodonHandle: '@gutzb3nj',
 }
 
 // Co-author, listed flat on purpose: name, avatar and how to reach him, no write-up.
@@ -129,6 +132,29 @@ const coAuthor = {
               icon="i-lucide-mail"
             >
               {{ maintainer.email }}
+            </UButton>
+            <UButton
+              :to="maintainer.linkedin"
+              target="_blank"
+              size="sm"
+              variant="outline"
+              icon="i-lucide-linkedin"
+            >
+              LinkedIn
+            </UButton>
+            <!-- rel="me" is what lets the Mastodon profile verify a link back to this site, so it
+                 is spelled out rather than left to the default rel for a _blank link. Lucide has no
+                 mastodon glyph, and the at-sign says "fediverse handle" without pulling in a second
+                 icon set for one button. -->
+            <UButton
+              :to="maintainer.mastodon"
+              target="_blank"
+              rel="me noopener noreferrer"
+              size="sm"
+              variant="outline"
+              icon="i-lucide-at-sign"
+            >
+              {{ maintainer.mastodonHandle }}
             </UButton>
           </div>
         </div>
