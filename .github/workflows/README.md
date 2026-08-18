@@ -7,13 +7,13 @@ Check out the guide that was used to create the CI environment including setting
 - https://docs.github.com/en/actions/creating-actions/dockerfile-support-for-github-actions
 - https://docs.github.com/en/actions/guides/publishing-docker-images
 
-## Frontend CI
+## App CI
 
-The frontend has its own dedicated workflow:
+The app has its own dedicated workflow:
 
-### `frontend-tests.yml`
+### `app-tests.yml`
 
-Runs on changes to `frontend/**` directory.
+Runs on changes to `app/**` directory.
 
 **Jobs:**
 1. **lint** - ESLint and Oxlint checks

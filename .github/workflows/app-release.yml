@@ -1,4 +1,4 @@
-name: Frontend Release
+name: App Release
 
 on:
   release:
@@ -10,27 +10,27 @@ jobs:
   check-release-type:
     runs-on: ubuntu-latest
     outputs:
-      is-frontend: ${{ steps.check.outputs.is-frontend }}
+      is-app: ${{ steps.check.outputs.is-app }}
     steps:
-      - name: Check if frontend release
+      - name: Check if app release
         id: check
         env:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
-          if [[ "$TAG_NAME" =~ ^frontend-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "is-frontend=true" >> $GITHUB_OUTPUT
+          if [[ "$TAG_NAME" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is-app=true" >> $GITHUB_OUTPUT
           else
-            echo "is-frontend=false" >> $GITHUB_OUTPUT
+            echo "is-app=false" >> $GITHUB_OUTPUT
           fi
 
   release:
     needs: check-release-type
-    if: needs.check-release-type.outputs.is-frontend == 'true'
+    if: needs.check-release-type.outputs.is-app == 'true'
     runs-on: ubuntu-latest
     
     defaults:
       run:
-        working-directory: frontend
+        working-directory: app
     
     permissions:
       contents: write
@@ -44,17 +44,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
-      
+          node-version: '24'
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 10
+          version: 11
       
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       
-      - name: Build frontend
+      - name: Build app
         run: pnpm run build
       
       - name: Create release artifact
@@ -62,10 +62,10 @@ jobs:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
           cd .output
-          tar -czf ../frontend-"${TAG_NAME#frontend-}".tar.gz .
+          tar -czf ../app-"${TAG_NAME#app-}".tar.gz .
 
       - name: Upload release artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG_NAME" "frontend-${TAG_NAME#frontend-}.tar.gz"
+        run: gh release upload "$TAG_NAME" "app-${TAG_NAME#app-}.tar.gz"

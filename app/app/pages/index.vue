@@ -37,7 +37,7 @@ const features = computed(() => [
 ])
 
 // The weather services behind the data, one entry per provider in the backend's registry. Kept in
-// sync by `tests/test_frontend_i18n.py::test_frontend_home_lists_every_provider`, so a provider
+// sync by `tests/test_app_i18n.py::test_app_home_lists_every_provider`, so a provider
 // added upstream fails a test here rather than quietly going unmentioned. Names and flags are
 // proper nouns and stay untranslated; the flag is the service's own country, and NOAA's GHCN is
 // worldwide despite the US flag, which `home.dataProvidersDesc` says.

@@ -40,7 +40,7 @@ describe('unit type labels', () => {
   // in. Six of the backend's types had no label at all and fell through to the raw id, so the filter
   // read "energy per area" and "wind scale" in every language. This list is a copy of what the
   // backend serves via GET /api/glossary, so it holds all eleven locales to the same set -- but a
-  // quantity added upstream would be missing from this copy too. tests/test_frontend_i18n.py checks
+  // quantity added upstream would be missing from this copy too. tests/test_app_i18n.py checks
   // that direction against `UnitConverter().targets` itself.
   const unitTypes = [
     'angle',
@@ -124,7 +124,7 @@ describe('glossary label parity', () => {
     // Concentration" -- which reads as English in every language. This is a ratchet against
     // deleting them again; it cannot notice a parameter *added* upstream, since the catalog and
     // the number below would both stay put. That direction is checked from the backend, where the
-    // addition happens, by tests/test_frontend_i18n.py.
+    // addition happens, by tests/test_app_i18n.py.
     expect(glossaryKeys('en', 'parameters').length).toBeGreaterThanOrEqual(514)
   })
 

@@ -1,15 +1,15 @@
-name: Frontend Tests
+name: App Tests
 
 on:
   pull_request:
     paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-tests.yml'
+      - 'app/**'
+      - '.github/workflows/app-tests.yml'
   push:
     branches: [ main ]
     paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-tests.yml'
+      - 'app/**'
+      - '.github/workflows/app-tests.yml'
 
   # Allow job to be triggered manually
   workflow_dispatch:
@@ -28,7 +28,7 @@ jobs:
     
     defaults:
       run:
-        working-directory: frontend
+        working-directory: app
     
     steps:
       - name: Checkout code
@@ -53,12 +53,12 @@ jobs:
         run: pnpm run typecheck
 
   lint:
-    name: Lint Frontend
+    name: Lint App
     runs-on: ubuntu-latest
 
     defaults:
       run:
-        working-directory: frontend
+        working-directory: app
     
     steps:
       - name: Checkout code
@@ -88,7 +88,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: frontend
+        working-directory: app
     
     steps:
       - name: Checkout code
@@ -133,7 +133,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: frontend
+        working-directory: app
     
     steps:
       - name: Checkout code
@@ -223,7 +223,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
-          path: frontend/playwright-report/
+          path: app/playwright-report/
           retention-days: 7
       
       - name: Upload backend logs

@@ -1,16 +1,16 @@
 # ─── base: node + pnpm ────────────────────────────────────────────────────────
-FROM node:25-alpine AS base
+FROM node:24-alpine AS base
 WORKDIR /app
 
 RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && \
     npm install -g corepack && \
     corepack enable && \
-    corepack prepare pnpm@11.9.0 --activate
+    corepack prepare pnpm@11.22.0 --activate
 
 # ─── deps: install node_modules ───────────────────────────────────────────────
 FROM base AS deps
 
-COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+COPY app/package.json app/pnpm-lock.yaml app/pnpm-workspace.yaml ./
 
 RUN pnpm i
 
@@ -19,7 +19,7 @@ FROM deps AS dev
 
 RUN apk add --no-cache curl
 
-COPY frontend ./
+COPY app ./
 
 EXPOSE 4000
 
@@ -28,20 +28,20 @@ CMD ["pnpm", "run", "dev"]
 # ─── build: production build ──────────────────────────────────────────────────
 FROM deps AS build
 
-COPY frontend/app ./app
-COPY frontend/i18n ./i18n
-COPY frontend/public ./public
-COPY frontend/server ./server
+COPY app/app ./app
+COPY app/i18n ./i18n
+COPY app/public ./public
+COPY app/server ./server
 # Seven components import from `shared/`. Every one of those is an `import type`, which the
 # transpiler strips before resolving, so the build survives without it -- until the first value
 # exported from there turns one of them into a real import and the image stops building.
-COPY frontend/shared ./shared
-COPY frontend/nuxt.config.ts ./
+COPY app/shared ./shared
+COPY app/nuxt.config.ts ./
 
 RUN pnpm run build
 
 # ─── prod: production runtime ─────────────────────────────────────────────────
-FROM node:25-alpine AS prod
+FROM node:24-alpine AS prod
 WORKDIR /app
 
 RUN apk add --no-cache curl
