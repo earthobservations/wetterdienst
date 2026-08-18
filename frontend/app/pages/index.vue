@@ -188,7 +188,7 @@ const dataKinds = computed(() => [
       </p>
     </UCard>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
       <UCard v-for="kind in dataKinds" :key="kind.title">
         <div class="flex items-start gap-3">
           <UIcon :name="kind.icon" class="text-2xl text-primary-500 flex-shrink-0 mt-1" />
@@ -204,10 +204,12 @@ const dataKinds = computed(() => [
       </UCard>
     </div>
 
-    <h2 class="text-lg font-bold mb-4">
+    <!-- A subsection of the data block rather than a section of its own: it is still about the
+         data, and as a peer heading over two cards it read as a stub after the block above. -->
+    <h3 class="font-bold mb-3">
       {{ t('home.featuresTitle') }}
-    </h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+    </h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
       <!-- No hover lift here: these cards are text, not links. On the page only the task cards
            above are clickable, so they are the only ones that answer the pointer. -->
       <UCard v-for="feature in features" :key="feature.title">
@@ -225,31 +227,6 @@ const dataKinds = computed(() => [
       </UCard>
     </div>
 
-    <!-- Who already supports the work, in the same chip shape the weather services wear above. The
-         detail -- which licence, which subscription -- is one hover away. -->
-    <div class="text-center mb-12">
-      <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
-        {{ t('home.supportedByTitle') }}
-      </p>
-      <div class="flex flex-wrap justify-center gap-2">
-        <!-- `title` rather than UTooltip: that one needs the UApp provider, which the real app has
-             and an isolated page mount does not, and a badge row is not worth making the page
-             depend on an ancestor to render. The text is the accessible name either way. -->
-        <a
-          v-for="supporter in supporters"
-          :key="supporter.key"
-          :href="supporter.to"
-          target="_blank"
-          :title="supporter.detail"
-          :aria-label="`${supporter.name} — ${supporter.detail}`"
-          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
-        >
-          <UIcon :name="supporter.icon" class="size-4 shrink-0" />
-          {{ supporter.name }}
-        </a>
-      </div>
-    </div>
-
     <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
     <section class="mb-12 rounded-2xl border border-primary-200 dark:border-primary-900 bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 dark:from-pink-950/30 dark:via-purple-950/20 dark:to-sky-950/30 p-6 text-center">
       <h2 class="text-lg font-bold mb-3">
@@ -260,6 +237,28 @@ const dataKinds = computed(() => [
           <span aria-hidden="true">{{ value.emoji }}</span>
           {{ value.text }}
         </p>
+      </div>
+
+      <!-- Who backs the work, inside the same block: both are the project talking about itself,
+           and as a separate row of badges in bare whitespace it read as something left over. -->
+      <div class="mt-6 pt-5 border-t border-primary-200/70 dark:border-primary-900/70">
+        <h3 class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+          {{ t('home.supportedByTitle') }}
+        </h3>
+        <div class="flex flex-wrap justify-center gap-2">
+          <a
+            v-for="supporter in supporters"
+            :key="supporter.key"
+            :href="supporter.to"
+            target="_blank"
+            :title="supporter.detail"
+            :aria-label="`${supporter.name} — ${supporter.detail}`"
+            class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
+          >
+            <UIcon :name="supporter.icon" class="size-4 shrink-0" />
+            {{ supporter.name }}
+          </a>
+        </div>
       </div>
     </section>
 
