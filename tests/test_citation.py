@@ -8,12 +8,17 @@ and the DOI badge in the README.
 """
 
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
-import tomllib
 import yaml
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover
+    import tomli as tomllib
 
 ROOT = Path(__file__).parent.parent
 CITATION_FILE = ROOT / "CITATION.cff"

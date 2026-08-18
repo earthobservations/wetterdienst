@@ -50,6 +50,13 @@ Types of changes:
   65 probabilities to satisfy and will walk further down the station ranking than it used to.
   Requesting the parameters you actually want keeps it where it was
 
+### Fixed
+
+- The whole test suite failed to collect on Python 3.10, the oldest version the project supports:
+  `tests/test_citation.py` imported `tomllib`, which is stdlib only from 3.11. The import error
+  aborted collection, so 3.10 has been running zero tests rather than failing loudly on one. The
+  import is now guarded and falls back to `tomli`, added to the dev group under the same marker
+
 ### Changed
 
 - Locked dependencies refreshed to their latest compatible versions (cryptography 50, fastapi
