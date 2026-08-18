@@ -27,6 +27,7 @@
     "featureAnalysisDesc": "Stimare i valori per un punto tra le stazioni, oppure prendere a ogni istante la stazione più vicina che ha dati.",
     "devTitle": "Anche per chi sviluppa",
     "devText": "Gli stessi dati come libreria Python, API REST ed endpoint MCP per gli assistenti IA.",
+    "devMcpHint": "Endpoint per i client MCP, non una pagina da sfogliare.",
     "supportedByTitle": "Sostenuto da",
     "supportedByJetbrains": "una licenza PyCharm tramite il loro programma di supporto all'open source",
     "supportedByAnthropic": "un abbonamento Claude Max per i manutentori open source",

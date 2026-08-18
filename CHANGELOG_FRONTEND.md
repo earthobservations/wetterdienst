@@ -66,6 +66,12 @@ Types of changes:
   `0 €` tile and the intro line; "geospatial queries" repeated the Explorer card's own pitch. What
   is left is export formats and interpolation/summarization, neither of which the page says
   anywhere else
+- `[App]` `/docs` and `/openapi.json` are proxied onto this origin, so the hosted app serves the
+  backend's Swagger UI as its own API reference. Only `/api/**` and `/mcp` were proxied before, and
+  `/docs` on the app origin answered with the SPA shell
+- `[Home]` A row pointing developers at the same data without clicking: the Python package on PyPI,
+  the REST API at `/docs`, and the MCP endpoint at `/mcp`. The MCP chip says on hover that it is an
+  endpoint rather than a page, because a browser GET to it answers 400 by design
 - `[Home]` The tail of the page is one block rather than three. "What you can do with it" is a
   subsection of the data block, where it belongs, instead of a peer heading over two cards; the
   supporters are a band of their own in the same gradient as the stance above them, separated by a

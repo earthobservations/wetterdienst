@@ -27,6 +27,7 @@
     "featureAnalysisDesc": "Werte für einen Punkt zwischen den Stationen schätzen – oder zu jedem Zeitpunkt die nächstgelegene Station nehmen, die Daten hat.",
     "devTitle": "Auch für Entwickler:innen",
     "devText": "Dieselben Daten als Python-Bibliothek, als REST-API und als MCP-Endpunkt für KI-Assistenten.",
+    "devMcpHint": "Endpunkt für MCP-Clients, keine Seite zum Anschauen.",
     "supportedByTitle": "Unterstützt von",
     "supportedByJetbrains": "eine PyCharm-Lizenz über ihr Open-Source-Förderprogramm",
     "supportedByAnthropic": "ein Claude-Max-Abo für Open-Source-Maintainer",

@@ -27,6 +27,7 @@
     "featureAnalysisDesc": "Odhad hodnot pro bod mezi stanicemi, nebo pro každý časový okamžik nejbližší stanice, která má data.",
     "devTitle": "Také pro vývojáře",
     "devText": "Stejná data jako knihovna v Pythonu, REST API a koncový bod MCP pro asistenty s umělou inteligencí.",
+    "devMcpHint": "Koncový bod pro klienty MCP, nikoli stránka k prohlížení.",
     "supportedByTitle": "Podporují",
     "supportedByJetbrains": "licence PyCharm v rámci jejich programu podpory otevřeného softwaru",
     "supportedByAnthropic": "předplatné Claude Max pro správce otevřeného softwaru",

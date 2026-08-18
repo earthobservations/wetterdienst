@@ -83,3 +83,22 @@ test.describe('API proxy', () => {
     expect(proxied.equals(expected)).toBe(true)
   })
 })
+
+test.describe('OpenAPI proxy', () => {
+  test('serves the backend Swagger UI on this origin', async ({ request }) => {
+    const response = await request.get('/docs')
+
+    expect(response.status()).toBe(200)
+    // the app's own shell answers with a Nuxt document, so assert on what only Swagger sends
+    expect(await response.text()).toContain('swagger-ui')
+  })
+
+  test('serves the schema Swagger UI fetches', async ({ request }) => {
+    const response = await request.get('/openapi.json')
+
+    expect(response.status()).toBe(200)
+    const schema = await response.json()
+    expect(schema.openapi).toBeTruthy()
+    expect(schema.paths['/api/coverage']).toBeTruthy()
+  })
+})

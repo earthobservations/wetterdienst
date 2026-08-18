@@ -27,6 +27,7 @@
     "featureAnalysisDesc": "Estimer værdier for et punkt mellem stationer, eller tag den nærmeste station med data på hvert tidspunkt.",
     "devTitle": "Også for udviklere",
     "devText": "De samme data som Python-bibliotek, REST-API og MCP-endepunkt til AI-assistenter.",
+    "devMcpHint": "Endepunkt til MCP-klienter, ikke en side at kigge på.",
     "supportedByTitle": "Støttet af",
     "supportedByJetbrains": "en PyCharm-licens gennem deres open source-støtteprogram",
     "supportedByAnthropic": "et Claude Max-abonnement til open source-vedligeholdere",

@@ -85,11 +85,14 @@ const supporters = computed(() => [
 // The same data, for people who would rather not click: the library the project started as, the
 // API the app itself runs on, and the MCP endpoint. Home linked to four routes before this and
 // none of them said the data was reachable programmatically at all.
-const devEntries = [
-  { key: 'pypi', label: 'pip install wetterdienst', icon: 'i-simple-icons-python', to: 'https://pypi.org/project/wetterdienst/', external: true },
-  { key: 'api', label: 'REST API', icon: 'i-lucide-code', to: '/api', external: false },
-  { key: 'mcp', label: 'MCP', icon: 'i-lucide-bot', to: '/api', external: false },
-]
+const devEntries = computed(() => [
+  { key: 'pypi', label: 'pip install wetterdienst', icon: 'i-simple-icons-python', to: 'https://pypi.org/project/wetterdienst/', title: undefined },
+  // this instance's own endpoints rather than the page that describes them: /docs is the backend's
+  // Swagger UI, proxied onto this origin, and /mcp is the endpoint itself. Both are served by
+  // nitro rather than by the Vue router, so they need a full navigation, not a client-side one.
+  { key: 'api', label: 'REST API', icon: 'i-lucide-code', to: '/docs', title: undefined },
+  { key: 'mcp', label: 'MCP', icon: 'i-lucide-bot', to: '/mcp', title: t('home.devMcpHint') },
+])
 
 // What the project stands for. Shared with the footer, which shows the same four as icons.
 const values = computed(() => [
@@ -255,7 +258,9 @@ const dataKinds = computed(() => [
           v-for="entry in devEntries"
           :key="entry.key"
           :to="entry.to"
-          :target="entry.external ? '_blank' : undefined"
+          external
+          target="_blank"
+          :title="entry.title"
           class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
         >
           <UIcon :name="entry.icon" class="size-4 shrink-0" />

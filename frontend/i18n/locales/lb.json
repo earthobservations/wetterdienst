@@ -27,6 +27,7 @@
     "featureAnalysisDesc": "Wäerter fir e Punkt tëscht de Statioune schätzen, oder zu all Zäitpunkt déi nootste Statioun huelen, déi Donnéeë huet.",
     "devTitle": "Och fir Entwéckler",
     "devText": "Déiselwecht Donnéeën als Python-Bibliothéik, als REST-API an als MCP-Endpunkt fir KI-Assistenten.",
+    "devMcpHint": "Endpunkt fir MCP-Clienten, keng Säit fir ze kucken.",
     "supportedByTitle": "Ënnerstëtzt vun",
     "supportedByJetbrains": "eng PyCharm-Lizenz iwwer hire Programm fir Open-Source-Ënnerstëtzung",
     "supportedByAnthropic": "en Claude-Max-Abo fir Open-Source-Maintainer",

@@ -70,8 +70,8 @@ describe('index Page', () => {
     // plain text and the wording assertions passed anyway
     const chips = wrapper.findAll('a').map(a => `${a.attributes('href')} ${a.text()}`)
     expect(chips).toContain('https://pypi.org/project/wetterdienst/ pip install wetterdienst')
-    expect(chips).toContain('/api REST API')
-    expect(chips).toContain('/api MCP')
+    expect(chips).toContain('/docs REST API')
+    expect(chips).toContain('/mcp MCP')
     expect(text).toContain('Also for developers')
     // and the 514 parameters lead somewhere that explains them
     expect(html).toContain('/glossary')

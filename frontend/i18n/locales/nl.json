@@ -27,6 +27,7 @@
     "featureAnalysisDesc": "Waarden schatten voor een punt tussen stations, of op elk tijdstip het dichtstbijzijnde station met gegevens nemen.",
     "devTitle": "Ook voor ontwikkelaars",
     "devText": "Dezelfde gegevens als Python-bibliotheek, REST-API en MCP-eindpunt voor AI-assistenten.",
+    "devMcpHint": "Eindpunt voor MCP-clients, geen pagina om te bekijken.",
     "supportedByTitle": "Gesteund door",
     "supportedByJetbrains": "een PyCharm-licentie via hun opensource-ondersteuningsprogramma",
     "supportedByAnthropic": "een Claude Max-abonnement voor opensourcebeheerders",
