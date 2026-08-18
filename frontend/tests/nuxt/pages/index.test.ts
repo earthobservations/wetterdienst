@@ -57,6 +57,24 @@ describe('index Page', () => {
     expect(text).toContain('MeteoSwiss')
   })
 
+  it('names who already supports the work', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(IndexPage)
+    const text = wrapper.text()
+    const html = wrapper.html()
+
+    expect(text).toContain('Already supported by')
+    expect(text).toContain('JetBrains')
+    expect(text).toContain('Anthropic')
+    expect(html).toContain('jb.gg/OpenSourceSupport')
+    // what each gives is the hover text rather than the badge label
+    expect(html).toContain('PyCharm')
+    expect(html).toContain('Claude Max')
+  })
+
   it('states what the project stands for, measurements included', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),

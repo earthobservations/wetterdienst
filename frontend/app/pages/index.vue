@@ -75,6 +75,13 @@ const stats = computed(() => [
   { value: '0 €', label: t('home.statPrice') },
 ])
 
+// The two open-source programmes the project runs on. Named on the page that asks nothing of the
+// reader, rather than on the support page, which asks: who already gives is context for whether to.
+const supporters = computed(() => [
+  { key: 'jetbrains', name: 'JetBrains', icon: 'i-simple-icons-jetbrains', to: 'https://jb.gg/OpenSourceSupport', detail: t('home.supportedByJetbrains') },
+  { key: 'anthropic', name: 'Anthropic', icon: 'i-simple-icons-anthropic', to: 'https://www.anthropic.com/', detail: t('home.supportedByAnthropic') },
+])
+
 // What the project stands for. Shared with the footer, which shows the same four as icons.
 const values = computed(() => [
   { key: 'lgbtq', emoji: '🏳️‍🌈🏳️‍⚧️', text: t('values.lgbtq') },
@@ -216,6 +223,31 @@ const dataKinds = computed(() => [
           </div>
         </div>
       </UCard>
+    </div>
+
+    <!-- Who already supports the work, in the same chip shape the weather services wear above. The
+         detail -- which licence, which subscription -- is one hover away. -->
+    <div class="text-center mb-12">
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+        {{ t('home.supportedByTitle') }}
+      </p>
+      <div class="flex flex-wrap justify-center gap-2">
+        <!-- `title` rather than UTooltip: that one needs the UApp provider, which the real app has
+             and an isolated page mount does not, and a badge row is not worth making the page
+             depend on an ancestor to render. The text is the accessible name either way. -->
+        <a
+          v-for="supporter in supporters"
+          :key="supporter.key"
+          :href="supporter.to"
+          target="_blank"
+          :title="supporter.detail"
+          :aria-label="`${supporter.name} — ${supporter.detail}`"
+          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
+        >
+          <UIcon :name="supporter.icon" class="size-4 shrink-0" />
+          {{ supporter.name }}
+        </a>
+      </div>
     </div>
 
     <!-- Values: an unmistakable stance for inclusion and against fascism, closing the page. -->
