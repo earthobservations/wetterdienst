@@ -12,7 +12,9 @@ test.describe('Home Page', () => {
 
     // Check for navigation links
     const explorerLink = page.getByRole('link', { name: /explorer/i })
-    const apiLink = page.getByRole('link', { name: /api/i })
+    // Exact, not /api/i: the home page's developer row links to the backend's Swagger UI as
+    // "REST API", which a loose match picks up alongside the nav entry and fails on strict mode.
+    const apiLink = page.getByRole('link', { name: 'API', exact: true })
 
     await expect(explorerLink).toBeVisible()
     await expect(apiLink).toBeVisible()
@@ -23,7 +25,7 @@ test.describe('API Documentation Page', () => {
   test('should navigate to API page', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('link', { name: /api/i }).click()
+    await page.getByRole('link', { name: 'API', exact: true }).click()
 
     await expect(page).toHaveURL(/\/api/)
     await expect(page.getByRole('heading', { name: /REST API/i })).toBeVisible()

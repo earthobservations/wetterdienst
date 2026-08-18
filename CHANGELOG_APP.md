@@ -143,6 +143,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Tests]` The two E2E tests that reach for the API nav link match it exactly. `/api/i` had begun
+  matching the home page's "REST API" link to the backend's Swagger UI as well, and Playwright's
+  strict mode fails on an ambiguous locator rather than picking one
+
 - `[de-hh]` The Hamburg locale spoke three languages at once. Sixteen strings were full Hamburger
   Platt -- "Wat jeder Parameter misst un in welke Eenheit de Weerten torüchkaamt", "Datenanfraag is
   fehlslaan" -- sitting between High German ones, and Platt is a separate language that the
