@@ -49,15 +49,16 @@ This repository uses a **monorepo structure** with separate release workflows fo
 ```bash
 # 1. Update version in pyproject.toml
 # 2. Update CHANGELOG.md
-# 3. Commit changes
+# 3. Update version and date-released in CITATION.cff (tests/test_citation.py enforces this)
+# 4. Commit changes
 git commit -am "Bump version to 0.118.0"
 git push
 
-# 4. Create and push tag
+# 5. Create and push tag
 git tag v0.118.0
 git push origin v0.118.0
 
-# 5. Create GitHub release
+# 6. Create GitHub release
 gh release create v0.118.0 --title "v0.118.0" --notes-file CHANGELOG.md
 ```
 

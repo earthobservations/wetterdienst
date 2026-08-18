@@ -2,6 +2,9 @@
 cff-version: 1.2.0
 type: software
 title: wetterdienst
+version: 0.132.0
+date-released: '2026-08-04'
+doi: 10.5281/zenodo.3960624
 authors:
 - family-names: Gutzmann
   given-names: Benjamin
@@ -10,6 +13,9 @@ authors:
   given-names: Andreas
   email: andreas.motl@panodata.org
 identifiers:
+- type: doi
+  value: 10.5281/zenodo.3960624
+  description: The concept DOI of the work, resolving to the latest version.
 repository-code: https://github.com/earthobservations/wetterdienst
 url: https://wetterdienst.eobs.org
 license: MIT

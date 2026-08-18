@@ -214,6 +214,13 @@ Types of changes:
 
 ### Fixed
 
+- `CITATION.cff` names the released version again, and is valid CFF 1.2.0 once more. It had lost
+  `version` and `date-released`, and carried an empty `identifiers:` key, which parses as null and
+  fails the schema — so the file every citation tool reads described no particular release and
+  could not be converted at all. It now states 0.132.0 of 2026-08-04 and the Zenodo concept DOI,
+  the one that resolves to the latest version. Because nothing generates the file, a test ties it
+  to the sources it duplicates: the version in `pyproject.toml`, the release date in this changelog
+  and the DOI badge in the README, so a release that forgets it fails rather than ships stale
 - `summarize()` searched for stations within 20 km whatever the parameter. It bounded its search
   with `max(ts_geo_station_distance.values())`, and that mapping only holds entries for the
   parameters that get the *shorter* radius — everything else is answered by the default factory and
