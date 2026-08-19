@@ -1,6 +1,6 @@
 FROM python:3.14-slim-trixie AS build
 
-COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /bin/
 
 ENV UV_NO_DEV=1
 ENV UV_COMPILE_BYTECODE=1
@@ -27,7 +27,7 @@ RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
 # Installs the same extras and OS packages as the final stage for feature parity.
 FROM python:3.14-slim-trixie AS dev
 
-COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /bin/
 
 ENV UV_NO_DEV=1
 ENV UV_LINK_MODE=copy
