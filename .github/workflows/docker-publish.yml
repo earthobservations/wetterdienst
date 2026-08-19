@@ -189,6 +189,9 @@ jobs:
 
       - name: Deploy to Coolify
         run: |
-          curl --fail --request GET \
+          # POST, not GET: Coolify's /api/v1/deploy is declared POST-only in its OpenAPI spec, and a
+          # GET is answered with a bare 405 that `--fail` alone reports as "exit code 22".
+          # `--fail-with-body` keeps Coolify's explanation of the rejection in the log.
+          curl --fail-with-body --silent --show-error --request POST \
             --header "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}" \
             'https://coolify.eobs.org/api/v1/deploy?uuid=${{ secrets.COOLIFY_BACKEND_UUID }}&force=false'
