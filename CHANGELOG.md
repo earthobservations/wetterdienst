@@ -59,6 +59,12 @@ Types of changes:
 
 ### Changed
 
+- The backend image builds with uv 0.12.5 rather than 0.8.4, four minor versions back. 0.8.4 could
+  not parse `exclude-newer = "3 days"` and responded by discarding the whole `[tool.uv]` table --
+  `warning: Failed to parse pyproject.toml during settings discovery` -- taking `[tool.uv.audit]`
+  with it. The build still succeeded, because `uv sync --frozen` installs from the lockfile and
+  needs none of those settings, so this was a silent degradation rather than a failure. Dependabot
+  will keep the pin current from here, now that it reads `docker/`
 - Dependabot's `docker` entry pointed at `/`, where there is no Dockerfile -- both of them live in
   `docker/`. It has therefore never proposed a base-image update for either image; it now reads
   the directory they are actually in
