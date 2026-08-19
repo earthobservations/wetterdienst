@@ -1,9 +1,42 @@
 name: Tests
 
+# The matrix is ten jobs of a network-bound suite, so it is worth being precise about what can
+# actually change its outcome. Beyond the obvious sources and tests that is the documentation -
+# tests/test_docs.py checks the provider pages under docs/data/provider against the metadata model -
+# and three root files: the README is doctested and CITATION.cff is tied to it and to the changelog.
+# The suite also reaches into the app: tests/test_app_i18n.py reads the translation catalogs under
+# app/i18n and the home page, to catch a parameter that gained a name here but not there. Those two
+# entries are the whole of the app it reads - a test that starts reading more has to widen them.
 on:
-  pull_request: ~
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'docs/data/provider/**'
+      - 'app/i18n/**'
+      - 'app/app/pages/index.vue'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CITATION.cff'
+      - '.github/workflows/install.sh'
+      - '.github/workflows/tests.yml'
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'docs/data/provider/**'
+      - 'app/i18n/**'
+      - 'app/app/pages/index.vue'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CITATION.cff'
+      - '.github/workflows/install.sh'
+      - '.github/workflows/tests.yml'
 
   # Allow job to be triggered manually.
   workflow_dispatch:

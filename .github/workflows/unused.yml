@@ -1,10 +1,21 @@
 name: Unused
 
+# deptry compares the imports in src/wetterdienst against the declared dependencies.
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/wetterdienst/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/unused.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/wetterdienst/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/unused.yml'
 
   # Allow job to be triggered manually.
   workflow_dispatch:

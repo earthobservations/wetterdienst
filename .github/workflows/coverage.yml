@@ -1,10 +1,38 @@
 name: Coverage
 
+# Same inputs as the test matrix - see tests.yml for why the provider pages, the two app
+# entries and the three root files are in here.
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'docs/data/provider/**'
+      - 'app/i18n/**'
+      - 'app/app/pages/index.vue'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CITATION.cff'
+      - '.github/workflows/install.sh'
+      - '.github/workflows/coverage.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'docs/data/provider/**'
+      - 'app/i18n/**'
+      - 'app/app/pages/index.vue'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CITATION.cff'
+      - '.github/workflows/install.sh'
+      - '.github/workflows/coverage.yml'
 
   # Allow job to be triggered manually.
   workflow_dispatch:
