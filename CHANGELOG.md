@@ -50,8 +50,24 @@ Types of changes:
   65 probabilities to satisfy and will walk further down the station ranking than it used to.
   Requesting the parameters you actually want keeps it where it was
 
+### Fixed
+
+- The whole test suite failed to collect on Python 3.10, the oldest version the project supports:
+  `tests/test_citation.py` imported `tomllib`, which is stdlib only from 3.11. The import error
+  aborted collection, so 3.10 has been running zero tests rather than failing loudly on one. The
+  import is now guarded and falls back to `tomli`, added to the dev group under the same marker
+
 ### Changed
 
+- Locked dependencies refreshed to their latest compatible versions (cryptography 50, fastapi
+  0.141.1, starlette 1.6, uvicorn 0.52.3, numpy 2.5.2, zarr 3.3, mcp 1.29, and others), and the dev
+  toolchain with them (ruff 0.16.3, ty 0.0.72, zizmor 1.29) -- both still pass with no source
+  changes needed
+- `uv` now resolves with a three-day cooldown (`tool.uv.exclude-newer = "3 days"`), so a release
+  has to survive its first days in the wild before it can enter the lockfile. Yanks and
+  publish-day breakage are most often caught in that window. The lockfile records it as a relative
+  span (`exclude-newer-span = "P3D"`), not a timestamp, so it does not churn between runs and
+  `uv lock --check` stays stable
 - Docs: the README states what the project stands for, in the same four lines the app closes with,
   and opens with "Global warming is not an opinion" rather than the Fridays for Future chant -- the
   one claim a weather-data library backs up by existing. Anthropic gets a logo next to JetBrains

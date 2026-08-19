@@ -243,6 +243,8 @@ dev = [
     "pytest-rerunfailures>=16.4",
     "pytest-xdist>=3.8",
     "pyyaml>=6",
+    # tomllib is stdlib from 3.11; tests/test_citation.py parses pyproject.toml on 3.10 too
+    "tomli>=2; python_version<'3.11'",
     # formatting and linting
     "ruff>=0.16.0",
     "poethepoet>=0.48.0",
@@ -403,6 +405,11 @@ omit = [
     "tests/*",
     "src/wetterdienst/provider/dwd/radar/cli.py",
 ]
+
+[tool.uv]
+# Cooldown: ignore releases younger than this, so freshly published (and possibly
+# yanked or broken) versions never enter the lockfile.
+exclude-newer = "3 days"
 
 [tool.uv.audit]
 # diskcache uses pickle for serialization (CVE-2025-69872 / GHSA-w8v5-vhqr-4h9v).
