@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-19
+
 ### Added
 
 - `[API]` The API page documents the MCP endpoint the app has been serving unannounced: what it is,
@@ -42,7 +44,6 @@ Types of changes:
   provider list is pinned to the backend registry by
   `tests/test_app_i18n.py::test_app_home_lists_every_provider`, so a provider added
   upstream fails a test rather than quietly going unmentioned
-
 - `[App]` `/docs` and `/openapi.json` are proxied onto this origin, so the hosted app serves the
   backend's Swagger UI as its own API reference. Only `/api/**` and `/mcp` were proxied before, and
   `/docs` on the app origin answered with the SPA shell
@@ -142,7 +143,6 @@ Types of changes:
   register as "About", separated by the same pipe. The separators were flex siblings that cannot
   see where a line breaks, so a wrapped row ended on a dangling one; each row owns its separators
   now, and below the `sm` breakpoint the links row drops them for wider gaps instead
-
 - `[Explorer]` The settings drawer held the app's only raw form controls -- seven `<input>` and one
   `<select>` with hand-maintained borders, padding and `dark:` variants, and none of the focus or
   accessibility behaviour the rest of the app gets from the design system. They are `UInputNumber`,
@@ -164,7 +164,6 @@ Types of changes:
 - `[Tests]` The two E2E tests that reach for the API nav link match it exactly. `/api/i` had begun
   matching the home page's "REST API" link to the backend's Swagger UI as well, and Playwright's
   strict mode fails on an ambiguous locator rather than picking one
-
 - `[de-hh]` The Hamburg locale spoke three languages at once. Sixteen strings were full Hamburger
   Platt -- "Wat jeder Parameter misst un in welke Eenheit de Weerten torüchkaamt", "Datenanfraag is
   fehlslaan" -- sitting between High German ones, and Platt is a separate language that the
@@ -175,7 +174,6 @@ Types of changes:
   a Hamburger would actually use it -- including the tagline, which read "för de Lüüd": the noun is
   Hamburg, the preposition and article were Low German, and the same page says "die Lüüd dahinter"
   a screen further down
-
 - `[Explorer]` Plotly, at 1.0 MB the largest chunk in the build, was fetched and parsed as soon as
   the data viewer mounted -- before any chart existed, and regardless of the view mode, which
   defaults to the table. It is fetched the first time a chart is actually rendered now, so opening
@@ -548,7 +546,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.12.1...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.13.0...HEAD
+[0.13.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.12.1...app-v0.13.0
 [0.12.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.12.0...app-v0.12.1
 [0.12.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.11.0...app-v0.12.0
 [0.11.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.10.0...app-v0.11.0
