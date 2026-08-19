@@ -14,10 +14,23 @@ updates:
         patterns:
           - "*"
 
+  # Both Dockerfiles live in docker/ (docker/Dockerfile for the backend,
+  # docker/app.Dockerfile for the app), not at the root.
   - package-ecosystem: "docker"
-    directory: "/"
+    directory: "/docker"
     schedule:
       interval: "weekly"
+
+  # The app is a pnpm workspace under app/; Dependabot reads pnpm-lock.yaml under
+  # the "npm" ecosystem.
+  - package-ecosystem: "npm"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+    groups:
+      app:
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     # Workflow files stored in the default location of `.github/workflows`
