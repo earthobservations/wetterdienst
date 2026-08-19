@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Add the DWD climate indices as four datasets: `annual`/`climate_indices` and
+  `monthly`/`climate_indices` count tropical nights and frost, summer, hot and ice days, while
+  `annual`/`precipitation_indices` and `monthly`/`precipitation_indices` count the days reaching
+  precipitation heights of 0.1 to 20 mm and snow depths of 1 and 5 cm. DWD derives them from the
+  daily observations of the same stations and publishes them in the familiar CDC layout, so they
+  arrive as metadata alone. Twelve canonical parameters are new with them, named for the index the
+  literature knows (`count_days_frost`, `count_days_tropical_night`) rather than for its threshold,
+  which the description carries instead
+
 ## [0.133.0] - 2026-08-19
 
 ### Added

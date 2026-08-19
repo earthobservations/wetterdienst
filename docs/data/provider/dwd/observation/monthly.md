@@ -10,6 +10,28 @@
 
 ## datasets
 
+### climate_indices
+
+#### metadata
+
+| property      | value |
+|---------------|-------|
+| name          | climate_indices |
+| original name | climate_indices/kl |
+| description   | Historical monthly counts of tropical nights and of frost, summer, hot and ice days for Germany, derived from the daily climate observations. |
+| access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/climate_indices/kl/) |
+
+#### parameters
+
+| name | original name | description | unit | constraints |
+|------|---------------|-------------|------|-------------|
+| {term}`count_days_tropical_night` | mo_tropennaechte | Monthly number of tropical nights, counted over the day from 00 to 23 hours. | dimensionless | >=0 |
+| {term}`count_days_frost` | mo_frosttage | Monthly number of frost days. | dimensionless | >=0 |
+| {term}`count_days_summer` | mo_sommertage | Monthly number of summer days. | dimensionless | >=0 |
+| {term}`count_days_hot` | mo_heisse_tage | Monthly number of hot days. | dimensionless | >=0 |
+| {term}`count_days_ice` | mo_eistage | Monthly number of ice days. | dimensionless | >=0 |
+| {term}`quality_general` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+
 ### climate_summary
 
 #### metadata
@@ -38,6 +60,31 @@
 | {term}`precipitation_height_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |
 | {term}`quality_general` | qn_4 | Quality level of the data in the following columns. | dimensionless | - |
 | {term}`quality_precipitation` | qn_6 | Quality level of the data in the following columns. | dimensionless | - |
+
+### precipitation_indices
+
+#### metadata
+
+| property      | value |
+|---------------|-------|
+| name          | precipitation_indices |
+| original name | climate_indices/precip |
+| description   | Historical monthly counts of days reaching precipitation heights of 0.1 to 20 mm and snow depths of 1 and 5 cm for Germany, derived from the daily precipitation observations. |
+| access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/climate_indices/precip/) |
+
+#### parameters
+
+| name | original name | description | unit | constraints |
+|------|---------------|-------------|------|-------------|
+| {term}`count_days_precipitation_height_ge_0_1mm` | mo_rr_ge_0_1_mm | Monthly number of days with a precipitation height of at least 0.1 mm. | dimensionless | >=0 |
+| {term}`count_days_precipitation_height_ge_1mm` | mo_rr_ge_1_0_mm | Monthly number of days with a precipitation height of at least 1.0 mm. | dimensionless | >=0 |
+| {term}`count_days_precipitation_height_ge_2_5mm` | mo_rr_ge_2_5_mm | Monthly number of days with a precipitation height of at least 2.5 mm. | dimensionless | >=0 |
+| {term}`count_days_precipitation_height_ge_5mm` | mo_rr_ge_5_0_mm | Monthly number of days with a precipitation height of at least 5.0 mm. | dimensionless | >=0 |
+| {term}`count_days_precipitation_height_ge_10mm` | mo_rr_ge_10_0_mm | Monthly number of days with a precipitation height of at least 10.0 mm. | dimensionless | >=0 |
+| {term}`count_days_precipitation_height_ge_20mm` | mo_rr_ge_20_0_mm | Monthly number of days with a precipitation height of at least 20.0 mm. | dimensionless | >=0 |
+| {term}`count_days_snow_depth_ge_1cm` | mo_sh_ge_1_0_cm | Monthly number of days with a snow depth of at least 1.0 cm. | dimensionless | >=0 |
+| {term}`count_days_snow_depth_ge_5cm` | mo_sh_ge_5_0_cm | Monthly number of days with a snow depth of at least 5.0 cm. | dimensionless | >=0 |
+| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 ### precipitation_more
 

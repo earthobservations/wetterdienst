@@ -620,6 +620,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("5_minutes", "precipitation", "rth_05"): "Precipitation height of last 5min measured with droplet.",
         ("5_minutes", "precipitation", "rwh_05"): "Precipitation height of last 5min measured with rocker.",
+        ("annual", "climate_indices", "ja_eistage"): "Annual number of ice days.",
+        ("annual", "climate_indices", "ja_frosttage"): "Annual number of frost days.",
+        ("annual", "climate_indices", "ja_heisse_tage"): "Annual number of hot days.",
+        ("annual", "climate_indices", "ja_sommertage"): "Annual number of summer days.",
+        (
+            "annual",
+            "climate_indices",
+            "ja_tropennaechte",
+        ): "Annual number of tropical nights, counted over the day from 00 to 23 hours.",
         ("annual", "climate_summary", "ja_fk"): "Annual mean of daily wind speed.",
         ("annual", "climate_summary", "ja_mx_fx"): "Annual maximum of daily wind speed.",
         ("annual", "climate_summary", "ja_mx_rs"): "Annual max of daily precipitation height.",
@@ -631,6 +640,46 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "climate_summary", "ja_tn"): "Annual mean of daily temperature minima in 2m height.",
         ("annual", "climate_summary", "ja_tt"): "Annual mean of daily temperature means in 2m height.",
         ("annual", "climate_summary", "ja_tx"): "Annual mean of daily temperature maxima in 2m height.",
+        (
+            "annual",
+            "precipitation_indices",
+            "ja_rr_ge_0_1_mm",
+        ): "Annual number of days with a precipitation height of at least 0.1 mm.",
+        (
+            "annual",
+            "precipitation_indices",
+            "ja_rr_ge_10_0_mm",
+        ): "Annual number of days with a precipitation height of at least 10.0 mm.",
+        (
+            "annual",
+            "precipitation_indices",
+            "ja_rr_ge_1_0_mm",
+        ): "Annual number of days with a precipitation height of at least 1.0 mm.",
+        (
+            "annual",
+            "precipitation_indices",
+            "ja_rr_ge_20_0_mm",
+        ): "Annual number of days with a precipitation height of at least 20.0 mm.",
+        (
+            "annual",
+            "precipitation_indices",
+            "ja_rr_ge_2_5_mm",
+        ): "Annual number of days with a precipitation height of at least 2.5 mm.",
+        (
+            "annual",
+            "precipitation_indices",
+            "ja_rr_ge_5_0_mm",
+        ): "Annual number of days with a precipitation height of at least 5.0 mm.",
+        (
+            "annual",
+            "precipitation_indices",
+            "ja_sh_ge_1_0_cm",
+        ): "Annual number of days with a snow depth of at least 1.0 cm.",
+        (
+            "annual",
+            "precipitation_indices",
+            "ja_sh_ge_5_0_cm",
+        ): "Annual number of days with a snow depth of at least 5.0 cm.",
         ("annual", "precipitation_more", "ja_mx_rs"): "Annual max of daily precipitation height.",
         ("annual", "precipitation_more", "ja_nsh"): "Annual sum of daily fresh snow.",
         ("annual", "precipitation_more", "ja_rr"): "Annual sum of daily precipitation height.",
@@ -775,6 +824,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "wind_extreme", "fx_911"): "Maximum wind gust 10 m above ground.",
         ("hourly", "wind_synoptic", "dd"): "Mean wind direction.",
         ("hourly", "wind_synoptic", "ff"): "Mean wind speed.",
+        ("monthly", "climate_indices", "mo_eistage"): "Monthly number of ice days.",
+        ("monthly", "climate_indices", "mo_frosttage"): "Monthly number of frost days.",
+        ("monthly", "climate_indices", "mo_heisse_tage"): "Monthly number of hot days.",
+        ("monthly", "climate_indices", "mo_sommertage"): "Monthly number of summer days.",
+        (
+            "monthly",
+            "climate_indices",
+            "mo_tropennaechte",
+        ): "Monthly number of tropical nights, counted over the day from 00 to 23 hours.",
         ("monthly", "climate_summary", "mo_fk"): "Monthly mean of daily wind speed Bft.",
         ("monthly", "climate_summary", "mo_n"): "Monthly mean of cloud cover.",
         ("monthly", "climate_summary", "mo_rr"): "Monthly sum of precipitation height.",
@@ -788,6 +846,46 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "climate_summary", "mx_tx"): "Monthly maximum of daily temperature maxima in 2 m above ground.",
         ("monthly", "climate_summary", "qn_4"): "Quality level of the data in the following columns.",
         ("monthly", "climate_summary", "qn_6"): "Quality level of the data in the following columns.",
+        (
+            "monthly",
+            "precipitation_indices",
+            "mo_rr_ge_0_1_mm",
+        ): "Monthly number of days with a precipitation height of at least 0.1 mm.",
+        (
+            "monthly",
+            "precipitation_indices",
+            "mo_rr_ge_10_0_mm",
+        ): "Monthly number of days with a precipitation height of at least 10.0 mm.",
+        (
+            "monthly",
+            "precipitation_indices",
+            "mo_rr_ge_1_0_mm",
+        ): "Monthly number of days with a precipitation height of at least 1.0 mm.",
+        (
+            "monthly",
+            "precipitation_indices",
+            "mo_rr_ge_20_0_mm",
+        ): "Monthly number of days with a precipitation height of at least 20.0 mm.",
+        (
+            "monthly",
+            "precipitation_indices",
+            "mo_rr_ge_2_5_mm",
+        ): "Monthly number of days with a precipitation height of at least 2.5 mm.",
+        (
+            "monthly",
+            "precipitation_indices",
+            "mo_rr_ge_5_0_mm",
+        ): "Monthly number of days with a precipitation height of at least 5.0 mm.",
+        (
+            "monthly",
+            "precipitation_indices",
+            "mo_sh_ge_1_0_cm",
+        ): "Monthly number of days with a snow depth of at least 1.0 cm.",
+        (
+            "monthly",
+            "precipitation_indices",
+            "mo_sh_ge_5_0_cm",
+        ): "Monthly number of days with a snow depth of at least 5.0 cm.",
         ("monthly", "precipitation_more", "mo_nsh"): "Monthly sum of daily fresh snow.",
         ("monthly", "precipitation_more", "mo_rr"): "Monthly sum of precipitation height.",
         ("monthly", "precipitation_more", "mo_sh_s"): "Monthly sum of daily height of snow pack.",
@@ -1995,10 +2093,18 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("10_minutes", "wind_extreme"): "10-minute station observations of extreme wind for Germany.",
         ("1_minute", "precipitation"): "1-minute station observations of precipitation for Germany.",
         ("5_minutes", "precipitation"): "5-minute station observations of precipitation for Germany.",
+        ("annual", "climate_indices"): (
+            "Historical annual counts of tropical nights and of frost, summer, hot and ice days for "
+            "Germany, derived from the daily climate observations."
+        ),
         ("annual", "climate_summary"): (
             "Historical annual station observations (temperature, pressure, precipitation, sunshine "
             "duration, etc.) for Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
+        ),
+        ("annual", "precipitation_indices"): (
+            "Historical annual counts of days reaching precipitation heights of 0.1 to 20 mm and snow "
+            "depths of 1 and 5 cm for Germany, derived from the daily precipitation observations."
         ),
         ("annual", "precipitation_more"): (
             "Historical annual precipitation observations for Germany (details missing, parameter "
@@ -2069,9 +2175,17 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("hourly", "wind"): "Hourly mean value from station observations of wind speed and wind direction for Germany.",
         ("hourly", "wind_extreme"): "Hourly maximum value from station observations of windspeed for Germany.",
         ("hourly", "wind_synoptic"): "Hourly station observations of wind speed and wind direction for Germany.",
+        ("monthly", "climate_indices"): (
+            "Historical monthly counts of tropical nights and of frost, summer, hot and ice days for "
+            "Germany, derived from the daily climate observations."
+        ),
         ("monthly", "climate_summary"): (
             "Monthly station observations (temperature, precipitation, sunshine duration, wind and "
             "cloud cover) for Germany."
+        ),
+        ("monthly", "precipitation_indices"): (
+            "Historical monthly counts of days reaching precipitation heights of 0.1 to 20 mm and snow "
+            "depths of 1 and 5 cm for Germany, derived from the daily precipitation observations."
         ),
         ("monthly", "precipitation_more"): "Monthly precipitation observations for Germany.",
         ("monthly", "weather_phenomena"): (
@@ -2251,11 +2365,17 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("5_minutes", "precipitation", "qn_5min"): (
             "Quality flag published by the source for the values in the same dataset."
         ),
+        ("annual", "climate_indices", "qn_4"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
         ("annual", "climate_summary", "qn_4"): (
             "Quality flag published by the source, applying to the dataset as a whole."
         ),
         ("annual", "climate_summary", "qn_6"): (
             "Quality flag published by the source for `precipitation` in the same dataset."
+        ),
+        ("annual", "precipitation_indices", "qn_6"): (
+            "Quality flag published by the source for the values in the same dataset."
         ),
         ("annual", "precipitation_more", "qn_6"): (
             "Quality flag published by the source for the values in the same dataset."
@@ -2300,6 +2420,12 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "wind_extreme", "qn_8"): "Quality flag.",
         ("hourly", "wind_synoptic", "qn_8"): "Quality flag.",
         ("hourly", "wind", "qn_3"): "Quality flag.",
+        ("monthly", "climate_indices", "qn_4"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
+        ("monthly", "precipitation_indices", "qn_6"): (
+            "Quality flag published by the source for the values in the same dataset."
+        ),
         ("monthly", "precipitation_more", "qn_6"): (
             "Quality flag published by the source for the values in the same dataset."
         ),

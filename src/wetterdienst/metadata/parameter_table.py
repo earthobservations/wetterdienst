@@ -213,7 +213,22 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter("count_days_cooling_degree", "dimensionless", "Number of days on which cooling was required."),
+    CanonicalParameter(
+        "count_days_frost",
+        "dimensionless",
+        "Number of days on which the minimum air temperature fell below 0 degrees Celsius.",
+    ),
     CanonicalParameter("count_days_heating_degree", "dimensionless", "Number of days on which heating was required."),
+    CanonicalParameter(
+        "count_days_hot",
+        "dimensionless",
+        "Number of days on which the maximum air temperature reached at least 30 degrees Celsius.",
+    ),
+    CanonicalParameter(
+        "count_days_ice",
+        "dimensionless",
+        "Number of days on which the maximum air temperature stayed below 0 degrees Celsius.",
+    ),
     CanonicalParameter(
         "count_days_multiday_evaporation", "dimensionless", "Number of days covered by a multi-day evaporation total."
     ),
@@ -244,9 +259,54 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "count_days_multiday_wind_movement", "dimensionless", "Number of days covered by a multi-day wind run total."
     ),
     CanonicalParameter(
+        "count_days_precipitation_height_ge_0_1mm",
+        "dimensionless",
+        "Number of days on which at least 0.1 mm of precipitation fell.",
+    ),
+    CanonicalParameter(
+        "count_days_precipitation_height_ge_10mm",
+        "dimensionless",
+        "Number of days on which at least 10 mm of precipitation fell.",
+    ),
+    CanonicalParameter(
         "count_days_precipitation_height_ge_1mm",
         "dimensionless",
         "Number of days on which at least 1 mm of precipitation fell.",
+    ),
+    CanonicalParameter(
+        "count_days_precipitation_height_ge_20mm",
+        "dimensionless",
+        "Number of days on which at least 20 mm of precipitation fell.",
+    ),
+    CanonicalParameter(
+        "count_days_precipitation_height_ge_2_5mm",
+        "dimensionless",
+        "Number of days on which at least 2.5 mm of precipitation fell.",
+    ),
+    CanonicalParameter(
+        "count_days_precipitation_height_ge_5mm",
+        "dimensionless",
+        "Number of days on which at least 5 mm of precipitation fell.",
+    ),
+    CanonicalParameter(
+        "count_days_snow_depth_ge_1cm",
+        "dimensionless",
+        "Number of days on which the snow depth reached at least 1 cm.",
+    ),
+    CanonicalParameter(
+        "count_days_snow_depth_ge_5cm",
+        "dimensionless",
+        "Number of days on which the snow depth reached at least 5 cm.",
+    ),
+    CanonicalParameter(
+        "count_days_summer",
+        "dimensionless",
+        "Number of days on which the maximum air temperature reached at least 25 degrees Celsius.",
+    ),
+    CanonicalParameter(
+        "count_days_tropical_night",
+        "dimensionless",
+        "Number of nights on which the minimum air temperature stayed at or above 20 degrees Celsius.",
     ),
     CanonicalParameter(
         "count_days_valid_precipitation_height",
