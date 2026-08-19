@@ -59,6 +59,9 @@ Types of changes:
 
 ### Changed
 
+- Dependabot's `docker` entry pointed at `/`, where there is no Dockerfile -- both of them live in
+  `docker/`. It has therefore never proposed a base-image update for either image; it now reads
+  the directory they are actually in
 - Locked dependencies refreshed to their latest compatible versions (cryptography 50, fastapi
   0.141.1, starlette 1.6, uvicorn 0.52.3, numpy 2.5.2, zarr 3.3, mcp 1.29, and others), and the dev
   toolchain with them (ruff 0.16.3, ty 0.0.72, zizmor 1.29) -- both still pass with no source

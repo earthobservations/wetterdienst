@@ -73,6 +73,10 @@ Types of changes:
 
 ### Changed
 
+- `[Build]` Dependabot watches the app's dependencies. There was no `npm` entry at all, so the
+  ~50 packages under `app/` had never been offered an update by it -- only the Python side and the
+  GitHub Actions were covered. Grouped into one weekly pull request, the way the Python group
+  already is
 - `[Footer]` The version line says `App` rather than `Frontend`. The rename below moved the
   directory, the image and the release tags, but left the one place a visitor actually reads the
   name -- so the footer went on calling the app by a name nothing else in the project uses. The
