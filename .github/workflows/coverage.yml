@@ -1,14 +1,16 @@
 name: Coverage
 
-# Same inputs as the test matrix - see tests.yml for why the docs and the three root
-# files are in here.
+# Same inputs as the test matrix - see tests.yml for why the provider pages, the two app
+# entries and the three root files are in here.
 on:
   push:
     branches: [ main ]
     paths:
       - 'src/**'
       - 'tests/**'
-      - 'docs/**'
+      - 'docs/data/provider/**'
+      - 'app/i18n/**'
+      - 'app/app/pages/index.vue'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'README.md'
@@ -21,7 +23,9 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
-      - 'docs/**'
+      - 'docs/data/provider/**'
+      - 'app/i18n/**'
+      - 'app/app/pages/index.vue'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'README.md'

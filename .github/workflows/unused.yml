@@ -5,14 +5,14 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/**'
+      - 'src/wetterdienst/**'
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/unused.yml'
   pull_request:
     branches: [ main ]
     paths:
-      - 'src/**'
+      - 'src/wetterdienst/**'
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/unused.yml'

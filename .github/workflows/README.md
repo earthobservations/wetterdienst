@@ -17,9 +17,14 @@ always exercised by that workflow.
 The filters are drawn from what the commands behind them read, not from what looks related: `ruff`
 is restricted to the four trees named in `include` in `pyproject.toml`, `ty` and `deptry` only ever
 look at `src/wetterdienst`, and `uv audit` only at the resolved dependency set. The test matrix is
-the widest of them, because `tests/test_docs.py` checks the provider pages under
-`docs/data/provider` against the metadata model and `tests/test_citation.py` ties `CITATION.cff` to
-`README.md` and `CHANGELOG.md`.
+the widest of them, because the suite reaches outside `src/` and `tests/`: `tests/test_docs.py`
+checks the provider pages under `docs/data/provider` against the metadata model,
+`tests/test_citation.py` ties `CITATION.cff` to `README.md` and `CHANGELOG.md`, and
+`tests/test_app_i18n.py` reads the app translation catalogs under `app/i18n` and the app home page.
+
+Being drawn that tightly, the filters have to be maintained with the code: a test that starts
+reading a tree nobody listed will simply stop being run on changes to it. When you teach a test to
+read something new, add it here.
 
 The one deliberate exception is `codeql.yml`. Code scanning is a merge requirement in the repository
 ruleset, and that requirement is reported per pull request - a run that never happens leaves the
