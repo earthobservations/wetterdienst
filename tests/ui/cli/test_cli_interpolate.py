@@ -521,6 +521,29 @@ def test_cli_interpolate_end_date_only() -> None:
     assert response["values"][0]["date"].startswith("1986-11-01")
 
 
+def test_cli_interpolate_negative_radius() -> None:
+    """Test that a negative radius is rejected before anything is requested.
+
+    The request model rejects it, as it does for every other out-of-range option, so the message
+    arrives as the exception rather than on stdout.
+    """
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "interpolate",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31",
+            "--interpolation_station_distance_homogeneous=-1",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "greater than or equal to 0" in str(result.exception)
+
+
 def test_cli_interpolate_unknown_station_distance_parameter() -> None:
     """Test that a station distance for a name that is not a canonical parameter is reported.
 

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import platformdirs
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_serializer, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -131,6 +131,8 @@ class Settings(BaseSettings):
     # overrides alone while validating and the effective mapping -- radii, table and overrides --
     # from `expand_ts_geo_station_distance` on
     ts_geo_station_distance: defaultdict[str, float] = Field(default_factory=dict)
+    #: what was passed for `ts_geo_station_distance`, kept for serialization
+    _ts_geo_station_distance_overrides: dict[str, float] = PrivateAttr(default_factory=dict)
     # this setting is used to define how far away a station can be so that no interpolation is done
     # but instead the station is used directly
     ts_geo_use_nearby_station_distance: Annotated[float, Field(strict=True, ge=0)] | None = 1.0
@@ -205,12 +207,24 @@ class Settings(BaseSettings):
         Built here rather than in the field's default so that the two radii, which are fields of
         their own and may themselves be overridden, are already known.
         """
+        self._ts_geo_station_distance_overrides = dict(self.ts_geo_station_distance)
         self.ts_geo_station_distance = _build_geo_station_distance(
             self.ts_geo_station_distance_homogeneous,
             self.ts_geo_station_distance_heterogeneous,
             self.ts_geo_station_distance,
         )
         return self
+
+    @field_serializer("ts_geo_station_distance")
+    def serialize_ts_geo_station_distance(self, _value: dict[str, float]) -> dict[str, float]:
+        """Dump the overrides that were given, not the mapping they were expanded into.
+
+        Dumping the expanded mapping would make the settings unable to round-trip: every
+        heterogeneous parameter would come back as an explicit override and win over a
+        `ts_geo_station_distance_heterogeneous` set alongside it, which is the very "set a number,
+        nothing happens" failure the validation here is about.
+        """
+        return self._ts_geo_station_distance_overrides
 
     @property
     def ts_tidy(self) -> bool:

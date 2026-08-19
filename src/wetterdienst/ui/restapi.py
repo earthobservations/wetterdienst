@@ -47,6 +47,7 @@ from wetterdienst.ui.core import (
     get_values,
     limit_stations_to_rank,
     set_logging_level,
+    station_distance_radii,
 )
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.ui import read_list
@@ -579,8 +580,11 @@ def values(
 def _geo_settings(
     request: InterpolationRequest | SummaryRequest,
     station_distance: dict[str, float] | None,
+    homogeneous: float | None,
+    heterogeneous: float | None,
 ) -> Settings:
     """Build the settings shared by the interpolation and the summary endpoint."""
+    radii = station_distance_radii(homogeneous, heterogeneous)
     try:
         return Settings(
             ts_humanize=request.humanize,
@@ -590,6 +594,7 @@ def _geo_settings(
             ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
             ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
             ts_geo_num_additional_stations=request.num_additional_stations,
+            **radii,
         )
     except ValidationError as e:
         # a distance given for a name that is not a canonical parameter, or a negative one
@@ -627,7 +632,12 @@ def interpolate(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    settings = _geo_settings(request, request.interpolation_station_distance)
+    settings = _geo_settings(
+        request,
+        request.interpolation_station_distance,
+        request.interpolation_station_distance_homogeneous,
+        request.interpolation_station_distance_heterogeneous,
+    )
 
     try:
         values_ = get_interpolate(
@@ -702,7 +712,12 @@ def summarize(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    settings = _geo_settings(request, request.summary_station_distance)
+    settings = _geo_settings(
+        request,
+        request.summary_station_distance,
+        request.summary_station_distance_homogeneous,
+        request.summary_station_distance_heterogeneous,
+    )
 
     try:
         values_ = get_summarize(

@@ -38,6 +38,7 @@ from wetterdienst.ui.core import (
     get_values,
     limit_stations_to_rank,
     set_logging_level,
+    station_distance_radii,
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 from wetterdienst.util.ui import read_list
@@ -298,6 +299,8 @@ Data computation:
 
         # Interpolation options
         --interpolation_station_distance=<distance>
+        --interpolation_station_distance_homogeneous=<distance>
+        --interpolation_station_distance_heterogeneous=<distance>
         --use_nearby_station_distance=<distance>
 
         # Output options
@@ -1404,6 +1407,8 @@ def values(
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize  # ty: ignore[invalid-argument-type]
 @cloup.option("--interpolation_station_distance", type=click.STRING, default=None)
+@cloup.option("--interpolation_station_distance_homogeneous", type=click.FLOAT, default=None)
+@cloup.option("--interpolation_station_distance_heterogeneous", type=click.FLOAT, default=None)
 @cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
 @cloup.option("--date", type=click.STRING, required=False)
 @cloup.option(
@@ -1445,6 +1450,8 @@ def interpolate(
     periods: list[str],
     lead_time: Literal["short", "long"],
     interpolation_station_distance: str,
+    interpolation_station_distance_homogeneous: float | None,
+    interpolation_station_distance_heterogeneous: float | None,
     use_nearby_station_distance: float,
     date: str,
     start_date: str,
@@ -1477,6 +1484,8 @@ def interpolate(
             "periods": periods,
             "lead_time": lead_time,
             "interpolation_station_distance": interpolation_station_distance,
+            "interpolation_station_distance_homogeneous": interpolation_station_distance_homogeneous,
+            "interpolation_station_distance_heterogeneous": interpolation_station_distance_heterogeneous,
             "use_nearby_station_distance": use_nearby_station_distance,
             "date": date_resolved,
             "issue": issue,
@@ -1505,6 +1514,10 @@ def interpolate(
             ts_convert_units=request.convert_units,
             ts_unit_targets=request.unit_targets or {},
             ts_geo_station_distance=request.interpolation_station_distance or {},
+            **station_distance_radii(
+                request.interpolation_station_distance_homogeneous,
+                request.interpolation_station_distance_heterogeneous,
+            ),
             ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
             ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
             ts_geo_num_additional_stations=request.num_additional_stations,
@@ -1556,6 +1569,10 @@ def interpolate(
 @station_options_core
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize  # ty: ignore[invalid-argument-type]
+@cloup.option("--summary_station_distance", type=click.STRING, default=None)
+@cloup.option("--summary_station_distance_homogeneous", type=click.FLOAT, default=None)
+@cloup.option("--summary_station_distance_heterogeneous", type=click.FLOAT, default=None)
+@cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
 @cloup.option("--date", type=click.STRING, required=False)
 @cloup.option(
     "--start-date",
@@ -1595,6 +1612,10 @@ def summarize(
     parameters: list[str],
     periods: list[str],
     lead_time: Literal["short", "long"],
+    summary_station_distance: str,
+    summary_station_distance_homogeneous: float | None,
+    summary_station_distance_heterogeneous: float | None,
+    use_nearby_station_distance: float,
     date: str,
     start_date: str,
     end_date: str,
@@ -1625,6 +1646,10 @@ def summarize(
             "parameters": parameters,
             "periods": periods,
             "lead_time": lead_time,
+            "summary_station_distance": summary_station_distance,
+            "summary_station_distance_homogeneous": summary_station_distance_homogeneous,
+            "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,
+            "use_nearby_station_distance": use_nearby_station_distance,
             "date": date_resolved,
             "issue": issue,
             "station": station,
@@ -1651,6 +1676,10 @@ def summarize(
             ts_convert_units=request.convert_units,
             ts_unit_targets=request.unit_targets or {},
             ts_geo_station_distance=request.summary_station_distance or {},
+            **station_distance_radii(
+                request.summary_station_distance_homogeneous,
+                request.summary_station_distance_heterogeneous,
+            ),
             ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
             ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
             ts_geo_num_additional_stations=request.num_additional_stations,

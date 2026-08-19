@@ -144,6 +144,23 @@ def test_settings_geo_station_distance_radii_from_env(monkeypatch: pytest.Monkey
     assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 50.0
 
 
+def test_settings_geo_station_distance_round_trips() -> None:
+    """Test that dumped settings can be fed back in without changing what they mean.
+
+    The field holds the expanded mapping, so dumping it used to hand back every heterogeneous
+    parameter as an explicit override, which then won over a radius set alongside it -- the same
+    "set a number, nothing happens" failure the validation here is about.
+    """
+    dumped = Settings().model_dump()
+    assert dumped["ts_geo_station_distance"] == {}
+    dumped["ts_geo_station_distance_heterogeneous"] = 30.0
+    settings = Settings(**dumped)
+    assert settings.ts_geo_station_distance["precipitation_height"] == 30.0
+    # an override that was actually given survives the round-trip
+    overridden = Settings(ts_geo_station_distance={"precipitation_height": 25.0})
+    assert Settings(**overridden.model_dump()).ts_geo_station_distance["precipitation_height"] == 25.0
+
+
 def test_settings_geo_station_distance_rejects_unknown_parameter() -> None:
     """Test that a parameter name that is not canonical is rejected rather than silently ignored."""
     with pytest.raises(ValidationError, match=r"\['precipitation_heigt'\] not in the canonical parameters"):

@@ -900,6 +900,54 @@ def test_interpolate_dwd_image_pdf(client: TestClient) -> None:
     assert response.headers["Content-Type"] == "application/pdf"
 
 
+def test_geo_settings_radii_reach_the_settings() -> None:
+    """Test that the two radii given to an endpoint end up on the settings.
+
+    The per-parameter dict is layered on top of them, so a request may widen a whole kind and still
+    treat one parameter differently.
+    """
+    from wetterdienst.ui.core import InterpolationRequest  # noqa: PLC0415
+    from wetterdienst.ui.restapi import _geo_settings  # noqa: PLC0415
+
+    request = InterpolationRequest.model_validate(
+        {
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": ["daily/kl/temperature_air_mean_2m"],
+            "date": "1986-10-31",
+            "station": "00071",
+            "interpolation_station_distance_homogeneous": 60.0,
+            "interpolation_station_distance": {"precipitation_height": 25.0},
+        },
+    )
+    settings = _geo_settings(
+        request,
+        request.interpolation_station_distance,
+        request.interpolation_station_distance_homogeneous,
+        request.interpolation_station_distance_heterogeneous,
+    )
+    assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 60.0
+    assert settings.ts_geo_station_distance["precipitation_height"] == 25.0
+    # the radius that was not given keeps its default rather than being reset
+    assert settings.ts_geo_station_distance["snow_depth_new"] == 20.0
+
+
+def test_interpolate_negative_radius_rejected(client: TestClient) -> None:
+    """Test that a negative radius is rejected by the query parameter itself."""
+    response = client.get(
+        "/api/interpolate",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31",
+            "interpolation_station_distance_homogeneous": -1,
+        },
+    )
+    assert response.status_code == 422
+
+
 def test_interpolate_unknown_station_distance_parameter(client: TestClient) -> None:
     """Test that a station distance for a name that is not a canonical parameter is a 400.
 

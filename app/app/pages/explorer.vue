@@ -9,6 +9,7 @@ import DateRangeSelector from '~/components/DateRangeSelector.vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
+import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 
 const { t } = useI18n()
 
@@ -157,6 +158,8 @@ const dataSettings = ref<DataSettings>({
   skipCriteria: 'min',
   dropNulls: route.query.dropNulls != null ? route.query.dropNulls.toString() !== 'false' : true,
   useNearbyStationDistance: 1.0,
+  stationDistanceHomogeneous: STATION_DISTANCE_DEFAULTS.homogeneous,
+  stationDistanceHeterogeneous: STATION_DISTANCE_DEFAULTS.heterogeneous,
   useStationDistancePerParameter: {},
   minGainOfValuePairs: 0.10,
   numAdditionalStations: 3,
@@ -169,7 +172,7 @@ const parameterDistanceEntries = ref<Array<{ id: string, paramName: string, dist
 watch(() => dataSettings.value.useStationDistancePerParameter, (newVal) => {
   // Update entries from the object, but keep stable IDs
   const existingIds = new Set(parameterDistanceEntries.value.map(e => e.paramName))
-  const newParams = Object.keys(newVal).filter(k => k !== 'default' && !existingIds.has(k))
+  const newParams = Object.keys(newVal).filter(k => !existingIds.has(k))
 
   // Add new params
   newParams.forEach((param) => {
@@ -180,9 +183,9 @@ watch(() => dataSettings.value.useStationDistancePerParameter, (newVal) => {
     })
   })
 
-  // Remove deleted params
+  // Remove deleted params, keeping rows that have not been named yet
   parameterDistanceEntries.value = parameterDistanceEntries.value.filter(e =>
-    newVal[e.paramName] !== undefined,
+    !e.paramName || newVal[e.paramName] !== undefined,
   )
 
   // Update distances
@@ -469,23 +472,23 @@ const selectedParameters = computed(() => {
   return parameterSelectionState.value.selection.parameters
 })
 
-// Validate parameter names in station distance mapping
+// Validate parameter names in station distance mapping. "default" used to be accepted here as a
+// catch-all key; the two radii above carry that now, and the backend rejects the key.
 function isValidParameter(paramName: string): boolean {
-  if (paramName === 'default')
-    return true
   // Check if parameter name matches any selected parameter
   return selectedParameters.value.some(p => p === paramName || p.toLowerCase() === paramName.toLowerCase())
 }
 
-// Helper functions for interpolation station distance mapping
+// Helper functions for interpolation station distance mapping. A row exists in the UI before it
+// has a name; it only reaches `useStationDistancePerParameter`, and thus the request, once one is
+// typed -- the backend rejects a name that is not a canonical parameter, and a placeholder is not
+// one.
 function addParameterDistance() {
   const id = `param_${Date.now()}`
-  const newKey = `new_parameter`
-  dataSettings.value.useStationDistancePerParameter[newKey] = 20
   parameterDistanceEntries.value.push({
     id,
-    paramName: newKey,
-    distance: 20,
+    paramName: '',
+    distance: STATION_DISTANCE_DEFAULTS.heterogeneous,
   })
 }
 
@@ -497,16 +500,16 @@ function updateParameterName(id: string, oldKey: string, newKey: string) {
   if (!entry)
     return
 
-  const value = dataSettings.value.useStationDistancePerParameter[oldKey]
-  if (value !== undefined) {
+  const value = dataSettings.value.useStationDistancePerParameter[oldKey] ?? entry.distance
+  if (oldKey)
     delete dataSettings.value.useStationDistancePerParameter[oldKey]
-    dataSettings.value.useStationDistancePerParameter[newKey] = value
-    entry.paramName = newKey
-  }
+  dataSettings.value.useStationDistancePerParameter[newKey] = value
+  entry.paramName = newKey
 }
 
 function updateParameterDistance(id: string, paramName: string, distance: number) {
-  dataSettings.value.useStationDistancePerParameter[paramName] = distance
+  if (paramName)
+    dataSettings.value.useStationDistancePerParameter[paramName] = distance
   const entry = parameterDistanceEntries.value.find(e => e.id === id)
   if (entry) {
     entry.distance = distance
@@ -514,7 +517,8 @@ function updateParameterDistance(id: string, paramName: string, distance: number
 }
 
 function removeParameterDistance(id: string, paramName: string) {
-  delete dataSettings.value.useStationDistancePerParameter[paramName]
+  if (paramName)
+    delete dataSettings.value.useStationDistancePerParameter[paramName]
   parameterDistanceEntries.value = parameterDistanceEntries.value.filter(e => e.id !== id)
 }
 
@@ -802,14 +806,26 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         {{ t('explorer.stationDistanceHint') }}
                       </p>
 
-                      <!-- Default distance -->
+                      <!-- The two default radii, one per kind of parameter -->
                       <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-600 w-32">{{ t('explorer.defaultAll') }}:</span>
+                        <span class="text-xs text-gray-600 w-32">{{ t('explorer.stationDistanceHomogeneous') }}:</span>
                         <UInputNumber
-                          v-model="dataSettings.useStationDistancePerParameter.default"
+                          v-model="dataSettings.stationDistanceHomogeneous"
                           :min="0"
                           :step="1"
-                          placeholder="40"
+                          :placeholder="String(STATION_DISTANCE_DEFAULTS.homogeneous)"
+                          size="xs"
+                          class="w-28"
+                        />
+                        <span class="text-xs text-gray-500">km</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-600 w-32">{{ t('explorer.stationDistanceHeterogeneous') }}:</span>
+                        <UInputNumber
+                          v-model="dataSettings.stationDistanceHeterogeneous"
+                          :min="0"
+                          :step="1"
+                          :placeholder="String(STATION_DISTANCE_DEFAULTS.heterogeneous)"
                           size="xs"
                           class="w-28"
                         />

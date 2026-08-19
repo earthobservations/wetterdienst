@@ -53,7 +53,8 @@ The following settings are available:
 | ts_geo_min_gain_of_value_pairs     | minimum gain of value pairs which decides whether to stop looking for further stations                                                                                                                                                                                                                                                                   | 1.2     |
 | ts_geo_num_additional_stations     | number of additional stations to take into account besides gain of value pairs                                                                                                                                                                                                                                                                           | 3       |
 
-For more on units see the chapter [Units](units.md).
+For more on units see the chapter [Units](units.md), and for the two search radii and their
+per-parameter overrides the chapter [Interpolation & Summary](interpolation.md#the-search-radius).
 
 ## Python
 
