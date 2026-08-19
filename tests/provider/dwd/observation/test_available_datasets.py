@@ -15,8 +15,6 @@ from wetterdienst.util.network import HTTPFileSystem
 SKIP_DATASETS = (
     ("10_minutes", "wind_test"),
     ("subdaily", "standard_format"),
-    ("monthly", "climate_indices"),
-    ("annual", "climate_indices"),
     ("multi_annual", "mean_61-90"),
     ("multi_annual", "mean_61-90_obsolete"),
     ("multi_annual", "mean_71-00"),

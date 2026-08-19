@@ -1691,3 +1691,69 @@ def test_dwd_observation_datasets_low_resolution(default_settings: Settings, dat
     given_df = next(request.values.query()).df
     assert not given_df.is_empty()
     assert given_df.get_column("quality").is_not_null().mean() >= 0.99
+
+
+@pytest.mark.remote
+def test_dwd_observation_annual_climate_indices(default_settings: Settings) -> None:
+    """Test DWD observation annual climate indices, counted over a closed historical year."""
+    request = DwdObservationRequest(
+        parameters=[("annual", "climate_indices")],
+        periods=[Period.HISTORICAL],
+        start_date=dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(1990, 12, 31, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    ).filter_by_station_id(station_id=["00003"])
+    given_df = request.values.all().df
+    expected_df = pl.DataFrame(
+        [
+            ("00003", "annual", "climate_indices", "count_days_frost", 26.0),
+            ("00003", "annual", "climate_indices", "count_days_hot", 6.0),
+            ("00003", "annual", "climate_indices", "count_days_ice", 3.0),
+            ("00003", "annual", "climate_indices", "count_days_summer", 31.0),
+            ("00003", "annual", "climate_indices", "count_days_tropical_night", 1.0),
+        ],
+        schema={
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
+            "value": pl.Float64,
+        },
+        orient="row",
+    )
+    assert_frame_equal(
+        given_df.select("station_id", "resolution", "dataset", "parameter", "value"),
+        expected_df,
+        check_dtypes=False,
+    )
+    assert given_df.get_column("date").unique().to_list() == [dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC"))]
+    assert given_df.get_column("quality").unique().to_list() == [10.0]
+
+
+@pytest.mark.remote
+def test_dwd_observation_monthly_precipitation_indices(default_settings: Settings) -> None:
+    """Test DWD observation monthly precipitation indices, counted over a closed historical month.
+
+    The thresholds are cumulative -- a day of 10 mm is counted by every threshold up to it -- so the
+    counts have to fall monotonically as the threshold rises.
+    """
+    request = DwdObservationRequest(
+        parameters=[("monthly", "precipitation_indices")],
+        periods=[Period.HISTORICAL],
+        start_date=dt.datetime(1990, 7, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(1990, 7, 31, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    ).filter_by_station_id(station_id=["00003"])
+    given_df = request.values.all().df
+    given = dict(given_df.select("parameter", "value").iter_rows())
+    assert given == {
+        "count_days_precipitation_height_ge_0_1mm": 10.0,
+        "count_days_precipitation_height_ge_1mm": 7.0,
+        "count_days_precipitation_height_ge_2_5mm": 4.0,
+        "count_days_precipitation_height_ge_5mm": 2.0,
+        "count_days_precipitation_height_ge_10mm": 1.0,
+        "count_days_precipitation_height_ge_20mm": 0.0,
+        "count_days_snow_depth_ge_1cm": 0.0,
+        "count_days_snow_depth_ge_5cm": 0.0,
+    }
+    assert given_df.get_column("date").unique().to_list() == [dt.datetime(1990, 7, 1, tzinfo=ZoneInfo("UTC"))]

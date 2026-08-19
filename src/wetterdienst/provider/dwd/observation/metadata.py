@@ -1560,6 +1560,43 @@ DwdObservationMetadata = {
             "date_required": False,
             "datasets": [
                 {
+                    "name": "climate_indices",
+                    "name_original": "climate_indices/kl",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality_general",
+                            "name_original": "qn_4",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_tropical_night",
+                            "name_original": "mo_tropennaechte",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_frost",
+                            "name_original": "mo_frosttage",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_summer",
+                            "name_original": "mo_sommertage",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_hot",
+                            "name_original": "mo_heisse_tage",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_ice",
+                            "name_original": "mo_eistage",
+                            "unit": "dimensionless",
+                        },
+                    ],
+                },
+                {
                     "name": "climate_summary",
                     "name_original": "kl",
                     "grouped": True,
@@ -1628,6 +1665,58 @@ DwdObservationMetadata = {
                             "name": "precipitation_height_max",
                             "name_original": "mx_rs",
                             "unit": "millimeter",
+                        },
+                    ],
+                },
+                {
+                    "name": "precipitation_indices",
+                    "name_original": "climate_indices/precip",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn_6",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_0_1mm",
+                            "name_original": "mo_rr_ge_0_1_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_1mm",
+                            "name_original": "mo_rr_ge_1_0_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_2_5mm",
+                            "name_original": "mo_rr_ge_2_5_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_5mm",
+                            "name_original": "mo_rr_ge_5_0_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_10mm",
+                            "name_original": "mo_rr_ge_10_0_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_20mm",
+                            "name_original": "mo_rr_ge_20_0_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_snow_depth_ge_1cm",
+                            "name_original": "mo_sh_ge_1_0_cm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_snow_depth_ge_5cm",
+                            "name_original": "mo_sh_ge_5_0_cm",
+                            "unit": "dimensionless",
                         },
                     ],
                 },
@@ -1724,6 +1813,43 @@ DwdObservationMetadata = {
             "date_required": False,
             "datasets": [
                 {
+                    "name": "climate_indices",
+                    "name_original": "climate_indices/kl",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality_general",
+                            "name_original": "qn_4",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_tropical_night",
+                            "name_original": "ja_tropennaechte",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_frost",
+                            "name_original": "ja_frosttage",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_summer",
+                            "name_original": "ja_sommertage",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_hot",
+                            "name_original": "ja_heisse_tage",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_ice",
+                            "name_original": "ja_eistage",
+                            "unit": "dimensionless",
+                        },
+                    ],
+                },
+                {
                     "name": "climate_summary",
                     "name_original": "kl",
                     "grouped": True,
@@ -1792,6 +1918,58 @@ DwdObservationMetadata = {
                             "name": "precipitation_height_max",
                             "name_original": "ja_mx_rs",
                             "unit": "millimeter",
+                        },
+                    ],
+                },
+                {
+                    "name": "precipitation_indices",
+                    "name_original": "climate_indices/precip",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "quality",
+                            "name_original": "qn_6",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_0_1mm",
+                            "name_original": "ja_rr_ge_0_1_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_1mm",
+                            "name_original": "ja_rr_ge_1_0_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_2_5mm",
+                            "name_original": "ja_rr_ge_2_5_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_5mm",
+                            "name_original": "ja_rr_ge_5_0_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_10mm",
+                            "name_original": "ja_rr_ge_10_0_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_precipitation_height_ge_20mm",
+                            "name_original": "ja_rr_ge_20_0_mm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_snow_depth_ge_1cm",
+                            "name_original": "ja_sh_ge_1_0_cm",
+                            "unit": "dimensionless",
+                        },
+                        {
+                            "name": "count_days_snow_depth_ge_5cm",
+                            "name_original": "ja_sh_ge_5_0_cm",
+                            "unit": "dimensionless",
                         },
                     ],
                 },

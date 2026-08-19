@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Glossary]` Names in all eleven languages for the twelve climate-index parameters the backend
+  now serves, and for the two datasets carrying them. The threshold indices keep the term each
+  language actually uses -- `Eistage`, `IJsdagen`, `Jours sans dégel`, `Dni mroźne` for the same
+  quantity -- while the counted-threshold ones follow the phrasing already there for
+  `count_days_precipitation_height_ge_1mm`, down to the decimal comma every locale but English
+  writes
+
 ## [0.13.0] - 2026-08-19
 
 ### Added
