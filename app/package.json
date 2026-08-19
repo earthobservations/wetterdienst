@@ -60,8 +60,8 @@
     "eslint-plugin-oxlint": "^1.78.0",
     "happy-dom": "^20.11.2",
     "oxlint": "^1.78.0",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10",
-    "vue-tsc": "^3.3.9"
+    "vue-tsc": "^3.3.10"
   }
 }
