@@ -206,14 +206,18 @@ def test_interpolation_behaviour_derives_from_parameter_table() -> None:
     from wetterdienst.model.request import TimeseriesRequest  # noqa: PLC0415
     from wetterdienst.settings import (  # noqa: PLC0415
         _STATION_DISTANCE_HETEROGENEOUS,
-        _default_geo_station_distance,
+        _STATION_DISTANCE_HOMOGENEOUS,
+        _build_geo_station_distance,
     )
 
     assert set(TimeseriesRequest.interpolatable_parameters) == {p.name for p in PARAMETER_TABLE if p.interpolation}
+    default_distances = _build_geo_station_distance(
+        _STATION_DISTANCE_HOMOGENEOUS,
+        _STATION_DISTANCE_HETEROGENEOUS,
+        {},
+    )
     shorter_radius = {
-        name
-        for name, distance in _default_geo_station_distance().items()
-        if distance == _STATION_DISTANCE_HETEROGENEOUS
+        name for name, distance in default_distances.items() if distance == _STATION_DISTANCE_HETEROGENEOUS
     }
     assert shorter_radius == {p.name for p in PARAMETER_TABLE if p.interpolation == "heterogeneous"}
 

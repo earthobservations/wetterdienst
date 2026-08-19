@@ -98,7 +98,8 @@ Interpolation is only meaningful for parameters whose fields vary smoothly in sp
 parameters those are is declared per parameter in the
 [parameter glossary](../data/parameters.md), which says for each name whether it can be
 interpolated and out of how far stations may be drawn. Two default search radii apply,
-depending on how strongly a parameter is spatially correlated:
+depending on how strongly a parameter is spatially correlated, each of them a setting of its
+own (`ts_geo_station_distance_homogeneous` and `ts_geo_station_distance_heterogeneous`):
 
 **Large spatial correlation (~40 km default search radius)** — homogeneous fields that vary
 slowly across regions: air, soil, concrete, dew-point, wet-bulb and surface temperatures,
@@ -126,10 +127,17 @@ Several settings control the interpolation behaviour (see also the
 
 | Name                               | Type             | Default                                                       | Description                                                                                                                     |
 |------------------------------------|------------------|--------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-| ts_geo_station_distance            | dict[str, float] | 20.0 (heterogeneous parameters)<br/>40.0 (other)             | Max distance for stations used for interpolation (in km).                                                                       |
+| ts_geo_station_distance_homogeneous   | float            | 40.0                                                      | Max distance for stations used for interpolation of a homogeneous parameter (in km).                                            |
+| ts_geo_station_distance_heterogeneous | float            | 20.0                                                      | The same for a heterogeneous parameter, which decorrelates faster (in km).                                                       |
+| ts_geo_station_distance            | dict[str, float] | {}                                                           | Per-parameter overrides of the two distances above, keyed by canonical parameter name.                                          |
 | ts_geo_use_nearby_station_distance | float            | 1.0                                                          | Distance (in km) up to which a nearby station's value is used directly instead of interpolating.                               |
 | ts_geo_min_gain_of_value_pairs     | float            | 0.1                                                          | Minimum gain of value pairs for an additional station to be included, to avoid using every station in a dense network.         |
 | ts_geo_num_additional_stations     | int              | 3                                                            | Number of additional stations used regardless of the gain, to guarantee a minimum number of stations.                          |
+
+The two radii move every parameter of their kind at once, while `ts_geo_station_distance`
+overrides single parameters on top of them. A name that is not a canonical parameter is
+rejected rather than silently ignored, so a typo no longer leaves the parameter at its
+default radius without saying so.
 
 For example, to increase the maximum distance for precipitation interpolation:
 

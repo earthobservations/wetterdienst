@@ -900,6 +900,26 @@ def test_interpolate_dwd_image_pdf(client: TestClient) -> None:
     assert response.headers["Content-Type"] == "application/pdf"
 
 
+def test_interpolate_unknown_station_distance_parameter(client: TestClient) -> None:
+    """Test that a station distance for a name that is not a canonical parameter is a 400.
+
+    It used to be accepted and never read, so the parameter the user meant kept its default radius.
+    """
+    response = client.get(
+        "/api/interpolate",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31",
+            "interpolation_station_distance": '{"temperature_air_mean": 10}',
+        },
+    )
+    assert response.status_code == 400
+    assert "not in the canonical parameters" in response.json()["detail"]
+
+
 @pytest.mark.remote
 def test_summarize_dwd(client: TestClient) -> None:
     """Test summarize."""

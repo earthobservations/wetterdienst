@@ -16,6 +16,7 @@ import click
 import cloup
 from cloup import Section
 from cloup.constraints import AllSet, If, RequireExactly, accept_none
+from pydantic import ValidationError
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ApiNotFoundError
@@ -1498,15 +1499,19 @@ def interpolate(
 
     api = get_api(request.provider, request.network)
 
-    settings = Settings(
-        ts_humanize=request.humanize,
-        ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=request.interpolation_station_distance or {},
-        ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-        ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-        ts_geo_num_additional_stations=request.num_additional_stations,
-    )
+    try:
+        settings = Settings(
+            ts_humanize=request.humanize,
+            ts_convert_units=request.convert_units,
+            ts_unit_targets=request.unit_targets or {},
+            ts_geo_station_distance=request.interpolation_station_distance or {},
+            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
+            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+            ts_geo_num_additional_stations=request.num_additional_stations,
+        )
+    except ValidationError as e:
+        # a distance given for a name that is not a canonical parameter, or a negative one
+        raise click.BadParameter(str(e)) from e
 
     try:
         values_ = get_interpolate(
@@ -1640,15 +1645,19 @@ def summarize(
 
     api = get_api(request.provider, request.network)
 
-    settings = Settings(
-        ts_humanize=request.humanize,
-        ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=request.summary_station_distance or {},
-        ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-        ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-        ts_geo_num_additional_stations=request.num_additional_stations,
-    )
+    try:
+        settings = Settings(
+            ts_humanize=request.humanize,
+            ts_convert_units=request.convert_units,
+            ts_unit_targets=request.unit_targets or {},
+            ts_geo_station_distance=request.summary_station_distance or {},
+            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
+            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+            ts_geo_num_additional_stations=request.num_additional_stations,
+        )
+    except ValidationError as e:
+        # a distance given for a name that is not a canonical parameter, or a negative one
+        raise click.BadParameter(str(e)) from e
 
     try:
         values_ = get_summarize(

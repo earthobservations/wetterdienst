@@ -168,11 +168,17 @@ _SectionsField = Annotated[
 ]
 _InterpolationStationDistanceField = Annotated[
     dict[str, Annotated[float, Field(ge=0.0)]] | None,
-    Field(description="Per-parameter maximum interpolation-station distance in km, overriding the default."),
+    Field(
+        description="Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter "
+        "name, overriding the default radius of that parameter.",
+    ),
 ]
 _SummaryStationDistanceField = Annotated[
     dict[str, Annotated[float, Field(ge=0.0)]] | None,
-    Field(description="Per-parameter maximum summary-station distance in km, overriding the default."),
+    Field(
+        description="Per-parameter maximum summary-station distance in km, keyed by canonical parameter "
+        "name, overriding the default radius of that parameter.",
+    ),
 ]
 _UseNearbyStationDistanceField = Annotated[
     float,
