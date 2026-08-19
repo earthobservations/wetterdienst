@@ -27,16 +27,23 @@ pull request waiting for a result rather than passing it, so CodeQL keeps runnin
 
 ## App CI
 
-The app has its own dedicated workflow:
+The app has two workflows, split along what each of them reads.
 
 ### `app-tests.yml`
 
-Runs on changes to `app/**` directory.
+Runs on changes to `app/**`.
 
 **Jobs:**
-1. **lint** - ESLint and Oxlint checks
-2. **unit-tests** - Vitest unit and component tests (63 tests)
-3. **e2e-tests** - Playwright E2E tests with real backend (32 tests)
+1. **typecheck** - `nuxt typecheck`
+2. **lint** - ESLint and Oxlint checks
+3. **unit-tests** - Vitest unit and component tests
+
+### `app-e2e.yml`
+
+Runs on changes to `app/**` *and* to the backend - `src/wetterdienst/**`, `pyproject.toml`,
+`uv.lock` - because the Playwright suite drives the app against a real backend started from the
+working tree. A REST API change that breaks the app is caught here, which is why this is the one
+workflow whose filter spans both sides of the repository.
 
 **E2E Test Flow:**
 1. Install Node.js, pnpm, and Playwright with Firefox
