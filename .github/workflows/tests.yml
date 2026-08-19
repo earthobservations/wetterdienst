@@ -1,9 +1,35 @@
 name: Tests
 
+# The matrix is ten jobs of a network-bound suite, so it is worth being precise about what can
+# actually change its outcome. Beyond the obvious sources and tests that is the documentation -
+# tests/test_docs.py checks the provider pages under docs/data/provider against the metadata model -
+# and three root files: the README is doctested and CITATION.cff is tied to it and to the changelog.
 on:
-  pull_request: ~
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'docs/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CITATION.cff'
+      - '.github/workflows/install.sh'
+      - '.github/workflows/tests.yml'
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'docs/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CITATION.cff'
+      - '.github/workflows/install.sh'
+      - '.github/workflows/tests.yml'
 
   # Allow job to be triggered manually.
   workflow_dispatch:

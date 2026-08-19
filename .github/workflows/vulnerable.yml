@@ -1,10 +1,20 @@
 name: Vulnerable
 
+# `uv audit` reads the resolved dependency set, so only the manifest and the lockfile
+# can change its verdict.
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/vulnerable.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/vulnerable.yml'
 
   # Allow job to be triggered manually.
   workflow_dispatch:

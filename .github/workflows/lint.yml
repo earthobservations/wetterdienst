@@ -1,10 +1,28 @@
 name: Lint
 
+# ruff only ever looks at the trees named in `include` in pyproject.toml, so nothing
+# outside them - the app, the docs, the notebooks - can change the outcome.
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'benchmarks/**'
+      - 'examples/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/lint.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'benchmarks/**'
+      - 'examples/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/lint.yml'
 
   # Allow job to be triggered manually.
   workflow_dispatch:

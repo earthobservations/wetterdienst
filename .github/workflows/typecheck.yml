@@ -1,10 +1,22 @@
 name: Typecheck
 
+# ty checks src/wetterdienst only; the installed dependency versions it resolves
+# imports against come from pyproject.toml/uv.lock.
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/typecheck.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/typecheck.yml'
 
   # Allow job to be triggered manually.
   workflow_dispatch:
