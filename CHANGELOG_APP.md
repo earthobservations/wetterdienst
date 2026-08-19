@@ -73,6 +73,10 @@ Types of changes:
 
 ### Changed
 
+- `[Build]` The Coolify deploy secret is `COOLIFY_APP_UUID`, not `COOLIFY_FRONTEND_UUID`, closing
+  the last reference the rename had to leave behind: the name lived in GitHub settings rather than
+  in this repo, so it could only follow once the secret itself had been re-created. The value is
+  unchanged -- the same Coolify resource, under the name everything else already uses
 - `[Build]` Dependabot watches the app's dependencies. There was no `npm` entry at all, so the
   ~50 packages under `app/` had never been offered an update by it -- only the Python side and the
   GitHub Actions were covered. Grouped into one weekly pull request, the way the Python group
