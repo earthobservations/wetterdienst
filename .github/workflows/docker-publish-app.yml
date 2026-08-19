@@ -274,11 +274,8 @@ jobs:
           git describe --tags
           git status
 
-      # COOLIFY_FRONTEND_UUID keeps its old name on purpose: it is a repository secret in
-      # GitHub settings, not a file in this repo, so renaming it here would only break the
-      # deploy. Rename the secret in settings first, then this reference.
       - name: Deploy to Coolify
         run: |
           curl --fail --request GET \
             --header "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}" \
-            'https://coolify.eobs.org/api/v1/deploy?uuid=${{ secrets.COOLIFY_FRONTEND_UUID }}&force=false'
+            'https://coolify.eobs.org/api/v1/deploy?uuid=${{ secrets.COOLIFY_APP_UUID }}&force=false'
