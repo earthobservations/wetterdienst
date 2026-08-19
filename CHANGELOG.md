@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.133.0] - 2026-08-19
+
 ### Added
 
 - Every parameter of every provider now carries a description, 1681 of 1681, closing the last 508
@@ -49,13 +51,104 @@ Types of changes:
   requested parameter has enough of them, so a whole-dataset request against MOSMIX or DMO now has
   65 probabilities to satisfy and will walk further down the station ranking than it used to.
   Requesting the parameters you actually want keeps it where it was
-
-### Fixed
-
-- The whole test suite failed to collect on Python 3.10, the oldest version the project supports:
-  `tests/test_citation.py` imported `tomllib`, which is stdlib only from 3.11. The import error
-  aborted collection, so 3.10 has been running zero tests rather than failing loudly on one. The
-  import is now guarded and falls back to `tomli`, added to the dev group under the same marker
+- DWD hourly solar `true_local_time_offset` (`mess_datum_woz`), a new canonical parameter holding
+  how far true local solar time runs ahead of a record's timestamp -- the longitude correction plus
+  the equation of time. Solar records are stamped with the UTC instant of a whole true-solar-time
+  hour, so the correction sits in the minutes of that timestamp, which wetterdienst rounds to the
+  hour so a solar series lines up with every other hourly series. The rounding discarded it and the
+  column that also held it was dropped, so it was not reachable at all. At station 00183 it runs 40
+  to 71 minutes, its monthly mean tracing the equation of time from 40.4 in February to 69.1 in
+  November about a 54.7 minute longitude term
+- DWD's two measurement method indicators are returned instead of dropped:
+  `cloud_cover_total_measurement_method` (`v_n_i`, hourly cloud_type and cloudiness) and
+  `visibility_range_measurement_method` (`v_vv_i`, hourly visibility). DWD writes them as letters
+  -- `P` for a human person, `I` for an instrument -- in files that are otherwise numeric, and the
+  value column is Float64, so both were declared but silently dropped and a request for them
+  returned an empty frame. They are now decoded to 1 for `P` and 2 for `I`. The digits are
+  wetterdienst's, not DWD's: they follow the order DWD lists the letters in, and 0 is left unused
+  so "not measured" stays distinguishable from either method
+- Every DWD parameter now carries a description, 717 of 717 across observation, mosmix, dmo,
+  derived, road and swsmos. 25 came from correcting the docs (below), the rest are derived: where a
+  source publishes no prose at all, the text is taken from the same canonical parameter at the same
+  resolution elsewhere -- the same quantity over the same interval, so the wording transfers -- or
+  from the canonical sentence. Those sit in `DERIVED_DESCRIPTIONS`, apart from
+  `SOURCE_DESCRIPTIONS` and applied only where nothing else supplies one, so a derived sentence is
+  never mistaken for a source's own wording
+- Dataset and resolution descriptions on the metadata models: 88 of 148 datasets and 2 resolutions,
+  lifted out of the provider docs metadata tables the same way the parameter descriptions were.
+  `DatasetModel.description` and `ResolutionModel.description` had been declared but never
+  populated, so `metadata["hourly"]["data"].description` returned `None` for every provider.
+  `tests/test_docs.py` checks the tables still agree with the model, ignoring the trailing
+  `([details](url))` pointer the pages add, which is page formatting rather than description
+- Source descriptions for 1057 parameters, in `metadata.source_descriptions` and reported by
+  `discover()` -- so by `GET /api/coverage`, the `coverage` MCP tool and `wetterdienst about
+  coverage`. These say what a given provider's field means, as against the canonical,
+  provider-independent sentence the glossary serves
+- 113 DWD observation descriptions come from the English `DESCRIPTION_*_en.pdf` sheets, which are
+  more specific than the text the docs carried ("The solar incoming radiation includes the direct
+  and the diffuse part ..." against "hourly sum of solar incoming radiation"). DWD CDC is Creative
+  Commons BY 4.0, so its wording is reproduced with attribution. A sheet's cell is used only where
+  it says at least as much as the curated text: some are terse, a few truncated -- `V_S1_NS` reads
+  "cloud cover of 1. laye" and `V_S2_NS` repeats it for the second layer -- and two are left
+  untranslated in an otherwise English sheet
+- Source descriptions for DWD observation parameters: what a given DWD field means in DWD's own
+  words, alongside the canonical, provider-independent sentence the glossary already served. 133
+  parameters across the 30 datasets that publish an English description sheet, transcribed into
+  `provider/dwd/observation/descriptions.py` and attached to the metadata at import. DWD CDC is
+  Creative Commons BY 4.0, so the wording is reproduced with attribution to the Deutscher
+  Wetterdienst; the module records the source URL and licence
+- `description` now appears in `discover()`, and therefore in `GET /api/coverage`, the `coverage`
+  MCP tool and `wetterdienst about coverage`. `ParameterModel.description` had been a declared but
+  entirely unused field -- as are `DatasetModel.description` and `ResolutionModel.description`,
+  which remain unpopulated
+- ECCC monthly and hourly expose the fields that were previously left undeclared, with twelve new
+  canonical parameters for them. Monthly gains the day counts
+  (`count_days_precipitation_height_ge_1mm` and the six `count_days_valid_*`) and the
+  climatological normals (`temperature_air_mean_2m_normal`, `precipitation_height_normal`,
+  `snow_depth_new_normal`, `sunshine_duration_normal`); hourly gains `temperature_humidex`. Units
+  were taken from the values rather than assumed: each normal matches the range of the quantity it
+  is a normal of in the same response, and humidex sits at or above the air temperature in all 233
+  paired observations sampled, which is what an apparent temperature does
+- CI: new `Minimum dependency versions` job that resolves every direct dependency to the lowest
+  version its specifier allows (`UV_RESOLUTION=lowest-direct`) and runs the test suite against it,
+  so that declared floors are actually exercised
+- Canonical parameter table (`wetterdienst.metadata.parameter_table`) holding the `unit_type` of
+  each of the 505 canonical parameter names in one place, plus a test that checks every provider
+  declaration against it — that the name is canonical and that the declared `unit` is a unit of
+  that quantity. The table is now the single source of `unit_type`; see below
+- New canonical parameters `radiation_global_intensity`, `radiation_sky_long_wave_intensity` and
+  `radiation_sky_short_wave_diffuse_intensity` for sources that report irradiance (power per area)
+  rather than irradiation accumulated over the interval (energy per area)
+- Docs: a parameter glossary on the Parameters page, built from the canonical parameter table at
+  build time by the local Sphinx extension `docs/_ext/parameter_glossary.py`. Every parameter in
+  every provider's metadata table now links to its glossary entry
+- `wetterdienst.metadata.unit_type.UnitType`, a literal of the unit types the unit converter
+  knows. `CanonicalParameter.unit_type` is typed with it, so a mistyped unit type in the parameter
+  table is a type error rather than something only a test can catch. A test pins the literal to
+  `UnitConverter` in both directions, since the converter builds its unit types as a runtime dict
+  that no static type can be derived from
+- Two unit types the audit of the canonical table turned up as missing: `mass_per_volume`
+  (g/m³, kg/m³, and mg/l and g/l shared with `concentration`, which is the same quantity under a
+  different convention — 1 mg/l is 1 g/m³) and `degree_hour` (°Ch, Kh, °Fh), kept apart from
+  `degree_day` so that a quantity accumulated per hour is not reported per day
+- New canonical parameter `cooling_degree_day`, the counterpart of `heating_degree_day`
+- Parameter discovery across all three interfaces: `GET /api/glossary`, the `glossary` MCP tool and
+  `wetterdienst about glossary`. `coverage` answers which parameters a given provider offers; the
+  glossary answers what any of them measures and which unit it comes back in — neither of which
+  `coverage` reports. Filter with `parameter=` (substring match over the 505 names), `unit_type=`
+  (a closed vocabulary, so an unknown one is a 422 or a CLI usage error rather than an empty
+  result) and `limit=` to cap the response. The unit reported is the one a values request would
+  actually return, including any `ts_unit_targets` override. This is what puts the canonical
+  descriptions in front of users rather than only in the docs. A filter matching nothing is an
+  empty list over HTTP and a non-zero exit on the CLI, the latter following grep so a shell script
+  can tell
+- A one-sentence description for all 505 canonical parameters, so the glossary now says what each
+  quantity *is* rather than only which unit it comes back in — that soil temperatures are at a
+  stated depth under a stated cover, that `wind_movement_24h` is wind run, that
+  `radiation_global` is accumulated energy while `radiation_global_intensity` is power. They are
+  deliberately provider- and resolution-independent, describing the quantity rather than one
+  source's version of it. They appear in the docs glossary today; exposing them through the REST
+  API, CLI and MCP is a separate change, since `discover()` reports name, unit type and unit only
 
 ### Changed
 
@@ -115,8 +208,6 @@ Types of changes:
   Met Office pressure is uncorrected for altitude, that LHMT returns null for cloud cover it cannot
   determine through fog. 224 derived descriptions remain, DMI (52) and RMI (42) the largest, neither
   of which documents its fields anywhere reachable
-
-
 - **Breaking**: `discover()` nests its answer so that every level has a place for its description,
   which had nowhere to go before: `{resolution: {"description": ..., "datasets": {dataset:
   {"description": ..., "parameters": [...]}}}}`. The 88 dataset descriptions and 2 resolution
@@ -124,15 +215,12 @@ Types of changes:
   and `wetterdienst about coverage`, which all pass this dict through as their response. Consumers
   reading `data[resolution][dataset]` as a list of parameters now read
   `data[resolution]["datasets"][dataset]["parameters"]`
-
-
 - The `Parameter` enum is no longer used inside the library. The three places that hard-coded
   parameter names — `TimeseriesRequest.interpolatable_parameters`, interpolation's
   occurrence-based set and the `ts_geo_station_distance` defaults — used it purely to spell a
   lowercased string, and now spell the canonical name directly. All 186 references resolve to the
   same 126/30/30 names as before. Those three lists have since moved into the canonical parameter
   table, see below
-
 - How a parameter behaves in space is declared once, on `CanonicalParameter`, rather than as three
   hand-maintained name lists that had to agree with each other:
   `TimeseriesRequest.interpolatable_parameters`, the `ts_geo_station_distance` defaults in
@@ -148,7 +236,6 @@ Types of changes:
 - **Breaking**, mildly: `TimeseriesRequest.interpolatable_parameters` is a `frozenset` rather than
   a `list`. Every caller in the library only tests membership, but it is a public class attribute,
   so code that indexes or slices it, or relies on its order, needs updating
-
 - **Breaking**: irradiance (`power_per_area`) is now returned in W/m² rather than W/cm², so
   affected values are 10⁴ times larger. W/m² is what WMO specifies and what every source in this
   library actually publishes — MeteoSwiss global radiation now reads 0–1344 W/m² where it used to
@@ -179,12 +266,18 @@ Types of changes:
 - Docs: provider metadata tables no longer repeat the `unit type` column. The unit type is a
   property of the canonical parameter, so it is stated once in the glossary; the `unit` column
   stays, because that really is the individual provider's own
-- Fixed nine provider docs rows that named parameters renamed in the code but not in the docs
-  (`*_indicator` → `*_index` for DWD, `pressure_air_sl` → `pressure_air_sea_level` for
-  Geosphere/NWS, `pressure_air_sh` → `pressure_air_site` for NWS, `flow` → `discharge` for
-  Eaufrance)
-- Fixed `tests/test_docs.py::test_data_coverage`, which had been passing without checking anything
-  because its provider path pointed at `<root>/wetterdienst/provider` instead of `<root>/src/...`
+- The provider docs tables no longer own that text. It lived only in markdown, where no interface
+  could reach it and where the two copies drifted apart in both directions -- three defects found
+  during the unit audit were each caught by the *other* source being right. The model is the source
+  now and `tests/test_docs.py::test_docs_parameter_descriptions_match_the_model` fails if a table
+  disagrees with it
+- Raise several dependency floors that were declared lower than what the code actually needs:
+  `aiohttp>=3.14.0` (`encode_basic_auth`), `stamina>=25.1.0` (`set_testing` as a context manager),
+  `pandas>=2.2.2`, `shapely>=2.0.4` and `h5py>=3.11` (NumPy 2 support),
+  `plotly>=6.1.1` with `kaleido>=1.0.0` (static image export), and `click>=8.2`
+  (separately captured `stderr` in `CliRunner`)
+- Raise the development tooling floors to the versions we develop against, so that the minimum
+  versions job only exercises runtime dependency floors
 
 ### Removed
 
@@ -202,8 +295,6 @@ Types of changes:
   express text in a `Float64` value column
 - `DwdObservationValues.DROPPABLE_COLUMNS`, which duplicated the parser's drop list and had already
   drifted from it. Dropping happens once, in the parser
-
-
 - The `magnetic_field_intensity` and `wave_period` unit types. Each existed for exactly one
   parameter, and both of those turned out to be mis-typed: WSV `current` is a bearing in degrees and
   WSV `wave_period` is a duration in seconds, so neither unit type has anything left to describe
@@ -242,6 +333,16 @@ Types of changes:
 
 ### Fixed
 
+- The whole test suite failed to collect on Python 3.10, the oldest version the project supports:
+  `tests/test_citation.py` imported `tomllib`, which is stdlib only from 3.11. The import error
+  aborted collection, so 3.10 has been running zero tests rather than failing loudly on one. The
+  import is now guarded and falls back to `tomli`, added to the dev group under the same marker
+- Fixed nine provider docs rows that named parameters renamed in the code but not in the docs
+  (`*_indicator` → `*_index` for DWD, `pressure_air_sl` → `pressure_air_sea_level` for
+  Geosphere/NWS, `pressure_air_sh` → `pressure_air_site` for NWS, `flow` → `discharge` for
+  Eaufrance)
+- Fixed `tests/test_docs.py::test_data_coverage`, which had been passing without checking anything
+  because its provider path pointed at `<root>/wetterdienst/provider` instead of `<root>/src/...`
 - `CITATION.cff` names the released version again, and is valid CFF 1.2.0 once more. It had lost
   `version` and `date-released`, and carried an empty `identifiers:` key, which parses as null and
   fails the schema — so the file every citation tool reads described no particular release and
@@ -262,8 +363,6 @@ Types of changes:
   converted to -0.375 and 1.125 of the sky, the second looking like a plausible reading rather than
   a code. Snow depth -1 now returns 0, cloud cover -3 and 9 return null. Frost keeps the codes out
   of its own monthly and annual means, so only the elements themselves are touched
-
-
 - **Breaking**: DWD hourly cloud cover no longer reports -0.125 of the sky. `cloud_cover_total`
   (`v_n`) and `cloud_cover_layer1` to `cloud_cover_layer4` (`v_sN_ns`) carry -1 where the sky could
   not be seen at all, SYNOP's N = 9, and being declared in eighths that converted to -0.125 as a
@@ -272,7 +371,6 @@ Types of changes:
   observations, and fog codes (`ww` 40-49) accompany 69.1% of those against 0.8% of the rest. The
   cloud *type* codes beside them keep their -1, DWD's own value for an automated observation, which
   is dimensionless and so passes through unscaled
-
 - Descriptions no longer leak between resolutions. `build_metadata_model` wrote them into the
   metadata dicts it was given, and providers commonly build one resolution's parameter list from
   another's by comprehension, which reuses the very same dicts: AEMET's annual parameters are its
@@ -288,133 +386,17 @@ Types of changes:
 - IMGW's monthly `climate` dataset was documented under a stale `data` heading carrying the
   parameter names it had before the dataset was renamed, and DWD derived still labelled
   `count_days_cooling_degree` "Anzahl Kühltage" where the column is `Kuehltage`
-
-- DWD hourly solar `true_local_time_offset` (`mess_datum_woz`), a new canonical parameter holding
-  how far true local solar time runs ahead of a record's timestamp -- the longitude correction plus
-  the equation of time. Solar records are stamped with the UTC instant of a whole true-solar-time
-  hour, so the correction sits in the minutes of that timestamp, which wetterdienst rounds to the
-  hour so a solar series lines up with every other hourly series. The rounding discarded it and the
-  column that also held it was dropped, so it was not reachable at all. At station 00183 it runs 40
-  to 71 minutes, its monthly mean tracing the equation of time from 40.4 in February to 69.1 in
-  November about a 54.7 minute longitude term
-
-- DWD's two measurement method indicators are returned instead of dropped:
-  `cloud_cover_total_measurement_method` (`v_n_i`, hourly cloud_type and cloudiness) and
-  `visibility_range_measurement_method` (`v_vv_i`, hourly visibility). DWD writes them as letters
-  -- `P` for a human person, `I` for an instrument -- in files that are otherwise numeric, and the
-  value column is Float64, so both were declared but silently dropped and a request for them
-  returned an empty frame. They are now decoded to 1 for `P` and 2 for `I`. The digits are
-  wetterdienst's, not DWD's: they follow the order DWD lists the letters in, and 0 is left unused
-  so "not measured" stays distinguishable from either method
-
-- Every DWD parameter now carries a description, 717 of 717 across observation, mosmix, dmo,
-  derived, road and swsmos. 25 came from correcting the docs (below), the rest are derived: where a
-  source publishes no prose at all, the text is taken from the same canonical parameter at the same
-  resolution elsewhere -- the same quantity over the same interval, so the wording transfers -- or
-  from the canonical sentence. Those sit in `DERIVED_DESCRIPTIONS`, apart from
-  `SOURCE_DESCRIPTIONS` and applied only where nothing else supplies one, so a derived sentence is
-  never mistaken for a source's own wording
-
-
 - 21 docs rows named a field the provider does not use. DWD MOSMIX and DMO documented low cloud
   cover as `n1` where the element is `nl`, DWD derived used the label "Anzahl Kühltage" where the
   column is `Kuehltage`, and ECCC and IMGW carried names from before their APIs changed. Each was
   a row whose description could not reach the model, so correcting them recovered 25 descriptions
   that already existed
-
-- Dataset and resolution descriptions on the metadata models: 88 of 148 datasets and 2 resolutions,
-  lifted out of the provider docs metadata tables the same way the parameter descriptions were.
-  `DatasetModel.description` and `ResolutionModel.description` had been declared but never
-  populated, so `metadata["hourly"]["data"].description` returned `None` for every provider.
-  `tests/test_docs.py` checks the tables still agree with the model, ignoring the trailing
-  `([details](url))` pointer the pages add, which is page formatting rather than description
-
-- Source descriptions for 1057 parameters, in `metadata.source_descriptions` and reported by
-  `discover()` -- so by `GET /api/coverage`, the `coverage` MCP tool and `wetterdienst about
-  coverage`. These say what a given provider's field means, as against the canonical,
-  provider-independent sentence the glossary serves
-- The provider docs tables no longer own that text. It lived only in markdown, where no interface
-  could reach it and where the two copies drifted apart in both directions -- three defects found
-  during the unit audit were each caught by the *other* source being right. The model is the source
-  now and `tests/test_docs.py::test_docs_parameter_descriptions_match_the_model` fails if a table
-  disagrees with it
-- 113 DWD observation descriptions come from the English `DESCRIPTION_*_en.pdf` sheets, which are
-  more specific than the text the docs carried ("The solar incoming radiation includes the direct
-  and the diffuse part ..." against "hourly sum of solar incoming radiation"). DWD CDC is Creative
-  Commons BY 4.0, so its wording is reproduced with attribution. A sheet's cell is used only where
-  it says at least as much as the curated text: some are terse, a few truncated -- `V_S1_NS` reads
-  "cloud cover of 1. laye" and `V_S2_NS` repeats it for the second layer -- and two are left
-  untranslated in an otherwise English sheet
-
-- Source descriptions for DWD observation parameters: what a given DWD field means in DWD's own
-  words, alongside the canonical, provider-independent sentence the glossary already served. 133
-  parameters across the 30 datasets that publish an English description sheet, transcribed into
-  `provider/dwd/observation/descriptions.py` and attached to the metadata at import. DWD CDC is
-  Creative Commons BY 4.0, so the wording is reproduced with attribution to the Deutscher
-  Wetterdienst; the module records the source URL and licence
-- `description` now appears in `discover()`, and therefore in `GET /api/coverage`, the `coverage`
-  MCP tool and `wetterdienst about coverage`. `ParameterModel.description` had been a declared but
-  entirely unused field -- as are `DatasetModel.description` and `ResolutionModel.description`,
-  which remain unpopulated
-
-- ECCC monthly and hourly expose the fields that were previously left undeclared, with twelve new
-  canonical parameters for them. Monthly gains the day counts
-  (`count_days_precipitation_height_ge_1mm` and the six `count_days_valid_*`) and the
-  climatological normals (`temperature_air_mean_2m_normal`, `precipitation_height_normal`,
-  `snow_depth_new_normal`, `sunshine_duration_normal`); hourly gains `temperature_humidex`. Units
-  were taken from the values rather than assumed: each normal matches the range of the quantity it
-  is a normal of in the same response, and humidex sits at or above the air temperature in all 233
-  paired observations sampled, which is what an apparent temperature does
-
-- CI: new `Minimum dependency versions` job that resolves every direct dependency to the lowest
-  version its specifier allows (`UV_RESOLUTION=lowest-direct`) and runs the test suite against it,
-  so that declared floors are actually exercised
-- Canonical parameter table (`wetterdienst.metadata.parameter_table`) holding the `unit_type` of
-  each of the 505 canonical parameter names in one place, plus a test that checks every provider
-  declaration against it — that the name is canonical and that the declared `unit` is a unit of
-  that quantity. The table is now the single source of `unit_type`; see below
-- New canonical parameters `radiation_global_intensity`, `radiation_sky_long_wave_intensity` and
-  `radiation_sky_short_wave_diffuse_intensity` for sources that report irradiance (power per area)
-  rather than irradiation accumulated over the interval (energy per area)
-- Docs: a parameter glossary on the Parameters page, built from the canonical parameter table at
-  build time by the local Sphinx extension `docs/_ext/parameter_glossary.py`. Every parameter in
-  every provider's metadata table now links to its glossary entry
-- `wetterdienst.metadata.unit_type.UnitType`, a literal of the unit types the unit converter
-  knows. `CanonicalParameter.unit_type` is typed with it, so a mistyped unit type in the parameter
-  table is a type error rather than something only a test can catch. A test pins the literal to
-  `UnitConverter` in both directions, since the converter builds its unit types as a runtime dict
-  that no static type can be derived from
-- Two unit types the audit of the canonical table turned up as missing: `mass_per_volume`
-  (g/m³, kg/m³, and mg/l and g/l shared with `concentration`, which is the same quantity under a
-  different convention — 1 mg/l is 1 g/m³) and `degree_hour` (°Ch, Kh, °Fh), kept apart from
-  `degree_day` so that a quantity accumulated per hour is not reported per day
-- New canonical parameter `cooling_degree_day`, the counterpart of `heating_degree_day`
-- Parameter discovery across all three interfaces: `GET /api/glossary`, the `glossary` MCP tool and
-  `wetterdienst about glossary`. `coverage` answers which parameters a given provider offers; the
-  glossary answers what any of them measures and which unit it comes back in — neither of which
-  `coverage` reports. Filter with `parameter=` (substring match over the 505 names), `unit_type=`
-  (a closed vocabulary, so an unknown one is a 422 or a CLI usage error rather than an empty
-  result) and `limit=` to cap the response. The unit reported is the one a values request would
-  actually return, including any `ts_unit_targets` override. This is what puts the canonical
-  descriptions in front of users rather than only in the docs. A filter matching nothing is an
-  empty list over HTTP and a non-zero exit on the CLI, the latter following grep so a shell script
-  can tell
-- A one-sentence description for all 505 canonical parameters, so the glossary now says what each
-  quantity *is* rather than only which unit it comes back in — that soil temperatures are at a
-  stated depth under a stated cover, that `wind_movement_24h` is wind run, that
-  `radiation_global` is accumulated energy while `radiation_global_intensity` is power. They are
-  deliberately provider- and resolution-independent, describing the quantity rather than one
-  source's version of it. They appear in the docs glossary today; exposing them through the REST
-  API, CLI and MCP is a separate change, since `discover()` reports name, unit type and unit only
-
-
 - DWD's layer cloud cover descriptions are correct. Its English sheet truncates `V_S1_NS` to "cloud
   cover of 1. laye" and then repeats that same string for `V_S2_NS`, so the second layer was
   described as the first. The German `Metadaten_Parameter` file inside the data ZIPs has both right
   ("Bedeckungsgrad in der ersten/zweiten Schicht"), and all four layers now read consistently.
   `end_of_interval` and `luftdruck_nn`, which DWD documents in neither language, are described
   plainly; every non-quality DWD observation parameter now has a description
-
 - **Breaking**: DWD's `v_n_i` and `v_vv_i` are named for what they hold. Both are *measurement
   method* indicators -- P for a human observer, I for an instrument, which is why the parser lists
   them among its string parameters -- while `cloud_cover_total_index` and `visibility_range_index`
@@ -425,7 +407,6 @@ Types of changes:
   ("Coded indicator of the visibility range") always described DWD subdaily `vk_ter` rather than
   what it was attached to. `cloud_cover_total_index` is removed; no provider declares a coded cloud
   cover
-
 - **Breaking**: four DWD subdaily parameters named the wrong quantity, not merely the wrong unit.
   DWD's own `Metadaten_Parameter_*.txt`, shipped inside every data ZIP, gives each field a
   description and a unit, and for these four it disagreed with what wetterdienst declared:
@@ -445,7 +426,6 @@ Types of changes:
     signature. Now `temperature_wet_mean_2m`
 - Three new canonical parameters for the above: `temperature_wet_ice_formation`,
   `soil_state_index` and `visibility_range_class`, all dimensionless
-
 - **Breaking**: Geosphere `cloud_cover_total` is returned as a fraction rather than a percentage
   passed off as one. It was declared `decimal` while Geosphere documents `bewm_mittel` as `1/100`
   and returns 0-100, so the raw percentage went straight through the `fraction` target unconverted
@@ -455,7 +435,6 @@ Types of changes:
 - **Breaking**: DWD road `visibility_range` is returned in metres rather than 1000x too large. It
   was declared `kilometer`, but BUFR `0 20 001 horizontalVisibility` is metres, nothing in the
   parser converts, and the provider's own docs page already said `m`
-
 - **Breaking**: ECCC hourly and monthly return data at all. Both resolutions declared parameters
   the OGC API never publishes -- hourly carried a copy of the *daily* field list
   (`max_temperature`, `snow_on_ground`, the degree days), monthly carried bulk-CSV column headers
@@ -479,7 +458,6 @@ Types of changes:
   is `-5:17:32` in 1895, an offset that is not a whole number of minutes and that polars rejects;
   the conversion to UTC now happens in Python. A handful of stations publish no timezone at all
   and fall back to UTC. Neither showed up while the listing stopped at 500 rows
-
 - **Breaking**: WSV Pegelonline values are now scaled to the unit the metadata declares. The service
   publishes the unit per *timeseries*, not per parameter, and its stations disagree, so a single
   declaration was silently wrong wherever a station differed. Water level is `cm` at most gauges but
@@ -518,7 +496,6 @@ Types of changes:
   parameter whose *download* fails is indistinguishable from one that simply has no data at this
   point — both surface as an empty frame — so such a parameter is now omitted from the result
   rather than failing the whole request with the `ShapeError` above
-
 - **Breaking**: conductivity conversions between per-centimetre and per-metre units were wrong, 8
   of the 12 pairs by 10²–10⁴. Conductivity is per unit *length*, so a shorter length in the
   denominator means a larger number — 1 S/cm is 100 S/m, not 1/100 of one — and the conversions
@@ -538,13 +515,6 @@ Types of changes:
 - Fixed four more provider docs rows that named parameters renamed in the code but not in the docs:
   DWD 1-minute and 5-minute `precipitation_form` → `precipitation_index`, and the `unit` cell of
   DWD DMO hourly `visibility_range`, which repeated the unit type instead of naming the unit
-- Raise several dependency floors that were declared lower than what the code actually needs:
-  `aiohttp>=3.14.0` (`encode_basic_auth`), `stamina>=25.1.0` (`set_testing` as a context manager),
-  `pandas>=2.2.2`, `shapely>=2.0.4` and `h5py>=3.11` (NumPy 2 support),
-  `plotly>=6.1.1` with `kaleido>=1.0.0` (static image export), and `click>=8.2`
-  (separately captured `stderr` in `CliRunner`)
-- Raise the development tooling floors to the versions we develop against, so that the minimum
-  versions job only exercises runtime dependency floors
 - **Breaking**: ECCC daily `cooling_degree_days` and `heating_degree_days` were mapped onto the
   canonical names `count_days_cooling_degree` and `count_days_heating_degree`, which mean a number
   of days. ECCC publishes the degree day total for the single day the record covers, so the values
@@ -555,7 +525,7 @@ Types of changes:
   quantities under their own names, and is unaffected. The same two declarations exist in the
   ECCC *hourly* block and were renamed with them, but that block declares the daily field list
   wholesale and the hourly collection publishes none of those fields, so nothing there returns
-  data either way — see below
+  data either way — see above
 - **Breaking**: ECCC `wind_direction_gust_max` is returned in degrees rather than tens of degrees.
   ECCC publishes `DIRECTION_MAX_GUST` in tens — its own docs call the column
   `Dir of Max Gust (10s deg)` — and the declaration said `degree`, so every bearing came back 10×
@@ -2702,7 +2672,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.132.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.133.0...HEAD
+[0.133.0]: https://github.com/earthobservations/wetterdienst/compare/v0.132.0...v0.133.0
 [0.132.0]: https://github.com/earthobservations/wetterdienst/compare/v0.131.0...v0.132.0
 [0.131.0]: https://github.com/earthobservations/wetterdienst/compare/v0.130.0...v0.131.0
 [0.130.0]: https://github.com/earthobservations/wetterdienst/compare/v0.129.0...v0.130.0
