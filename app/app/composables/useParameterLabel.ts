@@ -29,7 +29,7 @@ const glossaries: Record<string, typeof glossaryEn> = {
  * Maps backend identifiers (parameters, resolutions, datasets) to human-friendly
  * labels.
  *
- * Lookup chain (hybrid, frontend-first):
+ * Lookup chain (hybrid, app-first):
  *   1. curated glossary for the active locale
  *   2. prettified raw id (underscores -> spaces, capitalised)
  *

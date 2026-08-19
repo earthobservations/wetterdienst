@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { expect, test } from '@playwright/test'
 
-// Every request here goes through the frontend's own catch-all at `server/api/[...].get.ts`
+// Every request here goes through the app's own catch-all at `server/api/[...].get.ts`
 // (relative URLs resolve against `baseURL`, port 4000), unlike `api.spec.ts` which talks to the
 // backend directly on port 3000. That handler streams the upstream response straight through, so
 // what needs guarding is fidelity: status codes, bodies and query parameters must survive the hop.

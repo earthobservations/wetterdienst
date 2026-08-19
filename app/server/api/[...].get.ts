@@ -45,11 +45,11 @@ export default defineEventHandler(async (event): Promise<unknown> => {
       // they can still be removed.
       onResponse() {
         // The backend sets no cookies today, but if that ever changes they would land scoped to the
-        // frontend's origin instead of the backend's -- a session boundary we should not move by
+        // app's origin instead of the backend's -- a session boundary we should not move by
         // accident.
         event.node.res.removeHeader('set-cookie')
         // Advertises HTTP/3 for whatever origin serves the response, so relaying it here would
-        // claim support on the frontend's behalf.
+        // claim support on the app's behalf.
         event.node.res.removeHeader('alt-svc')
         // No reason to tell clients which server stack sits behind the proxy.
         event.node.res.removeHeader('server')

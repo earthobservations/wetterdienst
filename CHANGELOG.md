@@ -68,6 +68,9 @@ Types of changes:
   publish-day breakage are most often caught in that window. The lockfile records it as a relative
   span (`exclude-newer-span = "P3D"`), not a timestamp, so it does not churn between runs and
   `uv lock --check` stays stable
+- Docs: the REST API page's "Web Frontend" section is "Web App", matching what the app has been
+  called since it moved to `app/`. The stripes page and the pull-request checklist follow, as do
+  the Météo-France comments that explain which caller depends on a populated `start_date`
 - Docs: the README states what the project stands for, in the same four lines the app closes with,
   and opens with "Global warming is not an opinion" rather than the Fridays for Future chant -- the
   one claim a weather-data library backs up by existing. Anthropic gets a logo next to JetBrains

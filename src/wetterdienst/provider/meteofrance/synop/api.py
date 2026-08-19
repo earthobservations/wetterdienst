@@ -126,7 +126,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
         read_columns = ["geo_id_wmo", "validity_time", *parameter_columns]
         dfs = []
         # clamp to the years actually covered by the archive: station opening dates (used as a
-        # fallback start_date by e.g. the frontend) can predate 1996, and requesting a year
+        # fallback start_date by e.g. the app) can predate 1996, and requesting a year
         # outside [1996, current_year] would 404
         first_year = max(start_date.year, _SYNOP_ARCHIVE_START_YEAR)
         last_year = min(end_date.year, current_year)

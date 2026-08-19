@@ -15,4 +15,4 @@
 - [ ] Tests added or updated
 - [ ] `uv run poe format` passed
 - [ ] Remote/slow tests verified if network code was touched
-- [ ] Frontend changes tested locally (if applicable)
+- [ ] App changes tested locally (if applicable)

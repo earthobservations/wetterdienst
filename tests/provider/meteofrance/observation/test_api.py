@@ -43,9 +43,9 @@ def test_meteofrance_observation_api_daily_stations() -> None:
     df = request.df
     assert not df.is_empty()
     assert df.get_column("name").to_list() == ["TOULOUSE-BLAGNAC"]
-    # regression check: start_date must be populated, since the frontend seeds its date-range
+    # regression check: start_date must be populated, since the app seeds its date-range
     # picker from it; end_date is legitimately null here since the station is still open (the
-    # frontend already falls back to "today" for a null end_date)
+    # app already falls back to "today" for a null end_date)
     assert df.get_column("start_date").is_not_null().all()
 
 

@@ -10,7 +10,7 @@ const { t } = useI18n()
 const backend = await $fetch<{ version: string, mcp_enabled?: boolean }>('/api/version').catch(() => null)
 const mcpEnabled = computed(() => backend?.mcp_enabled === true)
 
-// The MCP endpoint is served on this app's own origin: the frontend proxies /mcp through to the
+// The MCP endpoint is served on this app's own origin: the app proxies /mcp through to the
 // backend, preserving the streamable-HTTP transport. Reading the origin rather than hard-coding
 // the public URL means the snippet is also correct on a self-hosted or local instance.
 const mcpUrl = computed(() => `${useRequestURL().origin}/mcp`)
