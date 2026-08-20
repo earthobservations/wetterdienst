@@ -50,7 +50,8 @@ if TYPE_CHECKING:
 #   lying snow, model probabilities. Meaningful out to the wide default radius.
 # - "heterogeneous": a field that decorrelates over a much shorter distance -- precipitation and
 #   fresh snow, which are convectively driven, and visibility, which is made and unmade by fog
-#   banks a few kilometres across. Halved radius.
+#   banks a few kilometres across. Half the radius at hourly resolution, and the radius follows the
+#   accumulation period from there -- see `Settings.ts_geo_station_distance_for`.
 # - ``None``: not interpolated at all. Coded observations (weather type, cloud genus, road surface
 #   condition), quality flags, counts and bookkeeping have no meaningful value between two
 #   stations, and neither do quantities tied to a particular body of water (discharge, stage,

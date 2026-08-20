@@ -163,12 +163,18 @@ multiplied by a factor that depends on the resolution of the request:
 | `hourly`                                              | 1.0    | 20 km  |
 | `6_hour`, `subdaily`                                  | 1.5    | 30 km  |
 | `daily`                                               | 2.0    | 40 km  |
-| `monthly`, `annual`                                   | 3.0    | 60 km  |
+| `monthly`, `annual`                                   | 3.0    | 40 km, capped |
 
 The homogeneous radius does not scale. What bounds it is terrain rather than correlation -- daily
 temperature stays correlated over hundreds of kilometres, while `apply_interpolation` works on UTM
 x/y and never reads station height -- and terrain does not care how long a quantity was accumulated
 for.
+
+That same bound caps the scaled radius: precipitation is more orographically driven than
+temperature, not less, so it may not be drawn from farther than the smoothest field is allowed to
+be. This is why `monthly` and `annual` stop at 40 km rather than the 60 km their factor asks for.
+Raising `ts_geo_station_distance_homogeneous` lifts the cap with it. A radius written out per
+parameter is not capped: it says what it says.
 
 The fine end stops short of the correlation length on purpose: interpolation needs four surrounding
 stations, and even the DWD network rarely has four rain gauges within 8 km of a point, so 15 km is
@@ -189,6 +195,13 @@ eleven, and a resolution that does not exist is rejected the way an unknown para
 Setting every factor to 1.0 turns the scaling off. A radius written out per parameter in
 `ts_geo_station_distance` is used exactly as given, at every resolution -- a number you wrote means
 that number.
+
+```{note}
+Tightening the fine end is the one direction that can turn a request that used to answer into an
+empty one: the interpolation needs four surrounding stations, and 15 km may not reach four of them
+in a sparse network. The log says which stations were dropped as too far away; raising the factor
+for that resolution, or the radius for that parameter, brings them back.
+```
 
 The example below widens the radius for precipitation to 25 km:
 

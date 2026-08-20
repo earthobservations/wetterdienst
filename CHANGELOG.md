@@ -36,25 +36,29 @@ Types of changes:
   for `summarize`) and the REST API as query parameters of the same names. A radius that is not
   given is left out rather than passed as the library default, so a server configured through
   `WD_TS_GEO_STATION_DISTANCE_*` keeps its own
-- The heterogeneous search radius follows the resolution of the request, through
-  `ts_geo_station_distance_resolution_factors`: 0.75 for the minute resolutions, 1.0 hourly, 1.5
-  for `6_hour` and `subdaily`, 2.0 daily and 3.0 monthly and annual, so precipitation is drawn from
-  15 km at `minute_10` and 40 km at `daily` where one fixed 20 km stood before. A quantity that
-  decorrelates fast in space does so less the longer it is accumulated -- gauge studies put the
-  correlation length of precipitation at roughly 8 km over ten minutes, 27 km over three hours and
-  33 to 94 km over a day -- and one radius cannot serve both ends of that. The homogeneous radius
-  does not scale: what bounds it is terrain rather than correlation, and terrain does not care how
-  long a quantity was accumulated for. The fine end stops short of the 8 km the literature gives,
-  since interpolation needs four surrounding stations and even the DWD network rarely has four rain
-  gauges that close. Resolutions left out of the setting keep their factor, every factor set to 1.0
-  turns the scaling off, and a radius written out per parameter in `ts_geo_station_distance` is
-  used exactly as given, at every resolution
 - `wetterdienst summarize` reaches the settings that `interpolate` always could:
   `--summary_station_distance` and `--use_nearby_station_distance` had no command options at all,
   so the summary CLI always ran with the defaults
 
 ### Changed
 
+- **Breaking**: the heterogeneous search radius follows the resolution of the request, so an
+  interpolation or summary that already worked returns different values without anything being
+  changed by hand: daily precipitation is drawn from 40 km rather than 20, `minute_10` from 15 km
+  rather than 20. A quantity that decorrelates fast in space does so less the longer it is
+  accumulated -- gauge studies put the correlation length of precipitation at roughly 8 km over ten
+  minutes, 27 km over three hours and 33 to 94 km over a day -- and one radius cannot serve both
+  ends of that. The factors are `ts_geo_station_distance_resolution_factors`: 0.75 for the minute
+  resolutions, 1.0 hourly, 1.5 for `6_hour` and `subdaily`, 2.0 daily, 3.0 monthly and annual.
+  Resolutions left out keep their factor and every factor set to 1.0 turns the scaling off. Three
+  things do not move: the homogeneous radius, since what bounds it is terrain rather than
+  correlation; the scaled radius past that same terrain bound, which is why monthly and annual stop
+  at 40 km rather than the 60 their factor asks for -- precipitation is more orographically driven
+  than temperature, not less; and a radius written out per parameter in `ts_geo_station_distance`,
+  which is used exactly as given, at every resolution. The fine end stops short of the 8 km the
+  literature gives, since interpolation needs four surrounding stations and even the DWD network
+  rarely has four rain gauges that close -- in a sparse network 15 km may leave a request that used
+  to answer with nothing, and raising the factor for that resolution brings it back
 - **Breaking**: the `"default"` key of `ts_geo_station_distance` is gone, in favour of the two
   radii settings above. It was undocumented and did more than it said: it rebuilt the mapping
   around the given number and so replaced the shorter radius of every heterogeneous parameter

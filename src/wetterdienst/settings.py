@@ -155,8 +155,9 @@ class Settings(BaseSettings):
     ts_geo_station_distance_homogeneous: Annotated[float, Field(ge=0)] = _STATION_DISTANCE_HOMOGENEOUS
     ts_geo_station_distance_heterogeneous: Annotated[float, Field(ge=0)] = _STATION_DISTANCE_HETEROGENEOUS
     # per-parameter overrides of the two radii above, given as canonical parameter names. holds the
-    # overrides alone while validating and the effective mapping -- radii, table and overrides --
-    # from `expand_ts_geo_station_distance` on
+    # overrides alone while validating and the mapping -- radii, table and overrides -- from
+    # `expand_ts_geo_station_distance` on. that mapping is the radius at hourly resolution;
+    # `ts_geo_station_distance_for` gives the one a request actually uses
     ts_geo_station_distance: defaultdict[str, float] = Field(default_factory=dict)
     # how the heterogeneous radius grows with the accumulation period, keyed by resolution. Only
     # the resolutions named here differ from `_STATION_DISTANCE_RESOLUTION_FACTORS`; the rest keep
@@ -301,8 +302,9 @@ class Settings(BaseSettings):
         """Return how far a station may be to still be used for this parameter at this resolution.
 
         `ts_geo_station_distance` answers the same question without the resolution, which is the
-        radius before it is scaled. A radius the user set for the parameter by hand is returned as
-        it was given: a number written out means that number, at every resolution.
+        radius before it is scaled -- the radius at hourly resolution. A radius the user set for the
+        parameter by hand is returned as it was given: a number written out means that number, at
+        every resolution, and is not held to the terrain cap either.
         """
         overrides = self._ts_geo_station_distance_overrides or {}
         if parameter_name in overrides:
@@ -310,7 +312,12 @@ class Settings(BaseSettings):
         parameter = PARAMETERS.get(parameter_name)
         if parameter is None or parameter.interpolation != "heterogeneous":
             return self.ts_geo_station_distance_homogeneous
-        return self.ts_geo_station_distance_heterogeneous * self.ts_geo_station_distance_resolution_factor(resolution)
+        scaled = self.ts_geo_station_distance_heterogeneous * self.ts_geo_station_distance_resolution_factor(resolution)
+        # the homogeneous radius is where interpolating on UTM x/y stops being safe in complex
+        # terrain, and that bound does not lift because a quantity was accumulated for longer.
+        # Precipitation is more orographically driven than temperature, not less, so it may not
+        # reach past the distance the smoothest field is held to
+        return min(scaled, self.ts_geo_station_distance_homogeneous)
 
     @property
     def ts_tidy(self) -> bool:

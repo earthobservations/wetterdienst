@@ -447,7 +447,7 @@
     "nearbyDistanceHint": "Distanza massima per considerare le stazioni vicine. Se una stazione rientra in questa distanza, verrà usato il suo valore reale invece di interpolare/sintetizzare.",
     "advancedSettings": "Impostazioni avanzate",
     "stationDistanceByParam": "Distanza delle stazioni per parametro",
-    "stationDistanceHint": "Distanza massima (km) da una stazione. I parametri omogenei come la temperatura variano lentamente su una regione (40 km a ogni risoluzione), quelli eterogenei come la precipitazione si decorrelano più rapidamente (20 km oraria, 15 km alle risoluzioni al minuto, fino a 60 km annuale). I singoli parametri possono essere sovrascritti sotto.",
+    "stationDistanceHint": "Distanza massima (km) da una stazione. I parametri omogenei come la temperatura variano lentamente su una regione (40 km a ogni risoluzione), quelli eterogenei come la precipitazione si decorrelano più rapidamente (20 km oraria, 15 km alle risoluzioni al minuto, fino a 40 km dalla giornaliera in su). I singoli parametri possono essere sovrascritti sotto.",
     "stationDistanceHomogeneous": "Omogeneo (es. temperatura)",
     "stationDistanceHeterogeneous": "Eterogeneo (es. precipitazione)",
     "addParameter": "Aggiungi parametro",
