@@ -199,7 +199,17 @@ Resolutions left out keep their factor, so the setting stays the list of departu
 eleven, and a resolution that does not exist is rejected the way an unknown parameter name is.
 Setting every factor to 1.0 turns the scaling off. The cap only ever bounds what the scaling adds:
 a `ts_geo_station_distance_heterogeneous` wider than the homogeneous radius is used as it was set,
-since it was asked for rather than derived. A radius written out per parameter in
+since it was asked for rather than derived.
+
+The factors are set in Python or in the environment only. The two radii and the per-parameter
+overrides are also request options in the CLI and the REST API, as shown below, but the factors are
+a property of the instance rather than of a request.
+
+To ask what a request will actually use, rather than reading it off the table:
+
+```python
+settings.ts_geo_station_distance_for("precipitation_height", "daily")  # 40.0
+``` A radius written out per parameter in
 `ts_geo_station_distance` is used exactly as given, at every resolution -- a number you wrote means
 that number.
 
@@ -265,8 +275,8 @@ the summarized values of the parameter ``temperature_air_mean_2m`` from multiple
 
 It currently only works for ``DwdObservationRequest`` and individual parameters. It supports
 the same parameters as interpolation, listed in the
-[parameter glossary](../data/parameters.md), and applies the same per-parameter search radius
-when deciding whether a station is close enough to be used.
+[parameter glossary](../data/parameters.md), and decides whether a station is close enough by
+[the search radius](#the-search-radius) above, resolution scaling and all.
 
 ```{code-cell}
 ---
