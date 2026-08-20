@@ -447,7 +447,7 @@
     "nearbyDistanceHint": "Maximale Entfernung, um nahe Stationen zu berücksichtigen. Liegt eine Station innerhalb dieser Entfernung, wird ihr tatsächlicher Wert verwendet statt zu interpolieren/zusammenzufassen.",
     "advancedSettings": "Erweiterte Einstellungen",
     "stationDistanceByParam": "Stationsentfernung je Parameter",
-    "stationDistanceHint": "Maximale Entfernung (km) zu einer Station. Homogene Parameter wie Temperatur ändern sich langsam über eine Region (40 km), heterogene wie Niederschlag dekorrelieren schneller (20 km). Einzelne Parameter lassen sich unten überschreiben.",
+    "stationDistanceHint": "Maximale Entfernung (km) zu einer Station. Homogene Parameter wie Temperatur ändern sich langsam über eine Region (40 km bei jeder Auflösung), heterogene wie Niederschlag dekorrelieren schneller (20 km stündlich, 15 km bei den Minutenauflösungen, bis 60 km jährlich). Einzelne Parameter lassen sich unten überschreiben.",
     "stationDistanceHomogeneous": "Homogen (z. B. Temperatur)",
     "stationDistanceHeterogeneous": "Heterogen (z. B. Niederschlag)",
     "addParameter": "Parameter hinzufügen",

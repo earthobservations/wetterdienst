@@ -68,8 +68,11 @@ def request_stations(
     param_dict = {}
     stations_dict = {}
     settings = cast("Settings", request.settings)
-    parameter_names = {parameter.name for parameter in request.parameters if isinstance(parameter, ParameterModel)}
-    max_interp_distance = max(settings.ts_geo_station_distance[parameter_name] for parameter_name in parameter_names)
+    max_interp_distance = max(
+        settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
+        for parameter in request.parameters
+        if isinstance(parameter, ParameterModel)
+    )
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=max_interp_distance)
     df_stations_ranked = stations_ranked.df
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
@@ -129,8 +132,10 @@ def apply_station_values_per_parameter(
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
-        ts_interpolation_station_distance = settings.ts_geo_station_distance
-        if station["distance"] > ts_interpolation_station_distance[parameter.name.lower()]:
+        # the radius follows the resolution for a parameter that decorrelates fast in space, so it
+        # is asked for per parameter and resolution rather than read off a mapping
+        station_distance = settings.ts_geo_station_distance_for(parameter.name, dataset.resolution.name)
+        if station["distance"] > station_distance:
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
         param_key = (dataset.resolution.name, dataset.name, parameter.name)

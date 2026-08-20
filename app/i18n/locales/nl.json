@@ -447,7 +447,7 @@
     "nearbyDistanceHint": "Maximale afstand om nabijgelegen stations te overwegen. Als een station binnen deze afstand ligt, wordt de werkelijke waarde gebruikt in plaats van interpolatie/samenvatting.",
     "advancedSettings": "Geavanceerde instellingen",
     "stationDistanceByParam": "Stationsafstand per parameter",
-    "stationDistanceHint": "Maximale afstand (km) tot een station. Homogene parameters zoals temperatuur variëren langzaam over een regio (40 km), heterogene zoals neerslag decorreleren sneller (20 km). Afzonderlijke parameters kunnen hieronder worden overschreven.",
+    "stationDistanceHint": "Maximale afstand (km) tot een station. Homogene parameters zoals temperatuur variëren langzaam over een regio (40 km bij elke resolutie), heterogene zoals neerslag decorreleren sneller (20 km per uur, 15 km bij de minuutresoluties, tot 60 km jaarlijks). Afzonderlijke parameters kunnen hieronder worden overschreven.",
     "stationDistanceHomogeneous": "Homogeen (bijv. temperatuur)",
     "stationDistanceHeterogeneous": "Heterogeen (bijv. neerslag)",
     "addParameter": "Parameter toevoegen",

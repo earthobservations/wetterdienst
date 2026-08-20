@@ -118,7 +118,7 @@ quantity decorrelates in space, so two radii carry that decision:
 | Setting                                 | Default | Applies to                                                                                                                                                                    |
 |-----------------------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `ts_geo_station_distance_homogeneous`   | 40 km   | quantities that vary slowly across a region: air, soil, concrete, dew-point, wet-bulb and surface temperatures, humidity, wind speed and gust, air pressure, cloud cover, sunshine and radiation, soil moisture, evapotranspiration and evaporation, accumulated snow depth and the forecast probabilities |
-| `ts_geo_station_distance_heterogeneous` | 20 km   | quantities that decorrelate within a few tens of kilometres: precipitation in all its variants, new snow per period and visibility |
+| `ts_geo_station_distance_heterogeneous` | 20 km at hourly resolution | quantities that decorrelate within a few tens of kilometres: precipitation in all its variants, new snow per period and visibility |
 
 Which of the two a parameter belongs to is declared per parameter; the
 [parameter glossary](../data/parameters.md) names the radius for every parameter. Changing a
@@ -149,13 +149,46 @@ longer leaves the parameter you meant at its default radius without saying so, a
 distance is rejected too. A radius set for a parameter that is never interpolated is a warning: the
 name is real, but interpolation skips the parameter before the distance is ever compared.
 
-```{note}
-The two defaults are a compromise across resolutions. Daily temperature stays correlated far
-beyond 40 km -- that radius is a terrain-safety limit rather than a correlation one, since the
-interpolation works on UTM x/y and never reads station height -- while precipitation decorrelates
-over roughly 8 km at 10 minutes but 30 to 90 km over a day. If your resolution sits far from that
-compromise, move the radius.
+#### The heterogeneous radius follows the resolution
+
+A quantity that decorrelates fast in space does so less the longer it is accumulated. Gauge studies
+put the correlation length of precipitation at roughly 8 km over ten minutes, 27 km over three
+hours and 33 to 94 km over a day, the upper end for the stratiform rain that dominates
+north-western Europe. One number cannot serve both ends of that, so the heterogeneous radius is
+multiplied by a factor that depends on the resolution of the request:
+
+| Resolution                                            | Factor | Radius |
+|-------------------------------------------------------|--------|--------|
+| `1_minute`, `5_minutes`, `6_minutes`, `10_minutes`, `15_minutes` | 0.75   | 15 km  |
+| `hourly`                                              | 1.0    | 20 km  |
+| `6_hour`, `subdaily`                                  | 1.5    | 30 km  |
+| `daily`                                               | 2.0    | 40 km  |
+| `monthly`, `annual`                                   | 3.0    | 60 km  |
+
+The homogeneous radius does not scale. What bounds it is terrain rather than correlation -- daily
+temperature stays correlated over hundreds of kilometres, while `apply_interpolation` works on UTM
+x/y and never reads station height -- and terrain does not care how long a quantity was accumulated
+for.
+
+The fine end stops short of the correlation length on purpose: interpolation needs four surrounding
+stations, and even the DWD network rarely has four rain gauges within 8 km of a point, so 15 km is
+as tight as still answers at all.
+
+The factors are a setting like the radii are, keyed by resolution:
+
+```python
+settings = Settings(ts_geo_station_distance_resolution_factors={"daily": 3.0})
 ```
+
+```bash
+export WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS='{"daily": 3.0}'
+```
+
+Resolutions left out keep their factor, so the setting stays the list of departures rather than all
+eleven, and a resolution that does not exist is rejected the way an unknown parameter name is.
+Setting every factor to 1.0 turns the scaling off. A radius written out per parameter in
+`ts_geo_station_distance` is used exactly as given, at every resolution -- a number you wrote means
+that number.
 
 The example below widens the radius for precipitation to 25 km:
 

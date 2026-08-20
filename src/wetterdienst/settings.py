@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, PrivateAttr, field_serializer, field_vali
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
 
 log = logging.getLogger(__name__)
@@ -67,6 +68,32 @@ class Auth(BaseModel):
 _STATION_DISTANCE_HOMOGENEOUS = 40.0
 #: the same for a quantity that decorrelates faster -- see `CanonicalParameter.interpolation`
 _STATION_DISTANCE_HETEROGENEOUS = 20.0
+#: how far the heterogeneous radius reaches at a given resolution, relative to its hourly value.
+#: a quantity that decorrelates fast in space does so less the longer it is accumulated: gauge
+#: studies put the correlation length of precipitation at roughly 8 km over 10 minutes, 27 km over
+#: three hours and 33 to 94 km over a day, the upper end for the stratiform rain that dominates
+#: north-western Europe. One radius cannot serve both ends of that, so the radius follows the
+#: accumulation period. The fine end is not tightened all the way to the correlation length: the
+#: interpolation needs four surrounding stations, and even the DWD network rarely has four rain
+#: gauges within 8 km of a point, so 15 km at `minute_10` is as tight as still answers at all.
+#: The homogeneous radius does not scale: what bounds it is terrain, not correlation -- daily
+#: temperature stays correlated over hundreds of kilometres, while the interpolation reads UTM x/y
+#: and never station height
+_STATION_DISTANCE_RESOLUTION_FACTORS: dict[str, float] = {
+    Resolution.MINUTE_1.value: 0.75,
+    Resolution.MINUTE_5.value: 0.75,
+    Resolution.MINUTE_6.value: 0.75,
+    Resolution.MINUTE_10.value: 0.75,
+    Resolution.MINUTE_15.value: 0.75,
+    Resolution.HOURLY.value: 1.0,
+    Resolution.HOUR_6.value: 1.5,
+    Resolution.SUBDAILY.value: 1.5,
+    Resolution.DAILY.value: 2.0,
+    Resolution.MONTHLY.value: 3.0,
+    Resolution.ANNUAL.value: 3.0,
+}
+#: a resolution the factors say nothing about -- `undefined` and `dynamic` -- is left as it is
+_STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT = 1.0
 
 
 def _build_geo_station_distance(
@@ -131,6 +158,10 @@ class Settings(BaseSettings):
     # overrides alone while validating and the effective mapping -- radii, table and overrides --
     # from `expand_ts_geo_station_distance` on
     ts_geo_station_distance: defaultdict[str, float] = Field(default_factory=dict)
+    # how the heterogeneous radius grows with the accumulation period, keyed by resolution. Only
+    # the resolutions named here differ from `_STATION_DISTANCE_RESOLUTION_FACTORS`; the rest keep
+    # their factor, so the setting stays the list of departures rather than all eleven
+    ts_geo_station_distance_resolution_factors: dict[str, float] = Field(default_factory=dict)
     #: what was passed for `ts_geo_station_distance`, kept for serialization and re-expansion.
     #: `None` until the field has been expanded once -- an empty dict is a valid set of overrides
     _ts_geo_station_distance_overrides: dict[str, float] | None = PrivateAttr(default=None)
@@ -201,6 +232,32 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         return values
 
+    @field_validator("ts_geo_station_distance_resolution_factors", mode="before")
+    @classmethod
+    def validate_ts_geo_station_distance_resolution_factors_keys(
+        cls,
+        values: dict[str, float] | None,
+    ) -> dict[str, float]:
+        """Check the resolutions, which are a closed vocabulary like the unit types are."""
+        if not values:
+            return {}
+        resolutions = {resolution.value for resolution in Resolution}
+        unknown = sorted(set(values) - resolutions)
+        if unknown:
+            msg = f"Invalid resolutions in ts_geo_station_distance_resolution_factors: {unknown} not in {sorted(resolutions)}"  # noqa: E501
+            raise ValueError(msg)
+        return values
+
+    @field_validator("ts_geo_station_distance_resolution_factors", mode="after")
+    @classmethod
+    def validate_ts_geo_station_distance_resolution_factors_values(cls, values: dict[str, float]) -> dict[str, float]:
+        """Reject negative factors, which would turn a radius into a distance behind the point."""
+        negative = sorted(name for name, factor in values.items() if factor < 0)
+        if negative:
+            msg = f"Negative factors in ts_geo_station_distance_resolution_factors: {negative}"
+            raise ValueError(msg)
+        return values
+
     @model_validator(mode="after")
     def expand_ts_geo_station_distance(self) -> Settings:
         """Layer the per-parameter overrides onto the two radii and the parameter table.
@@ -232,6 +289,28 @@ class Settings(BaseSettings):
         nothing happens" failure the validation here is about.
         """
         return self._ts_geo_station_distance_overrides or {}
+
+    def ts_geo_station_distance_resolution_factor(self, resolution: str) -> float:
+        """Return the factor the heterogeneous radius is stretched by at this resolution."""
+        return self.ts_geo_station_distance_resolution_factors.get(
+            resolution,
+            _STATION_DISTANCE_RESOLUTION_FACTORS.get(resolution, _STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT),
+        )
+
+    def ts_geo_station_distance_for(self, parameter_name: str, resolution: str) -> float:
+        """Return how far a station may be to still be used for this parameter at this resolution.
+
+        `ts_geo_station_distance` answers the same question without the resolution, which is the
+        radius before it is scaled. A radius the user set for the parameter by hand is returned as
+        it was given: a number written out means that number, at every resolution.
+        """
+        overrides = self._ts_geo_station_distance_overrides or {}
+        if parameter_name in overrides:
+            return overrides[parameter_name]
+        parameter = PARAMETERS.get(parameter_name)
+        if parameter is None or parameter.interpolation != "heterogeneous":
+            return self.ts_geo_station_distance_homogeneous
+        return self.ts_geo_station_distance_heterogeneous * self.ts_geo_station_distance_resolution_factor(resolution)
 
     @property
     def ts_tidy(self) -> bool:

@@ -447,7 +447,7 @@
     "nearbyDistanceHint": "Maximální vzdálenost pro zohlednění blízkých stanic. Pokud je stanice v této vzdálenosti, použije se její skutečná hodnota namísto interpolace/sumarizace.",
     "advancedSettings": "Pokročilé nastavení",
     "stationDistanceByParam": "Vzdálenost stanic podle parametru",
-    "stationDistanceHint": "Maximální vzdálenost (km) ke stanici. Homogenní parametry jako teplota se v rámci oblasti mění pomalu (40 km), heterogenní jako srážky dekorelují rychleji (20 km). Jednotlivé parametry lze přepsat níže.",
+    "stationDistanceHint": "Maximální vzdálenost (km) ke stanici. Homogenní parametry jako teplota se v rámci oblasti mění pomalu (40 km při každém rozlišení), heterogenní jako srážky dekorelují rychleji (20 km hodinově, 15 km u minutových rozlišení, až 60 km ročně). Jednotlivé parametry lze přepsat níže.",
     "stationDistanceHomogeneous": "Homogenní (např. teplota)",
     "stationDistanceHeterogeneous": "Heterogenní (např. srážky)",
     "addParameter": "Přidat parametr",
