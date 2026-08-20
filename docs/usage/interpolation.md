@@ -206,8 +206,39 @@ a property of the instance rather than of a request.
 
 To ask what a request will actually use, rather than reading it off the table:
 
-```python
-settings.ts_geo_station_distance_for("precipitation_height", "daily")  # 40.0
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst import Settings
+
+settings = Settings()
+{
+    resolution: settings.ts_geo_station_distance_for("precipitation_height", resolution)
+    for resolution in ("10_minutes", "hourly", "6_hour", "daily", "monthly")
+}
+```
+
+The same question for a homogeneous parameter answers 40 km at every resolution, and for a
+parameter that is never interpolated the radius is never consulted at all.
+
+To turn the scaling off altogether, flatten every factor:
+
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.metadata.resolution import Resolution
+
+flat = Settings(
+    ts_geo_station_distance_resolution_factors=dict.fromkeys((resolution.value for resolution in Resolution), 1.0),
+)
+{
+    resolution: flat.ts_geo_station_distance_for("precipitation_height", resolution)
+    for resolution in ("10_minutes", "hourly", "daily")
+}
 ```
 
 A radius written out per parameter in `ts_geo_station_distance` is used exactly as given, at every
