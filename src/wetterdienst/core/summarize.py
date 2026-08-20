@@ -48,8 +48,11 @@ def request_stations(request: TimeseriesRequest, latitude: float, longitude: flo
     # `max(...values())` used to stand here, which is the widest radius of the *populated* keys --
     # only the heterogeneous 20 km ones -- and so capped the search at 20 km for every parameter,
     # including the ones the setting gives 40 km
-    parameter_names = {parameter.name for parameter in request.parameters if isinstance(parameter, ParameterModel)}
-    distance = max(settings.ts_geo_station_distance[parameter_name] for parameter_name in parameter_names)
+    distance = max(
+        settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
+        for parameter in request.parameters
+        if isinstance(parameter, ParameterModel)
+    )
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance)
     df_stations_ranked = stations_ranked.df
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
@@ -85,11 +88,13 @@ def apply_station_values_per_parameter(
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
-        ts_interpolation_station_distance = settings.ts_geo_station_distance
-        # a defaultdict, so an unlisted parameter answers with the default radius on its own; the
-        # explicit "default" key this used to fall back to was inserted into the mapping as a side
-        # effect of being read
-        if station["distance"] > ts_interpolation_station_distance[parameter.name]:
+        # the radius follows the resolution for a parameter that decorrelates fast in space, so it
+        # is asked for per parameter and resolution rather than read off a mapping. Nothing is
+        # blended here, but the question the radius answers is the same one: how far away a
+        # measurement still says something about the target point, which depends on how long the
+        # quantity was accumulated for
+        station_distance = settings.ts_geo_station_distance_for(parameter.name, dataset.resolution.name)
+        if station["distance"] > station_distance:
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
         param_key = (dataset.resolution.name, dataset.name, parameter.name)

@@ -178,6 +178,153 @@ def test_settings_geo_station_distance_survives_revalidation() -> None:
     assert Settings.model_validate(revalidated).ts_geo_station_distance["precipitation_height"] == 50.0
 
 
+def test_settings_geo_station_distance_for_scales_with_resolution() -> None:
+    """Test that the radius of a heterogeneous parameter follows the accumulation period.
+
+    Precipitation decorrelates over roughly 8 km in ten minutes but tens of kilometres over a day,
+    which one fixed radius cannot express: it is too wide at `minute_10` and too tight at `daily`.
+    """
+    settings = Settings()
+    assert settings.ts_geo_station_distance_for("precipitation_height", "10_minutes") == 15.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "hourly") == 20.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "6_hour") == 30.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 40.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "annual") == 40.0
+    # a resolution the factors say nothing about is left as it is
+    assert settings.ts_geo_station_distance_for("precipitation_height", "undefined") == 20.0
+
+
+def test_settings_geo_station_distance_for_stops_widening_past_a_day() -> None:
+    """Test that the table stops at twice the base radius rather than following correlation up.
+
+    Past a day what binds is terrain and not correlation -- the interpolation reads UTM x/y and
+    never station height -- so the widest the defaults reach is the 40 km the homogeneous radius is
+    held to, which is why the two meet at `daily`.
+    """
+    settings = Settings()
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 40.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "monthly") == 40.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "annual") == 40.0
+    assert settings.ts_geo_station_distance_for("temperature_air_mean_2m", "daily") == 40.0
+
+
+def test_settings_geo_station_distance_for_scales_the_radius_that_was_set() -> None:
+    """Test that the factors multiply whatever base radius the user set, at every resolution.
+
+    A radius raised by hand is followed rather than clipped: the user has made the terrain
+    judgement the factors encode, and a setting that silently does nothing is the failure this
+    module validates against everywhere else.
+    """
+    settings = Settings(ts_geo_station_distance_heterogeneous=30.0)
+    assert settings.ts_geo_station_distance_for("precipitation_height", "10_minutes") == 22.5
+    assert settings.ts_geo_station_distance_for("precipitation_height", "hourly") == 30.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 60.0
+    # every step of the setting moves the radius, with no range where it does nothing
+    radii = [
+        Settings(ts_geo_station_distance_heterogeneous=base).ts_geo_station_distance_for(
+            "precipitation_height",
+            "daily",
+        )
+        for base in (20.0, 25.0, 30.0, 35.0)
+    ]
+    assert radii == [40.0, 50.0, 60.0, 70.0]
+
+
+def test_settings_geo_station_distance_for_leaves_homogeneous_parameters_alone() -> None:
+    """Test that the homogeneous radius is the same at every resolution.
+
+    What bounds it is terrain rather than correlation -- daily temperature stays correlated over
+    hundreds of kilometres, while `apply_interpolation` works on UTM x/y and never reads station
+    height -- and terrain does not care how long the quantity was accumulated for.
+    """
+    settings = Settings()
+    for resolution in ("10_minutes", "hourly", "daily", "annual"):
+        assert settings.ts_geo_station_distance_for("temperature_air_mean_2m", resolution) == 40.0
+    # a name the table does not know falls back the same way the mapping does
+    assert settings.ts_geo_station_distance_for("not_a_parameter", "daily") == 40.0
+
+
+def test_settings_geo_station_distance_for_takes_an_override_as_written() -> None:
+    """Test that a radius set by hand is not scaled.
+
+    A number written out for a parameter means that number; scaling it would answer a question the
+    user did not ask, and there would be no way to ask for a fixed radius at all.
+    """
+    settings = Settings(ts_geo_station_distance={"precipitation_height": 25.0})
+    assert settings.ts_geo_station_distance_for("precipitation_height", "10_minutes") == 25.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 25.0
+    # the parameters that were not named still scale
+    assert settings.ts_geo_station_distance_for("snow_depth_new", "daily") == 40.0
+
+
+def test_settings_geo_station_distance_resolution_factors() -> None:
+    """Test that the factors are settable, and that the ones left out keep their default."""
+    settings = Settings(ts_geo_station_distance_resolution_factors={"daily": 3.0})
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 60.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "10_minutes") == 15.0
+    # flattening every factor turns the scaling off
+    flat = Settings(
+        ts_geo_station_distance_resolution_factors=dict.fromkeys(
+            (
+                "1_minute",
+                "5_minutes",
+                "6_minutes",
+                "10_minutes",
+                "15_minutes",
+                "hourly",
+                "6_hour",
+                "subdaily",
+                "daily",
+                "monthly",
+                "annual",
+            ),
+            1.0,
+        ),
+    )
+    for resolution in ("10_minutes", "hourly", "daily", "annual"):
+        assert flat.ts_geo_station_distance_for("precipitation_height", resolution) == 20.0
+
+
+def test_settings_geo_station_distance_resolution_factors_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the factors are settable from the environment, like the radii next to them."""
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS", '{"daily":3.0}')
+    settings = Settings()
+    assert settings.ts_geo_station_distance_resolution_factor("daily") == 3.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 60.0
+
+
+def test_settings_geo_station_distance_resolution_factors_reject_unknown_resolution() -> None:
+    """Test that a resolution that does not exist is rejected rather than silently ignored."""
+    with pytest.raises(ValidationError, match=r"\['dayly'\] not in"):
+        Settings(ts_geo_station_distance_resolution_factors={"dayly": 2.0})
+
+
+def test_settings_geo_station_distance_resolution_factors_reject_negative() -> None:
+    """Test that a negative factor is rejected, as a negative radius is."""
+    with pytest.raises(ValidationError, match="Negative factors in ts_geo_station_distance_resolution_factors"):
+        Settings(ts_geo_station_distance_resolution_factors={"daily": -1.0})
+
+
+def test_settings_geo_station_distance_for_reads_the_radii_live() -> None:
+    """Test which settings an already-built `Settings` object still lets you change.
+
+    The two radii and the factors are read when a radius is worked out, so assigning to them takes
+    effect at once. The per-parameter mapping is not: the overrides are taken when the settings are
+    built, and what the field holds afterwards is the expansion of them, so an assignment to it is
+    discarded rather than picked up. This pins the difference so it stays documented.
+    """
+    settings = Settings()
+    settings.ts_geo_station_distance_heterogeneous = 30.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "hourly") == 30.0
+    settings.ts_geo_station_distance_resolution_factors = {"daily": 3.0}
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 90.0
+    # the mapping is not a way in, before or after another validation
+    other = Settings()
+    other.ts_geo_station_distance = {"precipitation_height": 25.0}
+    assert other.ts_geo_station_distance_for("precipitation_height", "hourly") == 20.0
+    assert Settings.model_validate(other).ts_geo_station_distance_for("precipitation_height", "hourly") == 20.0
+
+
 def test_settings_geo_station_distance_rejects_unknown_parameter() -> None:
     """Test that a parameter name that is not canonical is rejected rather than silently ignored."""
     with pytest.raises(ValidationError, match=r"\['precipitation_heigt'\] not in the canonical parameters"):

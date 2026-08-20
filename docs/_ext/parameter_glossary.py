@@ -18,6 +18,7 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.settings import (
     _STATION_DISTANCE_HETEROGENEOUS,
     _STATION_DISTANCE_HOMOGENEOUS,
+    _STATION_DISTANCE_RESOLUTION_FACTORS,
     _build_geo_station_distance,
 )
 
@@ -42,6 +43,10 @@ class ParameterGlossaryDirective(SphinxDirective):
             _STATION_DISTANCE_HETEROGENEOUS,
             {},
         )
+        # the radius of a heterogeneous parameter follows the resolution, so the sentence names the
+        # span rather than one number that would only be right at hourly resolution
+        factors = _STATION_DISTANCE_RESOLUTION_FACTORS.values()
+        span = (_STATION_DISTANCE_HETEROGENEOUS * min(factors), _STATION_DISTANCE_HETEROGENEOUS * max(factors))
         lines = ["```{glossary}"]
         for parameter in PARAMETER_TABLE:
             target = unit_converter.targets[parameter.unit_type]
@@ -53,10 +58,17 @@ class ParameterGlossaryDirective(SphinxDirective):
             if not parameter.interpolation:
                 lines.append("  Not interpolatable.")
             else:
-                sentence = (
-                    f"  Interpolatable, using stations up to {station_distance[parameter.name]:g} km from the "
-                    f"target point."
-                )
+                if parameter.interpolation == "heterogeneous":
+                    sentence = (
+                        f"  Interpolatable, using stations up to {station_distance[parameter.name]:g} km from the "
+                        f"target point at hourly resolution, {span[0]:g} km at the finest and {span[1]:g} km at the "
+                        f"coarsest -- the radius follows the accumulation period."
+                    )
+                else:
+                    sentence = (
+                        f"  Interpolatable, using stations up to {station_distance[parameter.name]:g} km from the "
+                        f"target point, at every resolution."
+                    )
                 if parameter.zero_inflated:
                     sentence += " Interpolated values are thresholded on occurrence."
                 lines.append(sentence)

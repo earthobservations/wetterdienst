@@ -42,6 +42,28 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the heterogeneous search radius follows the resolution of the request, so an
+  interpolation or summary that already worked returns different values without anything being
+  changed by hand: daily precipitation is drawn from 40 km rather than 20, `minute_10` from 15 km
+  rather than 20. A quantity that decorrelates fast in space does so less the longer it is
+  accumulated -- gauge studies put the correlation length of precipitation at roughly 8 km over ten
+  minutes, 27 km over three hours and 33 to 94 km over a day -- and one radius cannot serve both
+  ends of that. The factors are `ts_geo_station_distance_resolution_factors`: 0.75 for the minute
+  resolutions, 1.0 hourly, 1.5 for `6_hour` and `subdaily`, and 2.0 from daily upwards. Resolutions
+  left out keep their factor, every factor set to 1.0 turns the scaling off, and the factors
+  multiply whatever `ts_geo_station_distance_heterogeneous` says, so raising that setting moves
+  every resolution with it. The table stops at 2.0 rather than following the correlation length up:
+  past a day what binds is terrain and not correlation, since the interpolation reads UTM x/y and
+  never station height, so 40 km is as far as it may reach -- the same bound the homogeneous radius
+  is held to, which is why the two meet at `daily` with the defaults. Precipitation is more
+  orographically driven than temperature, not less, so it does not get to reach farther. The
+  homogeneous radius does not scale at all, and a radius written out per parameter in
+  `ts_geo_station_distance` is used exactly as given, at every resolution. The fine end stops short
+  of the 8 km the literature gives, since interpolation needs four surrounding stations and even
+  the DWD network rarely has four rain gauges that close -- in a sparse network 15 km may leave a
+  request that used to answer with nothing, and raising the factor for that resolution brings it
+  back. `summarize` scales too: nothing is blended there, but how far away a measurement still says
+  something about the target point is the same question, and it depends on the accumulation period
 - **Breaking**: the `"default"` key of `ts_geo_station_distance` is gone, in favour of the two
   radii settings above. It was undocumented and did more than it said: it rebuilt the mapping
   around the given number and so replaced the shorter radius of every heterogeneous parameter
@@ -65,6 +87,10 @@ Types of changes:
   same reason -- `TimeseriesRequest` re-validates the settings it is handed, which used to take
   the already-expanded mapping for what the user had written
 - Docs: `ts_geo_min_gain_of_value_pairs` is documented with its actual default of 0.1, not 1.2
+- `poe docs` builds the documentation again. It ran `make html` in `docs/`, which holds no
+  Makefile, so it had failed with "No rule to make target" for as long as that file has been gone.
+  It runs sphinx against `docs/conf.py` now, which is what Read the Docs does, and `poe docs:clean`
+  removes the build directory
 
 ## [0.133.0] - 2026-08-19
 

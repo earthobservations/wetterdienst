@@ -276,8 +276,10 @@ lint = ["lint:fmt", "lint:lint"]
 unused = "uv run deptry src/wetterdienst"
 vulnerable = "uv audit"
 zizmor = "uv run zizmor ."
-# docs
-docs = "cd docs && make html"
+# docs -- the same build Read the Docs runs, which is sphinx against docs/conf.py. There is no
+# Makefile in docs/, so `make html` had nothing to make
+docs = "uv run --group docs sphinx-build --builder html docs docs/_build/html"
+"docs:clean" = "uv run python -c \"import shutil; shutil.rmtree('docs/_build', ignore_errors=True)\""
 "test:parallel" = "uv run pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)'"
 "test:cflakes" = "uv run pytest -vvv -m cflake"
 test = ["test:parallel", "test:cflakes"]

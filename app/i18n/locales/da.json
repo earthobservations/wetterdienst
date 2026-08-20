@@ -447,7 +447,7 @@
     "nearbyDistanceHint": "Maksimal afstand for at overveje nærliggende stationer. Hvis en station er inden for denne afstand, bruges dens faktiske værdi i stedet for at interpolere/opsummere.",
     "advancedSettings": "Avancerede indstillinger",
     "stationDistanceByParam": "Stationsafstand pr. parameter",
-    "stationDistanceHint": "Maksimal afstand (km) til en station. Homogene parametre som temperatur varierer langsomt over en region (40 km), heterogene som nedbør dekorrelerer hurtigere (20 km). Enkelte parametre kan overskrives nedenfor.",
+    "stationDistanceHint": "Maksimal afstand (km) til en station. Homogene parametre som temperatur varierer langsomt over en region og bruger deres værdi ved enhver opløsning. Heterogene som nedbør dekorrelerer hurtigere, og deres værdi gælder for timeopløsning: den skaleres med opløsningen, ×0,75 ved minutopløsningerne og ×2 fra daglig og opefter. Enkelte parametre kan overskrives nedenfor.",
     "stationDistanceHomogeneous": "Homogen (f.eks. temperatur)",
     "stationDistanceHeterogeneous": "Heterogen (f.eks. nedbør)",
     "addParameter": "Tilføj parameter",

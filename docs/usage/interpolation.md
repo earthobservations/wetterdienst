@@ -118,7 +118,7 @@ quantity decorrelates in space, so two radii carry that decision:
 | Setting                                 | Default | Applies to                                                                                                                                                                    |
 |-----------------------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `ts_geo_station_distance_homogeneous`   | 40 km   | quantities that vary slowly across a region: air, soil, concrete, dew-point, wet-bulb and surface temperatures, humidity, wind speed and gust, air pressure, cloud cover, sunshine and radiation, soil moisture, evapotranspiration and evaporation, accumulated snow depth and the forecast probabilities |
-| `ts_geo_station_distance_heterogeneous` | 20 km   | quantities that decorrelate within a few tens of kilometres: precipitation in all its variants, new snow per period and visibility |
+| `ts_geo_station_distance_heterogeneous` | 20 km at hourly resolution | quantities that decorrelate within a few tens of kilometres: precipitation in all its variants, new snow per period and visibility |
 
 Which of the two a parameter belongs to is declared per parameter; the
 [parameter glossary](../data/parameters.md) names the radius for every parameter. Changing a
@@ -127,7 +127,11 @@ radius moves every parameter of its kind at once:
 ```python
 from wetterdienst import Settings
 
-settings = Settings(ts_geo_station_distance_homogeneous=60.0)
+# reach further for the smooth fields, and keep precipitation closer than the default 20 km
+settings = Settings(
+    ts_geo_station_distance_homogeneous=60.0,
+    ts_geo_station_distance_heterogeneous=15.0,
+)
 ```
 
 Single parameters are overridden on top of the two, keyed by canonical parameter name:
@@ -149,12 +153,115 @@ longer leaves the parameter you meant at its default radius without saying so, a
 distance is rejected too. A radius set for a parameter that is never interpolated is a warning: the
 name is real, but interpolation skips the parameter before the distance is ever compared.
 
+#### The heterogeneous radius follows the resolution
+
+A quantity that decorrelates fast in space does so less the longer it is accumulated. Gauge studies
+put the correlation length of precipitation at roughly 8 km over ten minutes, 27 km over three
+hours and 33 to 94 km over a day, the upper end for the stratiform rain that dominates
+north-western Europe. One number cannot serve both ends of that, so the heterogeneous radius is
+multiplied by a factor that depends on the resolution of the request:
+
+| Resolution                                            | Factor | Radius |
+|-------------------------------------------------------|--------|--------|
+| `1_minute`, `5_minutes`, `6_minutes`, `10_minutes`, `15_minutes` | 0.75   | 15 km  |
+| `hourly`                                              | 1.0    | 20 km  |
+| `6_hour`, `subdaily`                                  | 1.5    | 30 km  |
+| `daily`                                               | 2.0    | 40 km  |
+| `monthly`, `annual`                                   | 2.0    | 40 km  |
+
+The table stops widening at 2.0 rather than following the correlation length up. Past a day, what
+binds is terrain and not correlation: `apply_interpolation` works on UTM x/y and never reads station
+height, so 40 km is as far as it may reach in complex ground. That is the same bound the
+homogeneous radius is held to, which is why the two meet at `daily` with the defaults --
+precipitation is more orographically driven than temperature, not less, so it does not get to reach
+farther.
+
+The homogeneous radius does not scale at all. Terrain does not care how long a quantity was
+accumulated for, and daily temperature stays correlated over hundreds of kilometres either way.
+
+The fine end stops short of the correlation length on purpose: interpolation needs four surrounding
+stations, and even the DWD network rarely has four rain gauges within 8 km of a point, so 15 km is
+as tight as still answers at all.
+
+The factors are a setting like the radii are, keyed by resolution:
+
+```python
+settings = Settings(ts_geo_station_distance_resolution_factors={"10_minutes": 1.0})
+```
+
+```bash
+export WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS='{"10_minutes": 1.0}'
+```
+
+That one searches the full 20 km at ten minutes rather than 15.
+
+Resolutions left out keep their factor, so the setting stays the list of departures rather than all
+eleven, and a resolution that does not exist is rejected the way an unknown parameter name is.
+Setting every factor to 1.0 turns the scaling off.
+
+The factors are plain multipliers of `ts_geo_station_distance_heterogeneous`, so every kilometre
+added to that setting moves every resolution with it: raise it to 30 km and the table reads 22.5,
+30, 45, 60. Nothing clips it back. The terrain bound the factors encode is a judgement about the
+default radius, and a user who changes that radius has made their own.
+
+The factors are set in Python or in the environment only. The two radii and the per-parameter
+overrides are also request options in the CLI and the REST API, as shown below, but the factors are
+a property of the instance rather than of a request.
+
+To ask what a request will actually use, rather than reading it off the table:
+
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst import Settings
+
+settings = Settings()
+{
+    resolution: settings.ts_geo_station_distance_for("precipitation_height", resolution)
+    for resolution in ("10_minutes", "hourly", "6_hour", "daily", "monthly")
+}
+```
+
+The same question for a homogeneous parameter answers 40 km at every resolution, and for a
+parameter that is never interpolated the radius is never consulted at all.
+
+To turn the scaling off altogether, flatten every factor:
+
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.metadata.resolution import Resolution
+
+flat = Settings(
+    ts_geo_station_distance_resolution_factors=dict.fromkeys((resolution.value for resolution in Resolution), 1.0),
+)
+{
+    resolution: flat.ts_geo_station_distance_for("precipitation_height", resolution)
+    for resolution in ("10_minutes", "hourly", "daily")
+}
+```
+
+A radius written out per parameter in `ts_geo_station_distance` is used exactly as given, at every
+resolution -- a number you wrote means that number.
+
 ```{note}
-The two defaults are a compromise across resolutions. Daily temperature stays correlated far
-beyond 40 km -- that radius is a terrain-safety limit rather than a correlation one, since the
-interpolation works on UTM x/y and never reads station height -- while precipitation decorrelates
-over roughly 8 km at 10 minutes but 30 to 90 km over a day. If your resolution sits far from that
-compromise, move the radius.
+Tightening the fine end is the one direction that can turn a request that used to answer into an
+empty one: the interpolation needs four surrounding stations, and 15 km may not reach four of them
+in a sparse network. The log says which stations were dropped as too far away; raising the factor
+for that resolution, or the radius for that parameter, brings them back.
+```
+
+```{note}
+Settings are meant to be constructed rather than edited. The two radii and the factors are read
+when a radius is worked out, so assigning to them on an existing `Settings` object does take
+effect; the per-parameter `ts_geo_station_distance` is taken once, when the settings are built, and
+assigning a new mapping to it afterwards is discarded -- build a new `Settings` for that. Note also
+that a request validates the settings it is handed when it is constructed, not when `.interpolate()`
+or `.summarize()` is called.
 ```
 
 The example below widens the radius for precipitation to 25 km:
@@ -205,8 +312,12 @@ the summarized values of the parameter ``temperature_air_mean_2m`` from multiple
 
 It currently only works for ``DwdObservationRequest`` and individual parameters. It supports
 the same parameters as interpolation, listed in the
-[parameter glossary](../data/parameters.md), and applies the same per-parameter search radius
-when deciding whether a station is close enough to be used.
+[parameter glossary](../data/parameters.md), and decides whether a station is close enough by
+[the search radius](#the-search-radius) above, resolution scaling and all. The scaling is about how
+far a measurement still says something about the target point, which is the same question here even
+though nothing is blended: a daily total from 35 km away represents a place far better than a
+ten-minute total from the same station does. So a daily summary reaches further than an hourly one,
+and a summary at ten minutes stays closer than it used to.
 
 ```{code-cell}
 ---
@@ -285,8 +396,21 @@ wetterdienst interpolate \
   --interpolation_station_distance '{"precipitation_height": 25}'
 ```
 
+`summarize` takes the same three under `--summary_…`, next to `--use_nearby_station_distance`:
+
+```bash
+wetterdienst summarize \
+  --provider dwd --network observation \
+  --parameters daily/climate_summary/precipitation_height \
+  --station 02480 \
+  --start-date 2022-01-01 --end-date 2022-01-20 \
+  --summary_station_distance_heterogeneous 15 \
+  --use_nearby_station_distance 2
+```
+
 An option that is left out keeps whatever the environment and the defaults say, so a radius set
-through `WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS` is not overwritten by the command.
+through `WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS` is not overwritten by the command. The
+resolution factors are not command options -- they are set on the instance, as above.
 
 ## REST API
 
@@ -321,5 +445,6 @@ http localhost:7890/api/interpolate \
   interpolation_station_distance=='{"precipitation_height": 25}'
 ```
 
-A parameter name that is not canonical, or a negative distance, is answered with a 400 rather
-than silently ignored.
+`/api/summarize` takes the same three under `summary_…`. A parameter name that is not canonical,
+or a negative distance, is answered with a 400 rather than silently ignored, and the resolution
+factors are not query parameters -- an instance scales by its own configuration.
