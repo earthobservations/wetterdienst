@@ -127,7 +127,11 @@ radius moves every parameter of its kind at once:
 ```python
 from wetterdienst import Settings
 
-settings = Settings(ts_geo_station_distance_homogeneous=60.0)
+# reach further for the smooth fields, and keep precipitation closer than the default 20 km
+settings = Settings(
+    ts_geo_station_distance_homogeneous=60.0,
+    ts_geo_station_distance_heterogeneous=15.0,
+)
 ```
 
 Single parameters are overridden on top of the two, keyed by canonical parameter name:
@@ -392,8 +396,21 @@ wetterdienst interpolate \
   --interpolation_station_distance '{"precipitation_height": 25}'
 ```
 
+`summarize` takes the same three under `--summary_…`, next to `--use_nearby_station_distance`:
+
+```bash
+wetterdienst summarize \
+  --provider dwd --network observation \
+  --parameters daily/climate_summary/precipitation_height \
+  --station 02480 \
+  --start-date 2022-01-01 --end-date 2022-01-20 \
+  --summary_station_distance_heterogeneous 15 \
+  --use_nearby_station_distance 2
+```
+
 An option that is left out keeps whatever the environment and the defaults say, so a radius set
-through `WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS` is not overwritten by the command.
+through `WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS` is not overwritten by the command. The
+resolution factors are not command options -- they are set on the instance, as above.
 
 ## REST API
 
@@ -428,5 +445,6 @@ http localhost:7890/api/interpolate \
   interpolation_station_distance=='{"precipitation_height": 25}'
 ```
 
-A parameter name that is not canonical, or a negative distance, is answered with a 400 rather
-than silently ignored.
+`/api/summarize` takes the same three under `summary_…`. A parameter name that is not canonical,
+or a negative distance, is answered with a 400 rather than silently ignored, and the resolution
+factors are not query parameters -- an instance scales by its own configuration.
