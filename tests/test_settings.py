@@ -189,33 +189,45 @@ def test_settings_geo_station_distance_for_scales_with_resolution() -> None:
     assert settings.ts_geo_station_distance_for("precipitation_height", "hourly") == 20.0
     assert settings.ts_geo_station_distance_for("precipitation_height", "6_hour") == 30.0
     assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 40.0
-    # 3.0 x 20 km would be 60 km, but no radius reaches past the terrain cap below
     assert settings.ts_geo_station_distance_for("precipitation_height", "annual") == 40.0
     # a resolution the factors say nothing about is left as it is
     assert settings.ts_geo_station_distance_for("precipitation_height", "undefined") == 20.0
 
 
-def test_settings_geo_station_distance_for_is_capped_by_the_homogeneous_radius() -> None:
-    """Test that a scaled radius does not reach past the distance the smoothest field is held to.
+def test_settings_geo_station_distance_for_stops_widening_past_a_day() -> None:
+    """Test that the table stops at twice the base radius rather than following correlation up.
 
-    The homogeneous radius is where interpolating on UTM x/y stops being safe in complex terrain,
-    and that bound does not lift because a quantity was accumulated for longer -- precipitation is
-    more orographically driven than temperature, not less. The cap follows the setting, so raising
-    it lets the coarse resolutions reach their full factor.
+    Past a day what binds is terrain and not correlation -- the interpolation reads UTM x/y and
+    never station height -- so the widest the defaults reach is the 40 km the homogeneous radius is
+    held to, which is why the two meet at `daily`.
     """
     settings = Settings()
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 40.0
     assert settings.ts_geo_station_distance_for("precipitation_height", "monthly") == 40.0
-    wider = Settings(ts_geo_station_distance_homogeneous=80.0)
-    assert wider.ts_geo_station_distance_for("precipitation_height", "monthly") == 60.0
-    # the cap bounds what the scaling adds; it never overrules the radius that was asked for, even
-    # when that is the wider of the two
-    asked_for = Settings(ts_geo_station_distance_heterogeneous=60.0)
-    assert asked_for.ts_geo_station_distance_for("precipitation_height", "hourly") == 60.0
-    assert asked_for.ts_geo_station_distance_for("precipitation_height", "10_minutes") == 45.0
-    assert asked_for.ts_geo_station_distance_for("precipitation_height", "monthly") == 60.0
-    # a radius written out by hand says what it says, cap included
-    written = Settings(ts_geo_station_distance={"precipitation_height": 90.0})
-    assert written.ts_geo_station_distance_for("precipitation_height", "monthly") == 90.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "annual") == 40.0
+    assert settings.ts_geo_station_distance_for("temperature_air_mean_2m", "daily") == 40.0
+
+
+def test_settings_geo_station_distance_for_scales_the_radius_that_was_set() -> None:
+    """Test that the factors multiply whatever base radius the user set, at every resolution.
+
+    A radius raised by hand is followed rather than clipped: the user has made the terrain
+    judgement the factors encode, and a setting that silently does nothing is the failure this
+    module validates against everywhere else.
+    """
+    settings = Settings(ts_geo_station_distance_heterogeneous=30.0)
+    assert settings.ts_geo_station_distance_for("precipitation_height", "10_minutes") == 22.5
+    assert settings.ts_geo_station_distance_for("precipitation_height", "hourly") == 30.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 60.0
+    # every step of the setting moves the radius, with no range where it does nothing
+    radii = [
+        Settings(ts_geo_station_distance_heterogeneous=base).ts_geo_station_distance_for(
+            "precipitation_height",
+            "daily",
+        )
+        for base in (20.0, 25.0, 30.0, 35.0)
+    ]
+    assert radii == [40.0, 50.0, 60.0, 70.0]
 
 
 def test_settings_geo_station_distance_for_leaves_homogeneous_parameters_alone() -> None:
@@ -247,9 +259,7 @@ def test_settings_geo_station_distance_for_takes_an_override_as_written() -> Non
 
 def test_settings_geo_station_distance_resolution_factors() -> None:
     """Test that the factors are settable, and that the ones left out keep their default."""
-    settings = Settings(
-        ts_geo_station_distance_resolution_factors={"daily": 3.0}, ts_geo_station_distance_homogeneous=60.0
-    )
+    settings = Settings(ts_geo_station_distance_resolution_factors={"daily": 3.0})
     assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 60.0
     assert settings.ts_geo_station_distance_for("precipitation_height", "10_minutes") == 15.0
     # flattening every factor turns the scaling off
@@ -278,7 +288,6 @@ def test_settings_geo_station_distance_resolution_factors() -> None:
 def test_settings_geo_station_distance_resolution_factors_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that the factors are settable from the environment, like the radii next to them."""
     monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS", '{"daily":3.0}')
-    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS", "60")
     settings = Settings()
     assert settings.ts_geo_station_distance_resolution_factor("daily") == 3.0
     assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 60.0

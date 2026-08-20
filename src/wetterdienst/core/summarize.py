@@ -89,7 +89,10 @@ def apply_station_values_per_parameter(
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
         # the radius follows the resolution for a parameter that decorrelates fast in space, so it
-        # is asked for per parameter and resolution rather than read off a mapping
+        # is asked for per parameter and resolution rather than read off a mapping. Nothing is
+        # blended here, but the question the radius answers is the same one: how far away a
+        # measurement still says something about the target point, which depends on how long the
+        # quantity was accumulated for
         station_distance = settings.ts_geo_station_distance_for(parameter.name, dataset.resolution.name)
         if station["distance"] > station_distance:
             log.info(f"Station for parameter {parameter.name} is too far away")

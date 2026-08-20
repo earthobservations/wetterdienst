@@ -73,12 +73,23 @@ _STATION_DISTANCE_HETEROGENEOUS = 20.0
 #: studies put the correlation length of precipitation at roughly 8 km over 10 minutes, 27 km over
 #: three hours and 33 to 94 km over a day, the upper end for the stratiform rain that dominates
 #: north-western Europe. One radius cannot serve both ends of that, so the radius follows the
-#: accumulation period. The fine end is not tightened all the way to the correlation length: the
-#: interpolation needs four surrounding stations, and even the DWD network rarely has four rain
-#: gauges within 8 km of a point, so 15 km at `minute_10` is as tight as still answers at all.
-#: The homogeneous radius does not scale: what bounds it is terrain, not correlation -- daily
-#: temperature stays correlated over hundreds of kilometres, while the interpolation reads UTM x/y
-#: and never station height
+#: accumulation period.
+#:
+#: The table stops widening at 2.0 rather than following the correlation length up. Past a day,
+#: what binds is terrain and not correlation: the interpolation reads UTM x/y and never station
+#: height, so 40 km is as far as it may reach in complex ground -- the same bound the homogeneous
+#: radius is held to, which is why the two meet at `daily` with the defaults. Precipitation is more
+#: orographically driven than temperature, not less, so it does not get to reach farther.
+#:
+#: The fine end is not tightened all the way to the correlation length either: the interpolation
+#: needs four surrounding stations, and even the DWD network rarely has four rain gauges within
+#: 8 km of a point, so 15 km at `minute_10` is as tight as still answers at all.
+#:
+#: The factors are pure multipliers of whatever `ts_geo_station_distance_heterogeneous` says. A
+#: radius the user raises is followed rather than clipped: they have made the terrain judgement the
+#: table encodes, and a setting that silently does nothing is the failure this module validates
+#: against everywhere else. The homogeneous radius does not scale at all -- terrain does not care
+#: how long a quantity was accumulated for
 _STATION_DISTANCE_RESOLUTION_FACTORS: dict[str, float] = {
     Resolution.MINUTE_1.value: 0.75,
     Resolution.MINUTE_5.value: 0.75,
@@ -89,8 +100,8 @@ _STATION_DISTANCE_RESOLUTION_FACTORS: dict[str, float] = {
     Resolution.HOUR_6.value: 1.5,
     Resolution.SUBDAILY.value: 1.5,
     Resolution.DAILY.value: 2.0,
-    Resolution.MONTHLY.value: 3.0,
-    Resolution.ANNUAL.value: 3.0,
+    Resolution.MONTHLY.value: 2.0,
+    Resolution.ANNUAL.value: 2.0,
 }
 #: a resolution the factors say nothing about -- `undefined` and `dynamic` -- is left as it is
 _STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT = 1.0
@@ -304,7 +315,7 @@ class Settings(BaseSettings):
         `ts_geo_station_distance` answers the same question without the resolution, which is the
         radius before it is scaled -- the radius at hourly resolution. A radius the user set for the
         parameter by hand is returned as it was given: a number written out means that number, at
-        every resolution, and is not held to the terrain cap either.
+        every resolution.
 
         The settings are read as they were validated. Assigning to `ts_geo_station_distance` or to
         one of the radii after that takes effect once the settings are validated again, which
@@ -316,14 +327,7 @@ class Settings(BaseSettings):
         parameter = PARAMETERS.get(parameter_name)
         if parameter is None or parameter.interpolation != "heterogeneous":
             return self.ts_geo_station_distance_homogeneous
-        scaled = self.ts_geo_station_distance_heterogeneous * self.ts_geo_station_distance_resolution_factor(resolution)
-        # the homogeneous radius is where interpolating on UTM x/y stops being safe in complex
-        # terrain, and that bound does not lift because a quantity was accumulated for longer.
-        # Precipitation is more orographically driven than temperature, not less, so scaling may
-        # not carry it past the distance the smoothest field is held to. What the user set as the
-        # heterogeneous radius is not touched, though, however it compares: the cap is there to
-        # bound what the scaling adds, not to overrule a number that was asked for
-        return min(scaled, max(self.ts_geo_station_distance_homogeneous, self.ts_geo_station_distance_heterogeneous))
+        return self.ts_geo_station_distance_heterogeneous * self.ts_geo_station_distance_resolution_factor(resolution)
 
     @property
     def ts_tidy(self) -> bool:

@@ -46,10 +46,7 @@ class ParameterGlossaryDirective(SphinxDirective):
         # the radius of a heterogeneous parameter follows the resolution, so the sentence names the
         # span rather than one number that would only be right at hourly resolution
         factors = _STATION_DISTANCE_RESOLUTION_FACTORS.values()
-        span = (
-            _STATION_DISTANCE_HETEROGENEOUS * min(factors),
-            min(_STATION_DISTANCE_HETEROGENEOUS * max(factors), _STATION_DISTANCE_HOMOGENEOUS),
-        )
+        span = (_STATION_DISTANCE_HETEROGENEOUS * min(factors), _STATION_DISTANCE_HETEROGENEOUS * max(factors))
         lines = ["```{glossary}"]
         for parameter in PARAMETER_TABLE:
             target = unit_converter.targets[parameter.unit_type]

@@ -243,6 +243,50 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
         assert_frame_equal(given_df, expected_df)
 
 
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+@pytest.mark.parametrize(
+    ("resolution", "dataset", "expected_distance"),
+    [
+        ("minute_10", "precipitation", 15.0),
+        ("hourly", "precipitation", 20.0),
+        ("daily", "climate_summary", 40.0),
+    ],
+)
+def test_search_radius_reaches_the_request(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    resolution: str,
+    dataset: str,
+    expected_distance: float,
+) -> None:
+    """Test that the radius a request searches is the one the resolution asks for.
+
+    The settings answer this correctly on their own, and every other test of the scaling asks them
+    directly -- so nothing would notice if `interpolate` and `summarize` stopped consulting them
+    and went back to a single number. This catches the station search in the act, without a
+    request leaving the machine.
+    """
+
+    class _StopError(Exception):
+        """Raised once the distance has been seen, so no data is fetched."""
+
+    seen = []
+
+    def _record(self: DwdObservationRequest, latlon: tuple[float, float], distance: float) -> None:  # noqa: ARG001
+        seen.append(distance)
+        raise _StopError
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _record)
+    request = DwdObservationRequest(
+        parameters=[(resolution, dataset, "precipitation_height")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
+    )
+    with pytest.raises(_StopError):
+        getattr(request, method)(latlon=(50.0, 8.9))
+    assert seen == [expected_distance]
+
+
 @pytest.mark.remote
 def test_interpolation_precipitation_height_minute_10(default_settings: Settings) -> None:
     """Test that the interpolation works with precipitation."""

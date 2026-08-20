@@ -32,8 +32,8 @@ Types of changes:
   snow and visibility 30 km too. A radius left untouched is not sent at all, so a self-hosted
   instance configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own. The hint below the
   fields says what the heterogeneous number means now that the backend scales it with the
-  resolution: 20 km is the hourly radius, 15 km at the minute resolutions and up to 40 km from
-  daily upwards
+  resolution: the value applies at hourly resolution and is scaled from there, times 0.75 at the
+  minute resolutions and times 2 from daily upwards
 
 ### Fixed
 

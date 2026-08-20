@@ -49,18 +49,21 @@ Types of changes:
   accumulated -- gauge studies put the correlation length of precipitation at roughly 8 km over ten
   minutes, 27 km over three hours and 33 to 94 km over a day -- and one radius cannot serve both
   ends of that. The factors are `ts_geo_station_distance_resolution_factors`: 0.75 for the minute
-  resolutions, 1.0 hourly, 1.5 for `6_hour` and `subdaily`, 2.0 daily, 3.0 monthly and annual.
-  Resolutions left out keep their factor and every factor set to 1.0 turns the scaling off. Three
-  things do not move: the homogeneous radius, since what bounds it is terrain rather than
-  correlation; the scaled radius past that same terrain bound, which is why monthly and annual stop
-  at 40 km rather than the 60 their factor asks for -- precipitation is more orographically driven
-  than temperature, not less -- the cap bounds what the scaling adds, so a
-  `ts_geo_station_distance_heterogeneous` set wider than the homogeneous radius is still used as it
-  was set; and a radius written out per parameter in `ts_geo_station_distance`, which is used
-  exactly as given, at every resolution. The fine end stops short of the 8 km the
-  literature gives, since interpolation needs four surrounding stations and even the DWD network
-  rarely has four rain gauges that close -- in a sparse network 15 km may leave a request that used
-  to answer with nothing, and raising the factor for that resolution brings it back
+  resolutions, 1.0 hourly, 1.5 for `6_hour` and `subdaily`, and 2.0 from daily upwards. Resolutions
+  left out keep their factor, every factor set to 1.0 turns the scaling off, and the factors
+  multiply whatever `ts_geo_station_distance_heterogeneous` says, so raising that setting moves
+  every resolution with it. The table stops at 2.0 rather than following the correlation length up:
+  past a day what binds is terrain and not correlation, since the interpolation reads UTM x/y and
+  never station height, so 40 km is as far as it may reach -- the same bound the homogeneous radius
+  is held to, which is why the two meet at `daily` with the defaults. Precipitation is more
+  orographically driven than temperature, not less, so it does not get to reach farther. The
+  homogeneous radius does not scale at all, and a radius written out per parameter in
+  `ts_geo_station_distance` is used exactly as given, at every resolution. The fine end stops short
+  of the 8 km the literature gives, since interpolation needs four surrounding stations and even
+  the DWD network rarely has four rain gauges that close -- in a sparse network 15 km may leave a
+  request that used to answer with nothing, and raising the factor for that resolution brings it
+  back. `summarize` scales too: nothing is blended there, but how far away a measurement still says
+  something about the target point is the same question, and it depends on the accumulation period
 - **Breaking**: the `"default"` key of `ts_geo_station_distance` is gone, in favour of the two
   radii settings above. It was undocumented and did more than it said: it rebuilt the mapping
   around the given number and so replaced the shorter radius of every heterogeneous parameter

@@ -447,7 +447,7 @@
     "nearbyDistanceHint": "Maximal Distanz, fir no Statiounen ze berécksiichtegen. Wann eng Statioun bannent dëser Distanz läit, gëtt hire reelle Wäert amplaz vun der Interpolatioun/Resümee benotzt.",
     "advancedSettings": "Avancéiert Astellungen",
     "stationDistanceByParam": "Statiounsdistanz pro Parameter",
-    "stationDistanceHint": "Maximal Distanz (km) bis zu enger Statioun. Homogen Parameter wéi Temperatur änneren sech lues iwwer eng Regioun (40 km bei all Opléisung), heterogen wéi Nidderschlag dekorreléieren méi séier (20 km stonnesch, 15 km bei de Minutteopléisungen, bis 40 km vun deeglech un). Eenzel Parameter kann ee hei drënner iwwerschreiwen.",
+    "stationDistanceHint": "Maximal Distanz (km) bis zu enger Statioun. Homogen Parameter wéi Temperatur änneren sech lues iwwer eng Regioun a benotzen hire Wäert bei all Opléisung. Heterogen wéi Nidderschlag dekorreléieren méi séier, an hire Wäert gëllt fir stonnesch Opléisung: en gëtt mat der Opléisung skaléiert, ×0,75 bei de Minutteopléisungen an ×2 vun deeglech un. Eenzel Parameter kann ee hei drënner iwwerschreiwen.",
     "stationDistanceHomogeneous": "Homogen (z. B. Temperatur)",
     "stationDistanceHeterogeneous": "Heterogen (z. B. Nidderschlag)",
     "addParameter": "Parameter dobäisetzen",

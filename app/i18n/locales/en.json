@@ -447,7 +447,7 @@
     "nearbyDistanceHint": "Maximum distance to consider nearby stations. If a station is within this distance, its actual value will be used instead of interpolating/summarizing.",
     "advancedSettings": "Advanced Settings",
     "stationDistanceByParam": "Station distance by parameter",
-    "stationDistanceHint": "Maximum distance (km) to a station. Homogeneous parameters such as temperature vary slowly across a region (40 km at every resolution), heterogeneous ones such as precipitation decorrelate faster (20 km hourly, 15 km at the minute resolutions, up to 40 km for daily and coarser). Single parameters can be overridden below.",
+    "stationDistanceHint": "Maximum distance (km) to a station. Homogeneous parameters such as temperature vary slowly across a region and use their value at every resolution. Heterogeneous ones such as precipitation decorrelate faster, and their value applies at hourly resolution: it is scaled by the resolution, ×0.75 at the minute resolutions and ×2 from daily upwards. Single parameters can be overridden below.",
     "stationDistanceHomogeneous": "Homogeneous (e.g. temperature)",
     "stationDistanceHeterogeneous": "Heterogeneous (e.g. precipitation)",
     "addParameter": "Add parameter",

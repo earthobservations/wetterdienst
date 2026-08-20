@@ -163,18 +163,17 @@ multiplied by a factor that depends on the resolution of the request:
 | `hourly`                                              | 1.0    | 20 km  |
 | `6_hour`, `subdaily`                                  | 1.5    | 30 km  |
 | `daily`                                               | 2.0    | 40 km  |
-| `monthly`, `annual`                                   | 3.0    | 40 km, capped |
+| `monthly`, `annual`                                   | 2.0    | 40 km  |
 
-The homogeneous radius does not scale. What bounds it is terrain rather than correlation -- daily
-temperature stays correlated over hundreds of kilometres, while `apply_interpolation` works on UTM
-x/y and never reads station height -- and terrain does not care how long a quantity was accumulated
-for.
+The table stops widening at 2.0 rather than following the correlation length up. Past a day, what
+binds is terrain and not correlation: `apply_interpolation` works on UTM x/y and never reads station
+height, so 40 km is as far as it may reach in complex ground. That is the same bound the
+homogeneous radius is held to, which is why the two meet at `daily` with the defaults --
+precipitation is more orographically driven than temperature, not less, so it does not get to reach
+farther.
 
-That same bound caps the scaled radius: precipitation is more orographically driven than
-temperature, not less, so it may not be drawn from farther than the smoothest field is allowed to
-be. This is why `monthly` and `annual` stop at 40 km rather than the 60 km their factor asks for.
-Raising `ts_geo_station_distance_homogeneous` lifts the cap with it. A radius written out per
-parameter is not capped: it says what it says.
+The homogeneous radius does not scale at all. Terrain does not care how long a quantity was
+accumulated for, and daily temperature stays correlated over hundreds of kilometres either way.
 
 The fine end stops short of the correlation length on purpose: interpolation needs four surrounding
 stations, and even the DWD network rarely has four rain gauges within 8 km of a point, so 15 km is
@@ -190,16 +189,16 @@ settings = Settings(ts_geo_station_distance_resolution_factors={"10_minutes": 1.
 export WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS='{"10_minutes": 1.0}'
 ```
 
-That one searches the full 20 km at ten minutes rather than 15. Raising a factor past the cap has
-no effect on its own -- `{"daily": 3.0}` still gives 40 km, since 60 km is more than the terrain
-bound allows -- so raise `ts_geo_station_distance_homogeneous` with it, or set the radius for the
-parameter by hand, which is not capped.
+That one searches the full 20 km at ten minutes rather than 15.
 
 Resolutions left out keep their factor, so the setting stays the list of departures rather than all
 eleven, and a resolution that does not exist is rejected the way an unknown parameter name is.
-Setting every factor to 1.0 turns the scaling off. The cap only ever bounds what the scaling adds:
-a `ts_geo_station_distance_heterogeneous` wider than the homogeneous radius is used as it was set,
-since it was asked for rather than derived.
+Setting every factor to 1.0 turns the scaling off.
+
+The factors are plain multipliers of `ts_geo_station_distance_heterogeneous`, so every kilometre
+added to that setting moves every resolution with it: raise it to 30 km and the table reads 22.5,
+30, 45, 60. Nothing clips it back. The terrain bound the factors encode is a judgement about the
+default radius, and a user who changes that radius has made their own.
 
 The factors are set in Python or in the environment only. The two radii and the per-parameter
 overrides are also request options in the CLI and the REST API, as shown below, but the factors are
@@ -276,7 +275,11 @@ the summarized values of the parameter ``temperature_air_mean_2m`` from multiple
 It currently only works for ``DwdObservationRequest`` and individual parameters. It supports
 the same parameters as interpolation, listed in the
 [parameter glossary](../data/parameters.md), and decides whether a station is close enough by
-[the search radius](#the-search-radius) above, resolution scaling and all.
+[the search radius](#the-search-radius) above, resolution scaling and all. The scaling is about how
+far a measurement still says something about the target point, which is the same question here even
+though nothing is blended: a daily total from 35 km away represents a place far better than a
+ten-minute total from the same station does. So a daily summary reaches further than an hourly one,
+and a summary at ten minutes stays closer than it used to.
 
 ```{code-cell}
 ---
