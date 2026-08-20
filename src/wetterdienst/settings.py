@@ -317,9 +317,11 @@ class Settings(BaseSettings):
         parameter by hand is returned as it was given: a number written out means that number, at
         every resolution.
 
-        The settings are read as they were validated. Assigning to `ts_geo_station_distance` or to
-        one of the radii after that takes effect once the settings are validated again, which
-        `TimeseriesRequest` does with whatever it is handed.
+        The two radii and the factors are read here, so assigning to them on an existing `Settings`
+        object takes effect at once. `ts_geo_station_distance` is not: the overrides are taken when
+        the settings are built, and the mapping the field then holds is the expansion of them, so
+        assigning a new mapping to it afterwards is discarded on the next validation. Build a new
+        `Settings` to change the per-parameter radii.
         """
         overrides = self._ts_geo_station_distance_overrides or {}
         if parameter_name in overrides:

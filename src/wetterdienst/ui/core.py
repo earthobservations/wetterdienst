@@ -193,8 +193,8 @@ _StationDistanceHeterogeneousField = Annotated[
     Field(
         ge=0,
         description="The same for a parameter that decorrelates faster, such as precipitation, at hourly "
-        "resolution. Coarser resolutions scale it up and finer ones down, capped by the homogeneous radius. "
-        "Defaults to the configured radius of 20 km.",
+        "resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute "
+        "resolutions, times 2 from daily upwards. Defaults to the configured radius of 20 km.",
     ),
 ]
 _UseNearbyStationDistanceField = Annotated[

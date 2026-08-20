@@ -305,6 +305,26 @@ def test_settings_geo_station_distance_resolution_factors_reject_negative() -> N
         Settings(ts_geo_station_distance_resolution_factors={"daily": -1.0})
 
 
+def test_settings_geo_station_distance_for_reads_the_radii_live() -> None:
+    """Test which settings an already-built `Settings` object still lets you change.
+
+    The two radii and the factors are read when a radius is worked out, so assigning to them takes
+    effect at once. The per-parameter mapping is not: the overrides are taken when the settings are
+    built, and what the field holds afterwards is the expansion of them, so an assignment to it is
+    discarded rather than picked up. This pins the difference so it stays documented.
+    """
+    settings = Settings()
+    settings.ts_geo_station_distance_heterogeneous = 30.0
+    assert settings.ts_geo_station_distance_for("precipitation_height", "hourly") == 30.0
+    settings.ts_geo_station_distance_resolution_factors = {"daily": 3.0}
+    assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 90.0
+    # the mapping is not a way in, before or after another validation
+    other = Settings()
+    other.ts_geo_station_distance = {"precipitation_height": 25.0}
+    assert other.ts_geo_station_distance_for("precipitation_height", "hourly") == 20.0
+    assert Settings.model_validate(other).ts_geo_station_distance_for("precipitation_height", "hourly") == 20.0
+
+
 def test_settings_geo_station_distance_rejects_unknown_parameter() -> None:
     """Test that a parameter name that is not canonical is rejected rather than silently ignored."""
     with pytest.raises(ValidationError, match=r"\['precipitation_heigt'\] not in the canonical parameters"):

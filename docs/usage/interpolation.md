@@ -208,9 +208,10 @@ To ask what a request will actually use, rather than reading it off the table:
 
 ```python
 settings.ts_geo_station_distance_for("precipitation_height", "daily")  # 40.0
-``` A radius written out per parameter in
-`ts_geo_station_distance` is used exactly as given, at every resolution -- a number you wrote means
-that number.
+```
+
+A radius written out per parameter in `ts_geo_station_distance` is used exactly as given, at every
+resolution -- a number you wrote means that number.
 
 ```{note}
 Tightening the fine end is the one direction that can turn a request that used to answer into an
@@ -220,10 +221,12 @@ for that resolution, or the radius for that parameter, brings them back.
 ```
 
 ```{note}
-Settings are read as they were validated. Assigning to `ts_geo_station_distance` or to one of the
-radii on an existing `Settings` object takes effect once the settings are validated again, which
-`.interpolate()` and `.summarize()` do with whatever they are handed -- so pass the changed object
-to a request, or build a new one, rather than expecting the assignment alone to move the radius.
+Settings are meant to be constructed rather than edited. The two radii and the factors are read
+when a radius is worked out, so assigning to them on an existing `Settings` object does take
+effect; the per-parameter `ts_geo_station_distance` is taken once, when the settings are built, and
+assigning a new mapping to it afterwards is discarded -- build a new `Settings` for that. Note also
+that a request validates the settings it is handed when it is constructed, not when `.interpolate()`
+or `.summarize()` is called.
 ```
 
 The example below widens the radius for precipitation to 25 km:
