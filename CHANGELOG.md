@@ -87,6 +87,10 @@ Types of changes:
   same reason -- `TimeseriesRequest` re-validates the settings it is handed, which used to take
   the already-expanded mapping for what the user had written
 - Docs: `ts_geo_min_gain_of_value_pairs` is documented with its actual default of 0.1, not 1.2
+- `poe docs` builds the documentation again. It ran `make html` in `docs/`, which holds no
+  Makefile, so it had failed with "No rule to make target" for as long as that file has been gone.
+  It runs sphinx against `docs/conf.py` now, which is what Read the Docs does, and `poe docs:clean`
+  removes the build directory
 
 ## [0.133.0] - 2026-08-19
 
