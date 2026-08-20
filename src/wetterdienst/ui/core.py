@@ -168,11 +168,33 @@ _SectionsField = Annotated[
 ]
 _InterpolationStationDistanceField = Annotated[
     dict[str, Annotated[float, Field(ge=0.0)]] | None,
-    Field(description="Per-parameter maximum interpolation-station distance in km, overriding the default."),
+    Field(
+        description="Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter "
+        "name, overriding the default radius of that parameter.",
+    ),
 ]
 _SummaryStationDistanceField = Annotated[
     dict[str, Annotated[float, Field(ge=0.0)]] | None,
-    Field(description="Per-parameter maximum summary-station distance in km, overriding the default."),
+    Field(
+        description="Per-parameter maximum summary-station distance in km, keyed by canonical parameter "
+        "name, overriding the default radius of that parameter.",
+    ),
+]
+_StationDistanceHomogeneousField = Annotated[
+    float | None,
+    Field(
+        ge=0,
+        description="Maximum distance (km) to a station for a parameter that varies slowly across a region, "
+        "such as air temperature. Defaults to the configured radius of 40 km.",
+    ),
+]
+_StationDistanceHeterogeneousField = Annotated[
+    float | None,
+    Field(
+        ge=0,
+        description="The same for a parameter that decorrelates faster, such as precipitation. Defaults to the "
+        "configured radius of 20 km.",
+    ),
 ]
 _UseNearbyStationDistanceField = Annotated[
     float,
@@ -188,6 +210,20 @@ _NumAdditionalStationsField = Annotated[
     int,
     Field(ge=0, description="Number of additional nearby stations to consider for interpolation."),
 ]
+
+
+def station_distance_radii(homogeneous: float | None, heterogeneous: float | None) -> dict[str, Any]:
+    """Collect the radii that were given, as keyword arguments for `Settings`.
+
+    A radius that was not given is left out rather than passed as the library default, so that a
+    CLI user or a server configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own.
+    """
+    radii: dict[str, Any] = {}
+    if homogeneous is not None:
+        radii["ts_geo_station_distance_homogeneous"] = homogeneous
+    if heterogeneous is not None:
+        radii["ts_geo_station_distance_heterogeneous"] = heterogeneous
+    return radii
 
 
 class StationsRequest(BaseModel):
@@ -546,6 +582,8 @@ class InterpolationRequest(BaseModel):
         return json.loads(v)
 
     interpolation_station_distance: _InterpolationStationDistanceField = None
+    interpolation_station_distance_homogeneous: _StationDistanceHomogeneousField = None
+    interpolation_station_distance_heterogeneous: _StationDistanceHeterogeneousField = None
 
     @field_validator("interpolation_station_distance", mode="before")
     @classmethod
@@ -641,6 +679,8 @@ class SummaryRequest(BaseModel):
         return json.loads(v)
 
     summary_station_distance: _SummaryStationDistanceField = None
+    summary_station_distance_homogeneous: _StationDistanceHomogeneousField = None
+    summary_station_distance_heterogeneous: _StationDistanceHeterogeneousField = None
 
     @field_validator("summary_station_distance", mode="before")
     @classmethod

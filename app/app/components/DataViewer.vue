@@ -6,6 +6,7 @@ import type { ParameterSelectionState } from '~/types/parameter-selection-state.
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
+import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 import { formatDate } from '~/utils/format'
 
 const props = defineProps<{
@@ -90,6 +91,22 @@ const showTrendline = ref(false)
 const isInterpolationMode = computed(() => stationSelection.value.mode === 'interpolation')
 const isSummaryMode = computed(() => stationSelection.value.mode === 'summary')
 
+/**
+ * The two search radii, named for the endpoint that takes them, and only when the user moved them
+ * off the backend's own defaults -- an untouched setting is not sent, so a server configured
+ * through `WD_TS_GEO_STATION_DISTANCE_*` keeps its values.
+ */
+function stationDistanceRadii(prefix: 'interpolation' | 'summary'): Record<string, number> {
+  const radii: Record<string, number> = {}
+  // a cleared number input is null rather than a number, which would be sent as an empty value
+  const given = (value: number) => Number.isFinite(value)
+  if (given(props.settings.stationDistanceHomogeneous) && props.settings.stationDistanceHomogeneous !== STATION_DISTANCE_DEFAULTS.homogeneous)
+    radii[`${prefix}_station_distance_homogeneous`] = props.settings.stationDistanceHomogeneous
+  if (given(props.settings.stationDistanceHeterogeneous) && props.settings.stationDistanceHeterogeneous !== STATION_DISTANCE_DEFAULTS.heterogeneous)
+    radii[`${prefix}_station_distance_heterogeneous`] = props.settings.stationDistanceHeterogeneous
+  return radii
+}
+
 const apiEndpoint = computed(() => {
   if (isInterpolationMode.value)
     return '/api/interpolate'
@@ -142,6 +159,7 @@ const apiQuery = computed(() => {
     if (Object.keys(stationDistancePerParameter).length > 0) {
       query.interpolation_station_distance = JSON.stringify(stationDistancePerParameter)
     }
+    Object.assign(query, stationDistanceRadii('interpolation'))
     // Always send interpolation settings (backend has matching defaults)
     query.min_gain_of_value_pairs = props.settings.minGainOfValuePairs
     query.num_additional_stations = props.settings.numAdditionalStations
@@ -163,6 +181,7 @@ const apiQuery = computed(() => {
     if (Object.keys(stationDistancePerParameter).length > 0) {
       query.summary_station_distance = JSON.stringify(stationDistancePerParameter)
     }
+    Object.assign(query, stationDistanceRadii('summary'))
     // Always send summary settings (backend has matching defaults)
     query.min_gain_of_value_pairs = props.settings.minGainOfValuePairs
     query.num_additional_stations = props.settings.numAdditionalStations
@@ -420,6 +439,8 @@ async function downloadValues(format: string, extension: string) {
     if (Object.keys(stationDistance).length > 0) {
       params.set('interpolation_station_distance', JSON.stringify(stationDistance))
     }
+    for (const [key, value] of Object.entries(stationDistanceRadii('interpolation')))
+      params.set(key, value.toString())
     if (props.settings.minGainOfValuePairs !== 0.10) {
       params.set('min_gain_of_value_pairs', props.settings.minGainOfValuePairs.toString())
     }
@@ -428,7 +449,7 @@ async function downloadValues(format: string, extension: string) {
     }
   }
   else if (isSummaryMode.value) {
-    endpoint = '/api/summary'
+    endpoint = '/api/summarize'
     filename = 'summary'
     const interp = ss.interpolation
     if (interp?.latitude !== undefined)
@@ -443,6 +464,8 @@ async function downloadValues(format: string, extension: string) {
     if (Object.keys(stationDistance).length > 0) {
       params.set('summary_station_distance', JSON.stringify(stationDistance))
     }
+    for (const [key, value] of Object.entries(stationDistanceRadii('summary')))
+      params.set(key, value.toString())
     // Always send interpolation settings (backend has matching defaults)
     params.set('min_gain_of_value_pairs', props.settings.minGainOfValuePairs.toString())
     params.set('num_additional_stations', props.settings.numAdditionalStations.toString())

@@ -12,10 +12,10 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import platformdirs
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_serializer, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
+from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.model.unit import UnitConverter
 
 log = logging.getLogger(__name__)
@@ -69,18 +69,23 @@ _STATION_DISTANCE_HOMOGENEOUS = 40.0
 _STATION_DISTANCE_HETEROGENEOUS = 20.0
 
 
-def _default_geo_station_distance() -> defaultdict[str, float]:
-    """Build the per-parameter search radius from the canonical parameter table.
+def _build_geo_station_distance(
+    homogeneous: float,
+    heterogeneous: float,
+    overrides: dict[str, float],
+) -> defaultdict[str, float]:
+    """Build the per-parameter search radius from the two radii, the parameter table and overrides.
 
     Which names get the shorter radius used to be written out here, a copy of a classification the
     table already holds. Only those names are put in the dict; the default factory answers for
     every other parameter, so the setting a user sees and overrides stays the short list of
     exceptions rather than all 514 names.
     """
-    d: defaultdict[str, float] = defaultdict(lambda: _STATION_DISTANCE_HOMOGENEOUS)
+    d: defaultdict[str, float] = defaultdict(lambda: homogeneous)
     for parameter in PARAMETER_TABLE:
         if parameter.interpolation == "heterogeneous":
-            d[parameter.name] = _STATION_DISTANCE_HETEROGENEOUS
+            d[parameter.name] = heterogeneous
+    d.update(overrides)
     return d
 
 
@@ -116,11 +121,19 @@ class Settings(BaseSettings):
     ts_skip_criteria: Literal["min", "mean", "max"] = "min"
     ts_complete: bool = False
     ts_drop_nulls: bool = True
-    # this setting is used to define for each parameter how far away a station can be to be used for interpolation
-    # the default is 40km, but for precipitation height it is 20km
-    # parameters such as precipitation height are more local and thus need a smaller distance, while parameters such as
-    # temperature can be interpolated over a larger distance
-    ts_geo_station_distance: defaultdict[str, float] = Field(default_factory=_default_geo_station_distance)
+    # how far a station may be from the target point to still be interpolated or summarized from.
+    # the two radii follow `CanonicalParameter.interpolation`: a homogeneous quantity such as air
+    # temperature varies slowly across a region and may be drawn from farther away than a
+    # heterogeneous one such as precipitation, which decorrelates within a few tens of kilometres
+    ts_geo_station_distance_homogeneous: Annotated[float, Field(ge=0)] = _STATION_DISTANCE_HOMOGENEOUS
+    ts_geo_station_distance_heterogeneous: Annotated[float, Field(ge=0)] = _STATION_DISTANCE_HETEROGENEOUS
+    # per-parameter overrides of the two radii above, given as canonical parameter names. holds the
+    # overrides alone while validating and the effective mapping -- radii, table and overrides --
+    # from `expand_ts_geo_station_distance` on
+    ts_geo_station_distance: defaultdict[str, float] = Field(default_factory=dict)
+    #: what was passed for `ts_geo_station_distance`, kept for serialization and re-expansion.
+    #: `None` until the field has been expanded once -- an empty dict is a valid set of overrides
+    _ts_geo_station_distance_overrides: dict[str, float] | None = PrivateAttr(default=None)
     # this setting is used to define how far away a station can be so that no interpolation is done
     # but instead the station is used directly
     ts_geo_use_nearby_station_distance: Annotated[float, Field(strict=True, ge=0)] | None = 1.0
@@ -148,19 +161,77 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         return values
 
-    # make ts_geo_station_distance update but not replace the default values
     @field_validator("ts_geo_station_distance", mode="before")
     @classmethod
-    def validate_ts_geo_station_distance(cls, values: dict[str, float] | None) -> dict[str, float]:
-        """Validate the interpolation station distance settings."""
-        default: defaultdict = cls.model_fields["ts_geo_station_distance"].default_factory()
+    def validate_ts_geo_station_distance_keys(cls, values: dict[str, float] | None) -> dict[str, float]:
+        """Check the overridden parameter names, which used to be taken on trust.
+
+        A name that is not a canonical parameter can never be looked up, so the override silently
+        did nothing and the parameter the user meant kept its default radius -- a typo was
+        indistinguishable from having set nothing at all.
+        """
         if not values:
-            return default
-        default_from_values = values.get("default")
-        # rebuild the defaultdict with new default if provided
-        if default_from_values is not None:
-            default = defaultdict(lambda: default_from_values)
-        return default | values
+            return {}
+        if "default" in values:
+            msg = (
+                "the 'default' key of ts_geo_station_distance is gone, as it replaced the fallback radius and "
+                "the pre-populated per-parameter ones alike; set ts_geo_station_distance_homogeneous and "
+                "ts_geo_station_distance_heterogeneous instead"
+            )
+            raise ValueError(msg)
+        unknown = sorted(set(values) - PARAMETERS.keys())
+        if unknown:
+            msg = f"Invalid parameters in ts_geo_station_distance: {unknown} not in the canonical parameters"
+            raise ValueError(msg)
+        never_interpolated = sorted(name for name in values if not PARAMETERS[name].interpolation)
+        if never_interpolated:
+            log.warning(
+                f"option 'ts_geo_station_distance' sets a radius for {never_interpolated}, which are never "
+                "interpolated, and is thus ignored for them in this request.",
+            )
+        return values
+
+    @field_validator("ts_geo_station_distance", mode="after")
+    @classmethod
+    def validate_ts_geo_station_distance_values(cls, values: dict[str, float]) -> dict[str, float]:
+        """Reject negative radii, as `ts_geo_use_nearby_station_distance` next to it already does."""
+        negative = sorted(name for name, distance in values.items() if distance < 0)
+        if negative:
+            msg = f"Negative distances in ts_geo_station_distance: {negative}"
+            raise ValueError(msg)
+        return values
+
+    @model_validator(mode="after")
+    def expand_ts_geo_station_distance(self) -> Settings:
+        """Layer the per-parameter overrides onto the two radii and the parameter table.
+
+        Built here rather than in the field's default so that the two radii, which are fields of
+        their own and may themselves be overridden, are already known.
+
+        Runs more than once on the same instance -- `Settings.model_validate(settings)` re-runs
+        every after-validator, and `TimeseriesRequest` does exactly that -- so the overrides are
+        captured only the first time. Expanding the expansion would take the whole table for
+        overrides the user never wrote, which would then outrank a radius set afterwards.
+        """
+        if self._ts_geo_station_distance_overrides is None:
+            self._ts_geo_station_distance_overrides = dict(self.ts_geo_station_distance)
+        self.ts_geo_station_distance = _build_geo_station_distance(
+            self.ts_geo_station_distance_homogeneous,
+            self.ts_geo_station_distance_heterogeneous,
+            self._ts_geo_station_distance_overrides,
+        )
+        return self
+
+    @field_serializer("ts_geo_station_distance")
+    def serialize_ts_geo_station_distance(self, _value: dict[str, float]) -> dict[str, float]:
+        """Dump the overrides that were given, not the mapping they were expanded into.
+
+        Dumping the expanded mapping would make the settings unable to round-trip: every
+        heterogeneous parameter would come back as an explicit override and win over a
+        `ts_geo_station_distance_heterogeneous` set alongside it, which is the very "set a number,
+        nothing happens" failure the validation here is about.
+        """
+        return self._ts_geo_station_distance_overrides or {}
 
     @property
     def ts_tidy(self) -> bool:

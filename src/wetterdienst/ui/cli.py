@@ -10,12 +10,13 @@ import logging
 import sys
 from pathlib import Path
 from pprint import pformat
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
 
 import click
 import cloup
 from cloup import Section
 from cloup.constraints import AllSet, If, RequireExactly, accept_none
+from pydantic import BaseModel, ValidationError
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ApiNotFoundError
@@ -37,6 +38,7 @@ from wetterdienst.ui.core import (
     get_values,
     limit_stations_to_rank,
     set_logging_level,
+    station_distance_radii,
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 from wetterdienst.util.ui import read_list
@@ -45,6 +47,8 @@ if TYPE_CHECKING:
     from wetterdienst.model.request import TimeseriesRequest
 
 log = logging.getLogger(__name__)
+
+_RequestT = TypeVar("_RequestT", bound=BaseModel)
 
 appname = f"{__appname__} {__version__}"
 
@@ -94,6 +98,18 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     except ApiNotFoundError:
         log.exception("No API found.")
         sys.exit(1)
+
+
+def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
+    """Build a request model, reporting a rejected value as a bad parameter rather than a traceback.
+
+    Every field here comes from a command option, so a validation error is the user's input being
+    out of range -- a negative distance, say -- not a bug to show a stack trace for.
+    """
+    try:
+        return model.model_validate(values)
+    except ValidationError as e:
+        raise click.BadParameter(str(e)) from e
 
 
 def _resolve_date(date: str | None, start_date: str | None, end_date: str | None) -> str | None:
@@ -297,6 +313,8 @@ Data computation:
 
         # Interpolation options
         --interpolation_station_distance=<distance>
+        --interpolation_station_distance_homogeneous=<distance>
+        --interpolation_station_distance_heterogeneous=<distance>
         --use_nearby_station_distance=<distance>
 
         # Output options
@@ -1403,6 +1421,8 @@ def values(
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize  # ty: ignore[invalid-argument-type]
 @cloup.option("--interpolation_station_distance", type=click.STRING, default=None)
+@cloup.option("--interpolation_station_distance_homogeneous", type=click.FLOAT, default=None)
+@cloup.option("--interpolation_station_distance_heterogeneous", type=click.FLOAT, default=None)
 @cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
 @cloup.option("--date", type=click.STRING, required=False)
 @cloup.option(
@@ -1444,6 +1464,8 @@ def interpolate(
     periods: list[str],
     lead_time: Literal["short", "long"],
     interpolation_station_distance: str,
+    interpolation_station_distance_homogeneous: float | None,
+    interpolation_station_distance_heterogeneous: float | None,
     use_nearby_station_distance: float,
     date: str,
     start_date: str,
@@ -1468,7 +1490,8 @@ def interpolate(
     if not date_resolved:
         msg = "Provide either --date or --start-date."
         raise click.UsageError(msg)
-    request = InterpolationRequest.model_validate(
+    request = _validate_request(
+        InterpolationRequest,
         {
             "provider": provider,
             "network": network,
@@ -1476,6 +1499,8 @@ def interpolate(
             "periods": periods,
             "lead_time": lead_time,
             "interpolation_station_distance": interpolation_station_distance,
+            "interpolation_station_distance_homogeneous": interpolation_station_distance_homogeneous,
+            "interpolation_station_distance_heterogeneous": interpolation_station_distance_heterogeneous,
             "use_nearby_station_distance": use_nearby_station_distance,
             "date": date_resolved,
             "issue": issue,
@@ -1498,15 +1523,23 @@ def interpolate(
 
     api = get_api(request.provider, request.network)
 
-    settings = Settings(
-        ts_humanize=request.humanize,
-        ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=request.interpolation_station_distance or {},
-        ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-        ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-        ts_geo_num_additional_stations=request.num_additional_stations,
-    )
+    try:
+        settings = Settings(
+            ts_humanize=request.humanize,
+            ts_convert_units=request.convert_units,
+            ts_unit_targets=request.unit_targets or {},
+            ts_geo_station_distance=request.interpolation_station_distance or {},
+            **station_distance_radii(
+                request.interpolation_station_distance_homogeneous,
+                request.interpolation_station_distance_heterogeneous,
+            ),
+            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
+            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+            ts_geo_num_additional_stations=request.num_additional_stations,
+        )
+    except ValidationError as e:
+        # a distance given for a name that is not a canonical parameter, or a negative one
+        raise click.BadParameter(str(e)) from e
 
     try:
         values_ = get_interpolate(
@@ -1551,6 +1584,10 @@ def interpolate(
 @station_options_core
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize  # ty: ignore[invalid-argument-type]
+@cloup.option("--summary_station_distance", type=click.STRING, default=None)
+@cloup.option("--summary_station_distance_homogeneous", type=click.FLOAT, default=None)
+@cloup.option("--summary_station_distance_heterogeneous", type=click.FLOAT, default=None)
+@cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
 @cloup.option("--date", type=click.STRING, required=False)
 @cloup.option(
     "--start-date",
@@ -1590,6 +1627,10 @@ def summarize(
     parameters: list[str],
     periods: list[str],
     lead_time: Literal["short", "long"],
+    summary_station_distance: str,
+    summary_station_distance_homogeneous: float | None,
+    summary_station_distance_heterogeneous: float | None,
+    use_nearby_station_distance: float,
     date: str,
     start_date: str,
     end_date: str,
@@ -1613,13 +1654,18 @@ def summarize(
     if not date_resolved:
         msg = "Provide either --date or --start-date."
         raise click.UsageError(msg)
-    request = SummaryRequest.model_validate(
+    request = _validate_request(
+        SummaryRequest,
         {
             "provider": provider,
             "network": network,
             "parameters": parameters,
             "periods": periods,
             "lead_time": lead_time,
+            "summary_station_distance": summary_station_distance,
+            "summary_station_distance_homogeneous": summary_station_distance_homogeneous,
+            "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,
+            "use_nearby_station_distance": use_nearby_station_distance,
             "date": date_resolved,
             "issue": issue,
             "station": station,
@@ -1640,15 +1686,23 @@ def summarize(
 
     api = get_api(request.provider, request.network)
 
-    settings = Settings(
-        ts_humanize=request.humanize,
-        ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=request.summary_station_distance or {},
-        ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-        ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-        ts_geo_num_additional_stations=request.num_additional_stations,
-    )
+    try:
+        settings = Settings(
+            ts_humanize=request.humanize,
+            ts_convert_units=request.convert_units,
+            ts_unit_targets=request.unit_targets or {},
+            ts_geo_station_distance=request.summary_station_distance or {},
+            **station_distance_radii(
+                request.summary_station_distance_homogeneous,
+                request.summary_station_distance_heterogeneous,
+            ),
+            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
+            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+            ts_geo_num_additional_stations=request.num_additional_stations,
+        )
+    except ValidationError as e:
+        # a distance given for a name that is not a canonical parameter, or a negative one
+        raise click.BadParameter(str(e)) from e
 
     try:
         values_ = get_summarize(

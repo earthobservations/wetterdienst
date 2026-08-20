@@ -11,6 +11,7 @@ from typing import Annotated, Any, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from pydantic import ValidationError
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import ApiNotFoundError, StartDateEndDateError
@@ -46,6 +47,7 @@ from wetterdienst.ui.core import (
     get_values,
     limit_stations_to_rank,
     set_logging_level,
+    station_distance_radii,
 )
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.ui import read_list
@@ -575,6 +577,30 @@ def values(
     return Response(content=content, media_type=media_type)
 
 
+def _geo_settings(
+    request: InterpolationRequest | SummaryRequest,
+    station_distance: dict[str, float] | None,
+    homogeneous: float | None,
+    heterogeneous: float | None,
+) -> Settings:
+    """Build the settings shared by the interpolation and the summary endpoint."""
+    radii = station_distance_radii(homogeneous, heterogeneous)
+    try:
+        return Settings(
+            ts_humanize=request.humanize,
+            ts_convert_units=request.convert_units,
+            ts_unit_targets=request.unit_targets or {},
+            ts_geo_station_distance=cast("Any", station_distance or {}),
+            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
+            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+            ts_geo_num_additional_stations=request.num_additional_stations,
+            **radii,
+        )
+    except ValidationError as e:
+        # a distance given for a name that is not a canonical parameter, or a negative one
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 # response models for the different formats are
 # - _InterpolatedValuesDict for json
 # - _InterpolatedValuesOgcFeatureCollection for geojson
@@ -606,14 +632,11 @@ def interpolate(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    settings = Settings(
-        ts_humanize=request.humanize,
-        ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=cast("Any", request.interpolation_station_distance or {}),
-        ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-        ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-        ts_geo_num_additional_stations=request.num_additional_stations,
+    settings = _geo_settings(
+        request,
+        request.interpolation_station_distance,
+        request.interpolation_station_distance_homogeneous,
+        request.interpolation_station_distance_heterogeneous,
     )
 
     try:
@@ -689,14 +712,11 @@ def summarize(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    settings = Settings(
-        ts_humanize=request.humanize,
-        ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets or {},
-        ts_geo_station_distance=cast("Any", request.summary_station_distance or {}),
-        ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-        ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-        ts_geo_num_additional_stations=request.num_additional_stations,
+    settings = _geo_settings(
+        request,
+        request.summary_station_distance,
+        request.summary_station_distance_homogeneous,
+        request.summary_station_distance_heterogeneous,
     )
 
     try:

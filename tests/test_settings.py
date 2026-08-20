@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from pydantic import ValidationError
 
 from wetterdienst.settings import Settings
 
@@ -33,9 +34,11 @@ def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.
     assert default_settings.ts_skip_threshold == 0.95
     assert default_settings.ts_drop_nulls
     # specific heterogeneous parameters use 20 km; the defaultdict fallback returns 40 km
+    assert default_settings.ts_geo_station_distance_homogeneous == 40.0
+    assert default_settings.ts_geo_station_distance_heterogeneous == 20.0
     assert default_settings.ts_geo_station_distance["precipitation_height"] == 20.0
     assert default_settings.ts_geo_station_distance["snow_depth_new"] == 20.0
-    assert default_settings.ts_geo_station_distance["foo"] == 40.0
+    assert default_settings.ts_geo_station_distance["temperature_air_mean_2m"] == 40.0
     assert default_settings.ts_geo_use_nearby_station_distance == 1
     assert not default_settings.use_certifi
     assert not default_settings.read_bufr
@@ -55,7 +58,7 @@ def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     """Test default settings but with multiple envs set."""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SHAPE"] = "wide"
-    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
+    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"humidity":42}'
     caplog.set_level(logging.INFO)
     settings = Settings()
     assert (
@@ -70,10 +73,10 @@ def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     assert settings.ts_shape == "wide"
     # user-supplied overrides are respected; other defaults remain; fallback returns 40 km
     assert settings.ts_geo_station_distance["precipitation_height"] == 40.0
-    assert settings.ts_geo_station_distance["other"] == 42.0
+    assert settings.ts_geo_station_distance["humidity"] == 42.0
     assert settings.ts_geo_station_distance["snow_depth_new"] == 20.0
     # default dict returns 40.0 for any other key
-    assert settings.ts_geo_station_distance["foo"] == 40.0
+    assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 40.0
 
 
 @mock.patch.dict(os.environ, {})
@@ -81,12 +84,12 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     """Test mixed settings."""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SKIP_THRESHOLD"] = "0.89"
-    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
+    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"humidity":42}'
     caplog.set_level(logging.INFO)
     settings = Settings(
         ts_skip_threshold=0.81,
         ts_convert_units=False,
-        ts_geo_station_distance={"just_another": 43},
+        ts_geo_station_distance={"wind_speed": 43},
     )
     assert settings.cache_disable
     assert (
@@ -102,12 +105,118 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     assert settings.ts_skip_threshold == 0.81  # argument variable overrules env variable
     assert not settings.ts_convert_units  # argument variable
     # user-supplied overrides win; other pre-populated defaults remain; fallback returns 40 km
+    # the argument and the env variable are merged, key by key
     assert settings.ts_geo_station_distance["precipitation_height"] == 40.0
-    assert settings.ts_geo_station_distance["other"] == 42.0
-    assert settings.ts_geo_station_distance["just_another"] == 43.0
+    assert settings.ts_geo_station_distance["humidity"] == 42.0
+    assert settings.ts_geo_station_distance["wind_speed"] == 43.0
     assert settings.ts_geo_station_distance["snow_depth_new"] == 20.0
     # default dict returns 40.0 for any other key
-    assert settings.ts_geo_station_distance["foo"] == 40.0
+    assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 40.0
+
+
+def test_settings_geo_station_distance_radii() -> None:
+    """Test that the two radii settings move every parameter of their kind.
+
+    The radii used to be module constants, so the only way to widen the search was to name every
+    parameter individually in `ts_geo_station_distance` -- 514 names to write out for a change that
+    is one number.
+    """
+    settings = Settings(ts_geo_station_distance_homogeneous=50.0, ts_geo_station_distance_heterogeneous=30.0)
+    # heterogeneous, from the parameter table
+    assert settings.ts_geo_station_distance["precipitation_height"] == 30.0
+    assert settings.ts_geo_station_distance["snow_depth_new"] == 30.0
+    # homogeneous, from the defaultdict fallback
+    assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 50.0
+    assert settings.ts_geo_station_distance["humidity"] == 50.0
+
+
+def test_settings_geo_station_distance_radii_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the two radii are settable from the environment, next to the per-parameter dict."""
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS", "50")
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS", "30")
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE", '{"precipitation_height":25}')
+    settings = Settings()
+    assert settings.ts_geo_station_distance_homogeneous == 50.0
+    assert settings.ts_geo_station_distance_heterogeneous == 30.0
+    # the per-parameter override wins over the radius of its kind
+    assert settings.ts_geo_station_distance["precipitation_height"] == 25.0
+    assert settings.ts_geo_station_distance["snow_depth_new"] == 30.0
+    assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 50.0
+
+
+def test_settings_geo_station_distance_round_trips() -> None:
+    """Test that dumped settings can be fed back in without changing what they mean.
+
+    The field holds the expanded mapping, so dumping it used to hand back every heterogeneous
+    parameter as an explicit override, which then won over a radius set alongside it -- the same
+    "set a number, nothing happens" failure the validation here is about.
+    """
+    dumped = Settings().model_dump()
+    assert dumped["ts_geo_station_distance"] == {}
+    dumped["ts_geo_station_distance_heterogeneous"] = 30.0
+    settings = Settings(**dumped)
+    assert settings.ts_geo_station_distance["precipitation_height"] == 30.0
+    # an override that was actually given survives the round-trip
+    overridden = Settings(ts_geo_station_distance={"precipitation_height": 25.0})
+    assert Settings(**overridden.model_dump()).ts_geo_station_distance["precipitation_height"] == 25.0
+
+
+def test_settings_geo_station_distance_survives_revalidation() -> None:
+    """Test that validating the same settings twice does not turn the table into overrides.
+
+    `TimeseriesRequest` runs `Settings.model_validate(settings)` on what it is handed, which re-runs
+    every after-validator on the same instance. Capturing the overrides again there would take the
+    already-expanded mapping for what the user wrote, and those 34 entries would then outrank a
+    radius set afterwards.
+    """
+    settings = Settings(ts_geo_station_distance_heterogeneous=30.0)
+    revalidated = Settings.model_validate(settings)
+    assert revalidated.model_dump()["ts_geo_station_distance"] == {}
+    assert revalidated.ts_geo_station_distance["precipitation_height"] == 30.0
+    # a radius changed afterwards still reaches the mapping on the next validation
+    revalidated.ts_geo_station_distance_heterogeneous = 50.0
+    assert Settings.model_validate(revalidated).ts_geo_station_distance["precipitation_height"] == 50.0
+
+
+def test_settings_geo_station_distance_rejects_unknown_parameter() -> None:
+    """Test that a parameter name that is not canonical is rejected rather than silently ignored."""
+    with pytest.raises(ValidationError, match=r"\['precipitation_heigt'\] not in the canonical parameters"):
+        Settings(ts_geo_station_distance={"precipitation_heigt": 25.0})
+
+
+def test_settings_geo_station_distance_rejects_default_key() -> None:
+    """Test that the retired "default" key names its replacements instead of quietly taking effect.
+
+    It used to rebuild the mapping around the given number, which threw away the shorter radius of
+    every heterogeneous parameter along with the fallback -- `{"default": 30}` gave precipitation
+    30 km too.
+    """
+    with pytest.raises(ValidationError, match="the 'default' key of ts_geo_station_distance is gone"):
+        Settings(ts_geo_station_distance={"default": 30.0})
+
+
+def test_settings_geo_station_distance_rejects_negative() -> None:
+    """Test that a negative radius is rejected, as it is for `ts_geo_use_nearby_station_distance`."""
+    with pytest.raises(
+        ValidationError, match=r"Negative distances in ts_geo_station_distance: \['precipitation_height'\]"
+    ):
+        Settings(ts_geo_station_distance={"precipitation_height": -5.0})
+
+
+def test_settings_geo_station_distance_warns_on_never_interpolated_parameter(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a radius set for a parameter that is never interpolated is called out.
+
+    The name is canonical, so it cannot be a typo, but nothing reads the radius: interpolation
+    skips the parameter before the distance is ever compared.
+    """
+    caplog.set_level(logging.WARNING)
+    Settings(ts_geo_station_distance={"wind_direction": 25.0})
+    assert (
+        "option 'ts_geo_station_distance' sets a radius for ['wind_direction'], which are never interpolated"
+        in caplog.text
+    )
 
 
 def test_settings_env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
