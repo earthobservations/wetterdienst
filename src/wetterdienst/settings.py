@@ -305,6 +305,10 @@ class Settings(BaseSettings):
         radius before it is scaled -- the radius at hourly resolution. A radius the user set for the
         parameter by hand is returned as it was given: a number written out means that number, at
         every resolution, and is not held to the terrain cap either.
+
+        The settings are read as they were validated. Assigning to `ts_geo_station_distance` or to
+        one of the radii after that takes effect once the settings are validated again, which
+        `TimeseriesRequest` does with whatever it is handed.
         """
         overrides = self._ts_geo_station_distance_overrides or {}
         if parameter_name in overrides:
@@ -315,9 +319,11 @@ class Settings(BaseSettings):
         scaled = self.ts_geo_station_distance_heterogeneous * self.ts_geo_station_distance_resolution_factor(resolution)
         # the homogeneous radius is where interpolating on UTM x/y stops being safe in complex
         # terrain, and that bound does not lift because a quantity was accumulated for longer.
-        # Precipitation is more orographically driven than temperature, not less, so it may not
-        # reach past the distance the smoothest field is held to
-        return min(scaled, self.ts_geo_station_distance_homogeneous)
+        # Precipitation is more orographically driven than temperature, not less, so scaling may
+        # not carry it past the distance the smoothest field is held to. What the user set as the
+        # heterogeneous radius is not touched, though, however it compares: the cap is there to
+        # bound what the scaling adds, not to overrule a number that was asked for
+        return min(scaled, max(self.ts_geo_station_distance_homogeneous, self.ts_geo_station_distance_heterogeneous))
 
     @property
     def ts_tidy(self) -> bool:

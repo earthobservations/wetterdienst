@@ -183,16 +183,23 @@ as tight as still answers at all.
 The factors are a setting like the radii are, keyed by resolution:
 
 ```python
-settings = Settings(ts_geo_station_distance_resolution_factors={"daily": 3.0})
+settings = Settings(ts_geo_station_distance_resolution_factors={"10_minutes": 1.0})
 ```
 
 ```bash
-export WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS='{"daily": 3.0}'
+export WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS='{"10_minutes": 1.0}'
 ```
+
+That one searches the full 20 km at ten minutes rather than 15. Raising a factor past the cap has
+no effect on its own -- `{"daily": 3.0}` still gives 40 km, since 60 km is more than the terrain
+bound allows -- so raise `ts_geo_station_distance_homogeneous` with it, or set the radius for the
+parameter by hand, which is not capped.
 
 Resolutions left out keep their factor, so the setting stays the list of departures rather than all
 eleven, and a resolution that does not exist is rejected the way an unknown parameter name is.
-Setting every factor to 1.0 turns the scaling off. A radius written out per parameter in
+Setting every factor to 1.0 turns the scaling off. The cap only ever bounds what the scaling adds:
+a `ts_geo_station_distance_heterogeneous` wider than the homogeneous radius is used as it was set,
+since it was asked for rather than derived. A radius written out per parameter in
 `ts_geo_station_distance` is used exactly as given, at every resolution -- a number you wrote means
 that number.
 
@@ -201,6 +208,13 @@ Tightening the fine end is the one direction that can turn a request that used t
 empty one: the interpolation needs four surrounding stations, and 15 km may not reach four of them
 in a sparse network. The log says which stations were dropped as too far away; raising the factor
 for that resolution, or the radius for that parameter, brings them back.
+```
+
+```{note}
+Settings are read as they were validated. Assigning to `ts_geo_station_distance` or to one of the
+radii on an existing `Settings` object takes effect once the settings are validated again, which
+`.interpolate()` and `.summarize()` do with whatever they are handed -- so pass the changed object
+to a request, or build a new one, rather than expecting the assignment alone to move the radius.
 ```
 
 The example below widens the radius for precipitation to 25 km:

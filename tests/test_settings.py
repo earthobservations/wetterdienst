@@ -207,6 +207,12 @@ def test_settings_geo_station_distance_for_is_capped_by_the_homogeneous_radius()
     assert settings.ts_geo_station_distance_for("precipitation_height", "monthly") == 40.0
     wider = Settings(ts_geo_station_distance_homogeneous=80.0)
     assert wider.ts_geo_station_distance_for("precipitation_height", "monthly") == 60.0
+    # the cap bounds what the scaling adds; it never overrules the radius that was asked for, even
+    # when that is the wider of the two
+    asked_for = Settings(ts_geo_station_distance_heterogeneous=60.0)
+    assert asked_for.ts_geo_station_distance_for("precipitation_height", "hourly") == 60.0
+    assert asked_for.ts_geo_station_distance_for("precipitation_height", "10_minutes") == 45.0
+    assert asked_for.ts_geo_station_distance_for("precipitation_height", "monthly") == 60.0
     # a radius written out by hand says what it says, cap included
     written = Settings(ts_geo_station_distance={"precipitation_height": 90.0})
     assert written.ts_geo_station_distance_for("precipitation_height", "monthly") == 90.0
