@@ -56,11 +56,15 @@ Types of changes:
   rejected as it already is for `ts_geo_use_nearby_station_distance` next to it. A radius set for a
   parameter that is never interpolated is a warning, since the name is real but nothing reads it.
   The CLI and the REST API report the rejection as a bad parameter and a 400 rather than a
-  traceback
+  traceback -- for `interpolate` and `summarize` that now covers every option they validate, such
+  as a negative distance, which used to end in a pydantic stack trace
 - Settings round-trip through `model_dump()` faithfully: `ts_geo_station_distance` serializes the
   overrides it was given rather than the mapping they were expanded into. Dumping the expansion
   made every heterogeneous parameter come back as an explicit override, which then won over a
-  `ts_geo_station_distance_heterogeneous` set alongside it
+  `ts_geo_station_distance_heterogeneous` set alongside it. The expansion is idempotent for the
+  same reason -- `TimeseriesRequest` re-validates the settings it is handed, which used to take
+  the already-expanded mapping for what the user had written
+- Docs: `ts_geo_min_gain_of_value_pairs` is documented with its actual default of 0.1, not 1.2
 
 ## [0.133.0] - 2026-08-19
 

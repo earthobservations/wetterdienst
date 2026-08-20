@@ -493,12 +493,20 @@ function addParameterDistance() {
 }
 
 function updateParameterName(id: string, oldKey: string, newKey: string) {
-  if (oldKey === newKey || !newKey.trim())
+  if (oldKey === newKey)
     return
 
   const entry = parameterDistanceEntries.value.find(e => e.id === id)
   if (!entry)
     return
+
+  // the input fires per keystroke, so a name being cleared passes through here. The row stays,
+  // but it leaves the request rather than being sent under an empty name
+  if (!newKey.trim()) {
+    delete dataSettings.value.useStationDistancePerParameter[oldKey]
+    entry.paramName = ''
+    return
+  }
 
   const value = dataSettings.value.useStationDistancePerParameter[oldKey] ?? entry.distance
   if (oldKey)

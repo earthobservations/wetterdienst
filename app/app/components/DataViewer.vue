@@ -98,9 +98,11 @@ const isSummaryMode = computed(() => stationSelection.value.mode === 'summary')
  */
 function stationDistanceRadii(prefix: 'interpolation' | 'summary'): Record<string, number> {
   const radii: Record<string, number> = {}
-  if (props.settings.stationDistanceHomogeneous !== STATION_DISTANCE_DEFAULTS.homogeneous)
+  // a cleared number input is null rather than a number, which would be sent as an empty value
+  const given = (value: number) => Number.isFinite(value)
+  if (given(props.settings.stationDistanceHomogeneous) && props.settings.stationDistanceHomogeneous !== STATION_DISTANCE_DEFAULTS.homogeneous)
     radii[`${prefix}_station_distance_homogeneous`] = props.settings.stationDistanceHomogeneous
-  if (props.settings.stationDistanceHeterogeneous !== STATION_DISTANCE_DEFAULTS.heterogeneous)
+  if (given(props.settings.stationDistanceHeterogeneous) && props.settings.stationDistanceHeterogeneous !== STATION_DISTANCE_DEFAULTS.heterogeneous)
     radii[`${prefix}_station_distance_heterogeneous`] = props.settings.stationDistanceHeterogeneous
   return radii
 }

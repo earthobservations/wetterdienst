@@ -10,13 +10,13 @@ import logging
 import sys
 from pathlib import Path
 from pprint import pformat
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
 
 import click
 import cloup
 from cloup import Section
 from cloup.constraints import AllSet, If, RequireExactly, accept_none
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ApiNotFoundError
@@ -47,6 +47,8 @@ if TYPE_CHECKING:
     from wetterdienst.model.request import TimeseriesRequest
 
 log = logging.getLogger(__name__)
+
+_RequestT = TypeVar("_RequestT", bound=BaseModel)
 
 appname = f"{__appname__} {__version__}"
 
@@ -96,6 +98,18 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     except ApiNotFoundError:
         log.exception("No API found.")
         sys.exit(1)
+
+
+def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
+    """Build a request model, reporting a rejected value as a bad parameter rather than a traceback.
+
+    Every field here comes from a command option, so a validation error is the user's input being
+    out of range -- a negative distance, say -- not a bug to show a stack trace for.
+    """
+    try:
+        return model.model_validate(values)
+    except ValidationError as e:
+        raise click.BadParameter(str(e)) from e
 
 
 def _resolve_date(date: str | None, start_date: str | None, end_date: str | None) -> str | None:
@@ -1476,7 +1490,8 @@ def interpolate(
     if not date_resolved:
         msg = "Provide either --date or --start-date."
         raise click.UsageError(msg)
-    request = InterpolationRequest.model_validate(
+    request = _validate_request(
+        InterpolationRequest,
         {
             "provider": provider,
             "network": network,
@@ -1639,7 +1654,8 @@ def summarize(
     if not date_resolved:
         msg = "Provide either --date or --start-date."
         raise click.UsageError(msg)
-    request = SummaryRequest.model_validate(
+    request = _validate_request(
+        SummaryRequest,
         {
             "provider": provider,
             "network": network,

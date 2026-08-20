@@ -131,8 +131,9 @@ class Settings(BaseSettings):
     # overrides alone while validating and the effective mapping -- radii, table and overrides --
     # from `expand_ts_geo_station_distance` on
     ts_geo_station_distance: defaultdict[str, float] = Field(default_factory=dict)
-    #: what was passed for `ts_geo_station_distance`, kept for serialization
-    _ts_geo_station_distance_overrides: dict[str, float] = PrivateAttr(default_factory=dict)
+    #: what was passed for `ts_geo_station_distance`, kept for serialization and re-expansion.
+    #: `None` until the field has been expanded once -- an empty dict is a valid set of overrides
+    _ts_geo_station_distance_overrides: dict[str, float] | None = PrivateAttr(default=None)
     # this setting is used to define how far away a station can be so that no interpolation is done
     # but instead the station is used directly
     ts_geo_use_nearby_station_distance: Annotated[float, Field(strict=True, ge=0)] | None = 1.0
@@ -206,12 +207,18 @@ class Settings(BaseSettings):
 
         Built here rather than in the field's default so that the two radii, which are fields of
         their own and may themselves be overridden, are already known.
+
+        Runs more than once on the same instance -- `Settings.model_validate(settings)` re-runs
+        every after-validator, and `TimeseriesRequest` does exactly that -- so the overrides are
+        captured only the first time. Expanding the expansion would take the whole table for
+        overrides the user never wrote, which would then outrank a radius set afterwards.
         """
-        self._ts_geo_station_distance_overrides = dict(self.ts_geo_station_distance)
+        if self._ts_geo_station_distance_overrides is None:
+            self._ts_geo_station_distance_overrides = dict(self.ts_geo_station_distance)
         self.ts_geo_station_distance = _build_geo_station_distance(
             self.ts_geo_station_distance_homogeneous,
             self.ts_geo_station_distance_heterogeneous,
-            self.ts_geo_station_distance,
+            self._ts_geo_station_distance_overrides,
         )
         return self
 
@@ -224,7 +231,7 @@ class Settings(BaseSettings):
         `ts_geo_station_distance_heterogeneous` set alongside it, which is the very "set a number,
         nothing happens" failure the validation here is about.
         """
-        return self._ts_geo_station_distance_overrides
+        return self._ts_geo_station_distance_overrides or {}
 
     @property
     def ts_tidy(self) -> bool:

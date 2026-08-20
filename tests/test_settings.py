@@ -161,6 +161,23 @@ def test_settings_geo_station_distance_round_trips() -> None:
     assert Settings(**overridden.model_dump()).ts_geo_station_distance["precipitation_height"] == 25.0
 
 
+def test_settings_geo_station_distance_survives_revalidation() -> None:
+    """Test that validating the same settings twice does not turn the table into overrides.
+
+    `TimeseriesRequest` runs `Settings.model_validate(settings)` on what it is handed, which re-runs
+    every after-validator on the same instance. Capturing the overrides again there would take the
+    already-expanded mapping for what the user wrote, and those 34 entries would then outrank a
+    radius set afterwards.
+    """
+    settings = Settings(ts_geo_station_distance_heterogeneous=30.0)
+    revalidated = Settings.model_validate(settings)
+    assert revalidated.model_dump()["ts_geo_station_distance"] == {}
+    assert revalidated.ts_geo_station_distance["precipitation_height"] == 30.0
+    # a radius changed afterwards still reaches the mapping on the next validation
+    revalidated.ts_geo_station_distance_heterogeneous = 50.0
+    assert Settings.model_validate(revalidated).ts_geo_station_distance["precipitation_height"] == 50.0
+
+
 def test_settings_geo_station_distance_rejects_unknown_parameter() -> None:
     """Test that a parameter name that is not canonical is rejected rather than silently ignored."""
     with pytest.raises(ValidationError, match=r"\['precipitation_heigt'\] not in the canonical parameters"):

@@ -522,11 +522,7 @@ def test_cli_interpolate_end_date_only() -> None:
 
 
 def test_cli_interpolate_negative_radius() -> None:
-    """Test that a negative radius is rejected before anything is requested.
-
-    The request model rejects it, as it does for every other out-of-range option, so the message
-    arrives as the exception rather than on stdout.
-    """
+    """Test that a negative radius is reported as a bad parameter, not as a traceback."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -541,7 +537,7 @@ def test_cli_interpolate_negative_radius() -> None:
         ],
     )
     assert result.exit_code != 0
-    assert "greater than or equal to 0" in str(result.exception)
+    assert "greater than or equal to 0" in result.output
 
 
 def test_cli_interpolate_unknown_station_distance_parameter() -> None:
