@@ -24,6 +24,22 @@ Types of changes:
   quantity -- while the counted-threshold ones follow the phrasing already there for
   `count_days_precipitation_height_ge_1mm`, down to the decimal comma every locale but English
   writes
+- `[Explorer]` The interpolation settings show one field per search radius -- one for the
+  parameters that vary slowly across a region, one for those that decorrelate faster -- where a
+  single "Default (all)" box stood before. That box wrote a `default` key the backend has stopped
+  accepting, and which never meant what it looked like: it replaced the shorter radius of every
+  heterogeneous parameter along with the fallback, so setting 30 km there gave precipitation, fresh
+  snow and visibility 30 km too. A radius left untouched is not sent at all, so a self-hosted
+  instance configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own
+
+### Fixed
+
+- `[Explorer]` The CSV, Excel and JSON download in summary mode requested `/api/summary`, which is
+  not a route -- nothing came back. The endpoint is `/api/summarize`, as the data view itself
+  already used
+- `[Explorer]` "Add parameter" no longer sends a row before it has a name. It seeded the row with
+  the literal name `new_parameter`, which the backend used to ignore silently and now rejects, so
+  clicking the button and requesting data without typing a name failed the whole request
 
 ## [0.13.0] - 2026-08-19
 

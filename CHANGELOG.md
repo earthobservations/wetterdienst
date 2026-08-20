@@ -33,10 +33,9 @@ Types of changes:
   so widening the search for everything meant naming all 514 parameters individually in
   `ts_geo_station_distance`, which keeps its role as the per-parameter override. The CLI takes
   them as `--interpolation_station_distance_homogeneous` and `--…_heterogeneous` (`--summary_…`
-  for `summarize`), the REST API as query parameters of the same names, and the app's
-  interpolation settings show one field per radius where they used to show a single "Default
-  (all)" box. A radius that is not given is left out rather than passed as the library default, so
-  a server configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own
+  for `summarize`) and the REST API as query parameters of the same names. A radius that is not
+  given is left out rather than passed as the library default, so a server configured through
+  `WD_TS_GEO_STATION_DISTANCE_*` keeps its own
 - `wetterdienst summarize` reaches the settings that `interpolate` always could:
   `--summary_station_distance` and `--use_nearby_station_distance` had no command options at all,
   so the summary CLI always ran with the defaults
@@ -58,8 +57,6 @@ Types of changes:
   parameter that is never interpolated is a warning, since the name is real but nothing reads it.
   The CLI and the REST API report the rejection as a bad parameter and a 400 rather than a
   traceback
-- App: the CSV/Excel download in summary mode requested `/api/summary`, which is not a route --
-  the endpoint is `/api/summarize`, as the data view itself already used
 - Settings round-trip through `model_dump()` faithfully: `ts_geo_station_distance` serializes the
   overrides it was given rather than the mapping they were expanded into. Dumping the expansion
   made every heterogeneous parameter come back as an explicit override, which then won over a
