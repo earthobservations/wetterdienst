@@ -42,6 +42,18 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: WSV Pegelonline reports under the interval it actually records at, so its single
+  `dynamic` resolution is replaced by `1_minute`, `5_minutes`, `10_minutes`, `15_minutes` and
+  `hourly`, and a request for `dynamic/data/...` no longer resolves. Pegelonline publishes an
+  `equidistance` on every timeseries in the station listing the provider already downloads, so the
+  interval was never something that had to be guessed -- it was simply not read. Each station is
+  listed under the resolution it records the requested parameters at, and the 77 of 787 stations
+  that record different parameters at different intervals (Passau reads stage every 15 minutes and
+  air temperature every 60) appear under each, serving only the parameters that belong there. To
+  find a station's resolution, request the parameter at every interval that could carry it and read
+  the `resolution` column of the station list. In exchange `ts_complete` works, which was
+  short-circuited for a dynamic resolution, and the interpolation search radius scales by resolution
+  like every other provider's rather than falling back to a factor of 1.0
 - **Breaking**: the heterogeneous search radius follows the resolution of the request, so an
   interpolation or summary that already worked returns different values without anything being
   changed by hand: daily precipitation is drawn from 40 km rather than 20, `minute_10` from 15 km

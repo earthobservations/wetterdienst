@@ -44,6 +44,40 @@ Keyed by metadata model name, then ``(resolution, dataset, name_original)``. App
 ``build_metadata_model``.
 """
 
+# Pegelonline serves the same parameters at whatever interval each station records at, so these are
+# declared once and expanded over the resolutions below rather than written out five times. The
+# resolution names must stay in step with `_EQUIDISTANCE_TO_RESOLUTION` in the provider module; a
+# name that drifts out of step leaves its parameters with no description, which
+# `test_wsv_every_parameter_is_described` catches.
+_WSV_PEGEL_RESOLUTIONS = ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
+
+# Pegelonline names each timeseries in German; the meaning below is the API's own ``longname`` for
+# that shortname, e.g. HL is LUFTFEUCHTE and SIGH SIGNIFIKANTEWELLENHÖHE.
+_WSV_PEGEL_PARAMETERS = {
+    "CL": "average chlorid concentration during time scale",
+    "DFH": "average clearance height during time scale",
+    "GRU": "average groundwater level during time scale",
+    "HL": "average relative humidity of the air during time scale",
+    "LF": "average electric conductivity during time scale",
+    "LT": "average air temperature during time scale",
+    "MAXH": "max wave height during time scale",
+    "NIEDERSCHLAG": "average precipitation height during time scale",
+    "NIEDERSCHLAGSINTENSITÄT": "average precipitation intensity during time scale",
+    "O2": "average oxygen level during time scale",
+    "PH": "average pH during time scale",
+    "Q": "average discharge during time scale",
+    "R": "direction of the water current",
+    "SIGH": "average significant wave height during time scale",
+    "TP": "average wave period during time scale",
+    "TR": "average turbidity during time scale",
+    "VA": "average flow speed during time scale",
+    "W": "average water level during time scale",
+    "WG": "average wind speed during time scale",
+    "WR": "average wind direction during time scale",
+    "WT": "average water temperature during time scale",
+}
+
+
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "HubeauMetadata": {
         ("dynamic", "data", "H"): "Stage.",
@@ -1484,29 +1518,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "windspeed"): "wind speed",
     },
     "WsvPegelMetadata": {
-        # Pegelonline names each timeseries in German; the meaning below is the API's own
-        # ``longname`` for that shortname, e.g. HL is LUFTFEUCHTE and SIGH SIGNIFIKANTEWELLENHÖHE.
-        ("dynamic", "data", "CL"): "average chlorid concentration during time scale",
-        ("dynamic", "data", "DFH"): "average clearance height during time scale",
-        ("dynamic", "data", "GRU"): "average groundwater level during time scale",
-        ("dynamic", "data", "HL"): "average relative humidity of the air during time scale",
-        ("dynamic", "data", "LF"): "average electric conductivity during time scale",
-        ("dynamic", "data", "LT"): "average air temperature during time scale",
-        ("dynamic", "data", "MAXH"): "max wave height during time scale",
-        ("dynamic", "data", "NIEDERSCHLAG"): "average precipitation height during time scale",
-        ("dynamic", "data", "NIEDERSCHLAGSINTENSITÄT"): "average precipitation intensity during time scale",
-        ("dynamic", "data", "O2"): "average oxygen level during time scale",
-        ("dynamic", "data", "PH"): "average pH during time scale",
-        ("dynamic", "data", "Q"): "average discharge during time scale",
-        ("dynamic", "data", "R"): "direction of the water current",
-        ("dynamic", "data", "SIGH"): "average significant wave height during time scale",
-        ("dynamic", "data", "TP"): "average wave period during time scale",
-        ("dynamic", "data", "TR"): "average turbidity during time scale",
-        ("dynamic", "data", "VA"): "average flow speed during time scale",
-        ("dynamic", "data", "W"): "average water level during time scale",
-        ("dynamic", "data", "WG"): "average wind speed during time scale",
-        ("dynamic", "data", "WR"): "average wind direction during time scale",
-        ("dynamic", "data", "WT"): "average water temperature during time scale",
+        (resolution, "data", name_original): description
+        for resolution in _WSV_PEGEL_RESOLUTIONS
+        for name_original, description in _WSV_PEGEL_PARAMETERS.items()
     },
     "AemetObservationMetadata": {
         ("annual", "data", "p_max"): "Greatest daily precipitation of the year, and its date.",
@@ -2279,10 +2293,11 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ),
     },
     "WsvPegelMetadata": {
-        ("dynamic", "data"): (
+        (resolution, "data"): (
             "Recent data (last 30 days) of German waterways including water level and discharge for "
             "most stations but may also include chemical, meteorologic and other types of values."
-        ),
+        )
+        for resolution in _WSV_PEGEL_RESOLUTIONS
     },
 }
 
@@ -2304,12 +2319,6 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
     },
     "MetnoFrostMetadata": {
         "6_hour": "Synoptic observations reported every six hours.",
-    },
-    "WsvPegelMetadata": {
-        "dynamic": (
-            "The interval is a property of the station rather than of the network: 15 minutes at "
-            "most gauges, 10 at some."
-        ),
     },
 }
 

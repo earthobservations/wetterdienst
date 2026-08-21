@@ -1,12 +1,11 @@
-# dynamic
+# 15_minutes
 
 ## metadata
 
 | property      | value                                                        |
 |---------------|--------------------------------------------------------------|
-| name          | dynamic                                                      |
-| original name | dynamic                                                      |
-| description   | The interval is a property of the station rather than of the network: 15 minutes at most gauges, 10 at some. |
+| name          | 15_minutes                                                   |
+| original name | 15_minutes                                                   |
 | url           | [here](https://www.pegelonline.wsv.de/webservice/ueberblick) |
 
 ## datasets
@@ -17,8 +16,8 @@
 
 | property      | value                                                                                                                                                                                                                                        |
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name          | data                                                                                                                                                                                                                                         |
-| original name | data                                                                                                                                                                                                                                         |
+| name          | data                                                         |
+| original name | data                                                         |
 | description   | Recent data (last 30 days) of German waterways including water level and discharge for most stations but may also include chemical, meteorologic and other types of values ([details](https://www.pegelonline.wsv.de/webservice/ueberblick)) |
 | access        | [here](https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true)                                                                                                                                          |
 
