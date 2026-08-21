@@ -606,7 +606,8 @@ def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
 
 def test_api_wsv_pegel(default_settings: Settings) -> None:
     """Test wsv pegel API."""
-    request = WsvPegelRequest(parameters=[("dynamic", "data", "stage")], settings=default_settings).all()
+    # stage at the 15-minute gauges, which is two thirds of the network
+    request = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(
