@@ -5,19 +5,23 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
 from wetterdienst import Settings
-from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
+from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
 from wetterdienst.provider.eaufrance.hubeau.api import (
     _RESOLUTION_TO_STEP,
     _SNIFF_MIN_INTERVALS,
     _STEP_TO_RESOLUTION,
     _modal_steps,
 )
+from wetterdienst.util.network import File
 
 ALL_PARAMETERS = [(resolution, "data", "stage") for resolution in _STEP_TO_RESOLUTION.values()]
 
@@ -132,6 +136,34 @@ def test_observations_url_names_the_stations_it_asks_about() -> None:
     assert "grandeur_hydro=Q" in url
 
 
+def test_paged_rows_follows_the_cursor_to_the_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a query is read to its last page rather than to its first.
+
+    Every Hubeau endpoint answers a page at a time and hands back a cursor. Reading only the first
+    page is how the station list came to hold a thousand of the four thousand gauges, and on the
+    values side it would cut a series off mid-window without any error to show for it.
+    """
+    pages = {
+        "https://hubeau/first": {"data": [{"n": 1}], "next": "https://hubeau/second"},
+        "https://hubeau/second": {"data": [{"n": 2}], "next": "https://hubeau/third"},
+        "https://hubeau/third": {"data": [], "next": None},
+    }
+
+    def _download_file(url: str, **_kwargs: object) -> File:
+        return File(url=url, content=BytesIO(json.dumps(pages[url]).encode()), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download_file)
+
+    rows = api._paged_rows(  # noqa: SLF001
+        "https://hubeau/first",
+        Settings(),
+        ttl=CacheExpiry.METAINDEX,
+        timeout=30,
+    )
+
+    assert rows == [{"n": 1}, {"n": 2}]
+
+
 def _station(station_id: str) -> dict:
     return {
         "code_station": station_id,
@@ -159,7 +191,7 @@ def hubeau_network(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     stations = [_station(name) for name in ("fast", "unmapped", "quiet", "discharge_only", "dead")]
 
-    def _paged_rows(self: HubeauRequest, url: str, timeout: int) -> list[dict]:  # noqa: ARG001
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
         if "referentiel" in url:
             return stations
         if "code_entite" not in url:
@@ -168,7 +200,7 @@ def hubeau_network(monkeypatch: pytest.MonkeyPatch) -> None:
             return _observations(_dates("quiet", 60, 8))
         return _observations(_dates("discharge_only", 10, 8))
 
-    monkeypatch.setattr(HubeauRequest, "_paged_rows", _paged_rows)
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
 
 
 @pytest.mark.usefixtures("hubeau_network")

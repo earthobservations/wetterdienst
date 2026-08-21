@@ -236,8 +236,13 @@ class TimeseriesValues(ABC):
         # the join above is exact, so a reading taken off the resolution's grid -- an hourly gauge
         # reporting at seven minutes past, say -- matches no row of the grid and is left out of the
         # frame entirely. That is what completing to a grid means, but it is silent, and a station
-        # whose whole series sits off-phase comes back as a column of nulls with nothing to say why
-        observed = df.get_column("value").drop_nulls().len()
+        # whose whole series sits off-phase comes back as a column of nulls with nothing to say why.
+        #
+        # Counted over the grid's own span rather than over everything collected: providers hand
+        # back what their files hold, which is routinely far more than was asked for -- a whole
+        # historical decade for one requested week -- and `query` trims that to the request only
+        # after this runs. Comparing against the untrimmed frame would report the trim as a drop.
+        observed = df.filter(pl.col("date").is_between(start_date, end_date)).get_column("value").drop_nulls().len()
         kept = df_complete.get_column("value").drop_nulls().len()
         if kept < observed:
             log.warning(

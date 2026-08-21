@@ -96,6 +96,16 @@ _SNIFF_TIMEOUT = 120
 # The referential is one page of four thousand stations and answers in a second or two, so it keeps
 # the ordinary budget.
 _STATIONS_TIMEOUT = 30
+# One page of observations per request, followed by its cursor. The window is chunked to about a
+# page so that most requests need only one.
+_VALUES_PAGE_SIZE = 20000
+_VALUES_TIMEOUT = 120
+_VALUES_SCHEMA = {
+    "code_station": pl.String,
+    "date_obs": pl.String,
+    "resultat_obs": pl.Float64,
+    "code_qualification_obs": pl.Float64,
+}
 # Three intervals is the least that can carry a majority, so it is the least that names a station.
 _SNIFF_MIN_INTERVALS = 3
 # Every query here is cursor-driven, and a cursor that stopped advancing would loop forever. Two
@@ -129,6 +139,46 @@ def _log_unmapped_steps(df: pl.DataFrame) -> None:
     )
 
 
+def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int) -> list[dict]:
+    """Follow one Hubeau query through its cursor pages.
+
+    Every endpoint here answers a page at a time and hands back a cursor to the next, and a caller
+    that reads only the first page gets a silently short answer -- which is how the station list
+    came to hold a quarter of the network.
+
+    Returns:
+        Every record the pages carried. A page the service refuses raises rather than returning
+        what came before it: a silently short answer would file stations under the wrong
+        resolution, or truncate a series, which is worse than saying the service could not be read.
+
+    """
+    query = url
+    rows: list[dict] = []
+    for _ in range(_MAX_PAGES):
+        file = download_file(
+            url=url,
+            cache_dir=settings.cache_dir,
+            ttl=ttl,
+            client_kwargs={**settings.fsspec_client_kwargs, "timeout": timeout},
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+        )
+        file.raise_if_exception()
+        if isinstance(file.content, Exception):
+            break
+        payload = json.load(file.content)
+        page = payload.get("data")
+        if not page:
+            break
+        rows.extend(page)
+        url = payload.get("next")
+        if not url:
+            break
+    else:
+        log.warning(f"Hubeau paging stopped at {_MAX_PAGES} pages for {query}; the result is incomplete.")
+    return rows
+
+
 def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
     """Reduce observation timestamps to one interval per station.
 
@@ -142,7 +192,12 @@ def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
     if df.is_empty():
         return pl.DataFrame(schema={"station_id": pl.String, "step": pl.Int64})
     df = df.unique(subset=["station_id", "date"]).sort("station_id", "date")
-    df = df.with_columns(pl.col("date").diff().over("station_id").dt.total_minutes().alias("step"))
+    # rounded to the nearest minute rather than truncated: a gauge whose transmissions drift by
+    # seconds spaces them 4 m 55 s apart as readily as 5 m 00 s, and truncation would call that a
+    # four-minute station -- an interval no resolution covers, which drops it from the list
+    df = df.with_columns(
+        (pl.col("date").diff().over("station_id").dt.total_seconds() / 60).round().cast(pl.Int64).alias("step"),
+    )
     # a null step is a station's first observation, which spans nothing; a zero step would be two
     # records at one timestamp, which `unique` above has already ruled out
     df = df.drop_nulls("step").filter(pl.col("step") > 0)
@@ -210,20 +265,25 @@ class HubeauValues(TimeseriesValues):
     _endpoint = (
         "https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite={station_id}"
         "&grandeur_hydro={grandeur_hydro}&sort=asc&date_debut_obs={start_date}&date_fin_obs={end_date}"
+        f"&size={_VALUES_PAGE_SIZE}"
     )
 
     def _get_hubeau_dates(self, parameter: ParameterModel) -> Iterator[tuple[dt.datetime, dt.datetime]]:
-        """Split the served window into chunks of at most 1000 observations.
+        """Split the served window into chunks of a page of observations each.
 
         The interval comes from the resolution the station is listed under, which is what the
-        station list measured it to be, so the split no longer costs a request of its own.
+        station list measured it to be, so the split no longer costs a request of its own. It is a
+        forecast of how many records a window holds rather than a promise: the station list
+        measures stage, and a station whose discharge arrives more often would hold more. The
+        chunks are therefore sized to a page and the pages are followed, so an underestimate costs
+        another request rather than the records past the first page.
         """
         end = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
         start = end - dt.timedelta(days=30)
         delta = end - start
         data_delta = dt.timedelta(minutes=_RESOLUTION_TO_STEP[parameter.dataset.resolution.name])
         n_dates = delta / data_delta
-        periods = math.ceil(n_dates / 1000)
+        periods = math.ceil(n_dates / _VALUES_PAGE_SIZE)
         request_date_range = pl.datetime_range(start=start, end=end, interval=delta / periods, eager=True)
         return pairwise(request_date_range)
 
@@ -232,10 +292,7 @@ class HubeauValues(TimeseriesValues):
         station_id: str,
         parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
-        """Collect data from Hubeau API.
-
-        Requests are limited to 1000 units so eventually multiple requests have to be sent to get all data.
-        """
+        """Collect the last 30 days of one parameter of one station."""
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.stations.settings)
@@ -247,38 +304,12 @@ class HubeauValues(TimeseriesValues):
                 start_date=start_date.isoformat(),
                 end_date=end_date.isoformat(),
             )
-            file = download_file(
-                url=url,
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES,
-                client_kwargs=settings.fsspec_client_kwargs,
-                cache_disable=settings.cache_disable,
-            )
-            file.raise_if_exception()
-            if isinstance(file.content, Exception):
-                return pl.DataFrame()
-            df = pl.read_json(
-                file.content,
-                schema={
-                    "data": pl.List(
-                        pl.Struct(
-                            {
-                                "code_station": pl.String,
-                                "date_obs": pl.String,
-                                "resultat_obs": pl.Float64,
-                                "code_qualification_obs": pl.Float64,
-                            },
-                        ),
-                    ),
-                },
-            )
-            df = df.explode("data", empty_as_null=True)
-            df = df.select(pl.col("data").struct.unnest())
-            data.append(df)
-        try:
-            df = pl.concat(data)
-        except ValueError:
+            rows = _paged_rows(url, settings, ttl=CacheExpiry.FIVE_MINUTES, timeout=_VALUES_TIMEOUT)
+            if rows:
+                data.append(pl.from_dicts(rows, schema=_VALUES_SCHEMA))
+        if not data:
             return pl.DataFrame()
+        df = pl.concat(data)
         df = df.rename(
             mapping={
                 "code_station": "station_id",
@@ -310,45 +341,6 @@ class HubeauRequest(TimeseriesRequest):
 
     _endpoint = _STATIONS_ENDPOINT
 
-    def _paged_rows(self, url: str, timeout: int) -> list[dict]:
-        """Follow one query through its cursor pages.
-
-        Returns:
-            Every record the pages carried, or as many as were readable: a station list without
-            intervals is better than none, so a page the service will not serve ends the walk
-            rather than the request.
-
-        """
-        from typing import cast  # noqa: PLC0415
-
-        settings = cast("Settings", self.settings)
-        rows: list[dict] = []
-        for _ in range(_MAX_PAGES):
-            file = download_file(
-                url=url,
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.METAINDEX,
-                client_kwargs={**settings.fsspec_client_kwargs, "timeout": timeout},
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
-            file.raise_if_exception()
-            if isinstance(file.content, Exception):
-                break
-            payload = json.load(file.content)
-            page = payload.get("data")
-            if not page:
-                break
-            rows.extend(page)
-            url = payload.get("next")
-            if not url:
-                break
-        else:
-            log.warning(
-                f"Hubeau paging stopped at {_MAX_PAGES} pages for {url}; the result is incomplete.",
-            )
-        return rows
-
     def _observation_dates(self, url: str) -> pl.DataFrame:
         """Read the timestamps one observations query carries.
 
@@ -356,7 +348,10 @@ class HubeauRequest(TimeseriesRequest):
             Frame of ``station_id`` and ``date``, one row per observation.
 
         """
-        rows = self._paged_rows(url, timeout=_SNIFF_TIMEOUT)
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
+        rows = _paged_rows(url, settings, ttl=CacheExpiry.METAINDEX, timeout=_SNIFF_TIMEOUT)
         if not rows:
             return pl.DataFrame(schema={"station_id": pl.String, "date": pl.Datetime(time_unit="us")})
         df = pl.from_dicts(rows, schema={"code_station": pl.String, "date_obs": pl.String})
@@ -427,7 +422,10 @@ class HubeauRequest(TimeseriesRequest):
         }
         if not requested:
             return pl.LazyFrame()
-        rows = self._paged_rows(self._endpoint, timeout=_STATIONS_TIMEOUT)
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
+        rows = _paged_rows(self._endpoint, settings, ttl=CacheExpiry.METAINDEX, timeout=_STATIONS_TIMEOUT)
         if not rows:
             return pl.LazyFrame()
         df_raw = pl.from_dicts(
