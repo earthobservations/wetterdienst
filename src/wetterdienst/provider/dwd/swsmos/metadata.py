@@ -34,7 +34,6 @@ DwdSwsmosMetadata = {
     "url": "https://opendata.dwd.de/weather/local_forecasts/swsmos/",
     "kind": "forecast",
     "timezone": "Europe/Berlin",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",

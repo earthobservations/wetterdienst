@@ -136,7 +136,6 @@ MetOfficeObservationMetadata = {
     "url": "https://catalogue.ceda.ac.uk/uuid/dbd451271eb04662beade68da43546e1/",
     "kind": "observation",
     "timezone": "Europe/London",
-    "timezone_data": "UTC",
     "resolutions": [
         _resolution(
             "daily",

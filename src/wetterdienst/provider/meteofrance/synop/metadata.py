@@ -15,7 +15,6 @@ MeteoFranceSynopMetadata = {
     "url": "https://meteo.data.gouv.fr/",
     "kind": "observation",
     "timezone": "Europe/Paris",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "subdaily",

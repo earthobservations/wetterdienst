@@ -24,8 +24,7 @@ Two consequences are worth knowing. A station that has published nothing recent 
 measured and is listed under no resolution until it transmits again, which is the state of most
 of the thousand-odd gauges the referential still marks as in service. And a station transmitting
 on its own phase rather than on the wall clock — hourly at seven minutes past, say — is described
-correctly by its interval but does not line up with the grid `ts_complete` builds, so enabling
-that setting drops its readings and says so in a warning.
+correctly by its interval even though its timestamps do not land on the wall-clock hour.
 
 ```{toctree}
 :hidden:

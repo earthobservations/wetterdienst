@@ -15,7 +15,6 @@ MeteoswissObservationMetadata = {
     "url": "https://www.meteoswiss.admin.ch/",
     "kind": "observation",
     "timezone": "Europe/Zurich",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "10_minutes",

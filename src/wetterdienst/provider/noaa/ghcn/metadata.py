@@ -14,7 +14,6 @@ NoaaGhcnMetadata = {
     "url": "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
     "kind": "observation",
     "timezone": "America/New_York",
-    "timezone_data": "dynamic",
     "resolutions": [
         {
             "name": "hourly",

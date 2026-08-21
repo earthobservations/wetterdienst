@@ -222,8 +222,8 @@ def test_all_leaves_out_a_station_whose_interval_no_resolution_covers() -> None:
     """Test that an unmapped interval is served under no resolution rather than a neighbouring one.
 
     Filing a half-hourly gauge under ``15_minutes`` or ``hourly`` would describe it wrongly for
-    every reader downstream, and under ``ts_complete`` would reindex it onto a grid it never
-    transmits on.
+    every reader downstream, and would have it judged against twice or half the readings it
+    actually transmits wherever its coverage is measured.
     """
     df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
 

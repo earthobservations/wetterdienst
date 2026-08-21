@@ -30,7 +30,6 @@ NwsObservationMetadata = {
     "url": "https://api.weather.gov/",
     "kind": "observation",
     "timezone": "America/New_York",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",

@@ -34,7 +34,6 @@ MetnoFrostMetadata = {
     "url": "https://frost.met.no",
     "kind": "observation",
     "timezone": "Europe/Oslo",
-    "timezone_data": "UTC",
     "auth": True,
     "resolutions": [
         {

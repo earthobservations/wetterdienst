@@ -26,7 +26,6 @@ FmiObservationMetadata = {
     "url": "https://en.ilmatieteenlaitos.fi/open-data",
     "kind": "observation",
     "timezone": "Europe/Helsinki",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",

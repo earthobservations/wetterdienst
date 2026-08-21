@@ -1,20 +1,16 @@
 """Tests for shared TimeseriesValues behavior."""
 
 import datetime as dt
-import logging
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
-from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
-from wetterdienst.provider.eaufrance.hubeau.api import HubeauValues
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelValues
 
@@ -216,13 +212,17 @@ def _hourly_values(start_date: dt.datetime, end_date: dt.datetime) -> Timeseries
 
 
 def _hourly_long(dates: list[dt.datetime]) -> pl.DataFrame:
-    """Build a long frame of one parameter observed at the given timestamps."""
+    """Build a long frame of one parameter observed at the given timestamps.
+
+    The parameter carries its source name rather than its canonical one, which is what a frame
+    holds until `query` humanizes it -- and humanizing happens after coverage is measured.
+    """
     return pl.DataFrame(
         {
             "station_id": ["01048"] * len(dates),
             "resolution": ["hourly"] * len(dates),
             "dataset": ["temperature_air"] * len(dates),
-            "parameter": ["temperature_air_mean_2m"] * len(dates),
+            "parameter": ["tt_tu"] * len(dates),
             "date": dates,
             "value": [1.0] * len(dates),
             "quality": [None] * len(dates),
@@ -231,101 +231,175 @@ def _hourly_long(dates: list[dt.datetime]) -> pl.DataFrame:
     )
 
 
-def test_build_complete_df_reports_readings_that_miss_the_grid(caplog: pytest.LogCaptureFixture) -> None:
-    """Test that completing to a grid says how many readings it dropped for being off it.
+def _percentage(values: TimeseriesValues, df: pl.DataFrame, criteria: str = "min") -> float:
+    """Read the coverage of a frame the way `query` does, under the given skip criteria."""
+    values.sr.stations.settings.ts_skip_criteria = criteria
+    return values._get_actual_percentage(df=df)  # noqa: SLF001
 
-    The join onto the grid is exact, so a station reporting at seven minutes past the hour matches
-    no row and comes back as a column of nulls. That is what completing to a grid means, but
-    without a word about it the frame looks like a station with no data rather than one whose
-    readings are all a few minutes off.
+
+def test_actual_percentage_measures_against_the_requested_window() -> None:
+    """Test that coverage is the share of the readings the request asked for.
+
+    The window holds four hourly readings and the station delivered three of them, which is what
+    the number says -- the frame it is read off carries three rows and nothing else, since there
+    is no grid under it to spell the fourth out as a null.
     """
     start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
     end_date = dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
     df = _hourly_long(
         [
             dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
-            dt.datetime(2026, 1, 1, 1, 7, tzinfo=ZoneInfo("UTC")),  # off the grid
+            dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
             dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC")),
         ],
     )
 
-    with caplog.at_level(logging.WARNING):
-        result = _hourly_values(start_date, end_date)._build_complete_df(df, "01048", Resolution.HOURLY)  # noqa: SLF001
-
-    assert result.get_column("value").drop_nulls().len() == 2
-    assert "1 of 3 values are not on the hourly grid" in caplog.text
+    assert _percentage(_hourly_values(start_date, end_date), df) == 0.75
 
 
-def test_build_complete_df_does_not_count_readings_outside_the_request(caplog: pytest.LogCaptureFixture) -> None:
-    """Test that data collected beyond the request is not reported as dropped.
+def test_actual_percentage_counts_readings_that_miss_the_grid() -> None:
+    """Test that a station reporting off the hour is counted as reporting.
 
-    Providers hand back what their files hold rather than what was asked for -- a whole historical
-    decade for one requested week -- and the frame is trimmed to the request only after completion
-    runs. Counting against the untrimmed frame reported the trim itself as a drop, which made the
-    warning fire on almost every request and name a number with nothing behind it.
+    Completion joined onto the grid exactly, so a gauge reporting at seven minutes past matched no
+    row and came back as a column of nulls -- a good third of Hubeau's hourly stations scored zero
+    and were skipped for it. The count no longer asks where in the hour a reading fell.
     """
     start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
     end_date = dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC"))
     df = _hourly_long(
         [
-            dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
-            dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
-            dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC")),
-            # collected because the file holds it, outside what was asked for
-            dt.datetime(2026, 1, 2, 5, tzinfo=ZoneInfo("UTC")),
-            dt.datetime(2026, 1, 3, 6, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 0, 7, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 1, 7, tzinfo=ZoneInfo("UTC")),
         ],
     )
 
-    with caplog.at_level(logging.WARNING):
-        _hourly_values(start_date, end_date)._build_complete_df(df, "01048", Resolution.HOURLY)  # noqa: SLF001
-
-    assert "ts_complete" not in caplog.text
+    assert _percentage(_hourly_values(start_date, end_date), df) == pytest.approx(2 / 3)
 
 
-def test_build_complete_df_counts_the_window_of_a_station_outside_utc() -> None:
-    """Test that completion works where the station's own timezone is not UTC.
+def test_actual_percentage_caps_a_station_reporting_more_often_than_its_resolution() -> None:
+    """Test that reporting more often than the resolution reads as covered, not as over-covered."""
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC"))
+    df = _hourly_long(
+        [
+            dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 0, 30, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 1, 30, tzinfo=ZoneInfo("UTC")),
+        ],
+    )
 
-    `_adjust_start_end_date` localizes the window to the station's timezone, while the grid it
-    builds and the values it completes are both UTC. Reading the span off the localized bounds
-    rather than off the grid made polars refuse to compare the two, so every Hubeau station outside
-    metropolitan France -- Guadeloupe, Martinique, Mayotte, Guyane, La Réunion -- raised instead of
-    completing.
+    assert _percentage(_hourly_values(start_date, end_date), df) == 1.0
+
+
+def test_actual_percentage_counts_nulls_as_missing() -> None:
+    """Test that a row carrying no value counts against the station like an absent row does."""
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
+    df = _hourly_long(
+        [
+            dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC")),
+        ],
+    ).with_columns(pl.when(pl.col("date").dt.hour() < 2).then(pl.col("value")).alias("value"))
+
+    assert _percentage(_hourly_values(start_date, end_date), df) == 0.5
+
+
+def test_actual_percentage_is_zero_for_a_parameter_that_came_back_with_nothing() -> None:
+    """Test that a requested parameter absent from the frame counts as zero, not as unmeasured.
+
+    It is measured by its absence: there is no row to read a ratio off, and a request for two
+    parameters where one never arrived is not covered under the `min` criteria, however complete
+    the other one is.
     """
     start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
-    end_date = dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC"))
-    request = HubeauRequest(
-        parameters=[("hourly", "data", "stage")],
+    end_date = dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC"))
+    request = DwdObservationRequest(
+        parameters=[
+            ("hourly", "temperature_air", "temperature_air_mean_2m"),
+            ("hourly", "temperature_air", "humidity"),  # never arrives
+        ],
         start_date=start_date,
         end_date=end_date,
     )
-    values = HubeauValues(
+    values = DwdObservationValues(
         sr=StationsResult(
             stations=request,
-            # the coordinates are what the timezone is read from, so they carry the test
-            df=pl.DataFrame({"station_id": ["1011000101"], "longitude": [-61.659], "latitude": [16.189]}),
+            df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
         ),
     )
+    df = _hourly_long([start_date, end_date])
+
+    assert _percentage(values, df) == 0.0
+    assert _percentage(values, df, criteria="max") == 1.0
+    assert _percentage(values, df, criteria="mean") == 0.5
+
+
+def test_actual_percentage_falls_back_to_the_span_of_the_series() -> None:
+    """Test that a request naming no window is measured against the station's own series.
+
+    A period-based request carries no dates to count against, and measuring the returned rows
+    against themselves would call every station fully covered -- which is what made `skip_empty`
+    do nothing wherever it was reachable at all.
+    """
+    df = _hourly_long(
+        [
+            dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC")),
+        ],
+    )
+    request = DwdObservationRequest(parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")])
+    values = DwdObservationValues(
+        sr=StationsResult(
+            stations=request,
+            df=pl.DataFrame(),
+            df_all=pl.DataFrame(),
+            stations_filter=StationsFilter.ALL,
+        ),
+    )
+
+    assert _percentage(values, df) == 0.75
+
+
+def test_actual_percentage_matches_a_parameter_name_in_the_provider_own_casing() -> None:
+    """Test that a provider emitting its own casing is not counted as having sent nothing.
+
+    WSV reports `w` where its metadata declares `W`. Matched exactly, every WSV station scored
+    zero on a parameter it had delivered in full and was skipped over it.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC"))
+    request = WsvPegelRequest(
+        parameters=[("15_minutes", "data", "stage")],
+        start_date=start_date,
+        end_date=end_date,
+    )
+    values = WsvPegelValues(
+        sr=StationsResult(
+            stations=request,
+            df=pl.DataFrame(),
+            df_all=pl.DataFrame(),
+            stations_filter=StationsFilter.ALL,
+        ),
+    )
+    dates = pl.datetime_range(start_date, end_date, interval="15m", eager=True)
     df = pl.DataFrame(
         {
-            "station_id": ["1011000101"] * 2,
-            "resolution": ["hourly"] * 2,
-            "dataset": ["data"] * 2,
-            "parameter": ["stage"] * 2,
-            # inside the station's local day, which is what the grid spans: Guadeloupe is UTC-4,
-            # so these are 01:00 and 02:00 in the morning there
-            "date": [
-                dt.datetime(2026, 1, 1, 5, tzinfo=ZoneInfo("UTC")),
-                dt.datetime(2026, 1, 1, 6, tzinfo=ZoneInfo("UTC")),
-            ],
-            "value": [1.0, 2.0],
-            "quality": [None, None],
+            "station_id": ["48900237"] * len(dates),
+            "resolution": ["15_minutes"] * len(dates),
+            "dataset": ["data"] * len(dates),
+            "parameter": ["w"] * len(dates),  # the metadata declares `W`
+            "date": dates,
+            "value": [1.0] * len(dates),
+            "quality": [None] * len(dates),
         },
         schema_overrides={"quality": pl.Float64},
     )
 
-    result = values._build_complete_df(df, "1011000101", Resolution.HOURLY)  # noqa: SLF001
-
-    assert result.get_column("value").drop_nulls().to_list() == [1.0, 2.0]
+    assert _percentage(values, df) == 1.0

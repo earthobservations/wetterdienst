@@ -15,7 +15,6 @@ MeteoFranceObservationMetadata = {
     "url": "https://meteo.data.gouv.fr/",
     "kind": "observation",
     "timezone": "Europe/Paris",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             # "Données climatologiques de base - quotidiennes": per-department daily archives,

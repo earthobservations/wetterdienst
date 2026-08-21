@@ -255,7 +255,6 @@ WsvPegelMetadata = {
     "url": "https://pegelonline.wsv.de/webservice/ueberblick",
     "kind": "observation",
     "timezone": "Europe/Berlin",
-    "timezone_data": "Europe/Berlin",
     "resolutions": [
         {
             "name": resolution,
@@ -348,9 +347,10 @@ class WsvPegelValues(TimeseriesValues):
         if meta is None or meta.resolution != requested_resolution:
             # A station that mixes intervals across its own parameters is in the station list under
             # every resolution any of them uses, so asking it for `hourly/data` reaches this method
-            # for its 15-minute stage too. Serving that would label a 15-minute series hourly and,
-            # with `ts_complete`, reindex it onto an hourly grid that throws away three values in
-            # four. The station list already says which resolution this parameter belongs to.
+            # for its 15-minute stage too. Serving that would label a 15-minute series hourly,
+            # which is wrong for every reader downstream and undercounts the station by four to one
+            # wherever coverage is measured. The station list already says which resolution this
+            # parameter belongs to.
             #
             # `meta is None` is treated the same rather than waved through: it means the station
             # does not publish this timeseries at all, or that the listing was unreachable. In the

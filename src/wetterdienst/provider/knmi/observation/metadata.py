@@ -19,7 +19,6 @@ KnmiObservationMetadata = {
     "url": "https://dataplatform.knmi.nl/",
     "kind": "observation",
     "timezone": "Europe/Amsterdam",
-    "timezone_data": "UTC",
     "auth": True,
     "resolutions": [
         {

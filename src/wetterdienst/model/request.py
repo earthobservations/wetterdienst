@@ -426,14 +426,14 @@ class TimeseriesRequest:
         ``rank`` rows: because we cannot know upfront which stations actually carry
         data for the request, the ``rank`` limit is applied lazily while collecting
         values. Value collection walks the distance-sorted stations and stops once
-        ``rank`` stations with data (per the ``ts_skip_empty`` / ``ts_skip_threshold``
-        / ``ts_skip_criteria`` settings) have been consumed. The stations that ended
-        up contributing values are then exposed via ``ValuesResult.df_stations``.
+        ``rank`` stations that returned anything have been consumed. The stations
+        that ended up contributing values are then exposed via
+        ``ValuesResult.df_stations``.
 
         In other words, use ``stations.values.all().df_stations`` (not
         ``stations.df``) to see the ``rank`` closest stations that actually returned
-        data. Set ``ts_skip_empty=False`` to simply take the ``rank`` closest
-        stations regardless of data availability.
+        data. Enable ``ts_skip_empty`` to walk past a station that returned data but
+        too little of it, as ``ts_skip_threshold`` and ``ts_skip_criteria`` define.
 
         Args:
             latlon: Latitude and longitude for the requested point.

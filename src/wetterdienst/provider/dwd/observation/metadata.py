@@ -10,7 +10,6 @@ DwdObservationMetadata = {
     **_METADATA,
     "kind": "observation",
     "timezone": "Europe/Berlin",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "1_minute",

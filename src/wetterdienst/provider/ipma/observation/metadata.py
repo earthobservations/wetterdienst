@@ -28,7 +28,6 @@ IpmaObservationMetadata = {
     "url": "https://api.ipma.pt/",
     "kind": "observation",
     "timezone": "Europe/Lisbon",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",

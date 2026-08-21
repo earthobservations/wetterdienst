@@ -233,7 +233,6 @@ class MetadataModel(BaseModel):
     url: str
     kind: Literal["observation", "forecast", "derived"]
     timezone: TimeZoneName
-    timezone_data: TimeZoneName | Literal["dynamic"]
     auth: bool = False
     resolutions: list[ResolutionModel]
 

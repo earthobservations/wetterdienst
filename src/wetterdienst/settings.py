@@ -154,10 +154,12 @@ class Settings(BaseSettings):
     ts_shape: Literal["wide", "long"] = "long"
     ts_convert_units: bool = True
     ts_unit_targets: dict[str, str] = Field(default_factory=dict)
+    # skip a station whose requested parameters are covered too sparsely to be worth
+    # returning. The coverage is measured against how many readings the requested window can
+    # hold, so the option stands on its own and needs no particular shape of frame under it
     ts_skip_empty: bool = False
     ts_skip_threshold: float = 0.95
     ts_skip_criteria: Literal["min", "mean", "max"] = "min"
-    ts_complete: bool = False
     ts_drop_nulls: bool = True
     # how far a station may be from the target point to still be interpolated or summarized from.
     # the two radii follow `CanonicalParameter.interpolation`: a homogeneous quantity such as air
@@ -344,19 +346,6 @@ class Settings(BaseSettings):
             log.info(
                 "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
                 "is thus ignored in this request.",
-            )
-        if self.ts_drop_nulls:
-            self.ts_complete = False
-            log.info(
-                "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and "
-                "is thus ignored in this request.",
-            )
-        # skip empty stations
-        if not self.ts_complete:
-            self.ts_skip_empty = False
-            log.info(
-                "option 'skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' "
-                "and is thus ignored in this request.",
             )
         if self.cache_disable:
             log.info("Wetterdienst cache is disabled")

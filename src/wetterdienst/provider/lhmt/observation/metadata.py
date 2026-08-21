@@ -27,7 +27,6 @@ LhmtObservationMetadata = {
     "url": "https://api.meteo.lt/",
     "kind": "observation",
     "timezone": "Europe/Vilnius",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",

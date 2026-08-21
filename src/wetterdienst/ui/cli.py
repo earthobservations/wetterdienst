@@ -387,7 +387,7 @@ Transformation options:
     --shape                     Shape of DataFrame, "wide" or "long"
     --humanize                  Humanize parameters
     --si_units                  Convert to SI units
-    --skip_empty                Skip empty stations according to ts_skip_threshold
+    --skip_empty                Skip stations covered less than ts_skip_threshold
     --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
     --drop_nulls                    Whether to drop nan values from the result
 
@@ -1243,19 +1243,19 @@ def history(
     "--skip_empty",
     type=click.BOOL,
     default=False,
-    help="Skip stations that exceed the null-value fraction threshold (see --skip_threshold). Default: false",
+    help="Skip stations whose coverage falls below the threshold (see --skip_threshold). Default: false",
 )
 @cloup.option(
     "--skip_criteria",
     type=click.Choice(["min", "mean", "max"]),
     default="min",
-    help="Aggregation used to measure a station's null fraction: min, mean, or max. Default: min",
+    help="Aggregation over the requested parameters' coverage: min, mean, or max. Default: min",
 )
 @cloup.option(
     "--skip_threshold",
     type=click.FloatRange(min=0, min_open=True, max=1),
     default=0.95,
-    help="Null-value fraction above which a station is skipped (requires --skip_empty). Default: 0.95",
+    help="Coverage fraction below which a station is skipped (requires --skip_empty). Default: 0.95",
 )
 @cloup.option(
     "--drop_nulls",
