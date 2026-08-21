@@ -84,6 +84,20 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `ts_shape="wide"` puts one timestamp of one resolution in a row, and stops filling
+  rows with values that belong to another. The row used to be keyed on the dataset as well while
+  the parameters were joined on the date alone, so a request spanning two datasets emitted every
+  timestamp once per dataset and filled all of those rows with all of the datasets' values -- the
+  `precipitation_more` row of a `climate_summary` + `precipitation_more` request reported
+  `climate_summary_rsk`, and the two rows were identical but for the label. Datasets recorded at
+  one resolution share their timestamps and now share a row, which is what the dataset-name column
+  prefix was always for; `dataset` is null in that row, since no single name describes it, and
+  still carries the name wherever a resolution holds a single dataset.
+  Resolutions still get their own rows, because a 15-minute series and an hourly one do not have
+  the same timestamps to begin with. The parameter joins are also outer rather than inner, so a
+  parameter with no reading at a timestamp leaves a null instead of removing the timestamp from
+  the frame: chained inner joins had reduced the result to the timestamps every requested
+  parameter happened to share, dropping readings that were asked for and downloaded
 - `ts_geo_station_distance` validates what it is given. A key that is not a canonical parameter is
   rejected rather than kept and never read -- a typo silently left the parameter the user meant at
   its default radius, indistinguishable from having set nothing -- and a negative distance is

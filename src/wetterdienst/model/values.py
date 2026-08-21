@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import groupby
@@ -257,7 +258,10 @@ class TimeseriesValues(ABC):
         every row, so integer-backed ``Enum`` codes roughly halve the size of tidy value frames.
         """
         return df.with_columns(
-            pl.col(column).cast(pl.Enum(df.get_column(column).unique().sort()))
+            # nulls are dropped from the categories rather than carried into them: `Enum` rejects a
+            # null category outright, and a null here is a column that does not describe the row --
+            # a wide frame spanning several datasets has no one dataset name to put in the column
+            pl.col(column).cast(pl.Enum(df.get_column(column).drop_nulls().unique().sort()))
             for column in cls._meta_enum_columns
             if column in df.columns
         )
@@ -301,7 +305,13 @@ class TimeseriesValues(ABC):
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
             if not self.sr.settings.ts_tidy:
                 df = self._widen_df(df=df)
-            sort_columns = ["dataset", "parameter", "date"] if self.sr.settings.ts_tidy else ["dataset", "date"]
+            sort_columns = (
+                ["dataset", "parameter", "date"]
+                if self.sr.settings.ts_tidy
+                # `unique()` above leaves the wide rows in no particular order, and sorting them by
+                # the dataset alone interleaves the resolutions when there is more than one
+                else ["resolution", "dataset", "date"]
+            )
             df = df.sort(sort_columns)
             self.stations_counter += 1
             self.stations_collected.append(station_id)
@@ -402,7 +412,10 @@ class TimeseriesValues(ABC):
         """
         # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid
         # column name conflicts
-        datasets = {parameter.dataset.name for parameter in self.sr.parameters}
+        datasets_by_resolution: dict[str, set[str]] = defaultdict(set)
+        for parameter in self.sr.parameters:
+            datasets_by_resolution[parameter.dataset.resolution.name].add(parameter.dataset.name)
+        datasets = {name for names in datasets_by_resolution.values() for name in names}
         if len(datasets) > 1:
             df = df.with_columns(
                 pl.concat_str(
@@ -413,19 +426,45 @@ class TimeseriesValues(ABC):
                     ]
                 ).alias("parameter"),
             )
-        df_wide = df.select(
-            [pl.col("station_id"), pl.col("resolution"), pl.col("dataset"), pl.col("date")],
-        ).unique()
+        # A wide row is one timestamp of one resolution. Resolution is what defines the time axis,
+        # so two resolutions cannot share a row -- a 15-minute series and an hourly one do not have
+        # the same timestamps to begin with. Two datasets recorded at the same resolution do share
+        # their timestamps and so do share a row, which is the whole point of the dataset-name
+        # prefix above: it exists to let their columns sit side by side.
+        #
+        # Keying the row on the dataset as well used to put each timestamp in the frame once per
+        # dataset, and since the join below matched on the date alone every one of those rows was
+        # then filled with every dataset's values -- so a `precipitation_more` row reported a
+        # `climate_summary` value, and the two rows were identical but for the label.
+        #
+        # No single name describes a row that spans several datasets, so it carries none and the
+        # column prefix names them instead. A resolution that holds one dataset keeps its name --
+        # resolutions are not merged into one another, so no row of theirs is missing a name.
+        merged_resolutions = [resolution for resolution, names in datasets_by_resolution.items() if len(names) > 1]
+        dataset = (
+            pl.when(pl.col("resolution").is_in(merged_resolutions))
+            .then(pl.lit(None, dtype=df.schema["dataset"]))
+            .otherwise(pl.col("dataset"))
+            .alias("dataset")
+            if merged_resolutions
+            else pl.col("dataset")
+        )
+        df_wide = df.select(pl.col("station_id"), pl.col("resolution"), dataset, pl.col("date")).unique()
 
         if not df.is_empty():
             for (parameter,), df_parameter in df.group_by(["parameter"], maintain_order=True):
                 # Build quality column name
                 parameter_quality = f"qn_{parameter}"
-                df_parameter = df_parameter.select(["date", "value", "quality"])
+                df_parameter = df_parameter.select(["resolution", "date", "value", "quality"])
                 df_parameter = df_parameter.rename(
                     mapping={"value": parameter, "quality": parameter_quality},
                 )
-                df_wide = df_wide.join(df_parameter, on=["date"])
+                # left, not inner: a parameter that has no reading at a timestamp another parameter
+                # does have one at must leave a null behind rather than take the whole timestamp
+                # out of the frame. Chained inner joins reduced the frame to the timestamps every
+                # requested parameter shared, which silently dropped readings that were asked for
+                # -- three quarters of a 15-minute series joined against an hourly one
+                df_wide = df_wide.join(df_parameter, on=["resolution", "date"], how="left")
         else:
             for parameter in self.sr.parameters:
                 parameter_name = parameter.name_original if not self.sr.settings.ts_humanize else parameter.name
