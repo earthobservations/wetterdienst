@@ -19,7 +19,6 @@ SmhiObservationMetadata = {
     "url": "https://www.smhi.se/data/utforskaren-oppna-data",
     "kind": "observation",
     "timezone": "Europe/Stockholm",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "1_minute",

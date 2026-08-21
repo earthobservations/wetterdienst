@@ -40,8 +40,52 @@ Types of changes:
   `--summary_station_distance` and `--use_nearby_station_distance` had no command options at all,
   so the summary CLI always ran with the defaults
 
+### Removed
+
+- **Breaking**: the `ts_complete` setting is gone. It reindexed a series onto the grid its
+  resolution implies, spelling every gap out as a null row, and it cost a materialized timestamp
+  per reading of the window, a station-local-to-UTC window conversion, and a three-way interlock
+  with `ts_drop_nulls` and `ts_shape` that had to be spelled out in three log lines before a
+  request could say what it did. The join it built was exact, so a station reporting off the grid
+  -- an hourly gauge at seven minutes past, which is how a good third of Hubeau's hourly stations
+  report -- came back as a column of nulls; that was worth a warning last release and is not worth
+  keeping now. A caller who wants the grid can build it in a few lines of polars over the frame
+  they were returned, where the phase is theirs to choose. Nothing in the CLI, the REST API or the
+  app ever set it
+- **Breaking**: `MetadataModel.timezone_data` is gone, and with it the `timezone_data` key all
+  29 providers declared. It named the zone a provider's own `date` labels are stamped in, and
+  `ts_complete` was the only thing that ever read it -- to decide which zone to build its grid in.
+  The `"dynamic"` value, which meant "read the zone off the station's coordinates" and which NOAA
+  GHCN and Hubeau declared, goes with the field; the lookup behind it stays, since ECCC and GHCN
+  call it directly while parsing. `metadata.timezone`, the provider's civil timezone, is a
+  different field and remains -- DWD reads it to work out which period a request needs. Every
+  `date` a request returns is UTC either way, which is what left the field with nothing to say
+
 ### Changed
 
+- **Breaking**: `skip_empty` works through the CLI and the REST API. Neither surface ever set
+  `ts_complete`, and `ts_skip_empty` was silently switched off wherever it was not, so
+  `--skip_empty`, `--skip_threshold` and `--skip_criteria` -- and the three REST parameters of the
+  same names -- did nothing at all, and `filter_by_rank` never skipped a station over its coverage
+  the way it is documented to. The option now stands on its own: it needs neither a gridded frame
+  nor `ts_drop_nulls=False`, and their log lines are gone with it. A CLI or REST request that
+  passes `--skip_empty` starts skipping stations it used to return
+- A station's coverage is the share of the readings the requested window can hold at the
+  parameter's resolution that the station delivered, counted from the window and the resolution
+  rather than by measuring a frame that had been reindexed onto a grid first. The denominator is
+  the same one `ts_complete` produced, so a request that already set both settings keeps its
+  answers, with two departures: a reading that does not land on the resolution's grid now counts
+  as delivered rather than being dropped and counted as missing, and a request that names no
+  window is measured against the span of the station's own series for the dataset in question
+  instead of being called fully covered whatever it holds. Readings are counted by the grid slot
+  they fall in rather than one by one, so a station reporting more often than the resolution it is
+  listed under cannot cover a window twice over and read as complete while half of it holds
+  nothing. `subdaily` is measured on what came back instead: it is a bucket rather than an
+  interval, and its two providers disagree on one -- DWD takes three Termin readings a day where
+  Meteo-France SYNOP reports every three hours -- so counting either as the interval would judge
+  the other three times too harshly. A parameter is matched to its metadata case-insensitively, so
+  a provider emitting its own casing -- WSV reports `w` where its metadata declares `W` -- is no
+  longer read as having sent nothing
 - **Breaking**: Eaufrance Hubeau reports under the interval each station transmits at, so its
   single `dynamic` resolution is replaced by `5_minutes`, `6_minutes`, `10_minutes`, `15_minutes`
   and `hourly`, and a request for `dynamic/data/...` no longer resolves. Hubeau publishes the
@@ -55,10 +99,10 @@ Types of changes:
   ones are then asked about by name over a longer window. A station that has published nothing to
   measure is listed under no resolution rather than under a guessed one, and returns as soon as it
   transmits again; so is one transmitting every 20 or 30 minutes, which no resolution covers, and
-  that is reported once. In exchange `ts_complete` works, having been short-circuited for a dynamic
-  resolution, and the interpolation search radius scales by resolution rather than falling back to
-  a factor of 1.0. `Resolution.DYNAMIC` goes with it, and with it `ResolutionType`, which existed
-  only to spell that one member
+  that is reported once. In exchange the interpolation search radius scales by resolution rather
+  than falling back to a factor of 1.0, and a station's coverage is measured against the interval
+  it actually transmits at. `Resolution.DYNAMIC` goes with it, and with it `ResolutionType`, which
+  existed only to spell that one member
 - **Breaking**: WSV Pegelonline reports under the interval it actually records at, so its single
   `dynamic` resolution is replaced by `1_minute`, `5_minutes`, `10_minutes`, `15_minutes` and
   `hourly`, and a request for `dynamic/data/...` no longer resolves. Pegelonline publishes an
@@ -68,9 +112,9 @@ Types of changes:
   that record different parameters at different intervals (Passau reads stage every 15 minutes and
   air temperature every 60) appear under each, serving only the parameters that belong there. To
   find a station's resolution, request the parameter at every interval that could carry it and read
-  the `resolution` column of the station list. In exchange `ts_complete` works, which was
-  short-circuited for a dynamic resolution, and the interpolation search radius scales by resolution
-  like every other provider's rather than falling back to a factor of 1.0
+  the `resolution` column of the station list. In exchange the interpolation search radius scales
+  by resolution like every other provider's rather than falling back to a factor of 1.0, and a
+  station's coverage is measured against the interval it actually records at
 - **Breaking**: the heterogeneous search radius follows the resolution of the request, so an
   interpolation or summary that already worked returns different values without anything being
   changed by hand: daily precipitation is drawn from 40 km rather than 20, `minute_10` from 15 km
@@ -111,14 +155,6 @@ Types of changes:
   query named no page size and followed no cursor, so three quarters of the French gauges were
   missing from the station list and unreachable through it -- including by `filter_by_station_id`,
   which filters against that list
-- `ts_complete` completes a station whose own timezone is not UTC. The window it builds the grid
-  from is localized to the station while the grid and the values are UTC, and comparing the two
-  raised rather than completing -- which is every Hubeau station outside metropolitan France
-- `ts_complete` says when it drops readings. It completes a series onto the grid its resolution
-  implies by an exact join, so a reading taken off that grid -- an hourly gauge reporting at seven
-  minutes past, which is how a good third of Hubeau's hourly stations report -- matches no row and
-  is left out. That is what completing to a grid means, but it was silent: a station whose whole
-  series sits off-phase came back as a column of nulls with nothing to say why
 - **Breaking**: `ts_shape="wide"` puts one timestamp of one resolution in a row, and stops filling
   rows with values that belong to another. The row used to be keyed on the dataset as well while
   the parameters were joined on the date alone, so a request spanning two datasets emitted every

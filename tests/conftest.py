@@ -104,17 +104,11 @@ def settings_convert_units_false() -> Settings:
     return Settings(ts_convert_units=False)
 
 
-@pytest.fixture
-def settings_drop_nulls_false_complete_true() -> Settings:
-    """Provide drop nulls and complete settings."""
-    return Settings(ts_drop_nulls=False, ts_complete=True)
-
-
 # True settings
 @pytest.fixture
-def settings_drop_nulls_false_complete_true_skip_empty_true() -> Settings:
-    """Provide drop nulls, complete and skip empty settings."""
-    return Settings(ts_drop_nulls=False, ts_complete=True, ts_skip_empty=True)
+def settings_skip_empty_true() -> Settings:
+    """Provide skip empty settings."""
+    return Settings(ts_skip_empty=True)
 
 
 # False settings
@@ -131,15 +125,15 @@ def settings_humanize_false_convert_units_false() -> Settings:
 
 
 @pytest.fixture
-def settings_humanize_false_convert_units_false_wide_shape_drop_nulls_true_complete_true() -> Settings:
-    """Provide wide shape, no humanize, no unit conversion, drop nulls and complete settings."""
-    return Settings(ts_shape="wide", ts_humanize=False, ts_convert_units=False, ts_drop_nulls=False, ts_complete=True)
+def settings_humanize_false_convert_units_false_wide_shape() -> Settings:
+    """Provide wide shape, no humanize and no unit conversion settings."""
+    return Settings(ts_shape="wide", ts_humanize=False, ts_convert_units=False)
 
 
 @pytest.fixture
-def settings_humanize_false_wide_shape_drop_nulls_complete() -> Settings:
+def settings_humanize_false_wide_shape() -> Settings:
     """Provide wide shape and no humanize settings."""
-    return Settings(ts_shape="wide", ts_humanize=False, ts_drop_nulls=False, ts_complete=True)
+    return Settings(ts_shape="wide", ts_humanize=False)
 
 
 @pytest.fixture

@@ -35,7 +35,6 @@ EAHydrologyMetadata = {
     "url": "https://environment.data.gov.uk/",
     "kind": "observation",
     "timezone": "Europe/London",
-    "timezone_data": "Europe/London",
     "resolutions": [
         {
             "name": "15_minutes",

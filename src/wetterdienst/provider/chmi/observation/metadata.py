@@ -82,7 +82,6 @@ ChmiObservationMetadata = {
     "url": "https://opendata.chmi.cz/",
     "kind": "observation",
     "timezone": "Europe/Prague",
-    "timezone_data": "UTC",
     "resolutions": [
         _resolution("10_minutes", _MINUTE_10_PARAMETERS, date_required=True),
         _resolution("hourly", _HOURLY_PARAMETERS, date_required=True),

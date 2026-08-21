@@ -11,14 +11,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import groupby
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
-from zoneinfo import ZoneInfo
 
 import polars as pl
-from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 from tzfpy import get_tz
 
-from wetterdienst.metadata.resolution import DAILY_AT_MOST, Frequency, Resolution
+from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.result import StationsResult, ValuesResult
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.logging import TqdmToLogger
@@ -82,70 +80,6 @@ class TimeseriesValues(ABC):
             "quality": pl.Float64,
         }
 
-    @property
-    def timezone_data(self) -> str:
-        """Get timezone data for the station."""
-        return self.sr.stations.metadata.timezone_data
-
-    def _adjust_start_end_date(
-        self,
-        start_date: dt.datetime,
-        end_date: dt.datetime,
-        tzinfo: ZoneInfo,
-        resolution: Resolution,
-    ) -> tuple[dt.datetime, dt.datetime]:
-        """Adjust start and end date for a given resolution."""
-        # cut of everything smaller than day for daily or lower freq, same for monthly and annual
-        if resolution in DAILY_AT_MOST:
-            start_date = start_date.replace(
-                hour=0,
-                minute=0,
-                second=0,
-                microsecond=0,
-            )
-            end_date = end_date.replace(
-                hour=23,
-                minute=59,
-                second=0,
-                microsecond=0,
-            )
-        elif resolution == Resolution.MONTHLY:
-            start_date = start_date.replace(
-                day=1,
-                hour=0,
-                minute=0,
-                second=0,
-                microsecond=0,
-            )
-            end_date = end_date + relativedelta(months=1) - relativedelta(days=1)
-        elif resolution == Resolution.ANNUAL:
-            start_date = start_date.replace(
-                month=1,
-                day=1,
-                hour=0,
-                minute=0,
-                second=0,
-                microsecond=0,
-            )
-            end_date = end_date.replace(
-                month=1,
-                day=31,
-                hour=0,
-                minute=0,
-                second=0,
-                microsecond=0,
-            )
-
-        return start_date.replace(tzinfo=tzinfo), end_date.replace(tzinfo=tzinfo)
-
-    def _get_complete_dates(self, start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> pl.Series:
-        """Get a complete date range for a given start and end date and resolution."""
-        date_range = pl.datetime_range(start_date, end_date, interval=Frequency[resolution.name].value, eager=True)
-        if resolution not in DAILY_AT_MOST:
-            date_range = date_range.dt.replace(day=1)
-        date_range = date_range.dt.cast_time_unit("us")
-        return date_range.dt.convert_time_zone("UTC")
-
     def _get_timezone_from_station(self, station_id: str) -> str:
         """Get timezone information for explicit station.
 
@@ -161,13 +95,6 @@ class TimeseriesValues(ABC):
             .to_list()
         )
         return get_tz(longitude, latitude)
-
-    def _get_base_df(self, start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> pl.DataFrame:
-        """Create a base DataFrame with all dates for a given station."""
-        return pl.DataFrame(
-            {"date": self._get_complete_dates(start_date, end_date, resolution)},
-            orient="col",
-        )
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Convert values to metric units with help of conversion factors."""
@@ -203,58 +130,6 @@ class TimeseriesValues(ABC):
                 parameter.unit_type,
             )
         return lambdas
-
-    def _build_complete_df(self, df: pl.DataFrame, station_id: str, resolution: Resolution) -> pl.DataFrame:
-        """Build a complete DataFrame with all dates for a given station."""
-        if df.is_empty():
-            return df
-        if self.timezone_data == "dynamic":
-            tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
-        else:
-            tzinfo = ZoneInfo(self.timezone_data)
-        if self.sr.start_date is None or self.sr.end_date is None:
-            msg = "start_date and end_date must be set for building complete DataFrame"
-            raise ValueError(msg)
-        start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo, resolution)
-        base_df = self._get_base_df(start_date, end_date, resolution)
-        data = []
-        for (parameter,), df_group in df.group_by(
-            ["parameter"],
-            maintain_order=True,
-        ):
-            df_group = base_df.join(
-                other=df_group,
-                on=["date"],
-                how="left",
-            )
-            df_group = df_group.with_columns(
-                pl.lit(station_id).alias("station_id"),
-                pl.lit(parameter).alias("parameter"),
-            )
-            data.append(df_group)
-        df_complete = pl.concat(data)
-        # the join above is exact, so a reading taken off the resolution's grid -- an hourly gauge
-        # reporting at seven minutes past, say -- matches no row of the grid and is left out of the
-        # frame entirely. That is what completing to a grid means, but it is silent, and a station
-        # whose whole series sits off-phase comes back as a column of nulls with nothing to say why.
-        #
-        # Counted over the grid's own span rather than over everything collected: providers hand
-        # back what their files hold, which is routinely far more than was asked for -- a whole
-        # historical decade for one requested week -- and `query` trims that to the request only
-        # after this runs. Comparing against the untrimmed frame would report the trim as a drop.
-        #
-        # The span is read off the grid rather than from the dates it was built from, because those
-        # carry the station's own timezone -- `_adjust_start_end_date` localizes them -- while the
-        # grid and the frame are both UTC, and polars refuses to compare across zones.
-        grid = base_df.get_column("date")
-        observed = df.filter(pl.col("date").is_between(grid.min(), grid.max())).get_column("value").drop_nulls().len()
-        kept = df_complete.get_column("value").drop_nulls().len()
-        if kept < observed:
-            log.warning(
-                f"station {station_id}: {observed - kept} of {observed} values are not on the "
-                f"{resolution.value} grid and are dropped by 'ts_complete'.",
-            )
-        return df_complete
 
     def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """Reorder columns in DataFrame to match the expected order of columns."""
@@ -400,8 +275,6 @@ class TimeseriesValues(ABC):
         df = df.unique(subset=["resolution", "dataset", "parameter", "date"], maintain_order=True)
         if self.sr.settings.ts_drop_nulls:
             df = df.drop_nulls(subset=["value"])
-        elif self.sr.settings.ts_complete and self.sr.start_date:
-            df = self._build_complete_df(df, station_id, dataset.resolution.value)
         return self._organize_df_columns(df, station_id, dataset)
 
     @abstractmethod
@@ -544,27 +417,75 @@ class TimeseriesValues(ABC):
         return {parameter.name_original: parameter.name for parameter in self.sr.parameters}
 
     def _get_actual_percentage(self, df: pl.DataFrame) -> float:
-        """Get the percentage of actual values in the DataFrame.
+        """Share of the readings a request asked for that the station actually delivered.
 
-        This is used to skip stations with too many missing values.
+        The denominator is how many readings the requested window can hold at the parameter's own
+        resolution, counted from the window and the resolution rather than read off a frame that
+        has first been reindexed onto a grid. So a station is measured against what was asked for
+        and not against whatever the provider happened to send back, and asking the question no
+        longer costs a materialized timestamp per reading of the window.
+
+        A request that names no window is measured against the span of the station's own series
+        for the dataset in question, since that is the only window there is; and where even that
+        says nothing -- a resolution that names no interval, or a window too short to hold a
+        single reading -- what is left is the share of the returned rows that carry a value.
+
+        A parameter that was asked for and came back with nothing counts as zero rather than
+        going unmeasured: a request for two parameters where one is missing is not fully covered.
         """
-        percentage = df.group_by(["parameter"]).agg(
-            (pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float64).alias("perc"),
-        )
-        missing = pl.DataFrame(
-            [
-                {"parameter": parameter.name_original, "perc": 0.0}
-                for parameter in self.sr.parameters
-                if parameter.name_original not in percentage.get_column("parameter")
-            ],
-            schema={"parameter": pl.String, "perc": pl.Float64},
-        )
-        percentage = pl.concat([percentage, missing])
+        # a station that returned nothing inside the window covers none of it, and there is no
+        # frame under the question to read a span or a dtype off
+        if df.is_empty():
+            return 0.0
+        percentages = []
+        for parameter in cast("Iterable[ParameterModel]", self.sr.parameters):
+            resolution = parameter.dataset.resolution
+            # the dataset frame carries the fallback window below. Read per dataset rather than
+            # over the whole frame, which spans every resolution asked for: a request pairing a
+            # daily series reaching back to 1934 with an hourly one that starts decades later
+            # would measure the hourly parameters against ninety years and drop a station whose
+            # hourly record is complete for the whole of its life
+            df_dataset = df.filter(
+                pl.col("resolution").eq(resolution.name),
+                pl.col("dataset").eq(parameter.dataset.name.lower()),
+            )
+            df_parameter = df_dataset.filter(
+                # matched case-insensitively: a provider is free to emit a name in its own casing
+                # (WSV reports `w` where its metadata declares `W`), and an exact match there
+                # counts a parameter that is present as missing and skips the station over it
+                pl.col("parameter").str.to_lowercase().eq(parameter.name_original.lower()),
+            )
+            start_date, end_date = self.sr.start_date, self.sr.end_date
+            if (start_date is None or end_date is None) and not df_dataset.is_empty():
+                dates = df_dataset.get_column("date")
+                start_date, end_date = cast("dt.datetime", dates.min()), cast("dt.datetime", dates.max())
+            expected = (
+                count_readings(resolution.value, start_date, end_date)
+                if start_date is not None and end_date is not None
+                else None
+            )
+            interval = reading_interval(resolution.value)
+            if not expected or interval is None:
+                percentages.append(
+                    df_parameter.get_column("value").drop_nulls().len() / df_parameter.height
+                    if df_parameter.height
+                    else 0.0,
+                )
+                continue
+            # counted as readings landing in distinct slots of the resolution's grid rather than
+            # as readings. A station is free to report more often than the resolution it is listed
+            # under, and its extra readings say nothing about the stretches of the window it was
+            # silent for -- counted one by one, a station reporting every ten minutes through half
+            # of an hourly window would cover it twice over and read as complete
+            covered = df_parameter.drop_nulls("value").get_column("date").dt.truncate(interval).n_unique()
+            percentages.append(min(covered / expected, 1.0))
+        if not percentages:
+            return 0.0
         if self.sr.settings.ts_skip_criteria == "min":
-            return cast("float", percentage.get_column("perc").min() or 0.0)
+            return min(percentages)
         if self.sr.settings.ts_skip_criteria == "mean":
-            return cast("float", percentage.get_column("perc").mean() or 0.0)
+            return sum(percentages) / len(percentages)
         if self.sr.settings.ts_skip_criteria == "max":
-            return cast("float", percentage.get_column("perc").max() or 0.0)
+            return max(percentages)
         msg = "ts_skip_criteria must be one of min, mean, max"
         raise KeyError(msg)

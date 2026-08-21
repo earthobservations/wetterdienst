@@ -150,10 +150,6 @@ RmiObservationMetadata = {
     "url": "https://opendata.meteo.be/",
     "kind": "observation",
     "timezone": "Europe/Brussels",
-    # All WFS timestamps are true UTC instants (the payload carries a trailing "Z"), including the
-    # daily aggregates which are labelled at UTC midnight. Emitted `date` labels are therefore
-    # UTC, so timezone_data (which drives the `ts_complete` base date grid) must be UTC to align.
-    "timezone_data": "UTC",
     "auth": False,
     "resolutions": [
         {

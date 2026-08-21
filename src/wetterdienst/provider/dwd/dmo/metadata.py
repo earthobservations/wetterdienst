@@ -11,7 +11,6 @@ DwdDmoMetadata = {
     **_METADATA,
     "kind": "forecast",
     "timezone": "Europe/Berlin",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",

@@ -30,7 +30,6 @@ def test_api_skip_empty_stations(
         ts_skip_criteria=ts_skip_criteria,
         ts_skip_threshold=0.6,
         ts_skip_empty=True,
-        ts_complete=True,
         ts_drop_nulls=False,
     )
     request = DwdObservationRequest(
@@ -50,7 +49,7 @@ def test_api_skip_empty_stations(
 
 @pytest.mark.remote
 def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
-    settings_drop_nulls_false_complete_true_skip_empty_true: Settings,
+    settings_skip_empty_true: Settings,
 ) -> None:
     """Test that the same station is returned when only one parameter is requested."""
 
@@ -66,21 +65,21 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
             .values.all()
         )
 
-    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_threshold = 0.9
+    settings_skip_empty_true.ts_skip_threshold = 0.9
     expected_station = ["05426"]
 
-    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = "min"
-    values = _get_values(settings_drop_nulls_false_complete_true_skip_empty_true)
+    settings_skip_empty_true.ts_skip_criteria = "min"
+    values = _get_values(settings_skip_empty_true)
     assert values.df.get_column("station_id").unique().to_list() == expected_station
     assert values.df_stations.get_column("station_id").to_list() == expected_station
 
-    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = "mean"
-    values = _get_values(settings_drop_nulls_false_complete_true_skip_empty_true)
+    settings_skip_empty_true.ts_skip_criteria = "mean"
+    values = _get_values(settings_skip_empty_true)
     assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_station
     assert values.df_stations.get_column("station_id").to_list() == expected_station
 
-    settings_drop_nulls_false_complete_true_skip_empty_true.ts_skip_criteria = "max"
-    values = _get_values(settings_drop_nulls_false_complete_true_skip_empty_true)
+    settings_skip_empty_true.ts_skip_criteria = "max"
+    values = _get_values(settings_skip_empty_true)
     assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_station
     assert values.df_stations.get_column("station_id").to_list() == expected_station
 

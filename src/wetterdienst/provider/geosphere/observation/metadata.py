@@ -15,7 +15,6 @@ GeosphereObservationMetadata = {
     "url": "https://www.zamg.ac.at/",
     "kind": "observation",
     "timezone": "Europe/Vienna",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "10_minutes",

@@ -37,7 +37,6 @@ ImgwHydrologyMetadata = {
     **_METADATA,
     "kind": "observation",
     "timezone": "Europe/Warsaw",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "daily",

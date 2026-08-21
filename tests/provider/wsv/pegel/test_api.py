@@ -232,8 +232,7 @@ def test_wsv_station_mixing_intervals_serves_each_parameter_at_its_own_resolutio
 
     PASSAU DONAU records stage every 15 minutes and air and water temperature every 60, so it is in
     the station list under both resolutions. Serving every requested parameter for both rows would
-    label the 15-minute stage hourly -- and with `ts_complete` reindex it onto an hourly grid,
-    discarding three values in four.
+    label the 15-minute stage hourly, which is wrong for every reader downstream.
     """
     parameters = [
         (resolution, "data", parameter)

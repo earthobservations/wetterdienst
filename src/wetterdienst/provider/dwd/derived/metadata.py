@@ -32,7 +32,6 @@ DwdDerivedMetadata = {
     **_METADATA,
     "kind": "derived",
     "timezone": "Europe/Berlin",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",

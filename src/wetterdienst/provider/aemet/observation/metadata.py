@@ -64,7 +64,6 @@ AemetObservationMetadata = {
     "url": "https://opendata.aemet.es/",
     "kind": "observation",
     "timezone": "Europe/Madrid",
-    "timezone_data": "Europe/Madrid",
     "auth": True,
     "resolutions": [
         {

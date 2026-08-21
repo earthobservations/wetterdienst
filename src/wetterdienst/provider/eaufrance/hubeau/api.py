@@ -237,7 +237,6 @@ HubeauMetadata = {
     "url": "https://www.eaufrance.fr/",
     "kind": "observation",
     "timezone": "Europe/Paris",
-    "timezone_data": "dynamic",
     "resolutions": [
         {
             "name": resolution,

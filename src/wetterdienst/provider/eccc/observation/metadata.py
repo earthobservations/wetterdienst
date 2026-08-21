@@ -15,7 +15,6 @@ EcccObservationMetadata = {
     "url": "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
     "kind": "observation",
     "timezone": "UTC",
-    "timezone_data": "UTC",
     "resolutions": [
         {
             "name": "hourly",

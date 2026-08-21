@@ -42,15 +42,7 @@ def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.
     assert default_settings.ts_geo_use_nearby_station_distance == 1
     assert not default_settings.use_certifi
     assert not default_settings.read_bufr
-    assert (
-        caplog.messages[0]
-        == "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and is thus ignored in this request."  # noqa: E501
-    )
-    assert (
-        caplog.messages[1]
-        == "option 'skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' and is thus ignored in this request."  # noqa: E501
-    )
-    assert re.match(WD_CACHE_ENABLED_PATTERN, caplog.messages[2])
+    assert re.match(WD_CACHE_ENABLED_PATTERN, caplog.messages[0])
 
 
 @mock.patch.dict(os.environ, {})
@@ -65,11 +57,7 @@ def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
         caplog.messages[0]
         == "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and is thus ignored in this request."
     )
-    assert (
-        caplog.messages[1]
-        == "option 'skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' and is thus ignored in this request."  # noqa: E501
-    )
-    assert caplog.messages[2] == "Wetterdienst cache is disabled"
+    assert caplog.messages[1] == "Wetterdienst cache is disabled"
     assert settings.ts_shape == "wide"
     # user-supplied overrides are respected; other defaults remain; fallback returns 40 km
     assert settings.ts_geo_station_distance["precipitation_height"] == 40.0
@@ -92,15 +80,7 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
         ts_geo_station_distance={"wind_speed": 43},
     )
     assert settings.cache_disable
-    assert (
-        caplog.messages[0]
-        == "option 'ts_complete' is only available with option 'ts_drop_nulls=False' and is thus ignored in this request."  # noqa: E501
-    )
-    assert (
-        caplog.messages[1]
-        == "option 'skip_empty' is only available with options `ts_drop_nulls=False` and 'ts_complete=True' and is thus ignored in this request."  # noqa: E501
-    )
-    assert caplog.messages[2] == "Wetterdienst cache is disabled"  # env variable
+    assert caplog.messages[0] == "Wetterdienst cache is disabled"  # env variable
     assert settings.ts_shape  # default variable
     assert settings.ts_skip_threshold == 0.81  # argument variable overrules env variable
     assert not settings.ts_convert_units  # argument variable
@@ -408,3 +388,27 @@ def test_use_certifi_setting() -> None:
     with mock.patch.dict(os.environ, {"WD_USE_CERTIFI": "false"}):
         settings = Settings()
         assert not settings.use_certifi
+
+
+def test_settings_skip_empty_stands_on_its_own() -> None:
+    """Test that skip_empty survives a request that sets nothing else.
+
+    It used to be switched off unless `ts_complete` was on, and neither the CLI nor the REST API
+    ever set that -- so `--skip_empty`, `--skip_threshold` and `--skip_criteria`, and the three
+    REST parameters of the same names, were discarded on every request that passed them.
+    """
+    # the settings the CLI and the REST API build a values request from, skip options included
+    settings = Settings(
+        ts_humanize=True,
+        ts_shape="long",
+        ts_convert_units=True,
+        ts_unit_targets={},
+        ts_skip_empty=True,
+        ts_skip_criteria="mean",
+        ts_skip_threshold=0.9,
+        ts_drop_nulls=True,
+    )
+
+    assert settings.ts_skip_empty
+    assert settings.ts_skip_criteria == "mean"
+    assert settings.ts_skip_threshold == 0.9
