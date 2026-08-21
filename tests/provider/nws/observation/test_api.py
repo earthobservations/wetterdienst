@@ -15,9 +15,14 @@ from wetterdienst.provider.nws.observation.api import NwsObservationValues
 
 UTC = ZoneInfo("UTC")
 DENVER = "KDEN"
-# listed by MADIS at coordinates a western-hemisphere box excludes: the Aleutians reach past the
-# antimeridian, Pago Pago sits below the equator and Tinian is east of it
-ACROSS_THE_ANTIMERIDIAN = ["PASY", "PAHT", "KAHT", "PAAH", "NSTU", "PGNT"]
+# listed by MADIS at coordinates a western-hemisphere box excludes: the Aleutians lie beyond the
+# antimeridian, Pago Pago below the equator and Tinian east of the prime meridian
+OUTSIDE_THE_BOX = ["PASY", "PAHT", "KAHT", "PAAH", "NSTU", "PGNT"]
+# American stations MADIS files under a state code, which the country column cannot catch
+FILED_UNDER_A_STATE_CODE = ["PHBK", "TIST", "TISX"]
+# Peru and Guatemala, which the country column gives the codes a reader may take for Puerto Rico
+# and Guam; and the two British rows among the four the column marks `VI`
+NOT_AMERICAN = ["SPIM", "MGGT", "TQPF", "TUPJ"]
 
 
 def _values(request: NwsObservationRequest) -> NwsObservationValues:
@@ -91,21 +96,51 @@ def test_nws_url_names_no_window_where_the_request_carries_no_dates() -> None:
 
 @pytest.mark.remote
 def test_nws_stations_keeps_the_stations_a_western_hemisphere_box_excludes() -> None:
-    """Test that US stations are not dropped for sitting the far side of the antimeridian.
+    """Test that US territory is not dropped for lying in the wrong hemisphere.
 
     The station list was narrowed to `longitude < 0 and latitude > 0` on top of the country
-    column, which is not where the United States ends: the Aleutians west of Amchitka, American
-    Samoa and Tinian all fall outside that box, and api.weather.gov answers for every one of them.
+    column, which decides nationality by hemisphere: the Aleutians west of Amchitka, American
+    Samoa and Tinian all fall outside that box and are United States territory all the same.
+
+    Whether any of the six currently reports is a separate question, and mostly they do not --
+    which is true of about a third of this station list and is not what the box was doing.
     """
     df = _request().all().df
     station_ids = df.get_column("station_id").to_list()
 
-    assert set(ACROSS_THE_ANTIMERIDIAN).issubset(station_ids)
-    # the filter guarded nothing else: every listed station carries usable coordinates
+    assert set(OUTSIDE_THE_BOX).issubset(station_ids)
+    # the box guarded nothing else: every listed station carries usable coordinates
     assert df.get_column("latitude").is_null().sum() == 0
     assert df.get_column("longitude").is_null().sum() == 0
     assert df.filter(df.get_column("latitude").abs().gt(90)).is_empty()
     assert df.filter(df.get_column("longitude").abs().gt(180)).is_empty()
+
+
+@pytest.mark.remote
+def test_nws_stations_holds_the_stations_filed_under_a_state_code() -> None:
+    """Test that the three American stations the country column misses are listed, and no others.
+
+    MADIS files Barking Sands and the two US Virgin Islands airports under a state code instead of
+    a country code. They are named one by one because the column cannot be read as a state code in
+    general: `PR` in it is Peru and `GU` is Guatemala, and two of its four `VI` rows are British.
+    """
+    station_ids = _request().all().df.get_column("station_id").to_list()
+
+    assert set(FILED_UNDER_A_STATE_CODE).issubset(station_ids)
+    assert not set(NOT_AMERICAN).intersection(station_ids)
+
+
+@pytest.mark.remote
+def test_nws_stations_report_no_height_where_the_source_reports_none() -> None:
+    """Test that a missing elevation reads as null rather than as 9999 m.
+
+    MADIS writes a missing elevation as 9999, which was cast to a float and passed on unread --
+    and height is what interpolation weighs a neighbouring station by.
+    """
+    heights = _request().all().df.get_column("height")
+
+    assert heights.is_null().sum() > 0
+    assert heights.drop_nulls().max() < 9999
 
 
 @pytest.mark.remote

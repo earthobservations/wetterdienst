@@ -36,11 +36,6 @@ Types of changes:
   for `summarize`) and the REST API as query parameters of the same names. A radius that is not
   given is left out rather than passed as the library default, so a server configured through
   `WD_TS_GEO_STATION_DISTANCE_*` keeps its own
-- An NWS request asks the observations endpoint for its own window. The endpoint answers an
-  unqualified request with its whole retention -- a rolling week of some 180 readings, close to a
-  megabyte -- however little of it was wanted, and the frame was trimmed to the request only after
-  it arrived. It clips a window to what it still holds rather than refusing one that reaches
-  further back, so the readings are the same and a request for one day now downloads one day
 - `wetterdienst summarize` reaches the settings that `interpolate` always could:
   `--summary_station_distance` and `--use_nearby_station_distance` had no command options at all,
   so the summary CLI always ran with the defaults
@@ -68,6 +63,11 @@ Types of changes:
 
 ### Changed
 
+- An NWS request asks the observations endpoint for its own window. The endpoint answers an
+  unqualified request with its whole retention -- a rolling week of some 180 readings, close to a
+  megabyte -- however little of it was wanted, and the frame was trimmed to the request only after
+  it arrived. It clips a window to what it still holds rather than refusing one that reaches
+  further back, so the readings are the same and a request for one day now downloads one day
 - **Breaking**: `skip_empty` works through the CLI and the REST API. Neither surface ever set
   `ts_complete`, and `ts_skip_empty` was silently switched off wherever it was not, so
   `--skip_empty`, `--skip_threshold` and `--skip_criteria` -- and the three REST parameters of the
@@ -150,12 +150,25 @@ Types of changes:
 
 ### Fixed
 
-- The NWS station list keeps the American stations that sit outside the western hemisphere. The
-  list was narrowed to `longitude < 0 and latitude > 0` on top of the country column, which is not
-  where the United States ends: the Aleutians west of Amchitka reach past the antimeridian, Pago
-  Pago sits below the equator and Tinian is east of it, and api.weather.gov answers for all six.
-  The box guarded nothing else -- every station MADIS files under the United States carries a
-  usable coordinate pair
+- The NWS station list holds three American stations it used to leave out, and stops excluding
+  American ground for being in the wrong hemisphere. Barking Sands on Kauai and the two US Virgin
+  Islands airports are filed by MADIS under a state code rather than a country code, so the
+  country column missed them; they are named one by one, because that column cannot be read as a
+  state code in general -- `PR` in it is Peru and `GU` is Guatemala, and of its four `VI` rows two
+  are American and two are British. All three report, returning 257, 165 and 185 observations over
+  the endpoint's rolling week. The list was also narrowed to `longitude < 0 and latitude > 0` on
+  top of the country column, which is not where the United States ends: the Aleutians west of
+  Amchitka lie beyond the antimeridian, Pago Pago below the equator, and Tinian east of the prime
+  meridian. That box is gone, since it decided nationality by hemisphere; the six rows it dropped
+  are listed again, but as a correction to the filter and not as data recovered -- of the six,
+  Shemya and Pago Pago are stations api.weather.gov knows and both are silent at present, and the
+  other four (three duplicate Amchitka rows and Tinian) are not stations it knows at all. That is
+  the character of this station list rather than of these six: it is the MADIS METAR table used as
+  a proxy, and about a third of what it lists returns nothing. The box guarded nothing else --
+  every station MADIS files under the United States carries a usable coordinate pair
+- An NWS station of unknown elevation reads as null rather than as standing 9999 m up. MADIS
+  writes a missing elevation as 9999 and it was cast to a float and passed on unread, for 31 of
+  the 3120 stations -- and height is what interpolation weighs a neighbouring station by
 - An NWS request no longer rewrites the settings every other request shares. It stamped its own
   headers onto `Settings.fsspec_client_kwargs` in `__post_init__`, replacing the User-Agent
   wetterdienst builds from its version with a literal `wetterdienst/0.48.0` and adding a

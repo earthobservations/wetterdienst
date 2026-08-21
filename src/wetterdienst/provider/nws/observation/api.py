@@ -293,6 +293,17 @@ class NwsObservationRequest(TimeseriesRequest):
     # mostly mesonet sites the observations endpoint of this provider is not asked for
     _endpoint = "https://madis-data.ncep.noaa.gov/madisPublic1/data/stations/METARTable.txt"
 
+    # American stations the country column files under a state code instead. They are named one by
+    # one because the column cannot be read as a state code in general: `PR` in it is Peru, all 27
+    # of them, and `GU` is Guatemala; and of the four rows reading `VI`, two are the US Virgin
+    # Islands and two are British -- Anguilla and Tortola, which the ICAO prefix tells apart and
+    # the country column does not. All three report: they returned 257, 165 and 185 observations
+    # over the endpoint's rolling week
+    _stations_filed_under_a_state_code = ("PHBK", "TIST", "TISX")
+
+    # MADIS writes a missing elevation as 9999, which is the only height above 5000 m in the table
+    _height_missing = 9999.0
+
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         file = download_file(
@@ -307,12 +318,15 @@ class NwsObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         df = pl.read_csv(source=file.content, has_header=False, separator="\t", infer_schema_length=0).lazy()
-        # the table is the global METAR listing; api.weather.gov serves the United States alone.
-        # Column 7 is the country, which is all that narrows it -- no coordinate box is laid over
-        # the result, since one drops the stations that sit the far side of the antimeridian or
-        # below the equator: the Aleutians west of Amchitka, Pago Pago and Tinian all read as
-        # somewhere else while api.weather.gov answers for every one of them
-        df = df.filter(pl.col("column_7").eq("US"))
+        # the table is the global METAR listing; api.weather.gov serves the United States alone,
+        # and column 7 is the country that narrows it to them. No coordinate box is laid over the
+        # result on top of that: one excludes American ground for being in the wrong hemisphere --
+        # the Aleutians west of Amchitka lie beyond the antimeridian, Pago Pago below the equator
+        # and Tinian east of the prime meridian, none of which stops them being the United States
+        df = df.filter(
+            pl.col("column_7").eq("US")
+            | pl.col("column_2").str.strip_chars().is_in(self._stations_filed_under_a_state_code),
+        )
         df = df.select(
             pl.col("column_2"),
             pl.col("column_3"),
@@ -335,5 +349,7 @@ class NwsObservationRequest(TimeseriesRequest):
             pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
             pl.col("latitude").cast(pl.Float64),
             pl.col("longitude").cast(pl.Float64),
-            pl.col("height").cast(pl.Float64),
+            # a station of unknown elevation reads as null rather than as standing 9999 m up,
+            # which interpolation would otherwise take at its word when it weighs by height
+            pl.col("height").cast(pl.Float64).replace(self._height_missing, None),
         )
