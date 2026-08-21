@@ -5,15 +5,6 @@
 from enum import Enum
 
 
-class ResolutionType(Enum):
-    """Enumeration for resolution type of the weather observation."""
-
-    FIXED = "fixed"
-    MULTI = "multi"
-    DYNAMIC = "dynamic"
-    UNDEFINED = "undefined"
-
-
 class Resolution(Enum):
     """Enumeration for granularity/resolution of the weather observation."""
 
@@ -31,7 +22,6 @@ class Resolution(Enum):
 
     # For sources without resolution
     UNDEFINED = "undefined"
-    DYNAMIC = ResolutionType.DYNAMIC.value
 
 
 # required for cutting of finer granularity when creating full date range

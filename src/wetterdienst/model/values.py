@@ -232,7 +232,19 @@ class TimeseriesValues(ABC):
                 pl.lit(parameter).alias("parameter"),
             )
             data.append(df_group)
-        return pl.concat(data)
+        df_complete = pl.concat(data)
+        # the join above is exact, so a reading taken off the resolution's grid -- an hourly gauge
+        # reporting at seven minutes past, say -- matches no row of the grid and is left out of the
+        # frame entirely. That is what completing to a grid means, but it is silent, and a station
+        # whose whole series sits off-phase comes back as a column of nulls with nothing to say why
+        observed = df.get_column("value").drop_nulls().len()
+        kept = df_complete.get_column("value").drop_nulls().len()
+        if kept < observed:
+            log.warning(
+                f"station {station_id}: {observed - kept} of {observed} values are not on the "
+                f"{resolution.value} grid and are dropped by 'ts_complete'.",
+            )
+        return df_complete
 
     def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """Reorder columns in DataFrame to match the expected order of columns."""
@@ -378,7 +390,7 @@ class TimeseriesValues(ABC):
         df = df.unique(subset=["resolution", "dataset", "parameter", "date"], maintain_order=True)
         if self.sr.settings.ts_drop_nulls:
             df = df.drop_nulls(subset=["value"])
-        elif self.sr.settings.ts_complete and self.sr.start_date and dataset.resolution.value != Resolution.DYNAMIC:
+        elif self.sr.settings.ts_complete and self.sr.start_date:
             df = self._build_complete_df(df, station_id, dataset.resolution.value)
         return self._organize_df_columns(df, station_id, dataset)
 

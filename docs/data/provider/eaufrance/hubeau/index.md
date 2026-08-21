@@ -11,11 +11,26 @@ Two parameters are available — water level (`stage`) and discharge (`flow`) �
 from the `hydrometrie/referentiel/stations` endpoint. The API is key-less; no authentication
 is required.
 
-Because only real-time data is exposed, there is a single "dynamic" resolution rather than the
-fixed resolutions used by the observation providers.
+The recording interval is a property of the station rather than of the network, and unlike most
+services Hubeau publishes it nowhere: neither the station referential nor the observations carry
+it. It is therefore measured from the timestamps a station has just published — the network does
+transmit on a grid — and each station is listed under the interval it was measured at. Roughly
+five in eight French gauges transmit every five minutes, most of the rest every ten or fifteen,
+and about a hundred hourly.
+
+Two consequences are worth knowing. A station that has published nothing recent cannot be
+measured and is listed under no resolution until it transmits again, which is the state of most
+of the thousand-odd gauges the referential still marks as in service. And a station transmitting
+on its own phase rather than on the wall clock — hourly at seven minutes past, say — is described
+correctly by its interval but does not line up with the grid `ts_complete` builds, so enabling
+that setting drops its readings and says so in a warning.
 
 ```{toctree}
 :hidden:
 
-dynamic.md
+5_minutes.md
+6_minutes.md
+10_minutes.md
+15_minutes.md
+hourly.md
 ```
