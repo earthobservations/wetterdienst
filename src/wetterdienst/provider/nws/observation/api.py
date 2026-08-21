@@ -4,9 +4,11 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
+from urllib.parse import urlencode
 
 import polars as pl
 
@@ -130,16 +132,38 @@ class NwsObservationValues(TimeseriesValues):
     """Values class for NWS observation."""
 
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
+    # the API answers ISO 8601 instants and reads them back the same way
+    _date_format = "%Y-%m-%dT%H:%M:%SZ"
+
+    def _build_url(self, station_id: str) -> str:
+        """Address the observations of a station, narrowed to the window the request asked for.
+
+        Asked for nothing in particular the endpoint answers with its whole retention, which is a
+        rolling week of some 180 readings -- close to a megabyte to answer for a single day. It
+        clips a window to what it still holds rather than refusing one that reaches further back,
+        so naming the request's own window costs nothing and returns the same readings.
+
+        A request carries no dates unless it is made to: `date_required` is enforced at the CLI and
+        the REST API but not in the Python API, and without them there is no window to name.
+        """
+        url = self._endpoint.format(station_id=station_id)
+        if not self.sr.start_date or not self.sr.end_date:
+            return url
+        query = urlencode(
+            {
+                "start": self.sr.start_date.astimezone(dt.timezone.utc).strftime(self._date_format),
+                "end": self.sr.end_date.astimezone(dt.timezone.utc).strftime(self._date_format),
+            },
+        )
+        return f"{url}?{query}"
 
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
-        from typing import cast  # noqa: PLC0415
-
         settings = cast("Settings", self.sr.stations.settings)
-        url = self._endpoint.format(station_id=station_id)
+        url = self._build_url(station_id)
         log.info(f"acquiring data from {url}")
         file = download_file(
             url=url,
@@ -150,6 +174,8 @@ class NwsObservationValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
+        # not dead after the raise above: `raise_if_exception` lets a NoInternetError through
+        # silently, so that a request made offline yields an empty frame rather than an error
         if isinstance(file.content, Exception):
             return pl.DataFrame()
         df = pl.read_json(
@@ -246,7 +272,6 @@ class NwsObservationValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
-        df = df.filter(pl.col("parameter").ne("cloudlayers"))
         return df.with_columns(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
@@ -263,25 +288,12 @@ class NwsObservationRequest(TimeseriesRequest):
     metadata = NwsObservationMetadata
     _values = NwsObservationValues
 
+    # the station list is METAR only and comes from MADIS rather than from api.weather.gov, whose
+    # own listing runs to some fifty thousand stations across four hundred cursor-paged requests --
+    # mostly mesonet sites the observations endpoint of this provider is not asked for
     _endpoint = "https://madis-data.ncep.noaa.gov/madisPublic1/data/stations/METARTable.txt"
 
-    def __post_init__(self) -> None:
-        """Post-initialization of the request object."""
-        from typing import cast  # noqa: PLC0415
-
-        super().__post_init__()
-        cast("Settings", self.settings).fsspec_client_kwargs.update(
-            {
-                "headers": {
-                    "User-Agent": "wetterdienst/0.48.0",
-                    "Content-Type": "application/json",
-                },
-            },
-        )
-
     def _all(self) -> pl.LazyFrame:
-        from typing import cast  # noqa: PLC0415
-
         settings = cast("Settings", self.settings)
         file = download_file(
             url=self._endpoint,
@@ -295,6 +307,11 @@ class NwsObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         df = pl.read_csv(source=file.content, has_header=False, separator="\t", infer_schema_length=0).lazy()
+        # the table is the global METAR listing; api.weather.gov serves the United States alone.
+        # Column 7 is the country, which is all that narrows it -- no coordinate box is laid over
+        # the result, since one drops the stations that sit the far side of the antimeridian or
+        # below the equator: the Aleutians west of Amchitka, Pago Pago and Tinian all read as
+        # somewhere else while api.weather.gov answers for every one of them
         df = df.filter(pl.col("column_7").eq("US"))
         df = df.select(
             pl.col("column_2"),
@@ -313,11 +330,10 @@ class NwsObservationRequest(TimeseriesRequest):
             },
         )
         df = df.with_columns(pl.all().str.strip_chars())
-        df = df.with_columns(
+        return df.with_columns(
             pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
             pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
             pl.col("latitude").cast(pl.Float64),
             pl.col("longitude").cast(pl.Float64),
             pl.col("height").cast(pl.Float64),
         )
-        return df.filter(pl.col("longitude").lt(0) & pl.col("latitude").gt(0))

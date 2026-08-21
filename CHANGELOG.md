@@ -36,6 +36,11 @@ Types of changes:
   for `summarize`) and the REST API as query parameters of the same names. A radius that is not
   given is left out rather than passed as the library default, so a server configured through
   `WD_TS_GEO_STATION_DISTANCE_*` keeps its own
+- An NWS request asks the observations endpoint for its own window. The endpoint answers an
+  unqualified request with its whole retention -- a rolling week of some 180 readings, close to a
+  megabyte -- however little of it was wanted, and the frame was trimmed to the request only after
+  it arrived. It clips a window to what it still holds rather than refusing one that reaches
+  further back, so the readings are the same and a request for one day now downloads one day
 - `wetterdienst summarize` reaches the settings that `interpolate` always could:
   `--summary_station_distance` and `--use_nearby_station_distance` had no command options at all,
   so the summary CLI always ran with the defaults
@@ -145,6 +150,18 @@ Types of changes:
 
 ### Fixed
 
+- The NWS station list keeps the American stations that sit outside the western hemisphere. The
+  list was narrowed to `longitude < 0 and latitude > 0` on top of the country column, which is not
+  where the United States ends: the Aleutians west of Amchitka reach past the antimeridian, Pago
+  Pago sits below the equator and Tinian is east of it, and api.weather.gov answers for all six.
+  The box guarded nothing else -- every station MADIS files under the United States carries a
+  usable coordinate pair
+- An NWS request no longer rewrites the settings every other request shares. It stamped its own
+  headers onto `Settings.fsspec_client_kwargs` in `__post_init__`, replacing the User-Agent
+  wetterdienst builds from its version with a literal `wetterdienst/0.48.0` and adding a
+  `Content-Type` that no GET has a use for -- so a DWD request made after an NWS one went out under
+  NWS's headers, naming a version eighty-five releases old. api.weather.gov accepts the ordinary
+  User-Agent, and the override is gone rather than corrected
 - Eaufrance Hubeau serves the overseas departments. Metropolitan station codes begin with the
   letter of their hydrographic basin and the codes of Guadeloupe, Martinique, Guyane, La Réunion
   and Mayotte begin with a digit, and the station list kept only the codes beginning with a letter
