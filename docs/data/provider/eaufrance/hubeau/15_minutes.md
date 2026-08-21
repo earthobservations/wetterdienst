@@ -1,12 +1,11 @@
-# dynamic
+# 15_minutes
 
 ## metadata
 
 | property      | value                                                    |
 |---------------|----------------------------------------------------------|
-| name          | dynamic                                                  |
-| original name | dynamic                                                  |
-| description   | The interval is a property of the station rather than of the network: 15 minutes at most gauges, 10 at some. |
+| name          | 15_minutes                                               |
+| original name | 15_minutes                                               |
 | url           | [here](https://hubeau.eaufrance.fr/page/api-hydrometrie) |
 
 ## datasets

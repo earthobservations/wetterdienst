@@ -50,6 +50,7 @@ Keyed by metadata model name, then ``(resolution, dataset, name_original)``. App
 # name that drifts out of step leaves its parameters with no description, which
 # `test_wsv_every_parameter_is_described` catches.
 _WSV_PEGEL_RESOLUTIONS = ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
+_HUBEAU_RESOLUTIONS = ("5_minutes", "6_minutes", "10_minutes", "15_minutes", "hourly")
 
 # Pegelonline names each timeseries in German; the meaning below is the API's own ``longname`` for
 # that shortname, e.g. HL is LUFTFEUCHTE and SIGH SIGNIFIKANTEWELLENHÖHE.
@@ -80,8 +81,9 @@ _WSV_PEGEL_PARAMETERS = {
 
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "HubeauMetadata": {
-        ("dynamic", "data", "H"): "Stage.",
-        ("dynamic", "data", "Q"): "Flow.",
+        (resolution, "data", name_original): description
+        for resolution in _HUBEAU_RESOLUTIONS
+        for name_original, description in (("H", "Stage."), ("Q", "Flow."))
     },
     "ChmiObservationMetadata": {
         ("10_minutes", "data", "F"): "Wind speed at 10 m, measured every ten minutes.",
@@ -2269,9 +2271,7 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("hourly", "data"): "Historical hourly station observations of 2m air temperature and humidity for Germany.",
         ("monthly", "data"): "Historical monthly station observations of 2m air temperature and humidity for Germany.",
     },
-    "HubeauMetadata": {
-        ("dynamic", "data"): "Flow and stage for France.",
-    },
+    "HubeauMetadata": {(resolution, "data"): "Flow and stage for France." for resolution in _HUBEAU_RESOLUTIONS},
     "ImgwHydrologyMetadata": {
         ("daily", "hydrology"): "historical daily hydrology data.",
         ("monthly", "hydrology"): "historical daily climate data.",
@@ -2307,12 +2307,6 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
     # themselves, and filling those in would read as information without being any.
     "DwdObservationMetadata": {
         "subdaily": "measurements at 7am, 2pm, 9pm.",
-    },
-    "HubeauMetadata": {
-        "dynamic": (
-            "The interval is a property of the station rather than of the network: 15 minutes at "
-            "most gauges, 10 at some."
-        ),
     },
     "MeteoFranceSynopMetadata": {
         "subdaily": "SYNOP reports, made at their native three-hourly interval.",

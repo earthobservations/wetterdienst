@@ -42,6 +42,23 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: Eaufrance Hubeau reports under the interval each station transmits at, so its
+  single `dynamic` resolution is replaced by `5_minutes`, `6_minutes`, `10_minutes`, `15_minutes`
+  and `hourly`, and a request for `dynamic/data/...` no longer resolves. Hubeau publishes the
+  interval nowhere -- not in the station referential, not on the observations, and the v2 API
+  defines no field for one -- so unlike Pegelonline's declared `equidistance` it is measured from
+  the timestamps a station has just published. The network does transmit on a grid: of 3018
+  stations reporting over six hours, 2987 resolved to one of the five intervals (5 min for 1643 of
+  them, 10 for 903, 15 for 251, 60 for 120, 6 for 33), and re-measuring a 45-station sample over
+  48 hours named all 45 the same way. Two hours of the whole network are read at the station list,
+  which names every station transmitting at least every fifteen minutes, and the slower and quieter
+  ones are then asked about by name over a longer window. A station that has published nothing to
+  measure is listed under no resolution rather than under a guessed one, and returns as soon as it
+  transmits again; so is one transmitting every 20 or 30 minutes, which no resolution covers, and
+  that is reported once. In exchange `ts_complete` works, having been short-circuited for a dynamic
+  resolution, and the interpolation search radius scales by resolution rather than falling back to
+  a factor of 1.0. `Resolution.DYNAMIC` goes with it, and with it `ResolutionType`, which existed
+  only to spell that one member
 - **Breaking**: WSV Pegelonline reports under the interval it actually records at, so its single
   `dynamic` resolution is replaced by `1_minute`, `5_minutes`, `10_minutes`, `15_minutes` and
   `hourly`, and a request for `dynamic/data/...` no longer resolves. Pegelonline publishes an
@@ -84,6 +101,24 @@ Types of changes:
 
 ### Fixed
 
+- Eaufrance Hubeau serves the overseas departments. Metropolitan station codes begin with the
+  letter of their hydrographic basin and the codes of Guadeloupe, Martinique, Guyane, La Réunion
+  and Mayotte begin with a digit, and the station list kept only the codes beginning with a letter
+  -- excluding all 176 overseas gauges, 86 of them transmitting, for no reason the filter recorded.
+  Every station code the referential publishes is well formed, so the filter guarded nothing
+- Eaufrance Hubeau lists every station it has rather than the first thousand. The station
+  referential answers with a page of 1000 of its 4150 stations and a cursor to the rest, and the
+  query named no page size and followed no cursor, so three quarters of the French gauges were
+  missing from the station list and unreachable through it -- including by `filter_by_station_id`,
+  which filters against that list
+- `ts_complete` completes a station whose own timezone is not UTC. The window it builds the grid
+  from is localized to the station while the grid and the values are UTC, and comparing the two
+  raised rather than completing -- which is every Hubeau station outside metropolitan France
+- `ts_complete` says when it drops readings. It completes a series onto the grid its resolution
+  implies by an exact join, so a reading taken off that grid -- an hourly gauge reporting at seven
+  minutes past, which is how a good third of Hubeau's hourly stations report -- matches no row and
+  is left out. That is what completing to a grid means, but it was silent: a station whose whole
+  series sits off-phase came back as a column of nulls with nothing to say why
 - **Breaking**: `ts_shape="wide"` puts one timestamp of one resolution in a row, and stops filling
   rows with values that belong to another. The row used to be keyed on the dataset as well while
   the parameters were joined on the date alone, so a request spanning two datasets emitted every

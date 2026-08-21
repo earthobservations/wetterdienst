@@ -232,7 +232,29 @@ class TimeseriesValues(ABC):
                 pl.lit(parameter).alias("parameter"),
             )
             data.append(df_group)
-        return pl.concat(data)
+        df_complete = pl.concat(data)
+        # the join above is exact, so a reading taken off the resolution's grid -- an hourly gauge
+        # reporting at seven minutes past, say -- matches no row of the grid and is left out of the
+        # frame entirely. That is what completing to a grid means, but it is silent, and a station
+        # whose whole series sits off-phase comes back as a column of nulls with nothing to say why.
+        #
+        # Counted over the grid's own span rather than over everything collected: providers hand
+        # back what their files hold, which is routinely far more than was asked for -- a whole
+        # historical decade for one requested week -- and `query` trims that to the request only
+        # after this runs. Comparing against the untrimmed frame would report the trim as a drop.
+        #
+        # The span is read off the grid rather than from the dates it was built from, because those
+        # carry the station's own timezone -- `_adjust_start_end_date` localizes them -- while the
+        # grid and the frame are both UTC, and polars refuses to compare across zones.
+        grid = base_df.get_column("date")
+        observed = df.filter(pl.col("date").is_between(grid.min(), grid.max())).get_column("value").drop_nulls().len()
+        kept = df_complete.get_column("value").drop_nulls().len()
+        if kept < observed:
+            log.warning(
+                f"station {station_id}: {observed - kept} of {observed} values are not on the "
+                f"{resolution.value} grid and are dropped by 'ts_complete'.",
+            )
+        return df_complete
 
     def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """Reorder columns in DataFrame to match the expected order of columns."""
@@ -378,7 +400,7 @@ class TimeseriesValues(ABC):
         df = df.unique(subset=["resolution", "dataset", "parameter", "date"], maintain_order=True)
         if self.sr.settings.ts_drop_nulls:
             df = df.drop_nulls(subset=["value"])
-        elif self.sr.settings.ts_complete and self.sr.start_date and dataset.resolution.value != Resolution.DYNAMIC:
+        elif self.sr.settings.ts_complete and self.sr.start_date:
             df = self._build_complete_df(df, station_id, dataset.resolution.value)
         return self._organize_df_columns(df, station_id, dataset)
 

@@ -665,7 +665,7 @@ def test_api_nws_observation(default_settings: Settings) -> None:
 
 def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     """Test eaufrance hubeau API."""
-    request = HubeauRequest(parameters=[("dynamic", "data", "discharge")], settings=default_settings).all()
+    request = HubeauRequest(parameters=[("5_minutes", "data", "discharge")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]

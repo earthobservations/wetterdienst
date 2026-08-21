@@ -1,15 +1,20 @@
 """Tests for shared TimeseriesValues behavior."""
 
 import datetime as dt
+import logging
 from zoneinfo import ZoneInfo
 
 import polars as pl
+import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
+from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
+from wetterdienst.provider.eaufrance.hubeau.api import HubeauValues
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelValues
 
@@ -191,3 +196,136 @@ def test_widen_df_keeps_the_dataset_name_where_a_resolution_has_one() -> None:
     assert result.get_column("resolution").to_list() == ["daily", "hourly"]
     assert result.get_column("dataset").to_list() == [None, "precipitation"]
     assert result.get_column("precipitation_precipitation_height").to_list() == [None, 0.5]
+
+
+def _hourly_values(start_date: dt.datetime, end_date: dt.datetime) -> TimeseriesValues:
+    """Build an hourly DWD values object over the given window, without touching the network."""
+    request = DwdObservationRequest(
+        parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")],
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return DwdObservationValues(
+        sr=StationsResult(
+            stations=request,
+            df=pl.DataFrame(),
+            df_all=pl.DataFrame(),
+            stations_filter=StationsFilter.ALL,
+        ),
+    )
+
+
+def _hourly_long(dates: list[dt.datetime]) -> pl.DataFrame:
+    """Build a long frame of one parameter observed at the given timestamps."""
+    return pl.DataFrame(
+        {
+            "station_id": ["01048"] * len(dates),
+            "resolution": ["hourly"] * len(dates),
+            "dataset": ["temperature_air"] * len(dates),
+            "parameter": ["temperature_air_mean_2m"] * len(dates),
+            "date": dates,
+            "value": [1.0] * len(dates),
+            "quality": [None] * len(dates),
+        },
+        schema_overrides={"quality": pl.Float64},
+    )
+
+
+def test_build_complete_df_reports_readings_that_miss_the_grid(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that completing to a grid says how many readings it dropped for being off it.
+
+    The join onto the grid is exact, so a station reporting at seven minutes past the hour matches
+    no row and comes back as a column of nulls. That is what completing to a grid means, but
+    without a word about it the frame looks like a station with no data rather than one whose
+    readings are all a few minutes off.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
+    df = _hourly_long(
+        [
+            dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 1, 7, tzinfo=ZoneInfo("UTC")),  # off the grid
+            dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC")),
+        ],
+    )
+
+    with caplog.at_level(logging.WARNING):
+        result = _hourly_values(start_date, end_date)._build_complete_df(df, "01048", Resolution.HOURLY)  # noqa: SLF001
+
+    assert result.get_column("value").drop_nulls().len() == 2
+    assert "1 of 3 values are not on the hourly grid" in caplog.text
+
+
+def test_build_complete_df_does_not_count_readings_outside_the_request(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that data collected beyond the request is not reported as dropped.
+
+    Providers hand back what their files hold rather than what was asked for -- a whole historical
+    decade for one requested week -- and the frame is trimmed to the request only after completion
+    runs. Counting against the untrimmed frame reported the trim itself as a drop, which made the
+    warning fire on almost every request and name a number with nothing behind it.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC"))
+    df = _hourly_long(
+        [
+            dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC")),
+            # collected because the file holds it, outside what was asked for
+            dt.datetime(2026, 1, 2, 5, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 3, 6, tzinfo=ZoneInfo("UTC")),
+        ],
+    )
+
+    with caplog.at_level(logging.WARNING):
+        _hourly_values(start_date, end_date)._build_complete_df(df, "01048", Resolution.HOURLY)  # noqa: SLF001
+
+    assert "ts_complete" not in caplog.text
+
+
+def test_build_complete_df_counts_the_window_of_a_station_outside_utc() -> None:
+    """Test that completion works where the station's own timezone is not UTC.
+
+    `_adjust_start_end_date` localizes the window to the station's timezone, while the grid it
+    builds and the values it completes are both UTC. Reading the span off the localized bounds
+    rather than off the grid made polars refuse to compare the two, so every Hubeau station outside
+    metropolitan France -- Guadeloupe, Martinique, Mayotte, Guyane, La Réunion -- raised instead of
+    completing.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC"))
+    request = HubeauRequest(
+        parameters=[("hourly", "data", "stage")],
+        start_date=start_date,
+        end_date=end_date,
+    )
+    values = HubeauValues(
+        sr=StationsResult(
+            stations=request,
+            # the coordinates are what the timezone is read from, so they carry the test
+            df=pl.DataFrame({"station_id": ["1011000101"], "longitude": [-61.659], "latitude": [16.189]}),
+            df_all=pl.DataFrame(),
+            stations_filter=StationsFilter.ALL,
+        ),
+    )
+    df = pl.DataFrame(
+        {
+            "station_id": ["1011000101"] * 2,
+            "resolution": ["hourly"] * 2,
+            "dataset": ["data"] * 2,
+            "parameter": ["stage"] * 2,
+            # inside the station's local day, which is what the grid spans: Guadeloupe is UTC-4,
+            # so these are 01:00 and 02:00 in the morning there
+            "date": [
+                dt.datetime(2026, 1, 1, 5, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 1, 1, 6, tzinfo=ZoneInfo("UTC")),
+            ],
+            "value": [1.0, 2.0],
+            "quality": [None, None],
+        },
+        schema_overrides={"quality": pl.Float64},
+    )
+
+    result = values._build_complete_df(df, "1011000101", Resolution.HOURLY)  # noqa: SLF001
+
+    assert result.get_column("value").drop_nulls().to_list() == [1.0, 2.0]

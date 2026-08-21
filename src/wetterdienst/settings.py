@@ -103,7 +103,7 @@ _STATION_DISTANCE_RESOLUTION_FACTORS: dict[str, float] = {
     Resolution.MONTHLY.value: 2.0,
     Resolution.ANNUAL.value: 2.0,
 }
-#: a resolution the factors say nothing about -- `undefined` and `dynamic` -- is left as it is
+#: a resolution the factors say nothing about -- `undefined` -- is left as it is
 _STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT = 1.0
 
 
