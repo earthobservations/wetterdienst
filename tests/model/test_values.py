@@ -1,6 +1,7 @@
 """Tests for shared TimeseriesValues behavior."""
 
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 import polars as pl
 from polars.testing import assert_frame_equal
@@ -76,7 +77,7 @@ def _long(rows: list[tuple[str, str, str, int, float]]) -> pl.DataFrame:
             "resolution": [row[0] for row in rows],
             "dataset": [row[1] for row in rows],
             "parameter": [row[2] for row in rows],
-            "date": [dt.datetime(2026, 1, 1, 0, row[3], tzinfo=dt.UTC) for row in rows],
+            "date": [dt.datetime(2026, 1, 1, 0, row[3], tzinfo=ZoneInfo("UTC")) for row in rows],
             "value": [row[4] for row in rows],
             "quality": [None] * len(rows),
         },
