@@ -101,11 +101,19 @@ Types of changes:
 
 ### Fixed
 
+- Eaufrance Hubeau serves the overseas departments. Metropolitan station codes begin with the
+  letter of their hydrographic basin and the codes of Guadeloupe, Martinique, Guyane, La Réunion
+  and Mayotte begin with a digit, and the station list kept only the codes beginning with a letter
+  -- excluding all 176 overseas gauges, 86 of them transmitting, for no reason the filter recorded.
+  Every station code the referential publishes is well formed, so the filter guarded nothing
 - Eaufrance Hubeau lists every station it has rather than the first thousand. The station
   referential answers with a page of 1000 of its 4150 stations and a cursor to the rest, and the
   query named no page size and followed no cursor, so three quarters of the French gauges were
   missing from the station list and unreachable through it -- including by `filter_by_station_id`,
   which filters against that list
+- `ts_complete` completes a station whose own timezone is not UTC. The window it builds the grid
+  from is localized to the station while the grid and the values are UTC, and comparing the two
+  raised rather than completing -- which is every Hubeau station outside metropolitan France
 - `ts_complete` says when it drops readings. It completes a series onto the grid its resolution
   implies by an exact join, so a reading taken off that grid -- an hourly gauge reporting at seven
   minutes past, which is how a good third of Hubeau's hourly stations report -- matches no row and

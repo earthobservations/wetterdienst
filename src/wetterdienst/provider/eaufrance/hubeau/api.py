@@ -460,9 +460,6 @@ class HubeauRequest(TimeseriesRequest):
             .otherwise(pl.col("end_date").str.to_datetime(time_zone="UTC"))
             .alias("end_date"),
         )
-        df_raw = df_raw.filter(
-            pl.col("station_id").str.contains(r"^\p{L}"),
-        )
         # A station belongs to the resolution it transmits at, which is measured rather than
         # declared -- see `_STEP_TO_RESOLUTION`. One that has published nothing to measure is
         # listed under no resolution: naming an interval for it would be a guess, and the join

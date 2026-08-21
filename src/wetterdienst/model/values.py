@@ -242,7 +242,12 @@ class TimeseriesValues(ABC):
         # back what their files hold, which is routinely far more than was asked for -- a whole
         # historical decade for one requested week -- and `query` trims that to the request only
         # after this runs. Comparing against the untrimmed frame would report the trim as a drop.
-        observed = df.filter(pl.col("date").is_between(start_date, end_date)).get_column("value").drop_nulls().len()
+        #
+        # The span is read off the grid rather than from the dates it was built from, because those
+        # carry the station's own timezone -- `_adjust_start_end_date` localizes them -- while the
+        # grid and the frame are both UTC, and polars refuses to compare across zones.
+        grid = base_df.get_column("date")
+        observed = df.filter(pl.col("date").is_between(grid.min(), grid.max())).get_column("value").drop_nulls().len()
         kept = df_complete.get_column("value").drop_nulls().len()
         if kept < observed:
             log.warning(

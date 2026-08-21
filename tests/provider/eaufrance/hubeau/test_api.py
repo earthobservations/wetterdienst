@@ -185,17 +185,18 @@ def _observations(rows: list[tuple[str, dt.datetime]]) -> list[dict]:
 def hubeau_network(monkeypatch: pytest.MonkeyPatch) -> None:
     """Answer every Hubeau query from a small network of five telling stations.
 
-    ``fast`` transmits through the first window; ``unmapped`` transmits at an interval no
+    ``fast`` transmits through the first window; ``1011000101`` is an overseas gauge, whose station
+    code begins with a digit rather than a basin letter; ``unmapped`` transmits at an interval no
     resolution covers; ``quiet`` and ``discharge_only`` are silent there and answer the second
     pass, the latter only for discharge; ``dead`` never transmits at all.
     """
-    stations = [_station(name) for name in ("fast", "unmapped", "quiet", "discharge_only", "dead")]
+    stations = [_station(name) for name in ("fast", "1011000101", "unmapped", "quiet", "discharge_only", "dead")]
 
     def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
         if "referentiel" in url:
             return stations
         if "code_entite" not in url:
-            return _observations([*_dates("fast", 5, 8), *_dates("unmapped", 30, 8)])
+            return _observations([*_dates("fast", 5, 8), *_dates("1011000101", 15, 8), *_dates("unmapped", 30, 8)])
         if "grandeur_hydro=H" in url:
             return _observations(_dates("quiet", 60, 8))
         return _observations(_dates("discharge_only", 10, 8))
@@ -210,6 +211,7 @@ def test_all_lists_each_station_under_the_interval_it_transmits_at() -> None:
 
     assert dict(df.select("station_id", "resolution").iter_rows()) == {
         "fast": "5_minutes",
+        "1011000101": "15_minutes",
         "quiet": "hourly",
         "discharge_only": "10_minutes",
     }
@@ -241,6 +243,20 @@ def test_all_leaves_out_a_station_with_nothing_to_measure() -> None:
 
 
 @pytest.mark.usefixtures("hubeau_network")
+def test_all_lists_the_stations_outside_metropolitan_france() -> None:
+    """Test that the overseas departments are listed rather than filtered out by their code.
+
+    Metropolitan station codes begin with the letter of their hydrographic basin, and the codes of
+    Guadeloupe, Martinique, Guyane, La Réunion and Mayotte begin with a digit instead. The station
+    list kept only the codes beginning with a letter, which excluded all 176 overseas gauges --
+    86 of them transmitting -- for no reason the filter recorded.
+    """
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert "1011000101" in df.get_column("station_id").to_list()
+
+
+@pytest.mark.usefixtures("hubeau_network")
 def test_all_serves_only_the_resolutions_asked_for() -> None:
     """Test that a request for one interval does not list the stations of the others."""
     df = HubeauRequest(parameters=[("hourly", "data", "stage")], settings=Settings()).all().df
@@ -266,11 +282,17 @@ def test_hubeau_station_belongs_to_exactly_one_resolution(default_settings: Sett
 
 @pytest.mark.remote
 def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(default_settings: Settings) -> None:
-    """Test that a station listed at fifteen minutes actually returns a fifteen-minute series."""
+    """Test that a station listed at fifteen minutes actually returns a fifteen-minute series.
+
+    Measured over the whole served window rather than a few hours of it: a gauge that misses a
+    transmission leaves a double-length interval behind, and over a short window those gaps can
+    outnumber the intervals they interrupt without the station being anything but fifteen-minutely.
+    Gaps are multiples of the interval, so the grid shows through them.
+    """
     end_date = dt.datetime.now(ZoneInfo("UTC"))
     request = HubeauRequest(
         parameters=[("15_minutes", "data", "stage")],
-        start_date=end_date - dt.timedelta(hours=6),
+        start_date=end_date - dt.timedelta(days=30),
         end_date=end_date,
         settings=default_settings,
     )
@@ -281,3 +303,5 @@ def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(defaul
     steps = df.get_column("date").diff().drop_nulls().dt.total_minutes().to_list()
     assert steps, f"{station_id} returned no values to measure"
     assert max(set(steps), key=steps.count) == 15
+    on_grid = sum(step % 15 == 0 for step in steps) / len(steps)
+    assert on_grid > 0.9, f"{station_id}: only {on_grid:.0%} of its intervals fall on a 15-minute grid"

@@ -13,6 +13,8 @@ from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
+from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
+from wetterdienst.provider.eaufrance.hubeau.api import HubeauValues
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelValues
 
@@ -279,3 +281,51 @@ def test_build_complete_df_does_not_count_readings_outside_the_request(caplog: p
         _hourly_values(start_date, end_date)._build_complete_df(df, "01048", Resolution.HOURLY)  # noqa: SLF001
 
     assert "ts_complete" not in caplog.text
+
+
+def test_build_complete_df_counts_the_window_of_a_station_outside_utc() -> None:
+    """Test that completion works where the station's own timezone is not UTC.
+
+    `_adjust_start_end_date` localizes the window to the station's timezone, while the grid it
+    builds and the values it completes are both UTC. Reading the span off the localized bounds
+    rather than off the grid made polars refuse to compare the two, so every Hubeau station outside
+    metropolitan France -- Guadeloupe, Martinique, Mayotte, Guyane, La Réunion -- raised instead of
+    completing.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC"))
+    request = HubeauRequest(
+        parameters=[("hourly", "data", "stage")],
+        start_date=start_date,
+        end_date=end_date,
+    )
+    values = HubeauValues(
+        sr=StationsResult(
+            stations=request,
+            # the coordinates are what the timezone is read from, so they carry the test
+            df=pl.DataFrame({"station_id": ["1011000101"], "longitude": [-61.659], "latitude": [16.189]}),
+            df_all=pl.DataFrame(),
+            stations_filter=StationsFilter.ALL,
+        ),
+    )
+    df = pl.DataFrame(
+        {
+            "station_id": ["1011000101"] * 2,
+            "resolution": ["hourly"] * 2,
+            "dataset": ["data"] * 2,
+            "parameter": ["stage"] * 2,
+            # inside the station's local day, which is what the grid spans: Guadeloupe is UTC-4,
+            # so these are 01:00 and 02:00 in the morning there
+            "date": [
+                dt.datetime(2026, 1, 1, 5, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 1, 1, 6, tzinfo=ZoneInfo("UTC")),
+            ],
+            "value": [1.0, 2.0],
+            "quality": [None, None],
+        },
+        schema_overrides={"quality": pl.Float64},
+    )
+
+    result = values._build_complete_df(df, "1011000101", Resolution.HOURLY)  # noqa: SLF001
+
+    assert result.get_column("value").drop_nulls().to_list() == [1.0, 2.0]

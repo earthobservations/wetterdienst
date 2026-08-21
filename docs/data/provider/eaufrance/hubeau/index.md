@@ -4,7 +4,9 @@
 
 Hubeau is the open API platform of Eaufrance, the French public water-information service.
 Wetterdienst uses its hydrometry API to provide real-time river observations for the French
-river network, covering roughly the last 30 days.
+river network, covering roughly the last 30 days. The network includes the overseas departments —
+Guadeloupe, Martinique, Guyane, La Réunion and Mayotte — whose station codes begin with a digit
+where metropolitan ones begin with the letter of their hydrographic basin.
 
 Two parameters are available — water level (`stage`) and discharge (`flow`) — served from the
 `hydrometrie/observations_tr` ("temps réel") endpoint as JSON, with station metadata coming
