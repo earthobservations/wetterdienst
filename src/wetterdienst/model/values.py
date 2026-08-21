@@ -305,11 +305,13 @@ class TimeseriesValues(ABC):
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
             if not self.sr.settings.ts_tidy:
                 df = self._widen_df(df=df)
+            # sorted by resolution first in either shape: two resolutions are two series, and
+            # sorting by the dataset alone interleaves them when they share one -- an hourly and a
+            # 10-minute precipitation series came out shuffled into each other. `unique()` in
+            # `_widen_df` leaves the wide rows in no particular order to begin with.
             sort_columns = (
-                ["dataset", "parameter", "date"]
+                ["resolution", "dataset", "parameter", "date"]
                 if self.sr.settings.ts_tidy
-                # `unique()` above leaves the wide rows in no particular order, and sorting them by
-                # the dataset alone interleaves the resolutions when there is more than one
                 else ["resolution", "dataset", "date"]
             )
             df = df.sort(sort_columns)
@@ -440,6 +442,12 @@ class TimeseriesValues(ABC):
         # No single name describes a row that spans several datasets, so it carries none and the
         # column prefix names them instead. A resolution that holds one dataset keeps its name --
         # resolutions are not merged into one another, so no row of theirs is missing a name.
+        #
+        # Which resolutions those are is read from the request rather than from what the station
+        # returned, exactly as the column prefix above is: a station that happens to deliver only
+        # one of the two datasets asked for still gets the prefixed columns, and labelling its rows
+        # with the one dataset that answered would make the column mean something different from
+        # station to station in the frame they are concatenated into.
         merged_resolutions = [resolution for resolution, names in datasets_by_resolution.items() if len(names) > 1]
         dataset = (
             pl.when(pl.col("resolution").is_in(merged_resolutions))

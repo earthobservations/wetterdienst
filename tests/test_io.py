@@ -980,6 +980,41 @@ def test_export_zarr(
 
 
 @pytest.mark.remote
+def test_export_zarr_two_datasets(
+    settings_convert_units_false_wide_shape: Settings,
+    tmp_path: Path,
+) -> None:
+    """Test that a wide frame merging two datasets is written to a named group, not the store root.
+
+    The two datasets are daily, so they share a row and that row carries no dataset name -- there
+    is no one name for it. The group is named for what the frame holds instead of for whatever its
+    first row says, since a group of `None` writes the arrays into the root, where `mode="w"`
+    clobbers every other group already in the store.
+    """
+    zarr = pytest.importorskip("zarr")
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")],
+        start_date="2019-01-01",
+        end_date="2019-01-05",
+        settings=settings_convert_units_false_wide_shape,
+    ).filter_by_station_id(
+        station_id=[1048],
+    )
+    values = request.values.all()
+    filename = tmp_path.joinpath("observation.zarr")
+
+    values.to_target(f"file://{filename}")
+
+    root = zarr.open(filename, mode="r")
+    assert list(root.array_keys()) == []
+    assert list(root.group_keys()) == ["daily"]
+    group = root.get("daily")
+    columns = set(group.keys())
+    assert "climate_summary_precipitation_height" in columns
+    assert "precipitation_more_precipitation_height" in columns
+
+
+@pytest.mark.remote
 def test_export_feather(
     settings_convert_units_false_wide_shape: Settings,
     dwd_climate_summary_tabular_columns: list[str],

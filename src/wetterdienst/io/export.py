@@ -267,13 +267,19 @@ class ExportMixin:
                 log.info(f"Writing to Zarr group '{filepath}'")
                 import xarray  # noqa: PLC0415
 
+                # the group is named for what the whole frame holds, not for whatever its first
+                # row happens to say: a wide frame merging the datasets of one resolution carries
+                # no dataset name at all -- there is no one name for such a row -- and a group of
+                # `None` would write the arrays into the store root, where `mode="w"` clobbers
+                # every other group already in it
+                names = self.df.get_column("dataset").drop_nulls().unique().sort().to_list()
+                group = "_".join(names or self.df.get_column("resolution").unique().sort().to_list())
                 # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
                 # Solution: Fill gaps in the data.
                 df = self.df.fill_null(-999)
                 df = df.with_columns(
                     pl.col("date").dt.convert_time_zone("UTC").dt.replace_time_zone(None).dt.to_string("iso:strict"),
                 )
-                group = df.get_column("dataset").gather(0).item()
                 # xarray/zarr encoding cannot handle a pandas Categorical (produced from Enum
                 # columns), so cast Enum metadata columns back to String before conversion
                 df = df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas()

@@ -98,6 +98,15 @@ Types of changes:
   parameter with no reading at a timestamp leaves a null instead of removing the timestamp from
   the frame: chained inner joins had reduced the result to the timestamps every requested
   parameter happened to share, dropping readings that were asked for and downloaded
+- Values of two resolutions are sorted apart in both shapes. The row order was `dataset`,
+  `parameter`, `date`, so an hourly and a 10-minute precipitation series -- one dataset name, one
+  parameter name -- came back shuffled into each other, one hourly row every six 10-minute ones.
+  Resolution leads the sort now, in the long shape as in the wide one
+- A Zarr export names its group for what the whole frame holds rather than for whatever its first
+  row happens to say: the dataset names present, or the resolutions when a wide row spanning
+  several datasets carries no dataset name at all. A frame of two datasets used to be filed under
+  whichever of them came first, and one merging them would have gone to the store root, where
+  `mode="w"` clobbers every other group already in it
 - `ts_geo_station_distance` validates what it is given. A key that is not a canonical parameter is
   rejected rather than kept and never read -- a typo silently left the parameter the user meant at
   its default radius, indistinguishable from having set nothing -- and a negative distance is
