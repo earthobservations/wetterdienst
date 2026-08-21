@@ -84,6 +84,29 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `ts_shape="wide"` puts one timestamp of one resolution in a row, and stops filling
+  rows with values that belong to another. The row used to be keyed on the dataset as well while
+  the parameters were joined on the date alone, so a request spanning two datasets emitted every
+  timestamp once per dataset and filled all of those rows with all of the datasets' values -- the
+  `precipitation_more` row of a `climate_summary` + `precipitation_more` request reported
+  `climate_summary_rsk`, and the two rows were identical but for the label. Datasets recorded at
+  one resolution share their timestamps and now share a row, which is what the dataset-name column
+  prefix was always for; `dataset` is null in that row, since no single name describes it, and
+  still carries the name wherever a resolution holds a single dataset.
+  Resolutions still get their own rows, because a 15-minute series and an hourly one do not have
+  the same timestamps to begin with. The parameter joins are also outer rather than inner, so a
+  parameter with no reading at a timestamp leaves a null instead of removing the timestamp from
+  the frame: chained inner joins had reduced the result to the timestamps every requested
+  parameter happened to share, dropping readings that were asked for and downloaded
+- Values of two resolutions are sorted apart in both shapes. The row order was `dataset`,
+  `parameter`, `date`, so an hourly and a 10-minute precipitation series -- one dataset name, one
+  parameter name -- came back shuffled into each other, one hourly row every six 10-minute ones.
+  Resolution leads the sort now, in the long shape as in the wide one
+- A Zarr export names its group for what the whole frame holds rather than for whatever its first
+  row happens to say: the dataset names present, or the resolutions when a wide row spanning
+  several datasets carries no dataset name at all. A frame of two datasets used to be filed under
+  whichever of them came first, and one merging them would have gone to the store root, where
+  `mode="w"` clobbers every other group already in it
 - `ts_geo_station_distance` validates what it is given. A key that is not a canonical parameter is
   rejected rather than kept and never read -- a typo silently left the parameter the user meant at
   its default radius, indistinguishable from having set nothing -- and a negative distance is
