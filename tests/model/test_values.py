@@ -367,6 +367,75 @@ def test_actual_percentage_falls_back_to_the_span_of_the_series() -> None:
     assert _percentage(values, df) == 0.75
 
 
+def test_actual_percentage_does_not_let_oversampling_fill_in_for_silence() -> None:
+    """Test that reporting twice an hour through half a window does not read as covering it.
+
+    Counted reading by reading, a station reporting every 30 minutes through the first half of a
+    10-hour window delivers 11 readings against the 11 the window holds and reads as complete --
+    while the second half of the window holds nothing at all. Readings are counted by the grid
+    slot they land in, so the five silent hours are five slots the station does not cover.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 10, tzinfo=ZoneInfo("UTC"))
+    df = _hourly_long(
+        [dt.datetime(2026, 1, 1, hour, minute, tzinfo=ZoneInfo("UTC")) for hour in range(6) for minute in (0, 30)],
+    )
+
+    # 12 readings over 6 of the 11 hourly slots the window holds
+    assert _percentage(_hourly_values(start_date, end_date), df) == pytest.approx(6 / 11)
+
+
+def test_actual_percentage_reads_the_fallback_window_off_the_dataset_it_measures() -> None:
+    """Test that a dataset is not measured against the span of another one in the same request.
+
+    Without a window of its own the span comes off the frame, and a request pairing a series that
+    reaches back decades with one that starts far later would measure the short series against the
+    long one's span -- dropping a station whose record is complete for the whole of its life.
+    """
+    request = DwdObservationRequest(
+        parameters=[
+            ("hourly", "temperature_air", "temperature_air_mean_2m"),
+            ("daily", "climate_summary", "precipitation_height"),
+        ],
+    )
+    values = DwdObservationValues(
+        sr=StationsResult(
+            stations=request,
+            df=pl.DataFrame(),
+            df_all=pl.DataFrame(),
+            stations_filter=StationsFilter.ALL,
+        ),
+    )
+    daily_dates = pl.datetime_range(
+        dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+        interval="1d",
+        eager=True,
+    )
+    df = pl.concat(
+        [
+            # complete for every hour it has ever run, but only since 2026
+            _hourly_long(
+                [dt.datetime(2026, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in range(24)],
+            ),
+            pl.DataFrame(
+                {
+                    "station_id": ["01048"] * len(daily_dates),
+                    "resolution": ["daily"] * len(daily_dates),
+                    "dataset": ["climate_summary"] * len(daily_dates),
+                    "parameter": ["rsk"] * len(daily_dates),
+                    "date": daily_dates,
+                    "value": [1.0] * len(daily_dates),
+                    "quality": [None] * len(daily_dates),
+                },
+                schema_overrides={"quality": pl.Float64},
+            ),
+        ],
+    )
+
+    assert _percentage(values, df) == 1.0
+
+
 def test_actual_percentage_matches_a_parameter_name_in_the_provider_own_casing() -> None:
     """Test that a provider emitting its own casing is not counted as having sent nothing.
 

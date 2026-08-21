@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from wetterdienst.metadata.resolution import Resolution, count_readings
+from wetterdienst.metadata.resolution import Resolution, count_readings, reading_interval
 
 UTC = ZoneInfo("UTC")
 
@@ -17,8 +17,6 @@ UTC = ZoneInfo("UTC")
         (Resolution.MINUTE_15, dt.datetime(2026, 1, 1, 0, tzinfo=UTC), dt.datetime(2026, 1, 1, 1, tzinfo=UTC), 5),
         (Resolution.MINUTE_1, dt.datetime(2026, 1, 1, 0, tzinfo=UTC), dt.datetime(2026, 1, 1, 0, 10, tzinfo=UTC), 11),
         (Resolution.HOURLY, dt.datetime(2026, 1, 1, 0, tzinfo=UTC), dt.datetime(2026, 1, 2, 0, tzinfo=UTC), 25),
-        # subdaily is recorded hourly, which is what `Frequency` says of it too
-        (Resolution.SUBDAILY, dt.datetime(2026, 1, 1, 0, tzinfo=UTC), dt.datetime(2026, 1, 1, 3, tzinfo=UTC), 4),
         (Resolution.HOUR_6, dt.datetime(2026, 1, 1, 0, tzinfo=UTC), dt.datetime(2026, 1, 2, 0, tzinfo=UTC), 5),
         (Resolution.DAILY, dt.datetime(2026, 1, 1, tzinfo=UTC), dt.datetime(2026, 1, 31, tzinfo=UTC), 31),
         # a window shorter than one step still holds the reading at its own start
@@ -63,9 +61,24 @@ def test_count_readings_of_a_calendar_step(
     assert count_readings(resolution, start_date, end_date) == expected
 
 
-def test_count_readings_of_a_resolution_without_an_interval() -> None:
-    """Test that a resolution naming no interval answers with nothing rather than with a number."""
-    assert (
-        count_readings(Resolution.UNDEFINED, dt.datetime(2026, 1, 1, tzinfo=UTC), dt.datetime(2026, 2, 1, tzinfo=UTC))
-        is None
-    )
+@pytest.mark.parametrize("resolution", [Resolution.UNDEFINED, Resolution.SUBDAILY])
+def test_count_readings_of_a_resolution_without_an_interval(resolution: Resolution) -> None:
+    """Test that a resolution naming no interval answers with nothing rather than with a number.
+
+    `subdaily` is a bucket for "coarser than hourly, finer than daily" rather than an interval,
+    and its two providers do not agree on one: DWD takes three Termin readings a day while
+    Meteo-France SYNOP reports every three hours. Answering `1h` -- which is what `Frequency` says,
+    since over-completing a grid is harmless -- would measure a DWD station that delivered every
+    one of its 90 January readings against 721 and skip it for being seven-eighths empty.
+    """
+    assert reading_interval(resolution) is None
+    assert count_readings(resolution, dt.datetime(2026, 1, 1, tzinfo=UTC), dt.datetime(2026, 2, 1, tzinfo=UTC)) is None
+
+
+def test_reading_interval_answers_for_every_resolution_that_can_be_counted() -> None:
+    """Test that the two tables agree: a resolution has an interval exactly when it has a count."""
+    start_date, end_date = dt.datetime(2026, 1, 1, tzinfo=UTC), dt.datetime(2026, 2, 1, tzinfo=UTC)
+    for resolution in Resolution:
+        assert (reading_interval(resolution) is None) == (count_readings(resolution, start_date, end_date) is None), (
+            resolution
+        )

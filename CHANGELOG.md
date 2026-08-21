@@ -76,9 +76,15 @@ Types of changes:
   the same one `ts_complete` produced, so a request that already set both settings keeps its
   answers, with two departures: a reading that does not land on the resolution's grid now counts
   as delivered rather than being dropped and counted as missing, and a request that names no
-  window is measured against the span of the station's own series instead of being called fully
-  covered whatever it holds. A parameter is matched to its metadata case-insensitively, so a
-  provider emitting its own casing -- WSV reports `w` where its metadata declares `W` -- is no
+  window is measured against the span of the station's own series for the dataset in question
+  instead of being called fully covered whatever it holds. Readings are counted by the grid slot
+  they fall in rather than one by one, so a station reporting more often than the resolution it is
+  listed under cannot cover a window twice over and read as complete while half of it holds
+  nothing. `subdaily` is measured on what came back instead: it is a bucket rather than an
+  interval, and its two providers disagree on one -- DWD takes three Termin readings a day where
+  Meteo-France SYNOP reports every three hours -- so counting either as the interval would judge
+  the other three times too harshly. A parameter is matched to its metadata case-insensitively, so
+  a provider emitting its own casing -- WSV reports `w` where its metadata declares `W` -- is no
   longer read as having sent nothing
 - **Breaking**: Eaufrance Hubeau reports under the interval each station transmits at, so its
   single `dynamic` resolution is replaced by `5_minutes`, `6_minutes`, `10_minutes`, `15_minutes`
