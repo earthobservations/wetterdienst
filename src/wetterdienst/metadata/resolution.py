@@ -23,15 +23,16 @@ class Resolution(Enum):
     MONTHLY = "monthly"  # used by DWD for file server
     ANNUAL = "annual"  # used by DWD for file server
 
-    # For sources without resolution
-    UNDEFINED = "undefined"
-
 
 class Frequency(Enum):
-    """Enumeration for frequency of the weather observation."""
+    """The interval each resolution is completed onto, named after the resolution it answers for.
+
+    Looked up as `Frequency[resolution.name]`, so a resolution without a member of the same name
+    is a KeyError rather than a fallback -- which is why this carries a member for every
+    `Resolution`, `SUBDAILY` included, and none besides.
+    """
 
     MINUTE_1 = "1m"
-    MINUTE_2 = "2m"
     MINUTE_5 = "5m"
     MINUTE_6 = "6m"
     MINUTE_10 = "10m"
@@ -46,10 +47,10 @@ class Frequency(Enum):
 
 # the interval between two readings of a resolution, as a polars interval string.
 #
-# `SUBDAILY` is deliberately absent, and so is `UNDEFINED`: subdaily is a bucket for "coarser than
-# hourly, finer than daily" rather than an interval, and its two providers do not agree on one --
-# DWD takes three Termin readings a day (06/12/18 UTC) while Meteo-France SYNOP reports every three
-# hours. Naming either as the interval would misjudge the other by a factor of nearly three.
+# `SUBDAILY` is deliberately absent: it is a bucket for "coarser than hourly, finer than daily"
+# rather than an interval, and its two providers do not agree on one -- DWD takes three Termin
+# readings a day (06/12/18 UTC) while Meteo-France SYNOP reports every three hours. Naming either
+# as the interval would misjudge the other by a factor of nearly three.
 #
 # `Frequency` above spells the same intervals for the date ranges `interpolate` and `summarize`
 # build, but it does answer for subdaily, since over-completing a grid is harmless where measuring

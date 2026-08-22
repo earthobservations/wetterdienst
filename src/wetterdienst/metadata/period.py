@@ -6,14 +6,6 @@ import functools
 from enum import Enum
 
 
-class PeriodType(Enum):
-    """Enumeration for period types."""
-
-    FIXED = "fixed"
-    MULTI = "multi"
-    UNDEFINED = "undefined"
-
-
 @functools.total_ordering
 class OrderedPeriod(Enum):
     """Enumeration for period types and values."""
@@ -23,7 +15,6 @@ class OrderedPeriod(Enum):
         # IMPORTANT: THIS DEPENDS ON THE NAMING CONVENTIONS USED IN THE Period
         # ENUMERATION AS SHOWN BELOW
         return {
-            Period.UNDEFINED.name: -1,
             Period.HISTORICAL.name: 0,
             Period.RECENT.name: 1,
             Period.NOW.name: 2,
@@ -59,13 +50,11 @@ class Period(OrderedPeriod):
     """Enumeration for different period types of storage on dwd server.
 
     Source: https://stackoverflow.com/questions/39268052/how-to-compare-enums-in-python
-    Ordering is required for the PeriodType enumeration in order for it to be sorted.
-    PeriodType needs to be sortable for the request definition where for the case of
-    requesting data for several periods, we want preferably the historical data with
-    quality marks and drop overlapping values from other periods.
+    Ordering is required for the request definition, where for the case of requesting data for
+    several periods, we want preferably the historical data with quality marks and drop
+    overlapping values from other periods.
     """
 
-    UNDEFINED = PeriodType.UNDEFINED.value
     HISTORICAL = "historical"
     RECENT = "recent"
     NOW = "now"

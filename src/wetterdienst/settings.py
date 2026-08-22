@@ -103,7 +103,8 @@ _STATION_DISTANCE_RESOLUTION_FACTORS: dict[str, float] = {
     Resolution.MONTHLY.value: 2.0,
     Resolution.ANNUAL.value: 2.0,
 }
-#: a resolution the factors say nothing about -- `undefined` -- is left as it is
+#: every `Resolution` is named above, so this catches a resolution name from outside that
+#: vocabulary, which is left as it is rather than guessed at
 _STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT = 1.0
 
 
