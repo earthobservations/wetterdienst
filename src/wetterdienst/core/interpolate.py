@@ -16,13 +16,14 @@ from scipy.interpolate import LinearNDInterpolator
 from shapely.geometry import Point, Polygon
 from tqdm import tqdm
 
-from wetterdienst.core.util import _ParameterData, extract_station_values
+from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values
 from wetterdienst.metadata.parameter_table import PARAMETERS
-from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
+    import datetime as dt
+
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
     from wetterdienst.settings import Settings
@@ -150,22 +151,13 @@ def apply_station_values_per_parameter(
         if result_series_param.drop_nulls("value").is_empty():
             continue
         if param_key not in param_dict:
-            if stations_ranked.stations.start_date is None or stations_ranked.stations.end_date is None:
+            # cast, not parsed: the request declares its dates as `str | datetime | None` because
+            # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`
+            start_date = cast("dt.datetime | None", stations_ranked.stations.start_date)
+            end_date = cast("dt.datetime | None", stations_ranked.stations.end_date)
+            if start_date is None or end_date is None:
                 continue
-            frequency = Frequency[dataset.resolution.value.name].value
-            df = pl.DataFrame(
-                {
-                    "date": pl.datetime_range(
-                        start=stations_ranked.stations.start_date,
-                        end=stations_ranked.stations.end_date,
-                        interval=frequency,
-                        time_zone="UTC",
-                        eager=True,
-                    ).dt.round(frequency),
-                },
-                orient="col",
-            )
-            param_dict[param_key] = _ParameterData(df)
+            param_dict[param_key] = _ParameterData(build_date_grid(dataset.resolution.value, start_date, end_date))
         result_series_param = (
             param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
         )
