@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 import polars as pl
 
@@ -107,6 +107,33 @@ EAHydrologyMetadata = {
 EAHydrologyMetadata = build_metadata_model(EAHydrologyMetadata, "EAHydrologyMetadata")
 
 
+def _measure_parameter(parameter: ParameterModel) -> str:
+    """Give the parameter of the EA measure a wetterdienst parameter is taken from.
+
+    A measure is notated `{parameter}-{statistic}-{period}`, so `flow-i-900` is the flow measured
+    every 900 seconds and `level-max-86400` the daily maximum level. The station listing names the
+    parameter and the period of each measure but not the statistic, which is why the leading token
+    is read off the notation rather than the notation matched whole.
+
+    Derived from the notation the metadata already carries so that renaming a wetterdienst
+    parameter cannot separate the two: the map this replaces still keyed the 15-minute parameters
+    as `discharge_instant` and `groundwater_level_instant`, names the metadata had long since
+    dropped, and every 15-minute request died on the lookup.
+    """
+    return parameter.name_original.split("-")[0]
+
+
+# the period of each measure, in seconds, and the resolution it is served under. Read off the
+# trailing token of the notations the metadata declares, so a resolution added there is served
+# without a second table having to learn its period.
+_RESOLUTIONS_BY_PERIOD: dict[str, str] = {
+    parameter.name_original.split("-")[-1]: resolution.name
+    for resolution in EAHydrologyMetadata
+    for dataset in resolution
+    for parameter in dataset.parameters
+}
+
+
 class EAHydrologyValues(TimeseriesValues):
     """Values class for Environment Agency hydrology data."""
 
@@ -158,15 +185,7 @@ class EAHydrologyValues(TimeseriesValues):
         df_measures = df_measures.explode("measures", empty_as_null=True)
         df_measures = df_measures.select(pl.col("measures").struct.unnest())
         df_measures = df_measures.with_columns(
-            pl.col("period")
-            .cast(pl.String)
-            .replace(
-                {
-                    900: "15_minutes",
-                    86400: "daily",
-                },
-            )
-            .alias("resolution"),
+            pl.col("period").cast(pl.String).replace(_RESOLUTIONS_BY_PERIOD).alias("resolution"),
         )
         df_measures = df_measures.filter(
             pl.col("resolution").eq(parameter_or_dataset.dataset.resolution.name)
@@ -222,18 +241,6 @@ class EAHydrologyRequest(TimeseriesRequest):
     _values = EAHydrologyValues
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations.json"
-
-    _parameter_core_name_map: ClassVar = {
-        # 15 minutes
-        "discharge_instant": "flow",
-        "groundwater_level_instant": "level",
-        # daily
-        "discharge_max": "flow",
-        "discharge_mean": "flow",
-        "discharge_min": "flow",
-        "groundwater_level_max": "level",
-        "groundwater_level_min": "level",
-    }
 
     def _all(self) -> pl.LazyFrame:
         """Acquire all stations and filter for stations that have wanted resolution and parameter combinations."""
@@ -294,19 +301,11 @@ class EAHydrologyRequest(TimeseriesRequest):
             },
         )
         df = df.with_columns(
-            pl.col("resolution").cast(pl.String),
-        )
-        df = df.with_columns(
-            pl.col("resolution").replace(
-                {
-                    "900": "15_minutes",
-                    "86400": "daily",
-                },
-            ),
+            pl.col("resolution").cast(pl.String).replace(_RESOLUTIONS_BY_PERIOD),
         )
         df = df.drop_nulls("resolution")
         resolution_parameter_keys = {
-            f"{parameter.dataset.resolution.name}/{self._parameter_core_name_map[parameter.name]}"
+            f"{parameter.dataset.resolution.name}/{_measure_parameter(parameter)}"
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
         }
@@ -318,7 +317,7 @@ class EAHydrologyRequest(TimeseriesRequest):
             pl.concat_str(["resolution", "parameter"], separator="/").is_in(resolution_parameter_keys),
         )
         df = df.lazy()
-        return df.select(
+        df = df.select(
             "resolution",
             pl.lit(DATASET_NAME_DEFAULT, dtype=pl.String).alias("dataset"),
             "station_id",
@@ -330,3 +329,8 @@ class EAHydrologyRequest(TimeseriesRequest):
             "name",
             pl.lit(None, pl.String).alias("state"),
         )
+        # the listing carries one row per measure, so a station recording two of the requested
+        # parameters -- or, at daily, two statistics of one of them, which share the parameter and
+        # the period the listing reports -- arrives once per measure. Left in, the duplicates make
+        # `filter_by_rank` answer with more stations than were asked for
+        return df.unique(subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True)
