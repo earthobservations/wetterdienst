@@ -98,6 +98,10 @@ Types of changes:
   the metadata had long since dropped. The measure parameter and the period are now read off the
   notation the metadata already declares -- `flow-i-900` is flow measured every 900 seconds -- so
   renaming a parameter cannot separate the two again
+- Environment Agency: a station is listed once rather than once per matching measure. The listing
+  carries a row per measure, so a station recording two of the requested parameters -- or two
+  daily statistics of one of them, which share the parameter and the period the listing reports --
+  came back duplicated, and `filter_by_rank` then spent rank on the same station twice
 
 ## [0.134.0] - 2026-08-22
 
