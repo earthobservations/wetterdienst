@@ -2,6 +2,7 @@
 export type Resolution
   = '1_minute'
     | '5_minutes'
+    | '6_minutes'
     | '10_minutes'
     | '15_minutes'
     | 'hourly'
@@ -10,8 +11,6 @@ export type Resolution
     | 'daily'
     | 'monthly'
     | 'annual'
-    | 'undefined'
-    | 'dynamic'
 
 // ============================================================================
 // Coverage API
