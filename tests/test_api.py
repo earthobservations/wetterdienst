@@ -16,6 +16,8 @@ from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.model.unit import UnitConverter
@@ -161,6 +163,30 @@ def test_unit_type_matches_unit_converter(unit_converter: UnitConverter) -> None
     """
     assert set(get_args(UnitType)) == set(unit_converter.units)
     assert set(get_args(UnitType)) == set(unit_converter.targets)
+
+
+def test_every_resolution_and_period_is_served_by_a_provider() -> None:
+    """Test that neither vocabulary carries a member no provider declares.
+
+    Both are closed vocabularies rather than free labels: `Resolution` validates the keys of
+    `ts_geo_station_distance_resolution_factors`, is looked up by name in `Frequency`, and is
+    restated in the app's types. A member nothing serves is therefore a setting that can be
+    written and never read, and a value the app can offer that no request answers. That is what
+    `undefined` and `dynamic` became once the providers resolving to them started reporting the
+    interval each station records at.
+
+    dwd/radar and dwd/alerts declare no metadata model and so are not counted here; radar's own
+    resolutions are `5_minutes`, `hourly` and `daily`, all of which other networks declare too.
+    """
+    resolutions = set()
+    periods = set()
+    for metadata in ALL_METADATA:
+        for resolution in metadata:
+            resolutions.add(resolution.value)
+            for dataset in resolution:
+                periods.update(dataset.periods)
+    assert resolutions == set(Resolution)
+    assert periods == set(Period)
 
 
 def test_parameter_table_unit_types(unit_converter: UnitConverter) -> None:

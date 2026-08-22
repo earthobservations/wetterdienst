@@ -1,13 +1,17 @@
 """Tests for resolution metadata."""
 
 import datetime as dt
+import re
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from wetterdienst.metadata.resolution import Resolution, count_readings, reading_interval
+from wetterdienst.metadata.resolution import Frequency, Resolution, count_readings, reading_interval
 
 UTC = ZoneInfo("UTC")
+ROOT = Path(__file__).parent.parent.parent
+API_TYPES = ROOT / "app" / "shared" / "types" / "api.ts"
 
 
 @pytest.mark.parametrize(
@@ -61,8 +65,7 @@ def test_count_readings_of_a_calendar_step(
     assert count_readings(resolution, start_date, end_date) == expected
 
 
-@pytest.mark.parametrize("resolution", [Resolution.UNDEFINED, Resolution.SUBDAILY])
-def test_count_readings_of_a_resolution_without_an_interval(resolution: Resolution) -> None:
+def test_count_readings_of_a_resolution_without_an_interval() -> None:
     """Test that a resolution naming no interval answers with nothing rather than with a number.
 
     `subdaily` is a bucket for "coarser than hourly, finer than daily" rather than an interval,
@@ -71,6 +74,7 @@ def test_count_readings_of_a_resolution_without_an_interval(resolution: Resoluti
     since over-completing a grid is harmless -- would measure a DWD station that delivered every
     one of its 90 January readings against 721 and skip it for being seven-eighths empty.
     """
+    resolution = Resolution.SUBDAILY
     assert reading_interval(resolution) is None
     assert count_readings(resolution, dt.datetime(2026, 1, 1, tzinfo=UTC), dt.datetime(2026, 2, 1, tzinfo=UTC)) is None
 
@@ -82,3 +86,33 @@ def test_reading_interval_answers_for_every_resolution_that_can_be_counted() -> 
         assert (reading_interval(resolution) is None) == (count_readings(resolution, start_date, end_date) is None), (
             resolution
         )
+
+
+def test_frequency_answers_for_every_resolution() -> None:
+    """Test that the grid `interpolate` and `summarize` build can be built for any resolution.
+
+    `create_date_range` looks the interval up as `Frequency[resolution.name]`, so a resolution
+    without a member of that name raises a KeyError there rather than falling back -- and a
+    `Frequency` member no resolution is named after is reached by nothing at all.
+
+    Read through `__members__` rather than by iterating, which skips `SUBDAILY`: it is declared as
+    an alias of `HOURLY`, the one resolution whose grid is deliberately finer than its readings.
+    """
+    assert set(Frequency.__members__) == {resolution.name for resolution in Resolution}
+
+
+def test_the_app_names_the_same_resolutions() -> None:
+    """Test that the app's `Resolution` union restates this enum and nothing else.
+
+    The app is TypeScript and cannot import the enum, so it declares the same vocabulary a second
+    time -- and it drifted both ways: it carried `undefined` and `dynamic` long after the
+    providers resolving to them started reporting a real interval, and never gained `6_minutes`,
+    which Meteo-France has been served under all along. A missing member is a type error at every
+    call site handling that resolution; a surplus one is a value the app offers and the backend
+    rejects.
+    """
+    source = API_TYPES.read_text(encoding="utf-8")
+    union = re.search(r"export type Resolution\n(.*?)\n\n", source, re.DOTALL)
+    assert union, f"no `Resolution` union found in {API_TYPES}"
+    declared = set(re.findall(r"'([^']+)'", union.group(1)))
+    assert declared == {resolution.value for resolution in Resolution}

@@ -16,6 +16,29 @@ Types of changes:
 
 ## [Unreleased]
 
+### Removed
+
+- `Resolution.UNDEFINED` and `Period.UNDEFINED`, which no provider declared any more. They were
+  what the sources without a stated interval were served under, and the last of those went when
+  WSV and Hubeau started reporting the interval each station records at. `undefined` was still
+  accepted as a key of `ts_geo_station_distance_resolution_factors`, which validates its keys
+  against `Resolution` and was the one place the enum was read as a closed vocabulary, so it was a
+  setting that could be written and never read. `Resolution.UNDEFINED` also had no `Frequency`
+  member of its own name, which is how `create_date_range` looks the interval up, so anything that
+  had reached it would have raised a KeyError rather than being served coarsely. `PeriodType` goes
+  with `Period.UNDEFINED`, the only thing that read it, as `ResolutionType` did before it, and
+  `Frequency.MINUTE_2` goes too, having named a resolution that never existed.
+  `periods="undefined"` now raises `InvalidEnumerationError` where it used to parse and then
+  match no dataset, which is the one visible change
+
+### Fixed
+
+- The app's `Resolution` type restates the backend enum, and had drifted both ways: it still
+  offered `undefined` and `dynamic`, and had never gained `6_minutes`, which Meteo-France is
+  served under. A test now holds the two together, as it does for `Frequency`, whose members are
+  looked up by resolution name, and for the interpolation radius factors, which are keyed by
+  resolution
+
 ## [0.134.0] - 2026-08-22
 
 ### Added
