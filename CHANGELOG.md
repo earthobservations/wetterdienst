@@ -91,6 +91,13 @@ Types of changes:
   served under. A test now holds the two together, as it does for `Frequency`, whose members are
   looked up by resolution name, and for the interpolation radius factors, which are keyed by
   resolution
+- Environment Agency: the whole 15-minute resolution was unreachable. Both `15_minutes/data/discharge`
+  and `15_minutes/data/groundwater_level` raised `KeyError` while building the station listing,
+  which asked a hand-kept map for the EA measure parameter each wetterdienst parameter is taken
+  from and that map still spelled them `discharge_instant` and `groundwater_level_instant`, names
+  the metadata had long since dropped. The measure parameter and the period are now read off the
+  notation the metadata already declares -- `flow-i-900` is flow measured every 900 seconds -- so
+  renaming a parameter cannot separate the two again
 
 ## [0.134.0] - 2026-08-22
 
