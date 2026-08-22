@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.134.0] - 2026-08-22
+
 ### Added
 
 - Add the DWD climate indices as four datasets: `annual`/`climate_indices` and
@@ -39,27 +41,6 @@ Types of changes:
 - `wetterdienst summarize` reaches the settings that `interpolate` always could:
   `--summary_station_distance` and `--use_nearby_station_distance` had no command options at all,
   so the summary CLI always ran with the defaults
-
-### Removed
-
-- **Breaking**: the `ts_complete` setting is gone. It reindexed a series onto the grid its
-  resolution implies, spelling every gap out as a null row, and it cost a materialized timestamp
-  per reading of the window, a station-local-to-UTC window conversion, and a three-way interlock
-  with `ts_drop_nulls` and `ts_shape` that had to be spelled out in three log lines before a
-  request could say what it did. The join it built was exact, so a station reporting off the grid
-  -- an hourly gauge at seven minutes past, which is how a good third of Hubeau's hourly stations
-  report -- came back as a column of nulls; that was worth a warning last release and is not worth
-  keeping now. A caller who wants the grid can build it in a few lines of polars over the frame
-  they were returned, where the phase is theirs to choose. Nothing in the CLI, the REST API or the
-  app ever set it
-- **Breaking**: `MetadataModel.timezone_data` is gone, and with it the `timezone_data` key all
-  29 providers declared. It named the zone a provider's own `date` labels are stamped in, and
-  `ts_complete` was the only thing that ever read it -- to decide which zone to build its grid in.
-  The `"dynamic"` value, which meant "read the zone off the station's coordinates" and which NOAA
-  GHCN and Hubeau declared, goes with the field; the lookup behind it stays, since ECCC and GHCN
-  call it directly while parsing. `metadata.timezone`, the provider's civil timezone, is a
-  different field and remains -- DWD reads it to work out which period a request needs. Every
-  `date` a request returns is UTC either way, which is what left the field with nothing to say
 
 ### Changed
 
@@ -147,6 +128,27 @@ Types of changes:
   around the given number and so replaced the shorter radius of every heterogeneous parameter
   along with the fallback, giving `{"default": 30}` precipitation, fresh snow and visibility 30 km
   as well. Setting it now raises and names its replacements
+
+### Removed
+
+- **Breaking**: the `ts_complete` setting is gone. It reindexed a series onto the grid its
+  resolution implies, spelling every gap out as a null row, and it cost a materialized timestamp
+  per reading of the window, a station-local-to-UTC window conversion, and a three-way interlock
+  with `ts_drop_nulls` and `ts_shape` that had to be spelled out in three log lines before a
+  request could say what it did. The join it built was exact, so a station reporting off the grid
+  -- an hourly gauge at seven minutes past, which is how a good third of Hubeau's hourly stations
+  report -- came back as a column of nulls; that was worth a warning last release and is not worth
+  keeping now. A caller who wants the grid can build it in a few lines of polars over the frame
+  they were returned, where the phase is theirs to choose. Nothing in the CLI, the REST API or the
+  app ever set it
+- **Breaking**: `MetadataModel.timezone_data` is gone, and with it the `timezone_data` key all
+  29 providers declared. It named the zone a provider's own `date` labels are stamped in, and
+  `ts_complete` was the only thing that ever read it -- to decide which zone to build its grid in.
+  The `"dynamic"` value, which meant "read the zone off the station's coordinates" and which NOAA
+  GHCN and Hubeau declared, goes with the field; the lookup behind it stays, since ECCC and GHCN
+  call it directly while parsing. `metadata.timezone`, the provider's civil timezone, is a
+  different field and remains -- DWD reads it to work out which period a request needs. Every
+  `date` a request returns is UTC either way, which is what left the field with nothing to say
 
 ### Fixed
 
@@ -2884,7 +2886,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.133.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.134.0...HEAD
+[0.134.0]: https://github.com/earthobservations/wetterdienst/compare/v0.133.0...v0.134.0
 [0.133.0]: https://github.com/earthobservations/wetterdienst/compare/v0.132.0...v0.133.0
 [0.132.0]: https://github.com/earthobservations/wetterdienst/compare/v0.131.0...v0.132.0
 [0.131.0]: https://github.com/earthobservations/wetterdienst/compare/v0.130.0...v0.131.0
@@ -3017,18 +3020,18 @@ Types of changes:
 [0.31.1]: https://github.com/earthobservations/wetterdienst/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/earthobservations/wetterdienst/compare/v0.30.1...v0.31.0
 [0.30.1]: https://github.com/earthobservations/wetterdienst/compare/v0.30.0...v0.30.1
-[0.30.0]: https://github.com/earthobservations/wetterdienst/compare/v0.29.0...v0.30.
-[0.29.0]: https://github.com/earthobservations/wetterdienst/compare/v0.28.0...v0.29.
-[0.28.0]: https://github.com/earthobservations/wetterdienst/compare/v0.27.0...v0.28.
-[0.27.0]: https://github.com/earthobservations/wetterdienst/compare/v0.26.0...v0.27.
-[0.26.0]: https://github.com/earthobservations/wetterdienst/compare/v0.25.1...v0.26.
-[0.25.1]: https://github.com/earthobservations/wetterdienst/compare/v0.25.0...v0.25.
-[0.25.0]: https://github.com/earthobservations/wetterdienst/compare/v0.24.0...v0.25.
-[0.24.0]: https://github.com/earthobservations/wetterdienst/compare/v0.23.0...v0.24.
-[0.23.0]: https://github.com/earthobservations/wetterdienst/compare/v0.22.0...v0.23.
-[0.22.0]: https://github.com/earthobservations/wetterdienst/compare/v0.21.0...v0.22.
-[0.21.0]: https://github.com/earthobservations/wetterdienst/compare/v0.20.4...v0.21.
-[0.20.4]: https://github.com/earthobservations/wetterdienst/compare/v0.20.3...v0.20.
+[0.30.0]: https://github.com/earthobservations/wetterdienst/compare/v0.29.0...v0.30.0
+[0.29.0]: https://github.com/earthobservations/wetterdienst/compare/v0.28.0...v0.29.0
+[0.28.0]: https://github.com/earthobservations/wetterdienst/compare/v0.27.0...v0.28.0
+[0.27.0]: https://github.com/earthobservations/wetterdienst/compare/v0.26.0...v0.27.0
+[0.26.0]: https://github.com/earthobservations/wetterdienst/compare/v0.25.1...v0.26.0
+[0.25.1]: https://github.com/earthobservations/wetterdienst/compare/v0.25.0...v0.25.1
+[0.25.0]: https://github.com/earthobservations/wetterdienst/compare/v0.24.0...v0.25.0
+[0.24.0]: https://github.com/earthobservations/wetterdienst/compare/v0.23.0...v0.24.0
+[0.23.0]: https://github.com/earthobservations/wetterdienst/compare/v0.22.0...v0.23.0
+[0.22.0]: https://github.com/earthobservations/wetterdienst/compare/v0.21.0...v0.22.0
+[0.21.0]: https://github.com/earthobservations/wetterdienst/compare/v0.20.4...v0.21.0
+[0.20.4]: https://github.com/earthobservations/wetterdienst/compare/v0.20.3...v0.20.4
 [0.20.3]: https://github.com/earthobservations/wetterdienst/compare/v0.20.2...v0.20.3
 [0.20.2]: https://github.com/earthobservations/wetterdienst/compare/v0.20.1...v0.20.2
 [0.20.1]: https://github.com/earthobservations/wetterdienst/compare/v0.20.0...v0.20.1

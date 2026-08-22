@@ -2,8 +2,8 @@
 cff-version: 1.2.0
 type: software
 title: wetterdienst
-version: 0.133.0
-date-released: '2026-08-19'
+version: 0.134.0
+date-released: '2026-08-22'
 doi: 10.5281/zenodo.3960624
 authors:
 - family-names: Gutzmann
