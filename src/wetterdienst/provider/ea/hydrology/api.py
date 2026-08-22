@@ -317,7 +317,7 @@ class EAHydrologyRequest(TimeseriesRequest):
             pl.concat_str(["resolution", "parameter"], separator="/").is_in(resolution_parameter_keys),
         )
         df = df.lazy()
-        return df.select(
+        df = df.select(
             "resolution",
             pl.lit(DATASET_NAME_DEFAULT, dtype=pl.String).alias("dataset"),
             "station_id",
@@ -329,3 +329,8 @@ class EAHydrologyRequest(TimeseriesRequest):
             "name",
             pl.lit(None, pl.String).alias("state"),
         )
+        # the listing carries one row per measure, so a station recording two of the requested
+        # parameters -- or, at daily, two statistics of one of them, which share the parameter and
+        # the period the listing reports -- arrives once per measure. Left in, the duplicates make
+        # `filter_by_rank` answer with more stations than were asked for
+        return df.unique(subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True)

@@ -38,14 +38,14 @@ def _measure(station_id: str, notation: str) -> dict[str, Any]:
     }
 
 
-def _station(station_id: str, notations: list[str]) -> dict[str, Any]:
+def _station(station_id: str, notations: list[str], latitude: float = 51.5) -> dict[str, Any]:
     """Build one station as the listing reports it."""
     return {
         "label": f"Station {station_id}",
         "notation": station_id,
         "easting": 400000,
         "northing": 300000,
-        "lat": 51.5,
+        "lat": latitude,
         "long": -1.0,
         "dateOpened": "1990-01-01",
         "dateClosed": None,
@@ -134,6 +134,37 @@ def test_ea_stations_are_listed_under_the_period_they_record_at(
     monkeypatch.setattr(ea_api, "download_file", _serve({STATIONS_URL: listing}))
     request = EAHydrologyRequest(parameters=[parameter], settings=default_settings).all()
     assert request.df.get_column("station_id").to_list() == expected_station_ids
+
+
+def test_ea_a_station_is_listed_once_however_many_measures_match(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a station recording several matching measures is still one station.
+
+    The listing carries a row per measure, so a station recording two of the requested parameters
+    matches twice -- and so does one recording two daily statistics of a single requested
+    parameter, since the listing reports only the parameter and the period those two share. The
+    duplicates reach the distance-sorted frame `filter_by_rank` hands to value collection, where
+    rank is spent per row, so the one station is counted against it twice.
+    """
+    listing = json.dumps(
+        {
+            "items": [
+                _station("0001", ["flow-i-900", "level-i-900"]),
+                _station("0002", ["flow-i-900"], latitude=51.6),
+            ],
+        },
+    ).encode()
+    monkeypatch.setattr(ea_api, "download_file", _serve({STATIONS_URL: listing}))
+    request = EAHydrologyRequest(
+        parameters=[("15_minutes", "data", "discharge"), ("15_minutes", "data", "groundwater_level")],
+        settings=default_settings,
+    )
+    assert request.all().df.get_column("station_id").to_list() == ["0001", "0002"]
+    # sorted by distance rather than cut to `rank`, which is spent while collecting values
+    ranked = request.filter_by_rank(latlon=(51.5, -1.0), rank=1)
+    assert ranked.df.get_column("station_id").to_list() == ["0001", "0002"]
 
 
 def test_ea_values_read_the_measure_of_the_requested_parameter(
