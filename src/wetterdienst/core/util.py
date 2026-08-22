@@ -2,9 +2,19 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tools for timeseries."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import polars as pl
+
+from wetterdienst.metadata.resolution import Frequency
+
+if TYPE_CHECKING:
+    import datetime as dt
+
+    from wetterdienst.metadata.resolution import Resolution
 
 
 @dataclass
@@ -13,6 +23,40 @@ class _ParameterData:
     station_ids: list[str] | None = None
     additional_station_counter: int = 0
     finished: bool = False
+
+
+def build_date_grid(resolution: Resolution, start_date: dt.datetime, end_date: dt.datetime) -> pl.DataFrame:
+    """Lay out the timestamps an interpolation or a summary answers for, as a single `date` column.
+
+    Every station's readings are joined onto this grid, so it is what decides which timestamps the
+    result has an answer for, and the join is exact -- a reading taken off the grid contributes to
+    neither.
+
+    The range is generated from the window and then rounded to the same interval, which is what
+    snaps a request opening at half past onto the wall clock rather than carrying its own phase
+    through the whole series.
+
+    The interval comes from `Frequency` rather than from `resolution.reading_interval`, which is
+    the only place the two differ: `Frequency` answers for `subdaily` and calls it hourly, where
+    `reading_interval` declines to, since subdaily is a bucket rather than an interval and its
+    providers disagree on one -- DWD takes three Termin readings a day where Meteo-France SYNOP
+    reports every three hours. Naming an interval too fine over-completes the grid, leaving rows
+    no station has a reading for, which is harmless here in a way it is not where a station is
+    being measured against how much of a window it filled.
+    """
+    frequency = Frequency[resolution.name].value
+    return pl.DataFrame(
+        {
+            "date": pl.datetime_range(
+                start=start_date,
+                end=end_date,
+                interval=frequency,
+                time_zone="UTC",
+                eager=True,
+            ).dt.round(frequency),
+        },
+        orient="col",
+    )
 
 
 def extract_station_values(
