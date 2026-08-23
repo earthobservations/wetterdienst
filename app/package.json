@@ -54,14 +54,14 @@
     "@types/luxon": "^3.7.4",
     "@types/plotly.js": "^3.0.13",
     "@types/tz-lookup": "^6.1.2",
-    "@vitest/expect": "^4.1.10",
+    "@vitest/expect": "^4.1.11",
     "@vue/test-utils": "^2.4.11",
     "eslint": "^10.8.1",
-    "eslint-plugin-oxlint": "^1.78.0",
-    "happy-dom": "^20.11.2",
-    "oxlint": "^1.78.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.10",
-    "vue-tsc": "^3.3.9"
+    "eslint-plugin-oxlint": "^1.79.0",
+    "happy-dom": "^20.11.6",
+    "oxlint": "^1.79.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "vue-tsc": "^3.3.10"
   }
 }
