@@ -792,6 +792,44 @@ def test_interpolate_dwd_dont_use_nearby_station(client: TestClient) -> None:
     ]
 
 
+@pytest.mark.parametrize("endpoint", ["interpolate", "summarize"])
+def test_geo_settings_left_to_the_server_when_not_asked_for(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+) -> None:
+    """Test that a request naming none of the geo settings keeps the ones the server is configured with.
+
+    They used to be sent to `Settings` on every request whether or not the client had asked for
+    them, so their query defaults overwrote what `WD_TS_GEO_*` had configured the server with.
+    """
+    monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "5")
+    monkeypatch.setenv("WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS", "0.5")
+    monkeypatch.setenv("WD_TS_GEO_NUM_ADDITIONAL_STATIONS", "7")
+    captured = []
+
+    def fake(api: object, request: object, settings: Settings) -> None:  # noqa: ARG001
+        captured.append(settings)
+        msg = "stop here, the settings are what is under test"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.get_{endpoint}", fake)
+    client.get(
+        f"/api/{endpoint}",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31",
+        },
+    )
+    settings = captured[0]
+    assert settings.ts_geo_use_nearby_station_distance == 5.0
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
+    assert settings.ts_geo_num_additional_stations == 7
+
+
 @pytest.mark.remote
 def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
     """Test custom unit targets."""

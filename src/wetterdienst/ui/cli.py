@@ -30,6 +30,7 @@ from wetterdienst.ui.core import (
     ValuesRequest,
     _get_stripes_stations,
     _plot_stripes,
+    geo_settings,
     get_glossary,
     get_interpolate,
     get_issues,
@@ -38,7 +39,6 @@ from wetterdienst.ui.core import (
     get_values,
     limit_stations_to_rank,
     set_logging_level,
-    station_distance_radii,
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 from wetterdienst.util.ui import read_list
@@ -316,6 +316,8 @@ Data computation:
         --interpolation_station_distance_homogeneous=<distance>
         --interpolation_station_distance_heterogeneous=<distance>
         --use_nearby_station_distance=<distance>
+        --min_gain_of_value_pairs=<gain>
+        --num_additional_stations=<number>
 
         # Output options
         [--format=<format>] [--pretty]
@@ -1423,7 +1425,9 @@ def values(
 @cloup.option("--interpolation_station_distance", type=click.STRING, default=None)
 @cloup.option("--interpolation_station_distance_homogeneous", type=click.FLOAT, default=None)
 @cloup.option("--interpolation_station_distance_heterogeneous", type=click.FLOAT, default=None)
-@cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
+@cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=None)
+@cloup.option("--min_gain_of_value_pairs", type=click.FLOAT, default=None)
+@cloup.option("--num_additional_stations", type=click.INT, default=None)
 @cloup.option("--date", type=click.STRING, required=False)
 @cloup.option(
     "--start-date",
@@ -1466,7 +1470,9 @@ def interpolate(
     interpolation_station_distance: str,
     interpolation_station_distance_homogeneous: float | None,
     interpolation_station_distance_heterogeneous: float | None,
-    use_nearby_station_distance: float,
+    use_nearby_station_distance: float | None,
+    min_gain_of_value_pairs: float | None,
+    num_additional_stations: int | None,
     date: str,
     start_date: str,
     end_date: str,
@@ -1502,6 +1508,8 @@ def interpolate(
             "interpolation_station_distance_homogeneous": interpolation_station_distance_homogeneous,
             "interpolation_station_distance_heterogeneous": interpolation_station_distance_heterogeneous,
             "use_nearby_station_distance": use_nearby_station_distance,
+            "min_gain_of_value_pairs": min_gain_of_value_pairs,
+            "num_additional_stations": num_additional_stations,
             "date": date_resolved,
             "issue": issue,
             "station": station,
@@ -1529,13 +1537,13 @@ def interpolate(
             ts_convert_units=request.convert_units,
             ts_unit_targets=request.unit_targets or {},
             ts_geo_station_distance=request.interpolation_station_distance or {},
-            **station_distance_radii(
-                request.interpolation_station_distance_homogeneous,
-                request.interpolation_station_distance_heterogeneous,
+            **geo_settings(
+                homogeneous=request.interpolation_station_distance_homogeneous,
+                heterogeneous=request.interpolation_station_distance_heterogeneous,
+                use_nearby_station_distance=request.use_nearby_station_distance,
+                min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+                num_additional_stations=request.num_additional_stations,
             ),
-            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-            ts_geo_num_additional_stations=request.num_additional_stations,
         )
     except ValidationError as e:
         # a distance given for a name that is not a canonical parameter, or a negative one
@@ -1587,7 +1595,9 @@ def interpolate(
 @cloup.option("--summary_station_distance", type=click.STRING, default=None)
 @cloup.option("--summary_station_distance_homogeneous", type=click.FLOAT, default=None)
 @cloup.option("--summary_station_distance_heterogeneous", type=click.FLOAT, default=None)
-@cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
+@cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=None)
+@cloup.option("--min_gain_of_value_pairs", type=click.FLOAT, default=None)
+@cloup.option("--num_additional_stations", type=click.INT, default=None)
 @cloup.option("--date", type=click.STRING, required=False)
 @cloup.option(
     "--start-date",
@@ -1630,7 +1640,9 @@ def summarize(
     summary_station_distance: str,
     summary_station_distance_homogeneous: float | None,
     summary_station_distance_heterogeneous: float | None,
-    use_nearby_station_distance: float,
+    use_nearby_station_distance: float | None,
+    min_gain_of_value_pairs: float | None,
+    num_additional_stations: int | None,
     date: str,
     start_date: str,
     end_date: str,
@@ -1666,6 +1678,8 @@ def summarize(
             "summary_station_distance_homogeneous": summary_station_distance_homogeneous,
             "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,
             "use_nearby_station_distance": use_nearby_station_distance,
+            "min_gain_of_value_pairs": min_gain_of_value_pairs,
+            "num_additional_stations": num_additional_stations,
             "date": date_resolved,
             "issue": issue,
             "station": station,
@@ -1692,13 +1706,13 @@ def summarize(
             ts_convert_units=request.convert_units,
             ts_unit_targets=request.unit_targets or {},
             ts_geo_station_distance=request.summary_station_distance or {},
-            **station_distance_radii(
-                request.summary_station_distance_homogeneous,
-                request.summary_station_distance_heterogeneous,
+            **geo_settings(
+                homogeneous=request.summary_station_distance_homogeneous,
+                heterogeneous=request.summary_station_distance_heterogeneous,
+                use_nearby_station_distance=request.use_nearby_station_distance,
+                min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+                num_additional_stations=request.num_additional_stations,
             ),
-            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-            ts_geo_num_additional_stations=request.num_additional_stations,
         )
     except ValidationError as e:
         # a distance given for a name that is not a canonical parameter, or a negative one

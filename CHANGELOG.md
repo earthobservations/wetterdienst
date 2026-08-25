@@ -30,6 +30,22 @@ Types of changes:
 - `filter_by_name` rejects a name that is not a string before it downloads anything. rapidfuzz
   raised the same `TypeError` on it, but only after the whole station catalogue had been fetched to
   search through
+- `ts_geo_use_nearby_station_distance`, `ts_geo_min_gain_of_value_pairs` and
+  `ts_geo_num_additional_stations` can be set from the environment. All three were declared strict,
+  and an environment variable arrives as a string, so `WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS=0.5` did
+  not configure anything -- it raised a `ValidationError` out of `Settings()` before a request
+  could be made. They are now read like every other number in the settings
+- The CLI and the REST API leave those three to the environment when a request does not name them.
+  Both surfaces sent them to `Settings` on every call, so the option and query defaults overwrote
+  what a user or a server had configured, in the way the two search radii already avoid. Together
+  with that, `interpolate` and `summarize` gained `--min_gain_of_value_pairs` and
+  `--num_additional_stations`: the REST API and the app had had them all along, but on the command
+  line they could not be set at all
+
+### Changed
+
+- `wetterdienst.ui.core.station_distance_radii` is now `geo_settings` and collects every
+  interpolation and summary setting that was given, not only the two radii
 
 ## [0.134.0] - 2026-08-22
 

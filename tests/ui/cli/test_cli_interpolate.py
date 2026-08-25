@@ -2,12 +2,17 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the CLI command `interpolate`."""
 
+import datetime as dt
 import json
+from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 from click.testing import CliRunner
 from dirty_equals import IsStr
 
+from wetterdienst.model.result import InterpolatedValuesResult
+from wetterdienst.settings import Settings
 from wetterdienst.ui.cli import cli
 
 
@@ -597,3 +602,87 @@ def test_cli_interpolate_date_and_start_date_conflict() -> None:
     )
     assert result.exit_code != 0
     assert "Use either --date or --start-date" in result.output
+
+
+def _capture_settings(monkeypatch: pytest.MonkeyPatch, command: str) -> list[Settings]:
+    """Record the settings the CLI hands to the interpolation or the summary, without querying."""
+    captured = []
+    df = pl.DataFrame(
+        {
+            "date": [dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC"))],
+            "resolution": ["daily"],
+            "dataset": ["climate_summary"],
+            "parameter": ["temperature_air_mean_2m"],
+            "value": [1.0],
+        },
+    )
+
+    def fake(api: object, request: object, settings: Settings) -> InterpolatedValuesResult:  # noqa: ARG001
+        captured.append(settings)
+        return InterpolatedValuesResult(df=df, stations=None, latlon=(0.0, 0.0))  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(f"wetterdienst.ui.cli.get_{command}", fake)
+    return captured
+
+
+@pytest.mark.parametrize("command", ["interpolate", "summarize"])
+def test_cli_interpolation_settings_from_environment(monkeypatch: pytest.MonkeyPatch, command: str) -> None:
+    """Test that the environment configures the settings the options do not name.
+
+    The CLI passed the model defaults for all three of these along whether or not they were given,
+    so a `WD_TS_GEO_*` variable was overwritten by the library default on every call.
+    """
+    monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "5")
+    monkeypatch.setenv("WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS", "0.5")
+    monkeypatch.setenv("WD_TS_GEO_NUM_ADDITIONAL_STATIONS", "7")
+    captured = _capture_settings(monkeypatch, command)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            command,
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31",
+            "--format=json",
+        ],
+    )
+    if result.exit_code != 0:
+        raise ChildProcessError(result.output)
+    settings = captured[0]
+    assert settings.ts_geo_use_nearby_station_distance == 5.0
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
+    assert settings.ts_geo_num_additional_stations == 7
+
+
+@pytest.mark.parametrize("command", ["interpolate", "summarize"])
+def test_cli_interpolation_settings_from_options(monkeypatch: pytest.MonkeyPatch, command: str) -> None:
+    """Test that the options win over the environment, and that all three of them exist."""
+    monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "5")
+    monkeypatch.setenv("WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS", "0.5")
+    monkeypatch.setenv("WD_TS_GEO_NUM_ADDITIONAL_STATIONS", "7")
+    captured = _capture_settings(monkeypatch, command)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            command,
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--station=00071",
+            "--date=1986-10-31",
+            "--format=json",
+            "--use_nearby_station_distance=0",
+            "--min_gain_of_value_pairs=0.25",
+            "--num_additional_stations=1",
+        ],
+    )
+    if result.exit_code != 0:
+        raise ChildProcessError(result.output)
+    settings = captured[0]
+    assert settings.ts_geo_use_nearby_station_distance == 0.0
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.25
+    assert settings.ts_geo_num_additional_stations == 1

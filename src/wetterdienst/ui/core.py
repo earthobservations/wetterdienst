@@ -196,33 +196,58 @@ _StationDistanceHeterogeneousField = Annotated[
     ),
 ]
 _UseNearbyStationDistanceField = Annotated[
-    float,
+    float | None,
     Field(
-        ge=0, description="Use a nearby station's values directly when it is within this distance (km) of the target."
+        ge=0,
+        description="Use a nearby station's values directly when it is within this distance (km) of the target. "
+        "Defaults to the configured distance of 1 km.",
     ),
 ]
 _MinGainOfValuePairsField = Annotated[
-    float,
-    Field(ge=0, description="Minimum relative gain in value pairs required to add another interpolation station."),
+    float | None,
+    Field(
+        ge=0,
+        description="Minimum relative gain in value pairs required to add another interpolation station. "
+        "Defaults to the configured gain of 0.1.",
+    ),
 ]
 _NumAdditionalStationsField = Annotated[
-    int,
-    Field(ge=0, description="Number of additional nearby stations to consider for interpolation."),
+    int | None,
+    Field(
+        ge=0,
+        description="Number of additional nearby stations to consider for interpolation. Defaults to the "
+        "configured number of 3.",
+    ),
 ]
 
 
-def station_distance_radii(homogeneous: float | None, heterogeneous: float | None) -> dict[str, Any]:
-    """Collect the radii that were given, as keyword arguments for `Settings`.
+def geo_settings(
+    *,
+    homogeneous: float | None = None,
+    heterogeneous: float | None = None,
+    use_nearby_station_distance: float | None = None,
+    min_gain_of_value_pairs: float | None = None,
+    num_additional_stations: int | None = None,
+) -> dict[str, Any]:
+    """Collect the interpolation and summary settings that were given, as keyword arguments for `Settings`.
 
-    A radius that was not given is left out rather than passed as the library default, so that a
-    CLI user or a server configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own.
+    A setting that was not given is left out rather than passed as the library default, so that a
+    CLI user or a server configured through `WD_TS_GEO_*` keeps its own. Passing the default along
+    is indistinguishable from asking for it, and made those environment variables read as ignored
+    on both surfaces.
     """
-    radii: dict[str, Any] = {}
+    settings: dict[str, Any] = {}
     if homogeneous is not None:
-        radii["ts_geo_station_distance_homogeneous"] = homogeneous
+        settings["ts_geo_station_distance_homogeneous"] = homogeneous
     if heterogeneous is not None:
-        radii["ts_geo_station_distance_heterogeneous"] = heterogeneous
-    return radii
+        settings["ts_geo_station_distance_heterogeneous"] = heterogeneous
+    if use_nearby_station_distance is not None:
+        settings["ts_geo_use_nearby_station_distance"] = use_nearby_station_distance
+    if min_gain_of_value_pairs is not None:
+        settings["ts_geo_min_gain_of_value_pairs"] = min_gain_of_value_pairs
+    if num_additional_stations is not None:
+        settings["ts_geo_num_additional_stations"] = num_additional_stations
+    return settings
 
 
 class StationsRequest(BaseModel):
@@ -594,9 +619,9 @@ class InterpolationRequest(BaseModel):
             return v
         return json.loads(v)
 
-    use_nearby_station_distance: _UseNearbyStationDistanceField = 1.0
-    min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
-    num_additional_stations: _NumAdditionalStationsField = 3
+    use_nearby_station_distance: _UseNearbyStationDistanceField = None
+    min_gain_of_value_pairs: _MinGainOfValuePairsField = None
+    num_additional_stations: _NumAdditionalStationsField = None
     format: _FormatField = "json"
 
     with_metadata: _WithMetadataField = False
@@ -691,9 +716,9 @@ class SummaryRequest(BaseModel):
             return v
         return json.loads(v)
 
-    use_nearby_station_distance: _UseNearbyStationDistanceField = 1.0
-    min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
-    num_additional_stations: _NumAdditionalStationsField = 3
+    use_nearby_station_distance: _UseNearbyStationDistanceField = None
+    min_gain_of_value_pairs: _MinGainOfValuePairsField = None
+    num_additional_stations: _NumAdditionalStationsField = None
     format: _FormatField = "json"
 
     with_metadata: _WithMetadataField = False

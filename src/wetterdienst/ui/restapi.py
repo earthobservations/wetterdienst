@@ -39,6 +39,7 @@ from wetterdienst.ui.core import (
     _get_stripes_data,
     _get_stripes_stations,
     _plot_stripes,
+    geo_settings,
     get_glossary,
     get_interpolate,
     get_issues,
@@ -47,7 +48,6 @@ from wetterdienst.ui.core import (
     get_values,
     limit_stations_to_rank,
     set_logging_level,
-    station_distance_radii,
 )
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.ui import read_list
@@ -584,17 +584,20 @@ def _geo_settings(
     heterogeneous: float | None,
 ) -> Settings:
     """Build the settings shared by the interpolation and the summary endpoint."""
-    radii = station_distance_radii(homogeneous, heterogeneous)
+    given = geo_settings(
+        homogeneous=homogeneous,
+        heterogeneous=heterogeneous,
+        use_nearby_station_distance=request.use_nearby_station_distance,
+        min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+        num_additional_stations=request.num_additional_stations,
+    )
     try:
         return Settings(
             ts_humanize=request.humanize,
             ts_convert_units=request.convert_units,
             ts_unit_targets=request.unit_targets or {},
             ts_geo_station_distance=cast("Any", station_distance or {}),
-            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-            ts_geo_num_additional_stations=request.num_additional_stations,
-            **radii,
+            **given,
         )
     except ValidationError as e:
         # a distance given for a name that is not a canonical parameter, or a negative one

@@ -396,7 +396,9 @@ wetterdienst interpolate \
   --interpolation_station_distance '{"precipitation_height": 25}'
 ```
 
-`summarize` takes the same three under `--summary_…`, next to `--use_nearby_station_distance`:
+`summarize` takes the same three under `--summary_…`. Both commands also take the three settings
+that decide which stations are drawn on: `--use_nearby_station_distance`,
+`--min_gain_of_value_pairs` and `--num_additional_stations`:
 
 ```bash
 wetterdienst summarize \
@@ -405,12 +407,15 @@ wetterdienst summarize \
   --station 02480 \
   --start-date 2022-01-01 --end-date 2022-01-20 \
   --summary_station_distance_heterogeneous 15 \
-  --use_nearby_station_distance 2
+  --use_nearby_station_distance 2 \
+  --min_gain_of_value_pairs 0.2 \
+  --num_additional_stations 5
 ```
 
-An option that is left out keeps whatever the environment and the defaults say, so a radius set
-through `WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS` is not overwritten by the command. The
-resolution factors are not command options -- they are set on the instance, as above.
+An option that is left out keeps whatever the environment and the defaults say, so a setting made
+through `WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS` or `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` is not
+overwritten by the command. The resolution factors are not command options -- they are set on the
+instance, as above.
 
 ## REST API
 
@@ -445,6 +450,10 @@ http localhost:7890/api/interpolate \
   interpolation_station_distance=='{"precipitation_height": 25}'
 ```
 
-`/api/summarize` takes the same three under `summary_…`. A parameter name that is not canonical,
-or a negative distance, is answered with a 400 rather than silently ignored, and the resolution
-factors are not query parameters -- an instance scales by its own configuration.
+`/api/summarize` takes the same three under `summary_…`, and both endpoints take
+`use_nearby_station_distance`, `min_gain_of_value_pairs` and `num_additional_stations` as query
+parameters as well. A parameter name that is not canonical, or a negative distance, is answered
+with a 400 rather than silently ignored, and the resolution factors are not query parameters -- an
+instance scales by its own configuration. A query parameter that a request leaves out keeps what
+the server was configured with, so `WD_TS_GEO_*` holds for every request that does not ask for
+something else.

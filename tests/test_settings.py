@@ -124,6 +124,21 @@ def test_settings_geo_station_distance_radii_from_env(monkeypatch: pytest.Monkey
     assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 50.0
 
 
+def test_settings_geo_interpolation_knobs_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the three remaining interpolation settings are settable from the environment.
+
+    They were declared strict, and an environment variable arrives as a string, so reading any of
+    them raised a ValidationError before a request could be made at all.
+    """
+    monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "5")
+    monkeypatch.setenv("WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS", "0.5")
+    monkeypatch.setenv("WD_TS_GEO_NUM_ADDITIONAL_STATIONS", "7")
+    settings = Settings()
+    assert settings.ts_geo_use_nearby_station_distance == 5.0
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
+    assert settings.ts_geo_num_additional_stations == 7
+
+
 def test_settings_geo_station_distance_round_trips() -> None:
     """Test that dumped settings can be fed back in without changing what they mean.
 
