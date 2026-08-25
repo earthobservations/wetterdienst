@@ -16,6 +16,7 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
+@pytest.mark.remote
 def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> None:
     """Test summarization of temperature_air_mean_2m."""
     request = DwdObservationRequest(
@@ -70,6 +71,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
         assert_frame_equal(given_df, expected_df)
 
 
+@pytest.mark.remote
 def test_not_summarizable_parameter(default_settings: Settings) -> None:
     """Test that a parameter that cannot be summarized is handled correctly."""
     request = DwdObservationRequest(

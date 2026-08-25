@@ -182,6 +182,7 @@ def test_cli_values_json_wide(setting: list) -> None:
     assert set(first.keys()) - default_columns
 
 
+@pytest.mark.remote
 def test_cli_values_json_multiple_stations() -> None:
     """Test multiple stations."""
     result = invoke_wetterdienst_values_static_wide(

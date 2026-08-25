@@ -9,6 +9,7 @@ import pytest
 from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX, IS_PYTHON_3_10, IS_WINDOWS
 
 
+@pytest.mark.remote
 @pytest.mark.xfail(IS_CI and IS_WINDOWS, reason="fails on Windows in CI")
 @pytest.mark.cflake
 def test_examples() -> None:
@@ -36,6 +37,7 @@ def test_examples() -> None:
     assert dwd_obs_values_sql.main() is None
 
 
+@pytest.mark.remote
 @pytest.mark.skipif(IS_PYTHON_3_10, reason="zarr not supported in Python 3.10")
 @pytest.mark.cflake
 def test_examples_zarr() -> None:
@@ -48,6 +50,7 @@ def test_examples_zarr() -> None:
     assert dwd_obs_climate_summary_zarr_dump.main() is None
 
 
+@pytest.mark.remote
 @pytest.mark.cflake
 def test_examples_failing_describe_fields() -> None:
     """Test DWD observation describe fields for daily climate data."""
@@ -65,6 +68,7 @@ def test_pdbufr_examples() -> None:
     assert dwd_road_validation.main() is None
 
 
+@pytest.mark.remote
 @pytest.mark.skipif(IS_CI and IS_LINUX, reason="stalls on Mac/Windows in CI")
 @pytest.mark.cflake
 def test_gaussian_example(tmp_path: Path) -> None:

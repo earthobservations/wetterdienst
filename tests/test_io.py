@@ -1537,6 +1537,7 @@ def test_export_influxdb3_tidy(settings_convert_units_false: Settings) -> None:
 
 
 # test for to_target with if_exists parameter, use duckdb for simplicity
+@pytest.mark.remote
 def test_export_duckdb_if_exists_fail(
     tmp_path: Path,
 ) -> None:
@@ -1555,6 +1556,7 @@ def test_export_duckdb_if_exists_fail(
     assert exec_info.match("Table 'testdrive' already exists in the database, aborting write due to if_exists='fail'.")
 
 
+@pytest.mark.remote
 def test_export_duckdb_if_exists_replace(
     tmp_path: Path,
 ) -> None:
@@ -1580,6 +1582,7 @@ def test_export_duckdb_if_exists_replace(
     assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01050",)]
 
 
+@pytest.mark.remote
 def test_export_duckdb_if_exists_append(
     tmp_path: Path,
 ) -> None:
@@ -1608,6 +1611,7 @@ def test_export_duckdb_if_exists_append(
     ]
 
 
+@pytest.mark.remote
 def test_export_duckdb_if_exists_skip(
     tmp_path: Path,
 ) -> None:
@@ -1633,6 +1637,7 @@ def test_export_duckdb_if_exists_skip(
     assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01048",)]
 
 
+@pytest.mark.remote
 def test_export_duckdb_single_query_results_if_exists_replace(tmp_path: Path) -> None:
     """Test export of DataFrame to duckdb with if_exists='replace' parameter."""
     duckdb = pytest.importorskip("duckdb")
@@ -1659,6 +1664,7 @@ def test_export_duckdb_single_query_results_if_exists_replace(tmp_path: Path) ->
     assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01050",)]
 
 
+@pytest.mark.remote
 def test_export_duckdb_single_query_results_if_exists_append(tmp_path: Path) -> None:
     """Test export of DataFrame to duckdb with if_exists='append' parameter."""
     duckdb = pytest.importorskip("duckdb")
@@ -1688,6 +1694,7 @@ def test_export_duckdb_single_query_results_if_exists_append(tmp_path: Path) -> 
     ]
 
 
+@pytest.mark.remote
 def test_export_duckdb_all_result_if_exists_replace(tmp_path: Path) -> None:
     """Test export of DataFrame to duckdb with if_exists='replace' parameter."""
     duckdb = pytest.importorskip("duckdb")
@@ -1716,6 +1723,7 @@ def test_export_duckdb_all_result_if_exists_replace(tmp_path: Path) -> None:
     assert conn.execute("SELECT DISTINCT station_id FROM testdrive").fetchall() == [("01050",)]
 
 
+@pytest.mark.remote
 def test_export_duckdb_all_result_if_exists_append(tmp_path: Path) -> None:
     """Test export of DataFrame to duckdb with if_exists='append' parameter."""
     duckdb = pytest.importorskip("duckdb")
@@ -1747,6 +1755,7 @@ def test_export_duckdb_all_result_if_exists_append(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.remote
 def test_export_file_excel_if_exists_replace(tmp_path: Path) -> None:
     """Test export of DataFrame to Excel file with if_exists='replace' parameter."""
     pytest.importorskip("xlsxwriter")
@@ -1762,6 +1771,7 @@ def test_export_file_excel_if_exists_replace(tmp_path: Path) -> None:
     assert filename.exists()
 
 
+@pytest.mark.remote
 def test_export_file_append_exception() -> None:
     """Test export of DataFrame to file with if_exists='append' parameter."""
     request = DwdObservationRequest(
@@ -1774,6 +1784,7 @@ def test_export_file_append_exception() -> None:
     assert exec_info.match("Append mode is not supported for file exports.")
 
 
+@pytest.mark.remote
 @pytest.mark.skipif(
     condition=IS_CI and IS_WINDOWS, reason="File existence check behaves differently on Windows CI environments."
 )

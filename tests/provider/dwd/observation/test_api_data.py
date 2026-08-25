@@ -1041,6 +1041,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
     assert_frame_equal(given_df, expected_df)
 
 
+@pytest.mark.remote
 def test_create_humanized_column_names_mapping() -> None:
     """Test create humanized column names mapping."""
     kl_daily_hcnm = {

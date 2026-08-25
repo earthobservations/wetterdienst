@@ -351,6 +351,7 @@ def test_interpolation_snow_depth_new_daily(default_settings: Settings) -> None:
     assert (values >= 0).all(), "snow_depth_new interpolated values must be non-negative"
 
 
+@pytest.mark.remote
 def test_not_interpolatable_parameter(default_settings: Settings, df_interpolated_empty: pl.DataFrame) -> None:
     """Test that a parameter that cannot be interpolated is handled correctly."""
     request = DwdObservationRequest(
@@ -368,6 +369,7 @@ def test_not_interpolatable_parameter(default_settings: Settings, df_interpolate
     )
 
 
+@pytest.mark.remote
 def test_not_interpolatable_dataset(default_settings: Settings, df_interpolated_empty: pl.DataFrame) -> None:
     """Test that a dataset that cannot be interpolated is handled correctly."""
     request = DwdObservationRequest(
@@ -422,6 +424,7 @@ def test_interpolation_temperature_air_mean_2m_daily_one_floats(default_settings
         stations.interpolate(latlon=(0,))
 
 
+@pytest.mark.remote
 def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_settings: Settings) -> None:
     """Test that an error is raised when no station is found."""
     stations = DwdObservationRequest(
@@ -434,6 +437,7 @@ def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_se
         stations.interpolate_by_station_id(station_id="00")
 
 
+@pytest.mark.remote
 def test_interpolation_increased_station_distance() -> None:
     """Test that the interpolation works with increased station distance."""
     settings = Settings(ts_geo_station_distance={"precipitation_height": 25})

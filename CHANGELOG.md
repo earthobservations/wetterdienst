@@ -27,6 +27,9 @@ Types of changes:
   miles converted directly and as 62.1371 miles by way of metres, and a wind of 10 m/s reached
   19.44 knots directly and 19.4384 through kilometres per hour. Only `ts_unit_targets` naming one
   of these three units is affected; every other conversion is unchanged
+- `filter_by_name` rejects a name that is not a string before it downloads anything. rapidfuzz
+  raised the same `TypeError` on it, but only after the whole station catalogue had been fetched to
+  search through
 
 ## [0.134.0] - 2026-08-22
 

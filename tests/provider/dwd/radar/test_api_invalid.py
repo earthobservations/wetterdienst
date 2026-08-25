@@ -31,6 +31,7 @@ def test_radar_request_site_historic_pe_wrong_parameters(default_settings: Setti
         next(request.query())
 
 
+@pytest.mark.remote
 def test_radar_request_site_historic_pe_future(
     default_settings: Settings,
     caplog: pytest.LogCaptureFixture,

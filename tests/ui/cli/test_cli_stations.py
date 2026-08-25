@@ -445,6 +445,7 @@ def test_cli_stations_image(fmt: str) -> None:
     assert result.exit_code == 0
 
 
+@pytest.mark.remote
 def test_cli_stations_image_html() -> None:
     """Test the summarize command with HTML format."""
     result = invoke_wetterdienst_stations_static(
@@ -458,6 +459,7 @@ def test_cli_stations_image_html() -> None:
     assert result.output.startswith("<html>")
 
 
+@pytest.mark.remote
 def test_cli_stations_image_pdf() -> None:
     """Test the summarize command with PDF format."""
     result = invoke_wetterdienst_stations_static(

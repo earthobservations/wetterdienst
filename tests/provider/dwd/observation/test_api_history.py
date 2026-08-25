@@ -3,11 +3,13 @@
 import datetime as dt
 from zoneinfo import ZoneInfo
 
+import pytest
 from dirty_equals import IsApprox, IsDatetime
 
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
 
+@pytest.mark.remote
 def test_dwd_obs_daily_climate_summary_history() -> None:
     """Test history query for daily climate summary dataset."""
     stations = DwdObservationRequest(parameters=[("daily", "climate_summary")]).filter_by_station_id("02564")
@@ -1259,6 +1261,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert summary_missing_data.description == "Gesamt_Messzeitraum"
 
 
+@pytest.mark.remote
 def test_dwd_obs_monthly_climate_summary_history() -> None:
     """Test history query for monthly climate_summary dataset.
 
@@ -1276,6 +1279,7 @@ def test_dwd_obs_monthly_climate_summary_history() -> None:
     assert len(history.missing_data.periods) == 158
 
 
+@pytest.mark.remote
 def test_dwd_obs_subdaily_wind_extreme_history() -> None:
     """Test history query for subdaily wind_extreme dataset.
 

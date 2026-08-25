@@ -726,6 +726,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
     assert request.values.all().df.to_dicts() == expected_dict
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize(
     ("start_date", "end_date", "expected_range"),
     [
@@ -800,6 +801,7 @@ def test_get_first_day_of_months_to_fetch(
     assert_series_equal(months_to_fetch, expected_range, check_names=False)
 
 
+@pytest.mark.remote
 def test_get_first_day_of_months_to_fetch_neither_start_nor_end_date_given(
     default_settings: Settings,
 ) -> None:
@@ -834,6 +836,7 @@ def test_get_first_day_of_months_to_fetch_neither_start_nor_end_date_given(
     )
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize(
     ("file_url", "expected_date"),
     [
@@ -869,6 +872,7 @@ def test_extract_datetime_from_file_url_single_date_format(
         assert extracted_date == expected_date
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize(
     ("file_url", "expected_date"),
     [
@@ -900,6 +904,7 @@ def test_extract_datetime_from_file_url_multiple_dates_format(
         assert extracted_date == expected_date
 
 
+@pytest.mark.remote
 def test_process_dataframe_to_expected_format(
     default_settings: Settings,
 ) -> None:
@@ -956,6 +961,7 @@ def test_process_dataframe_to_expected_format(
     assert_frame_equal(processed_df, expected_df)
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize(
     ("input_range", "input_files_on_server", "expected_range"),
     [
@@ -1059,6 +1065,7 @@ def test_filter_date_range_for_period(
         assert_series_equal(filtered_range, expected_range, check_names=False, check_dtypes=False)
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize(
     ("month_of_year", "expected_start_date", "expected_end_date"),
     [

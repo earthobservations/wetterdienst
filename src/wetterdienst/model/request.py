@@ -369,6 +369,12 @@ class TimeseriesRequest:
             StationsResult: Filtered stations.
 
         """
+        # checked here rather than left to rapidfuzz, which raises the same TypeError but only
+        # after the whole station catalogue has been downloaded to search through
+        if not isinstance(name, str):
+            msg = f"'name' has to be a string, got {type(name).__name__}."
+            raise TypeError(msg)
+
         rank = int(rank)
         if rank <= 0:
             msg = "'rank' has to be at least 1."
