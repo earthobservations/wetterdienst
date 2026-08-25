@@ -222,7 +222,10 @@ class UnitConverter:
             ("percent", "decimal"): lambda x: x / 100,
             ("one_eighth", "percent"): lambda x: x / 8 * 100,
             ("one_eighth", "decimal"): lambda x: x / 8,
-            # length_xxx
+            # length_xxx; the mile and the nautical mile are defined exactly, 1 mi == 1609.344 m and
+            # 1 nmi == 1852 m, so every factor below is written out of those two definitions. Rounded
+            # constants (1.609 for km <-> mi, 1.151 for nmi <-> mi) used to stand here, which made one
+            # and the same distance come out differently depending on whether it went through meters
             ("millimeter", "centimeter"): lambda x: x / 10,
             ("millimeter", "meter"): lambda x: x / 1000,
             ("millimeter", "kilometer"): lambda x: x / 1000000,
@@ -241,18 +244,18 @@ class UnitConverter:
             ("kilometer", "millimeter"): lambda x: x * 1000000,
             ("kilometer", "centimeter"): lambda x: x * 100000,
             ("kilometer", "meter"): lambda x: x * 1000,
-            ("kilometer", "mile"): lambda x: x / 1.609,
+            ("kilometer", "mile"): lambda x: x * 1000 / 1609.344,
             ("kilometer", "nautical_mile"): lambda x: x / 1.852,
             ("nautical_mile", "millimeter"): lambda x: x * 1852000,
             ("nautical_mile", "centimeter"): lambda x: x * 185200,
             ("nautical_mile", "meter"): lambda x: x * 1852,
             ("nautical_mile", "kilometer"): lambda x: x * 1.852,
-            ("nautical_mile", "mile"): lambda x: x * 1.151,
+            ("nautical_mile", "mile"): lambda x: x * 1852 / 1609.344,
             ("mile", "millimeter"): lambda x: x * 1609344,
             ("mile", "centimeter"): lambda x: x * 160934.4,
             ("mile", "meter"): lambda x: x * 1609.344,
-            ("mile", "kilometer"): lambda x: x * 1.609,
-            ("mile", "nautical_mile"): lambda x: x / 1.151,
+            ("mile", "kilometer"): lambda x: x * 1609.344 / 1000,
+            ("mile", "nautical_mile"): lambda x: x * 1609.344 / 1852,
             # precipitation
             ("millimeter", "liter_per_square_meter"): lambda x: x,
             ("liter_per_square_meter", "millimeter"): lambda x: x,
@@ -266,19 +269,21 @@ class UnitConverter:
             ("hectopascal", "kilopascal"): lambda x: x / 10,
             ("kilopascal", "pascal"): lambda x: x * 1000,
             ("kilopascal", "hectopascal"): lambda x: x * 10,
-            # speed
+            # speed; a knot is one nautical mile per hour, hence 1 kn == 1852/3600 m/s exactly. The
+            # rounded 1.944 that used to stand here disagreed with the exact km/h <-> kn factor, so a
+            # wind speed reached a different number of knots depending on which unit it started in
             ("meter_per_second", "kilometer_per_hour"): lambda x: x * 3.6,
-            ("meter_per_second", "knots"): lambda x: x * 1.944,
+            ("meter_per_second", "knots"): lambda x: x * 3600 / 1852,
             ("meter_per_second", "beaufort"): lambda x: (x / 0.836) ** (2 / 3),
             ("kilometer_per_hour", "meter_per_second"): lambda x: x / 3.6,
             ("kilometer_per_hour", "knots"): lambda x: x / 1.852,
             ("kilometer_per_hour", "beaufort"): lambda x: (x / 3.6 / 0.836) ** (2 / 3),
-            ("knots", "meter_per_second"): lambda x: x / 1.944,
+            ("knots", "meter_per_second"): lambda x: x * 1852 / 3600,
             ("knots", "kilometer_per_hour"): lambda x: x * 1.852,
-            ("knots", "beaufort"): lambda x: (x / 1.944 / 0.836) ** (2 / 3),
+            ("knots", "beaufort"): lambda x: (x * 1852 / 3600 / 0.836) ** (2 / 3),
             ("beaufort", "meter_per_second"): lambda x: 0.836 * (x ** (3 / 2)),
             ("beaufort", "kilometer_per_hour"): lambda x: 0.836 * (x ** (3 / 2)) * 3.6,
-            ("beaufort", "knots"): lambda x: 0.836 * (x ** (3 / 2)) * 1.944,
+            ("beaufort", "knots"): lambda x: 0.836 * (x ** (3 / 2)) * 3600 / 1852,
             # temperature
             ("degree_kelvin", "degree_celsius"): lambda x: x - 273.15,
             ("degree_kelvin", "degree_fahrenheit"): lambda x: (x - 273.15) * 9 / 5 + 32,

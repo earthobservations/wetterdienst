@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Conversions to miles, nautical miles and knots use the exact definitions of those units instead
+  of factors rounded to four digits. A mile is 1609.344 m and a nautical mile 1852 m, and both were
+  written out in full for millimetres, centimetres and metres but rounded to 1.609 for kilometres
+  and to 1.151 between the two miles, while a knot -- one nautical mile per hour -- was 1.944 m/s
+  against the exact 1.852 the kilometres per hour entry used. One and the same measurement
+  therefore came out differently depending on which unit it started in: 100 km read as 62.1504
+  miles converted directly and as 62.1371 miles by way of metres, and a wind of 10 m/s reached
+  19.44 knots directly and 19.4384 through kilometres per hour. Only `ts_unit_targets` naming one
+  of these three units is affected; every other conversion is unchanged
+
 ## [0.134.0] - 2026-08-22
 
 ### Added

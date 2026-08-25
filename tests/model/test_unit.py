@@ -2,6 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for unit conversion."""
 
+from itertools import permutations
+
 import pytest
 
 from wetterdienst.model.unit import UnitConverter
@@ -145,12 +147,12 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("meter", "centimeter", 0.42, 42),
         # length_long
         ("kilometer", "kilometer", 42, 42),
-        ("kilometer", "mile", 42, 26.10316967060286),
+        ("kilometer", "mile", 42, 26.097590073968025),
         ("kilometer", "nautical_mile", 42, 22.67818574514039),
-        ("mile", "kilometer", 42, 67.578),
-        ("mile", "nautical_mile", 42, 36.490008688097305),
+        ("mile", "kilometer", 42, 67.592448),
+        ("mile", "nautical_mile", 42, 36.49700215982722),
         ("nautical_mile", "kilometer", 42, 77.784),
-        ("nautical_mile", "mile", 42, 48.342),
+        ("nautical_mile", "mile", 42, 48.332736816988785),
         # precipitation
         ("millimeter", "millimeter", 42, 42),
         ("millimeter", "liter_per_square_meter", 42, 42),
@@ -166,17 +168,17 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         # speed
         ("meter_per_second", "meter_per_second", 42, 42),
         ("meter_per_second", "kilometer_per_hour", 1, 3.6),
-        ("meter_per_second", "knots", 1, 1.944),
+        ("meter_per_second", "knots", 1, 1.9438444924406046),
         ("meter_per_second", "beaufort", 4.2, 2.9333373265075173),
         ("kilometer_per_hour", "meter_per_second", 42, 11.666666666666666),
         ("kilometer_per_hour", "knots", 42, 22.67818574514039),
         ("kilometer_per_hour", "beaufort", 15.12, 2.933337326507517),
-        ("knots", "meter_per_second", 42, 21.60493827160494),
+        ("knots", "meter_per_second", 42, 21.606666666666666),
         ("knots", "kilometer_per_hour", 42, 77.784),
-        ("knots", "beaufort", 4.2, 1.8832060248217928),
+        ("knots", "beaufort", 4.2, 1.8833064611373287),
         ("beaufort", "meter_per_second", 12, 34.75186740306195),
         ("beaufort", "kilometer_per_hour", 12, 125.10672265102302),
-        ("beaufort", "knots", 12, 67.55763023155244),
+        ("beaufort", "knots", 12, 67.55222605346816),
         # temperature
         ("degree_celsius", "degree_celsius", 42, 42),
         ("degree_celsius", "degree_fahrenheit", 42, 107.6),
@@ -227,6 +229,29 @@ def test_unit_converter_lambdas(
     """Test that the lambda functions work as expected."""
     lambda_ = unit_converter._get_lambda(unit, target)  # noqa: SLF001
     assert lambda_(value) == expected
+
+
+def test_unit_converter_lambdas_agree_across_paths(unit_converter: UnitConverter) -> None:
+    """Test that a conversion does not depend on which unit it is routed through.
+
+    Every unit of a type is a fixed multiple of every other, so converting a value from a to c
+    directly has to give what converting it from a to b to c gives. A factor rounded in one entry
+    of the table but written exactly in another breaks that -- a distance came out as 62.1504 miles
+    via kilometers and as 62.1371 miles via meters -- and this catches it wherever it appears.
+    """
+    for unit_type, units in unit_converter.units.items():
+        names = [unit.name for unit in units]
+        for a, b, c in permutations(names, 3):
+            try:
+                direct = unit_converter.lambdas[a, c]
+                first = unit_converter.lambdas[a, b]
+                second = unit_converter.lambdas[b, c]
+            except KeyError:
+                continue
+            value = 7.0
+            assert direct(value) == pytest.approx(second(first(value)), rel=1e-9), (
+                f"{unit_type}: {a} -> {c} disagrees with {a} -> {b} -> {c}"
+            )
 
 
 def test_unit_converter_update_targets_invalid(unit_converter: UnitConverter) -> None:
