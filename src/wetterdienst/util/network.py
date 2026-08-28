@@ -7,11 +7,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import sqlite3
 import ssl
 import threading
 from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import partial
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Literal
@@ -27,6 +29,8 @@ from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 
 if TYPE_CHECKING:
+    from diskcache import Cache
+
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -99,7 +103,11 @@ class File:
 
 
 class FileDirCache(MutableMapping):
-    """File-based cache for FSSPEC."""
+    """File based cache of directory listings.
+
+    Drop-in replacement for ``fsspec.dircache.DirCache`` that persists the listings on disk via
+    ``diskcache``, so that they are shared between processes and survive restarts.
+    """
 
     def __init__(
         self,
@@ -111,80 +119,111 @@ class FileDirCache(MutableMapping):
         """Initialize the FileDirCache.
 
         Args:
-            listings_expiry_time: Time in seconds that a listing is considered valid.
+            listings_expiry_time: Time in seconds that a listing is considered valid. A falsy value
+                (``0``, ``False`` or ``None``) means that listings never expire, following the same
+                convention as fsspec.
             use_listings_cache: If False, this cache never returns items, but always reports KeyError.
             listings_cache_location: Directory path at which the listings cache file is stored.
 
         """
+        # a falsy expiry means "never expire", same as in fsspec
+        self.listings_expiry_time = float(listings_expiry_time) if listings_expiry_time else None
+        self.use_listings_cache = use_listings_cache
+        self.listings_cache_location = listings_cache_location
+        self.cache_location: Path | None = None
+        self._cache: Cache | None = None
+
+        if not use_listings_cache:
+            # this cache neither stores nor returns anything, so don't touch the disk at all
+            return
+
         import platformdirs  # noqa: PLC0415
         from diskcache import Cache  # noqa: PLC0415
 
-        listings_expiry_time = listings_expiry_time and float(listings_expiry_time)
-
-        if listings_cache_location:
-            cache_location = Path(listings_cache_location) / str(listings_expiry_time)
-            cache_location.mkdir(exist_ok=True, parents=True)
-        else:
-            cache_location = Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec")) / str(
-                listings_expiry_time,
-            )
+        base_location = (
+            Path(listings_cache_location)
+            if listings_cache_location
+            else Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec"))
+        )
+        # listings with different expiry times are kept apart
+        cache_location = base_location / (str(self.listings_expiry_time) if self.listings_expiry_time else "infinite")
 
         try:
             log.info(f"Creating dircache folder at {cache_location}")
             cache_location.mkdir(exist_ok=True, parents=True)
-        except OSError:
-            log.exception(f"Failed creating dircache folder at {cache_location}")
+            self._cache = Cache(directory=str(cache_location))
+        except (OSError, sqlite3.Error):
+            # an unusable cache directory (read-only, out of space, ...) must not break the request,
+            # so fall back to not caching listings at all
+            log.exception(f"Failed creating dircache folder at {cache_location}, continuing without listings cache")
+            return
 
         self.cache_location = cache_location
-        self._cache = Cache(directory=str(cache_location))
-        self.use_listings_cache = use_listings_cache
-        self.listings_expiry_time = listings_expiry_time
 
-    def __getitem__(self, item: str) -> BytesIO:
-        """Draw item as fileobject from cache, retry if timeout occurs."""
+    def _get_cache(self) -> Cache | None:
+        """Return the backing disk cache, or None if listings are not cached at all."""
         if not self.use_listings_cache:
+            return None
+        return self._cache
+
+    def __getitem__(self, item: str) -> list[dict]:
+        """Draw listing from cache, raising KeyError if it is missing or expired."""
+        cache = self._get_cache()
+        if cache is None:
             raise KeyError(item)
         _missing = object()
-        value = self._cache.get(key=item, default=_missing, read=True, retry=True)
+        value = cache.get(key=item, default=_missing, retry=True)
         if value is _missing:
             raise KeyError(item)
         return value
 
     def clear(self) -> None:
         """Clear cache."""
-        self._cache.clear()
+        cache = self._get_cache()
+        if cache is not None:
+            cache.clear()
 
     def __len__(self) -> int:
-        """Return number of items in cache."""
-        return len(self._cache)
+        """Return number of unexpired items in cache."""
+        return sum(1 for _ in self)
 
     def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
-        if not self.use_listings_cache:
+        cache = self._get_cache()
+        if cache is None:
             return False
-        return item in self._cache
+        return item in cache
 
-    def __setitem__(self, key: str, value: BytesIO) -> None:
-        """Store fileobject in cache."""
-        if not self.use_listings_cache:
+    def __setitem__(self, key: str, value: list[dict]) -> None:
+        """Store listing in cache."""
+        cache = self._get_cache()
+        if cache is None:
             return
-        self._cache.set(key=key, value=value, expire=self.listings_expiry_time, retry=True)
+        cache.set(key=key, value=value, expire=self.listings_expiry_time, retry=True)
 
     def __delitem__(self, key: str) -> None:
         """Remove item from cache."""
-        del self._cache[key]
+        cache = self._get_cache()
+        if cache is None:
+            raise KeyError(key)
+        del cache[key]
 
     def __iter__(self) -> Iterator[str]:
-        """Iterate over keys in cache."""
-        if not self.use_listings_cache:
+        """Iterate over unexpired keys in cache."""
+        cache = self._get_cache()
+        if cache is None:
             return iter([])
-        return iter(self._cache)
+        return (key for key in list(cache) if key in self)
 
     def __reduce__(self) -> tuple:
         """Return state information for pickling."""
         return (
-            FileDirCache,
-            (self.use_listings_cache, self.listings_expiry_time, self.cache_location),
+            partial(
+                FileDirCache,
+                use_listings_cache=self.use_listings_cache,
+                listings_cache_location=self.listings_cache_location,
+            ),
+            (self.listings_expiry_time,),
         )
 
 
@@ -325,7 +364,7 @@ class NetworkFilesystemManager:
             use_listings_cache=False,
             client_kwargs=client_kwargs,
             listings_expiry_time=0.0,  # not relevant for the download of files
-            listings_cache_location=cache_dir,  # ensure mkdir still occurs in correct location
+            listings_cache_location=cache_dir,  # only relevant if listings caching gets enabled
             use_certifi=use_certifi,
         )
 

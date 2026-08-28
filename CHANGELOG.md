@@ -16,6 +16,22 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix the file based directory listings cache (`FileDirCache`), which backs the file index of
+  providers served over plain HTTP:
+  - `CacheExpiry.INFINITE` made every listing expire the very moment it was stored, so listings were
+    re-fetched on every call instead of never expiring. A falsy expiry now means "never expire",
+    following the fsspec convention.
+  - The cache is no longer created on disk when listings caching is turned off, which stopped an
+    empty `0.0` folder with an SQLite database from being written into the cache directory for
+    every download filesystem.
+  - `FileDirCache` could not be pickled, because `__reduce__` passed its arguments positionally and
+    in the wrong order, breaking filesystems sent to another process.
+  - A cache directory that cannot be created or opened now falls back to not caching listings
+    instead of failing the request.
+  - `len()` and iteration no longer report listings that have already expired.
+
 ## [0.134.0] - 2026-08-22
 
 ### Added
