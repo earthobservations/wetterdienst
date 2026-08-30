@@ -18,6 +18,26 @@ Types of changes:
 
 ### Fixed
 
+- Network: the fsspec listings cache silently never hit for `CacheExpiry.INFINITE`. The expiry
+  reaches `FileDirCache` as `False`, which diskcache read as an expiry of `now + False == now`, so
+  every entry was stored already expired and each listing was refetched. Falsy expiries now mean
+  "never expire", matching what the download-side cache has always done with `INFINITE`
+- Network: `FileDirCache` could not be unpickled -- its `__reduce__` passed three positional
+  arguments to an `__init__` that takes one positional plus keyword-only arguments, and in the
+  wrong order
+- Network: a listing whose TTL lapsed between fsspec's `in dircache` probe and the following
+  lookup raised a `KeyError` out of `ls()`/`find()`. The dircache is now read with a single
+  lookup, which also stops a `detail=False` call from caching a name-only listing that later
+  `detail=True` reads would receive
+- Network: `download_file()` raised `AttributeError: 'NoneType' object has no attribute 'get'`
+  when `client_kwargs` was left at its `None` default
+- Network: a float timeout in `fsspec_client_kwargs` (e.g. `WD_FSSPEC_CLIENT_KWARGS='{"timeout": 30.5}'`)
+  reached aiohttp unwrapped and failed every request with `ValueError: timeout parameter cannot be of
+  <class 'float'> type`; only int timeouts were being wrapped in `ClientTimeout`
+- Network: a disabled listings cache created (and `mkdir`-ed) a cache directory named `False`,
+  `0.0` or `0.01` that nothing readable was ever written to. Those folders are no longer created,
+  and any left behind by an earlier version are swept from the cache directory on the next run --
+  guarded so that a folder still holding valid entries is kept
 - DWD observation: the `climate_urban` URL was pinned to the `recent` directory whatever period was
   requested, so a `now` request for a 10-minute urban dataset was answered with `recent` data ending
   at the previous midnight, and `historical` -- reaching back to each station's first year, 2015 for

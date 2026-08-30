@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import shutil
 import ssl
 import threading
 from collections.abc import Iterator, MutableMapping
@@ -19,6 +20,7 @@ from urllib.parse import urlparse
 
 import stamina
 from aiohttp import ClientConnectorError, ClientPayloadError, ClientResponseError
+from fsspec.asyn import sync_wrapper
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
@@ -98,12 +100,78 @@ class File:
         return self.nbytes == 0
 
 
+# Directory names the listings cache used to create under the cache dir but never writes to any
+# more. ``False`` came from ``CacheExpiry.INFINITE`` and from a disabled cache, ``0.0`` from the
+# download-side filesystem registration, ``0.01`` from ``CacheExpiry.NO_CACHE``. In every one of
+# those cases ``use_listings_cache`` was False, so the directory was created and then never written
+# to. They are swept on the next run, guarded by an emptiness check so that a directory which does
+# somehow hold entries is left alone.
+_LEGACY_LISTINGS_CACHE_DIR_NAMES = frozenset({"False", "0.0", "0.01"})
+_legacy_cleanup_lock = threading.Lock()
+_legacy_cleanup_done: set[Path] = set()
+
+
+def _remove_legacy_listings_cache_dirs(cache_root: Path, keep: str) -> None:
+    """Remove empty listings-cache directories left behind by earlier versions.
+
+    Runs once per cache root per process, and is best-effort throughout: a cache directory that
+    cannot be tidied is not a reason to fail the request that happened to trigger the sweep.
+
+    Args:
+        cache_root: Directory the per-TTL listings cache folders live in.
+        keep: Name of the folder the caller is about to use, never removed.
+
+    """
+    with _legacy_cleanup_lock:
+        if cache_root in _legacy_cleanup_done:
+            return
+        _legacy_cleanup_done.add(cache_root)
+
+    from diskcache import Cache  # noqa: PLC0415
+
+    for name in _LEGACY_LISTINGS_CACHE_DIR_NAMES - {keep}:
+        stale = cache_root / name
+        if not stale.is_dir():
+            continue
+        try:
+            with Cache(directory=str(stale)) as cache:
+                # cull expired rows first: the ``False`` folder is full of them, because
+                # ``CacheExpiry.INFINITE`` used to store every listing already expired. What
+                # matters is whether anything still *valid* is in there.
+                cache.expire()
+                entries = len(cache)
+            if entries:
+                log.debug(f"Keeping listings cache folder {stale}, it still holds {entries} entries")
+                continue
+            shutil.rmtree(stale)
+            log.info(f"Removed orphaned listings cache folder {stale}")
+        except Exception:
+            log.debug(f"Failed removing orphaned listings cache folder {stale}", exc_info=True)
+
+
+def _rebuild_file_dir_cache(
+    listings_expiry_time: float | None,
+    use_listings_cache: bool,  # noqa: FBT001
+    listings_cache_location: Path | None,
+) -> FileDirCache:
+    """Rebuild a FileDirCache from its pickled state.
+
+    ``FileDirCache.__init__`` takes keyword-only arguments, so unpickling needs this
+    positional shim.
+    """
+    return FileDirCache(
+        listings_expiry_time,
+        use_listings_cache=use_listings_cache,
+        listings_cache_location=listings_cache_location,
+    )
+
+
 class FileDirCache(MutableMapping):
     """File-based cache for FSSPEC."""
 
     def __init__(
         self,
-        listings_expiry_time: float,
+        listings_expiry_time: float | None,
         *,
         use_listings_cache: bool,
         listings_cache_location: Path | None = None,
@@ -111,23 +179,41 @@ class FileDirCache(MutableMapping):
         """Initialize the FileDirCache.
 
         Args:
-            listings_expiry_time: Time in seconds that a listing is considered valid.
+            listings_expiry_time: Time in seconds that a listing is considered valid. A falsy
+                value (as carried by ``CacheExpiry.INFINITE``, which is ``False``) means the
+                listing never expires.
             use_listings_cache: If False, this cache never returns items, but always reports KeyError.
             listings_cache_location: Directory path at which the listings cache file is stored.
 
         """
+        # ``CacheExpiry.INFINITE`` reaches us as ``False``. Map it to ``None``, diskcache's "no
+        # expiry" sentinel -- passing ``False`` straight through made diskcache compute an expiry
+        # of ``now + False == now``, so entries were born expired and the listings cache silently
+        # never hit. Only False/None mean "never expire": a numeric 0 has to keep meaning "expire
+        # immediately", since silently upgrading it to "cache forever on disk" fails open.
+        if listings_expiry_time is None or listings_expiry_time is False:
+            self.listings_expiry_time = None
+        else:
+            self.listings_expiry_time = float(listings_expiry_time)
+        self.use_listings_cache = use_listings_cache
+        self._listings_cache_location = listings_cache_location
+
+        if not use_listings_cache:
+            # Nothing will ever be stored, so don't create a cache directory for it.
+            self.cache_location = None
+            self._cache = None
+            return
+
         import platformdirs  # noqa: PLC0415
         from diskcache import Cache  # noqa: PLC0415
 
-        listings_expiry_time = listings_expiry_time and float(listings_expiry_time)
-
+        subdir = "infinite" if self.listings_expiry_time is None else str(self.listings_expiry_time)
         if listings_cache_location:
-            cache_location = Path(listings_cache_location) / str(listings_expiry_time)
-            cache_location.mkdir(exist_ok=True, parents=True)
+            cache_location = Path(listings_cache_location) / subdir
         else:
-            cache_location = Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec")) / str(
-                listings_expiry_time,
-            )
+            cache_location = Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec")) / subdir
+
+        _remove_legacy_listings_cache_dirs(cache_location.parent, keep=cache_location.name)
 
         try:
             log.info(f"Creating dircache folder at {cache_location}")
@@ -137,54 +223,67 @@ class FileDirCache(MutableMapping):
 
         self.cache_location = cache_location
         self._cache = Cache(directory=str(cache_location))
-        self.use_listings_cache = use_listings_cache
-        self.listings_expiry_time = listings_expiry_time
 
-    def __getitem__(self, item: str) -> BytesIO:
-        """Draw item as fileobject from cache, retry if timeout occurs."""
-        if not self.use_listings_cache:
+    def __getitem__(self, item: str) -> list[dict]:
+        """Draw item from cache, retry if timeout occurs."""
+        # ``self._cache is None`` is exactly the "caching disabled" case; binding it to a local
+        # keeps the None-check visible to the type checker in every method below.
+        cache = self._cache
+        if cache is None:
             raise KeyError(item)
         _missing = object()
-        value = self._cache.get(key=item, default=_missing, read=True, retry=True)
+        value = cache.get(key=item, default=_missing, read=True, retry=True)
         if value is _missing:
             raise KeyError(item)
         return value
 
     def clear(self) -> None:
         """Clear cache."""
-        self._cache.clear()
+        cache = self._cache
+        if cache is None:
+            return
+        cache.clear()
 
     def __len__(self) -> int:
         """Return number of items in cache."""
-        return len(self._cache)
+        cache = self._cache
+        if cache is None:
+            return 0
+        return len(cache)
 
     def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
-        if not self.use_listings_cache:
+        cache = self._cache
+        if cache is None:
             return False
-        return item in self._cache
+        return item in cache
 
-    def __setitem__(self, key: str, value: BytesIO) -> None:
-        """Store fileobject in cache."""
-        if not self.use_listings_cache:
+    def __setitem__(self, key: str, value: list[dict]) -> None:
+        """Store listing in cache."""
+        cache = self._cache
+        if cache is None:
             return
-        self._cache.set(key=key, value=value, expire=self.listings_expiry_time, retry=True)
+        cache.set(key=key, value=value, expire=self.listings_expiry_time, retry=True)
 
     def __delitem__(self, key: str) -> None:
         """Remove item from cache."""
-        del self._cache[key]
+        cache = self._cache
+        if cache is None:
+            raise KeyError(key)
+        del cache[key]
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over keys in cache."""
-        if not self.use_listings_cache:
+        cache = self._cache
+        if cache is None:
             return iter([])
-        return iter(self._cache)
+        return iter(cache)
 
     def __reduce__(self) -> tuple:
         """Return state information for pickling."""
         return (
-            FileDirCache,
-            (self.use_listings_cache, self.listings_expiry_time, self.cache_location),
+            _rebuild_file_dir_cache,
+            (self.listings_expiry_time, self.use_listings_cache, self._listings_cache_location),
         )
 
 
@@ -231,13 +330,16 @@ class HTTPFileSystem(_HTTPFileSystem):
 
             kwargs["get_client"] = get_client_with_certifi
 
-        # aiohttp >= 3.9 rejects bare int timeouts; wrap in ClientTimeout
-        if "client_kwargs" in kwargs and isinstance(kwargs["client_kwargs"].get("timeout"), int):
+        # aiohttp >= 3.9 rejects any bare numeric timeout -- int and float alike -- so wrap one in
+        # ClientTimeout. ``client_kwargs`` is optional and may legitimately be passed as None (that
+        # is fsspec's own default), so check for a dict rather than for the key being present.
+        client_kwargs = kwargs.get("client_kwargs")
+        client_kwargs = client_kwargs if isinstance(client_kwargs, dict) else {}
+        timeout = client_kwargs.get("timeout")
+        if isinstance(timeout, (int, float)) and not isinstance(timeout, bool):
             import aiohttp  # noqa: PLC0415
 
-            client_kw = dict(kwargs["client_kwargs"])
-            client_kw["timeout"] = aiohttp.ClientTimeout(total=client_kw["timeout"])
-            kwargs["client_kwargs"] = client_kw
+            kwargs["client_kwargs"] = {**client_kwargs, "timeout": aiohttp.ClientTimeout(total=timeout)}
 
         kwargs.update(
             {
@@ -254,6 +356,29 @@ class HTTPFileSystem(_HTTPFileSystem):
             listings_expiry_time=listings_expiry_time,
             listings_cache_location=listings_cache_location,
         )
+
+    async def _ls(self, url: str, detail: bool = True, **kwargs) -> list:  # noqa: ANN003, FBT001, FBT002
+        """List a directory, going through the dircache with a single lookup.
+
+        Overrides the upstream implementation for two reasons:
+
+        * upstream probes ``url in self.dircache`` and then indexes it, which races with TTL
+          expiry between the two calls and raises a ``KeyError`` that nothing catches,
+        * upstream caches whatever shape ``detail`` asked for, so one ``detail=False`` call
+          poisons every later ``detail=True`` read of the same URL. We always cache the
+          detailed listing and derive the name-only view from it.
+        """
+        # a cached listing is always a list (possibly empty), so None is a safe "miss" sentinel
+        out: list[dict] | None = self.dircache.get(url) if self.use_listings_cache else None
+        if out is None:
+            out = await self._ls_real(url, detail=True, **kwargs)
+            self.dircache[url] = out
+        return out if detail else sorted(entry["name"] for entry in out)
+
+    # the parent binds ``ls`` to *its* ``_ls`` function object, so the override above only
+    # takes effect for callers that look ``_ls`` up dynamically (``find``/``walk``). Rebind
+    # it so the plain synchronous ``ls()`` goes through our implementation too.
+    ls = sync_wrapper(_ls)
 
 
 class NetworkFilesystemManager:
@@ -325,7 +450,9 @@ class NetworkFilesystemManager:
             use_listings_cache=False,
             client_kwargs=client_kwargs,
             listings_expiry_time=0.0,  # not relevant for the download of files
-            listings_cache_location=cache_dir,  # ensure mkdir still occurs in correct location
+            # inert while use_listings_cache is False, but keeps the listings cache out of the
+            # platformdirs fallback location should it ever be enabled here
+            listings_cache_location=cache_dir,
             use_certifi=use_certifi,
         )
 
