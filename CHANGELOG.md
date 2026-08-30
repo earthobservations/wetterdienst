@@ -31,11 +31,14 @@ Types of changes:
 - DWD observation: station `history` returned nothing for the 10-minute urban datasets. It looked
   for them under a `meta_data` directory that only the non-urban high resolutions have, while the
   urban zips carry their `Metadaten_*.txt` files themselves
-- DWD observation: the order in which the requested periods were read was the iteration order of a
-  set, and so varied from one interpreter run to the next. Values are now read oldest period first,
-  so an overlapping timestamp settles on the quality-marked historical record, and stations newest
-  period first, so a station settles on its most current description. This is visible for the first
-  time on the 10-minute urban datasets, whose three periods used to resolve to the same directory
+- DWD observation: where two periods reported the same timestamp, which record survived was decided
+  by neither of the two things that should decide it. The periods were read in the iteration order
+  of a set, varying from one interpreter run to the next, and the deduplication then ran over a
+  frame that `how="align"` had already reordered by value -- so the surviving record was the lower
+  reading, or a null wherever one period was missing a measurement the other had. Values now settle
+  on the quality-marked historical record, carried through the concatenation as an explicit rank,
+  and stations settle on their most current description. This is visible for the first time on the
+  10-minute urban datasets, whose three periods used to resolve to the same directory
 
 ## [0.134.0] - 2026-08-22
 

@@ -2082,8 +2082,19 @@ DWD_URBAN_DATASETS = [
 # climate_urban is only split by period at 10 minutes. The hourly urban datasets publish a single
 # ``recent`` directory that holds the whole record back to each station's first year -- there is no
 # ``historical`` or ``now`` beside it -- so every requested period resolves onto that one directory.
+#
+# Listed one by one rather than derived by excluding the 10 minute resolution, so that anything new
+# is treated as period-split by default: a dataset wrongly assumed to be period-split fails loudly
+# on a missing directory, while one wrongly pinned to ``recent`` answers a ``historical`` request
+# with recent data and says nothing -- the very bug this list exists to fix.
+# ``test_dwd_urban_period_directories_match_the_server`` holds it against the server.
 DWD_URBAN_DATASETS_WITHOUT_PERIOD_DIRECTORIES = [
-    dataset for dataset in DWD_URBAN_DATASETS if dataset.resolution.value != Resolution.MINUTE_10
+    DwdObservationMetadata.hourly.urban_precipitation,
+    DwdObservationMetadata.hourly.urban_pressure,
+    DwdObservationMetadata.hourly.urban_sun,
+    DwdObservationMetadata.hourly.urban_temperature_air,
+    DwdObservationMetadata.hourly.urban_temperature_soil,
+    DwdObservationMetadata.hourly.urban_wind,
 ]
 
 HIGH_RESOLUTIONS = (
