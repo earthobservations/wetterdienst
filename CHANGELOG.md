@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- DWD: new `phenology` network (`dwd/phenology`) covering the DWD phenological observation
+  network -- the day of the year on which a plant reached a developmental phase, at `annual`
+  resolution, reaching back to 1925. 110 datasets, one per plant and reporter group
+  (`annual_common_hazel`, `immediate_winter_wheat`, ...), each carrying the phenological phases
+  that plant is observed for as parameters (`phenology_flowering_beginning`,
+  `phenology_leaf_unfolding_beginning`, `phenology_harvest`, ...). A value is DWD's `Jultag`, the
+  day of the year, dated to the 1st of January of the reference year, so the entry date is that
+  date plus the value. Both reporter groups are covered -- the ~6600-station *Jahresmelder* and
+  the ~1200-station *Sofortmelder* -- with their own station catalogues
+
 ### Fixed
 
 - Network: the fsspec listings cache silently never hit for `CacheExpiry.INFINITE`. The expiry

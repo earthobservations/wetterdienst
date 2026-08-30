@@ -28,6 +28,9 @@ The data as offered by the DWD through ``wetterdienst`` includes:
 - [Alerts](alerts/index.md) — public weather warnings in Common Alerting Protocol (CAP) format
     - all currently active warnings, one row per alert, with GeoJSON MultiPolygon geometry
     - community (Gemeinde) or district (Landkreis) granularity, several languages
+- [Phenology](phenology/index.md) — observed plant development dates from the phenological network
+    - annual resolution: the day of the year a plant reached a phase (flowering, leaf unfolding, harvest)
+    - 110 plant datasets across two reporter groups, reaching back to 1925
 
 For a quick overview of the work of the DWD check the current 
 [dwd report](https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14) 
@@ -49,6 +52,7 @@ mosmix/index.md
 observation/index.md
 road/index.md
 swsmos/index.md
+phenology/index.md
 radar/index.md
 derived/index.md
 alerts/index.md
