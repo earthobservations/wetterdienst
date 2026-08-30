@@ -31,6 +31,9 @@ Types of changes:
   `detail=True` reads would receive
 - Network: `download_file()` raised `AttributeError: 'NoneType' object has no attribute 'get'`
   when `client_kwargs` was left at its `None` default
+- Network: a float timeout in `fsspec_client_kwargs` (e.g. `WD_FSSPEC_CLIENT_KWARGS='{"timeout": 30.5}'`)
+  reached aiohttp unwrapped and failed every request with `ValueError: timeout parameter cannot be of
+  <class 'float'> type`; only int timeouts were being wrapped in `ClientTimeout`
 - Network: a disabled listings cache created (and `mkdir`-ed) a cache directory named `False`
   or `0.01` that nothing was ever written to
 - DWD observation: the `climate_urban` URL was pinned to the `recent` directory whatever period was

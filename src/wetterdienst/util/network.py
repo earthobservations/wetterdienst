@@ -136,11 +136,15 @@ class FileDirCache(MutableMapping):
             listings_cache_location: Directory path at which the listings cache file is stored.
 
         """
-        # ``CacheExpiry.INFINITE`` reaches us as ``False``. Map every falsy value to ``None``,
-        # which is diskcache's "no expiry" sentinel -- passing ``False`` straight through made
-        # diskcache compute an expiry of ``now + False == now``, so entries were born expired
-        # and the listings cache silently never hit.
-        self.listings_expiry_time = float(listings_expiry_time) if listings_expiry_time else None
+        # ``CacheExpiry.INFINITE`` reaches us as ``False``. Map it to ``None``, diskcache's "no
+        # expiry" sentinel -- passing ``False`` straight through made diskcache compute an expiry
+        # of ``now + False == now``, so entries were born expired and the listings cache silently
+        # never hit. Only False/None mean "never expire": a numeric 0 has to keep meaning "expire
+        # immediately", since silently upgrading it to "cache forever on disk" fails open.
+        if listings_expiry_time is None or listings_expiry_time is False:
+            self.listings_expiry_time = None
+        else:
+            self.listings_expiry_time = float(listings_expiry_time)
         self.use_listings_cache = use_listings_cache
         self._listings_cache_location = listings_cache_location
 
@@ -274,17 +278,16 @@ class HTTPFileSystem(_HTTPFileSystem):
 
             kwargs["get_client"] = get_client_with_certifi
 
-        # aiohttp >= 3.9 rejects bare int timeouts; wrap in ClientTimeout. ``client_kwargs`` is
-        # optional and may legitimately be passed as None (that is fsspec's own default), so
-        # check for a dict rather than for the key being present.
+        # aiohttp >= 3.9 rejects any bare numeric timeout -- int and float alike -- so wrap one in
+        # ClientTimeout. ``client_kwargs`` is optional and may legitimately be passed as None (that
+        # is fsspec's own default), so check for a dict rather than for the key being present.
         client_kwargs = kwargs.get("client_kwargs")
-        if isinstance(client_kwargs, dict) and isinstance(client_kwargs.get("timeout"), int):
+        client_kwargs = client_kwargs if isinstance(client_kwargs, dict) else {}
+        timeout = client_kwargs.get("timeout")
+        if isinstance(timeout, (int, float)) and not isinstance(timeout, bool):
             import aiohttp  # noqa: PLC0415
 
-            kwargs["client_kwargs"] = {
-                **client_kwargs,
-                "timeout": aiohttp.ClientTimeout(total=client_kwargs["timeout"]),
-            }
+            kwargs["client_kwargs"] = {**client_kwargs, "timeout": aiohttp.ClientTimeout(total=timeout)}
 
         kwargs.update(
             {
@@ -395,7 +398,9 @@ class NetworkFilesystemManager:
             use_listings_cache=False,
             client_kwargs=client_kwargs,
             listings_expiry_time=0.0,  # not relevant for the download of files
-            listings_cache_location=cache_dir,  # ensure mkdir still occurs in correct location
+            # inert while use_listings_cache is False, but keeps the listings cache out of the
+            # platformdirs fallback location should it ever be enabled here
+            listings_cache_location=cache_dir,
             use_certifi=use_certifi,
         )
 

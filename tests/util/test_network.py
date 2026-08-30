@@ -285,10 +285,14 @@ def test_file_dir_cache_infinite_expiry_is_stored(tmp_path: Path) -> None:
 
 
 def test_file_dir_cache_honours_expiry(tmp_path: Path) -> None:
-    """Entries disappear once the expiry time has passed."""
+    """Entries disappear once the expiry time has passed.
+
+    Deliberately asserts only on the post-expiry state: a "still cached" assert taken right
+    after the write would race a slow scheduler under ``pytest -n auto``. That the entry was
+    stored at all is covered by test_file_dir_cache_stores_and_returns_listing.
+    """
     cache = FileDirCache(0.2, use_listings_cache=True, listings_cache_location=tmp_path)
     cache["http://example.com/"] = _fake_listing("http://example.com/")
-    assert "http://example.com/" in cache
     time.sleep(0.4)
     assert "http://example.com/" not in cache
 
@@ -450,6 +454,40 @@ def test_http_filesystem_wraps_int_timeout_in_client_timeout(tmp_path: Path) -> 
     assert isinstance(fs.client_kwargs["timeout"], ClientTimeout)
     assert fs.client_kwargs["timeout"].total == 30
     assert fs.client_kwargs["headers"] == {"User-Agent": "wetterdienst"}
+
+
+def test_http_filesystem_wraps_float_timeout_in_client_timeout(tmp_path: Path) -> None:
+    """Aiohttp rejects a bare float timeout just as it rejects a bare int, so both get wrapped."""
+    fs = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0.0,
+        listings_cache_location=tmp_path,
+        client_kwargs={"timeout": 30.5},
+        skip_instance_cache=True,
+    )
+    assert isinstance(fs.client_kwargs["timeout"], ClientTimeout)
+    assert fs.client_kwargs["timeout"].total == 30.5
+
+
+def test_http_filesystem_leaves_client_timeout_untouched(tmp_path: Path) -> None:
+    """An already-wrapped timeout is passed through as-is."""
+    timeout = ClientTimeout(total=15)
+    fs = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0.0,
+        listings_cache_location=tmp_path,
+        client_kwargs={"timeout": timeout},
+        skip_instance_cache=True,
+    )
+    assert fs.client_kwargs["timeout"] is timeout
+
+
+def test_file_dir_cache_zero_expiry_is_not_treated_as_infinite(tmp_path: Path) -> None:
+    """Only False/None mean "never expire" -- a numeric 0 must still expire immediately."""
+    cache = FileDirCache(0, use_listings_cache=True, listings_cache_location=tmp_path)
+    assert cache.listings_expiry_time == 0.0
+    cache["http://example.com/"] = _fake_listing("http://example.com/")
+    assert "http://example.com/" not in cache
 
 
 def test_network_filesystem_manager_accepts_client_kwargs_none(tmp_path: Path) -> None:
