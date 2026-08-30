@@ -2,18 +2,30 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for network utilities."""
 
+import pickle
+import time
+from collections.abc import Iterator, MutableMapping
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 import stamina
-from aiohttp import ClientConnectorError, ClientResponseError
+from aiohttp import ClientConnectorError, ClientResponseError, ClientTimeout
 from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import File, NetworkFilesystemManager, download_file
+from wetterdienst.util.network import (
+    File,
+    FileDirCache,
+    HTTPFileSystem,
+    NetworkFilesystemManager,
+    download_file,
+    list_remote_directory_fsspec,
+    list_remote_files_fsspec,
+)
 
 
 def test_create_fsspec_filesystem() -> None:
@@ -213,3 +225,241 @@ def test_download_file_returns_file_after_exhausting_retries() -> None:
     assert mock_fs.cat_file.call_count == 2
     assert result.status == 500
     assert isinstance(result.content, ClientResponseError)
+
+
+class _RacyDirCache(MutableMapping):
+    """dircache whose entry expires between ``__contains__`` and ``__getitem__``.
+
+    Reproduces the TTL race that made the previous two-step dircache lookup raise an
+    uncaught KeyError out of ``ls()``. Like FileDirCache it is a MutableMapping, so the
+    inherited ``get()`` routes through ``__getitem__``.
+    """
+
+    def __contains__(self, item: object) -> bool:
+        return True
+
+    def __getitem__(self, item: str) -> list[dict]:
+        raise KeyError(item)
+
+    def __setitem__(self, key: str, value: list[dict]) -> None:
+        pass
+
+    def __delitem__(self, key: str) -> None:
+        raise KeyError(key)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter([])
+
+    def __len__(self) -> int:
+        return 0
+
+
+def _fake_listing(url: str) -> list[dict]:
+    return [
+        {"name": f"{url}b.zip", "size": 1, "type": "file"},
+        {"name": f"{url}a.zip", "size": 1, "type": "file"},
+    ]
+
+
+def test_file_dir_cache_stores_and_returns_listing(tmp_path: Path) -> None:
+    """FileDirCache round-trips a listing and reports containment."""
+    cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    listing = _fake_listing("http://example.com/")
+    cache["http://example.com/"] = listing
+    assert "http://example.com/" in cache
+    assert cache["http://example.com/"] == listing
+    assert len(cache) == 1
+
+
+def test_file_dir_cache_infinite_expiry_is_stored(tmp_path: Path) -> None:
+    """A falsy expiry (CacheExpiry.INFINITE is False) means "never expire", not "already expired"."""
+    cache = FileDirCache(
+        CacheExpiry.INFINITE.value,
+        use_listings_cache=True,
+        listings_cache_location=tmp_path,
+    )
+    assert cache.listings_expiry_time is None
+    cache["http://example.com/"] = _fake_listing("http://example.com/")
+    assert "http://example.com/" in cache
+    assert cache.cache_location.name == "infinite"
+
+
+def test_file_dir_cache_honours_expiry(tmp_path: Path) -> None:
+    """Entries disappear once the expiry time has passed."""
+    cache = FileDirCache(0.2, use_listings_cache=True, listings_cache_location=tmp_path)
+    cache["http://example.com/"] = _fake_listing("http://example.com/")
+    assert "http://example.com/" in cache
+    time.sleep(0.4)
+    assert "http://example.com/" not in cache
+
+
+def test_file_dir_cache_disabled_stores_nothing_and_creates_no_directory(tmp_path: Path) -> None:
+    """A disabled cache neither stores entries nor leaves a cache directory behind."""
+    cache = FileDirCache(
+        CacheExpiry.INFINITE.value,
+        use_listings_cache=False,
+        listings_cache_location=tmp_path,
+    )
+    cache["http://example.com/"] = _fake_listing("http://example.com/")
+    assert "http://example.com/" not in cache
+    assert len(cache) == 0
+    assert list(cache) == []
+    with pytest.raises(KeyError):
+        _ = cache["http://example.com/"]
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_file_dir_cache_is_picklable(tmp_path: Path) -> None:
+    """FileDirCache survives a pickle round-trip (its __reduce__ used to pass bad arguments)."""
+    cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    restored = pickle.loads(pickle.dumps(cache))  # noqa: S301
+    assert isinstance(restored, FileDirCache)
+    assert restored.listings_expiry_time == 300.0
+    assert restored.use_listings_cache is True
+    assert restored.cache_location == cache.cache_location
+
+
+def test_http_filesystem_ls_caches_listing(tmp_path: Path) -> None:
+    """The second ls() of the same URL is served from the dircache."""
+    calls = []
+
+    async def fake_ls_real(self, url, detail=True, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001, FBT002
+        calls.append(url)
+        return _fake_listing(url)
+
+    fs = HTTPFileSystem(use_listings_cache=True, listings_expiry_time=300.0, listings_cache_location=tmp_path)
+    with patch.object(HTTPFileSystem, "_ls_real", fake_ls_real):
+        first = fs.ls("http://example.com/", detail=True)
+        second = fs.ls("http://example.com/", detail=True)
+    assert calls == ["http://example.com/"]
+    assert first == second
+
+
+def test_http_filesystem_ls_detail_false_returns_names_without_poisoning_cache(tmp_path: Path) -> None:
+    """A detail=False call returns names and still leaves the detailed listing cached."""
+    calls = []
+
+    async def fake_ls_real(self, url, detail=True, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001, FBT002
+        calls.append(url)
+        return _fake_listing(url)
+
+    fs = HTTPFileSystem(use_listings_cache=True, listings_expiry_time=300.0, listings_cache_location=tmp_path)
+    with patch.object(HTTPFileSystem, "_ls_real", fake_ls_real):
+        names = fs.ls("http://example.com/", detail=False)
+        detailed = fs.ls("http://example.com/", detail=True)
+    assert names == ["http://example.com/a.zip", "http://example.com/b.zip"]
+    assert detailed == _fake_listing("http://example.com/")
+    assert calls == ["http://example.com/"]
+
+
+def test_http_filesystem_ls_survives_entry_expiring_mid_lookup(tmp_path: Path) -> None:
+    """ls() refetches instead of raising when a dircache entry expires mid-lookup."""
+
+    async def fake_ls_real(self, url, detail=True, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001, FBT002
+        return _fake_listing(url)
+
+    fs = HTTPFileSystem(use_listings_cache=True, listings_expiry_time=300.0, listings_cache_location=tmp_path)
+    fs.dircache = _RacyDirCache()
+    with patch.object(HTTPFileSystem, "_ls_real", fake_ls_real):
+        assert fs.ls("http://example.com/", detail=True) == _fake_listing("http://example.com/")
+
+
+@pytest.mark.parametrize(
+    "cache_expiry",
+    [CacheExpiry.FILEINDEX, CacheExpiry.METAINDEX, CacheExpiry.INFINITE],
+)
+def test_list_remote_files_fsspec_uses_listings_cache(tmp_path: Path, cache_expiry: CacheExpiry) -> None:
+    """list_remote_files_fsspec() hits the network once per URL for every cached TTL, INFINITE included."""
+    calls = []
+
+    async def fake_ls_real(self, url, detail=True, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001, FBT002
+        calls.append(url)
+        return _fake_listing(url)
+
+    settings = Settings(cache_dir=tmp_path)
+    with patch.object(HTTPFileSystem, "_ls_real", fake_ls_real):
+        first = list_remote_files_fsspec("http://example.com/", settings=settings, cache_expiry=cache_expiry)
+        second = list_remote_files_fsspec("http://example.com/", settings=settings, cache_expiry=cache_expiry)
+    assert first == ["http://example.com/a.zip", "http://example.com/b.zip"]
+    assert first == second
+    assert calls == ["http://example.com/"]
+
+
+@pytest.mark.parametrize(
+    ("cache_expiry", "cache_disable"),
+    [(CacheExpiry.NO_CACHE, False), (CacheExpiry.METAINDEX, True)],
+)
+def test_list_remote_files_fsspec_bypasses_cache(
+    tmp_path: Path,
+    cache_expiry: CacheExpiry,
+    *,
+    cache_disable: bool,
+) -> None:
+    """NO_CACHE and cache_disable both make every call go to the network."""
+    calls = []
+
+    async def fake_ls_real(self, url, detail=True, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001, FBT002
+        calls.append(url)
+        return _fake_listing(url)
+
+    settings = Settings(cache_dir=tmp_path, cache_disable=cache_disable)
+    with patch.object(HTTPFileSystem, "_ls_real", fake_ls_real):
+        list_remote_files_fsspec("http://example.com/", settings=settings, cache_expiry=cache_expiry)
+        list_remote_files_fsspec("http://example.com/", settings=settings, cache_expiry=cache_expiry)
+    assert calls == ["http://example.com/", "http://example.com/"]
+
+
+def test_list_remote_directory_fsspec_uses_listings_cache(tmp_path: Path) -> None:
+    """list_remote_directory_fsspec() caches its non-recursive listing too."""
+    calls = []
+
+    async def fake_ls_real(self, url, detail=True, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001, FBT002
+        calls.append(url)
+        return _fake_listing(url)
+
+    settings = Settings(cache_dir=tmp_path)
+    with patch.object(HTTPFileSystem, "_ls_real", fake_ls_real):
+        first = list_remote_directory_fsspec("http://example.com/", settings=settings)
+        second = list_remote_directory_fsspec("http://example.com/", settings=settings)
+    assert first == _fake_listing("http://example.com/")
+    assert first == second
+    assert calls == ["http://example.com/"]
+
+
+def test_http_filesystem_accepts_client_kwargs_none(tmp_path: Path) -> None:
+    """client_kwargs=None is fsspec's own default and must not crash the constructor."""
+    fs = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0.0,
+        listings_cache_location=tmp_path,
+        client_kwargs=None,
+        skip_instance_cache=True,
+    )
+    assert fs.client_kwargs == {}
+
+
+def test_http_filesystem_wraps_int_timeout_in_client_timeout(tmp_path: Path) -> None:
+    """A bare int timeout is wrapped in aiohttp.ClientTimeout, which aiohttp >= 3.9 requires."""
+    fs = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0.0,
+        listings_cache_location=tmp_path,
+        client_kwargs={"timeout": 30, "headers": {"User-Agent": "wetterdienst"}},
+        skip_instance_cache=True,
+    )
+    assert isinstance(fs.client_kwargs["timeout"], ClientTimeout)
+    assert fs.client_kwargs["timeout"].total == 30
+    assert fs.client_kwargs["headers"] == {"User-Agent": "wetterdienst"}
+
+
+def test_network_filesystem_manager_accepts_client_kwargs_none(tmp_path: Path) -> None:
+    """download_file() defaults client_kwargs to None, so the manager must build a filesystem for it."""
+    HTTPFileSystem.clear_instance_cache()
+    NetworkFilesystemManager._get_filesystems().clear()  # noqa: SLF001
+    fs = NetworkFilesystemManager.get(
+        cache_dir=tmp_path,
+        cache_expiry=CacheExpiry.NO_CACHE,
+        client_kwargs=None,
+        cache_disable=True,
+    )
+    assert isinstance(fs, HTTPFileSystem)
