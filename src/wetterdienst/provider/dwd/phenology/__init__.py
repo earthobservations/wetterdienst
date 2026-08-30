@@ -3,5 +3,6 @@
 """DWD phenology network."""
 
 from wetterdienst.provider.dwd.phenology.api import DwdPhenologyRequest
+from wetterdienst.provider.dwd.phenology.metadata import DwdPhenologyMetadata
 
-__all__ = ["DwdPhenologyRequest"]
+__all__ = ["DwdPhenologyMetadata", "DwdPhenologyRequest"]

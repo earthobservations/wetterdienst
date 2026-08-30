@@ -15,7 +15,7 @@ import pytest
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.phenology import DwdPhenologyRequest
-from wetterdienst.provider.dwd.phenology.api import _BASE_URL, _file_url, _parse_values
+from wetterdienst.provider.dwd.phenology.api import _BASE_URL, _file_url, _parse_values, _periods_for
 from wetterdienst.provider.dwd.phenology.metadata import (
     _OBJECTS,
     _PHASES,
@@ -207,6 +207,35 @@ def test_periods_from_dates() -> None:
     assert DwdPhenologyRequest(parameters=parameters, periods="recent").periods == {Period.RECENT}
     old = DwdPhenologyRequest(parameters=parameters, start_date="1950-01-01", end_date="1960-12-31")
     assert old.periods == {Period.HISTORICAL}
+
+
+def test_single_period_dataset_ignores_the_derived_period() -> None:
+    """A dataset published in one period only is read whatever period the dates imply.
+
+    Periods derived from a date range assume `recent` holds the last few years. The two datasets
+    with no historical release at all break that assumption -- their whole record lives in the
+    recent file, back to 2018 and 2021 -- so intersecting the derived period with the published
+    one left those years unreachable by any date range, and the request returned nothing.
+    """
+    request = DwdPhenologyRequest(
+        parameters=[("annual", "annual_beet")],
+        start_date="2021-01-01",
+        end_date="2021-12-31",
+    )
+    dataset = DwdPhenologyMetadata["annual"]["annual_beet"]
+    assert dataset.periods == [Period.RECENT]
+    # the dates imply historical, which this dataset does not publish
+    assert request.periods == {Period.HISTORICAL}
+    assert _periods_for(request.periods, dataset) == {Period.RECENT}
+
+
+def test_both_period_dataset_keeps_the_derived_period() -> None:
+    """A dataset published in both periods still reads only the period the dates imply."""
+    dataset = DwdPhenologyMetadata["annual"]["annual_common_hazel"]
+    assert _periods_for({Period.HISTORICAL}, dataset) == {Period.HISTORICAL}
+    assert _periods_for({Period.RECENT}, dataset) == {Period.RECENT}
+    # no explicit period reads everything the dataset publishes
+    assert _periods_for(None, dataset) == {Period.HISTORICAL, Period.RECENT}
 
 
 # ---------------------------------------------------------------------------

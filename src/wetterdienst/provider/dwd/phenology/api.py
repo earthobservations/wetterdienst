@@ -73,6 +73,24 @@ _EMPTY_VALUES_SCHEMA = {
 _COLUMN_ALIASES = {"REFERENZ_JAHR": "REFERENZJAHR"}
 
 
+def _first_content_line(content: bytes) -> int:
+    """Give the offset of the first line that is not blank.
+
+    The two beet files open with a blank line before the header, which `read_csv` would take for
+    the header itself.
+    """
+    offset = 0
+    while offset < len(content):
+        end = content.find(b"\n", offset)
+        line = content[offset:] if end == -1 else content[offset:end]
+        if line.strip():
+            return offset
+        if end == -1:
+            return len(content)
+        offset = end + 1
+    return offset
+
+
 def _read_phenology_file(content: bytes) -> pl.DataFrame:
     """Read one phenology text file into a frame of stripped strings.
 
@@ -80,14 +98,16 @@ def _read_phenology_file(content: bytes) -> pl.DataFrame:
     width, which no numeric parser accepts, and a value that is empty rather than padded has to
     become null rather than fail the whole file.
     """
-    lines = content.decode("latin-1").splitlines()
-    # the two beet files open with a blank line before the header
-    while lines and not lines[0].strip():
-        lines.pop(0)
-    if len(lines) < 2:
+    # sliced as bytes and transcoded once: splitting a 160 MB file into lines and joining them
+    # back together holds four copies of it at the peak, for the sake of the blank first line
+    # that only the two beet files have
+    # `_first_content_line` returns the length when every line is blank, so this is empty exactly
+    # when there is nothing to read -- tested without `strip()`, which would copy the whole file
+    content = content[_first_content_line(content) :]
+    if not content:
         return pl.DataFrame()
     df = pl.read_csv(
-        "\n".join(lines).encode("utf-8"),
+        content.decode("latin-1").encode("utf-8"),
         separator=";",
         infer_schema_length=0,
         truncate_ragged_lines=True,
@@ -160,6 +180,20 @@ def _file_url(dataset: DatasetModel, period: Period, settings: Settings) -> str 
     return max(candidates)[1]
 
 
+def _periods_for(requested: set[Period] | None, dataset: DatasetModel) -> set[Period]:
+    """Choose the periods to read for one dataset.
+
+    A dataset published in only one period has nothing to choose between, so it is read whatever
+    the request asked for. Periods derived from a date range assume `recent` holds the last few
+    years, which does not hold for the two datasets with no historical release at all: their whole
+    record lives in the recent file, back to 2018 for `annual_currant_all_varieties` and 2021 for
+    `annual_beet`. Intersecting would have left those years unreachable by any date range -- the
+    request returned nothing at all rather than the rows it asked for.
+    """
+    published = set(dataset.periods)
+    return (requested or published) & published or published
+
+
 class DwdPhenologyValues(TimeseriesValues):
     """Values class for DWD phenology data."""
 
@@ -190,7 +224,11 @@ class DwdPhenologyValues(TimeseriesValues):
             file = download_file(
                 url=url,
                 cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.TWELVE_HOURS if period == Period.RECENT else CacheExpiry.METAINDEX,
+                # the longest bounded expiry `CacheExpiry` offers. The historical files are
+                # re-released about once a year and run to 160 MB, so they would earn a far longer
+                # one, but the only thing above twelve hours is `INFINITE`, and a release corrected
+                # in place under the same name would then never be picked up again
+                ttl=CacheExpiry.TWELVE_HOURS,
                 client_kwargs=settings.fsspec_client_kwargs,
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
@@ -215,13 +253,13 @@ class DwdPhenologyValues(TimeseriesValues):
             else parameter_or_dataset.dataset  # every phenology dataset is grouped
         )
         stations = cast("DwdPhenologyRequest", self.sr.stations)
-        periods = cast("set[Period]", stations.periods) or set(dataset.periods)
+        periods = _periods_for(cast("set[Period] | None", stations.periods), dataset)
         # oldest period first: where the periods overlap -- and recent reaches back into the years
         # the last historical release already covers -- `_process_dataset` keeps the first row for a
         # (parameter, date), and the historical file is the one carrying the final quality marks
         frames = [
             df
-            for period in sorted(periods & set(dataset.periods))
+            for period in sorted(periods)
             if not (df := self._load(dataset, period).filter(pl.col("station_id").eq(station_id))).is_empty()
         ]
         if not frames:
@@ -312,7 +350,7 @@ class DwdPhenologyRequest(TimeseriesRequest):
         # read positionally: the header carries a stray tab inside the "Naturraumgruppe" cell and
         # names the columns in German, so the position is the more reliable handle
         df = pl.read_csv(
-            "\n".join(file.content.read().decode("latin-1").splitlines()).encode("utf-8"),
+            file.content.read().decode("latin-1").encode("utf-8"),
             separator=";",
             has_header=False,
             skip_rows=1,

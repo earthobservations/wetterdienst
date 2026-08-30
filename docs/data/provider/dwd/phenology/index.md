@@ -10,9 +10,9 @@ report from roughly 6600 stations, and the series reach back to 1925 for many of
 Observations come from two reporter groups, which are kept apart by the dataset name prefix:
 
 - **annual reporters** (*Jahresmelder*, `annual_*`) — the full observation programme, submitted
-  once the season is over. ~6600 stations, 76 plants.
+  once the season is over. ~6600 stations, 72 plant datasets.
 - **immediate reporters** (*Sofortmelder*, `immediate_*`) — a smaller set of phases, reported
-  within days of the observation. ~1200 stations, 34 plants.
+  within days of the observation. ~1200 stations, 38 plant datasets.
 
 Data is published at
 [observations_germany/phenology](https://opendata.dwd.de/climate_environment/CDC/observations_germany/phenology/),
@@ -56,9 +56,12 @@ values = next(request.filter_by_station_id("07521").values.query()).df
   only the latest is complete, and that is the one read.
 - **recent** — the current year and the three before it.
 
-Not every plant has both. Plants discontinued before the recent files begin (spring wheat, tomato,
-white cabbage, the farming activities) are `historical` only, and two added since the last
-historical release are `recent` only.
+Not every plant has both. Fifteen datasets are `historical` only — those discontinued before the
+recent files begin, among them spring wheat, tomato, white cabbage, the two farming activities,
+three of the five annual-reporter grapevine varieties and all three immediate-reporter ones. Two are `recent` only, `annual_beet` and
+`annual_currant_all_varieties`, having been added since the last historical release; their whole
+record lives in the recent file, so a date range reaching back before the recent window still
+reads them.
 
 ```{warning}
 The files are per plant, not per station: asking for one station's `historical` series downloads
