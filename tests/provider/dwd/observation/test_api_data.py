@@ -14,7 +14,9 @@ from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Resolution, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import DatasetModel
-from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
+from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.provider.dwd.observation import api as dwd_observation_api
+from wetterdienst.provider.dwd.observation.api import DwdObservationRequest, DwdObservationValues
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
@@ -812,6 +814,130 @@ def test_dwd_observations_urban_values_basic(default_settings: Settings, dataset
     ).filter_by_name(name="Berlin-Alexanderplatz")
     given_df = request.values.all().df
     assert not given_df.drop_nulls(subset=["value"]).is_empty()
+
+
+def test_period_precedence_on_overlapping_timestamps(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Where two periods report the same timestamp, the historical record wins.
+
+    The frames are concatenated with `how="align"`, which orders the rows by the columns it aligns
+    them on, so deduplicating with `keep="first"` alone takes whichever record sorts first on its
+    values -- the lower reading, or a null wherever one period is missing a measurement the other
+    has. The read order has to be carried as a rank and sorted on.
+    """
+    dataset = DwdObservationMetadata.hourly.temperature_air
+    frames = {
+        # the historical value sorts after the recent one, so a leftover value sort would lose it,
+        # and its null at 01:00 would win a value sort it should not
+        Period.HISTORICAL: pl.LazyFrame(
+            {
+                "station_id": ["00011", "00011"],
+                "date": [
+                    dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                    dt.datetime(2024, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+                ],
+                "qn": ["3", "3"],
+                "tt_tu": ["9.9", None],
+            },
+        ),
+        Period.RECENT: pl.LazyFrame(
+            {
+                "station_id": ["00011", "00011"],
+                "date": [
+                    dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                    dt.datetime(2024, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+                ],
+                "qn": ["1", "1"],
+                "tt_tu": ["1.1", "2.2"],
+            },
+        ),
+    }
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda *args, **kwargs: pl.Series(["https://example.invalid/file.zip"]),  # noqa: ARG005
+    )
+    monkeypatch.setattr(dwd_observation_api, "download_climate_observations_data", lambda *args, **kwargs: [object()])  # noqa: ARG005
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "parse_climate_observations_data",
+        lambda _files, _dataset, period: frames[period],
+    )
+    request = DwdObservationRequest(
+        parameters=[("hourly", "temperature_air")],
+        periods={"historical", "recent"},
+        settings=default_settings,
+    )
+    stations_result = StationsResult(
+        stations=request,
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    values = DwdObservationValues.from_stations(stations_result)
+    given_df = values._collect_station_parameter_or_dataset("00011", dataset)  # noqa: SLF001
+    given_df = given_df.filter(pl.col("parameter") == "tt_tu").sort("date")
+    # 9.9 over recent's 1.1 shows the rank decides rather than the value sort, and the null over
+    # recent's 2.2 that a missing historical measurement is not quietly filled from a later period.
+    # `_tidy_up_df` drops the quality wherever the value is null, hence the None beside it
+    assert given_df.get_column("value").to_list() == [9.9, None]
+    assert given_df.get_column("quality").to_list() == [3.0, None]
+
+
+@pytest.mark.remote
+def test_dwd_observations_urban_10_minutes_now(default_settings: Settings) -> None:
+    """The 10 minute urban `now` period reaches today, not yesterday.
+
+    The urban URL used to be pinned to the `recent` directory whatever the period, so a `now`
+    request silently returned `recent` data ending at the previous midnight (GH-1875).
+    """
+    request = DwdObservationRequest(
+        parameters=[("10_minutes", "urban_wind")],
+        periods="now",
+        settings=default_settings,
+    ).filter_by_station_id("00399")
+    given_df = request.values.all().df
+    assert not given_df.is_empty()
+    now = dt.datetime.now(ZoneInfo("UTC"))
+    # `now` holds the current day only, while `recent` reaches 500 days back -- the span is what
+    # tells the two apart at any hour of the day, where the newest timestamp alone would not
+    assert given_df.get_column("date").min() >= now - dt.timedelta(days=2)
+    assert given_df.get_column("date").max() >= now - dt.timedelta(days=2)
+
+
+@pytest.mark.remote
+def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings) -> None:
+    """The 10 minute urban `historical` period reaches back beyond what `recent` covers (GH-1875)."""
+    request = DwdObservationRequest(
+        parameters=[("10_minutes", "urban_wind", "wind_direction")],
+        periods="historical",
+        start_date="2016-01-01",
+        end_date="2016-01-02",
+        settings=default_settings,
+    ).filter_by_station_id("00399")
+    given_df = request.values.all().df
+    expected_df = pl.DataFrame(
+        [
+            {
+                "station_id": "00399",
+                "resolution": "10_minutes",
+                "dataset": "urban_wind",
+                "parameter": "wind_direction",
+                "date": dt.datetime(2016, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 230.0,
+                "quality": 3.0,
+            },
+        ],
+        orient="row",
+    ).with_columns(
+        pl.col("station_id").cast(pl.Enum(["00399"])),
+        pl.col("resolution").cast(pl.Enum(["10_minutes"])),
+        pl.col("dataset").cast(pl.Enum(["urban_wind"])),
+        pl.col("parameter").cast(pl.Enum(["wind_direction"])),
+    )
+    assert_frame_equal(given_df.head(1), expected_df)
 
 
 @pytest.mark.remote

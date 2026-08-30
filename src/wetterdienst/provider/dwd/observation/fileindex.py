@@ -12,7 +12,12 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
-from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, HIGH_RESOLUTIONS, DwdObservationMetadata
+from wetterdienst.provider.dwd.observation.metadata import (
+    DWD_URBAN_DATASETS,
+    DWD_URBAN_DATASETS_WITHOUT_PERIOD_DIRECTORIES,
+    HIGH_RESOLUTIONS,
+    DwdObservationMetadata,
+)
 from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
@@ -134,7 +139,11 @@ def _build_url_from_dataset_and_period(
 ) -> str:
     """Build the URL for a given dataset."""
     if dataset in DWD_URBAN_DATASETS:
-        return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/{dataset.resolution.value.value}/{dataset.name_original[6:]}/{Period.RECENT.value}/"
+        # the 10 minute urban datasets carry a directory per period like the non-urban ones, so the
+        # requested period has to reach the URL -- pinning it to ``recent`` served yesterday's data
+        # for a ``now`` request and made ``historical`` unreachable altogether.
+        urban_period = Period.RECENT if dataset in DWD_URBAN_DATASETS_WITHOUT_PERIOD_DIRECTORIES else period
+        return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/{dataset.resolution.value.value}/{dataset.name_original.removeprefix('urban_')}/{urban_period.value}/"
     if dataset in (
         DwdObservationMetadata.hourly.solar,
         DwdObservationMetadata.daily.solar,
