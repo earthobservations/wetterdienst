@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import shutil
 import ssl
 import threading
 from collections.abc import Iterator, MutableMapping
@@ -99,6 +100,55 @@ class File:
         return self.nbytes == 0
 
 
+# Directory names the listings cache used to create under the cache dir but never writes to any
+# more. ``False`` came from ``CacheExpiry.INFINITE`` and from a disabled cache, ``0.0`` from the
+# download-side filesystem registration, ``0.01`` from ``CacheExpiry.NO_CACHE``. In every one of
+# those cases ``use_listings_cache`` was False, so the directory was created and then never written
+# to. They are swept on the next run, guarded by an emptiness check so that a directory which does
+# somehow hold entries is left alone.
+_LEGACY_LISTINGS_CACHE_DIR_NAMES = frozenset({"False", "0.0", "0.01"})
+_legacy_cleanup_lock = threading.Lock()
+_legacy_cleanup_done: set[Path] = set()
+
+
+def _remove_legacy_listings_cache_dirs(cache_root: Path, keep: str) -> None:
+    """Remove empty listings-cache directories left behind by earlier versions.
+
+    Runs once per cache root per process, and is best-effort throughout: a cache directory that
+    cannot be tidied is not a reason to fail the request that happened to trigger the sweep.
+
+    Args:
+        cache_root: Directory the per-TTL listings cache folders live in.
+        keep: Name of the folder the caller is about to use, never removed.
+
+    """
+    with _legacy_cleanup_lock:
+        if cache_root in _legacy_cleanup_done:
+            return
+        _legacy_cleanup_done.add(cache_root)
+
+    from diskcache import Cache  # noqa: PLC0415
+
+    for name in _LEGACY_LISTINGS_CACHE_DIR_NAMES - {keep}:
+        stale = cache_root / name
+        if not stale.is_dir():
+            continue
+        try:
+            with Cache(directory=str(stale)) as cache:
+                # cull expired rows first: the ``False`` folder is full of them, because
+                # ``CacheExpiry.INFINITE`` used to store every listing already expired. What
+                # matters is whether anything still *valid* is in there.
+                cache.expire()
+                entries = len(cache)
+            if entries:
+                log.debug(f"Keeping listings cache folder {stale}, it still holds {entries} entries")
+                continue
+            shutil.rmtree(stale)
+            log.info(f"Removed orphaned listings cache folder {stale}")
+        except Exception:
+            log.debug(f"Failed removing orphaned listings cache folder {stale}", exc_info=True)
+
+
 def _rebuild_file_dir_cache(
     listings_expiry_time: float | None,
     use_listings_cache: bool,  # noqa: FBT001
@@ -162,6 +212,8 @@ class FileDirCache(MutableMapping):
             cache_location = Path(listings_cache_location) / subdir
         else:
             cache_location = Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec")) / subdir
+
+        _remove_legacy_listings_cache_dirs(cache_location.parent, keep=cache_location.name)
 
         try:
             log.info(f"Creating dircache folder at {cache_location}")

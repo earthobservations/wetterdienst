@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import stamina
 from aiohttp import ClientConnectorError, ClientResponseError, ClientTimeout
+from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.exceptions import NoInternetError
@@ -22,6 +23,7 @@ from wetterdienst.util.network import (
     FileDirCache,
     HTTPFileSystem,
     NetworkFilesystemManager,
+    _legacy_cleanup_done,
     download_file,
     list_remote_directory_fsspec,
     list_remote_files_fsspec,
@@ -428,6 +430,80 @@ def test_list_remote_directory_fsspec_uses_listings_cache(tmp_path: Path) -> Non
     assert first == _fake_listing("http://example.com/")
     assert first == second
     assert calls == ["http://example.com/"]
+
+
+def test_file_dir_cache_sweeps_orphaned_legacy_dirs(tmp_path: Path) -> None:
+    """Empty cache folders left by earlier versions are removed on the next run."""
+    _legacy_cleanup_done.clear()
+    for name in ("False", "0.0", "0.01"):
+        (tmp_path / name).mkdir()
+    live = tmp_path / "43200.0"
+    live.mkdir()
+    (tmp_path / "fsspec").mkdir()
+
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+
+    remaining = sorted(p.name for p in tmp_path.iterdir())
+    assert remaining == ["300.0", "43200.0", "fsspec"]
+
+
+def test_file_dir_cache_keeps_legacy_dir_that_holds_entries(tmp_path: Path) -> None:
+    """A legacy-named folder that somehow still holds entries is left alone."""
+    _legacy_cleanup_done.clear()
+    stale = tmp_path / "0.01"
+    stale.mkdir()
+    with Cache(directory=str(stale)) as cache:
+        cache.set(key="http://example.com/", value=_fake_listing("http://example.com/"))
+
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+
+    assert stale.is_dir()
+
+
+def test_file_dir_cache_sweeps_legacy_dir_holding_only_expired_entries(tmp_path: Path) -> None:
+    """The real-world ``False`` folder is full of rows that were stored already expired.
+
+    ``CacheExpiry.INFINITE`` used to hand diskcache an expiry of ``now + False == now``, so the
+    folder is not empty by row count even though nothing in it is readable. It still goes.
+    """
+    _legacy_cleanup_done.clear()
+    stale = tmp_path / "False"
+    stale.mkdir()
+    with Cache(directory=str(stale)) as cache:
+        cache.set(key="http://example.com/", value=_fake_listing("http://example.com/"), expire=False)
+        assert len(cache) == 1
+
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+
+    assert not stale.exists()
+
+
+def test_file_dir_cache_never_sweeps_the_dir_it_is_about_to_use(tmp_path: Path) -> None:
+    """A cache legitimately created at a legacy-looking TTL is not swept out from under itself."""
+    _legacy_cleanup_done.clear()
+    cache = FileDirCache(0.01, use_listings_cache=True, listings_cache_location=tmp_path)
+    assert cache.cache_location.name == "0.01"
+    assert cache.cache_location.is_dir()
+
+
+def test_legacy_cache_sweep_runs_once_per_root(tmp_path: Path) -> None:
+    """The sweep is skipped on later constructions for the same cache root."""
+    _legacy_cleanup_done.clear()
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    assert tmp_path in _legacy_cleanup_done
+    # a folder created after the sweep survives, proving the sweep did not run a second time
+    (tmp_path / "False").mkdir()
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    assert (tmp_path / "False").is_dir()
+
+
+def test_legacy_cache_sweep_survives_unremovable_dir(tmp_path: Path) -> None:
+    """A folder that cannot be removed is logged, not raised."""
+    _legacy_cleanup_done.clear()
+    (tmp_path / "False").mkdir()
+    with patch("wetterdienst.util.network.shutil.rmtree", side_effect=OSError("permission denied")):
+        FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    assert (tmp_path / "300.0").is_dir()
 
 
 def test_http_filesystem_accepts_client_kwargs_none(tmp_path: Path) -> None:

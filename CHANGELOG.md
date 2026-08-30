@@ -34,8 +34,10 @@ Types of changes:
 - Network: a float timeout in `fsspec_client_kwargs` (e.g. `WD_FSSPEC_CLIENT_KWARGS='{"timeout": 30.5}'`)
   reached aiohttp unwrapped and failed every request with `ValueError: timeout parameter cannot be of
   <class 'float'> type`; only int timeouts were being wrapped in `ClientTimeout`
-- Network: a disabled listings cache created (and `mkdir`-ed) a cache directory named `False`
-  or `0.01` that nothing was ever written to
+- Network: a disabled listings cache created (and `mkdir`-ed) a cache directory named `False`,
+  `0.0` or `0.01` that nothing readable was ever written to. Those folders are no longer created,
+  and any left behind by an earlier version are swept from the cache directory on the next run --
+  guarded so that a folder still holding valid entries is kept
 - DWD observation: the `climate_urban` URL was pinned to the `recent` directory whatever period was
   requested, so a `now` request for a 10-minute urban dataset was answered with `recent` data ending
   at the previous midnight, and `historical` -- reaching back to each station's first year, 2015 for
