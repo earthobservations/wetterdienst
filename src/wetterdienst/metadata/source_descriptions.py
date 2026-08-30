@@ -2080,30 +2080,28 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("10_minutes", "temperature_air"): "10-minute station observations of air temperature for Germany.",
         ("10_minutes", "temperature_extreme"): "10-minute station observations of extreme temperatures for Germany.",
         ("10_minutes", "urban_precipitation"): (
-            "Recent 10-minute precipitation, observed at urban stations for selected urban areas in Germany."
+            "10-minute precipitation, observed at urban stations for selected urban areas in Germany."
         ),
         ("10_minutes", "urban_pressure"): (
-            "Recent 10-minute pressure, observed at urban stations for selected urban areas in Germany."
+            "10-minute pressure, observed at urban stations for selected urban areas in Germany."
         ),
         ("10_minutes", "urban_solar"): (
-            "Recent 10-minute solar radiation and sunshine, observed at urban stations for selected "
-            "urban areas in Germany."
+            "10-minute solar radiation and sunshine, observed at urban stations for selected urban areas in Germany."
         ),
         ("10_minutes", "urban_temperature_air"): (
-            "Recent 10-minute air temperature and humidity, observed at urban stations for selected "
-            "urban areas in Germany."
+            "10-minute air temperature and humidity, observed at urban stations for selected urban areas in Germany."
         ),
         ("10_minutes", "urban_temperature_extreme"): (
-            "Recent 10-minute extreme air temperatures, observed at urban stations for selected urban areas in Germany."
+            "10-minute extreme air temperatures, observed at urban stations for selected urban areas in Germany."
         ),
         ("10_minutes", "urban_temperature_soil"): (
-            "Recent 10-minute soil temperature, observed at urban stations for selected urban areas in Germany."
+            "10-minute soil temperature, observed at urban stations for selected urban areas in Germany."
         ),
         ("10_minutes", "urban_wind"): (
-            "Recent 10-minute wind speed and direction, observed at urban stations for selected urban areas in Germany."
+            "10-minute wind speed and direction, observed at urban stations for selected urban areas in Germany."
         ),
         ("10_minutes", "urban_wind_extreme"): (
-            "Recent 10-minute extreme wind, observed at urban stations for selected urban areas in Germany."
+            "10-minute extreme wind, observed at urban stations for selected urban areas in Germany."
         ),
         ("10_minutes", "wind"): "10-minute station observations of wind for Germany.",
         ("10_minutes", "wind_extreme"): "10-minute station observations of extreme wind for Germany.",

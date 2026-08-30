@@ -1293,3 +1293,19 @@ def test_dwd_obs_subdaily_wind_extreme_history() -> None:
     assert len(history.missing_data.periods) == IsApprox(3909, delta=200)
     # one special assertion here for parameter names
     assert {parameter.parameter for parameter in history.parameter} == {"FX_911_3", "FX_911_6"}
+
+
+def test_dwd_obs_10_minutes_urban_wind_history() -> None:
+    """Test history query for a 10 minute climate_urban dataset.
+
+    climate_urban has no `meta_data` directory beside the periods, so the urban datasets took the
+    10-minute route to a URL that does not exist and yielded nothing at all.
+    """
+    stations = DwdObservationRequest(parameters=[("10_minutes", "urban_wind")]).filter_by_station_id("00399")
+    history_result = next(stations.history.query())
+    history = history_result.history
+    assert len(history.name.station) == 1
+    assert history.name.station[0].station_name == "Berlin-Alexanderplatz"
+    assert {parameter.parameter for parameter in history.parameter} == {"DD_ST_10", "FF_ST_10"}
+    assert len(history.device) > 0
+    assert len(history.geography) > 0

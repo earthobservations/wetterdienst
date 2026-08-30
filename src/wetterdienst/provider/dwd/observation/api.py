@@ -44,6 +44,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     create_file_list_for_climate_observations,
 )
 from wetterdienst.provider.dwd.observation.metadata import (
+    DWD_URBAN_DATASETS,
     HIGH_RESOLUTIONS,
     DwdObservationMetadata,
 )
@@ -84,7 +85,11 @@ class DwdObservationValues(TimeseriesValues):
         else:
             dataset = parameter_or_dataset.dataset
         periods_and_date_ranges = []
-        for period in cast("set[Period]", stations.periods):
+        # oldest period first, so that where the periods overlap -- as historical, recent and now do
+        # for a 10 minute dataset -- the deduplication below settles each timestamp on the
+        # quality-marked historical record rather than on whichever period the set happened to yield
+        # first
+        for period in sorted(cast("set[Period]", stations.periods)):
             if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(
                     station_id,
@@ -121,8 +126,9 @@ class DwdObservationValues(TimeseriesValues):
             parameter_df = pl.concat(parameter_data, how="align")
         except ValueError:
             return pl.DataFrame()
-        # Filter out values which already are in the DataFrame
-        parameter_df = parameter_df.unique(subset=["date"])
+        # Filter out values which already are in the DataFrame, keeping the one from the oldest
+        # period the periods were iterated in above
+        parameter_df = parameter_df.unique(subset=["date"], keep="first")
         result = parameter_df.collect(background=False)
         if not isinstance(result, pl.DataFrame):
             msg = "Expected DataFrame from collect()"
@@ -215,7 +221,10 @@ class DwdObservationHistory(TimeseriesHistory):
             dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}"
             log.info(f"Acquiring station history for {dataset_identifier}.")
             try:
-                if dataset.resolution.value in HIGH_RESOLUTIONS:
+                # climate_urban has no `meta_data` directory beside the periods -- its zips carry the
+                # `Metadaten_*.txt` files themselves -- so the urban datasets take the same route as
+                # the low resolutions even at 10 minutes
+                if dataset.resolution.value in HIGH_RESOLUTIONS and dataset not in DWD_URBAN_DATASETS:
                     file_index = _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata(
                         resolution=dataset.resolution.value.value,
                         dataset=dataset.name_original,
@@ -691,6 +700,14 @@ class DwdObservationRequest(TimeseriesRequest):
             msg = "Only language 'en' or 'de' supported"
             raise ValueError(msg)
         file_index = file_index.filter(pl.col("filename").str.contains(file_prefix))
+        if file_index.is_empty():
+            # DWD publishes no description PDF at all for e.g. the 10 minute climate_urban datasets,
+            # which otherwise surfaced as an opaque `.item()` length error
+            msg = (
+                f"No {language} field description found for dataset {dataset.name} "
+                f"and period {period_enum.name} at {url}"
+            )
+            raise ValueError(msg)
         description_file_url = str(file_index.get_column("url").item())
         log.info(f"Acquiring field information from {description_file_url}")
         return read_description(description_file_url, language=language)
@@ -707,7 +724,10 @@ class DwdObservationRequest(TimeseriesRequest):
         stations = []
         for dataset in datasets:
             periods = set(dataset.periods) & cast("set[Period]", self.periods) if self.periods else dataset.periods
-            for period in reversed(list(periods)):
+            # newest period first, so the `keep="first"` below settles a station on the most current
+            # of its descriptions. Period is orderable; iterating the set directly left the winner
+            # to the set's own iteration order, which varies from one interpreter run to the next
+            for period in sorted(periods, reverse=True):
                 try:
                     df = create_meta_index_for_climate_observations(dataset, period, settings)
                 except MetaFileNotFoundError:

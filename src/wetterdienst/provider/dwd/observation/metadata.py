@@ -2079,6 +2079,13 @@ DWD_URBAN_DATASETS = [
     DwdObservationMetadata.hourly.urban_wind,
 ]
 
+# climate_urban is only split by period at 10 minutes. The hourly urban datasets publish a single
+# ``recent`` directory that holds the whole record back to each station's first year -- there is no
+# ``historical`` or ``now`` beside it -- so every requested period resolves onto that one directory.
+DWD_URBAN_DATASETS_WITHOUT_PERIOD_DIRECTORIES = [
+    dataset for dataset in DWD_URBAN_DATASETS if dataset.resolution.value != Resolution.MINUTE_10
+]
+
 HIGH_RESOLUTIONS = (
     Resolution.MINUTE_1,
     Resolution.MINUTE_5,

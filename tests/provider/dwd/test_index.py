@@ -26,6 +26,37 @@ def test__build_url_from_dataset_and_period() -> None:
     assert url == "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/historical/"
 
 
+@pytest.mark.parametrize(
+    "period",
+    [Period.HISTORICAL, Period.RECENT, Period.NOW],
+)
+def test__build_url_from_dataset_and_period_urban_10_minutes(period: Period) -> None:
+    """The 10 minute climate_urban datasets have a directory per period, so the period reaches the URL."""
+    url = _build_url_from_dataset_and_period(
+        dataset=DwdObservationMetadata.minute_10.urban_wind,
+        period=period,
+    )
+    assert url == (
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/"
+        f"10_minutes/wind/{period.value}/"
+    )
+
+
+@pytest.mark.parametrize(
+    "period",
+    [Period.HISTORICAL, Period.RECENT, Period.NOW],
+)
+def test__build_url_from_dataset_and_period_urban_hourly(period: Period) -> None:
+    """The hourly climate_urban datasets only have a ``recent`` directory, holding the full record."""
+    url = _build_url_from_dataset_and_period(
+        dataset=DwdObservationMetadata.hourly.urban_wind,
+        period=period,
+    )
+    assert url == (
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/wind/recent/"
+    )
+
+
 @pytest.mark.remote
 def test_list_files_of_climate_observations() -> None:
     """Test listing of files on DWD server."""

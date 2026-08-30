@@ -16,6 +16,27 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- DWD observation: the `climate_urban` URL was pinned to the `recent` directory whatever period was
+  requested, so a `now` request for a 10-minute urban dataset was answered with `recent` data ending
+  at the previous midnight, and `historical` -- reaching back to each station's first year, 2015 for
+  Berlin-Alexanderplatz -- could not be read at all. The 10-minute urban datasets carry a directory
+  per period like the non-urban ones, so the requested period now reaches the URL. The hourly urban
+  datasets are unchanged: DWD publishes a single `recent` directory for them that already holds the
+  full record, and every period keeps mapping onto it
+- DWD observation: `describe_fields()` raised an opaque `.item()` length error for the 10-minute
+  urban datasets, for which DWD publishes no description PDF at all; it now names the dataset,
+  period and URL it looked at
+- DWD observation: station `history` returned nothing for the 10-minute urban datasets. It looked
+  for them under a `meta_data` directory that only the non-urban high resolutions have, while the
+  urban zips carry their `Metadaten_*.txt` files themselves
+- DWD observation: the order in which the requested periods were read was the iteration order of a
+  set, and so varied from one interpreter run to the next. Values are now read oldest period first,
+  so an overlapping timestamp settles on the quality-marked historical record, and stations newest
+  period first, so a station settles on its most current description. This is visible for the first
+  time on the 10-minute urban datasets, whose three periods used to resolve to the same directory
+
 ## [0.134.0] - 2026-08-22
 
 ### Added

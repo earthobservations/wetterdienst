@@ -57,8 +57,10 @@ def create_meta_index_for_climate_observations(
     elif cond3:
         # The climate_urban station lists frequently leave optional fields (von_datum, bis_datum,
         # Bundesland, Abgabe) blank, so whitespace-splitting misaligns the columns -- the urban path
-        # locates fields by their content instead (see _read_meta_df_urban). Urban data is recent-only.
-        meta_index = _create_meta_index_for_climate_observations(dataset, Period.RECENT, settings, urban=True)
+        # locates fields by their content instead (see _read_meta_df_urban). The period is passed
+        # through like anywhere else; _build_url_from_dataset_and_period knows which urban datasets
+        # have a directory per period.
+        meta_index = _create_meta_index_for_climate_observations(dataset, period, settings, urban=True)
     else:
         meta_index = _create_meta_index_for_climate_observations(dataset, period, settings)
     # If no state column available, take state information from daily historical

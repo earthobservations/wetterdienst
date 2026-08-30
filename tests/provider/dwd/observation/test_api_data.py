@@ -815,6 +815,60 @@ def test_dwd_observations_urban_values_basic(default_settings: Settings, dataset
 
 
 @pytest.mark.remote
+def test_dwd_observations_urban_10_minutes_now(default_settings: Settings) -> None:
+    """The 10 minute urban `now` period reaches today, not yesterday.
+
+    The urban URL used to be pinned to the `recent` directory whatever the period, so a `now`
+    request silently returned `recent` data ending at the previous midnight (GH-1875).
+    """
+    request = DwdObservationRequest(
+        parameters=[("10_minutes", "urban_wind")],
+        periods="now",
+        settings=default_settings,
+    ).filter_by_station_id("00399")
+    given_df = request.values.all().df
+    assert not given_df.is_empty()
+    now = dt.datetime.now(ZoneInfo("UTC"))
+    # `now` holds the current day only, while `recent` reaches 500 days back -- the span is what
+    # tells the two apart at any hour of the day, where the newest timestamp alone would not
+    assert given_df.get_column("date").min() >= now - dt.timedelta(days=2)
+    assert given_df.get_column("date").max() >= now - dt.timedelta(days=2)
+
+
+@pytest.mark.remote
+def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings) -> None:
+    """The 10 minute urban `historical` period reaches back beyond what `recent` covers (GH-1875)."""
+    request = DwdObservationRequest(
+        parameters=[("10_minutes", "urban_wind", "wind_direction")],
+        periods="historical",
+        start_date="2016-01-01",
+        end_date="2016-01-02",
+        settings=default_settings,
+    ).filter_by_station_id("00399")
+    given_df = request.values.all().df
+    expected_df = pl.DataFrame(
+        [
+            {
+                "station_id": "00399",
+                "resolution": "10_minutes",
+                "dataset": "urban_wind",
+                "parameter": "wind_direction",
+                "date": dt.datetime(2016, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 230.0,
+                "quality": 3.0,
+            },
+        ],
+        orient="row",
+    ).with_columns(
+        pl.col("station_id").cast(pl.Enum(["00399"])),
+        pl.col("resolution").cast(pl.Enum(["10_minutes"])),
+        pl.col("dataset").cast(pl.Enum(["urban_wind"])),
+        pl.col("parameter").cast(pl.Enum(["wind_direction"])),
+    )
+    assert_frame_equal(given_df.head(1), expected_df)
+
+
+@pytest.mark.remote
 def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_false_convert_units_false: Settings) -> None:
     """Test for actual values (format) in metric units."""
     request = DwdObservationRequest(

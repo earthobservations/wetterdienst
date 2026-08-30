@@ -148,7 +148,7 @@ Codes (precipitation_indicator_wr):
 |---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | urban_precipitation                                                                                                                                                                                                      |
 | original name | precipitation (climate_urban)                                                                                                                                                                                            |
-| description   | Recent 10-minute precipitation, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/precipitation/)) |
+| description   | 10-minute precipitation, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/precipitation/)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/precipitation/)                                                                                                     |
 
 #### parameters
@@ -165,7 +165,7 @@ Codes (precipitation_indicator_wr):
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | urban_pressure                                                                                                                                                                                                 |
 | original name | pressure (climate_urban)                                                                                                                                                                                       |
-| description   | Recent 10-minute pressure, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/pressure/)) |
+| description   | 10-minute pressure, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/pressure/)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/pressure/)                                                                                                |
 
 #### parameters
@@ -183,7 +183,7 @@ Codes (precipitation_indicator_wr):
 |---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | urban_solar                                                                                                                                                                                                                     |
 | original name | solar (climate_urban)                                                                                                                                                                                                           |
-| description   | Recent 10-minute solar radiation and sunshine, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/solar/)) |
+| description   | 10-minute solar radiation and sunshine, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/solar/)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/solar/)                                                                                                                    |
 
 #### parameters
@@ -201,7 +201,7 @@ Codes (precipitation_indicator_wr):
 |---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | urban_temperature_air                                                                                                                                                                                                                     |
 | original name | air_temperature (climate_urban)                                                                                                                                                                                                           |
-| description   | Recent 10-minute air temperature and humidity, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/air_temperature/)) |
+| description   | 10-minute air temperature and humidity, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/air_temperature/)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/air_temperature/)                                                                                                                    |
 
 #### parameters
@@ -221,7 +221,7 @@ Codes (precipitation_indicator_wr):
 |---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | urban_temperature_extreme                                                                                                                                                                                                                 |
 | original name | extreme_temperature (climate_urban)                                                                                                                                                                                                       |
-| description   | Recent 10-minute extreme air temperatures, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/extreme_temperature/)) |
+| description   | 10-minute extreme air temperatures, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/extreme_temperature/)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/extreme_temperature/)                                                                                                                |
 
 #### parameters
@@ -240,7 +240,7 @@ Codes (precipitation_indicator_wr):
 |---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | urban_temperature_soil                                                                                                                                                                                                         |
 | original name | soil_temperature (climate_urban)                                                                                                                                                                                               |
-| description   | Recent 10-minute soil temperature, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/soil_temperature/)) |
+| description   | 10-minute soil temperature, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/soil_temperature/)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/soil_temperature/)                                                                                                        |
 
 #### parameters
@@ -260,7 +260,7 @@ Codes (precipitation_indicator_wr):
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | urban_wind                                                                                                                                                                                                                 |
 | original name | wind (climate_urban)                                                                                                                                                                                                       |
-| description   | Recent 10-minute wind speed and direction, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/wind/)) |
+| description   | 10-minute wind speed and direction, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/wind/)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/wind/)                                                                                                                |
 
 #### parameters
@@ -278,7 +278,7 @@ Codes (precipitation_indicator_wr):
 |---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | urban_wind_extreme                                                                                                                                                                                                     |
 | original name | extreme_wind (climate_urban)                                                                                                                                                                                           |
-| description   | Recent 10-minute extreme wind, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/extreme_wind/)) |
+| description   | 10-minute extreme wind, observed at urban stations for selected urban areas in Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/extreme_wind/)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/10_minutes/extreme_wind/)                                                                                                    |
 
 #### parameters
