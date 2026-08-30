@@ -264,13 +264,26 @@ def _fake_listing(url: str) -> list[dict]:
 
 
 def test_file_dir_cache_stores_and_returns_listing(tmp_path: Path) -> None:
-    """FileDirCache round-trips a listing and reports containment."""
+    """FileDirCache round-trips a listing."""
     cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
     listing = _fake_listing("http://example.com/")
     cache["http://example.com/"] = listing
-    assert "http://example.com/" in cache
+    assert cache.get("http://example.com/") == listing
     assert cache["http://example.com/"] == listing
     assert len(cache) == 1
+
+
+def test_file_dir_cache_reports_containment(tmp_path: Path) -> None:
+    """__contains__ reflects what is stored.
+
+    The keys here are deliberately not URL-shaped. CodeQL's incomplete-url-substring-sanitization
+    rule flags ``"http://..." in x`` without knowing that x is a mapping rather than a string, and
+    the other tests read the cache through ``get()`` -- which is what ``_ls`` itself now uses.
+    """
+    cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    cache["listing-a"] = _fake_listing("http://example.com/")
+    assert "listing-a" in cache
+    assert "listing-b" not in cache
 
 
 def test_file_dir_cache_infinite_expiry_is_stored(tmp_path: Path) -> None:
@@ -282,7 +295,7 @@ def test_file_dir_cache_infinite_expiry_is_stored(tmp_path: Path) -> None:
     )
     assert cache.listings_expiry_time is None
     cache["http://example.com/"] = _fake_listing("http://example.com/")
-    assert "http://example.com/" in cache
+    assert cache.get("http://example.com/") == _fake_listing("http://example.com/")
     assert cache.cache_location.name == "infinite"
 
 
@@ -296,7 +309,7 @@ def test_file_dir_cache_honours_expiry(tmp_path: Path) -> None:
     cache = FileDirCache(0.2, use_listings_cache=True, listings_cache_location=tmp_path)
     cache["http://example.com/"] = _fake_listing("http://example.com/")
     time.sleep(0.4)
-    assert "http://example.com/" not in cache
+    assert cache.get("http://example.com/") is None
 
 
 def test_file_dir_cache_disabled_stores_nothing_and_creates_no_directory(tmp_path: Path) -> None:
@@ -307,7 +320,7 @@ def test_file_dir_cache_disabled_stores_nothing_and_creates_no_directory(tmp_pat
         listings_cache_location=tmp_path,
     )
     cache["http://example.com/"] = _fake_listing("http://example.com/")
-    assert "http://example.com/" not in cache
+    assert cache.get("http://example.com/") is None
     assert len(cache) == 0
     assert list(cache) == []
     with pytest.raises(KeyError):
@@ -563,7 +576,7 @@ def test_file_dir_cache_zero_expiry_is_not_treated_as_infinite(tmp_path: Path) -
     cache = FileDirCache(0, use_listings_cache=True, listings_cache_location=tmp_path)
     assert cache.listings_expiry_time == 0.0
     cache["http://example.com/"] = _fake_listing("http://example.com/")
-    assert "http://example.com/" not in cache
+    assert cache.get("http://example.com/") is None
 
 
 def test_network_filesystem_manager_accepts_client_kwargs_none(tmp_path: Path) -> None:
