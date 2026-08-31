@@ -1,6 +1,6 @@
 name: Coverage
 
-# Same inputs as the test matrix - see tests.yml for why the provider pages, the two app
+# Same inputs as the test matrix - see tests.yml for why the provider pages, the three app
 # entries and the three root files are in here.
 on:
   push:
@@ -11,6 +11,7 @@ on:
       - 'docs/data/provider/**'
       - 'app/i18n/**'
       - 'app/app/pages/index.vue'
+      - 'app/shared/types/api.ts'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'README.md'
@@ -26,6 +27,7 @@ on:
       - 'docs/data/provider/**'
       - 'app/i18n/**'
       - 'app/app/pages/index.vue'
+      - 'app/shared/types/api.ts'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'README.md'
