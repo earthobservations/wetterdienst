@@ -24,6 +24,15 @@ Types of changes:
   quantity -- while the counted-threshold ones follow the phrasing already there for
   `count_days_precipitation_height_ge_1mm`, down to the decimal comma every locale but English
   writes
+- `[Glossary]` Names in all eleven languages for the fifty phenological phases the backend serves
+  with the new DWD phenology network -- `phenology_flowering_beginning`,
+  `phenology_leaf_unfolding_beginning`, `phenology_harvest` and the rest. A phase is a day of the
+  year on which something happened rather than a measured quantity, so the labels name the event
+  and which end of it the day marks ("Flowering, start", "Blühbeginn", "Floraison, début") instead
+  of the quantity-and-interval phrasing the rest of the catalog uses. The plant a phase was
+  observed on is the dataset rather than the parameter, and those 110 names are not translated
+  yet: they fall back to the prettified id, so "Annual Common Hazel" reads the same in all eleven
+  languages until someone with the botanical vocabulary fills them in
 - `[Explorer]` The interpolation settings show one field per search radius -- one for the
   parameters that vary slowly across a region, one for those that decorrelate faster -- where a
   single "Default (all)" box stood before. That box wrote a `default` key the backend has stopped

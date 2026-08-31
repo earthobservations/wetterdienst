@@ -28,6 +28,9 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - SWSMOS
         - road weather forecast (Straßenwetter-MOS) for ~1800 German road weather stations
         - hourly, out to +167 hours; air/dew/road-surface temperature, precipitation, road condition
+    - Phenology
+        - observed plant development dates from the phenological network, reaching back to 1925
+        - annual resolution; 110 plant datasets across the annual and immediate reporter groups
     - Radar
         - 16 locations in Germany
         - All of Composite, Radolan, Radvor, Sites and Radolan_CDC

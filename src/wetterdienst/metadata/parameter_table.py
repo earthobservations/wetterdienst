@@ -502,6 +502,198 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("number_of_hours_per_month", "dimensionless", "Number of hours in the month the record covers."),
     CanonicalParameter("oxygen_level", "concentration", "Concentration of oxygen dissolved in the water."),
     CanonicalParameter("ph_value", "dimensionless", "Acidity of the water on the pH scale."),
+    # The phenological phases of the DWD phenology network. A value is the day of the year on
+    # which the phase was observed, so these are dimensionless and are left unclassified for
+    # interpolation: an onset date is an event at one plant at one station, and the library has
+    # no notion of averaging two of them into a date that happened at neither.
+    CanonicalParameter(
+        "phenology_activity_beginning", "dimensionless", "Day of the year on which the recorded farming activity began."
+    ),
+    CanonicalParameter(
+        "phenology_activity_end", "dimensionless", "Day of the year on which the recorded farming activity ended."
+    ),
+    CanonicalParameter(
+        "phenology_bleeding_first", "dimensionless", "Day of the year on which sap first bled from the pruned vine."
+    ),
+    CanonicalParameter(
+        "phenology_bud_formation_beginning", "dimensionless", "Day of the year on which flower bud formation began."
+    ),
+    CanonicalParameter(
+        "phenology_bud_swelling", "dimensionless", "Day of the year on which the buds first swelled noticeably."
+    ),
+    CanonicalParameter(
+        "phenology_dough_ripeness_beginning",
+        "dimensionless",
+        "Day of the year on which the grain reached dough (wax-ripe) stage.",
+    ),
+    CanonicalParameter(
+        "phenology_emergence_beginning", "dimensionless", "Day of the year on which the first seedlings emerged."
+    ),
+    CanonicalParameter(
+        "phenology_flowering_beginning", "dimensionless", "Day of the year on which the first flowers opened."
+    ),
+    CanonicalParameter(
+        "phenology_flowering_end", "dimensionless", "Day of the year on which the last flowers had faded."
+    ),
+    CanonicalParameter(
+        "phenology_flowering_end_observation_area",
+        "dimensionless",
+        "Day of the year on which flowering ended across the whole observation area.",
+    ),
+    CanonicalParameter(
+        "phenology_flowering_general", "dimensionless", "Day of the year on which about half of the flowers were open."
+    ),
+    CanonicalParameter(
+        "phenology_fruit_ripe_first", "dimensionless", "Day of the year on which the first fruits were fully ripe."
+    ),
+    CanonicalParameter(
+        "phenology_full_ripeness_beginning", "dimensionless", "Day of the year on which the crop reached full ripeness."
+    ),
+    CanonicalParameter(
+        "phenology_grain_harvest_beginning", "dimensionless", "Day of the year on which the grain harvest began."
+    ),
+    CanonicalParameter(
+        "phenology_grape_harvest", "dimensionless", "Day of the year on which the grapes were harvested."
+    ),
+    CanonicalParameter(
+        "phenology_grape_picking_ripeness",
+        "dimensionless",
+        "Day of the year on which the grapes were ripe for picking.",
+    ),
+    CanonicalParameter(
+        "phenology_grape_ripeness_beginning",
+        "dimensionless",
+        "Day of the year on which the grapes began to ripen (veraison).",
+    ),
+    CanonicalParameter("phenology_harvest", "dimensionless", "Day of the year on which the crop was harvested."),
+    CanonicalParameter(
+        "phenology_harvest_by_hand", "dimensionless", "Day of the year on which the crop was harvested by hand."
+    ),
+    CanonicalParameter(
+        "phenology_hay_cut_first", "dimensionless", "Day of the year of the first cut of the grassland for hay."
+    ),
+    CanonicalParameter(
+        "phenology_hay_cut_second", "dimensionless", "Day of the year of the second cut of the grassland for hay."
+    ),
+    CanonicalParameter(
+        "phenology_hay_or_silage_cut_first",
+        "dimensionless",
+        "Day of the year of the first cut of the grassland for hay or silage.",
+    ),
+    CanonicalParameter(
+        "phenology_hay_or_silage_cut_second",
+        "dimensionless",
+        "Day of the year of the second cut of the grassland for hay or silage.",
+    ),
+    CanonicalParameter(
+        "phenology_heading_beginning",
+        "dimensionless",
+        "Day of the year on which the first ears emerged from the flag leaf.",
+    ),
+    CanonicalParameter(
+        "phenology_height_growth_beginning", "dimensionless", "Day of the year on which growth in height began."
+    ),
+    CanonicalParameter(
+        "phenology_leaf_colouring_autumn",
+        "dimensionless",
+        "Day of the year on which about half of the leaves had taken on their autumn colour.",
+    ),
+    CanonicalParameter(
+        "phenology_leaf_fall_autumn", "dimensionless", "Day of the year on which about half of the leaves had fallen."
+    ),
+    CanonicalParameter(
+        "phenology_leaf_formation_beginning", "dimensionless", "Day of the year on which leaf formation began."
+    ),
+    CanonicalParameter(
+        "phenology_leaf_unfolding_beginning",
+        "dimensionless",
+        "Day of the year on which the first leaves had fully unfolded.",
+    ),
+    CanonicalParameter(
+        "phenology_may_sprouting",
+        "dimensionless",
+        "Day of the year on which the May shoots of the conifer broke from the buds.",
+    ),
+    CanonicalParameter(
+        "phenology_milk_ripeness_beginning",
+        "dimensionless",
+        "Day of the year on which the grain reached milk ripeness.",
+    ),
+    CanonicalParameter(
+        "phenology_needle_colouring_autumn",
+        "dimensionless",
+        "Day of the year on which about half of the needles had taken on their autumn colour.",
+    ),
+    CanonicalParameter(
+        "phenology_needle_fall_autumn",
+        "dimensionless",
+        "Day of the year on which about half of the needles had fallen.",
+    ),
+    CanonicalParameter(
+        "phenology_needle_unfolding_beginning",
+        "dimensionless",
+        "Day of the year on which the first needle bundles unfolded.",
+    ),
+    CanonicalParameter(
+        "phenology_panicle_emergence_beginning", "dimensionless", "Day of the year on which the panicle first emerged."
+    ),
+    CanonicalParameter(
+        "phenology_picking_ripeness_beginning",
+        "dimensionless",
+        "Day of the year on which the fruit was first ripe for picking.",
+    ),
+    CanonicalParameter(
+        "phenology_planting_beginning", "dimensionless", "Day of the year on which planting out of the crop began."
+    ),
+    CanonicalParameter(
+        "phenology_rosette_formation_beginning", "dimensionless", "Day of the year on which rosette formation began."
+    ),
+    CanonicalParameter(
+        "phenology_shooting_beginning", "dimensionless", "Day of the year on which stem elongation (shooting) began."
+    ),
+    CanonicalParameter(
+        "phenology_silage_cut_first", "dimensionless", "Day of the year of the first cut of the grassland for silage."
+    ),
+    CanonicalParameter(
+        "phenology_silage_cut_second", "dimensionless", "Day of the year of the second cut of the grassland for silage."
+    ),
+    CanonicalParameter(
+        "phenology_silage_harvest_beginning", "dimensionless", "Day of the year on which the silage harvest began."
+    ),
+    CanonicalParameter(
+        "phenology_silk_emergence_beginning",
+        "dimensionless",
+        "Day of the year on which the silks of the maize first emerged.",
+    ),
+    CanonicalParameter(
+        "phenology_sowing_beginning", "dimensionless", "Day of the year on which sowing or drilling of the crop began."
+    ),
+    CanonicalParameter(
+        "phenology_sprouting_beginning",
+        "dimensionless",
+        "Day of the year on which the first buds broke and leaf green became visible.",
+    ),
+    CanonicalParameter(
+        "phenology_st_johns_sprouting",
+        "dimensionless",
+        "Day of the year on which the midsummer (St. John's) shoot appeared.",
+    ),
+    CanonicalParameter(
+        "phenology_stand_closed", "dimensionless", "Day of the year on which the crop stand had closed over the rows."
+    ),
+    CanonicalParameter(
+        "phenology_tassel_tip_visible",
+        "dimensionless",
+        "Day of the year on which the tip of the maize tassel first became visible.",
+    ),
+    CanonicalParameter(
+        "phenology_turning_green_beginning", "dimensionless", "Day of the year on which the plant began to turn green."
+    ),
+    CanonicalParameter(
+        "phenology_yellow_ripeness_beginning",
+        "dimensionless",
+        "Day of the year on which the crop reached yellow ripeness.",
+    ),
     CanonicalParameter(
         "precipitation_duration",
         "time",
