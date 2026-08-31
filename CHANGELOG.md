@@ -91,6 +91,24 @@ Types of changes:
   served under. A test now holds the two together, as it does for `Frequency`, whose members are
   looked up by resolution name, and for the interpolation radius factors, which are keyed by
   resolution
+- Environment Agency: the whole 15-minute resolution was unreachable. Both `15_minutes/data/discharge`
+  and `15_minutes/data/groundwater_level` raised `KeyError` while building the station listing,
+  which asked a hand-kept map for the EA measure parameter each wetterdienst parameter is taken
+  from and that map still spelled them `discharge_instant` and `groundwater_level_instant`, names
+  the metadata had long since dropped. The measure parameter and the period are now read off the
+  notation the metadata already declares -- `flow-i-900` is flow measured every 900 seconds -- so
+  renaming a parameter cannot separate the two again
+- Environment Agency: a station is listed once rather than once per matching measure. The listing
+  carries a row per measure, so a station recording two of the requested parameters -- or two
+  daily statistics of one of them, which share the parameter and the period the listing reports --
+  came back duplicated, and `filter_by_rank` then spent rank on the same station twice
+- Environment Agency: 15-minute values arrived empty for every window of the last decade and a
+  half. The readings endpoint answers a request that names no window with its default page of
+  100_000 readings, oldest first, and reports no truncation; at 15 minutes that page runs out
+  after some 2.8 years, so the readings of 2008 to 2011 came back whatever was asked for and the
+  post-filter dropped all of them. The window is now asked for, and the page raised to the number
+  of readings it can hold, so a long window is not silently cut either. Daily was never affected,
+  100_000 daily readings being 274 years, and it also stops a 22 MB download per station
 
 ## [0.134.0] - 2026-08-22
 

@@ -4,13 +4,16 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.metadata.resolution import count_readings
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
     ParameterModel,
@@ -107,10 +110,65 @@ EAHydrologyMetadata = {
 EAHydrologyMetadata = build_metadata_model(EAHydrologyMetadata, "EAHydrologyMetadata")
 
 
+def _measure_parameter(parameter: ParameterModel) -> str:
+    """Give the parameter of the EA measure a wetterdienst parameter is taken from.
+
+    A measure is notated `{parameter}-{statistic}-{period}`, so `flow-i-900` is the flow measured
+    every 900 seconds and `level-max-86400` the daily maximum level. The station listing names the
+    parameter and the period of each measure but not the statistic, which is why the leading token
+    is read off the notation rather than the notation matched whole.
+
+    Derived from the notation the metadata already carries so that renaming a wetterdienst
+    parameter cannot separate the two: the map this replaces still keyed the 15-minute parameters
+    as `discharge_instant` and `groundwater_level_instant`, names the metadata had long since
+    dropped, and every 15-minute request died on the lookup.
+    """
+    return parameter.name_original.split("-")[0]
+
+
+# the period of each measure, in seconds, and the resolution it is served under. Read off the
+# trailing token of the notations the metadata declares, so a resolution added there is served
+# without a second table having to learn its period.
+_RESOLUTIONS_BY_PERIOD: dict[str, str] = {
+    parameter.name_original.split("-")[-1]: resolution.name
+    for resolution in EAHydrologyMetadata
+    for dataset in resolution
+    for parameter in dataset.parameters
+}
+
+
+# the readings endpoint answers an unbounded request with a default page of 100_000 readings,
+# oldest first, and says nothing about having stopped there. Daily never reaches it -- 100_000
+# daily readings is 274 years -- but 15-minute readings run out after some 2.8 years, so an
+# unbounded request answered every recent window with the readings of 2008 to 2011 and the
+# post-filter then dropped every one of them. The window is asked for instead, and the page raised
+# to the number of readings that window can hold, so neither end is silently cut.
+_READINGS_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+# the endpoint reports its timestamps without a zone and they are read as UTC below. A day either
+# side keeps that assumption from costing the edges of the window, which the caller trims anyway.
+_READINGS_MARGIN = dt.timedelta(days=1)
+
+
 class EAHydrologyValues(TimeseriesValues):
     """Values class for Environment Agency hydrology data."""
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
+
+    def _readings_url(self, measure_url: str, parameter: ParameterModel) -> str:
+        """Give the readings URL of a measure, bounded by the window the request asks for."""
+        url = f"{measure_url}/readings.json"
+        if not self.sr.start_date or not self.sr.end_date:
+            return url
+        start_date = self.sr.start_date - _READINGS_MARGIN
+        end_date = self.sr.end_date + _READINGS_MARGIN
+        query: dict[str, str | int] = {
+            "mineq-dateTime": start_date.strftime(_READINGS_DATETIME_FORMAT),
+            "maxeq-dateTime": end_date.strftime(_READINGS_DATETIME_FORMAT),
+        }
+        limit = count_readings(parameter.dataset.resolution.value, start_date, end_date)
+        if limit:
+            query["_limit"] = limit
+        return f"{url}?{urlencode(query)}"
 
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
@@ -158,15 +216,7 @@ class EAHydrologyValues(TimeseriesValues):
         df_measures = df_measures.explode("measures", empty_as_null=True)
         df_measures = df_measures.select(pl.col("measures").struct.unnest())
         df_measures = df_measures.with_columns(
-            pl.col("period")
-            .cast(pl.String)
-            .replace(
-                {
-                    900: "15_minutes",
-                    86400: "daily",
-                },
-            )
-            .alias("resolution"),
+            pl.col("period").cast(pl.String).replace(_RESOLUTIONS_BY_PERIOD).alias("resolution"),
         )
         df_measures = df_measures.filter(
             pl.col("resolution").eq(parameter_or_dataset.dataset.resolution.name)
@@ -176,7 +226,7 @@ class EAHydrologyValues(TimeseriesValues):
             readings_id_url = df_measures.get_column("@id")[0]
         except IndexError:
             return pl.DataFrame()
-        readings_url = f"{readings_id_url}/readings.json"
+        readings_url = self._readings_url(readings_id_url, parameter_or_dataset)
         file = download_file(
             url=readings_url,
             cache_dir=settings.cache_dir,
@@ -222,18 +272,6 @@ class EAHydrologyRequest(TimeseriesRequest):
     _values = EAHydrologyValues
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations.json"
-
-    _parameter_core_name_map: ClassVar = {
-        # 15 minutes
-        "discharge_instant": "flow",
-        "groundwater_level_instant": "level",
-        # daily
-        "discharge_max": "flow",
-        "discharge_mean": "flow",
-        "discharge_min": "flow",
-        "groundwater_level_max": "level",
-        "groundwater_level_min": "level",
-    }
 
     def _all(self) -> pl.LazyFrame:
         """Acquire all stations and filter for stations that have wanted resolution and parameter combinations."""
@@ -294,19 +332,11 @@ class EAHydrologyRequest(TimeseriesRequest):
             },
         )
         df = df.with_columns(
-            pl.col("resolution").cast(pl.String),
-        )
-        df = df.with_columns(
-            pl.col("resolution").replace(
-                {
-                    "900": "15_minutes",
-                    "86400": "daily",
-                },
-            ),
+            pl.col("resolution").cast(pl.String).replace(_RESOLUTIONS_BY_PERIOD),
         )
         df = df.drop_nulls("resolution")
         resolution_parameter_keys = {
-            f"{parameter.dataset.resolution.name}/{self._parameter_core_name_map[parameter.name]}"
+            f"{parameter.dataset.resolution.name}/{_measure_parameter(parameter)}"
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
         }
@@ -318,7 +348,7 @@ class EAHydrologyRequest(TimeseriesRequest):
             pl.concat_str(["resolution", "parameter"], separator="/").is_in(resolution_parameter_keys),
         )
         df = df.lazy()
-        return df.select(
+        df = df.select(
             "resolution",
             pl.lit(DATASET_NAME_DEFAULT, dtype=pl.String).alias("dataset"),
             "station_id",
@@ -330,3 +360,8 @@ class EAHydrologyRequest(TimeseriesRequest):
             "name",
             pl.lit(None, pl.String).alias("state"),
         )
+        # the listing carries one row per measure, so a station recording two of the requested
+        # parameters -- or, at daily, two statistics of one of them, which share the parameter and
+        # the period the listing reports -- arrives once per measure. Left in, the duplicates make
+        # `filter_by_rank` answer with more stations than were asked for
+        return df.unique(subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True)
