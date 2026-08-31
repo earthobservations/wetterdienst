@@ -34,7 +34,16 @@ const parameters = ref<string[]>([])
 const isInitializing = ref(true)
 
 // fetch coverage data
-const { data: coverage } = await useFetch<CoverageResponse>('/api/coverage')
+//
+// Deliberately not awaited. A top-level `await` makes this component's setup async, and with
+// `ssr: false` the nearest Suspense boundary is the page itself -- so the Explorer rendered
+// nothing at all, not even its own headings, until the backend had answered this request. The
+// selects render empty-and-loading instead, and `initializeFromProps()` waits for the answer.
+const { data: coverage, status: coverageStatus } = useFetch<CoverageResponse>('/api/coverage')
+// Nothing derived from `coverage` means anything until the request has settled: an empty answer
+// and an answer that has not arrived yet are indistinguishable in the data, but not to a reader.
+const coverageSettled = computed(() => coverageStatus.value === 'success' || coverageStatus.value === 'error')
+const coveragePending = computed(() => !coverageSettled.value)
 
 // A provider/network is available when it needs no auth, or when auth credentials are present and valid.
 const isAvailable = (n: { auth: boolean, configured: boolean, valid: boolean }) => !n.auth || (n.configured && n.valid)
@@ -90,7 +99,7 @@ const networkItems = computed(() => {
 })
 
 // provider-network coverage
-const { data: providerNetworkCoverage, pending: networkCoveragePending, refresh: refreshProviderNetworkCoverage } = await useFetch<ProviderNetworkCoverageResponse>(
+const { data: providerNetworkCoverage, pending: networkCoveragePending, refresh: refreshProviderNetworkCoverage } = useFetch<ProviderNetworkCoverageResponse>(
   '/api/coverage',
   {
     query: computed(() => ({
@@ -239,10 +248,23 @@ async function initializeFromProps() {
   emitUpdate()
 }
 
-// Run initialization on mount
-onMounted(() => {
+// Initialization needs the coverage answer -- every validation step above reads it -- and that is
+// no longer awaited in setup, so mount alone is too early. An error settles it too: initialization
+// then falls through to the "nothing valid to restore" branch, exactly as it did when a failed
+// fetch left `coverage` null.
+//
+// Not an `immediate` watcher, which would run this during setup: the answer can already be cached
+// (both /explorer and /history mount this component against the same `useFetch` key), and
+// `emitUpdate()` firing mid-render mutates the parent's state while it is still rendering.
+let initializationStarted = false
+function initializeWhenCoverageSettled() {
+  if (initializationStarted || !coverageSettled.value)
+    return
+  initializationStarted = true
   initializeFromProps()
-})
+}
+onMounted(initializeWhenCoverageSettled)
+watch(coverageSettled, initializeWhenCoverageSettled)
 
 // watch to reset provider and network
 watch(provider, () => {
@@ -337,8 +359,10 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
         </h2>
       </div>
     </template>
+    <!-- only once coverage has settled: while the request is out every provider looks unavailable,
+         and flashing "not available from this backend" on each cold load is worse than silence -->
     <UAlert
-      v-if="restrictProvider && !restrictedProviderAvailable"
+      v-if="coverageSettled && restrictProvider && !restrictedProviderAvailable"
       color="error"
       variant="subtle"
       :title="t('parameterSelection.providerRestrictionUnavailable', { provider: restrictProvider })"
@@ -346,7 +370,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
       class="mx-6 mt-4"
     />
     <UAlert
-      v-else-if="restrictNetwork && !restrictedNetworkAvailable"
+      v-else-if="coverageSettled && restrictNetwork && !restrictedNetworkAvailable"
       color="error"
       variant="subtle"
       :title="t('parameterSelection.networkRestrictionUnavailable', { network: restrictNetwork })"
@@ -355,10 +379,10 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
     />
     <UContainer class="flex flex-col gap-4">
       <UFormField :label="t('parameterSelection.providerLabel')">
-        <USelect v-model="provider" :items="providerItems" :placeholder="t('parameterSelection.selectProvider')" :disabled="!!restrictProvider" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
+        <USelect v-model="provider" :items="providerItems" :placeholder="t('parameterSelection.selectProvider')" :disabled="!!restrictProvider || coveragePending" :loading="coveragePending" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
       </UFormField>
       <UFormField :label="t('parameterSelection.networkLabel')">
-        <USelect v-model="network" :items="networkItems" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider || !!restrictNetwork" class="w-full" :class="{ 'needs-input': activeField === 'network' }" />
+        <USelect v-model="network" :items="networkItems" :placeholder="t('parameterSelection.selectNetwork')" :disabled="!provider || !!restrictNetwork || coveragePending" :loading="coveragePending" class="w-full" :class="{ 'needs-input': activeField === 'network' }" />
       </UFormField>
       <UFormField :label="t('parameterSelection.resolutionLabel')" :help="resolutionDescription">
         <USelect v-model="resolution" :items="resolutionItems" :placeholder="t('parameterSelection.selectResolution')" :disabled="!network || networkCoveragePending" class="w-full" :class="{ 'needs-input': activeField === 'resolution' }" />

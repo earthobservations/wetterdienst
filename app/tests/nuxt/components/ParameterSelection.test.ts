@@ -3,6 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import { ParameterSelection } from '#components'
 
+// The component starts its /api/coverage request without awaiting it in setup -- awaiting would
+// suspend the whole page behind it -- so mountSuspended() now returns before the answer lands.
+// Anything that reads what coverage feeds has to wait for initialization to finish first.
+async function mountReady(props: Record<string, unknown>) {
+  const wrapper = await mountSuspended(ParameterSelection, { props })
+  await vi.waitFor(() => expect((wrapper.vm as any).isInitializing).toBe(false), { timeout: 5000 })
+  return wrapper
+}
+
 describe('parameterSelection Component', () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn()
@@ -12,15 +21,31 @@ describe('parameterSelection Component', () => {
     clearNuxtData()
   })
 
+  it('renders itself while /api/coverage is still out', async () => {
+    // The regression this guards: the coverage request used to be awaited at the top level of
+    // setup, which with `ssr: false` suspended the whole page -- the Explorer showed nothing at
+    // all, not even its own headings, until the backend answered. A request that never settles
+    // makes that visible.
+    vi.mocked(globalThis.fetch).mockReturnValue(new Promise(() => {}) as Promise<Response>)
+
+    const wrapper = await mountSuspended(ParameterSelection, {
+      props: { modelValue: {}, restrictProvider: 'dwd' },
+    })
+
+    expect(wrapper.text()).toContain('Select Parameters')
+    expect((wrapper.vm as any).coveragePending).toBe(true)
+    // An unanswered request is not an answer of "no such provider": while it is out, every
+    // restriction looks unavailable, and the alert must not flash on each cold load.
+    expect(wrapper.text()).not.toContain('is not available from this backend')
+  })
+
   it('renders the component', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
     )
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {},
-      },
+    const wrapper = await mountReady({
+      modelValue: {},
     })
 
     expect(wrapper.exists()).toBe(true)
@@ -32,10 +57,8 @@ describe('parameterSelection Component', () => {
       new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
     )
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {},
-      },
+    const wrapper = await mountReady({
+      modelValue: {},
     })
 
     const selects = wrapper.findAllComponents({ name: 'USelect' })
@@ -47,15 +70,13 @@ describe('parameterSelection Component', () => {
       new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
     )
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {
-          provider: 'dwd',
-          network: 'observation',
-          resolution: 'daily',
-          dataset: 'climate_summary',
-          parameters: ['temperature_air_max_200'],
-        },
+    const wrapper = await mountReady({
+      modelValue: {
+        provider: 'dwd',
+        network: 'observation',
+        resolution: 'daily',
+        dataset: 'climate_summary',
+        parameters: ['temperature_air_max_200'],
       },
     })
 
@@ -79,10 +100,8 @@ describe('parameterSelection Component', () => {
       parameters: ['temperature_air_max_200'],
     }
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: initialValue,
-      },
+    const wrapper = await mountReady({
+      modelValue: initialValue,
     })
 
     expect(wrapper.exists()).toBe(true)
@@ -96,15 +115,13 @@ describe('parameterSelection Component', () => {
       new Response(JSON.stringify({ dwd: ['observation'], noaa: ['ghcn'] }), { status: 200 }),
     )
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {
-          provider: 'dwd',
-          network: 'observation',
-          resolution: 'daily',
-          dataset: 'climate_summary',
-          parameters: ['temperature_air_max_200'],
-        },
+    const wrapper = await mountReady({
+      modelValue: {
+        provider: 'dwd',
+        network: 'observation',
+        resolution: 'daily',
+        dataset: 'climate_summary',
+        parameters: ['temperature_air_max_200'],
       },
     })
 
@@ -124,15 +141,13 @@ describe('parameterSelection Component', () => {
       new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
     )
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {
-          provider: 'dwd',
-          network: 'observation',
-          resolution: 'daily',
-          dataset: 'climate_summary',
-          parameters: [],
-        },
+    const wrapper = await mountReady({
+      modelValue: {
+        provider: 'dwd',
+        network: 'observation',
+        resolution: 'daily',
+        dataset: 'climate_summary',
+        parameters: [],
       },
     })
 
@@ -144,11 +159,9 @@ describe('parameterSelection Component', () => {
   it('restricts the provider select to restrictProvider', async () => {
     registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} }, noaa: { ghcn: {} } }))
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {},
-        restrictProvider: 'dwd',
-      },
+    const wrapper = await mountReady({
+      modelValue: {},
+      restrictProvider: 'dwd',
     })
 
     const vm = wrapper.vm as any
@@ -162,11 +175,9 @@ describe('parameterSelection Component', () => {
   it('restricts the network select to restrictNetwork', async () => {
     registerEndpoint('/api/coverage', () => ({ dwd: { observation: {}, mosmix: {} } }))
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: { provider: 'dwd' },
-        restrictNetwork: 'observation',
-      },
+    const wrapper = await mountReady({
+      modelValue: { provider: 'dwd' },
+      restrictNetwork: 'observation',
     })
 
     const vm = wrapper.vm as any
@@ -178,11 +189,9 @@ describe('parameterSelection Component', () => {
   it('does not fall back to the unrestricted provider list when restrictProvider does not exist', async () => {
     registerEndpoint('/api/coverage', () => ({ noaa: { ghcn: {} } }))
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {},
-        restrictProvider: 'dwd',
-      },
+    const wrapper = await mountReady({
+      modelValue: {},
+      restrictProvider: 'dwd',
     })
 
     const vm = wrapper.vm as any
@@ -196,12 +205,10 @@ describe('parameterSelection Component', () => {
   it('does not fall back to the unrestricted network list when restrictNetwork does not exist', async () => {
     registerEndpoint('/api/coverage', () => ({ dwd: { mosmix: {} } }))
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {},
-        restrictProvider: 'dwd',
-        restrictNetwork: 'observation',
-      },
+    const wrapper = await mountReady({
+      modelValue: {},
+      restrictProvider: 'dwd',
+      restrictNetwork: 'observation',
     })
 
     const vm = wrapper.vm as any
@@ -215,18 +222,16 @@ describe('parameterSelection Component', () => {
   it('overrides a mismatched initial provider/network with the restricted values', async () => {
     registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} }, noaa: { ghcn: {} } }))
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {
-          provider: 'noaa',
-          network: 'ghcn',
-          resolution: 'daily',
-          dataset: 'foo',
-          parameters: ['bar'],
-        },
-        restrictProvider: 'dwd',
-        restrictNetwork: 'observation',
+    const wrapper = await mountReady({
+      modelValue: {
+        provider: 'noaa',
+        network: 'ghcn',
+        resolution: 'daily',
+        dataset: 'foo',
+        parameters: ['bar'],
       },
+      restrictProvider: 'dwd',
+      restrictNetwork: 'observation',
     })
 
     const vm = wrapper.vm as any
@@ -256,15 +261,13 @@ describe('parameterSelection Component', () => {
         ),
       )
 
-    const wrapper = await mountSuspended(ParameterSelection, {
-      props: {
-        modelValue: {
-          provider: 'dwd',
-          network: 'observation',
-          resolution: 'daily',
-          dataset: 'climate_summary',
-          parameters: ['temperature_air_max_200'],
-        },
+    const wrapper = await mountReady({
+      modelValue: {
+        provider: 'dwd',
+        network: 'observation',
+        resolution: 'daily',
+        dataset: 'climate_summary',
+        parameters: ['temperature_air_max_200'],
       },
     })
 

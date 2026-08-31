@@ -12,7 +12,11 @@ const collator = computed(() => new Intl.Collator(locale.value, { numeric: true 
 
 // the whole vocabulary in one call -- around 500 entries, small enough to filter in the browser
 // and it saves a round trip per keystroke
-const { data: glossary, pending } = await useFetch<GlossaryEntry[]>('/api/glossary')
+//
+// Not awaited: a top-level `await` makes this page's setup async, and with `ssr: false` that
+// suspends the page behind the request, so the loading state below could never be seen -- the
+// route simply showed nothing until the answer arrived.
+const { data: glossary, pending } = useFetch<GlossaryEntry[]>('/api/glossary')
 
 const search = ref('')
 const unitType = ref<string | undefined>(undefined)

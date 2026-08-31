@@ -18,6 +18,15 @@ Types of changes:
 
 ### Fixed
 
+- `[App]` Every page rendered nothing at all -- not even its own headings -- until the backend
+  answered, most visibly on the Explorer. `useFetch` was awaited at the top level of `app.vue`,
+  of the parameter selection and of the glossary page; with server-side rendering off, an async
+  `setup()` suspends the surrounding boundary, so the version request blanked the whole app and
+  the coverage request blanked whichever page asked for it. None of the three is awaited now: the
+  page renders immediately, the provider and network selects show as loading while coverage is in
+  flight, and the glossary's own loading state -- which the await had made unreachable -- appears
+  again. The Explorer only showed this on a cold load, since a coverage answer already in the
+  cache resolved the await at once
 - `[Build]` The Coolify deploy step has failed on every run since 2026-08-17, so no release or
   nightly has reached the live app since -- which is why a published version could sit in GHCR
   while the running site stayed on the one before it. Coolify moved `/api/v1/deploy` from GET to

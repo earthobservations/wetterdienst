@@ -3,6 +3,7 @@ import { getQuery } from 'h3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { UApp } from '#components'
+import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 
 // DataViewer's copy-to-clipboard buttons use UTooltip, which needs a
@@ -79,9 +80,13 @@ describe('explorer Page', () => {
     const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body })
     const vm = wrapper.findComponent(ExplorerPage).vm as any
 
-    // Let ParameterSelection's async initialization settle before driving it
-    // externally -- otherwise its own emitUpdate() races and clobbers these.
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // Let ParameterSelection's initialization settle before driving it externally -- otherwise its
+    // own emitUpdate() races and clobbers these. It no longer awaits /api/coverage in setup, so
+    // that window now spans the whole round trip and is too long to sleep through blindly.
+    await vi.waitFor(
+      () => expect((wrapper.findComponent(ParameterSelection).vm as any).isInitializing).toBe(false),
+      { timeout: 5000 },
+    )
     await wrapper.vm.$nextTick()
 
     vm.parameterSelectionState.selection.resolution = 'daily'

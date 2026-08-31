@@ -1,5 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import GlossaryPage from '~/pages/glossary.vue'
 
@@ -26,22 +26,31 @@ const entries = [
 let served: typeof entries = entries
 registerEndpoint('/api/glossary', () => served)
 
+// The page no longer awaits `/api/glossary` in setup -- awaiting suspended the whole route and
+// made its own loading state unreachable -- so mountSuspended() returns while the request is still
+// out. Every assertion here is about what the answer renders, so wait for it.
+async function mountGlossary() {
+  const wrapper = await mountSuspended(GlossaryPage)
+  await vi.waitFor(() => expect((wrapper.vm as any).pending).toBe(false), { timeout: 5000 })
+  return wrapper
+}
+
 describe('glossary Page', () => {
   it('renders the page', async () => {
     served = entries
-    const wrapper = await mountSuspended(GlossaryPage)
+    const wrapper = await mountGlossary()
     expect(wrapper.exists()).toBe(true)
   })
 
   it('displays the glossary heading', async () => {
     served = entries
-    const wrapper = await mountSuspended(GlossaryPage)
+    const wrapper = await mountGlossary()
     expect(wrapper.text()).toContain('Glossary')
   })
 
   it('shows each parameter with its description and unit', async () => {
     served = entries
-    const wrapper = await mountSuspended(GlossaryPage)
+    const wrapper = await mountGlossary()
     const text = wrapper.text()
 
     // the description is what the page exists for -- it comes from the backend, per parameter
@@ -54,7 +63,7 @@ describe('glossary Page', () => {
 
   it('reports how much of the vocabulary is shown', async () => {
     served = entries
-    const wrapper = await mountSuspended(GlossaryPage)
+    const wrapper = await mountGlossary()
     expect(wrapper.text()).toContain('2 of 2 parameters')
   })
 
@@ -62,7 +71,7 @@ describe('glossary Page', () => {
     // `useFetch` caches by url, so the payload from the mounts above would be reused otherwise
     clearNuxtData()
     served = []
-    const wrapper = await mountSuspended(GlossaryPage)
+    const wrapper = await mountGlossary()
     expect(wrapper.text()).toContain('No parameter matches your search.')
   })
 
@@ -74,7 +83,7 @@ describe('glossary Page', () => {
     served = [...entries].reverse()
     expect(served.map(entry => entry.name)).toEqual(['sunshine_duration', 'temperature_air_mean_2m'])
 
-    const wrapper = await mountSuspended(GlossaryPage)
+    const wrapper = await mountGlossary()
     const shown = (wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)
     expect(shown).toEqual(['temperature_air_mean_2m', 'sunshine_duration'])
   })
@@ -91,7 +100,7 @@ describe('glossary Page', () => {
       unit_symbol: 'J/cm²',
       description: 'Global radiation.',
     }]
-    const wrapper = await mountSuspended(GlossaryPage)
+    const wrapper = await mountGlossary()
     // the options live in a popover that is not rendered until the select opens, so what the select
     // is handed is what gets checked
     const labels = ((wrapper.vm as any).unitTypeItems as { label: string }[]).map(item => item.label)
