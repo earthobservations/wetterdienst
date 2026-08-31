@@ -4,13 +4,16 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.metadata.resolution import count_readings
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
     ParameterModel,
@@ -134,10 +137,38 @@ _RESOLUTIONS_BY_PERIOD: dict[str, str] = {
 }
 
 
+# the readings endpoint answers an unbounded request with a default page of 100_000 readings,
+# oldest first, and says nothing about having stopped there. Daily never reaches it -- 100_000
+# daily readings is 274 years -- but 15-minute readings run out after some 2.8 years, so an
+# unbounded request answered every recent window with the readings of 2008 to 2011 and the
+# post-filter then dropped every one of them. The window is asked for instead, and the page raised
+# to the number of readings that window can hold, so neither end is silently cut.
+_READINGS_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+# the endpoint reports its timestamps without a zone and they are read as UTC below. A day either
+# side keeps that assumption from costing the edges of the window, which the caller trims anyway.
+_READINGS_MARGIN = dt.timedelta(days=1)
+
+
 class EAHydrologyValues(TimeseriesValues):
     """Values class for Environment Agency hydrology data."""
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
+
+    def _readings_url(self, measure_url: str, parameter: ParameterModel) -> str:
+        """Give the readings URL of a measure, bounded by the window the request asks for."""
+        url = f"{measure_url}/readings.json"
+        if not self.sr.start_date or not self.sr.end_date:
+            return url
+        start_date = self.sr.start_date - _READINGS_MARGIN
+        end_date = self.sr.end_date + _READINGS_MARGIN
+        query: dict[str, str | int] = {
+            "mineq-dateTime": start_date.strftime(_READINGS_DATETIME_FORMAT),
+            "maxeq-dateTime": end_date.strftime(_READINGS_DATETIME_FORMAT),
+        }
+        limit = count_readings(parameter.dataset.resolution.value, start_date, end_date)
+        if limit:
+            query["_limit"] = limit
+        return f"{url}?{urlencode(query)}"
 
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
@@ -195,7 +226,7 @@ class EAHydrologyValues(TimeseriesValues):
             readings_id_url = df_measures.get_column("@id")[0]
         except IndexError:
             return pl.DataFrame()
-        readings_url = f"{readings_id_url}/readings.json"
+        readings_url = self._readings_url(readings_id_url, parameter_or_dataset)
         file = download_file(
             url=readings_url,
             cache_dir=settings.cache_dir,

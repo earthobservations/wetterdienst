@@ -102,6 +102,13 @@ Types of changes:
   carries a row per measure, so a station recording two of the requested parameters -- or two
   daily statistics of one of them, which share the parameter and the period the listing reports --
   came back duplicated, and `filter_by_rank` then spent rank on the same station twice
+- Environment Agency: 15-minute values arrived empty for every window of the last decade and a
+  half. The readings endpoint answers a request that names no window with its default page of
+  100_000 readings, oldest first, and reports no truncation; at 15 minutes that page runs out
+  after some 2.8 years, so the readings of 2008 to 2011 came back whatever was asked for and the
+  post-filter dropped all of them. The window is now asked for, and the page raised to the number
+  of readings it can hold, so a long window is not silently cut either. Daily was never affected,
+  100_000 daily readings being 274 years, and it also stops a 22 MB download per station
 
 ## [0.134.0] - 2026-08-22
 
