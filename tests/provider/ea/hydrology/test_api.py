@@ -9,6 +9,7 @@ import json
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlparse
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -238,8 +239,8 @@ def test_ea_readings_are_asked_for_the_window_the_request_names(
         ("15_minutes", "data", "discharge"),
         default_settings,
         monkeypatch,
-        start_date=dt.datetime(2020, 6, 1, tzinfo=dt.UTC),
-        end_date=dt.datetime(2020, 6, 3, tzinfo=dt.UTC),
+        start_date=dt.datetime(2020, 6, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2020, 6, 3, tzinfo=ZoneInfo("UTC")),
     )
     query = parse_qs(urlparse(values._readings_url(MEASURE_URL.format(notation="x"), parameter)).query)  # noqa: SLF001
     # a day either side of the window, since the endpoint dates its readings without a zone
@@ -262,8 +263,8 @@ def test_ea_readings_page_holds_a_window_longer_than_the_default(
         ("15_minutes", "data", "discharge"),
         default_settings,
         monkeypatch,
-        start_date=dt.datetime(2010, 1, 1, tzinfo=dt.UTC),
-        end_date=dt.datetime(2020, 1, 1, tzinfo=dt.UTC),
+        start_date=dt.datetime(2010, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
     )
     query = parse_qs(urlparse(values._readings_url(MEASURE_URL.format(notation="x"), parameter)).query)  # noqa: SLF001
     assert int(query["_limit"][0]) > 100_000
@@ -287,8 +288,8 @@ def test_ea_15_minute_values_come_from_the_window_asked_for(default_settings: Se
     away to nothing. A window inside that first page would pass whether or not it is asked for,
     which is why this one sits well after it.
     """
-    start_date = dt.datetime(2020, 6, 1, tzinfo=dt.UTC)
-    end_date = dt.datetime(2020, 6, 3, tzinfo=dt.UTC)
+    start_date = dt.datetime(2020, 6, 1, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2020, 6, 3, tzinfo=ZoneInfo("UTC"))
     request = EAHydrologyRequest(
         parameters=[("15_minutes", "data", "discharge")],
         settings=default_settings,
