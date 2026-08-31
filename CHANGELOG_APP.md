@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-31
+
 ### Added
 
 - `[Glossary]` Names in all eleven languages for the twelve climate-index parameters the backend
@@ -583,7 +585,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.13.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.14.0...HEAD
+[0.14.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.13.0...app-v0.14.0
 [0.13.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.12.1...app-v0.13.0
 [0.12.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.12.0...app-v0.12.1
 [0.12.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.11.0...app-v0.12.0
