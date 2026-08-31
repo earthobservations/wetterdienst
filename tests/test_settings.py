@@ -11,7 +11,8 @@ from unittest import mock
 import pytest
 from pydantic import ValidationError
 
-from wetterdienst.settings import Settings
+from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings
 
 WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
@@ -170,8 +171,19 @@ def test_settings_geo_station_distance_for_scales_with_resolution() -> None:
     assert settings.ts_geo_station_distance_for("precipitation_height", "6_hour") == 30.0
     assert settings.ts_geo_station_distance_for("precipitation_height", "daily") == 40.0
     assert settings.ts_geo_station_distance_for("precipitation_height", "annual") == 40.0
-    # a resolution the factors say nothing about is left as it is
-    assert settings.ts_geo_station_distance_for("precipitation_height", "undefined") == 20.0
+    # a name from outside the resolution vocabulary is left as it is rather than guessed at
+    assert settings.ts_geo_station_distance_for("precipitation_height", "every other tuesday") == 20.0
+
+
+def test_settings_geo_station_distance_factors_name_every_resolution() -> None:
+    """Test that no resolution falls through to the unscaled default.
+
+    The default exists for a name from outside the vocabulary, not for a resolution the table
+    forgot: a resolution left out would hold a heterogeneous parameter to the hourly radius at
+    every interval, which is a fifth too wide at `10_minutes` and half as wide as it should be at
+    `daily`, and nothing about the result would say so.
+    """
+    assert set(_STATION_DISTANCE_RESOLUTION_FACTORS) == {resolution.value for resolution in Resolution}
 
 
 def test_settings_geo_station_distance_for_stops_widening_past_a_day() -> None:
