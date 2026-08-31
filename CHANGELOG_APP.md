@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Build]` The Coolify deploy step has failed on every run since 2026-08-17, so no release or
+  nightly has reached the live app since -- which is why a published version could sit in GHCR
+  while the running site stayed on the one before it. Coolify moved `/api/v1/deploy` from GET to
+  POST and left the GET route answering `405 This endpoint has changed to a POST request.`, which
+  `curl --fail` turned into an exit 22 after the image had already been built and pushed. The
+  deploy call now uses POST
+
 ## [0.14.0] - 2026-08-31
 
 ### Added

@@ -189,6 +189,6 @@ jobs:
 
       - name: Deploy to Coolify
         run: |
-          curl --fail --request GET \
+          curl --fail --request POST \
             --header "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}" \
             'https://coolify.eobs.org/api/v1/deploy?uuid=${{ secrets.COOLIFY_BACKEND_UUID }}&force=false'

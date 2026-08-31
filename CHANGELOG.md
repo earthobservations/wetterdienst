@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- CI: the Coolify deploy step has failed on every run since 2026-08-17, so no release or nightly
+  has reached the live deployment since. Coolify moved `/api/v1/deploy` from GET to POST and left
+  the GET route pointing at a stub that answers `405 This endpoint has changed to a POST request.`,
+  which `curl --fail` turned into an exit 22 after the images had already been built and pushed.
+  Both deploy calls now use POST. The images were never the problem -- every run pushed its
+  manifest and passed `Inspect image` before dying on the last step
+
 ## [0.135.0] - 2026-08-31
 
 ### Added
