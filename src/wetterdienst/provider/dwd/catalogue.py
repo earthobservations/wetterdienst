@@ -40,8 +40,9 @@ _COLUMNS = ("station_id", "icao_id", "name", "latitude", "longitude", "height")
 def read_mosmix_station_catalogue(settings: Settings, url: str = MOSMIX_STATION_CATALOGUE_URL) -> pl.DataFrame:
     """Read the MOSMIX station catalogue, returning one row per station.
 
-    Returns an empty frame when the catalogue cannot be fetched, so that callers report no stations
-    rather than raising -- the network error itself is raised by ``raise_if_exception``.
+    A fetch failure is raised, save for ``NoInternetError``: ``raise_if_exception`` returns
+    silently on that one, and an empty frame is returned so that a caller offline reports no
+    stations rather than an error.
     """
     file = download_file(
         url=url,

@@ -53,7 +53,6 @@ _DATE_COLUMN_INDEX = 0
 _TIME_COLUMN_INDEX = 1
 # line 1 is the header polars reads; lines 2 and 3 are the units and the German descriptions
 _HEADER_ROWS = 2
-_MISSING_VALUE = "---"
 
 _EMPTY_VALUES_SCHEMA = {
     "resolution": pl.String,
@@ -77,11 +76,12 @@ def _station_id_from_file_name(file_name: str) -> str:
 
 
 def _read_poi_csv(content: bytes) -> pl.DataFrame:
-    """Parse a station file, dropping the unit and description header lines."""
-    # decoded here rather than left to polars: the German descriptions in the third line carry
-    # umlauts and are latin-1, which polars would reject as invalid utf-8
-    csv = content.decode("latin-1").encode("utf-8")
-    df = pl.read_csv(csv, separator=";", infer_schema_length=0)
+    """Parse a station file, dropping the unit and description header lines.
+
+    Read as latin-1: the German descriptions in the third line carry umlauts, which polars would
+    otherwise reject as invalid utf-8.
+    """
+    df = pl.read_csv(content, separator=";", infer_schema_length=0, encoding="latin-1")
     return df.slice(_HEADER_ROWS)
 
 
