@@ -616,7 +616,9 @@ def test_radar_request_site_historic_pe_timerange(default_settings: Settings, fm
     if fmt == DwdRadarDataFormat.BINARY:
         buffer = results[0].data
         payload = buffer.getvalue()
-        month_year = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None).strftime("%m%y")
+        # from the requested date, not from now: the request is for yesterday, so on the first of
+        # a month the two are in different months and the header would never match
+        month_year = request.start_date.strftime("%m%y")
         header = (
             f"PE......10132{month_year}BY ....VS 1LV12  "
             "1.0  2.0  3.0  4.0  5.0  6.0  7.0  8.0  9.0 10.0 11.0 12.0"
