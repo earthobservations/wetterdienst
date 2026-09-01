@@ -29,6 +29,7 @@ from wetterdienst.provider.dwd.dmo import DwdDmoMetadata, DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.phenology import DwdPhenologyMetadata
+from wetterdienst.provider.dwd.poi import DwdPoiMetadata
 from wetterdienst.provider.dwd.road import DwdRoadMetadata, DwdRoadRequest
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosMetadata
 from wetterdienst.provider.ea.hydrology import EAHydrologyMetadata, EAHydrologyRequest
@@ -63,6 +64,7 @@ ALL_METADATA = [
     DwdMosmixMetadata,
     DwdObservationMetadata,
     DwdPhenologyMetadata,
+    DwdPoiMetadata,
     DwdRoadMetadata,
     DwdSwsmosMetadata,
     EAHydrologyMetadata,

@@ -87,7 +87,7 @@ provider/<provider>/[<network>/]
   download.py     # data fetching helpers
 ```
 
-DWD has multiple networks: `observation`, `mosmix`, `dmo`, `road`, `radar`, `derived`, `swsmos`, `phenology`, `alerts`.
+DWD has multiple networks: `observation`, `mosmix`, `dmo`, `road`, `radar`, `derived`, `swsmos`, `poi`, `phenology`, `alerts`.
 
 ### Network / caching
 

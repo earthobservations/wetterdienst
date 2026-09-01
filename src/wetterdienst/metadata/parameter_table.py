@@ -437,6 +437,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "evapotranspiration_last_24h",
+        "precipitation",
+        "Water evaporated and transpired in the preceding 24 hours.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "evapotranspiration_potential_gras_fao_last_24h",
         "precipitation",
         "Potential evapotranspiration over grass in the preceding 24 hours, after the FAO reference method.",
@@ -1438,6 +1444,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "radiation_sky_short_wave_direct_intensity",
+        "power_per_area",
+        "Direct short-wave irradiance from the sun, reported as power.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "road_surface_condition", "dimensionless", "Coded condition of the road surface, such as dry, wet or icy."
     ),
     CanonicalParameter(
@@ -1622,6 +1634,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "temperature_air_max_2m_last_12h",
+        "temperature",
+        "Maximum air temperature at 2 m above ground over the preceding 12 hours.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "temperature_air_max_2m_last_24h",
         "temperature",
         "Maximum air temperature at 2 m above ground over the preceding 24 hours.",
@@ -1637,6 +1655,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_air_max_2m_multiday",
         "temperature",
         "Maximum air temperature at 2 m above ground, covering several days where a station did not report daily.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_air_max_2m_yesterday",
+        "temperature",
+        "Maximum air temperature at 2 m above ground on the previous day.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1670,6 +1694,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "temperature_air_mean_2m_yesterday",
+        "temperature",
+        "Mean air temperature at 2 m above ground on the previous day.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "temperature_air_min_0_05m",
         "temperature",
         "Minimum air temperature at 0.05 m above ground.",
@@ -1682,9 +1712,21 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "temperature_air_min_0_05m_yesterday",
+        "temperature",
+        "Minimum air temperature at 0.05 m above ground on the previous day.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "temperature_air_min_2m",
         "temperature",
         "Minimum air temperature at 2 m above ground.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_air_min_2m_last_12h",
+        "temperature",
+        "Minimum air temperature at 2 m above ground over the preceding 12 hours.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1703,6 +1745,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_air_min_2m_multiday",
         "temperature",
         "Minimum air temperature at 2 m above ground, covering several days where a station did not report daily.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_air_min_2m_yesterday",
+        "temperature",
+        "Minimum air temperature at 2 m above ground on the previous day.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -2699,7 +2747,17 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter("wave_period", "time", "Mean time between successive wave crests."),
     CanonicalParameter("weather", "dimensionless", "Coded present weather at the time of observation."),
+    CanonicalParameter(
+        "weather_last_3h",
+        "dimensionless",
+        "Coded weather observed over the preceding 3 hours.",
+    ),
     CanonicalParameter("weather_last_6h", "dimensionless", "Coded weather observed over the preceding 6 hours."),
+    CanonicalParameter(
+        "weather_secondary_last_3h",
+        "dimensionless",
+        "Second coded weather observed over the preceding 3 hours, where two kinds of weather occurred.",
+    ),
     CanonicalParameter(
         "weather_significant", "significant_weather", "Coded significant weather at the time of observation."
     ),
@@ -2849,6 +2907,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "wind_gust_max_last_6h", "speed", "Strongest gust over the preceding 6 hours.", interpolation="homogeneous"
     ),
     CanonicalParameter(
+        "wind_gust_max_yesterday",
+        "speed",
+        "Strongest gust on the previous day.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "wind_movement_24h",
         "length_long",
         "Wind run, the distance a parcel of air travelled past the station in 24 hours.",
@@ -2872,6 +2936,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "wind_speed_rolling_mean_max",
         "speed",
         "Highest rolling mean wind speed over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "wind_speed_rolling_mean_max_yesterday",
+        "speed",
+        "Highest rolling mean wind speed on the previous day.",
         interpolation="homogeneous",
     ),
 )

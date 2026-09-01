@@ -110,6 +110,7 @@ def test_coverage(client: TestClient) -> None:
         "dmo",
         "road",
         "swsmos",
+        "poi",
         "phenology",
         "radar",
         "alerts",
