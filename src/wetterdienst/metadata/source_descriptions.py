@@ -33,6 +33,8 @@ are taken as they come:
 - Météo-France: the `*_descriptif_champs*.csv` published beside each resolution, translated from
   French
 - Met Office: the MIDAS table dictionaries CEDA publishes, already in English
+- DWD POI: the German description line each `<station_id>-BEOB.csv` carries as its third header
+  line, translated
 - DWD forecast codes: `MetElementDefinition.xml`. It defines the MOSMIX elements, and swsmos reuses
   their names while publishing different units -- MOSMIX `TD` is Kelvin, swsmos `TD` is Celsius -- so
   its wording is used only where it says nothing about the unit
@@ -133,6 +135,79 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "data", "TD"): "Dew point temperature 2m above surface.",
         ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours",
+    },
+    "DwdPoiMetadata": {
+        ("hourly", "data", "cloud_cover_total"): "Fraction of the sky covered by cloud of any kind.",
+        ("hourly", "data", "daily_mean_of_temperature_previous_day"): (
+            "Mean air temperature at 2 m above ground on the previous day."
+        ),
+        ("hourly", "data", "depth_of_new_snow"): "Depth of the snow that fell since the previous observation.",
+        ("hourly", "data", "dew_point_temperature_at_2_meter_above_ground"): (
+            "Dew point temperature at 2 m above ground."
+        ),
+        ("hourly", "data", "diffuse_solar_radiation_last_hour"): "Diffuse short-wave irradiance in the preceding hour.",
+        ("hourly", "data", "direct_solar_radiation_last_hour"): "Direct short-wave irradiance in the preceding hour.",
+        ("hourly", "data", "dry_bulb_temperature_at_2_meter_above_ground"): "Air temperature at 2 m above ground.",
+        ("hourly", "data", "evaporation/evapotranspiration_last_24_hours"): (
+            "Evaporation and evapotranspiration in the preceding 24 hours."
+        ),
+        ("hourly", "data", "global_radiation_last_hour"): "Global irradiance in the preceding hour.",
+        ("hourly", "data", "height_of_base_of_lowest_cloud_above_station"): (
+            "Height above the station of the base of the lowest cloud."
+        ),
+        ("hourly", "data", "horizontal_visibility"): "Horizontal distance at which an object can still be made out.",
+        ("hourly", "data", "maximum_of_10_minutes_mean_of_wind_speed_for_previous_day"): (
+            "Highest 10-minute mean wind speed on the previous day."
+        ),
+        ("hourly", "data", "maximum_of_temperature_for_previous_day"): (
+            "Maximum air temperature at 2 m above ground on the previous day."
+        ),
+        ("hourly", "data", "maximum_temperature_last_12_hours_2_meters_above_ground"): (
+            "Maximum air temperature at 2 m above ground in the preceding 12 hours."
+        ),
+        ("hourly", "data", "maximum_wind_speed_as_10_minutes_mean_during_last_hour"): (
+            "Highest 10-minute mean wind speed in the preceding hour."
+        ),
+        ("hourly", "data", "maximum_wind_speed_during_last_6_hours"): "Strongest gust in the preceding 6 hours.",
+        ("hourly", "data", "maximum_wind_speed_for_previous_day"): "Strongest gust on the previous day.",
+        ("hourly", "data", "maximum_wind_speed_last_hour"): "Strongest gust in the preceding hour.",
+        ("hourly", "data", "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"): (
+            "Mean wind direction over the last 10 minutes, at 10 m above ground."
+        ),
+        ("hourly", "data", "mean_wind_speed_during last_10_min_at_10_meters_above_ground"): (
+            "Mean wind speed over the last 10 minutes, at 10 m above ground."
+        ),
+        ("hourly", "data", "minimum_of_temperature_at_5_cm_above_ground_for_previous_day"): (
+            "Minimum air temperature at 5 cm above ground on the previous day."
+        ),
+        ("hourly", "data", "minimum_of_temperature_for_previous_day"): (
+            "Minimum air temperature at 2 m above ground on the previous day."
+        ),
+        ("hourly", "data", "minimum_temperature_last_12_hours_2_meters_above_ground"): (
+            "Minimum air temperature at 2 m above ground in the preceding 12 hours."
+        ),
+        ("hourly", "data", "minimum_temperature_last_12_hours_5_cm_above_ground"): (
+            "Minimum air temperature at 5 cm above ground in the preceding 12 hours."
+        ),
+        ("hourly", "data", "past_weather_1"): "Coded weather observed over the preceding 3 hours.",
+        ("hourly", "data", "past_weather_2"): "Second coded weather observed over the preceding 3 hours.",
+        ("hourly", "data", "precipitation_amount_last_24_hours"): "Precipitation collected in the preceding 24 hours.",
+        ("hourly", "data", "precipitation_amount_last_3_hours"): "Precipitation collected in the preceding 3 hours.",
+        ("hourly", "data", "precipitation_amount_last_6_hours"): "Precipitation collected in the preceding 6 hours.",
+        ("hourly", "data", "precipitation_amount_last_hour"): "Precipitation collected in the preceding hour.",
+        ("hourly", "data", "precipitation_last_12_hours"): "Precipitation collected in the preceding 12 hours.",
+        ("hourly", "data", "present_weather"): (
+            "Coded present weather at the time of observation, on DWD's 1..31 scale."
+        ),
+        ("hourly", "data", "pressure_reduced_to_mean_sea_level"): "Air pressure reduced to mean sea level.",
+        ("hourly", "data", "relative_humidity"): "Relative humidity of the air.",
+        ("hourly", "data", "sea/water_temperature"): "Temperature of the sea or lake water at the station.",
+        ("hourly", "data", "temperature_at_5_cm_above_ground"): "Air temperature at 5 cm above ground.",
+        ("hourly", "data", "total_snow_depth"): "Depth of the snow lying on the ground.",
+        ("hourly", "data", "total_time_of_sunshine_during_last_hour"): (
+            "Length of time the sun shone in the preceding hour."
+        ),
+        ("hourly", "data", "total_time_of_sunshine_past_day"): "Length of time the sun shone on the previous day.",
     },
     "DwdDerivedMetadata": {
         ("hourly", "radiation_global", "qn_952"): "Quality flag.",
@@ -2250,6 +2325,9 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     },
     "DwdRoadMetadata": {
         ("15_minutes", "data"): "15-minute road weather data of German highway stations.",
+    },
+    "DwdPoiMetadata": {
+        ("hourly", "data"): "Hourly weather reports of the last day, for the stations DWD forecasts for.",
     },
     "EAHydrologyMetadata": {
         ("15_minutes", "data"): "Historical 15 minute station observations of flow and groundwater level for the UK.",

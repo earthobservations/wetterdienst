@@ -16,6 +16,24 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- DWD: new `poi` network (`dwd/poi`) covering DWD's POI ("Point Of Interest") current weather
+  reports -- the hourly observations of roughly the last day, published as one
+  `<station_id>-BEOB.csv` per station under `weather_reports/poi/`. 39 parameters at `hourly`
+  resolution and the `now` period: temperature (2 m and 5 cm), dew point, humidity, sea-level
+  pressure, wind and gusts, precipitation over the last 1/3/6/12/24 hours, cloud cover and base,
+  visibility, sunshine, snow depth, the coded present and past weather, and the previous day's
+  temperature and wind extremes. This is the observed counterpart to `dwd/mosmix`: the two share
+  the MOSMIX station catalogue, so a station keeps one id across both and a forecast can be
+  compared against what was measured. About 970 of the catalogue's ~5600 stations report, in
+  Germany and abroad. Two of the file's 41 columns are left unmapped -- the 24-hour global and
+  direct radiation. Both are declared W/m2, which a 24-hour figure cannot be; measured against the
+  daily total the hourly column adds up to (itself confirmed against DWD's own 10-minute solar
+  data), the 24-hour column comes out proportional with a factor of 1.573 over 29 stations, i.e. a
+  real daily total in a unit of ~0.636 MJ/m2 per count that matches nothing the converter knows.
+  Sum the hourly column for a daily total
+
 ### Fixed
 
 - CI: the Coolify deploy step has failed on every run since 2026-08-17, so no release or nightly

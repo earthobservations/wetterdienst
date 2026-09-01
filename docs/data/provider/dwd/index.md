@@ -18,6 +18,9 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - over 5000 stations worldwide
 - [Road](road/index.md) — weather observations from German motorway ("road") stations
     - 15-minute resolution, distributed in BUFR format
+- [POI](poi/index.md) — current weather reports, the observed counterpart to MOSMIX
+    - hourly resolution, roughly the last day, for the ~970 MOSMIX stations that report
+    - 39 parameters, including the previous day's temperature and wind extremes
 - [Radar](radar/index.md) — radar-based precipitation products
     - composite, radolan, radvor, sites and radolan_cdc
     - RADOLAN: gauge-calibrated areal precipitation; RADVOR: radar-based precipitation forecast
@@ -52,6 +55,7 @@ mosmix/index.md
 observation/index.md
 road/index.md
 swsmos/index.md
+poi/index.md
 phenology/index.md
 radar/index.md
 derived/index.md

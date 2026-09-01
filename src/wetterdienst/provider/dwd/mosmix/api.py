@@ -9,7 +9,6 @@ import datetime as dt
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from io import StringIO
 from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urljoin
 
@@ -19,12 +18,11 @@ from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.provider.dwd.catalogue import MOSMIX_STATION_CATALOGUE_URL, read_mosmix_station_catalogue
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
 from wetterdienst.util.enumeration import parse_enumeration_from_template
-from wetterdienst.util.geo import convert_dm_to_dd
-from wetterdienst.util.network import download_file, list_remote_files_fsspec
-from wetterdienst.util.polars_util import read_fwf_from_df
+from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -206,7 +204,7 @@ class DwdMosmixRequest(TimeseriesRequest):
     issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST
     station_group: DwdMosmixStationGroup = DwdMosmixStationGroup.SINGLE_STATIONS
 
-    _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
+    _url = MOSMIX_STATION_CATALOGUE_URL
 
     _base_columns: ClassVar = [
         "resolution",
@@ -262,39 +260,12 @@ class DwdMosmixRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
-        file = download_file(
-            url=self._url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.METAINDEX,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        file.raise_if_exception()
-        if isinstance(file.content, Exception):
+        df_raw = read_mosmix_station_catalogue(settings, self._url)
+        if df_raw.is_empty():
             return pl.LazyFrame()
-        text = StringIO(file.content.read().decode(encoding="latin-1"))
-        lines = text.readlines()
-        header = lines.pop(0)
-        df_raw = pl.DataFrame({"column_0": lines[1:]})
-        df_raw.columns = [header]
-        column_specs = ((0, 5), (6, 9), (11, 30), (32, 38), (39, 46), (48, 56))
-        df_raw = read_fwf_from_df(df_raw, column_specs)
-        df_raw.columns = [
-            "station_id",
-            "icao_id",
-            "name",
-            "latitude",
-            "longitude",
-            "height",
-        ]
         df_raw = df_raw.with_columns(
-            pl.col("icao_id").replace("----", None),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
-            pl.col("latitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
-            pl.col("longitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
-            pl.col("height").cast(int),
             pl.lit(None, pl.String).alias("state"),
         )
         # combinations of resolution and dataset

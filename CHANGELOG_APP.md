@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Glossary]` Names in all eleven languages for the twelve parameters the backend adds with the
+  new DWD POI network -- the previous-day extremes (`temperature_air_max_2m_yesterday`,
+  `wind_gust_max_yesterday`, `wind_speed_rolling_mean_max_yesterday` and their siblings), the
+  12-hour extremes, the two past-weather codes and `radiation_sky_short_wave_direct_intensity`.
+  The previous-day ones follow the phrasing `sunshine_duration_yesterday` already set in each
+  locale -- "Vortag", "veille", "giorno precedente" -- rather than the "(last 24 h)" wording,
+  since the value covers the previous calendar day and not a rolling window. The measured
+  `evapotranspiration_last_24h` is labelled apart from the potential evapotranspiration it sits
+  next to, which is what the two names mean
+
 ## [0.14.1] - 2026-08-31
 
 ### Fixed
