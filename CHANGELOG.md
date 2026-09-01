@@ -34,8 +34,29 @@ Types of changes:
   real daily total in a unit of ~0.636 MJ/m2 per count that matches nothing the converter knows.
   Sum the hourly column for a daily total
 
+### Changed
+
+- Parameter parsing: a parameter the provider does not have is now logged as a warning naming what
+  did not match -- resolution, dataset or parameter -- with the closest name as a "did you mean"
+  and the names that would have matched, where it used to be an `info` line saying only that the
+  parameter was not found. Half a request silently resolving to less data than was asked for is
+  otherwise invisible. `NoParametersFoundError` names the request and the provider too
+- Parameter parsing: the parts of a parameter must be strings. A tuple mixing in an enum member,
+  `(Resolution.DAILY, "kl")`, now raises a `TypeError` naming the accepted forms instead of an
+  `AttributeError` from deep inside the parser
+- Lookups on the metadata models (`metadata["daily"]["kl"]`, `metadata.daily.kl`) match the
+  source's own name case-insensitively, as looking a parameter up by its `name_original` already
+  did in a request, and suggest the closest name when nothing matches
+
 ### Fixed
 
+- Parameter parsing: parameters requested more than once -- a dataset and one of its parameters,
+  or the same dataset twice -- are returned once instead of being queried and returned per mention
+- Parameter parsing: an iterator of parameters no longer parses as empty. It was consumed by the
+  checks that tell `("daily", "kl")` apart from `["daily/kl", "daily/solar"]`
+- Parameter parsing: a quality flag requested by name (`daily/kl/quality_wind`) says that quality
+  flags come back in the `quality` column next to their parameter, where it used to be dropped as
+  if it did not exist. Requesting one as a `ParameterModel` was dropped the same way
 - CI: the Coolify deploy step has failed on every run since 2026-08-17, so no release or nightly
   has reached the live deployment since. Coolify moved `/api/v1/deploy` from GET to POST and left
   the GET route pointing at a stub that answers `405 This endpoint has changed to a POST request.`,
