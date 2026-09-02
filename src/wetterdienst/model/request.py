@@ -104,7 +104,7 @@ class TimeseriesRequest:
         if not self.parameters:
             # the warnings parse_parameters logged say per parameter what was wrong with it, but
             # they are only visible to whoever configured logging, so name the request here too
-            msg = f"No valid parameters could be parsed from {requested!r} for {self.metadata.__name__}"
+            msg = f"No valid parameters could be parsed from {requested!r} for {type(self).__name__}"
             raise NoParametersFoundError(msg)
 
     # Columns that should be contained within any stations information

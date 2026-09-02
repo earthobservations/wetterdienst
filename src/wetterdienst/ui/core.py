@@ -829,7 +829,7 @@ def _get_stations_request(
     if not parameters:
         # raised here rather than left to the request, which would only see the empty list this
         # resolved to and could not name what was asked for
-        msg = f"No valid parameters could be parsed from {request.parameters!r} for {api.metadata.__name__}"
+        msg = f"No valid parameters could be parsed from {request.parameters!r} for {api.__name__}"
         raise NoParametersFoundError(msg)
 
     any_date_required = any(parameter.dataset.date_required for parameter in parameters)
