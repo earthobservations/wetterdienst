@@ -7,7 +7,12 @@ import re
 import pytest
 
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import ParameterModel, ParameterSearch, parse_parameters
+from wetterdienst.model.metadata import (
+    ParameterModel,
+    ParameterSearch,
+    group_parameters_by_dataset,
+    parse_parameters,
+)
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 
 
@@ -194,3 +199,27 @@ def test_parse_parameters_malformed_is_skipped(caplog: pytest.LogCaptureFixture)
     parameters = parse_parameters(["daily/kl/", "daily/solar"], DwdObservationMetadata)
     assert parameters == [*DwdObservationMetadata.daily.solar]
     assert "'daily/kl/' could not be parsed as a parameter" in caplog.text
+
+
+def test_group_parameters_by_dataset_groups_a_dataset_asked_for_twice() -> None:
+    """A dataset interleaved with another must form one group, not one per run.
+
+    ``parse_parameters`` keeps the order the caller asked in, so ``itertools.groupby`` -- which
+    only groups consecutive items -- split ``climate_summary`` into two groups here. Downstream
+    that fetched and parsed it twice, and put a duplicate station row in the frames built from it.
+    """
+    parameters = parse_parameters(
+        [
+            "daily/kl/temperature_air_mean_2m",
+            "daily/more_precip/precipitation_height",
+            "daily/kl/precipitation_height",
+        ],
+        DwdObservationMetadata,
+    )
+
+    groups = group_parameters_by_dataset(parameters)
+
+    assert [(dataset.name, [parameter.name for parameter in grouped]) for dataset, grouped in groups] == [
+        ("climate_summary", ["temperature_air_mean_2m", "precipitation_height"]),
+        ("precipitation_more", ["precipitation_height"]),
+    ]

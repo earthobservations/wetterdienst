@@ -80,11 +80,20 @@ def request_stations(
     # yields only the stations that returned data inside the requested window, so any station it
     # passes over shifts a positional pairing by one and every station after it is then read with
     # the coordinates and distance of its neighbour
-    stations_by_id = {station["station_id"]: station for station in df_stations_ranked.iter_rows(named=True)}
+    # one row per station, the nearest: the ranked frame carries a row per station *and* dataset,
+    # so a multi-dataset request has several rows for one station, each with the coordinates and
+    # distance its own dataset's meta index reported. `query()` yields one result per station, and
+    # the row that answers for it is the closest one rather than whichever happened to sort last
+    stations_by_id = {
+        station["station_id"]: station
+        for station in df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True).iter_rows(
+            named=True,
+        )
+    }
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
     for result in tqdm(
         stations_ranked.values.query(),
-        total=len(df_stations_ranked),
+        total=len(stations_by_id),
         desc="querying stations for interpolation",
         unit="station",
         file=tqdm_out,

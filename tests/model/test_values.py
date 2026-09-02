@@ -472,3 +472,92 @@ def test_actual_percentage_matches_a_parameter_name_in_the_provider_own_casing()
     )
 
     assert _percentage(values, df) == 1.0
+
+
+def _stub_dwd_daily(
+    *,
+    station_ids: list[str],
+    data_year_by_station: dict[str, int],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stand in for DWD's station index and data files, so the walk can be exercised offline."""
+    utc = ZoneInfo("UTC")
+    df_stations = pl.DataFrame(
+        {
+            "resolution": ["daily"] * len(station_ids),
+            "dataset": ["climate_summary"] * len(station_ids),
+            "station_id": station_ids,
+            "start_date": [dt.datetime(1990, 1, 1, tzinfo=utc)] * len(station_ids),
+            "end_date": [dt.datetime(2020, 1, 1, tzinfo=utc)] * len(station_ids),
+            # spread along a meridian so the distance ranking follows the list order
+            "latitude": [50.0 + index / 10 for index in range(len(station_ids))],
+            "longitude": [8.0] * len(station_ids),
+            "height": [100.0] * len(station_ids),
+            "name": station_ids,
+            "state": ["x"] * len(station_ids),
+        },
+    )
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda self: df_stations.lazy())  # noqa: ARG005
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        year = data_year_by_station[station_id]
+        return pl.DataFrame(
+            {
+                "date": [dt.datetime(year, 1, day, tzinfo=utc) for day in range(1, 4)],
+                "parameter": ["tmk"] * 3,
+                "value": [1.0] * 3,
+                "quality": [1.0] * 3,
+                "resolution": ["daily"] * 3,
+                "dataset": ["climate_summary"] * 3,
+            },
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def test_rank_is_not_spent_on_a_station_whose_data_misses_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station with no reading inside the window must not consume one of ``rank``'s slots.
+
+    The two nearest stations hold data, but only outside the requested window; the third does
+    cover it. Counting the near two as collected stopped the ranked walk before the third and
+    returned nothing at all.
+    """
+    _stub_dwd_daily(
+        station_ids=["00001", "00002", "00003"],
+        data_year_by_station={"00001": 1990, "00002": 1990, "00003": 1930},
+        monkeypatch=monkeypatch,
+    )
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start_date="1930-01-01",
+        end_date="1930-12-31",
+    )
+
+    values = request.filter_by_rank(latlon=(50.0, 8.0), rank=2).values
+    df = values.all().df
+
+    assert values.stations_collected == ["00003"]
+    assert df.get_column("station_id").unique().to_list() == ["00003"]
+    assert df.height == 3
+
+
+def test_a_request_that_collects_nothing_keeps_its_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty result is still shaped like a populated one, so it can be written or read from."""
+    _stub_dwd_daily(
+        station_ids=["00001"],
+        data_year_by_station={"00001": 1990},
+        monkeypatch=monkeypatch,
+    )
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start_date="1930-01-01",
+        end_date="1930-12-31",
+    )
+
+    df = request.filter_by_station_id("00001").values.all().df
+
+    assert df.is_empty()
+    assert df.columns == ["station_id", "resolution", "dataset", "parameter", "date", "value", "quality"]
+    # a header rather than an empty file, and a column that can still be asked for
+    assert df.write_csv() == "station_id,resolution,dataset,parameter,date,value,quality\n"
+    assert df.get_column("date").is_empty()

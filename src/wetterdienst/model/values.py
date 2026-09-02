@@ -228,6 +228,18 @@ class TimeseriesValues(ABC):
             ),
         )
 
+    def _empty_values_df(self) -> pl.DataFrame:
+        """Build the frame a request that collected nothing returns, carrying its schema.
+
+        Shaped like a collected one would have been, so that the empty case differs from the
+        populated case only in having no rows: wide for ``ts_shape="wide"``, where ``_widen_df``
+        names the parameter columns from the request rather than from data it does not have.
+        """
+        df = pl.DataFrame(schema=self._meta_fields)
+        if not self.sr.settings.ts_tidy:
+            df = self._widen_df(df=df)
+        return self._cast_metadata_to_enum(df)
+
     def _get_available_datasets(self, df: pl.DataFrame) -> list[DatasetModel]:
         """Extract available datasets for the station."""
         resolution_dataset_pairs = (
@@ -400,11 +412,16 @@ class TimeseriesValues(ABC):
         for result in tqdm(self.query(), total=len(self.sr.station_id), file=tqdm_out):
             data.append(result.df)
 
-        try:
-            df = pl.concat(data, how="diagonal")
-        except ValueError:
-            log.exception("No data available for given constraints")
-            return ValuesResult(stations=self.sr, values=self, df=pl.DataFrame())
+        if not data:
+            # an ordinary outcome -- no station covered the requested window -- rather than an
+            # error, so it is logged as one and does not print a traceback. The frame still carries
+            # its schema: a caller writes it out as a header row, asks it for a column or
+            # concatenates it against a populated frame, and none of that survives a frame with no
+            # columns at all
+            log.info("No data available for given constraints")
+            return ValuesResult(stations=self.sr, values=self, df=self._empty_values_df())
+
+        df = pl.concat(data, how="diagonal")
 
         # store the low-cardinality metadata columns as Enum to reduce the memory footprint of the
         # aggregated result; done once here on the full frame, with categories from the actual data
