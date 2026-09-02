@@ -19,7 +19,7 @@ from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
-from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.metadata import ParameterModel, build_metadata_model
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
 from wetterdienst.provider.chmi.observation import ChmiObservationMetadata, ChmiObservationRequest
@@ -302,6 +302,111 @@ def test_parameter_model_unit_type_unknown_name() -> None:
         _ = parameter.unit_type
 
 
+def _minimal_metadata() -> dict:
+    """Build the smallest metadata declaration that validates, for the model tests below."""
+    return {
+        "name_short": "Example",
+        "name_english": "Example Weather Service",
+        "name_local": "Beispiel",
+        "country": "Germany",
+        "copyright": "© Example",
+        "url": "https://example.com",
+        "kind": "observation",
+        "timezone": "Europe/Berlin",
+        "resolutions": [
+            {
+                "name": "daily",
+                "name_original": "daily",
+                "periods": ["historical"],
+                "date_required": False,
+                "datasets": [
+                    {
+                        "name": "data",
+                        "name_original": "data",
+                        "grouped": True,
+                        "parameters": [
+                            {
+                                "name": "temperature_air_mean_2m",
+                                "name_original": "tt",
+                                "unit": "degree_celsius",
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ("level", "key"),
+    [
+        ("metadata", "kindd"),
+        ("resolution", "date_requiered"),
+        ("dataset", "grupped"),
+    ],
+)
+def test_metadata_model_rejects_unknown_keys(level: str, key: str) -> None:
+    """Test that a misspelled key is rejected rather than dropped, at every level of the model.
+
+    Only `ParameterModel` used to forbid extra keys. Everywhere else a typo was silently ignored
+    and the declaration then fell back to a default -- a `date_requiered` dataset quietly inherits
+    the resolution's `date_required`, which is the sort of drift no test would catch.
+    """
+    metadata = _minimal_metadata()
+    resolution = metadata["resolutions"][0]
+    target = {"metadata": metadata, "resolution": resolution, "dataset": resolution["datasets"][0]}[level]
+    target[key] = True
+    with pytest.raises(ValidationError, match=key):
+        build_metadata_model(metadata, "ExampleMetadata")
+
+
+def test_metadata_model_reports_the_invalid_period() -> None:
+    """Test that an unknown period is reported as such, rather than as a missing field.
+
+    `validate_datasets` cascades the resolution's `periods` down to its datasets. Reading that
+    field by index used to turn any error in it into `KeyError('periods')`, because pydantic drops
+    a field that failed validation from the data the next validator sees.
+
+    The datasets that would have inherited it are left out of the report rather than each adding a
+    `Field required` of its own, which for a resolution the size of `DwdPhenologyMetadata`'s would
+    bury the real error under 110 misleading ones.
+    """
+    metadata = _minimal_metadata()
+    resolution = metadata["resolutions"][0]
+    resolution["periods"] = ["histerical"]
+    resolution["datasets"].append({**resolution["datasets"][0], "name": "other", "name_original": "other"})
+    with pytest.raises(ValidationError, match="histerical") as excinfo:
+        build_metadata_model(metadata, "ExampleMetadata")
+
+    assert excinfo.value.error_count() == 1
+
+
+def test_metadata_model_rejects_a_declared_name() -> None:
+    """Test that a declaration cannot set the name the model is built with.
+
+    `build_metadata_model` injects it, so a declaration setting it would have it silently
+    overwritten -- the one top-level key `extra="forbid"` cannot catch, and a plausible one to
+    write next to `name_short`, `name_english` and `name_local`.
+    """
+    metadata = _minimal_metadata()
+    metadata["name"] = "example"
+    with pytest.raises(ValueError, match="cannot be declared"):
+        build_metadata_model(metadata, "ExampleMetadata")
+
+
+def test_metadata_model_name() -> None:
+    """Test that the name a metadata model is built with is readable and stays out of the dump.
+
+    It names the provider in messages about parameters that could not be resolved against it. It
+    is the name of the declaration rather than one of the provider's own names, so it is excluded
+    from the serialized metadata.
+    """
+    metadata = build_metadata_model(_minimal_metadata(), "ExampleMetadata")
+    assert metadata.name == "ExampleMetadata"
+    assert "name" not in metadata.model_dump()
+
+
 @pytest.mark.parametrize(
     "metadata",
     ALL_METADATA,
@@ -318,7 +423,7 @@ def test_metadata_parameter_table(unit_converter_unit_type_units: dict, metadata
         for dataset in resolution:
             # iterate dataset.parameters rather than dataset, to cover quality parameters too
             for parameter in dataset.parameters:
-                site = f"{metadata.__name__} {resolution.name}/{dataset.name}/{parameter.name}"
+                site = f"{metadata.name} {resolution.name}/{dataset.name}/{parameter.name}"
                 canonical = PARAMETERS.get(parameter.name)
                 assert canonical, f"{site}: not a canonical parameter name"
                 # the source's unit must be a unit of the quantity this parameter measures
@@ -980,7 +1085,7 @@ def test_source_descriptions_reach_the_metadata() -> None:
                 for dataset in resolution
                 for parameter in dataset.parameters
             }
-            unknown.extend(sorted(set(SOURCE_DESCRIPTIONS.get(metadata.__name__, {})) - declared))
+            unknown.extend(sorted(set(SOURCE_DESCRIPTIONS.get(metadata.name, {})) - declared))
     assert not unknown, f"descriptions for parameters that no longer exist: {unknown[:5]}"
 
     parameter = DwdObservationRequest.metadata["10_minutes"]["solar"]["radiation_global"]
@@ -1023,8 +1128,8 @@ def test_source_descriptions_reach_the_parameter_they_name() -> None:
                 continue
             # a derived description only fills a gap, never displaces one the source wrote
             expected = {
-                **DERIVED_DESCRIPTIONS.get(metadata.__name__, {}),
-                **SOURCE_DESCRIPTIONS.get(metadata.__name__, {}),
+                **DERIVED_DESCRIPTIONS.get(metadata.name, {}),
+                **SOURCE_DESCRIPTIONS.get(metadata.name, {}),
             }
             for resolution in metadata:
                 for dataset in resolution:
@@ -1032,7 +1137,7 @@ def test_source_descriptions_reach_the_parameter_they_name() -> None:
                         key = (resolution.name, dataset.name, parameter.name_original)
                         if key in expected and parameter.description != expected[key]:
                             wrong.append(
-                                f"{metadata.__name__} {'/'.join(key)}: "
+                                f"{metadata.name} {'/'.join(key)}: "
                                 f"got {parameter.description!r}, expected {expected[key]!r}",
                             )
     assert not wrong, "\n".join(wrong[:10])

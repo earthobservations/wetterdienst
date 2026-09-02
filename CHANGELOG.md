@@ -47,6 +47,9 @@ Types of changes:
 - Lookups on the metadata models (`metadata["daily"]["kl"]`, `metadata.daily.kl`) match the
   source's own name case-insensitively, as looking a parameter up by its `name_original` already
   did in a request, and suggest the closest name when nothing matches
+- Provider metadata: `MetadataModel` carries the name it was built with as a `name` field, where
+  it used to be stashed on the model's `__name__`. Read `DwdObservationMetadata.name` instead of
+  `DwdObservationMetadata.__name__`
 
 ### Fixed
 
@@ -57,6 +60,13 @@ Types of changes:
 - Parameter parsing: a quality flag requested by name (`daily/kl/quality_wind`) says that quality
   flags come back in the `quality` column next to their parameter, where it used to be dropped as
   if it did not exist. Requesting one as a `ParameterModel` was dropped the same way
+- Provider metadata: a misspelled key in a metadata declaration is rejected instead of dropped.
+  Only `ParameterModel` forbade extra keys, so `date_requiered` or `grupped` anywhere else was
+  silently ignored and the declaration fell back to a default -- a dataset quietly inheriting its
+  resolution's `date_required`. Every existing declaration passes unchanged
+- Provider metadata: an invalid `periods` or `date_required` on a resolution is reported as the
+  validation error it is, naming the value that is wrong, where the validator that cascades those
+  two fields down to the datasets used to turn it into a bare `KeyError('periods')`
 - CI: the Coolify deploy step has failed on every run since 2026-08-17, so no release or nightly
   has reached the live deployment since. Coolify moved `/api/v1/deploy` from GET to POST and left
   the GET route pointing at a stub that answers `405 This endpoint has changed to a POST request.`,

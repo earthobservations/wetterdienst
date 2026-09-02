@@ -142,6 +142,8 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
 class DatasetModel(BaseModel):  # noqa: PLW1641
     """Dataset model for a provider."""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     name_original: str
     grouped: bool  # if parameters are grouped together e.g. in one file
@@ -196,6 +198,8 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
 class ResolutionModel(BaseModel):
     """Resolution model for a provider."""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     name_original: str
     value: Resolution = Field(alias="name", exclude=True, repr=False)  # this is just to make the code more readable
@@ -207,9 +211,24 @@ class ResolutionModel(BaseModel):
     @field_validator("datasets", mode="before")
     @classmethod
     def validate_datasets(cls, v: list[dict], validation_info: ValidationInfo) -> list[DatasetModel]:
-        """Validate datasets and set resolution for each dataset."""
-        periods = validation_info.data["periods"]
-        date_required = validation_info.data["date_required"]
+        """Validate datasets and set resolution for each dataset.
+
+        Reads the two cascading fields with ``get``: a field that failed its own validation is not
+        in ``validation_info.data`` at all, and indexing it would replace pydantic's report of what
+        was actually wrong -- an unknown period, say -- with a bare ``KeyError('periods')``.
+
+        A dataset that would have inherited such a field is then left out rather than validated:
+        it would otherwise be reported as missing a field it deliberately omits, once per dataset
+        -- 110 times over for one mistyped period in a `DwdPhenologyMetadata` resolution -- burying
+        the one error that is real. A dataset declaring the field itself is validated as usual, so
+        anything else wrong with it is still reported.
+        """
+        if "periods" not in validation_info.data:
+            v = [dataset for dataset in v if dataset.get("periods")]
+        if "date_required" not in validation_info.data:
+            v = [dataset for dataset in v if dataset.get("date_required") is not None]
+        periods = validation_info.data.get("periods")
+        date_required = validation_info.data.get("date_required")
         if periods:
             for dataset in v:
                 if not dataset.get("periods"):
@@ -250,6 +269,13 @@ class ResolutionModel(BaseModel):
 class MetadataModel(BaseModel):
     """Metadata model for a provider."""
 
+    model_config = ConfigDict(extra="forbid")
+
+    # the name the declaration is bound to, e.g. "DwdObservationMetadata", set by
+    # `build_metadata_model`. Unlike the three provider names below it is a name of ours, so it
+    # identifies the provider in messages about a request that could not be resolved against it
+    # but stays out of the serialized metadata.
+    name: str = Field(default="", exclude=True, repr=False)
     name_short: str
     name_english: str
     name_local: str
@@ -322,7 +348,14 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     carried. A description a provider module already declares wins, since that is a transcription of
     the source's own wording and is only kept where it says at least as much as the curated text.
     ``DERIVED_DESCRIPTIONS`` fills only what no source supplies at all.
+
+    ``name`` becomes ``MetadataModel.name``. A declaration cannot set it itself: it is the one
+    top-level key ``extra="forbid"`` does not reject, and it is a plausible one to write next to
+    ``name_short``, ``name_english`` and ``name_local``, where it would be silently overwritten.
     """
+    if "name" in metadata:
+        msg = f"{name}: 'name' is the name the model is built with and cannot be declared"
+        raise ValueError(msg)
     from wetterdienst.metadata.source_descriptions import (  # noqa: PLC0415
         DATASET_DESCRIPTIONS,
         DERIVED_DESCRIPTIONS,
@@ -343,6 +376,7 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     # its monthly ones minus humidity, so annual read "Monthly mean temperature".
     metadata = {
         **metadata,
+        "name": name,
         "resolutions": [
             {
                 **resolution,
@@ -369,9 +403,7 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
             for resolution in metadata["resolutions"]
         ],
     }
-    validated = MetadataModel.model_validate(metadata)
-    validated.__name__ = name  # ty: ignore[unresolved-attribute]
-    return validated
+    return MetadataModel.model_validate(metadata)
 
 
 @dataclass
@@ -456,7 +488,7 @@ def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> li
             log.warning(f"{parameter!r} could not be parsed as a parameter: {e.args[0]}")
             continue
         except KeyError as e:
-            log.warning(f"{parameter_search.concat()} not found in {metadata.__name__}: {e.args[0]}")
+            log.warning(f"{parameter_search.concat()} not found in {metadata.name}: {e.args[0]}")
             continue
         for parameter_found in found:
             # requests commonly overlap e.g. a dataset and one of its parameters, which would
