@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD observation API."""
 
+import re
 from typing import Literal
 
 import pytest
@@ -101,14 +102,30 @@ def test_api_drop_nulls(default_settings: Settings) -> None:
 
 
 def test_api_no_valid_parameters(default_settings: Settings) -> None:
-    """Test that an error is raised when no valid parameters are found."""
-    with pytest.raises(NoParametersFoundError):
+    """Test that an error is raised when no valid parameters are found.
+
+    The message names the concrete request, not the abstract base, so it says which provider and
+    network the parameters were looked for in.
+    """
+    with pytest.raises(
+        NoParametersFoundError,
+        match=re.escape("No valid parameters could be parsed from [('daily', 'abc')] for DwdObservationRequest"),
+    ):
         DwdObservationRequest(
             parameters=[
                 ("daily", "abc"),
             ],
             settings=default_settings,
         )
+
+
+def test_api_no_valid_parameters_from_iterator(default_settings: Settings) -> None:
+    """Test that the message names the values an iterator held, not the iterator it consumed."""
+    with pytest.raises(
+        NoParametersFoundError,
+        match=re.escape("No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest"),
+    ):
+        DwdObservationRequest(parameters=iter(["daily/abc"]), settings=default_settings)
 
 
 def test_api_partly_valid_parameters(default_settings: Settings, caplog: pytest.LogCaptureFixture) -> None:

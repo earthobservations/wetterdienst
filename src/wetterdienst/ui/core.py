@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 # is one; model/result.py imports it from here for the same reason
 from typing_extensions import TypedDict
 
-from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
+from wetterdienst.exceptions import InvalidTimeIntervalError, NoParametersFoundError, StartDateEndDateError
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
@@ -826,6 +826,11 @@ def _get_stations_request(
             start_date = parse_date(date)
 
     parameters = parse_parameters(request.parameters, api.metadata)
+    if not parameters:
+        # raised here rather than left to the request, which would only see the empty list this
+        # resolved to and could not name what was asked for
+        msg = f"No valid parameters could be parsed from {request.parameters!r} for {api.__name__}"
+        raise NoParametersFoundError(msg)
 
     any_date_required = any(parameter.dataset.date_required for parameter in parameters)
     if any_date_required and (not start_date or not end_date) and not isinstance(request, StationsRequest):

@@ -602,6 +602,22 @@ def test_values_dwd_no_station(client: TestClient) -> None:
     )
 
 
+def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
+    """Test that a parameter the provider does not have is answered with the request it was asked of."""
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/abc",
+            "station": "00011",
+        },
+    )
+    assert response.status_code == 400
+    assert "No valid parameters could be parsed from" in response.text
+    assert "DwdObservationRequest" in response.text
+
+
 @pytest.mark.remote
 @pytest.mark.sql
 def test_values_dwd_sql_tabular(client: TestClient) -> None:

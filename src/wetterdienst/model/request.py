@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from abc import abstractmethod
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, ClassVar
@@ -60,7 +60,7 @@ EARTH_RADIUS_KM = 6371
 # types
 # either of
 # str: "daily/kl" or "daily/kl/temperature_air_mean_2m"  # noqa: ERA001
-# tuple: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m")  # noqa: ERA001
+# tuple of strings: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m")
 # Parameter: DwdObservationMetadata.daily.kl.temperature_air_mean_2m or DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]  # noqa: E501, ERA001
 _PARAMETER_TYPE_SINGULAR = str | tuple[str, str] | tuple[str, str, str] | ParameterModel | DatasetModel
 _PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
@@ -98,10 +98,17 @@ class TimeseriesRequest:
         # Convert timestamps
         self.start_date, self.end_date = self.convert_timestamps(self.start_date, self.end_date)
         # Parse parameters
-        if self.parameters:
-            self.parameters = parse_parameters(self.parameters, self.metadata)  # type: list[ParameterModel]
+        requested = self.parameters
+        if isinstance(requested, Iterator):
+            # parse_parameters consumes an iterator, so keep the values for the message below,
+            # which would otherwise render the exhausted iterator rather than what was asked for
+            requested = list(requested)
+        if requested:
+            self.parameters = parse_parameters(requested, self.metadata)  # type: list[ParameterModel]
         if not self.parameters:
-            msg = "No valid parameters could be parsed from given argument"
+            # the warnings parse_parameters logged say per parameter what was wrong with it, but
+            # they are only visible to whoever configured logging, so name the request here too
+            msg = f"No valid parameters could be parsed from {requested!r} for {type(self).__name__}"
             raise NoParametersFoundError(msg)
 
     # Columns that should be contained within any stations information

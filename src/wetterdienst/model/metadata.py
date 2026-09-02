@@ -4,10 +4,11 @@
 
 from __future__ import annotations
 
+import difflib
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
 from pydantic_extra_types.timezone_name import (
@@ -32,6 +33,57 @@ POSSIBLE_SEPARATORS = ("/", ".", ":")
 
 # for any provider that does not publish their data under a dedicated dataset name
 DATASET_NAME_DEFAULT = "data"
+
+# how close a typo has to be before it is offered as "did you mean"
+_SUGGESTION_CUTOFF = 0.6
+
+_EXPECTED_PARAMETER = (
+    "a 'resolution/dataset' or 'resolution/dataset/parameter' string, a tuple of its parts, "
+    "a DatasetModel or a ParameterModel"
+)
+
+
+# any of the three models that carry a canonical and a source name and are looked up by either
+_NamedModel = TypeVar("_NamedModel", "ResolutionModel", "DatasetModel", "ParameterModel")
+
+
+def _names(model: _NamedModel) -> tuple[str, ...]:
+    """All lowercase names a model may be addressed by.
+
+    That is the canonical name and the source's own name, plus for a resolution the name of the
+    ``Resolution`` enum member ("minute_1" next to "1_minute"), which is what a user reading the
+    enum rather than the docs is likely to type.
+    """
+    names = (model.name.lower(), model.name_original.lower())
+    if isinstance(model, ResolutionModel):
+        return (*names, model.value.name.lower())
+    return names
+
+
+def _find(models: Iterable[_NamedModel], item: str) -> _NamedModel | None:
+    """Find a model by any of its names, case-insensitively, or return None."""
+    item_search = item.strip().lower()
+    for model in models:
+        if item_search in _names(model):
+            return model
+    return None
+
+
+def _not_found(kind: str, item: str, models: Iterable[_NamedModel]) -> str:
+    """Build the message for a name that no model matched.
+
+    Names a close match where there is one, because the common failure is a typo or a name taken
+    from another provider, and the available-names list alone leaves the user to spot the
+    difference themselves.
+    """
+    models = list(models)
+    candidates = sorted({name for model in models for name in _names(model)})
+    close = difflib.get_close_matches(str(item).strip().lower(), candidates, n=1, cutoff=_SUGGESTION_CUTOFF)
+    suggestion = f" Did you mean '{close[0]}'?" if close else ""
+    available = ", ".join(
+        f"{model.name}/{model.name_original}" if model.name != model.name_original else model.name for model in models
+    )
+    return f"'{item}'.{suggestion} Available {kind}: {available}"
 
 
 class ParameterModel(BaseModel):  # noqa: PLW1641
@@ -124,32 +176,17 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
         """Get a parameter by name."""
         if isinstance(item, int):
             return self.parameters[item]
-        item_search = item.strip().lower()
-        for parameter in self.parameters:
-            if item_search in (parameter.name, parameter.name_original):
-                return parameter
-        available_parameters = [
-            f"{parameter.name}/{parameter.name_original}"
-            if parameter.name != parameter.name_original
-            else parameter.name
-            for parameter in self.parameters
-        ]
-        msg = f"'{item}'. Available parameters: {', '.join(available_parameters)}"
-        raise KeyError(msg)
+        parameter = _find(self.parameters, item)
+        if parameter is None:
+            raise KeyError(_not_found("parameters", item, self.parameters))
+        return parameter
 
     def __getattr__(self, item: str) -> ParameterModel:
         """Get a parameter by name."""
-        for parameter in self.parameters:
-            if item in (parameter.name, parameter.name_original):
-                return parameter
-        available_parameters = [
-            f"{parameter.name}/{parameter.name_original}"
-            if parameter.name != parameter.name_original
-            else parameter.name
-            for parameter in self.parameters
-        ]
-        msg = f"'{item}'. Available parameters: {', '.join(available_parameters)}"
-        raise AttributeError(msg)
+        parameter = _find(self.parameters, item)
+        if parameter is None:
+            raise AttributeError(_not_found("parameters", item, self.parameters))
+        return parameter
 
     def __iter__(self) -> Iterator[ParameterModel]:  # ty: ignore[invalid-method-override]
         """Iterate over all parameters."""
@@ -193,29 +230,17 @@ class ResolutionModel(BaseModel):
         """Get a dataset by name."""
         if isinstance(item, int):
             return self.datasets[item]
-        item_search = item.strip().lower()
-        for dataset in self.datasets:
-            if item_search in (dataset.name, dataset.name_original):
-                return dataset
-        available_datasets = [
-            f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
-            for dataset in self.datasets
-        ]
-        msg = f"'{item}'. Available datasets: {', '.join(available_datasets)}"
-        raise KeyError(msg)
+        dataset = _find(self.datasets, item)
+        if dataset is None:
+            raise KeyError(_not_found("datasets", item, self.datasets))
+        return dataset
 
     def __getattr__(self, item: str) -> DatasetModel:
         """Get a dataset by name."""
-        item_search = item.strip().lower()
-        for dataset in self.datasets:
-            if item_search in (dataset.name, dataset.name_original):
-                return dataset
-        available_datasets = [
-            f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
-            for dataset in self.datasets
-        ]
-        msg = f"'{item}'. Available datasets: {', '.join(available_datasets)}"
-        raise AttributeError(msg)
+        dataset = _find(self.datasets, item)
+        if dataset is None:
+            raise AttributeError(_not_found("datasets", item, self.datasets))
+        return dataset
 
     def __iter__(self) -> Iterator[DatasetModel]:  # ty: ignore[invalid-method-override]
         """Iterate over all datasets."""
@@ -240,59 +265,53 @@ class MetadataModel(BaseModel):
         """Get a resolution by name."""
         if isinstance(item, int):
             return self.resolutions[item]
-        item_search = item.strip().lower()
-        for resolution in self.resolutions:
-            if item_search in (resolution.name, resolution.name_original, resolution.value.name.lower()):
-                return resolution
-        available_resolutions = [
-            f"{resolution.name}/{resolution.name_original}"
-            if resolution.name != resolution.name_original
-            else resolution.name
-            for resolution in self.resolutions
-        ]
-        msg = f"'{item}'. Available resolutions: {', '.join(available_resolutions)}"
-        raise KeyError(msg)
+        resolution = _find(self.resolutions, item)
+        if resolution is None:
+            raise KeyError(_not_found("resolutions", item, self.resolutions))
+        return resolution
 
     def __getattr__(self, item: str) -> ResolutionModel:
         """Get a resolution by name.
 
         Alternatively, this still finds any other attribute that is not a resolution.
         """
-        item_search = item.strip().lower()
-        for resolution in self.resolutions:
-            if item_search in (resolution.name, resolution.name_original, resolution.value.name.lower()):
-                return resolution
-        return super().__getattr__(item)  # ty: ignore[unresolved-attribute]
+        resolution = _find(self.resolutions, item)
+        if resolution is None:
+            return super().__getattr__(item)  # ty: ignore[unresolved-attribute]
+        return resolution
 
     def __iter__(self) -> Iterator[ResolutionModel]:  # ty: ignore[invalid-method-override]
         """Iterate over all resolutions."""
         return iter(self.resolutions)
 
     def search_parameter(self, parameter_search: ParameterSearch) -> list[ParameterModel]:
-        """Search for a parameter in the metadata."""
-        for resolution in self:
-            if (
-                resolution.name == parameter_search.resolution
-                or resolution.name_original.lower() == parameter_search.resolution
-                or resolution.value.name.lower() == parameter_search.resolution
-            ):
-                break
-        else:
-            raise KeyError(parameter_search.resolution)
-        for dataset in resolution:
-            if dataset.name == parameter_search.dataset or dataset.name_original.lower() == parameter_search.dataset:
-                break
-        else:
-            raise KeyError(parameter_search.dataset)
+        """Search for a parameter in the metadata.
+
+        Raises a ``KeyError`` naming the part that did not match -- resolution, dataset or
+        parameter -- with the names that would have matched, so a caller that drops the request
+        can say why it dropped it.
+        """
+        resolution = _find(self.resolutions, parameter_search.resolution)
+        if resolution is None:
+            raise KeyError(_not_found("resolutions", parameter_search.resolution, self.resolutions))
+        dataset = _find(resolution.datasets, parameter_search.dataset)
+        if dataset is None:
+            raise KeyError(_not_found("datasets", parameter_search.dataset, resolution.datasets))
         if not parameter_search.parameter:
+            # iterating the dataset leaves out its quality flags, see DatasetModel.__iter__
             return [*dataset]
-        for parameter in dataset:
-            if (
-                parameter.name == parameter_search.parameter
-                or parameter.name_original.lower() == parameter_search.parameter
-            ):
-                return [parameter]
-        raise KeyError(parameter_search.parameter)
+        # searched over all parameters rather than over the dataset's iterator, so that a quality
+        # flag is answered with the explanation below instead of with "no such parameter"
+        parameter = _find(dataset.parameters, parameter_search.parameter)
+        if parameter is None:
+            raise KeyError(_not_found("parameters", parameter_search.parameter, dataset))
+        if parameter.name.startswith("quality"):
+            msg = (
+                f"'{parameter_search.parameter}' is a quality flag. Quality flags are returned in the "
+                f"'quality' column next to the parameter they belong to and cannot be requested on their own."
+            )
+            raise KeyError(msg)
+        return [parameter]
 
 
 def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
@@ -370,29 +389,31 @@ class ParameterSearch:
             return ParameterSearch(value.resolution.name, value.name)
         if isinstance(value, ParameterModel):
             return ParameterSearch(value.dataset.resolution.name, value.dataset.name, value.name)
-        parameter = None
         if isinstance(value, str):
-            if all(value.count(sep) == 0 for sep in POSSIBLE_SEPARATORS):
-                msg = (
-                    f"expected 'resolution/dataset' or 'resolution/dataset/parameter' "
-                    f"(separator any of {POSSIBLE_SEPARATORS})"
-                )
-                raise ValueError(msg)
+            normalized = value
             for sep in POSSIBLE_SEPARATORS:
-                if sep in value:
-                    value = value.replace(sep, "/")
-            value = value.split("/")
-        try:
-            resolution, dataset, parameter = value
-        except ValueError as e:
-            try:
-                resolution, dataset = value
-            except ValueError as inner_e:
-                raise inner_e from e
-        resolution = resolution and resolution.strip().lower()
-        dataset = dataset and dataset.strip().lower()
-        parameter = parameter and parameter.strip().lower()
-        return ParameterSearch(resolution, dataset, parameter)
+                normalized = normalized.replace(sep, "/")
+            parts = normalized.split("/")
+        elif isinstance(value, Iterable):
+            parts = list(value)
+        else:
+            msg = f"expected {_EXPECTED_PARAMETER}, got {type(value).__name__}"
+            raise TypeError(msg)
+        # the parts are names, so an enum member mixed into a tuple -- (Resolution.DAILY, "kl") --
+        # is rejected here, naming the accepted forms, rather than searched for and not found
+        for part in parts:
+            if not isinstance(part, str):
+                msg = f"{value!r}: expected the parts as strings, got {type(part).__name__} '{part}'"
+                raise TypeError(msg)
+        parts = [part.strip().lower() for part in parts]
+        if len(parts) not in (2, 3) or not all(parts):
+            msg = (
+                f"{value!r}: expected 'resolution/dataset' or 'resolution/dataset/parameter' "
+                f"(separator any of {POSSIBLE_SEPARATORS}), or the same as a tuple of its parts"
+            )
+            raise ValueError(msg)
+        parameter = parts[2] if len(parts) == 3 else None
+        return ParameterSearch(parts[0], parts[1], parameter)
 
     def concat(self) -> str:
         """Concatenate resolution, dataset and parameter with '/'."""
@@ -400,26 +421,52 @@ class ParameterSearch:
 
 
 def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
-    """Parse parameters, either from string or tuple or MetadataModel or sequence of those."""
+    """Parse one parameter or a sequence of them into the provider's parameter models.
+
+    A parameter the provider does not have, or one that is not shaped like a parameter at all, is
+    not fatal on its own -- the other parameters are still resolved and returned -- but it is
+    logged as a warning naming the reason, because silently returning less data than was asked for
+    is otherwise invisible. Only a request where nothing at all resolves fails, which the caller
+    raises. A part that is not a string is a ``TypeError`` and does propagate: it says the caller
+    passed the wrong kind of object rather than misspelled a name.
+    """
     if isinstance(parameters, str | DatasetModel | ParameterModel):
         # "daily/climate_summary" -> ["daily/climate_summary"]
-        parameters = [
-            parameters,
-        ]
-    elif (
-        isinstance(parameters, Iterable)
-        and all(isinstance(p, str) for p in parameters)
-        and all(all(sep not in p for sep in POSSIBLE_SEPARATORS) for p in parameters)
-    ):
-        # ("daily", "climate_summary") -> [("daily", "climate_summary")]
-        parameters = [  # ty: ignore[invalid-assignment]
-            parameters,
-        ]
+        parameters = [parameters]
+    elif isinstance(parameters, Iterable):
+        # materialized first: the check below would otherwise exhaust an iterator
+        parameters = list(parameters)
+        if parameters and all(
+            isinstance(p, str) and all(sep not in p for sep in POSSIBLE_SEPARATORS) for p in parameters
+        ):
+            # ("daily", "climate_summary") -> [("daily", "climate_summary")]
+            parameters = [parameters]  # ty: ignore[invalid-assignment]
+    else:
+        msg = f"expected {_EXPECTED_PARAMETER}, or a sequence of those, got {type(parameters).__name__}"
+        raise TypeError(msg)
     parameters_found = []
+    seen = set()
     for parameter in parameters:
-        parameter_search = ParameterSearch.parse(parameter)
         try:
-            parameters_found.extend(metadata.search_parameter(parameter_search))
-        except KeyError:
-            log.info(f"{parameter_search.concat()} not found in {metadata.__name__}")
+            parameter_search = ParameterSearch.parse(parameter)
+            found = metadata.search_parameter(parameter_search)
+        except ValueError as e:
+            # malformed, e.g. a trailing separator -- skipped like an unknown name, so that one
+            # bad entry does not take the parameters around it down with it
+            log.warning(f"{parameter!r} could not be parsed as a parameter: {e.args[0]}")
+            continue
+        except KeyError as e:
+            log.warning(f"{parameter_search.concat()} not found in {metadata.__name__}: {e.args[0]}")
+            continue
+        for parameter_found in found:
+            # requests commonly overlap e.g. a dataset and one of its parameters, which would
+            # otherwise be queried and returned twice
+            key = (
+                parameter_found.dataset.resolution.name,
+                parameter_found.dataset.name,
+                parameter_found.name,
+            )
+            if key not in seen:
+                seen.add(key)
+                parameters_found.append(parameter_found)
     return parameters_found
