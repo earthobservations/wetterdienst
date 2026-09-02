@@ -47,6 +47,9 @@ Types of changes:
 - Lookups on the metadata models (`metadata["daily"]["kl"]`, `metadata.daily.kl`) match the
   source's own name case-insensitively, as looking a parameter up by its `name_original` already
   did in a request, and suggest the closest name when nothing matches
+- Provider metadata: `MetadataModel` carries the name it was built with as a `name` field, where
+  it used to be stashed on the model's `__name__`. Read `DwdObservationMetadata.name` instead of
+  `DwdObservationMetadata.__name__`
 
 ### Fixed
 

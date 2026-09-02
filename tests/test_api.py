@@ -367,10 +367,31 @@ def test_metadata_model_reports_the_invalid_period() -> None:
     `validate_datasets` cascades the resolution's `periods` down to its datasets. Reading that
     field by index used to turn any error in it into `KeyError('periods')`, because pydantic drops
     a field that failed validation from the data the next validator sees.
+
+    The datasets that would have inherited it are left out of the report rather than each adding a
+    `Field required` of its own, which for a resolution the size of `DwdPhenologyMetadata`'s would
+    bury the real error under 110 misleading ones.
     """
     metadata = _minimal_metadata()
-    metadata["resolutions"][0]["periods"] = ["histerical"]
-    with pytest.raises(ValidationError, match="histerical"):
+    resolution = metadata["resolutions"][0]
+    resolution["periods"] = ["histerical"]
+    resolution["datasets"].append({**resolution["datasets"][0], "name": "other", "name_original": "other"})
+    with pytest.raises(ValidationError, match="histerical") as excinfo:
+        build_metadata_model(metadata, "ExampleMetadata")
+
+    assert excinfo.value.error_count() == 1
+
+
+def test_metadata_model_rejects_a_declared_name() -> None:
+    """Test that a declaration cannot set the name the model is built with.
+
+    `build_metadata_model` injects it, so a declaration setting it would have it silently
+    overwritten -- the one top-level key `extra="forbid"` cannot catch, and a plausible one to
+    write next to `name_short`, `name_english` and `name_local`.
+    """
+    metadata = _minimal_metadata()
+    metadata["name"] = "example"
+    with pytest.raises(ValueError, match="cannot be declared"):
         build_metadata_model(metadata, "ExampleMetadata")
 
 

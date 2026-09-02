@@ -216,7 +216,17 @@ class ResolutionModel(BaseModel):
         Reads the two cascading fields with ``get``: a field that failed its own validation is not
         in ``validation_info.data`` at all, and indexing it would replace pydantic's report of what
         was actually wrong -- an unknown period, say -- with a bare ``KeyError('periods')``.
+
+        A dataset that would have inherited such a field is then left out rather than validated:
+        it would otherwise be reported as missing a field it deliberately omits, once per dataset
+        -- 110 times over for one mistyped period in a `DwdPhenologyMetadata` resolution -- burying
+        the one error that is real. A dataset declaring the field itself is validated as usual, so
+        anything else wrong with it is still reported.
         """
+        if "periods" not in validation_info.data:
+            v = [dataset for dataset in v if dataset.get("periods")]
+        if "date_required" not in validation_info.data:
+            v = [dataset for dataset in v if dataset.get("date_required") is not None]
         periods = validation_info.data.get("periods")
         date_required = validation_info.data.get("date_required")
         if periods:
@@ -338,7 +348,14 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     carried. A description a provider module already declares wins, since that is a transcription of
     the source's own wording and is only kept where it says at least as much as the curated text.
     ``DERIVED_DESCRIPTIONS`` fills only what no source supplies at all.
+
+    ``name`` becomes ``MetadataModel.name``. A declaration cannot set it itself: it is the one
+    top-level key ``extra="forbid"`` does not reject, and it is a plausible one to write next to
+    ``name_short``, ``name_english`` and ``name_local``, where it would be silently overwritten.
     """
+    if "name" in metadata:
+        msg = f"{name}: 'name' is the name the model is built with and cannot be declared"
+        raise ValueError(msg)
     from wetterdienst.metadata.source_descriptions import (  # noqa: PLC0415
         DATASET_DESCRIPTIONS,
         DERIVED_DESCRIPTIONS,
