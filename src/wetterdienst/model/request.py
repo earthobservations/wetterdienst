@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from abc import abstractmethod
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, ClassVar
@@ -99,6 +99,10 @@ class TimeseriesRequest:
         self.start_date, self.end_date = self.convert_timestamps(self.start_date, self.end_date)
         # Parse parameters
         requested = self.parameters
+        if isinstance(requested, Iterator):
+            # parse_parameters consumes an iterator, so keep the values for the message below,
+            # which would otherwise render the exhausted iterator rather than what was asked for
+            requested = list(requested)
         if requested:
             self.parameters = parse_parameters(requested, self.metadata)  # type: list[ParameterModel]
         if not self.parameters:

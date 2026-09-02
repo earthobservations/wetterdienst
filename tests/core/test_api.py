@@ -119,6 +119,15 @@ def test_api_no_valid_parameters(default_settings: Settings) -> None:
         )
 
 
+def test_api_no_valid_parameters_from_iterator(default_settings: Settings) -> None:
+    """Test that the message names the values an iterator held, not the iterator it consumed."""
+    with pytest.raises(
+        NoParametersFoundError,
+        match=re.escape("No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest"),
+    ):
+        DwdObservationRequest(parameters=iter(["daily/abc"]), settings=default_settings)
+
+
 def test_api_partly_valid_parameters(default_settings: Settings, caplog: pytest.LogCaptureFixture) -> None:
     """Test that invalid parameters are ignored."""
     request = DwdObservationRequest(
