@@ -8,7 +8,6 @@ import datetime as dt
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from itertools import groupby
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
@@ -16,12 +15,15 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.geosphere.observation.metadata import GeosphereObservationMetadata
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.settings import Settings
 
@@ -141,7 +143,7 @@ class GeosphereObservationRequest(TimeseriesRequest):
 
         settings = cast("Settings", self.settings)
         data = []
-        for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
+        for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
             url = self._endpoint.format(dataset=dataset.name_original)
             file = download_file(
                 url=url,

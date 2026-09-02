@@ -9,7 +9,6 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from itertools import groupby
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 import polars as pl
@@ -17,13 +16,14 @@ from tqdm import tqdm
 from tzfpy import get_tz
 
 from wetterdienst.metadata.resolution import count_readings, reading_interval
+from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.result import StationsResult, ValuesResult
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Callable, Iterable, Iterator
+    from collections.abc import Callable, Iterable, Iterator, Sequence
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
@@ -178,18 +178,14 @@ class TimeseriesValues(ABC):
             station_id = cast("str", station_id)
             available_datasets = self._get_available_datasets(df_station_meta)
             # Collect data for this station
-            df = self._collect_station_data(station_id, available_datasets)
-            # Skip if no data found
+            df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            # judged after the window has been cut, not before it: a station whose record lies
+            # entirely outside the requested window returned data, but none that was asked for.
+            # Counting it as collected spent one of `filter_by_rank`'s slots on an empty frame, so
+            # the ranked walk stopped short of the stations that do cover the window and the
+            # request came back with nothing
             if df.is_empty():
                 continue
-            if self.sr.start_date:
-                df = df.filter(
-                    pl.col("date").is_between(
-                        self.sr.start_date,
-                        self.sr.end_date,
-                        closed="both",
-                    ),
-                )
             if self.sr.settings.ts_skip_empty:
                 percentage = self._get_actual_percentage(df=df)
                 if percentage < self.sr.settings.ts_skip_threshold:
@@ -216,6 +212,22 @@ class TimeseriesValues(ABC):
             self.stations_collected.append(station_id)
             yield ValuesResult(stations=self.sr, values=self, df=df)
 
+    def _filter_by_window(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Cut a station's frame down to the window the request asked for, if it named one.
+
+        A frame with nothing in it is handed back untouched: a station that delivered no data at
+        all comes back as a bare frame with no ``date`` column to filter on.
+        """
+        if not self.sr.start_date or df.is_empty():
+            return df
+        return df.filter(
+            pl.col("date").is_between(
+                self.sr.start_date,
+                self.sr.end_date,
+                closed="both",
+            ),
+        )
+
     def _get_available_datasets(self, df: pl.DataFrame) -> list[DatasetModel]:
         """Extract available datasets for the station."""
         resolution_dataset_pairs = (
@@ -231,8 +243,8 @@ class TimeseriesValues(ABC):
         # self.sr.stations.parameters is parsed at runtime to a list[ParameterModel],
         # but the static type of the attribute is a union of input forms. Cast here so
         # the typechecker understands we iterate ParameterModel instances.
-        for dataset, parameters in groupby(
-            cast("Iterable[ParameterModel]", self.sr.stations.parameters), key=lambda x: x.dataset
+        for dataset, parameters in group_parameters_by_dataset(
+            cast("Iterable[ParameterModel]", self.sr.stations.parameters),
         ):
             if dataset not in available_datasets:
                 continue
@@ -242,7 +254,7 @@ class TimeseriesValues(ABC):
         return pl.concat(data) if data else pl.DataFrame()
 
     def _process_dataset(
-        self, station_id: str, dataset: DatasetModel, parameters: Iterator[ParameterModel]
+        self, station_id: str, dataset: DatasetModel, parameters: Sequence[ParameterModel]
     ) -> pl.DataFrame:
         """Process data for a specific dataset."""
         if dataset.grouped:

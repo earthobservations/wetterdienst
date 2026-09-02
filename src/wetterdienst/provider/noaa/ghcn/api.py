@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from itertools import groupby
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -14,6 +13,7 @@ import polars.selectors as cs
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.noaa.ghcn.metadata import (
@@ -24,7 +24,9 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
-    from wetterdienst.model.metadata import DatasetModel
+    from collections.abc import Iterable
+
+    from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -192,8 +194,10 @@ class NoaaGhcnRequest(TimeseriesRequest):
     _values = NoaaGhcnValues
 
     def _all(self) -> pl.LazyFrame:
+        from typing import cast  # noqa: PLC0415
+
         data = []
-        for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
+        for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
             if dataset.resolution.value == Resolution.HOURLY:
                 data.append(self._create_metaindex_for_ghcn_hourly())
             elif dataset.resolution.value == Resolution.DAILY:
