@@ -9,7 +9,6 @@ import logging
 from abc import abstractmethod
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
-from hashlib import sha256
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
@@ -42,6 +41,7 @@ from wetterdienst.model.result import (
     StationsResult,
     SummarizedValuesResult,
 )
+from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
@@ -708,7 +708,7 @@ class TimeseriesRequest:
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         df_interpolated = get_interpolated_df(self, lat, lon)
-        station_id = self._create_station_id_from_string(f"interpolation({lat:.4f},{lon:.4f})")
+        station_id = create_station_id_from_string(f"interpolation({lat:.4f},{lon:.4f})")
         df_interpolated = df_interpolated.select(
             pl.lit(station_id).alias("station_id"),
             pl.col("resolution"),
@@ -762,7 +762,7 @@ class TimeseriesRequest:
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         summarized_values = get_summarized_df(self, lat, lon)
-        station_id = self._create_station_id_from_string(f"summary({lat:.4f},{lon:.4f})")
+        station_id = create_station_id_from_string(f"summary({lat:.4f},{lon:.4f})")
         summarized_values = summarized_values.select(
             pl.lit(station_id).alias("station_id"),
             pl.col("resolution"),
@@ -811,11 +811,3 @@ class TimeseriesRequest:
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg) from e
         return lat, lon
-
-    @staticmethod
-    def _create_station_id_from_string(string: str) -> str:
-        """Create station id from string.
-
-        Used for interpolation and summarization data
-        """
-        return sha256(string.encode("utf-8")).hexdigest()[:8]

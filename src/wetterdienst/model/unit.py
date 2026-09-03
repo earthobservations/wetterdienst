@@ -313,19 +313,34 @@ class UnitConverter:
             ("degree_fahrenheit_hour", "degree_kelvin_hour"): lambda x: 5 / 9 * x,
         }
 
+    def get_unit(self, name: str, unit_type: str) -> Unit:
+        """Get the unit of a type by name, for its symbol.
+
+        Args:
+            name: Name of the unit, as a parameter declares it
+            unit_type: Type of the unit the name belongs to
+
+        Returns:
+            The unit, carrying the symbol it is written with
+
+        """
+        if unit_type not in self.units:
+            msg = f"Unit type {unit_type} not supported"
+            raise ValueError(msg)
+        unit = next((unit for unit in self.units[unit_type] if unit.name == name), None)
+        if not unit:
+            supported_units = ",".join(unit.name for unit in self.units[unit_type])
+            msg = f"Unit {name} not supported for type {unit_type}. Supported units are: {supported_units}"
+            raise ValueError(msg)
+        return unit
+
     def update_targets(self, targets: dict[str, str]) -> None:
         """Update the target units for each unit type."""
         for key, value in targets.items():
             if key not in self.targets:
                 msg = f"Unit type {key} not supported"
                 raise ValueError(msg)
-            # find the unit with the given name
-            unit = next((unit for unit in self.units[key] if unit.name == value), None)
-            if not unit:
-                supported_units = ",".join(unit.name for unit in self.units[key])
-                msg = f"Unit {value} not supported for type {key}. Supported units are: {supported_units}"
-                raise ValueError(msg)
-            self.targets[key] = unit
+            self.targets[key] = self.get_unit(value, key)
 
     def _get_lambda(self, unit: str, unit_target: str) -> Callable[[Any], Any]:
         if unit == unit_target:
