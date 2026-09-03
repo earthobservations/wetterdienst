@@ -16,36 +16,6 @@ Types of changes:
 
 ## [Unreleased]
 
-### Fixed
-
-- Interpolation and summarization: a result that came back with no rows is a feature collection
-  with no values rather than an `OutOfBoundsError`. The feature's id was read out of the frame's
-  first row, so a point and window no station covers -- an ordinary outcome, and one the REST API
-  serves as `format=geojson` -- raised `gather indices are out of bounds` from `to_geojson` and
-  `to_ogc_feature_collection`, where `to_dict` on the same result answered fine. The id belongs to
-  the point rather than to any row: it is the name beside it hashed, which is how the
-  interpolation builds it in the first place
-- Plots: a parameter is labelled with the unit its values are actually written in. The label
-  mapping was keyed on the canonical parameter name alone, while a frame carries `name_original`
-  unless `ts_humanize` is on, so nothing matched and the label repeated the name -- `sd_10
-  (sd_10)`. The symbol was also always the target unit's, though `ts_convert_units=False` leaves
-  the values as the source published them: `10_minutes/solar/sunshine_duration` comes in hours and
-  was labelled seconds, a factor of 3600 between the number and its unit. The mapping is keyed by
-  resolution and dataset as well as name, since a canonical name is only unique within its dataset
-  -- DWD publishes `sunshine_duration` in hours at 10 minutes and in minutes at an hour, and one
-  would otherwise have labelled the other. Both affected the value, interpolation and summary
-  plots, and the images exported from them
-- Dates: a date string covers everything it names instead of only the instant it starts with.
-  `2020-05` is the month of May, `2020` the year, and `2020-05-01` a whole day -- which for
-  anything measured more often than daily is 24 hours of readings rather than the one at midnight.
-  Every one of these formats is documented as supported, and `filter_by_date` matched a single
-  date with `==`, so a month or a year of hourly data came back empty: no reading falls exactly on
-  the 1st at 00:00. An interval ran to the *first* instant of the span its second half names, so
-  `2017-01/2019-12` ended on the 1st of December 2019 and `2010/2020` dropped all of 2020. The
-  same reading of the string reached the CLI and REST API, where `--date=2019-12` asked for
-  December and got a window of one instant. A date carrying a time still names one instant and is
-  matched exactly, however it is written -- `2020-05-01T12`, `2020-05-01t12` or `2020-05-01 12:00`
-
 ### Added
 
 - DWD: new `poi` network (`dwd/poi`) covering DWD's POI ("Point Of Interest") current weather
@@ -97,6 +67,33 @@ Types of changes:
 
 ### Fixed
 
+- Interpolation and summarization: a result that came back with no rows is a feature collection
+  with no values rather than an `OutOfBoundsError`. The feature's id was read out of the frame's
+  first row, so a point and window no station covers -- an ordinary outcome, and one the REST API
+  serves as `format=geojson` -- raised `gather indices are out of bounds` from `to_geojson` and
+  `to_ogc_feature_collection`, where `to_dict` on the same result answered fine. The id belongs to
+  the point rather than to any row: it is the name beside it hashed, which is how the
+  interpolation builds it in the first place
+- Plots: a parameter is labelled with the unit its values are actually written in. The label
+  mapping was keyed on the canonical parameter name alone, while a frame carries `name_original`
+  unless `ts_humanize` is on, so nothing matched and the label repeated the name -- `sd_10
+  (sd_10)`. The symbol was also always the target unit's, though `ts_convert_units=False` leaves
+  the values as the source published them: `10_minutes/solar/sunshine_duration` comes in hours and
+  was labelled seconds, a factor of 3600 between the number and its unit. The mapping is keyed by
+  resolution and dataset as well as name, since a canonical name is only unique within its dataset
+  -- DWD publishes `sunshine_duration` in hours at 10 minutes and in minutes at an hour, and one
+  would otherwise have labelled the other. Both affected the value, interpolation and summary
+  plots, and the images exported from them
+- Dates: a date string covers everything it names instead of only the instant it starts with.
+  `2020-05` is the month of May, `2020` the year, and `2020-05-01` a whole day -- which for
+  anything measured more often than daily is 24 hours of readings rather than the one at midnight.
+  Every one of these formats is documented as supported, and `filter_by_date` matched a single
+  date with `==`, so a month or a year of hourly data came back empty: no reading falls exactly on
+  the 1st at 00:00. An interval ran to the *first* instant of the span its second half names, so
+  `2017-01/2019-12` ended on the 1st of December 2019 and `2010/2020` dropped all of 2020. The
+  same reading of the string reached the CLI and REST API, where `--date=2019-12` asked for
+  December and got a window of one instant. A date carrying a time still names one instant and is
+  matched exactly, however it is written -- `2020-05-01T12`, `2020-05-01t12` or `2020-05-01 12:00`
 - Parameter parsing: parameters requested more than once -- a dataset and one of its parameters,
   or the same dataset twice -- are returned once instead of being queried and returned per mention
 - Parameter parsing: an iterator of parameters no longer parses as empty. It was consumed by the
@@ -167,6 +164,7 @@ Types of changes:
   "daily/kl/precipitation_height"]` -- is fetched and parsed once instead of once per run of
   consecutive mentions. The station index of NOAA GHCN, Geosphere and MeteoSwiss gained a
   duplicate row per station the same way
+
 
 ## [0.135.0] - 2026-08-31
 
