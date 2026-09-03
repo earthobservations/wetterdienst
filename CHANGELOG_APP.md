@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-04
+
 ### Added
 
 - `[Glossary]` Names in all eleven languages for the twelve parameters the backend adds with the
@@ -617,7 +619,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.14.1...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.15.0...HEAD
+[0.15.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.14.1...app-v0.15.0
 [0.14.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.14.0...app-v0.14.1
 [0.14.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.13.0...app-v0.14.0
 [0.13.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.12.1...app-v0.13.0
