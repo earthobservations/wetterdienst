@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.136.0] - 2026-09-04
+
 ### Added
 
 - DWD: new `poi` network (`dwd/poi`) covering DWD's POI ("Point Of Interest") current weather
@@ -3132,7 +3134,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.135.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.136.0...HEAD
+[0.136.0]: https://github.com/earthobservations/wetterdienst/compare/v0.135.0...v0.136.0
 [0.135.0]: https://github.com/earthobservations/wetterdienst/compare/v0.134.0...v0.135.0
 [0.134.0]: https://github.com/earthobservations/wetterdienst/compare/v0.133.0...v0.134.0
 [0.133.0]: https://github.com/earthobservations/wetterdienst/compare/v0.132.0...v0.133.0
