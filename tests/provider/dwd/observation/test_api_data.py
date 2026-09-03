@@ -110,9 +110,14 @@ def test_request_period_historical_recent(default_settings: Settings) -> None:
 
 
 def test_request_period_historical_recent_now(default_settings: Settings) -> None:
-    """Test for historical, recent and now period."""
+    """Test for historical, recent and now period.
+
+    `10_minutes/temperature_air` rather than `daily/climate_summary` because the periods derived
+    from an interval are checked against the ones the dataset publishes, and climate_summary has
+    no `now` release -- see `test_request_period_now_narrows_to_what_the_dataset_publishes`.
+    """
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary")],
+        parameters=[("10_minutes", "temperature_air")],
         start_date="1971-01-01",
         end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
         settings=default_settings,
@@ -128,7 +133,7 @@ def test_request_period_historical_recent_now(default_settings: Settings) -> Non
 def test_request_period_recent_now(default_settings: Settings) -> None:
     """Test for recent and now period."""
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary")],
+        parameters=[("10_minutes", "temperature_air")],
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
@@ -139,7 +144,7 @@ def test_request_period_recent_now(default_settings: Settings) -> None:
 def test_request_period_now(default_settings: Settings) -> None:
     """Test for now period."""
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary")],
+        parameters=[("10_minutes", "temperature_air")],
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
@@ -150,7 +155,7 @@ def test_request_period_now(default_settings: Settings) -> None:
 def test_request_period_now_fixed_date(default_settings: Settings) -> None:
     """Test for now period with fixed date."""
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary")],
+        parameters=[("10_minutes", "temperature_air")],
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
@@ -160,15 +165,36 @@ def test_request_period_now_fixed_date(default_settings: Settings) -> None:
 def test_request_period_now_previous_hour(default_settings: Settings) -> None:
     """Test for now period with previous hour."""
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary")],
+        parameters=[("10_minutes", "temperature_air")],
         start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=1),
         settings=default_settings,
     )
     assert Period.NOW in request.periods
 
 
+@freeze_time(dt.datetime(2022, 1, 29, 2, 30, tzinfo=ZoneInfo("Europe/Berlin")))
+def test_request_period_now_narrows_to_what_the_dataset_publishes(default_settings: Settings) -> None:
+    """An interval reaching into today reads the newest release the dataset actually has.
+
+    `daily/climate_summary` is published as historical and recent only. The derived `now` used to
+    stand, so the request carried a period the dataset has no release for and read no station index
+    at all -- `.all()` reported no stations, where asking for `periods="now"` outright raises for
+    the same datasets.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary")],
+        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
+        settings=default_settings,
+    )
+    assert request.periods == {Period.RECENT}
+
+
 def test_request_period_empty(default_settings: Settings) -> None:
-    """Test for empty periods."""
+    """Test for empty periods.
+
+    An interval reaching no release at all has nothing to read and nothing to fall back to, so it
+    stays empty rather than being widened to the dataset's newest release.
+    """
     # No period (for example in future)
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],

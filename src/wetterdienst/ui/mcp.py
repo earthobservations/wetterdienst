@@ -69,7 +69,10 @@ measurement. Prefer the single-measurement form to keep responses small. Paramet
 snake_case; `coverage(provider="dwd", network="observation", datasets="climate_summary")` lists them. \
 Its answer is keyed by resolution, then `datasets`, then each dataset's `parameters`, and every one \
 of those three levels carries a `description` saying what the source means by it.
-- periods: "recent" (roughly the last 1.5 years) is the usual choice; "historical" for older data.
+- periods: leave it out unless the provider splits its record into releases. dwd/observation does \
+-- "recent" is roughly the last 1.5 years, "historical" reaches further back -- as do dwd/derived and \
+dwd/phenology. Most other providers publish everything under a single period, and asking for one \
+their datasets do not have is an error, not a narrower answer.
 - Handy DWD datasets: daily/kl (= climate_summary: temperature, precipitation, wind, sunshine), \
 hourly/air_temperature, hourly/precipitation.
 

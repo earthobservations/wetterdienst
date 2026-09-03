@@ -63,7 +63,11 @@ _ParametersField = Annotated[
 ]
 _PeriodsField = Annotated[
     list[str] | None,
-    Field(description="Dataset periods: 'historical', 'recent' and/or 'now'. Inferred from the date when omitted."),
+    Field(
+        description="Dataset periods: 'historical', 'recent', 'now' and/or 'future'. A period the "
+        "requested datasets are not published under is rejected. Inferred from the date when "
+        "omitted, else every period those datasets publish.",
+    ),
 ]
 _LeadTimeField = Annotated[
     Literal["short", "long"] | None,
@@ -837,15 +841,14 @@ def _get_stations_request(
         msg = "Start and end date required for single period datasets"
         raise StartDateEndDateError(msg)
 
-    any_multiple_period_dataset = any(len(parameter.dataset.periods) > 1 for parameter in parameters)
-
     kwargs: dict[str, Any] = {
         "parameters": parameters,
         "start_date": start_date,
         "end_date": end_date,
+        # every request takes periods and validates them against what its datasets publish, so pass
+        # them through rather than deciding here which provider is allowed to hear about them
+        "periods": getattr(request, "periods", None),
     }
-    if any_multiple_period_dataset and "periods" in getattr(api, "__dataclass_fields__", {}):
-        kwargs["periods"] = getattr(request, "periods", None)
 
     if issubclass(api, (DwdMosmixRequest, DwdDmoRequest)) and (issue := getattr(request, "issue", None)) is not None:
         kwargs["issue"] = issue

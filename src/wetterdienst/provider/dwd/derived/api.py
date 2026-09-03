@@ -16,7 +16,6 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst import Period
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -30,13 +29,10 @@ from wetterdienst.provider.dwd.derived.fileindex import (
 from wetterdienst.provider.dwd.derived.metadata import TECHNICAL_DATASETS, DwdDerivedMetadata
 from wetterdienst.provider.dwd.derived.metaindex import create_meta_index_for_climate_derived
 from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
-from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
+    from wetterdienst import Period
     from wetterdienst.settings import Settings
 
 
@@ -644,8 +640,7 @@ class DwdDerivedRequest(TimeseriesRequest):
 
     metadata = DwdDerivedMetadata
     _values = DwdDerivedValues
-    _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT}
-    periods: str | Period | set[Period] | None = None
+    _selects_by_period = True
 
     @staticmethod
     def _process_dataframe_to_expected_format(
@@ -673,34 +668,6 @@ class DwdDerivedRequest(TimeseriesRequest):
 
         return stations_data.sort(by=["station_id"])
 
-    def __post_init__(self) -> None:
-        """Post init method."""
-        super().__post_init__()
-
-        self.periods = self._parse_period(self.periods)
-        if not self.periods:
-            self.periods = self._available_periods
-
-    def _parse_period(
-        self,
-        period: str | Period | Iterable[str | Period] | None,
-    ) -> set[Period] | None:
-        """Parse period from string or Period enumeration.
-
-        :param period: Input value for the period
-        :return: Parsed period
-        """
-        if not period:
-            return None
-        periods_parsed = {
-            parse_enumeration_from_template(
-                enum_=p,
-                intermediate=Period,
-            )
-            for p in to_list(period)
-        }
-        return periods_parsed & self._available_periods or None
-
     def _all(self) -> pl.LazyFrame:
         """Fetch station data for the given request.
 
@@ -715,8 +682,14 @@ class DwdDerivedRequest(TimeseriesRequest):
                 datasets.append(parameter.dataset)
         stations = []
         for dataset in datasets:
+            # An empty period set means the interval reaches no release at all; the stations
+            # themselves do not depend on that, so discovery reads every period the dataset has
+            # and the values stay empty, rather than the request reporting no stations
             periods = set(dataset.periods) & cast("set[Period]", self.periods) if self.periods else dataset.periods
-            for period in reversed(list(periods)):
+            # newest period first, so the `keep="first"` below settles a station on the most current
+            # of its descriptions. Period is orderable; `reversed(list(...))` over a set left the
+            # winner to the set's own iteration order, which varies from one interpreter run to the next
+            for period in sorted(periods, reverse=True):
                 df = create_meta_index_for_climate_derived(dataset, settings)
                 df = self._process_dataframe_to_expected_format(df, dataset)
                 file_index = create_file_index_for_climate_derived(dataset, period, settings)

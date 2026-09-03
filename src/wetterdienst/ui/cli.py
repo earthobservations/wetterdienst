@@ -146,7 +146,8 @@ def station_options_core(command: click.Command) -> click.Command:
             type=str,
             help=(
                 "Dataset periods to query (comma-separated). "
-                "Inferred automatically when --date is used. "
+                "Inferred automatically when --date is used, else every period the requested "
+                "datasets publish. A period they are not published under is rejected. "
                 "Examples: historical, recent, now"
             ),
         ),

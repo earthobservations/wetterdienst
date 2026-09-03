@@ -1276,23 +1276,58 @@ def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_
     assert stations_request is not None
 
 
-def test_get_stations_request_no_periods_kwarg_for_providers_without_periods_field() -> None:
-    """_get_stations_request must not pass `periods` kwarg to providers that lack the field.
+def test_get_stations_request_passes_periods_to_every_provider() -> None:
+    """The periods a caller asked for reach the request, whichever provider serves it.
 
-    MetNoFrostRequest has multi-period datasets (historical + recent) but no `periods`
-    constructor argument. Previously this caused TypeError when building the request.
+    `periods` used to be a per-provider constructor argument, so `_get_stations_request` had to
+    check for the field before passing it -- and MetnoFrostRequest, whose datasets are published
+    under both historical and recent, had no way to hear the choice at all. It is a field of
+    `TimeseriesRequest` now, validated against what the requested datasets publish.
     """
-    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst import Period, Wetterdienst  # noqa: PLC0415
     from wetterdienst.provider.metno.frost.api import MetnoFrostRequest  # noqa: PLC0415
     from wetterdienst.settings import Settings  # noqa: PLC0415
     from wetterdienst.ui.core import StationsRequest, _get_stations_request  # noqa: PLC0415
 
     api = Wetterdienst("metno", "frost")
     settings = Settings(auth={"metno_frost": "fake-client-id"})
-    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"])
+    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], periods="recent")
 
     stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
     assert isinstance(stations_request, MetnoFrostRequest)
+    assert stations_request.periods == {Period.RECENT}
+
+
+def test_get_stations_request_periods_on_a_single_period_dataset() -> None:
+    """An explicit period is answered even when the dataset publishes only one.
+
+    `_get_stations_request` forwarded `periods` only when some requested dataset had more than one,
+    so for `monthly/climate_correction_factor` -- released under `recent` alone -- a caller asking
+    for `historical` was silently given every period the provider has instead of an error.
+    """
+    from wetterdienst import Period, Wetterdienst  # noqa: PLC0415
+    from wetterdienst.exceptions import NoPeriodsFoundError  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.ui.core import StationsRequest, _get_stations_request  # noqa: PLC0415
+
+    api = Wetterdienst("dwd", "derived")
+    settings = Settings()
+    request = StationsRequest(
+        provider="dwd",
+        network="derived",
+        parameters=["monthly/climate_correction_factor"],
+        periods="recent",
+    )
+    assert _get_stations_request(api=api, request=request, date=None, settings=settings).periods == {Period.RECENT}
+
+    request = StationsRequest(
+        provider="dwd",
+        network="derived",
+        parameters=["monthly/climate_correction_factor"],
+        periods="historical",
+    )
+    with pytest.raises(NoPeriodsFoundError, match="Available periods: recent"):
+        _get_stations_request(api=api, request=request, date=None, settings=settings)
 
 
 @pytest.mark.parametrize("schema_name", ["_Station", "_OgcFeatureProperties"])
