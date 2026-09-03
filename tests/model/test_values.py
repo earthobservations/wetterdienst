@@ -479,36 +479,51 @@ def _stub_dwd_daily(
     station_ids: list[str],
     data_year_by_station: dict[str, int],
     monkeypatch: pytest.MonkeyPatch,
+    datasets: list[str] | None = None,
+    collected: list[str] | None = None,
+    index_start: dt.datetime | None = None,
+    index_end: dt.datetime | None = None,
 ) -> None:
-    """Stand in for DWD's station index and data files, so the walk can be exercised offline."""
+    """Stand in for DWD's station index and data files, so the walk can be exercised offline.
+
+    The index range defaults wide enough to cover any window a test asks for, so that what the
+    index says and what the files hold can be varied independently -- a station whose published
+    range covers a window it has no readings in is the ordinary case, not a contradiction.
+    """
     utc = ZoneInfo("UTC")
+    datasets = datasets or ["climate_summary"]
+    rows = [(station_id, dataset) for station_id in station_ids for dataset in datasets]
     df_stations = pl.DataFrame(
         {
-            "resolution": ["daily"] * len(station_ids),
-            "dataset": ["climate_summary"] * len(station_ids),
-            "station_id": station_ids,
-            "start_date": [dt.datetime(1990, 1, 1, tzinfo=utc)] * len(station_ids),
-            "end_date": [dt.datetime(2020, 1, 1, tzinfo=utc)] * len(station_ids),
+            "resolution": ["daily"] * len(rows),
+            "dataset": [dataset for _, dataset in rows],
+            "station_id": [station_id for station_id, _ in rows],
+            "start_date": [index_start or dt.datetime(1900, 1, 1, tzinfo=utc)] * len(rows),
+            "end_date": [index_end or dt.datetime(2030, 1, 1, tzinfo=utc)] * len(rows),
             # spread along a meridian so the distance ranking follows the list order
-            "latitude": [50.0 + index / 10 for index in range(len(station_ids))],
-            "longitude": [8.0] * len(station_ids),
-            "height": [100.0] * len(station_ids),
-            "name": station_ids,
-            "state": ["x"] * len(station_ids),
+            "latitude": [50.0 + station_ids.index(station_id) / 10 for station_id, _ in rows],
+            "longitude": [8.0] * len(rows),
+            "height": [100.0] * len(rows),
+            "name": [station_id for station_id, _ in rows],
+            "state": ["x"] * len(rows),
         },
     )
     monkeypatch.setattr(DwdObservationRequest, "_all", lambda self: df_stations.lazy())  # noqa: ARG005
 
     def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        if collected is not None:
+            collected.append(station_id)
         year = data_year_by_station[station_id]
+        dataset = getattr(parameter_or_dataset, "dataset", parameter_or_dataset)
+        names = [parameter.name_original for parameter in dataset]
         return pl.DataFrame(
             {
-                "date": [dt.datetime(year, 1, day, tzinfo=utc) for day in range(1, 4)],
-                "parameter": ["tmk"] * 3,
-                "value": [1.0] * 3,
-                "quality": [1.0] * 3,
-                "resolution": ["daily"] * 3,
-                "dataset": ["climate_summary"] * 3,
+                "date": [dt.datetime(year, 1, day, tzinfo=utc) for day in range(1, 4) for _ in names],
+                "parameter": names * 3,
+                "value": [1.0] * (3 * len(names)),
+                "quality": [1.0] * (3 * len(names)),
+                "resolution": ["daily"] * (3 * len(names)),
+                "dataset": [dataset.name] * (3 * len(names)),
             },
         )
 
@@ -561,3 +576,88 @@ def test_a_request_that_collects_nothing_keeps_its_schema(monkeypatch: pytest.Mo
     # a header rather than an empty file, and a column that can still be asked for
     assert df.write_csv() == "station_id,resolution,dataset,parameter,date,value,quality\n"
     assert df.get_column("date").is_empty()
+
+
+def test_wide_empty_result_matches_the_shape_of_a_populated_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A wide request spanning two datasets returns the columns it would have, not an error.
+
+    ``_widen_df`` reads the ``parameter`` column, which the wide form does not have, so building
+    the empty frame in the shape asked for raised ``ColumnNotFoundError`` from inside it.
+    """
+    _stub_dwd_daily(
+        station_ids=["00001"],
+        data_year_by_station={"00001": 1990},
+        monkeypatch=monkeypatch,
+        datasets=["climate_summary", "precipitation_more"],
+    )
+    parameters = ["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_height"]
+    settings = {"ts_shape": "wide"}
+
+    empty = (
+        DwdObservationRequest(parameters=parameters, start_date="1930-01-01", end_date="1930-12-31", settings=settings)
+        .filter_by_station_id("00001")
+        .values.all()
+        .df
+    )
+    populated = (
+        DwdObservationRequest(parameters=parameters, start_date="1990-01-01", end_date="1990-12-31", settings=settings)
+        .filter_by_station_id("00001")
+        .values.all()
+        .df
+    )
+
+    assert empty.is_empty()
+    assert not populated.is_empty()
+    # including the dataset prefix the populated frame carries, which the empty one used to omit
+    assert empty.columns == populated.columns
+    assert "climate_summary_temperature_air_mean_2m" in empty.columns
+
+
+def test_a_station_that_started_after_the_window_is_not_downloaded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The index answers for a window a station cannot cover, so the walk stays bounded.
+
+    Nothing bounds the ranked walk once a station returning nothing inside the window no longer
+    counts towards ``rank``, so it would otherwise read every station in the provider.
+    """
+    station_ids = [f"{index:05d}" for index in range(1, 21)]
+    _stub_dwd_daily(
+        station_ids=station_ids,
+        data_year_by_station=dict.fromkeys(station_ids, 1990),
+        monkeypatch=monkeypatch,
+        collected=(collected := []),
+        index_start=dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC")),
+    )
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start_date="1930-01-01",
+        end_date="1930-12-31",
+    )
+
+    request.filter_by_rank(latlon=(50.0, 8.0), rank=5).values.all()
+
+    # the stub's stations all start in 1990, so the index alone rules the 1930 window out
+    assert collected == []
+
+
+def test_a_station_still_reporting_is_not_ruled_out_by_a_lagging_end_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only the start of a record rules a window out; an `end_date` lags on a live station.
+
+    A station index is written before the day it describes is over, so a station that is still
+    reporting carries an `end_date` a little behind the readings it can already answer for.
+    """
+    _stub_dwd_daily(
+        station_ids=["00001"],
+        data_year_by_station={"00001": 2020},
+        monkeypatch=monkeypatch,
+        # the index stops a year before the window, but the station does have the readings
+        index_end=dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+    )
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start_date="2020-01-01",
+        end_date="2020-12-31",
+    )
+
+    df = request.filter_by_station_id("00001").values.all().df
+
+    assert df.height == 3

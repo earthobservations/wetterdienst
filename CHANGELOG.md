@@ -86,8 +86,16 @@ Types of changes:
   so any gap shifted every station after it onto its neighbour's location
 - Values: a request that collected nothing returns an empty frame carrying its columns rather than
   one with no columns at all, which wrote an empty file where a header was meant and raised
-  `ColumnNotFoundError` from `get_column("date")`. Having no data for the constraints given is an
-  ordinary outcome, so it is no longer logged with an exception traceback either
+  `ColumnNotFoundError` from `get_column("date")`. The columns are the ones a populated frame
+  would have had, dataset prefixes and all, in whichever shape was asked for. Having no data for
+  the constraints given is an ordinary outcome, so it is no longer logged with an exception
+  traceback either
+- Values: a ranked request no longer reads the whole provider to answer for a window that predates
+  it. A station returning nothing inside the window rightly does not count towards `rank`, but
+  then nothing bounded the walk either, so a window no station covers read every station there is.
+  A station the index says began after the window ended is now skipped without being downloaded.
+  Only that direction is read from the index: a station still reporting carries an `end_date` a
+  little behind the readings it can already answer for
 - Values: a dataset named more than once in a request -- interleaved with another, as in
   `["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_height",
   "daily/kl/precipitation_height"]` -- is fetched and parsed once instead of once per run of
