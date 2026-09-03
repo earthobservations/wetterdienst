@@ -474,7 +474,14 @@ class _ValuesResult(ExportMixin):
         return json.dumps(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
 
     def filter_by_date(self, date: str) -> pl.DataFrame:
-        """Filter values by date and return a new DataFrame."""
+        """Filter values by date or date interval and return a new DataFrame.
+
+        The date is read as the span it names, so ``"2020-05-01"`` keeps that whole day -- all 24
+        readings of it for hourly data -- ``"2020-05"`` the month and ``"2020"`` the year. An
+        interval such as ``"2017-01/2019-12"`` runs from the start of the first span to the end of
+        the second, and a date carrying a time (``"2020-05-01T12"``) names one instant and is
+        matched exactly. See :func:`wetterdienst.model.util.filter_by_date`.
+        """
         self.df = filter_by_date(self.df, date=date)
         return self.df
 

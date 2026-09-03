@@ -48,6 +48,14 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# `values`, `interpolate` and `summarize` all take the same date, so they say the same thing about
+# it: a date covers everything it names, which is what tells `2020-05` from `2020-05-01`
+_DATE_HELP = (
+    "Single date or interval in ISO 8601 format, covering everything it names: 2020-05-01 is that "
+    "whole day, 2020-05 the month and 2020 the year, while a date carrying a time (2020-05-01T12) "
+    "is that one instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05"
+)
+
 _RequestT = TypeVar("_RequestT", bound=BaseModel)
 
 appname = f"{__appname__} {__version__}"
@@ -1177,14 +1185,7 @@ def history(
 @station_options_core
 @cloup.option("--lead_time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_extension  # ty: ignore[invalid-argument-type]
-@cloup.option(
-    "--date",
-    type=click.STRING,
-    help=(
-        "Single date or interval in ISO 8601 format, covering everything it names -- 2020-05 is "
-        "the month, 2020 the year. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05"
-    ),
-)
+@cloup.option("--date", type=click.STRING, help=_DATE_HELP)
 @cloup.option(
     "--start-date",
     "start_date",
@@ -1428,7 +1429,7 @@ def values(
 @cloup.option("--interpolation_station_distance_homogeneous", type=click.FLOAT, default=None)
 @cloup.option("--interpolation_station_distance_heterogeneous", type=click.FLOAT, default=None)
 @cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
-@cloup.option("--date", type=click.STRING, required=False)
+@cloup.option("--date", type=click.STRING, required=False, help=_DATE_HELP)
 @cloup.option(
     "--start-date",
     "start_date",
@@ -1592,7 +1593,7 @@ def interpolate(
 @cloup.option("--summary_station_distance_homogeneous", type=click.FLOAT, default=None)
 @cloup.option("--summary_station_distance_heterogeneous", type=click.FLOAT, default=None)
 @cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
-@cloup.option("--date", type=click.STRING, required=False)
+@cloup.option("--date", type=click.STRING, required=False, help=_DATE_HELP)
 @cloup.option(
     "--start-date",
     "start_date",

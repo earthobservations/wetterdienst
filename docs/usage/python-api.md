@@ -432,6 +432,13 @@ once, parsed nicely into column structure with improved parameter names. Instead
 ``start_date`` and ``end_date`` you may as well want to use ``period`` to update your
 database once in a while with a fixed set of records.
 
+A result can be cut down after the fact with ``values.filter_by_date("2020-08")``, which takes the
+same date strings as the CLI and the REST API. Each covers everything it names: ``"2020-08-01"``
+is that whole day -- all 24 readings of it for hourly data -- ``"2020-08"`` the month and
+``"2020"`` the year, while an interval such as ``"2017-01/2019-12"`` runs from the start of the
+first span to the end of the second. A date carrying a time, ``"2020-08-01T12"``, names one
+instant and is matched exactly.
+
 The metadata columns ``station_id``, ``resolution``, ``dataset`` and ``parameter`` of the
 DataFrame returned by ``.values.all()`` are stored as polars
 [``Enum``](https://docs.pola.rs/api/python/stable/reference/api/polars.datatypes.Enum.html)
