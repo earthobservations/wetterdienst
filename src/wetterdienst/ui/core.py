@@ -22,7 +22,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.util.datetime import parse_date
+from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
@@ -134,14 +134,13 @@ _DebugField = Annotated[bool, Field(description="Enable debug logging.")]
 _WidthField = Annotated[int | None, Field(gt=0, description="Width of the rendered chart image in pixels.")]
 _HeightField = Annotated[int | None, Field(gt=0, description="Height of the rendered chart image in pixels.")]
 _ScaleField = Annotated[float | None, Field(gt=0, description="Scale factor of the rendered chart image.")]
-_DateField = Annotated[
-    str,
-    Field(description="Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'."),
-]
-_DateOptField = Annotated[
-    str | None,
-    Field(description="Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'."),
-]
+_DATE_DESCRIPTION = (
+    "Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'. A date "
+    "covers everything it names: '2020-05' is the month of May and '2020' the year, and a day is "
+    "all of its readings rather than the one at midnight."
+)
+_DateField = Annotated[str, Field(description=_DATE_DESCRIPTION)]
+_DateOptField = Annotated[str | None, Field(description=_DATE_DESCRIPTION)]
 _ShapeField = Annotated[
     Literal["long", "wide"],
     Field(description="Output shape: 'long' (one row per value) or 'wide' (one column per parameter)."),
@@ -823,11 +822,12 @@ def _get_stations_request(
             if date.count("/") >= 2:
                 msg = "Invalid ISO 8601 time interval"
                 raise InvalidTimeIntervalError(msg)
-            start_date, end_date = date.split("/")
-            start_date = parse_date(start_date)
-            end_date = parse_date(end_date)
+            start_string, end_string = date.split("/")
+            # the window opens with the span the first half names and closes with the second's
+            start_date, _ = parse_date_window(start_string)
+            _, end_date = parse_date_window(end_string)
         else:
-            start_date = parse_date(date)
+            start_date, end_date = parse_date_window(date)
 
     parameters = parse_parameters(request.parameters, api.metadata)
     if not parameters:

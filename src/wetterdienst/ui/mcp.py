@@ -80,8 +80,10 @@ hourly/air_temperature, hourly/precipitation.
 - `values` returns JSON with a `values` array of {station_id, parameter, date, value}, sorted by \
 date. The MOST RECENT value for a parameter is the LAST item with that parameter name.
 - Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
-by querying a single "resolution/dataset/parameter" and -- if you only need the latest reading -- a \
-`date` (e.g. date="2026-07-25"; a station's most recent day is its `end_date` from `stations`).
+by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
+`date` (e.g. date="2026-07-25"; a station's most recent day is its `end_date` from `stations`). A \
+date covers everything it names, so a day of hourly data is that day's 24 readings, "2026-07" is \
+the month and "2026" the year; name the hour (date="2026-07-25T12") for a single reading.
 - The default JSON is already machine-readable — do NOT re-request the same data in a different \
 format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
 

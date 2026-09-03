@@ -494,7 +494,9 @@ def test_cli_values_excel(
     if IS_WINDOWS:
         filename.unlink(missing_ok=True)
     assert "station_id" in df.columns
-    assert df.get_column("station_id").item() == station_id
+    # every row is this station's: MOSMIX and DMO are hourly, and `--date` names a day, so the
+    # export holds that day's readings rather than the single one at midnight
+    assert df.get_column("station_id").unique().to_list() == [station_id]
 
 
 @pytest.mark.parametrize(

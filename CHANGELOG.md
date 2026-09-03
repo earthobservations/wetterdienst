@@ -16,6 +16,19 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Dates: a date string covers everything it names instead of only the instant it starts with.
+  `2020-05` is the month of May, `2020` the year, and `2020-05-01` a whole day -- which for
+  anything measured more often than daily is 24 hours of readings rather than the one at midnight.
+  Every one of these formats is documented as supported, and `filter_by_date` matched a single
+  date with `==`, so a month or a year of hourly data came back empty: no reading falls exactly on
+  the 1st at 00:00. An interval ran to the *first* instant of the span its second half names, so
+  `2017-01/2019-12` ended on the 1st of December 2019 and `2010/2020` dropped all of 2020. The
+  same reading of the string reached the CLI and REST API, where `--date=2019-12` asked for
+  December and got a window of one instant. A date carrying a time still names one instant and is
+  matched exactly, however it is written -- `2020-05-01T12`, `2020-05-01t12` or `2020-05-01 12:00`
+
 ### Added
 
 - DWD: new `poi` network (`dwd/poi`) covering DWD's POI ("Point Of Interest") current weather

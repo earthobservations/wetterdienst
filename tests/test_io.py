@@ -719,6 +719,66 @@ def test_filter_by_date_interval(df_values: pl.DataFrame) -> None:
     assert not df.is_empty()
 
 
+@pytest.fixture
+def df_hourly_values() -> pl.DataFrame:
+    """Provide an hourly DataFrame, where a day is 24 readings rather than one."""
+    return pl.DataFrame(
+        {
+            "date": [dt.datetime(2019, 12, 28, hour, tzinfo=ZoneInfo("UTC")) for hour in range(24)]
+            + [dt.datetime(2019, 12, 15, tzinfo=ZoneInfo("UTC")), dt.datetime(2020, 1, 15, tzinfo=ZoneInfo("UTC"))],
+            "value": [float(hour) for hour in range(24)] + [99.0, 111.0],
+        },
+        schema={"date": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
+    )
+
+
+def test_filter_by_date_covers_the_span_the_string_names(df_hourly_values: pl.DataFrame) -> None:
+    """A date string keeps everything measured within what it names, not just its first instant.
+
+    Every one of these formats is documented as supported, and each was read as the instant it
+    starts with: a day of hourly readings came back as the one at midnight, and a month or a year
+    of them as nothing at all, because no reading falls exactly on the 1st of the month at 00:00.
+    """
+    assert filter_by_date(df_hourly_values, "2019-12-28").height == 24
+    assert filter_by_date(df_hourly_values, "2019-12").height == 25
+    assert filter_by_date(df_hourly_values, "2019").height == 25
+    # a date carrying a time still names one instant
+    assert filter_by_date(df_hourly_values, "2019-12-28T05").height == 1
+    assert filter_by_date(df_hourly_values, "2019-12-27").is_empty()
+
+
+def test_filter_by_date_interval_ends_with_the_span_it_names(df_hourly_values: pl.DataFrame) -> None:
+    """An interval runs to the end of the span its second half names, not to its first instant.
+
+    "2019-12/2020-01" used to end at the 1st of January at 00:00, dropping the rest of the month
+    it names -- the 15th here.
+    """
+    assert filter_by_date(df_hourly_values, "2019-12/2020-01").height == 26
+    assert filter_by_date(df_hourly_values, "2019/2020").height == 26
+    # the day before the hourly readings start is still excluded from both ends
+    assert filter_by_date(df_hourly_values, "2019-12-16/2019-12-27").is_empty()
+
+
+def test_create_date_range_covers_the_span_the_string_names() -> None:
+    """The date range covers what the string names, and a coarse resolution widens it further.
+
+    It sits beside `filter_by_date` and read a date the way `filter_by_date` used to, so
+    "2020-05" came back as a range of one instant.
+    """
+    from wetterdienst.metadata.resolution import Resolution  # noqa: PLC0415
+    from wetterdienst.model.util import create_date_range  # noqa: PLC0415
+
+    utc = ZoneInfo("UTC")
+    date_from, date_to = create_date_range("2020-05", Resolution.HOURLY)
+    assert date_from == dt.datetime(2020, 5, 1, tzinfo=utc)
+    assert date_to == dt.datetime(2020, 6, 1, tzinfo=utc) - dt.timedelta(microseconds=1)
+    # a monthly resolution still widens a day to the month holding it
+    assert create_date_range("2020-05-15", Resolution.MONTHLY) == (
+        dt.datetime(2020, 5, 1, tzinfo=utc),
+        dt.datetime(2020, 5, 31, tzinfo=utc),
+    )
+
+
 @pytest.mark.sql
 def test_filter_by_sql(df_values: pl.DataFrame) -> None:
     """Test filter by sql statement."""

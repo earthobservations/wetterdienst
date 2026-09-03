@@ -92,12 +92,20 @@ http localhost:7890/api/issues provider==dwd network==dmo station==10147
 
 ### Values
 
+`date` covers everything it names: `2020-08-01` is that whole day -- all 24 readings of it for
+hourly data -- `2020-08` the month and `2020` the year. An interval runs from the start of the
+span its first half names to the end of the span its second, so `2020-08/2020-09` ends with
+September. A date carrying a time, `2020-08-01T12`, names that one instant.
+
 ```bash
 # Acquire observations.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411
 
 # Observations for specific date.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 date==2020-08-01
+
+# Observations for a whole month, since a date covers everything it names.
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 date==2020-08
 
 # Observations for date range.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 date==2020-08-01/2020-08-05
