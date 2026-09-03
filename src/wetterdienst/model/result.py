@@ -14,7 +14,7 @@ import polars as pl
 from typing_extensions import NotRequired, TypedDict
 
 from wetterdienst.io.export import ExportMixin
-from wetterdienst.model.util import filter_by_date
+from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from wetterdienst.model.history import History, TimeseriesHistory
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.model.unit import UnitConverter
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
@@ -473,6 +474,28 @@ class _ValuesResult(ExportMixin):
             indent = None
         return json.dumps(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
 
+    def _unit_symbols(self, unit_converter: UnitConverter) -> dict[str, str]:
+        """Map every parameter name a frame can carry to the symbol its values are written in.
+
+        Two things the plots used to get wrong. The frame carries `name_original` unless
+        `ts_humanize` is on, while the mapping was keyed on the canonical name alone, so nothing
+        matched and the label read `tmk (tmk)` -- the name where the unit belongs. And the symbol
+        was always the target unit's, though `ts_convert_units=False` leaves the values in the unit
+        the source published them in: `10_minutes/solar/sunshine_duration` came back in hours under
+        a label saying seconds.
+        """
+        convert_units = self.stations.settings.ts_convert_units
+        symbols = {}
+        for parameter in self.stations.parameters:
+            unit = (
+                unit_converter.targets[parameter.unit_type]
+                if convert_units
+                else unit_converter.get_unit(parameter.unit, parameter.unit_type)
+            )
+            symbols[parameter.name] = unit.symbol
+            symbols[parameter.name_original] = unit.symbol
+        return symbols
+
     def filter_by_date(self, date: str) -> pl.DataFrame:
         """Filter values by date or date interval and return a new DataFrame.
 
@@ -590,10 +613,7 @@ class ValuesResult(_ValuesResult):
         if df.is_empty():
             return go.Figure()
         # create unit mapping for title
-        units = {
-            parameter.name: self.values.unit_converter.targets[parameter.unit_type].symbol
-            for parameter in self.values.sr.parameters
-        }
+        units = self._unit_symbols(self.values.unit_converter)
         # used for subplots
         n = df.select(["resolution", "dataset", "parameter"]).n_unique()
         # used for name
@@ -766,7 +786,9 @@ class InterpolatedValuesResult(_ValuesResult):
         feature = {
             "type": "Feature",
             "properties": {
-                "id": self.df.get_column("station_id").gather(0).item(),
+                # the id of the point, which is this name hashed -- read out of the frame, it took
+                # a result that came back with no rows down with an out-of-bounds gather
+                "id": create_station_id_from_string(name),
                 "name": name,
             },
             "geometry": {
@@ -805,10 +827,7 @@ class InterpolatedValuesResult(_ValuesResult):
         if df.is_empty():
             return go.Figure()
         # create unit mapping for title
-        units = {
-            parameter.name: self.stations.values.unit_converter.targets[parameter.unit_type].symbol
-            for parameter in self.stations.parameters
-        }
+        units = self._unit_symbols(self.stations.values.unit_converter)
         # used for subplots
         n = df.select(["dataset", "parameter"]).n_unique()
         # used for name
@@ -968,7 +987,9 @@ class SummarizedValuesResult(_ValuesResult):
         feature = {
             "type": "Feature",
             "properties": {
-                "id": self.df.get_column("station_id").gather(0).item(),
+                # the id of the point, which is this name hashed -- read out of the frame, it took
+                # a result that came back with no rows down with an out-of-bounds gather
+                "id": create_station_id_from_string(name),
                 "name": name,
             },
             "geometry": {
@@ -1007,10 +1028,7 @@ class SummarizedValuesResult(_ValuesResult):
         if df.is_empty():
             return go.Figure()
         # create unit mapping for title
-        units = {
-            parameter.name: self.stations.values.unit_converter.targets[parameter.unit_type].symbol
-            for parameter in self.stations.parameters
-        }
+        units = self._unit_symbols(self.stations.values.unit_converter)
         # used for subplots
         n = df.select(["dataset", "parameter"]).n_unique()
         # used for name

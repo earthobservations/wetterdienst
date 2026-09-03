@@ -552,7 +552,9 @@ def test_interpolated_values_to_ogc_feature_collection(
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
         "geometry": {"coordinates": [2.3456, 1.2345], "type": "Point"},
-        "properties": {"id": "abc", "name": "interpolation(1.2345,2.3456)"},
+        # the id is the name hashed, as the interpolation itself builds it -- not read out of the
+        # frame, whose station_id is a placeholder here
+        "properties": {"id": "ea536c83", "name": "interpolation(1.2345,2.3456)"},
         "stations": [
             {
                 "resolution": "daily",
@@ -653,7 +655,7 @@ def test_summarized_values_to_ogc_feature_collection(
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
         "geometry": {"coordinates": [2.3456, 1.2345], "type": "Point"},
-        "properties": {"id": "abc", "name": "summary(1.2345,2.3456)"},
+        "properties": {"id": "875cac86", "name": "summary(1.2345,2.3456)"},
         "stations": [
             {
                 "resolution": "daily",
@@ -717,6 +719,83 @@ def test_filter_by_date_interval(df_values: pl.DataFrame) -> None:
     assert not df.is_empty()
     df = filter_by_date(df, date="2020")
     assert not df.is_empty()
+
+
+@pytest.mark.parametrize(
+    ("result_class", "name", "expected_id"),
+    [
+        (InterpolatedValuesResult, "interpolation(1.2345,2.3456)", "ea536c83"),
+        (SummarizedValuesResult, "summary(1.2345,2.3456)", "875cac86"),
+    ],
+)
+def test_interpolated_or_summarized_ogc_feature_collection_without_values(
+    result_class: type,
+    name: str,
+    expected_id: str,
+    df_interpolated_values: pl.DataFrame,
+    df_summarized_values: pl.DataFrame,
+    stations_result_mock: StationsResult,
+) -> None:
+    """A result that came back with no rows is a feature collection with no values.
+
+    The feature's id was read out of the frame, so an interpolation or summary over a window no
+    station covers -- an ordinary outcome, and one the REST API serves as `format=geojson` --
+    raised `OutOfBoundsError: gather indices are out of bounds` instead of answering. The id
+    belongs to the point rather than to any row, and is the name beside it hashed.
+    """
+    df = df_interpolated_values if result_class is InterpolatedValuesResult else df_summarized_values
+    data = result_class(
+        stations=stations_result_mock, df=df.clear(), latlon=(1.2345, 2.3456)
+    ).to_ogc_feature_collection()
+    feature = data["data"]["features"][0]
+    assert feature["properties"] == {"id": expected_id, "name": name}
+    assert feature["values"] == []
+
+
+@pytest.mark.parametrize(
+    ("settings_kwargs", "parameter_in_frame", "expected"),
+    [
+        ({}, "sunshine_duration", "sunshine_duration (s)"),
+        ({"ts_humanize": False}, "sd_10", "sd_10 (s)"),
+        ({"ts_convert_units": False}, "sunshine_duration", "sunshine_duration (h)"),
+        ({"ts_humanize": False, "ts_convert_units": False}, "sd_10", "sd_10 (h)"),
+    ],
+)
+def test_values_plot_labels_the_unit_the_values_carry(
+    settings_kwargs: dict,
+    parameter_in_frame: str,
+    expected: str,
+) -> None:
+    """A plot labels a parameter with the unit its values are actually written in.
+
+    Two ways that went wrong. The label mapping was keyed on the canonical parameter name alone,
+    while a frame carries `name_original` unless `ts_humanize` is on, so nothing matched and the
+    label repeated the name: `sd_10 (sd_10)`. And the symbol was always the target unit's, though
+    `ts_convert_units=False` leaves the values as the source published them -- sunshine duration
+    comes in hours and was labelled seconds, a factor of 3600 between the number and its unit.
+    """
+    request = DwdObservationRequest(
+        parameters=["10_minutes/solar/sunshine_duration"],
+        settings=Settings(**settings_kwargs),
+    )
+    stations = StationsResult(
+        stations=request,
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    df = pl.DataFrame(
+        {
+            "station_id": ["01048"],
+            "resolution": ["10_minutes"],
+            "dataset": ["solar"],
+            "parameter": [parameter_in_frame],
+            "date": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "value": [1.0],
+        },
+    )
+    figure = ValuesResult(stations=stations, values=stations.values, df=df).to_plot()
+    assert [annotation.text for annotation in figure.layout.annotations] == [expected]
 
 
 @pytest.fixture

@@ -18,6 +18,21 @@ Types of changes:
 
 ### Fixed
 
+- Interpolation and summarization: a result that came back with no rows is a feature collection
+  with no values rather than an `OutOfBoundsError`. The feature's id was read out of the frame's
+  first row, so a point and window no station covers -- an ordinary outcome, and one the REST API
+  serves as `format=geojson` -- raised `gather indices are out of bounds` from `to_geojson` and
+  `to_ogc_feature_collection`, where `to_dict` on the same result answered fine. The id belongs to
+  the point rather than to any row: it is the name beside it hashed, which is how the
+  interpolation builds it in the first place
+- Plots: a parameter is labelled with the unit its values are actually written in. The label
+  mapping was keyed on the canonical parameter name alone, while a frame carries `name_original`
+  unless `ts_humanize` is on, so nothing matched and the label repeated the name -- `sd_10
+  (sd_10)`. The symbol was also always the target unit's, though `ts_convert_units=False` leaves
+  the values as the source published them: `10_minutes/solar/sunshine_duration` comes in hours and
+  was labelled seconds, a factor of 3600 between the number and its unit. Both affected the value,
+  interpolation and summary plots, and the images exported from them
+
 - Dates: a date string covers everything it names instead of only the instant it starts with.
   `2020-05` is the month of May, `2020` the year, and `2020-05-01` a whole day -- which for
   anything measured more often than daily is 24 hours of readings rather than the one at midnight.

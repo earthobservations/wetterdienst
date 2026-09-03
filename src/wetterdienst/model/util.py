@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -21,6 +22,23 @@ except ImportError:
     pass
 else:
     MonkeyPatch.patch_fromisoformat()
+
+
+def create_station_id_from_string(string: str) -> str:
+    """Create a station id from a string.
+
+    The id of an interpolated or summarized result, which stands for a point rather than a station.
+    It is derived from the point alone, so it can be given for a result that came back with no rows
+    just as well as for one that did.
+
+    Args:
+        string: The name of the point, as the result reports it
+
+    Returns:
+        The id of the point
+
+    """
+    return sha256(string.encode("utf-8")).hexdigest()[:8]
 
 
 def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | None, dt.datetime | None]:
