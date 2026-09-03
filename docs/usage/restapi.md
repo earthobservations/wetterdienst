@@ -104,7 +104,7 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 # Observations for specific date.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 date==2020-08-01
 
-# Observations for a whole month -- a date covers everything it names, so date==2020 is the year.
+# Observations for a whole month, since a date covers everything it names.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 date==2020-08
 
 # Observations for date range.

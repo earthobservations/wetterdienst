@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import json
 import logging
 import sys
@@ -23,7 +22,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.util.datetime import parse_date_span
+from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
@@ -806,19 +805,6 @@ def get_issues(
     return [issue.isoformat() for issue in issues]
 
 
-def _window_end(start: dt.datetime, end_exclusive: dt.datetime | None) -> dt.datetime:
-    """Give the last instant a date string covers.
-
-    A request window is closed on both sides, while a span is not: `--date=2019-12` covers December
-    and must not reach the 1st of January, which is a reading of its own for anything daily or
-    coarser. Timestamps are stored to the microsecond, so stepping back one leaves nothing between
-    the two.
-    """
-    if end_exclusive is None:
-        return start
-    return end_exclusive - dt.timedelta(microseconds=1)
-
-
 def _get_stations_request(
     api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
@@ -837,11 +823,11 @@ def _get_stations_request(
                 msg = "Invalid ISO 8601 time interval"
                 raise InvalidTimeIntervalError(msg)
             start_string, end_string = date.split("/")
-            start_date, _ = parse_date_span(start_string)
-            end_date = _window_end(*parse_date_span(end_string))
+            # the window opens with the span the first half names and closes with the second's
+            start_date, _ = parse_date_window(start_string)
+            _, end_date = parse_date_window(end_string)
         else:
-            start_date, end_exclusive = parse_date_span(date)
-            end_date = _window_end(start_date, end_exclusive)
+            start_date, end_date = parse_date_window(date)
 
     parameters = parse_parameters(request.parameters, api.metadata)
     if not parameters:

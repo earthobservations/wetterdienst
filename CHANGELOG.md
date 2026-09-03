@@ -27,7 +27,7 @@ Types of changes:
   `2017-01/2019-12` ended on the 1st of December 2019 and `2010/2020` dropped all of 2020. The
   same reading of the string reached the CLI and REST API, where `--date=2019-12` asked for
   December and got a window of one instant. A date carrying a time still names one instant and is
-  matched exactly
+  matched exactly, however it is written -- `2020-05-01T12`, `2020-05-01t12` or `2020-05-01 12:00`
 
 ### Added
 

@@ -759,6 +759,26 @@ def test_filter_by_date_interval_ends_with_the_span_it_names(df_hourly_values: p
     assert filter_by_date(df_hourly_values, "2019-12-16/2019-12-27").is_empty()
 
 
+def test_create_date_range_covers_the_span_the_string_names() -> None:
+    """The date range covers what the string names, and a coarse resolution widens it further.
+
+    It sits beside `filter_by_date` and read a date the way `filter_by_date` used to, so
+    "2020-05" came back as a range of one instant.
+    """
+    from wetterdienst.metadata.resolution import Resolution  # noqa: PLC0415
+    from wetterdienst.model.util import create_date_range  # noqa: PLC0415
+
+    utc = ZoneInfo("UTC")
+    date_from, date_to = create_date_range("2020-05", Resolution.HOURLY)
+    assert date_from == dt.datetime(2020, 5, 1, tzinfo=utc)
+    assert date_to == dt.datetime(2020, 6, 1, tzinfo=utc) - dt.timedelta(microseconds=1)
+    # a monthly resolution still widens a day to the month holding it
+    assert create_date_range("2020-05-15", Resolution.MONTHLY) == (
+        dt.datetime(2020, 5, 1, tzinfo=utc),
+        dt.datetime(2020, 5, 31, tzinfo=utc),
+    )
+
+
 @pytest.mark.sql
 def test_filter_by_sql(df_values: pl.DataFrame) -> None:
     """Test filter by sql statement."""

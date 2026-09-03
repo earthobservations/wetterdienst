@@ -107,14 +107,21 @@ def _parse_date_with_precision(date_string: str) -> tuple[dt.datetime, str]:
 
     """
     try:
+        # a date and nothing else: "2020-05-01", "20200501" or "2020-W01-1", each a whole day.
+        # Asking `date` rather than looking for a separator is what tells them from a datetime --
+        # `datetime.fromisoformat` takes any single character between the two, so "2020-05-01t12"
+        # and "2020-05-01+02:00" are times of day however unusually they are written
+        date_only = dt.date.fromisoformat(date_string)
+    except ValueError:
+        pass
+    else:
+        return _as_utc(dt.datetime.combine(date_only, dt.time())), _DAY
+    try:
         date_parsed = dt.datetime.fromisoformat(date_string)
     except ValueError:
         pass
     else:
-        # fromisoformat takes both dates and datetimes; only the latter carries a time, and
-        # "2020-01-01T00:00" has to stay an instant where bare "2020-01-01" is a whole day
-        precision = _INSTANT if ("T" in date_string or " " in date_string) else _DAY
-        return _as_utc(date_parsed), precision
+        return _as_utc(date_parsed), _INSTANT
     for fmt, precision in (("%Y-%m", _MONTH), ("%Y", _YEAR)):
         try:
             date_parsed = dt.datetime.strptime(date_string, fmt)  # noqa: DTZ007
@@ -177,6 +184,26 @@ def parse_date_span(date_string: str) -> tuple[dt.datetime, dt.datetime | None]:
     if precision == _MONTH:
         return start, start + relativedelta(months=1)
     return start, start + relativedelta(years=1)
+
+
+def parse_date_window(date_string: str) -> tuple[dt.datetime, dt.datetime]:
+    """Parse a date string into a window closed on both sides.
+
+    The span of ``parse_date_span``, given as the first and the last instant it covers, for callers
+    that filter inclusively -- a request window does. Timestamps are stored to the microsecond, so
+    stepping back one from the start of the next span leaves nothing between the two.
+
+    Args:
+        date_string: Date string to parse
+
+    Returns:
+        The first and last instant the string covers
+
+    """
+    start, end_exclusive = parse_date_span(date_string)
+    if end_exclusive is None:
+        return start, start
+    return start, end_exclusive - dt.timedelta(microseconds=1)
 
 
 def _parse_datetime_from_formats(string: str, formats: list[str]) -> dt.datetime:

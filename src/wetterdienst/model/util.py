@@ -10,7 +10,7 @@ import polars as pl
 
 from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.util.datetime import mktimerange, parse_date, parse_date_span
+from wetterdienst.util.datetime import mktimerange, parse_date_span, parse_date_window
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -26,6 +26,10 @@ else:
 def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | None, dt.datetime | None]:
     """Create date range from date string and resolution.
 
+    The date is read as the span it names, as it is by ``filter_by_date``, and the range covers it
+    from first to last instant. A monthly or annual resolution then widens the range to whole
+    months or years, which is what this adds over ``parse_date_window``.
+
     Args:
         date: Date string.
         resolution: Resolution.
@@ -39,9 +43,9 @@ def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | 
             msg = "Invalid ISO 8601 time interval"
             raise InvalidTimeIntervalError(msg)
 
-        date_from, date_to = date.split("/")
-        date_from = parse_date(date_from)
-        date_to = parse_date(date_to)
+        date_from_string, date_to_string = date.split("/")
+        date_from, _ = parse_date_window(date_from_string)
+        _, date_to = parse_date_window(date_to_string)
 
         if resolution in (
             Resolution.ANNUAL,
@@ -51,13 +55,12 @@ def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | 
 
     # Filter by specific date.
     else:
-        parsed_date = parse_date(date)
-        date_from, date_to = parsed_date, parsed_date
+        date_from, date_to = parse_date_window(date)
         if resolution in (
             Resolution.ANNUAL,
             Resolution.MONTHLY,
         ):
-            date_from, date_to = mktimerange(resolution, parsed_date)
+            date_from, date_to = mktimerange(resolution, date_from)
 
     return date_from, date_to
 
