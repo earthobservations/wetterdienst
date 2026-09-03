@@ -18,10 +18,11 @@ Types of changes:
 
 ### Fixed
 
-- Unit conversion: the mile, the nautical mile and the knot are derived from the metres they are
-  defined as, rather than from decimals rounded to four figures. `1.609` put kilometre to mile
-  0.0214% away from the metre-to-mile route, `1.151` did the same to the two miles, and `1.944`
-  left knots to metres per second 0.0080% from what its own kilometres-per-hour route gives -- so
+- Unit conversion: the mile and the knot are derived from the metres they are defined as, rather
+  than from decimals rounded to four figures. `1.609` put kilometre to mile 0.0214% away from the
+  metre-to-mile route, `1.151` did the same to the mile and the nautical mile -- the nautical mile
+  itself was already exact against metres and kilometres, and only its ratio to the mile moves --
+  and `1.944` left knots to metres per second 0.0080% from its kilometres-per-hour route, so
   the same quantity converted differently depending on which unit its source published. That last
   one is on real data: the Met Office publishes wind in knots and the speed target is metres per
   second, so every one of its wind speeds carried the error. A round trip hid all three, both

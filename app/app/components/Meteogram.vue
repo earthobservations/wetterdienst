@@ -512,7 +512,9 @@ function updateOverlaySize() {
 function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom: number, speed: number) {
   // Standard meteorological wind barbs: speed encoded in knots
   // Pennant = 50 kt, full barb = 10 kt, half barb = 5 kt
-  const kt = speed * 1.944
+  // A knot is a nautical mile -- 1852 m exactly -- per hour, which is how the API converts it too;
+  // rounded to 1.944 a speed either side of a barb boundary could be drawn as the next barb up
+  const kt = (speed * 3600) / 1852
   const scale = compact.value ? 0.78 : 1.0
   const barbColor = isDark.value ? '#f4f4f5' : '#0f172a'
   ctx.strokeStyle = barbColor
