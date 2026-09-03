@@ -7,6 +7,19 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+# The mile and the nautical mile are defined in metres exactly, and the knot as one nautical mile
+# per hour. Deriving the factors from these keeps a conversion the same whichever unit a source
+# publishes: rounded to `1.609`, `1.151` and `1.944`, kilometre to mile came out 0.0214% away from
+# metre to mile, and knots to metres per second -- which every Met Office wind speed passes through
+# -- 0.0080% away from the value its own kilometres-per-hour route gives.
+_METERS_PER_MILE = 1609.344
+_METERS_PER_NAUTICAL_MILE = 1852.0
+_KILOMETERS_PER_MILE = _METERS_PER_MILE / 1000
+_KILOMETERS_PER_NAUTICAL_MILE = _METERS_PER_NAUTICAL_MILE / 1000
+_MILES_PER_NAUTICAL_MILE = _METERS_PER_NAUTICAL_MILE / _METERS_PER_MILE
+# one knot is one nautical mile per hour, so metres per second follow from the hour
+_METERS_PER_SECOND_PER_KNOT = _METERS_PER_NAUTICAL_MILE / 3600
+
 
 @dataclass
 class Unit:
@@ -241,18 +254,18 @@ class UnitConverter:
             ("kilometer", "millimeter"): lambda x: x * 1000000,
             ("kilometer", "centimeter"): lambda x: x * 100000,
             ("kilometer", "meter"): lambda x: x * 1000,
-            ("kilometer", "mile"): lambda x: x / 1.609,
-            ("kilometer", "nautical_mile"): lambda x: x / 1.852,
+            ("kilometer", "mile"): lambda x: x / _KILOMETERS_PER_MILE,
+            ("kilometer", "nautical_mile"): lambda x: x / _KILOMETERS_PER_NAUTICAL_MILE,
             ("nautical_mile", "millimeter"): lambda x: x * 1852000,
             ("nautical_mile", "centimeter"): lambda x: x * 185200,
             ("nautical_mile", "meter"): lambda x: x * 1852,
-            ("nautical_mile", "kilometer"): lambda x: x * 1.852,
-            ("nautical_mile", "mile"): lambda x: x * 1.151,
+            ("nautical_mile", "kilometer"): lambda x: x * _KILOMETERS_PER_NAUTICAL_MILE,
+            ("nautical_mile", "mile"): lambda x: x * _MILES_PER_NAUTICAL_MILE,
             ("mile", "millimeter"): lambda x: x * 1609344,
             ("mile", "centimeter"): lambda x: x * 160934.4,
             ("mile", "meter"): lambda x: x * 1609.344,
-            ("mile", "kilometer"): lambda x: x * 1.609,
-            ("mile", "nautical_mile"): lambda x: x / 1.151,
+            ("mile", "kilometer"): lambda x: x * _KILOMETERS_PER_MILE,
+            ("mile", "nautical_mile"): lambda x: x / _MILES_PER_NAUTICAL_MILE,
             # precipitation
             ("millimeter", "liter_per_square_meter"): lambda x: x,
             ("liter_per_square_meter", "millimeter"): lambda x: x,
@@ -268,17 +281,17 @@ class UnitConverter:
             ("kilopascal", "hectopascal"): lambda x: x * 10,
             # speed
             ("meter_per_second", "kilometer_per_hour"): lambda x: x * 3.6,
-            ("meter_per_second", "knots"): lambda x: x * 1.944,
+            ("meter_per_second", "knots"): lambda x: x / _METERS_PER_SECOND_PER_KNOT,
             ("meter_per_second", "beaufort"): lambda x: (x / 0.836) ** (2 / 3),
             ("kilometer_per_hour", "meter_per_second"): lambda x: x / 3.6,
-            ("kilometer_per_hour", "knots"): lambda x: x / 1.852,
+            ("kilometer_per_hour", "knots"): lambda x: x / _KILOMETERS_PER_NAUTICAL_MILE,
             ("kilometer_per_hour", "beaufort"): lambda x: (x / 3.6 / 0.836) ** (2 / 3),
-            ("knots", "meter_per_second"): lambda x: x / 1.944,
-            ("knots", "kilometer_per_hour"): lambda x: x * 1.852,
-            ("knots", "beaufort"): lambda x: (x / 1.944 / 0.836) ** (2 / 3),
+            ("knots", "meter_per_second"): lambda x: x * _METERS_PER_SECOND_PER_KNOT,
+            ("knots", "kilometer_per_hour"): lambda x: x * _KILOMETERS_PER_NAUTICAL_MILE,
+            ("knots", "beaufort"): lambda x: (x * _METERS_PER_SECOND_PER_KNOT / 0.836) ** (2 / 3),
             ("beaufort", "meter_per_second"): lambda x: 0.836 * (x ** (3 / 2)),
             ("beaufort", "kilometer_per_hour"): lambda x: 0.836 * (x ** (3 / 2)) * 3.6,
-            ("beaufort", "knots"): lambda x: 0.836 * (x ** (3 / 2)) * 1.944,
+            ("beaufort", "knots"): lambda x: 0.836 * (x ** (3 / 2)) / _METERS_PER_SECOND_PER_KNOT,
             # temperature
             ("degree_kelvin", "degree_celsius"): lambda x: x - 273.15,
             ("degree_kelvin", "degree_fahrenheit"): lambda x: (x - 273.15) * 9 / 5 + 32,

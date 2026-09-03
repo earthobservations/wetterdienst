@@ -2,6 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for unit conversion."""
 
+from itertools import permutations
+
 import pytest
 
 from wetterdienst.model.unit import UnitConverter
@@ -145,12 +147,12 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("meter", "centimeter", 0.42, 42),
         # length_long
         ("kilometer", "kilometer", 42, 42),
-        ("kilometer", "mile", 42, 26.10316967060286),
+        ("kilometer", "mile", 42, 26.097590073968025),
         ("kilometer", "nautical_mile", 42, 22.67818574514039),
-        ("mile", "kilometer", 42, 67.578),
-        ("mile", "nautical_mile", 42, 36.490008688097305),
+        ("mile", "kilometer", 42, 67.592448),
+        ("mile", "nautical_mile", 42, 36.49700215982721),
         ("nautical_mile", "kilometer", 42, 77.784),
-        ("nautical_mile", "mile", 42, 48.342),
+        ("nautical_mile", "mile", 42, 48.332736816988785),
         # precipitation
         ("millimeter", "millimeter", 42, 42),
         ("millimeter", "liter_per_square_meter", 42, 42),
@@ -166,17 +168,17 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         # speed
         ("meter_per_second", "meter_per_second", 42, 42),
         ("meter_per_second", "kilometer_per_hour", 1, 3.6),
-        ("meter_per_second", "knots", 1, 1.944),
+        ("meter_per_second", "knots", 1, 1.9438444924406046),
         ("meter_per_second", "beaufort", 4.2, 2.9333373265075173),
         ("kilometer_per_hour", "meter_per_second", 42, 11.666666666666666),
         ("kilometer_per_hour", "knots", 42, 22.67818574514039),
         ("kilometer_per_hour", "beaufort", 15.12, 2.933337326507517),
-        ("knots", "meter_per_second", 42, 21.60493827160494),
+        ("knots", "meter_per_second", 42, 21.60666666666667),
         ("knots", "kilometer_per_hour", 42, 77.784),
-        ("knots", "beaufort", 4.2, 1.8832060248217928),
+        ("knots", "beaufort", 4.2, 1.8833064611373287),
         ("beaufort", "meter_per_second", 12, 34.75186740306195),
         ("beaufort", "kilometer_per_hour", 12, 125.10672265102302),
-        ("beaufort", "knots", 12, 67.55763023155244),
+        ("beaufort", "knots", 12, 67.55222605346815),
         # temperature
         ("degree_celsius", "degree_celsius", 42, 42),
         ("degree_celsius", "degree_fahrenheit", 42, 107.6),
@@ -264,3 +266,45 @@ def test_unit_converter__get_lambda_invalid(unit_converter: UnitConverter) -> No
         unit_converter._get_lambda("invalid", "degree_fahrenheit")  # noqa: SLF001
     with pytest.raises(ValueError, match="Conversion from degree_kelvin to invalid not supported"):
         unit_converter._get_lambda("degree_kelvin", "invalid")  # noqa: SLF001
+
+
+def test_conversions_agree_whichever_route_they_take() -> None:
+    """Converting a to c directly gives what converting a to b to c gives.
+
+    A conversion table is only consistent if its factors are, and rounded ones are not: `1.609` for
+    the kilometre-to-mile ratio put kilometre-to-mile 0.0214% away from the metre-to-mile route,
+    `1.151` did the same to the two miles, and `1.944` for the knot -- which every Met Office wind
+    speed passes through, the source publishing knots and the target being metres per second --
+    left knots-to-metres-per-second 0.0080% from its own kilometres-per-hour route. A round trip
+    hid all three, since both directions carried the same rounding.
+    """
+    unit_converter = UnitConverter()
+    for units in unit_converter.units.values():
+        names = [unit.name for unit in units]
+        for first, second, third in permutations(names, 3):
+            lambdas = unit_converter.lambdas
+            if not all(pair in lambdas for pair in ((first, second), (second, third), (first, third))):
+                continue
+            direct = lambdas[(first, third)](100.0)
+            via = lambdas[(second, third)](lambdas[(first, second)](100.0))
+            assert direct == pytest.approx(via, rel=1e-9), (
+                f"{first} -> {third} disagrees with {first} -> {second} -> {third}"
+            )
+
+
+def test_every_pair_of_units_of_a_type_converts() -> None:
+    """Every unit of a type converts to every other, which a target override relies on."""
+    unit_converter = UnitConverter()
+    for unit_type, units in unit_converter.units.items():
+        for source, target in permutations([unit.name for unit in units], 2):
+            assert (source, target) in unit_converter.lambdas, f"{unit_type}: {source} -> {target}"
+
+
+def test_converting_to_a_unit_and_back_returns_the_value() -> None:
+    """A value converted to another unit and back is the value it started as."""
+    unit_converter = UnitConverter()
+    for units in unit_converter.units.values():
+        for source, target in permutations([unit.name for unit in units], 2):
+            forth = unit_converter.lambdas[(source, target)]
+            back = unit_converter.lambdas[(target, source)]
+            assert back(forth(100.0)) == pytest.approx(100.0, rel=1e-9), f"{source} -> {target} -> {source}"
