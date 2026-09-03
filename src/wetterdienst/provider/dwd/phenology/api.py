@@ -187,8 +187,15 @@ def _periods_for(requested: set[Period] | None, dataset: DatasetModel) -> set[Pe
     record lives in the recent file, back to 2018 for `annual_currant_all_varieties` and 2021 for
     `annual_beet`. Intersecting would have left those years unreachable by any date range -- the
     request returned nothing at all rather than the rows it asked for.
+
+    The exception is a request that resolved to no period at all: that says its interval reaches
+    no release, so there is nothing to read and nothing to widen to.
     """
     published = set(dataset.periods)
+    if requested is not None and not requested:
+        # the interval reaches no release at all -- see `TimeseriesRequest._get_periods`. Reading
+        # the files anyway would download a whole network's records to filter them all away
+        return set()
     return (requested or published) & published or published
 
 

@@ -726,6 +726,9 @@ class DwdObservationRequest(TimeseriesRequest):
                 datasets.append(parameter.dataset)
         stations = []
         for dataset in datasets:
+            # An empty period set means the interval reaches no release at all; the stations
+            # themselves do not depend on that, so discovery reads every period the dataset has
+            # and the values stay empty, rather than the request reporting no stations
             periods = set(dataset.periods) & cast("set[Period]", self.periods) if self.periods else dataset.periods
             # newest period first, so the `keep="first"` below settles a station on the most current
             # of its descriptions. Period is orderable; iterating the set directly left the winner
