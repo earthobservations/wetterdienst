@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import logging
 import sys
@@ -22,7 +23,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.util.datetime import parse_date
+from wetterdienst.util.datetime import parse_date_span
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
@@ -134,14 +135,13 @@ _DebugField = Annotated[bool, Field(description="Enable debug logging.")]
 _WidthField = Annotated[int | None, Field(gt=0, description="Width of the rendered chart image in pixels.")]
 _HeightField = Annotated[int | None, Field(gt=0, description="Height of the rendered chart image in pixels.")]
 _ScaleField = Annotated[float | None, Field(gt=0, description="Scale factor of the rendered chart image.")]
-_DateField = Annotated[
-    str,
-    Field(description="Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'."),
-]
-_DateOptField = Annotated[
-    str | None,
-    Field(description="Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'."),
-]
+_DATE_DESCRIPTION = (
+    "Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'. A date "
+    "covers everything it names: '2020-05' is the month of May and '2020' the year, and a day is "
+    "all of its readings rather than the one at midnight."
+)
+_DateField = Annotated[str, Field(description=_DATE_DESCRIPTION)]
+_DateOptField = Annotated[str | None, Field(description=_DATE_DESCRIPTION)]
 _ShapeField = Annotated[
     Literal["long", "wide"],
     Field(description="Output shape: 'long' (one row per value) or 'wide' (one column per parameter)."),
@@ -806,6 +806,19 @@ def get_issues(
     return [issue.isoformat() for issue in issues]
 
 
+def _window_end(start: dt.datetime, end_exclusive: dt.datetime | None) -> dt.datetime:
+    """Give the last instant a date string covers.
+
+    A request window is closed on both sides, while a span is not: `--date=2019-12` covers December
+    and must not reach the 1st of January, which is a reading of its own for anything daily or
+    coarser. Timestamps are stored to the microsecond, so stepping back one leaves nothing between
+    the two.
+    """
+    if end_exclusive is None:
+        return start
+    return end_exclusive - dt.timedelta(microseconds=1)
+
+
 def _get_stations_request(
     api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
@@ -823,11 +836,12 @@ def _get_stations_request(
             if date.count("/") >= 2:
                 msg = "Invalid ISO 8601 time interval"
                 raise InvalidTimeIntervalError(msg)
-            start_date, end_date = date.split("/")
-            start_date = parse_date(start_date)
-            end_date = parse_date(end_date)
+            start_string, end_string = date.split("/")
+            start_date, _ = parse_date_span(start_string)
+            end_date = _window_end(*parse_date_span(end_string))
         else:
-            start_date = parse_date(date)
+            start_date, end_exclusive = parse_date_span(date)
+            end_date = _window_end(start_date, end_exclusive)
 
     parameters = parse_parameters(request.parameters, api.metadata)
     if not parameters:

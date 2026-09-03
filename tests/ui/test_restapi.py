@@ -1276,6 +1276,55 @@ def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_
     assert stations_request is not None
 
 
+def test_get_stations_request_date_covers_the_span_it_names() -> None:
+    """A `date` names a span, and the request window has to cover all of it.
+
+    `date=2019-12` asked for December and got a window of one instant, the 1st at 00:00 -- one
+    daily reading, and for anything hourly the one at midnight. An interval fared the same at its
+    end: `2019-12/2020-01` stopped at the 1st of January rather than covering the month.
+    """
+    import datetime as dt  # noqa: PLC0415
+    from zoneinfo import ZoneInfo  # noqa: PLC0415
+
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.ui.core import ValuesRequest, _get_stations_request  # noqa: PLC0415
+
+    api = Wetterdienst("dwd", "observation")
+    settings = Settings()
+
+    def window(date: str) -> tuple[dt.datetime, dt.datetime]:
+        request = ValuesRequest(
+            provider="dwd",
+            network="observation",
+            parameters=["daily/kl"],
+            station="00011",
+        )
+        stations_request = _get_stations_request(api=api, request=request, date=date, settings=settings)
+        return stations_request.start_date, stations_request.end_date
+
+    last_moment = dt.timedelta(microseconds=1)
+    assert window("2019-12") == (
+        dt.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")) - last_moment,
+    )
+    assert window("2019") == (
+        dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")) - last_moment,
+    )
+    assert window("2019-12-28") == (
+        dt.datetime(2019, 12, 28, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2019, 12, 29, tzinfo=ZoneInfo("UTC")) - last_moment,
+    )
+    assert window("2019-12/2020-01") == (
+        dt.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2020, 2, 1, tzinfo=ZoneInfo("UTC")) - last_moment,
+    )
+    # a date carrying a time names one instant, so the window is that instant
+    instant = dt.datetime(2019, 12, 28, 12, tzinfo=ZoneInfo("UTC"))
+    assert window("2019-12-28T12:00:00") == (instant, instant)
+
+
 def test_get_stations_request_passes_periods_to_every_provider() -> None:
     """The periods a caller asked for reach the request, whichever provider serves it.
 

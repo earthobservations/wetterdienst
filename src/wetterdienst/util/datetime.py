@@ -88,6 +88,50 @@ def mktimerange(
     return date_from, date_to
 
 
+# How much of an instant a date string actually names. "2019" names a year, "2019-12" a month and
+# "2019-12-28" a day; only a string carrying a time names a single instant.
+_YEAR = "year"
+_MONTH = "month"
+_DAY = "day"
+_INSTANT = "instant"
+
+
+def _parse_date_with_precision(date_string: str) -> tuple[dt.datetime, str]:
+    """Parse a date string to its first instant and the precision it was written with.
+
+    Args:
+        date_string: Date string to parse
+
+    Returns:
+        The first instant the string names and one of the precisions above
+
+    """
+    try:
+        date_parsed = dt.datetime.fromisoformat(date_string)
+    except ValueError:
+        pass
+    else:
+        # fromisoformat takes both dates and datetimes; only the latter carries a time, and
+        # "2020-01-01T00:00" has to stay an instant where bare "2020-01-01" is a whole day
+        precision = _INSTANT if ("T" in date_string or " " in date_string) else _DAY
+        return _as_utc(date_parsed), precision
+    for fmt, precision in (("%Y-%m", _MONTH), ("%Y", _YEAR)):
+        try:
+            date_parsed = dt.datetime.strptime(date_string, fmt)  # noqa: DTZ007
+        except ValueError:
+            continue
+        return _as_utc(date_parsed), precision
+    msg = f"date_string {date_string} could not be parsed"
+    raise ValueError(msg)
+
+
+def _as_utc(date_parsed: dt.datetime) -> dt.datetime:
+    """Read a timestamp without a zone as UTC."""
+    if not date_parsed.tzinfo:
+        return date_parsed.replace(tzinfo=ZoneInfo("UTC"))
+    return date_parsed
+
+
 def parse_date(date_string: str) -> dt.datetime:
     """Parse date string to datetime object.
 
@@ -96,6 +140,9 @@ def parse_date(date_string: str) -> dt.datetime:
     - year month format e.g. 2020-10
     - year format e.g. 2020
 
+    The first instant of what the string names, so "2020-10" is the 1st of October. Use
+    ``parse_date_span`` where the rest of the month is meant too.
+
     Args:
         date_string: Date string to parse
 
@@ -103,21 +150,33 @@ def parse_date(date_string: str) -> dt.datetime:
         datetime object
 
     """
-    date_parsed = None
-    try:
-        date_parsed = dt.datetime.fromisoformat(date_string)
-    except ValueError:
-        try:
-            date_parsed = dt.datetime.strptime(date_string, "%Y-%m")  # noqa: DTZ007
-        except ValueError:
-            date_parsed = dt.datetime.strptime(date_string, "%Y")  # noqa: DTZ007
-    finally:
-        if not date_parsed:
-            msg = f"date_string {date_string} could not be parsed"
-            raise ValueError(msg)
-    if date_parsed and not date_parsed.tzinfo:
-        date_parsed = date_parsed.replace(tzinfo=ZoneInfo("UTC"))
-    return date_parsed
+    return _parse_date_with_precision(date_string)[0]
+
+
+def parse_date_span(date_string: str) -> tuple[dt.datetime, dt.datetime | None]:
+    """Parse a date string into the span of time it names.
+
+    A date string names an instant only as precisely as it is written: "2019" is a year, "2019-12"
+    a month and "2019-12-28" a day, each of which covers everything measured within it. Reading
+    them as their first instant instead answers "2019-12" with the 1st of December alone, and for
+    anything measured more often than daily, with midnight alone.
+
+    Args:
+        date_string: Date string to parse
+
+    Returns:
+        The first instant of the span and the first instant after it, or ``None`` for the end where
+        the string carries a time and so names one instant rather than a span
+
+    """
+    start, precision = _parse_date_with_precision(date_string)
+    if precision == _INSTANT:
+        return start, None
+    if precision == _DAY:
+        return start, start + dt.timedelta(days=1)
+    if precision == _MONTH:
+        return start, start + relativedelta(months=1)
+    return start, start + relativedelta(years=1)
 
 
 def _parse_datetime_from_formats(string: str, formats: list[str]) -> dt.datetime:

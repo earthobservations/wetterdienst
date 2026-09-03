@@ -1180,7 +1180,10 @@ def history(
 @cloup.option(
     "--date",
     type=click.STRING,
-    help="Single date or interval in ISO 8601 format. Examples: 2020-05-01, 2020-05-01/2020-05-05",
+    help=(
+        "Single date or interval in ISO 8601 format, covering everything it names -- 2020-05 is "
+        "the month, 2020 the year. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05"
+    ),
 )
 @cloup.option(
     "--start-date",
