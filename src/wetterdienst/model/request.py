@@ -216,6 +216,11 @@ class TimeseriesRequest:
         if self.start_date is not None:
             derived = self._get_periods()
             if derived is not None:
+                if not derived:
+                    # The interval reaches no release at all -- a window in the future. There is
+                    # nothing to read and nothing to fall back to, so the request stays empty
+                    # rather than downloading a period that cannot hold it
+                    return derived
                 # The derived periods have to pass the same check as the requested ones, or a
                 # request lands on a period its datasets do not publish: an interval reaching into
                 # today derives `now`, which `daily/kl` has no release for, and the request then
