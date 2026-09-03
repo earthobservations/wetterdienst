@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from abc import abstractmethod
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, ClassVar
@@ -22,10 +22,12 @@ from rapidfuzz import utils as fuzz_utils
 
 from wetterdienst.exceptions import (
     NoParametersFoundError,
+    NoPeriodsFoundError,
     StartDateEndDateError,
     StationNotFoundError,
 )
 from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
+from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import (
     DatasetModel,
@@ -41,6 +43,7 @@ from wetterdienst.model.result import (
     SummarizedValuesResult,
 )
 from wetterdienst.settings import Settings
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
 
 try:
@@ -65,6 +68,17 @@ EARTH_RADIUS_KM = 6371
 _PARAMETER_TYPE_SINGULAR = str | tuple[str, str] | tuple[str, str, str] | ParameterModel | DatasetModel
 _PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
 _DATETIME_TYPE = str | dt.datetime | None
+# either of
+# str: "recent"  # noqa: ERA001
+# Period: Period.RECENT  # noqa: ERA001
+# an iterable of either: ["historical", "recent"] or {Period.HISTORICAL, Period.RECENT}
+_PERIOD_TYPE_SINGULAR = str | Period
+_PERIODS_TYPE = _PERIOD_TYPE_SINGULAR | Iterable[_PERIOD_TYPE_SINGULAR] | None
+
+
+def _format_periods(periods: Iterable[Period]) -> str:
+    """Name periods the way they are requested, oldest first."""
+    return ", ".join(period.value for period in sorted(periods))
 
 
 @dataclass
@@ -84,6 +98,11 @@ class TimeseriesRequest:
     start_date: _DATETIME_TYPE = None
     end_date: _DATETIME_TYPE = None
     settings: Settings | dict = field(default_factory=Settings)
+    # The periods to read. Every provider publishes its datasets under one or more of them, so this
+    # is accepted everywhere and resolved in __post_init__ to the set actually served -- see
+    # `_resolve_periods`. A dataset published under a single period has nothing to choose between;
+    # asking for another one is an error rather than a silently widened request.
+    periods: _PERIODS_TYPE = None
 
     def __post_init__(self) -> None:
         """Post init method to validate the settings and convert the timestamps."""
@@ -110,6 +129,9 @@ class TimeseriesRequest:
             # they are only visible to whoever configured logging, so name the request here too
             msg = f"No valid parameters could be parsed from {requested!r} for {type(self).__name__}"
             raise NoParametersFoundError(msg)
+        # Has to follow the parameters, which say which datasets -- and so which periods -- were
+        # asked for, and the timestamps, which a provider may derive the periods from
+        self.periods = self._resolve_periods(self.periods)
 
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = (
@@ -129,6 +151,60 @@ class TimeseriesRequest:
     # quantity rather than of a request -- see `CanonicalParameter.interpolation`. Kept here as a
     # class attribute because that is where callers look for it.
     interpolatable_parameters: ClassVar = INTERPOLATABLE_PARAMETERS
+
+    @classmethod
+    def available_periods(cls) -> set[Period]:
+        """Periods the provider publishes, across all of its datasets."""
+        return {period for resolution in cls.metadata for dataset in resolution for period in dataset.periods}
+
+    @property
+    def published_periods(self) -> set[Period]:
+        """Periods published for the datasets this request resolved to."""
+        return {
+            period
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
+            for period in parameter.dataset.periods
+        }
+
+    def _get_periods(self) -> set[Period] | None:
+        """Derive the periods from the requested interval.
+
+        ``None`` -- the default -- means the provider has no release schedule to derive them from,
+        so the request falls back to every period its datasets publish. A provider that does know
+        one returns the periods the interval reaches, which may legitimately be empty for an
+        interval no period covers; see ``DwdObservationRequest._get_periods``.
+        """
+        return None
+
+    def _resolve_periods(self, periods: _PERIODS_TYPE) -> set[Period]:
+        """Resolve the requested periods against the ones the requested datasets publish.
+
+        A period that is not published is dropped with a warning naming it, and if that leaves
+        nothing the request fails -- it used to fall back to *every* period, so asking for one that
+        does not exist quietly returned more data than asking for a valid one.
+        """
+        published = self.published_periods
+        if periods:
+            requested = {parse_enumeration_from_template(period, Period) for period in to_list(periods)}
+            served = requested & published
+            if not served:
+                msg = (
+                    f"None of the periods {_format_periods(requested)} is published for the datasets requested "
+                    f"from {type(self).__name__}. Available periods: {_format_periods(published)}"
+                )
+                raise NoPeriodsFoundError(msg)
+            if dropped := requested - served:
+                log.warning(
+                    f"Periods {_format_periods(dropped)} are not published for the datasets requested from "
+                    f"{type(self).__name__} and are skipped. Available periods: {_format_periods(published)}",
+                )
+            return served
+        if self.start_date is not None:
+            derived = self._get_periods()
+            if derived is not None:
+                return derived
+        return published
 
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:

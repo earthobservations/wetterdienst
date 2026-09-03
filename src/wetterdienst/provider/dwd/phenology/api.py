@@ -21,7 +21,7 @@ import datetime as dt
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -37,9 +37,7 @@ from wetterdienst.provider.dwd.phenology.metadata import (
     DWD_PHENOLOGY_PATHS,
     DwdPhenologyMetadata,
 )
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
-from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
     from portion import Interval
@@ -282,28 +280,10 @@ class DwdPhenologyRequest(TimeseriesRequest):
 
     metadata = DwdPhenologyMetadata
     _values = cast("TimeseriesValues", DwdPhenologyValues)
-    _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT}
-    periods: str | Period | set[Period] | None = None
 
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:
         return series.cast(pl.String).str.pad_start(5, "0")
-
-    def _parse_period(self, period: str | Period | set[Period] | None) -> set[Period] | None:
-        """Parse period from string or Period enumeration."""
-        if not period:
-            return None
-        periods_parsed = set()
-        periods_parsed.update(parse_enumeration_from_template(p, Period) for p in to_list(period))
-        return periods_parsed & self._available_periods or None
-
-    def __post_init__(self) -> None:
-        """Post init method."""
-        super().__post_init__()
-        self.periods = self._parse_period(self.periods)
-        # has to follow the super call, which is where start_date and end_date are converted
-        if not self.periods:
-            self.periods = self._get_periods() if self.start_date else self._available_periods
 
     @property
     def interval(self) -> Interval | None:
@@ -316,11 +296,11 @@ class DwdPhenologyRequest(TimeseriesRequest):
             cast("dt.datetime", self.end_date).astimezone(timezone),
         )
 
-    def _get_periods(self) -> set[Period]:
+    def _get_periods(self) -> set[Period] | None:
         """Choose the periods that can hold the requested interval."""
         interval = self.interval
         if interval is None:
-            return set()
+            return None
         now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
         year_start = now_local.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
         historical = portion.closed(dt.datetime(1678, 1, 1, tzinfo=year_start.tzinfo), year_start)

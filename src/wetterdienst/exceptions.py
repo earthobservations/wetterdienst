@@ -11,6 +11,10 @@ class NoParametersFoundError(ValueError):
     """Raised when no parameters are found."""
 
 
+class NoPeriodsFoundError(ValueError):
+    """Raised when none of the requested periods is published for the requested datasets."""
+
+
 class MetaFileNotFoundError(FileNotFoundError):
     """Raised when a meta file is not found."""
 

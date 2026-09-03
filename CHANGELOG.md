@@ -50,6 +50,16 @@ Types of changes:
 - Provider metadata: `MetadataModel` carries the name it was built with as a `name` field, where
   it used to be stashed on the model's `__name__`. Read `DwdObservationMetadata.name` instead of
   `DwdObservationMetadata.__name__`
+- Periods: `periods` is an argument of every request rather than of the three that hand-rolled it,
+  and is resolved against the periods the requested datasets declare in the metadata. A dataset
+  published under a single period has nothing to choose between, so asking for that period is
+  answered and asking for another one raises `NoPeriodsFoundError` naming what is available.
+  Left out, the periods are still derived from `start_date`/`end_date` where the provider has a
+  release schedule to derive them from -- DWD observation and DWD phenology -- and are otherwise
+  every period the requested datasets publish, which for a request naming one dataset is narrower
+  than the provider-wide set it used to be. `TimeseriesRequest.available_periods()` reports the
+  provider's periods; the per-provider `_available_periods` class attributes it replaces were an
+  exact copy of what the metadata already said
 
 ### Fixed
 
@@ -96,6 +106,22 @@ Types of changes:
   A station the index says began after the window ended is now skipped without being downloaded.
   Only that direction is read from the index: a station still reporting carries an `end_date` a
   little behind the readings it can already answer for
+- Periods: a period no requested dataset publishes is no longer silently turned into *every*
+  period. `DwdObservationRequest(parameters=["daily/kl"], periods="future")` intersected the
+  request with the available periods, and the empty result then read as "no periods requested", so
+  asking for a period that does not exist returned more data than asking for one that does. It
+  raises `NoPeriodsFoundError` now, and a period dropped from a request that keeps others is
+  logged as a warning naming it
+- Periods: `periods` reaches providers that never accepted the argument. It was a per-provider
+  constructor field, so `NoaaGhcnRequest(..., periods="historical")` was a `TypeError`, and the
+  CLI's `--periods` and the REST API's `periods` were dropped for every provider but DWD
+  observation, derived and phenology -- including met.no Frost, whose datasets are published under
+  both `historical` and `recent`
+- Periods: an explicit period is answered for a dataset published under a single one. The CLI and
+  REST API forwarded `periods` only when some requested dataset had more than one, so asking DWD
+  derived for `historical` on `monthly/climate_correction_factor` -- a `recent`-only dataset --
+  read every period the provider has instead of reporting that the dataset has no historical
+  release
 - Values: a dataset named more than once in a request -- interleaved with another, as in
   `["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_height",
   "daily/kl/precipitation_height"]` -- is fetched and parsed once instead of once per run of

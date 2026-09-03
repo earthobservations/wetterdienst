@@ -9,7 +9,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -581,8 +581,6 @@ class DwdObservationRequest(TimeseriesRequest):
     # Use cast to satisfy the static typechecker which expects instances of those types.
     _values = cast("TimeseriesValues", DwdObservationValues)
     _history = cast("TimeseriesHistory", DwdObservationHistory)
-    _available_periods: ClassVar = {Period.HISTORICAL, Period.RECENT, Period.NOW}
-    periods: str | Period | set[Period] | None = None
 
     @property
     def interval(self) -> Interval | None:
@@ -630,12 +628,12 @@ class DwdObservationRequest(TimeseriesRequest):
         now_begin = now_end.replace(hour=0, minute=0, second=0) - dt.timedelta(days=1)
         return portion.closed(now_begin, now_end)
 
-    def _get_periods(self) -> set[Period]:
+    def _get_periods(self) -> set[Period] | None:
         """Get periods based on the interval of the request."""
         periods = set()
         interval = self.interval
         if interval is None:
-            return periods
+            return None
         if interval.overlaps(self._historical_interval):
             periods.add(Period.HISTORICAL)
         if interval.overlaps(self._recent_interval):
@@ -647,27 +645,6 @@ class DwdObservationRequest(TimeseriesRequest):
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:
         return series.cast(pl.String).str.pad_start(5, "0")
-
-    def _parse_period(self, period: str | Period | set[Period] | None) -> set[Period] | None:
-        """Parse period from string or Period enumeration."""
-        if not period:
-            return None
-        periods_parsed = set()
-        periods_parsed.update(parse_enumeration_from_template(p, Period) for p in to_list(period))
-        return periods_parsed & self._available_periods or None
-
-    def __post_init__(self) -> None:
-        """Post init method."""
-        super().__post_init__()
-
-        self.periods = self._parse_period(self.periods)
-        # Has to follow the super call as start date and end date are required for getting
-        # automated periods from overlapping intervals
-        if not self.periods:
-            if self.start_date:
-                self.periods = self._get_periods()
-            else:
-                self.periods = self._available_periods
 
     def filter_by_station_id(
         self,
@@ -703,7 +680,7 @@ class DwdObservationRequest(TimeseriesRequest):
             raise KeyError(msg)
         dataset = DwdObservationMetadata.search_parameter(parameter_template)[0].dataset
         period_enum = parse_enumeration_from_template(period, Period)
-        if period_enum not in dataset.periods or period_enum not in cls._available_periods:
+        if period_enum not in dataset.periods:
             msg = f"Period {period_enum} not available for dataset {dataset}"
             raise ValueError(msg)
         url = _build_url_from_dataset_and_period(dataset, period_enum)

@@ -138,8 +138,11 @@ DwdObservationRequest(
 )
 ```
 
-For some weather service one can select which period of the data is request with ``periods``.
-Valid periods are ``historical``, ``recent`` and ``now``. ``periods`` can be given as a list or a single value.
+Every request takes ``periods``, the release the data is read from. Valid periods are
+``historical``, ``recent``, ``now`` and ``future``, and which of them a dataset is published under
+is part of its metadata. A dataset published under a single period has nothing to choose between,
+so asking for another one is an error naming the periods it does have, rather than a request that
+quietly reads all of them. ``periods`` can be given as a list or a single value.
 The value can be a string, the enumeration value or the enumeration name e.g.
 
 - by using the exact enumeration e.g.
@@ -160,9 +163,11 @@ Period.HISTORICAL
 "historical" or "HISTORICAL"
 ```
 
-If a weather service has periods, the period argument typically can be used as replacement
-for the start_date and end_date arguments. In case both arguments are given they are used
-as a filter for the data.
+The period argument typically can be used as replacement for the start_date and end_date
+arguments. In case both arguments are given they are used as a filter for the data. Left out, the
+periods are derived from ``start_date``/``end_date`` where the provider publishes on a release
+schedule that says which period holds which years -- DWD observation and DWD phenology do -- and
+are otherwise every period the requested datasets publish.
 
 Regarding the definition of requested parameters:
 

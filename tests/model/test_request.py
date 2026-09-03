@@ -360,3 +360,64 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
         {"count": 151743, "dataset": "precipitation", "resolution": "hourly", "station_id": "01050"},
         {"count": 27568, "dataset": "precipitation", "resolution": "hourly", "station_id": "19140"},
     ]
+
+
+def test_periods_default_to_what_the_requested_datasets_publish(default_settings: Settings) -> None:
+    """Without a period the request reads every period the requested datasets publish.
+
+    Not every period the *provider* publishes: `monthly/climate_correction_factor` is released
+    under `recent` only, so a request for it must not go looking for a historical release too.
+    """
+    from wetterdienst.provider.dwd.derived import DwdDerivedRequest  # noqa: PLC0415
+
+    request = DwdDerivedRequest(parameters=["monthly/climate_correction_factor"], settings=default_settings)
+    assert request.periods == {Period.RECENT}
+    request = DwdDerivedRequest(parameters=["monthly/soil"], settings=default_settings)
+    assert request.periods == {Period.HISTORICAL, Period.RECENT}
+
+
+def test_periods_unpublished_period_raises(default_settings: Settings) -> None:
+    """A period none of the requested datasets publishes fails, naming what is available.
+
+    It used to be dropped by an intersection whose empty result then read as "nothing requested",
+    so asking for a period that does not exist quietly returned *every* period instead.
+    """
+    from wetterdienst.exceptions import NoPeriodsFoundError  # noqa: PLC0415
+
+    with pytest.raises(NoPeriodsFoundError, match="None of the periods future is published"):
+        DwdObservationRequest(parameters=["daily/kl"], periods="future", settings=default_settings)
+
+
+def test_periods_partly_unpublished_period_warns(default_settings: Settings, caplog) -> None:  # noqa: ANN001
+    """A period the requested datasets do not publish is skipped with a warning, not silently."""
+    request = DwdObservationRequest(
+        parameters=["daily/kl"],
+        periods=["recent", "now"],
+        settings=default_settings,
+    )
+    assert request.periods == {Period.RECENT}
+    assert "Periods now are not published" in caplog.text
+
+
+def test_periods_on_a_request_without_a_choice(default_settings: Settings) -> None:
+    """Every request takes periods, including the providers that publish under a single one.
+
+    `NoaaGhcnRequest` has no period to choose between, but used to raise `TypeError: unexpected
+    keyword argument 'periods'` rather than accept the one it does publish -- which meant the CLI
+    and REST API dropped `periods` for such a provider instead of answering it.
+    """
+    from wetterdienst.exceptions import NoPeriodsFoundError  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
+
+    request = NoaaGhcnRequest(parameters=["daily/data"], periods="historical", settings=default_settings)
+    assert request.periods == {Period.HISTORICAL}
+    with pytest.raises(NoPeriodsFoundError, match="Available periods: historical"):
+        NoaaGhcnRequest(parameters=["daily/data"], periods="now", settings=default_settings)
+
+
+def test_available_periods_reads_the_metadata() -> None:
+    """`available_periods` is derived from the metadata, not a hand-maintained class attribute."""
+    assert DwdObservationRequest.available_periods() == {Period.HISTORICAL, Period.RECENT, Period.NOW}
+    assert DwdObservationRequest.available_periods() == {
+        period for resolution in DwdObservationMetadata for dataset in resolution for period in dataset.periods
+    }
