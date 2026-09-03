@@ -475,7 +475,12 @@ class _ValuesResult(ExportMixin):
         return json.dumps(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
 
     def _unit_symbols(self, unit_converter: UnitConverter) -> dict[str, str]:
-        """Map every parameter name a frame can carry to the symbol its values are written in.
+        """Map every parameter a frame can carry to the symbol its values are written in.
+
+        Keyed the way `_unit_symbol_key` reads a frame, by resolution and dataset as well as name.
+        A canonical name is only unique within its dataset -- `sunshine_duration` is published by
+        DWD in hours at 10 minutes and in minutes at an hour -- so keying on the name alone let one
+        of them label the other, which is the mislabel this method exists to prevent.
 
         Two things the plots used to get wrong. The frame carries `name_original` unless
         `ts_humanize` is on, while the mapping was keyed on the canonical name alone, so nothing
@@ -492,9 +497,27 @@ class _ValuesResult(ExportMixin):
                 if convert_units
                 else unit_converter.get_unit(parameter.unit, parameter.unit_type)
             )
-            symbols[parameter.name] = unit.symbol
-            symbols[parameter.name_original] = unit.symbol
+            resolution = parameter.dataset.resolution.name
+            dataset = parameter.dataset.name
+            # either naming, since which one the frame carries depends on `ts_humanize`
+            symbols[f"{resolution}/{dataset}/{parameter.name}"] = unit.symbol
+            symbols[f"{resolution}/{dataset}/{parameter.name_original}"] = unit.symbol
         return symbols
+
+    @staticmethod
+    def _unit_symbol_key() -> pl.Expr:
+        """Read the key of `_unit_symbols` off a frame.
+
+        The metadata columns come back as Enum in aggregated results, which concat_str will not
+        take, hence the casts.
+        """
+        return pl.concat_str(
+            pl.col("resolution").cast(pl.String),
+            pl.lit("/"),
+            pl.col("dataset").cast(pl.String),
+            pl.lit("/"),
+            pl.col("parameter").cast(pl.String),
+        )
 
     def filter_by_date(self, date: str) -> pl.DataFrame:
         """Filter values by date or date interval and return a new DataFrame.
@@ -624,9 +647,7 @@ class ValuesResult(_ValuesResult):
             pl.concat_str(
                 pl.col("parameter"),
                 pl.lit(" ("),
-                # parameter may be Enum in aggregated value results; cast to String so the unit
-                # symbols (which are not Enum categories) can be substituted in
-                pl.col("parameter").cast(pl.String).replace(units),
+                self._unit_symbol_key().replace(units),
                 pl.lit(")"),
             ).alias("parameter"),
         )
@@ -838,9 +859,7 @@ class InterpolatedValuesResult(_ValuesResult):
             pl.concat_str(
                 pl.col("parameter"),
                 pl.lit(" ("),
-                # parameter may be Enum in aggregated value results; cast to String so the unit
-                # symbols (which are not Enum categories) can be substituted in
-                pl.col("parameter").cast(pl.String).replace(units),
+                self._unit_symbol_key().replace(units),
                 pl.lit(")"),
             ).alias("parameter"),
             pl.col("taken_station_ids").list.join(",").alias("taken_station_ids"),
@@ -1039,9 +1058,7 @@ class SummarizedValuesResult(_ValuesResult):
             pl.concat_str(
                 pl.col("parameter"),
                 pl.lit(" ("),
-                # parameter may be Enum in aggregated value results; cast to String so the unit
-                # symbols (which are not Enum categories) can be substituted in
-                pl.col("parameter").cast(pl.String).replace(units),
+                self._unit_symbol_key().replace(units),
                 pl.lit(")"),
             ).alias("parameter"),
         )

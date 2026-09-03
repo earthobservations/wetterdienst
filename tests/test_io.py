@@ -794,8 +794,44 @@ def test_values_plot_labels_the_unit_the_values_carry(
             "value": [1.0],
         },
     )
+    pytest.importorskip("plotly")
     figure = ValuesResult(stations=stations, values=stations.values, df=df).to_plot()
     assert [annotation.text for annotation in figure.layout.annotations] == [expected]
+
+
+def test_values_plot_labels_one_name_published_in_two_units() -> None:
+    """A canonical name is only unique within its dataset, and the label follows the dataset.
+
+    DWD publishes `sunshine_duration` in hours at 10 minutes and in minutes at an hour. Keyed on
+    the name alone, one of them labelled the other -- and left unconverted, that is a factor of 60
+    between the number and its unit.
+    """
+    pytest.importorskip("plotly")
+    request = DwdObservationRequest(
+        parameters=["10_minutes/solar/sunshine_duration", "hourly/sun/sunshine_duration"],
+        settings=Settings(ts_convert_units=False),
+    )
+    stations = StationsResult(
+        stations=request,
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    df = pl.DataFrame(
+        {
+            "station_id": ["01048", "01048"],
+            "resolution": ["10_minutes", "hourly"],
+            "dataset": ["solar", "sun"],
+            "parameter": ["sunshine_duration", "sunshine_duration"],
+            "date": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))] * 2,
+            "value": [1.0, 2.0],
+        },
+    )
+    figure = ValuesResult(stations=stations, values=stations.values, df=df).to_plot()
+    assert sorted(annotation.text for annotation in figure.layout.annotations) == [
+        "10_minutes<br>solar<br>sunshine_duration (h)",
+        "hourly<br>sun<br>sunshine_duration (min)",
+    ]
 
 
 @pytest.fixture

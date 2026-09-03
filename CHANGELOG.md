@@ -30,9 +30,11 @@ Types of changes:
   unless `ts_humanize` is on, so nothing matched and the label repeated the name -- `sd_10
   (sd_10)`. The symbol was also always the target unit's, though `ts_convert_units=False` leaves
   the values as the source published them: `10_minutes/solar/sunshine_duration` comes in hours and
-  was labelled seconds, a factor of 3600 between the number and its unit. Both affected the value,
-  interpolation and summary plots, and the images exported from them
-
+  was labelled seconds, a factor of 3600 between the number and its unit. The mapping is keyed by
+  resolution and dataset as well as name, since a canonical name is only unique within its dataset
+  -- DWD publishes `sunshine_duration` in hours at 10 minutes and in minutes at an hour, and one
+  would otherwise have labelled the other. Both affected the value, interpolation and summary
+  plots, and the images exported from them
 - Dates: a date string covers everything it names instead of only the instant it starts with.
   `2020-05` is the month of May, `2020` the year, and `2020-05-01` a whole day -- which for
   anything measured more often than daily is 24 hours of readings rather than the one at midnight.
