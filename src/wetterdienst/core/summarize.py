@@ -56,14 +56,29 @@ def request_stations(request: TimeseriesRequest, latitude: float, longitude: flo
     )
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance)
     df_stations_ranked = stations_ranked.df
+    # looked up by station id rather than zipped against the ranked frame positionally: `query()`
+    # yields only the stations that returned data inside the requested window, so any station it
+    # passes over shifts a positional pairing by one and every station after it is then read with
+    # the coordinates and distance of its neighbour
+    # one row per station, the nearest: the ranked frame carries a row per station *and* dataset,
+    # so a multi-dataset request has several rows for one station, each with the coordinates and
+    # distance its own dataset's meta index reported. `query()` yields one result per station, and
+    # the row that answers for it is the closest one rather than whichever happened to sort last
+    stations_by_id = {
+        station["station_id"]: station
+        for station in df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True).iter_rows(
+            named=True,
+        )
+    }
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
-    for station, result in tqdm(
-        zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query(), strict=False),
-        total=len(df_stations_ranked),
+    for result in tqdm(
+        stations_ranked.values.query(),
+        total=len(stations_by_id),
         desc="querying stations for summary",
         unit="station",
         file=tqdm_out,
     ):
+        station = stations_by_id[result.df.get_column("station_id")[0]]
         # check if all parameters found enough stations and the stations build a valid station group
         if len(param_dict) > 0 and all(param.finished for param in param_dict.values()):
             break

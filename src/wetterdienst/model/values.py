@@ -9,7 +9,6 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from itertools import groupby
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 import polars as pl
@@ -17,13 +16,14 @@ from tqdm import tqdm
 from tzfpy import get_tz
 
 from wetterdienst.metadata.resolution import count_readings, reading_interval
+from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.result import StationsResult, ValuesResult
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Callable, Iterable, Iterator
+    from collections.abc import Callable, Iterable, Iterator, Sequence
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
@@ -60,6 +60,18 @@ class TimeseriesValues(ABC):
 
     # Fields for type coercion, needed for separation from fields with actual data
     # that have to be parsed differently when having data in tabular form
+    # the long form every provider returns, before `_widen_df` reshapes it. Declared once so that
+    # a frame can be built in it without going through the shape-dependent property below
+    _long_fields: ClassVar = {
+        "station_id": pl.String,
+        "resolution": pl.String,
+        "dataset": pl.String,
+        "parameter": pl.String,
+        "date": pl.Datetime(time_zone="UTC"),
+        "value": pl.Float64,
+        "quality": pl.Float64,
+    }
+
     @property
     def _meta_fields(self) -> dict[str, Any]:
         """Get metadata fields for the DataFrame."""
@@ -70,15 +82,7 @@ class TimeseriesValues(ABC):
                 "dataset": pl.String,
                 "date": pl.Datetime(time_zone="UTC"),
             }
-        return {
-            "station_id": pl.String,
-            "resolution": pl.String,
-            "dataset": pl.String,
-            "parameter": pl.String,
-            "date": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "quality": pl.Float64,
-        }
+        return dict(self._long_fields)
 
     def _get_timezone_from_station(self, station_id: str) -> str:
         """Get timezone information for explicit station.
@@ -176,20 +180,18 @@ class TimeseriesValues(ABC):
             if self.stations_counter == self.sr.rank:
                 break
             station_id = cast("str", station_id)
+            if self._begins_after_window(df_station_meta):
+                continue
             available_datasets = self._get_available_datasets(df_station_meta)
             # Collect data for this station
-            df = self._collect_station_data(station_id, available_datasets)
-            # Skip if no data found
+            df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            # judged after the window has been cut, not before it: a station whose record lies
+            # entirely outside the requested window returned data, but none that was asked for.
+            # Counting it as collected spent one of `filter_by_rank`'s slots on an empty frame, so
+            # the ranked walk stopped short of the stations that do cover the window and the
+            # request came back with nothing
             if df.is_empty():
                 continue
-            if self.sr.start_date:
-                df = df.filter(
-                    pl.col("date").is_between(
-                        self.sr.start_date,
-                        self.sr.end_date,
-                        closed="both",
-                    ),
-                )
             if self.sr.settings.ts_skip_empty:
                 percentage = self._get_actual_percentage(df=df)
                 if percentage < self.sr.settings.ts_skip_threshold:
@@ -216,6 +218,61 @@ class TimeseriesValues(ABC):
             self.stations_collected.append(station_id)
             yield ValuesResult(stations=self.sr, values=self, df=df)
 
+    def _begins_after_window(self, df_station_meta: pl.DataFrame) -> bool:
+        """Whether the station index already says this station started after the window ended.
+
+        Asked of the index rather than of the data, because nothing else bounds the walk once a
+        station that returns nothing inside the window no longer counts towards ``rank``: a ranked
+        request for a window that predates the whole network used to stop after ``rank`` stations
+        and would otherwise download every station there is to reach the same answer.
+
+        Only this one direction is read. A ``start_date`` is a historical fact and does not move,
+        while an ``end_date`` lags on a station that is still reporting -- the index is written
+        before the day it describes is over -- so ruling a station out for having stopped too
+        early would drop live stations from a request for recent data. A bound the provider did
+        not publish, as the forecast networks do not, states nothing either way.
+        """
+        if not self.sr.end_date or "start_date" not in df_station_meta.columns:
+            return False
+        start_date = cast("dt.datetime | None", df_station_meta.get_column("start_date").min())
+        return start_date is not None and start_date > self.sr.end_date
+
+    def _filter_by_window(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Cut a station's frame down to the window the request asked for, if it named one.
+
+        A frame with nothing in it is handed back untouched: a station that delivered no data at
+        all comes back as a bare frame with no ``date`` column to filter on.
+        """
+        if not self.sr.start_date or df.is_empty():
+            return df
+        return df.filter(
+            pl.col("date").is_between(
+                self.sr.start_date,
+                self.sr.end_date,
+                closed="both",
+            ),
+        )
+
+    def _empty_values_df(self) -> pl.DataFrame:
+        """Build the frame a request that collected nothing returns, carrying its schema.
+
+        Shaped like a collected one would have been, so that the empty case differs from the
+        populated case only in having no rows: wide for ``ts_shape="wide"``, where ``_widen_df``
+        names the parameter columns from the request rather than from data it does not have.
+
+        Built in the long form and then reshaped, exactly as a collected frame is, rather than in
+        the shape asked for: `_widen_df` reads the `parameter` column that the wide form no longer
+        has, and a wide request spanning two datasets raised `ColumnNotFoundError` from inside it.
+
+        The metadata columns stay strings here. `Enum` categories are taken from the values in the
+        frame, and a frame with no rows has none to take, which leaves an `Enum([])` that says
+        less than the string it replaces and reads oddly on a schema anyone may print.
+        """
+        df = pl.DataFrame(schema=self._long_fields)
+        if not self.sr.settings.ts_tidy:
+            df = self._widen_df(df=df)
+        return df
+
     def _get_available_datasets(self, df: pl.DataFrame) -> list[DatasetModel]:
         """Extract available datasets for the station."""
         resolution_dataset_pairs = (
@@ -231,8 +288,8 @@ class TimeseriesValues(ABC):
         # self.sr.stations.parameters is parsed at runtime to a list[ParameterModel],
         # but the static type of the attribute is a union of input forms. Cast here so
         # the typechecker understands we iterate ParameterModel instances.
-        for dataset, parameters in groupby(
-            cast("Iterable[ParameterModel]", self.sr.stations.parameters), key=lambda x: x.dataset
+        for dataset, parameters in group_parameters_by_dataset(
+            cast("Iterable[ParameterModel]", self.sr.stations.parameters),
         ):
             if dataset not in available_datasets:
                 continue
@@ -242,7 +299,7 @@ class TimeseriesValues(ABC):
         return pl.concat(data) if data else pl.DataFrame()
 
     def _process_dataset(
-        self, station_id: str, dataset: DatasetModel, parameters: Iterator[ParameterModel]
+        self, station_id: str, dataset: DatasetModel, parameters: Sequence[ParameterModel]
     ) -> pl.DataFrame:
         """Process data for a specific dataset."""
         if dataset.grouped:
@@ -371,6 +428,11 @@ class TimeseriesValues(ABC):
         else:
             for parameter in self.sr.parameters:
                 parameter_name = parameter.name_original if not self.sr.settings.ts_humanize else parameter.name
+                # prefixed on the same condition as the populated branch above, so that an empty
+                # frame carries the column names a populated one would have rather than the
+                # unprefixed names it used to, which named no column the request could produce
+                if len(datasets) > 1:
+                    parameter_name = f"{parameter.dataset.name}_{parameter_name}"
                 parameter_quality = f"qn_{parameter_name}"
                 df_wide = df_wide.with_columns(
                     pl.lit(None, pl.Float64).alias(parameter_name),
@@ -388,11 +450,16 @@ class TimeseriesValues(ABC):
         for result in tqdm(self.query(), total=len(self.sr.station_id), file=tqdm_out):
             data.append(result.df)
 
-        try:
-            df = pl.concat(data, how="diagonal")
-        except ValueError:
-            log.exception("No data available for given constraints")
-            return ValuesResult(stations=self.sr, values=self, df=pl.DataFrame())
+        if not data:
+            # an ordinary outcome -- no station covered the requested window -- rather than an
+            # error, so it is logged as one and does not print a traceback. The frame still carries
+            # its schema: a caller writes it out as a header row, asks it for a column or
+            # concatenates it against a populated frame, and none of that survives a frame with no
+            # columns at all
+            log.info("No data available for given constraints")
+            return ValuesResult(stations=self.sr, values=self, df=self._empty_values_df())
+
+        df = pl.concat(data, how="diagonal")
 
         # store the low-cardinality metadata columns as Enum to reduce the memory footprint of the
         # aggregated result; done once here on the full frame, with categories from the actual data

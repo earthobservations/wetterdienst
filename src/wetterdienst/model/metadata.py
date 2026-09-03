@@ -502,3 +502,28 @@ def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> li
                 seen.add(key)
                 parameters_found.append(parameter_found)
     return parameters_found
+
+
+def group_parameters_by_dataset(
+    parameters: Iterable[ParameterModel],
+) -> list[tuple[DatasetModel, list[ParameterModel]]]:
+    """Group parameters by the dataset they belong to, in order of first appearance.
+
+    Not ``itertools.groupby``, which only groups *consecutive* items: ``parse_parameters`` keeps
+    the order the caller asked in, so datasets interleaved across parameters -- say
+    ``[daily/kl/temperature_air_mean_2m, daily/more_precip/..., daily/kl/precipitation_height]`` --
+    produce one group per run rather than one per dataset. Downstream that means a dataset fetched
+    and parsed once per run instead of once, and, where the groups build a stations frame, one
+    duplicated station row per extra run.
+
+    Keyed on the resolution and dataset names rather than on the model, which defines ``__eq__``
+    without ``__hash__`` and is therefore unhashable.
+    """
+    groups: dict[tuple[str, str], tuple[DatasetModel, list[ParameterModel]]] = {}
+    for parameter in parameters:
+        dataset = parameter.dataset
+        key = (dataset.resolution.name, dataset.name)
+        if key not in groups:
+            groups[key] = (dataset, [])
+        groups[key][1].append(parameter)
+    return list(groups.values())

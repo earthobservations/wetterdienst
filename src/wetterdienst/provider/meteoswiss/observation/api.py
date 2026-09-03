@@ -8,18 +8,20 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from itertools import groupby
 from typing import TYPE_CHECKING, ClassVar, cast
 
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteoswiss.observation.metadata import MeteoswissObservationMetadata
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
 
@@ -374,7 +376,7 @@ class MeteoswissObservationRequest(TimeseriesRequest):
             .alias("start_date"),
         )
         data = []
-        for dataset, _ in groupby(self.parameters, key=lambda x: x.dataset):
+        for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
             data.append(
                 df.with_columns(
                     pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),

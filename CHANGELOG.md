@@ -73,6 +73,34 @@ Types of changes:
   which `curl --fail` turned into an exit 22 after the images had already been built and pushed.
   Both deploy calls now use POST. The images were never the problem -- every run pushed its
   manifest and passed `Inspect image` before dying on the last step
+- Ranked station values: a station whose record lies entirely outside the requested window no
+  longer counts against the station count of `filter_by_rank`. It was checked for data before the
+  window was cut and never again after, so it spent one of the ranked slots on an empty frame and
+  the walk stopped short of the stations that do cover the window -- a request for a window only
+  the more distant stations reach came back with nothing, which reads exactly like no data
+  existing at all
+- Interpolation and summarization: the values of one station are no longer read together with
+  another station's coordinates and distance. Both walks paired the distance-sorted stations frame
+  against the values generator by position, but that frame carries a row per station *and* dataset
+  while the generator yields one result per station and passes over those that returned nothing,
+  so any gap shifted every station after it onto its neighbour's location
+- Values: a request that collected nothing returns an empty frame carrying its columns rather than
+  one with no columns at all, which wrote an empty file where a header was meant and raised
+  `ColumnNotFoundError` from `get_column("date")`. The columns are the ones a populated frame
+  would have had, dataset prefixes and all, in whichever shape was asked for. Having no data for
+  the constraints given is an ordinary outcome, so it is no longer logged with an exception
+  traceback either
+- Values: a ranked request no longer reads the whole provider to answer for a window that predates
+  it. A station returning nothing inside the window rightly does not count towards `rank`, but
+  then nothing bounded the walk either, so a window no station covers read every station there is.
+  A station the index says began after the window ended is now skipped without being downloaded.
+  Only that direction is read from the index: a station still reporting carries an `end_date` a
+  little behind the readings it can already answer for
+- Values: a dataset named more than once in a request -- interleaved with another, as in
+  `["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_height",
+  "daily/kl/precipitation_height"]` -- is fetched and parsed once instead of once per run of
+  consecutive mentions. The station index of NOAA GHCN, Geosphere and MeteoSwiss gained a
+  duplicate row per station the same way
 
 ## [0.135.0] - 2026-08-31
 
