@@ -60,6 +60,10 @@ Types of changes:
   than the provider-wide set it used to be. `TimeseriesRequest.available_periods()` reports the
   provider's periods; the per-provider `_available_periods` class attributes it replaces were an
   exact copy of what the metadata already said
+- Periods: narrowing the periods of a provider that does not read its data per period -- SMHI,
+  MeteoSwiss, met.no Frost and Meteo-France observation declare datasets with more than one period
+  but fetch all of them by design -- is logged as a warning saying the request was not narrowed,
+  rather than answered with everything in silence
 
 ### Fixed
 
@@ -117,6 +121,12 @@ Types of changes:
   CLI's `--periods` and the REST API's `periods` were dropped for every provider but DWD
   observation, derived and phenology -- including met.no Frost, whose datasets are published under
   both `historical` and `recent`
+- Periods: a period derived from `start_date`/`end_date` is checked against the datasets like a
+  requested one is. An interval reaching into today derives `now`, which `daily/kl` has no release
+  for, and the request then read no station index at all -- `DwdObservationRequest` for today's
+  `daily/kl` reported *no stations*, where asking for `periods="now"` outright raises for the same
+  datasets. Where the interval reaches past the newest release a dataset has, that release answers
+  for it
 - Periods: an explicit period is answered for a dataset published under a single one. The CLI and
   REST API forwarded `periods` only when some requested dataset had more than one, so asking DWD
   derived for `historical` on `monthly/climate_correction_factor` -- a `recent`-only dataset --

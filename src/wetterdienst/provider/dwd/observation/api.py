@@ -581,6 +581,7 @@ class DwdObservationRequest(TimeseriesRequest):
     # Use cast to satisfy the static typechecker which expects instances of those types.
     _values = cast("TimeseriesValues", DwdObservationValues)
     _history = cast("TimeseriesHistory", DwdObservationHistory)
+    _selects_by_period = True
 
     @property
     def interval(self) -> Interval | None:

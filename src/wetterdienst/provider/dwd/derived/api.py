@@ -640,6 +640,7 @@ class DwdDerivedRequest(TimeseriesRequest):
 
     metadata = DwdDerivedMetadata
     _values = DwdDerivedValues
+    _selects_by_period = True
 
     @staticmethod
     def _process_dataframe_to_expected_format(

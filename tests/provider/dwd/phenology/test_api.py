@@ -209,13 +209,16 @@ def test_periods_from_dates() -> None:
     assert old.periods == {Period.HISTORICAL}
 
 
-def test_single_period_dataset_ignores_the_derived_period() -> None:
-    """A dataset published in one period only is read whatever period the dates imply.
+def test_single_period_dataset_reads_the_period_it_is_published_under() -> None:
+    """A dataset published in one period only is read from it whatever period the dates imply.
 
     Periods derived from a date range assume `recent` holds the last few years. The two datasets
     with no historical release at all break that assumption -- their whole record lives in the
-    recent file, back to 2018 and 2021 -- so intersecting the derived period with the published
-    one left those years unreachable by any date range, and the request returned nothing.
+    recent file, back to 2018 and 2021 -- so leaving those years to a derived `historical` would
+    make them unreachable by any date range, and the request returned nothing. The request now
+    resolves to the period the dataset actually publishes rather than reporting one it does not
+    have and leaving `_periods_for` to repair it per dataset, which it still does for a request
+    naming datasets with different periods.
     """
     request = DwdPhenologyRequest(
         parameters=[("annual", "annual_beet")],
@@ -225,7 +228,7 @@ def test_single_period_dataset_ignores_the_derived_period() -> None:
     dataset = DwdPhenologyMetadata["annual"]["annual_beet"]
     assert dataset.periods == [Period.RECENT]
     # the dates imply historical, which this dataset does not publish
-    assert request.periods == {Period.HISTORICAL}
+    assert request.periods == {Period.RECENT}
     assert _periods_for(request.periods, dataset) == {Period.RECENT}
 
 

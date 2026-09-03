@@ -280,6 +280,7 @@ class DwdPhenologyRequest(TimeseriesRequest):
 
     metadata = DwdPhenologyMetadata
     _values = cast("TimeseriesValues", DwdPhenologyValues)
+    _selects_by_period = True
 
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:

@@ -152,6 +152,13 @@ class TimeseriesRequest:
     # class attribute because that is where callers look for it.
     interpolatable_parameters: ClassVar = INTERPOLATABLE_PARAMETERS
 
+    # Whether the values implementation reads `self.periods` to decide which source to fetch. Only
+    # a diagnostic: a provider that leaves it False still validates periods, it just cannot narrow
+    # what it reads by them, and says so instead of accepting the argument and ignoring it. Getting
+    # it wrong costs a spurious warning, never a dropped argument -- which is what the per-provider
+    # `periods` field it replaces used to cost.
+    _selects_by_period: ClassVar[bool] = False
+
     @classmethod
     def available_periods(cls) -> set[Period]:
         """Periods the provider publishes, across all of its datasets."""
@@ -199,11 +206,24 @@ class TimeseriesRequest:
                     f"Periods {_format_periods(dropped)} are not published for the datasets requested from "
                     f"{type(self).__name__} and are skipped. Available periods: {_format_periods(published)}",
                 )
+            if served != published and not self._selects_by_period:
+                log.warning(
+                    f"{type(self).__name__} does not read its data per period, so asking for "
+                    f"{_format_periods(served)} does not narrow what is returned: every period the requested "
+                    f"datasets publish ({_format_periods(published)}) is read.",
+                )
             return served
         if self.start_date is not None:
             derived = self._get_periods()
             if derived is not None:
-                return derived
+                # The derived periods have to pass the same check as the requested ones, or a
+                # request lands on a period its datasets do not publish: an interval reaching into
+                # today derives `now`, which `daily/kl` has no release for, and the request then
+                # read no station index at all and reported no stations rather than no data. Where
+                # the interval reaches past the newest release a dataset has, that release is what
+                # holds whatever it can answer with, so fall back to it rather than to every period
+                # -- which would pull the whole historical archive for a query about today.
+                return derived & published or {max(published)}
         return published
 
     @staticmethod

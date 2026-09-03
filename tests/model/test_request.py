@@ -421,3 +421,39 @@ def test_available_periods_reads_the_metadata() -> None:
     assert DwdObservationRequest.available_periods() == {
         period for resolution in DwdObservationMetadata for dataset in resolution for period in dataset.periods
     }
+
+
+def test_periods_derived_from_dates_stay_within_what_is_published(default_settings: Settings) -> None:
+    """Periods derived from the dates are checked against the datasets like requested ones are.
+
+    An interval reaching into today derives `now`, which `daily/kl` has no release for. The derived
+    set was returned unchecked, so the request read no station index at all and reported no stations
+    -- while asking for `periods="now"` outright raises for the very same datasets. Where the
+    interval reaches past the newest release a dataset has, that release answers for it.
+    """
+    now = dt.datetime.now(tz=ZoneInfo("UTC"))
+    request = DwdObservationRequest(
+        parameters=["daily/kl"],
+        start_date=now,
+        end_date=now,
+        settings=default_settings,
+    )
+    assert request.periods == {Period.RECENT}
+
+
+def test_periods_on_a_provider_that_does_not_read_them_warns(default_settings: Settings, caplog) -> None:  # noqa: ANN001
+    """Narrowing the periods of a provider that cannot narrow what it reads says so.
+
+    SMHI publishes `hourly/data` under both historical and recent but reads both of its upstream
+    files by design, so the argument is validated and then makes no difference. Accepting it in
+    silence would answer a narrowed request with everything.
+    """
+    from wetterdienst.provider.smhi.observation import SmhiObservationRequest  # noqa: PLC0415
+
+    request = SmhiObservationRequest(parameters=["hourly/data"], periods="historical", settings=default_settings)
+    assert request.periods == {Period.HISTORICAL}
+    assert "does not read its data per period" in caplog.text
+    caplog.clear()
+    # the three that do read them stay quiet
+    DwdObservationRequest(parameters=["daily/kl"], periods="recent", settings=default_settings)
+    assert "does not read its data per period" not in caplog.text
