@@ -26,6 +26,8 @@ from wetterdienst.util.logging import TqdmToLogger
 if TYPE_CHECKING:
     import datetime as dt
 
+    from shapely.geometry.base import BaseGeometry
+
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
     from wetterdienst.settings import Settings
@@ -271,6 +273,18 @@ def calculate_interpolation(
     )
 
 
+def _covers(hull: BaseGeometry, point: Point) -> bool:
+    """Say whether the hull surrounds the point with room to interpolate in.
+
+    Stations on a line, or all in one place, have a hull with no width. It still covers a point
+    lying on it, and answering yes there would call such a group valid -- one that stops the
+    collection of further stations while being no region to interpolate over, since
+    `LinearNDInterpolator` has no triangle to work with. Duplicate coordinates still give a
+    polygon, so the interpolator is guarded where it is called as well.
+    """
+    return hull.geom_type == "Polygon" and hull.covers(point)
+
+
 def has_valid_station_group(stations_dict: dict, utm_x: float, utm_y: float) -> bool:
     """Say whether any four of the stations surround the given point.
 
@@ -286,7 +300,7 @@ def has_valid_station_group(stations_dict: dict, utm_x: float, utm_y: float) -> 
     if len(stations_dict) < 4:
         return False
     coords = [(x, y) for x, y, _ in stations_dict.values()]
-    return MultiPoint(coords).convex_hull.covers(Point(utm_x, utm_y))
+    return _covers(MultiPoint(coords).convex_hull, Point(utm_x, utm_y))
 
 
 def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) -> Queue:
@@ -314,8 +328,7 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) ->
         # point. The hull is the region `LinearNDInterpolator` interpolates over, up to the
         # degenerate cases at its edge -- four stations on a line have a hull with no width, which
         # the interpolator cannot triangulate at all
-        pol = MultiPoint(coords).convex_hull
-        if pol.covers(point):
+        if _covers(MultiPoint(coords).convex_hull, point):
             valid_groups.put(station_group)
     return valid_groups
 
@@ -385,7 +398,9 @@ def apply_interpolation(
         # stations on a line have no triangle to interpolate over. Their hull covers a point on
         # that line, so the group can reach here, and scipy says so by raising rather than by
         # answering NaN
-        log.info(f"stations {station_group_ids} are collinear, so they interpolate nothing")
+        # debug rather than info: this is reached per timestamp, so one degenerate group would
+        # otherwise write a line for every one of them
+        log.debug(f"stations {station_group_ids} do not span a triangle, so they interpolate nothing")
         return resolution, dataset, parameter, None, None, []
     value = f(utm_x, utm_y)
     if math.isnan(value):

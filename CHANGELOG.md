@@ -45,6 +45,10 @@ Types of changes:
   them for the 40 stations a wide radius reaches, seconds per station, against 0.2 ms for the one
   hull. A request whose parameters never fill up, which is what walks every station in range, is
   the case that paid it
+- Interpolation: stations that do not span a triangle are no group. A hull with no width -- four
+  stations on a line, or several in one place -- still covers a point lying on it, so such a set
+  counted as a valid group, which is what stops the collection of further stations: a set that
+  cannot be interpolated at all could end a search that would have found one that can
 - Interpolation: four stations on a line come back without a value rather than raising. Their hull
   is a line, which covers a point lying on it, so such a group reaches the interpolator -- where
   scipy answers with a `QhullError` rather than the NaN the guard above expects

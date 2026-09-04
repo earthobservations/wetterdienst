@@ -371,7 +371,9 @@ def test_valid_station_groups_ignore_the_order_the_stations_are_held_in() -> Non
         "far": (8.76, -1.34, 8.9),
     }
     groups = get_valid_station_groups(stations, 0.0, 0.0)
-    assert list(groups.queue) == [("near", "mid", "west", "far")]
+    assert groups.get_nowait() == ("near", "mid", "west", "far")
+    assert groups.empty()
+    groups.put(("near", "mid", "west", "far"))
     row = {"near": 1.0, "mid": 3.0, "west": 4.0, "far": 2.0}
     _, _, _, value, _, taken = apply_interpolation(
         row, stations, groups, "daily", "kl", "temperature_air_mean_2m", 0.0, 0.0, []
@@ -403,6 +405,20 @@ def test_has_valid_station_group_agrees_with_enumerating_them() -> None:
             for group in combinations(stations, 4)
         )
         assert has_valid_station_group(stations, utm_x, utm_y) == enumerated
+
+
+def test_collinear_stations_are_no_valid_group() -> None:
+    """Stations on a line are no group, however close the point lies to that line.
+
+    Their hull has no width. It still covers a point lying on it, so `covers` alone called such a
+    group valid -- and a valid group stops the collection of further stations, which is how a set
+    that cannot be interpolated at all would end a search that might have found one that can.
+    """
+    from wetterdienst.core.interpolate import has_valid_station_group  # noqa: PLC0415
+
+    on_a_line = {"a": (0.0, 0.0, 1.0), "b": (1.0, 0.0, 2.0), "c": (2.0, 0.0, 3.0), "d": (3.0, 0.0, 4.0)}
+    assert get_valid_station_groups(on_a_line, 1.5, 0.0).empty()
+    assert not has_valid_station_group(on_a_line, 1.5, 0.0)
 
 
 def test_apply_interpolation_with_collinear_stations_gives_no_value() -> None:
