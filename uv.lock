@@ -7645,6 +7645,7 @@ excel = [
     { name = "xlsxwriter" },
 ]
 export = [
+    { name = "h5netcdf" },
     { name = "pandas" },
     { name = "sqlalchemy" },
     { name = "xarray", version = "2025.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -7762,6 +7763,7 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'restapi'", specifier = ">=0.115,<1" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=3.4.4,<4.0.0" },
     { name = "fsspec", extras = ["http"], specifier = ">=2024.6" },
+    { name = "h5netcdf", marker = "extra == 'export'", specifier = ">=1.7.3,<2" },
     { name = "h5netcdf", marker = "extra == 'knmi'", specifier = ">=1.7.3,<2" },
     { name = "h5netcdf", marker = "extra == 'radar'", specifier = ">=1.7.3" },
     { name = "h5py", marker = "extra == 'knmi'", specifier = ">=3.11,<4" },

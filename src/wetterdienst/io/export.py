@@ -72,6 +72,98 @@ class ExportMixin:
             self.to_ogc_feature_collection(with_metadata=with_metadata), indent=indent, ensure_ascii=False
         )
 
+    def _flatten(self) -> pl.DataFrame:
+        """Render the frame in the shape the flat formats take it.
+
+        Timestamps as ISO strings and list columns joined, which is what a format without a notion
+        of either needs. `to_csv` did this for itself while the CSV file target did not, so
+        `--target=file://out.csv` failed on an interpolation with `CSV format does not support
+        nested data` where `--format=csv` wrote the same data out fine.
+        """
+        return _join_list_columns(self._iso_datetimes())
+
+    def _iso_datetimes(self) -> pl.DataFrame:
+        """Render every timestamp the frame carries as an ISO string."""
+        return self.df.with_columns(cs.datetime().dt.to_string("iso:strict"))
+
+    def _array_group(self) -> str:
+        """Name the group the array formats write into.
+
+        For what the whole frame holds, not for whatever its first row happens to say: a wide frame
+        merging the datasets of one resolution carries no dataset name at all, and an empty group
+        would write the arrays into the store root, where a write clobbers every other group in it.
+        """
+        for column in ("dataset", "resolution"):
+            if column in self.df.columns:
+                names = self.df.get_column(column).cast(pl.String).drop_nulls().unique().sort().to_list()
+                if names:
+                    return "_".join(names)
+        return "data"
+
+    def _to_array_store(self, filepath: str, *, netcdf: bool) -> None:
+        """Write the frame to a Zarr group or a NetCDF file, through xarray.
+
+        The two share everything but their notion of time. NetCDF has a convention for it, so the
+        timestamps stay timestamps and xarray writes them as CF units; Zarr keeps the ISO strings
+        and the `datetime64` encoding that turns them back into the epoch nanoseconds a reader of
+        an existing store expects, which is a contract this must not break.
+        """
+        import xarray  # noqa: PLC0415
+
+        engine = _netcdf_engine() if netcdf else None
+        if netcdf and not engine:
+            msg = (
+                "Writing NetCDF needs an engine xarray can use. Install one with "
+                "`pip install wetterdienst[export]`, which carries h5netcdf."
+            )
+            raise ImportError(msg)
+
+        group = self._array_group()
+        df = self.df
+        if not netcdf:
+            # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
+            # Solution: Fill gaps in the data.
+            # NetCDF keeps its gaps as NaN, which is what a reader of a CF file expects: -999 with
+            # no `_FillValue` beside it reads as a measurement of -999, and a station with no
+            # height would report one 999 m below the sea
+            df = df.fill_null(-999)
+        # xarray encoding cannot handle a pandas Categorical (produced from Enum columns), so cast
+        # the Enum metadata columns back to String, and a list column is no more an array than it
+        # is a CSV field
+        df = _join_list_columns(df).with_columns(pl.col(pl.Enum).cast(pl.String))
+        # every timestamp the frame carries, in UTC without the zone: a stations frame has
+        # `start_date` and `end_date` and no `date`, and naming `date` alone took it down with a
+        # missing column before it could be written at all
+        df = df.with_columns(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
+
+        if netcdf:
+            log.info(f"Writing to NetCDF file '{filepath}'")
+            dataset = xarray.Dataset.from_dataframe(df.to_pandas())
+            dataset.to_netcdf(filepath, group=group, engine=engine)
+            log.info(f"Wrote NetCDF file with variables={list(dataset.data_vars)}")
+            return
+
+        # the columns to read back as timestamps, taken before they are written as strings rather
+        # than from a list of the names this library happens to use
+        datetime_columns = df.select(cs.datetime()).columns
+        pandas_df = df.with_columns(cs.datetime().dt.to_string("iso:strict")).to_pandas()
+        dataset = xarray.Dataset.from_dataframe(pandas_df)
+        log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
+        log.info(f"Writing to Zarr group '{filepath}'")
+        # TODO: Also use attributes: `store.set_attribute()`
+        store = dataset.to_zarr(
+            filepath,
+            mode="w",
+            group=group,  # use dataset name as group name
+            encoding={name: {"dtype": "datetime64[ns]"} for name in datetime_columns},
+        )
+
+        # Reporting.
+        dimensions = store.get_dimensions()
+        variables = list(store.get_variables().keys())
+        log.info(f"Wrote Zarr file with dimensions={dimensions} and variables={variables}")
+        log.info(f"Zarr Dataset Group info:\n{store.ds.info}")
+
     def to_csv(self, **kwargs: Any) -> str:  # noqa: ANN401
         """Convert DataFrame to CSV format.
 
@@ -82,14 +174,7 @@ class ExportMixin:
             CSV string
 
         """
-        df = self.df
-        df = df.with_columns(cs.datetime().dt.to_string("iso:strict"))
-        if "taken_station_ids" in df.columns:
-            # Convert list of station IDs to a comma-separated string.
-            df = df.with_columns(
-                pl.col("taken_station_ids").list.join(",").alias("taken_station_ids"),
-            )
-        return df.write_csv(**kwargs)
+        return self._flatten().write_csv(**kwargs)
 
     @abstractmethod
     def to_plot(self, **kwargs: Any) -> go.Figure:  # noqa: ANN401
@@ -160,10 +245,16 @@ class ExportMixin:
         """
         import duckdb  # noqa: PLC0415
 
-        df = df.with_columns(pl.col("date").dt.replace_time_zone(None))  # uses df from local scope
+        # every timestamp the frame carries, not `date` alone: a stations frame has `start_date`
+        # and `end_date` and no `date` at all, so the CLI's own `--sql "state=\'Sachsen\'"` --
+        # documented as a filter on station metadata -- died on a missing column
+        zones = {name: dtype.time_zone for name, dtype in df.schema.items() if isinstance(dtype, pl.Datetime)}
+        df = df.with_columns(cs.datetime().dt.replace_time_zone(None))  # uses df from local scope
         sql = f"FROM df WHERE {sql}"
         df = duckdb.sql(sql).pl()
-        return df.with_columns(pl.col("date").dt.replace_time_zone("UTC"))
+        return df.with_columns(
+            pl.col(name).dt.replace_time_zone(zone) for name, zone in zones.items() if zone and name in df.columns
+        )
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "replace") -> None:  # noqa: C901
         """Emit data to a target.
@@ -221,14 +312,21 @@ class ExportMixin:
 
             if target.endswith(".csv"):
                 log.info(f"Writing to CSV file '{filepath}'")
-                # Convert all datetime columns to ISO format.
-                df = convert_datetimes(self.df)
-                df.write_csv(filepath)
+                # the same rendering `to_csv` gives, so a file and a response hold the same thing
+                self._flatten().write_csv(filepath)
             elif target.endswith(".xlsx"):
                 log.info(f"Writing to spreadsheet file '{filepath}'")
-                # Convert all datetime columns to ISO format.
-                df = convert_datetimes(self.df)
-                df.write_excel(filepath)
+                self._flatten().write_excel(filepath)
+            elif target.endswith(".json"):
+                # JSON has arrays of its own, so a list of station ids stays a list. The records
+                # are the frame's, not the `{"metadata": ..., "values": [...]}` envelope `to_json`
+                # returns -- a file holds the data, and the envelope describes a response
+                log.info(f"Writing to JSON file '{filepath}'")
+                self._iso_datetimes().write_json(filepath)
+            elif target.endswith(".jsonl"):
+                # one JSON object per line, which is what a stream of records is read as
+                log.info(f"Writing to JSON Lines file '{filepath}'")
+                self._iso_datetimes().write_ndjson(filepath)
 
             elif target.endswith(".feather"):
                 # https://arrow.apache.org/docs/python/feather.html
@@ -253,56 +351,20 @@ class ExportMixin:
 
                 self.df.write_parquet(filepath)
 
-            elif target.endswith(".zarr"):
+            elif target.endswith((".zarr", ".nc")):
                 """
-                # Acquire data and store to Zarr group.
+                # Acquire data and store to Zarr group or NetCDF file.
                 alias fetch="wetterdienst dwd observation values --station=1048,4411 --parameters=daily/kl --periods=recent"
                 fetch --target="file://observation.zarr"
+                fetch --target="file://observation.nc"
 
                 # References
                 - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.from_dataframe.html
                 - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.to_zarr.html
+                - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.to_netcdf.html
                 """  # noqa:E501
 
-                log.info(f"Writing to Zarr group '{filepath}'")
-                import xarray  # noqa: PLC0415
-
-                # the group is named for what the whole frame holds, not for whatever its first
-                # row happens to say: a wide frame merging the datasets of one resolution carries
-                # no dataset name at all -- there is no one name for such a row -- and a group of
-                # `None` would write the arrays into the store root, where `mode="w"` clobbers
-                # every other group already in it
-                names = self.df.get_column("dataset").drop_nulls().unique().sort().to_list()
-                group = "_".join(names or self.df.get_column("resolution").unique().sort().to_list())
-                # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
-                # Solution: Fill gaps in the data.
-                df = self.df.fill_null(-999)
-                df = df.with_columns(
-                    pl.col("date").dt.convert_time_zone("UTC").dt.replace_time_zone(None).dt.to_string("iso:strict"),
-                )
-                # xarray/zarr encoding cannot handle a pandas Categorical (produced from Enum
-                # columns), so cast Enum metadata columns back to String before conversion
-                df = df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas()
-
-                # Convert pandas DataFrame to xarray Dataset.
-                dataset = xarray.Dataset.from_dataframe(df)
-                log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
-
-                # Export to Zarr format.
-                # TODO: Also use attributes: `store.set_attribute()`
-                store = dataset.to_zarr(
-                    filepath,
-                    mode="w",
-                    group=group,  # use dataset name as group name
-                    encoding={"date": {"dtype": "datetime64[ns]"}},
-                )
-
-                # Reporting.
-                dimensions = store.get_dimensions()
-                variables = list(store.get_variables().keys())
-
-                log.info(f"Wrote Zarr file with dimensions={dimensions} and variables={variables}")
-                log.info(f"Zarr Dataset Group info:\n{store.ds.info}")
+                self._to_array_store(filepath, netcdf=target.endswith(".nc"))
 
             else:
                 msg = "Unknown export file type"
@@ -336,9 +398,7 @@ class ExportMixin:
 
             df = copy(self.df)
 
-            for column in ("start_date", "end_date", "date"):
-                if column in df.columns:
-                    df = df.with_columns(pl.col(column).dt.replace_time_zone(None))
+            df = df.with_columns(cs.datetime().dt.replace_time_zone(None))
 
             connection = duckdb.connect(database=database, read_only=False)
             connection.register("origin", df)
@@ -618,7 +678,7 @@ class ExportMixin:
             # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
             # Cast Enum metadata columns back to String so the pandas/SQLAlchemy write gets plain text.
             df = self.df.with_columns(
-                pl.col("date").dt.replace_time_zone(time_zone=None),
+                cs.datetime().dt.replace_time_zone(time_zone=None),
                 pl.col(pl.Enum).cast(pl.String),
             )
             if if_exists == "skip":
@@ -692,14 +752,29 @@ class ExportMixin:
             log.info("Writing to SQL database finished")
 
 
-def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
-    """Convert all datetime columns to ISO format."""
-    date_columns = list(df.select(pl.col(pl.Datetime)).columns)
-    date_columns.extend(["start_date", "end_date", "date"])
-    date_columns = set(date_columns)
-    for date_column in date_columns:
-        if date_column in df:
-            df = df.with_columns(
-                pl.col(date_column).dt.to_string("iso:strict"),
-            )
-    return df
+def _netcdf_engine() -> str | None:
+    """Name an installed engine xarray can write NetCDF with, if there is one.
+
+    Not scipy, which writes NetCDF3: that format has no groups, and every write here is grouped by
+    the datasets the frame holds, so scipy answers with a bare `NotImplementedError` -- the very
+    thing the engine check exists to replace.
+    """
+    import importlib.util  # noqa: PLC0415
+
+    for engine in ("h5netcdf", "netCDF4"):
+        if importlib.util.find_spec(engine):
+            return engine
+    return None
+
+
+def _join_list_columns(df: pl.DataFrame) -> pl.DataFrame:
+    """Join a list column into one comma-separated field.
+
+    The formats without a notion of a list -- CSV, spreadsheets, the array stores -- take
+    `taken_station_ids` as text or not at all. Zarr and NetCDF failed on it with `can only convert
+    an array of size 1 to a Python scalar`, so an interpolation could not be written to either.
+    """
+    list_columns = [name for name, dtype in df.schema.items() if isinstance(dtype, pl.List)]
+    if not list_columns:
+        return df
+    return df.with_columns(pl.col(name).cast(pl.List(pl.String)).list.join(",") for name in list_columns)

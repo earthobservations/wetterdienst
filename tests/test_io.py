@@ -4,6 +4,7 @@
 
 import datetime as dt
 import json
+import math
 import sqlite3
 from pathlib import Path
 from unittest import mock
@@ -892,6 +893,113 @@ def test_create_date_range_covers_the_span_the_string_names() -> None:
         dt.datetime(2020, 5, 1, tzinfo=utc),
         dt.datetime(2020, 5, 31, tzinfo=utc),
     )
+
+
+@pytest.mark.sql
+def test_filter_by_sql_on_stations(df_stations: pl.DataFrame) -> None:
+    """Station metadata can be filtered by SQL through a result.
+
+    `ExportMixin.filter_by_sql` stripped the time zone off a `date` column, which a stations frame
+    does not have -- it carries `start_date` and `end_date` -- so `request.all().filter_by_sql(...)`
+    raised `ColumnNotFoundError`. The CLI's own `--sql` goes through `TimeseriesRequest`, which
+    named those two columns itself and so worked; both run this one filter now.
+    """
+    df = ExportMixin(df=df_stations).filter_by_sql("state='Bayern'")
+    assert df.get_column("station_id").to_list() == ["01048"]
+    # the timestamps keep the zone they came with
+    assert df.schema["start_date"].time_zone == "UTC"
+    assert ExportMixin(df=df_stations).filter_by_sql("state='Sachsen'").is_empty()
+
+
+@pytest.mark.parametrize("extension", ["csv", "json", "jsonl", "xlsx", "parquet", "feather"])
+def test_export_file_targets_take_a_stations_frame(
+    df_stations: pl.DataFrame,
+    tmp_path: Path,
+    extension: str,
+) -> None:
+    """Every flat file target takes a frame without a `date` column."""
+    filename = tmp_path.joinpath(f"stations.{extension}")
+    ExportMixin(df=df_stations).to_target(f"file://{filename}")
+    assert filename.exists()
+
+
+def test_export_csv_file_matches_to_csv(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> None:
+    """The CSV a file target writes is the CSV `to_csv` returns.
+
+    `taken_station_ids` is a list, which `to_csv` joins into one field and the file target did not,
+    so `--target=file://out.csv` on an interpolation died with `CSV format does not support nested
+    data` while `--format=csv` wrote it out fine.
+    """
+    filename = tmp_path.joinpath("values.csv")
+    exporter = ExportMixin(df=df_interpolated_values)
+    exporter.to_target(f"file://{filename}")
+    assert filename.read_text() == exporter.to_csv()
+    assert '"01048,1050"' in filename.read_text()
+
+
+@pytest.mark.parametrize("extension", ["json", "jsonl"])
+def test_export_json_targets(df_values: pl.DataFrame, tmp_path: Path, extension: str) -> None:
+    """JSON and JSON Lines are written as the records they hold."""
+    filename = tmp_path.joinpath(f"values.{extension}")
+    ExportMixin(df=df_values).to_target(f"file://{filename}")
+    read = pl.read_ndjson(filename) if extension == "jsonl" else pl.read_json(filename)
+    assert read.height == df_values.height
+    # timestamps as ISO strings, as in every other flat format
+    assert read.get_column("date").to_list()[0].startswith("2019-01-01T00:00:00")
+
+
+def test_export_netcdf(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> None:
+    """NetCDF is written through xarray, with CF timestamps and the station ids as one field."""
+    xarray = pytest.importorskip("xarray")
+    pytest.importorskip("h5netcdf")
+    filename = tmp_path.joinpath("values.nc")
+    ExportMixin(df=df_interpolated_values).to_target(f"file://{filename}")
+    dataset = xarray.open_dataset(filename, group="climate_summary")
+    assert str(dataset["date"].values[0]).startswith("2019-01-01T00:00:00")
+    assert dataset["taken_station_ids"].values[0] == "01048,1050"
+
+
+def test_export_netcdf_keeps_gaps_as_gaps(df_values: pl.DataFrame, tmp_path: Path) -> None:
+    """A missing value is NaN in NetCDF, not a number standing in for one.
+
+    Zarr fills gaps with -999, which a CF reader would take for a measurement -- an air temperature
+    of -999 degrees, or a station 999 m below the sea.
+    """
+    xarray = pytest.importorskip("xarray")
+    pytest.importorskip("h5netcdf")
+    df = df_values.with_columns(
+        pl.when(pl.col("date").dt.year() == 2019).then(None).otherwise(pl.col("value")).alias("value"),
+    )
+    filename = tmp_path.joinpath("values.nc")
+    ExportMixin(df=df).to_target(f"file://{filename}")
+    values = xarray.open_dataset(filename, group="climate_summary")["value"].values
+    assert math.isnan(values[0])
+    assert -999 not in values
+
+
+def test_export_json_keeps_a_list_a_list(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> None:
+    """JSON has arrays of its own, so the station ids stay a list rather than one joined field."""
+    filename = tmp_path.joinpath("values.json")
+    ExportMixin(df=df_interpolated_values).to_target(f"file://{filename}")
+    record = json.loads(filename.read_text())[0]
+    assert record["taken_station_ids"] == ["01048", "1050"]
+
+
+def test_export_netcdf_without_an_engine_says_so(
+    df_values: pl.DataFrame,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without an engine xarray can write NetCDF with, the export names the extra that carries one.
+
+    Left to xarray the failure is a ValueError listing backends, which says nothing about how to
+    get one from here.
+    """
+    from wetterdienst.io import export  # noqa: PLC0415
+
+    monkeypatch.setattr(export, "_netcdf_engine", lambda: None)
+    with pytest.raises(ImportError, match=r"wetterdienst\[export\]"):
+        ExportMixin(df=df_values).to_target(f"file://{tmp_path.joinpath('values.nc')}")
 
 
 @pytest.mark.sql

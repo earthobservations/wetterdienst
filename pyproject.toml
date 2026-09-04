@@ -154,6 +154,8 @@ excel = [
     "xlsxwriter>=3.0.9,<4",
 ]
 export = [
+    # xarray writes NetCDF through an engine, and this is the one that needs no compiled netCDF
+    "h5netcdf>=1.7.3,<2",
     "pandas>=2.2.2,<4",
     "sqlalchemy>=2,<3",
     "xarray>=2024.6,<2027",
