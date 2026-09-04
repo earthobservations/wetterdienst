@@ -65,7 +65,7 @@ def reduce_to_height(
     parameter_name: str,
     station_height: float | None,
     target_height: float | None,
-) -> pl.Series:
+) -> pl.Series | None:
     """Bring a station's readings to the height they are being asked about.
 
     A quantity that falls with height -- air temperature at about 0.65 K per 100 m, a dew point at
@@ -79,6 +79,13 @@ def reduce_to_height(
     unchanged. So it is applied only when a caller says where the point is, and otherwise the
     readings are left as they came.
 
+    A station whose own height is unknown cannot be placed against that target at all, and
+    thirteen providers have such stations -- every one of FMI's, IPMA's and the Environment
+    Agency's, and a scattering of ECCC's and met.no's. Letting its readings through uncorrected
+    would put them at their own altitude while their neighbours are moved to the caller's, which
+    is a worse answer than leaving the station out: hence `None`, meaning it has nothing to
+    contribute to a question about this height.
+
     Args:
         values: the station's readings
         parameter_name: the canonical name, which carries the rate the quantity falls at
@@ -86,14 +93,17 @@ def reduce_to_height(
         target_height: the height asked about, in metres
 
     Returns:
-        The readings as they would read at the target height
+        The readings as they would read at the target height, or None where the station cannot be
+        placed against it
 
     """
-    if target_height is None or station_height is None:
+    if target_height is None:
         return values
     lapse_rate = PARAMETERS[parameter_name].lapse_rate
     if not lapse_rate:
         return values
+    if station_height is None:
+        return None
     return values - lapse_rate * (target_height - station_height)
 
 

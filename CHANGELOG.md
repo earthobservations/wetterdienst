@@ -37,9 +37,12 @@ Types of changes:
   around Frankfurt spans 495 m, or 3.2 K. Named as `interpolate(latlon=..., elevation=1500)`, as
   `--elevation` on the CLI and as `elevation` on the REST API; `interpolate_by_station_id` and
   `summarize_by_station_id` take the station's own height, that being the one case where the
-  answer is already known. Left out, nothing is corrected and the result is what it was before:
-  an elevation taken from the interpolation itself cancels out of it exactly, so the correction is
-  only possible when a caller says where the point is
+  answer is already known. A station whose own height the provider does not report is left out of
+  an answer about an elevation rather than contributing at its own altitude while its neighbours
+  are moved -- thirteen providers have such stations, every one of FMI's, IPMA's and the
+  Environment Agency's among them. Left out, nothing is corrected and the result is what it was
+  before: an elevation taken from the interpolation itself cancels out of it exactly, so the
+  correction is only possible when a caller says where the point is
 - Parameter table: `lapse_rate` says how fast a quantity falls with height, in its own unit per
   metre, for the 23 air temperatures and the dew point. Not for anything measured in or on the
   ground -- soil, concrete, the surface -- which follows the ground rather than the air, nor for

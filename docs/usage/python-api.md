@@ -668,6 +668,11 @@ station's reading rather than a blend, so nothing softens the difference in alti
 ``interpolate_by_station_id`` and ``summarize_by_station_id`` use the station's own height unless
 told otherwise.
 
+A station whose own height the provider does not report cannot be placed against the elevation
+asked for, so it is left out rather than contributing at its own altitude while its neighbours are
+moved. Some providers report no station heights at all, in which case an elevation leaves nothing
+to interpolate from for the quantities that depend on it.
+
 Left out, nothing is corrected. The elevation cannot be derived from the stations themselves: an
 elevation taken from the same linear interpolation cancels out of the correction exactly, leaving
 the result unchanged, so it has to come from the caller.

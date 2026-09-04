@@ -416,9 +416,26 @@ def test_reduce_to_height_leaves_alone_what_it_cannot_correct() -> None:
 
     values = pl.Series("00001", [10.0, 12.0])
     assert reduce_to_height(values, "temperature_air_mean_2m", 100.0, None).to_list() == [10.0, 12.0]
-    assert reduce_to_height(values, "temperature_air_mean_2m", None, 600.0).to_list() == [10.0, 12.0]
     assert reduce_to_height(values, "temperature_soil_mean_0_05m", 100.0, 600.0).to_list() == [10.0, 12.0]
     assert reduce_to_height(values, "precipitation_height", 100.0, 600.0).to_list() == [10.0, 12.0]
+
+
+def test_reduce_to_height_leaves_out_a_station_it_cannot_place() -> None:
+    """A station with no height of its own cannot answer a question about a height.
+
+    Thirteen providers have such stations -- every one of FMI's, IPMA's and the Environment
+    Agency's, and a scattering of ECCC's and met.no's. Letting the readings through uncorrected
+    would place them at their own altitude while their neighbours are moved to the caller's, which
+    mixes two vertical references in one interpolation.
+    """
+    from wetterdienst.core.util import reduce_to_height  # noqa: PLC0415
+
+    values = pl.Series("00001", [10.0, 12.0])
+    assert reduce_to_height(values, "temperature_air_mean_2m", None, 600.0) is None
+    # but with no elevation asked for there is nothing to place it against, so it contributes
+    assert reduce_to_height(values, "temperature_air_mean_2m", None, None).to_list() == [10.0, 12.0]
+    # and a quantity that does not fall with height needs no placing either
+    assert reduce_to_height(values, "precipitation_height", None, 600.0).to_list() == [10.0, 12.0]
 
 
 def test_lapse_rates_are_declared_for_the_air_and_nothing_else() -> None:

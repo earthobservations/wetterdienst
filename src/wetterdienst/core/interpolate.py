@@ -191,8 +191,14 @@ def apply_station_values_per_parameter(
             param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value")
-        result_series_param = reduce_to_height(result_series_param, parameter.name, station.get("height"), elevation)
-        result_series_param = result_series_param.rename(station["station_id"])
+        reduced = reduce_to_height(result_series_param, parameter.name, station.get("height"), elevation)
+        if reduced is None:
+            log.info(
+                f"station {station['station_id']} has no height, so it says nothing about "
+                f"{parameter.name} at {elevation} m and is left out",
+            )
+            continue
+        result_series_param = reduced.rename(station["station_id"])
         extract_station_values(
             param_dict[param_key],
             result_series_param,
