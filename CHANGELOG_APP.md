@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Meteogram]` Wind barbs convert metres per second to knots the way the API does, a knot being a
+  nautical mile -- 1852 m exactly -- per hour. Rounded to `1.944`, a speed sitting within 0.008% of
+  a barb boundary or of the 2.5 kt calm threshold could be drawn as the next barb up from the one
+  the value warrants
+
 ## [0.15.0] - 2026-09-04
 
 ### Added
