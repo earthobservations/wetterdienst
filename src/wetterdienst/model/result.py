@@ -821,10 +821,11 @@ class InterpolatedValuesResult(_ValuesResult):
                 # as metres above mean sea level per WGS84.
                 # -- http://wiki.geojson.org/RFC-001
                 "type": "Point",
-                "coordinates": [
-                    longitude,
-                    latitude,
-                ],
+                # the z coordinate when there is one, which is what tells two answers for one
+                # place apart: 200 m and 1500 m are different weather
+                "coordinates": [longitude, latitude]
+                if self.elevation is None
+                else [longitude, latitude, self.elevation],
             },
             "stations": self.stations.to_dict(with_metadata=False)["stations"],
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],
@@ -1023,10 +1024,11 @@ class SummarizedValuesResult(_ValuesResult):
                 # as metres above mean sea level per WGS84.
                 # -- http://wiki.geojson.org/RFC-001
                 "type": "Point",
-                "coordinates": [
-                    longitude,
-                    latitude,
-                ],
+                # the z coordinate when there is one, which is what tells two answers for one
+                # place apart: 200 m and 1500 m are different weather
+                "coordinates": [longitude, latitude]
+                if self.elevation is None
+                else [longitude, latitude, self.elevation],
             },
             "stations": self.stations.to_dict(with_metadata=False)["stations"],
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],

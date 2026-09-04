@@ -101,6 +101,12 @@ class CanonicalParameter:
 # as it rises. Neither is given to the readings taken at 5 or 10 cm -- the grass minimum and its
 # kin -- which are made in the air but governed by the ground radiating beneath them, the same
 # reason the soil and concrete temperatures carry no rate.
+#
+# Nor to the wet bulb, which does fall with height, between these two rates and by an amount that
+# depends on how near saturation the air is. A request for it beside a dry-bulb temperature
+# therefore has one series corrected and one not, which can put the wet bulb above the dry one --
+# reason enough to give it a rate, once there is a defensible number to give it rather than a
+# figure picked to sit between the two.
 _AIR_TEMPERATURE_LAPSE_RATE = 0.0065
 _DEW_POINT_LAPSE_RATE = 0.002
 

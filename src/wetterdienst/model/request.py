@@ -836,26 +836,16 @@ class TimeseriesRequest:
         Used for .summary/.interpolate. Typically, we expect a latlon tuple of floats, but
         we want users to be able to request for a station id as well.
         """
-        latitude, longitude, _ = self._get_position_by_station_id(station_id)
-        return latitude, longitude
-
-    def _get_position_by_station_id(self, station_id: str) -> tuple[float, float, float | None]:
-        """Get the coordinates and the height of a station.
-
-        The height comes along because asking about where a station stands is asking about its
-        altitude too, which is otherwise the one thing an interpolation cannot know about its
-        target.
-        """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         stations = self.all().df
         try:
-            lat, lon, height = (
+            lat, lon = (
                 stations.filter(pl.col("station_id").eq(station_id))
-                .select(pl.col("latitude"), pl.col("longitude"), pl.col("height"))
+                .select(pl.col("latitude"), pl.col("longitude"))
                 .transpose()
                 .to_series()
             )
         except NoDataError as e:
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg) from e
-        return lat, lon, height
+        return lat, lon

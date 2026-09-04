@@ -106,8 +106,8 @@ def request_stations(
             break
         if result.df.drop_nulls("value").is_empty():
             continue
-        stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
-        apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station, elevation)
+        if apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station, elevation):
+            stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
     return stations_dict, param_dict
 
 
@@ -117,9 +117,17 @@ def apply_station_values_per_parameter(
     param_dict: dict,
     station: dict,
     elevation: float | None = None,
-) -> None:
-    """Apply station values per parameter."""
+) -> bool:
+    """Apply station values per parameter.
+
+    Returns whether the station gave a value to any parameter, so that the stations a summary
+    draws on mean the same thing here as in the interpolation.
+    """
     settings = cast("Settings", stations_ranked.stations.settings)
+    # once, not once per parameter per station: `values` builds a `TimeseriesValues` and with it a
+    # `UnitConverter`, whose tables run to a couple of hundred entries
+    unit_converter = stations_ranked.values.unit_converter
+    contributed = False
     for parameter in stations_ranked.stations.parameters:
         if not isinstance(parameter, ParameterModel):
             continue
@@ -159,9 +167,7 @@ def apply_station_values_per_parameter(
             param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value")
-        lapse_rate = lapse_rate_for(
-            parameter, stations_ranked.values.unit_converter, convert_units=settings.ts_convert_units
-        )
+        lapse_rate = lapse_rate_for(parameter, unit_converter, convert_units=settings.ts_convert_units)
         reduced = reduce_to_height(result_series_param, lapse_rate, station.get("height"), elevation)
         if reduced is None:
             log.info(
@@ -170,13 +176,14 @@ def apply_station_values_per_parameter(
             )
             continue
         result_series_param = reduced.rename(station["station_id"])
-        extract_station_values(
+        contributed |= extract_station_values(
             param_dict[param_key],
             result_series_param,
             min_gain_of_value_pairs=settings.ts_geo_min_gain_of_value_pairs,
             num_additional_stations=settings.ts_geo_num_additional_stations,
             valid_station_groups_exists=True,
         )
+    return contributed
 
 
 def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:

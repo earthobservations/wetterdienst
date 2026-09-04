@@ -470,6 +470,42 @@ def test_reduce_to_height_leaves_out_a_station_it_cannot_place() -> None:
     assert reduce_to_height(values, None, None, 600.0).to_list() == [10.0, 12.0]
 
 
+def test_extract_station_values_says_whether_it_took_the_column() -> None:
+    """A parameter that has what it needs turns a station away, and says so.
+
+    The caller counts the stations an answer draws on from this, and a station counted without a
+    column of its own goes into the hull that decides whether four of them surround the point.
+    """
+    from wetterdienst.core.util import _ParameterData, extract_station_values  # noqa: PLC0415
+
+    param_data = _ParameterData(pl.DataFrame({"date": [1, 2, 3]}))
+    taken = extract_station_values(
+        param_data,
+        pl.Series("00001", [1.0, 2.0, 3.0]),
+        min_gain_of_value_pairs=0.1,
+        num_additional_stations=3,
+        valid_station_groups_exists=True,
+    )
+    assert taken
+    assert "00001" in param_data.values.columns
+
+    # a parameter with its four stations, no gain from a fifth, and no room for another extra
+    full = _ParameterData(
+        pl.DataFrame({"date": [1, 2, 3], "a": [1.0] * 3, "b": [1.0] * 3, "c": [1.0] * 3, "d": [1.0] * 3}),
+        additional_station_counter=3,
+    )
+    taken = extract_station_values(
+        full,
+        pl.Series("00002", [None, None, None], dtype=pl.Float64),
+        min_gain_of_value_pairs=0.1,
+        num_additional_stations=3,
+        valid_station_groups_exists=True,
+    )
+    assert not taken
+    assert "00002" not in full.values.columns
+    assert full.finished
+
+
 def test_lapse_rates_are_declared_for_the_air_and_nothing_else() -> None:
     """The rate belongs to quantities measured in the free air, not in or on the ground."""
     for name in ("temperature_air_mean_2m", "temperature_air_max_2m", "temperature_air_min_2m"):
@@ -678,30 +714,10 @@ def test_interpolation_at_an_elevation(default_settings: Settings) -> None:
     uncorrected = request.interpolate(latlon=(47.48, 11.06)).df.get_column("value")
     # 1300 m apart at 0.65 K per 100 m is 8.45 K, whatever the readings themselves are
     assert (valley - summit).drop_nulls().to_list() == pytest.approx([8.45] * valley.drop_nulls().len(), abs=0.01)
-    # and left out, nothing is corrected
-    assert uncorrected.to_list() == pytest.approx(
-        request.interpolate(latlon=(47.48, 11.06)).df.get_column("value").to_list()
-    )
-
-
-@pytest.mark.remote
-def test_interpolation_by_station_id_uses_the_station_elevation(default_settings: Settings) -> None:
-    """Interpolating at a station means interpolating at its altitude, which is already known."""
-    request = DwdObservationRequest(
-        parameters=[("daily", "kl", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
-        settings=default_settings,
-    )
-    station = request.all().df.filter(pl.col("station_id").eq("00003"))
-    latitude, longitude, height = (
-        station.get_column("latitude").item(),
-        station.get_column("longitude").item(),
-        station.get_column("height").item(),
-    )
-    by_id = request.interpolate_by_station_id("00003").df.get_column("value").to_list()
-    by_latlon = request.interpolate(latlon=(latitude, longitude), elevation=height).df.get_column("value").to_list()
-    assert by_id == pytest.approx(by_latlon)
+    # left out, nothing is corrected: the readings sit between the two, at the altitudes the
+    # stations themselves stand at
+    lower, upper = min(valley.mean(), summit.mean()), max(valley.mean(), summit.mean())
+    assert lower < uncorrected.mean() < upper
 
 
 def test_interpolation_error_no_start_date() -> None:

@@ -142,8 +142,12 @@ def extract_station_values(
     num_additional_stations: int,
     *,
     valid_station_groups_exists: bool,
-) -> None:
-    """Extract station values."""
+) -> bool:
+    """Extract station values.
+
+    Returns whether the station's column was taken. It is not, once the parameter has what it
+    needs, and a caller counting the stations an answer draws on has to tell the two apart.
+    """
     # Three rules:
     # 1. only add further stations if not a minimum of 4 stations is reached OR
     # 2. a gain of 10% of timestamps with at least 4 existing values over all stations is seen OR
@@ -155,8 +159,9 @@ def extract_station_values(
         if not (cond1 or cond2):
             param_data.additional_station_counter += 1
         param_data.values = param_data.values.with_columns(result_series_param)
-    else:
-        param_data.finished = True
+        return True
+    param_data.finished = True
+    return False
 
 
 def calculate_gain_of_value_pairs(old_values: pl.DataFrame, new_values: pl.Series) -> float:

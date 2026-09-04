@@ -168,6 +168,9 @@ def apply_station_values_per_parameter(
     """
     contributed = False
     settings = cast("Settings", stations_ranked.stations.settings)
+    # once, not once per parameter per station: `values` builds a `TimeseriesValues` and with it a
+    # `UnitConverter`, whose tables run to a couple of hundred entries
+    unit_converter = stations_ranked.values.unit_converter
     for parameter in stations_ranked.stations.parameters:
         if not isinstance(parameter, ParameterModel):
             continue
@@ -204,9 +207,7 @@ def apply_station_values_per_parameter(
             param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value")
-        lapse_rate = lapse_rate_for(
-            parameter, stations_ranked.values.unit_converter, convert_units=settings.ts_convert_units
-        )
+        lapse_rate = lapse_rate_for(parameter, unit_converter, convert_units=settings.ts_convert_units)
         reduced = reduce_to_height(result_series_param, lapse_rate, station.get("height"), elevation)
         if reduced is None:
             log.info(
@@ -215,14 +216,15 @@ def apply_station_values_per_parameter(
             )
             continue
         result_series_param = reduced.rename(station["station_id"])
-        extract_station_values(
+        # only a column actually taken makes this a station the answer draws on: `finished` turns
+        # one away, and counting it would put a station with no column of its own into the hull
+        contributed |= extract_station_values(
             param_dict[param_key],
             result_series_param,
             min_gain_of_value_pairs=stations_ranked.settings.ts_geo_min_gain_of_value_pairs,
             num_additional_stations=stations_ranked.settings.ts_geo_num_additional_stations,
             valid_station_groups_exists=valid_station_groups_exists,
         )
-        contributed = True
     return contributed
 
 
