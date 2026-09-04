@@ -110,6 +110,39 @@ nothing fell — interpolation additionally thresholds on occurrence: the value 
 unless at least half of the surrounding stations recorded something, so that a station with
 rain and a station without do not average into a drizzle that fell nowhere.
 
+### Elevation
+
+Air temperature falls with height — about 0.65 K per 100 m, a dew point about 0.2 — so stations at
+different altitudes say different things about the same weather. Interpolating them as they come
+fits that vertical difference as though it were horizontal: around Garmisch the stations within
+40 km span 630 m to 2956 m, which is 15 K of it, and even the flat country around Frankfurt spans
+495 m, or 3.2 K.
+
+Give the point an elevation in metres above sea level and each station's readings are brought to it
+before they are used:
+
+```python
+request.interpolate(latlon=(47.48, 11.06), elevation=1500)   # on the mountain
+request.interpolate(latlon=(47.48, 11.06), elevation=200)    # in the valley
+```
+
+`summarize` takes the same argument, where it matters more still: a summary answers with one
+station's reading rather than a blend, so nothing softens the difference in altitude. So do
+`interpolate_by_station_id` and `summarize_by_station_id`, where the elevation is the one asked
+about rather than the station's own — those calls answer at the station's coordinates as they
+always have, and pass its height yourself to ask about its altitude too.
+
+Which quantities are corrected is declared per parameter, alongside whether it can be interpolated
+at all: the air temperatures measured at 2 m and the dew point. Not the readings taken at 5 or
+10 cm, which are made in the air but governed by the ground radiating beneath them, nor anything
+measured in or on the ground, nor pressure, which falls exponentially rather than linearly. A
+station whose own height the provider does not report is left out of an answer about an elevation
+rather than contributing at its own altitude while its neighbours are moved.
+
+Left out, nothing is corrected. The elevation cannot be taken from the stations themselves: one
+derived from the same linear interpolation cancels out of the correction exactly, leaving the
+result unchanged, so it has to come from the caller.
+
 ### The search radius
 
 How far a station may sit from the target point to still be used depends on how quickly the
@@ -380,6 +413,17 @@ wetterdienst summarize \
   --parameters hourly/temperature_air/temperature_air_mean_2m \
   --station 02480 \
   --start-date 2022-01-01 --end-date 2022-01-20
+```
+
+Both take `--elevation` in metres above sea level, which brings each station's readings to that
+height before they are used:
+
+```bash
+wetterdienst interpolate \
+  --provider dwd --network observation \
+  --parameters daily/kl/temperature_air_mean_2m \
+  --latitude 47.48 --longitude 11.06 --elevation 1500 \
+  --start-date 2022-01-01 --end-date 2022-01-05
 ```
 
 Both commands take the search radius as options, `--interpolation_station_distance_homogeneous`
