@@ -18,11 +18,14 @@ Types of changes:
 
 ### Added
 
-- Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON is what the API answers in and
-  could not be written to a file at all; JSON Lines is the same records one per line, for reading
-  as a stream; and NetCDF joins Zarr as the second array format, written through xarray with its
-  timestamps as CF units and grouped by the datasets the frame holds. The `export` extra carries
-  `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF library
+- Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON could not be written to a file
+  at all; it holds the frame's records, with a list of station ids kept as a list since JSON has
+  arrays, rather than the `{"metadata": ..., "values": [...]}` envelope a response carries. JSON
+  Lines is the same records one per line, for reading as a stream. NetCDF joins Zarr as the second
+  array format, written through xarray with its timestamps as CF units, its gaps as NaN rather
+  than the -999 Zarr fills them with, and grouped by the datasets the frame holds. The `export`
+  extra carries `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF
+  library
 
 ### Fixed
 
@@ -33,9 +36,11 @@ Types of changes:
   written to an array store either
 - Export: station metadata can be filtered by SQL and written to Zarr, NetCDF or CrateDB. All
   three named the `date` column that a values frame has, while a stations frame carries
-  `start_date` and `end_date` and no `date`, so `wetterdienst stations --sql "state='Sachsen'"` --
-  documented as a filter on station metadata -- always raised `ColumnNotFoundError`. Every
-  timestamp a frame carries is handled now, whichever they are
+  `start_date` and `end_date` and no `date`, so `request.all().filter_by_sql(...)` raised
+  `ColumnNotFoundError` and stations reached neither array store nor CrateDB. Every timestamp a
+  frame carries is handled now, whichever they are. The CLI's `--sql` went through a second copy
+  of the filter on `TimeseriesRequest`, which named those two columns itself and so worked but
+  called whatever came back UTC; both run the one filter now
 - Unit conversion: the mile and the knot are derived from the metres they are defined as, rather
   than from decimals rounded to four figures. `1.609` put kilometre to mile 0.0214% away from the
   metre-to-mile route, `1.151` did the same to the mile and the nautical mile -- the nautical mile

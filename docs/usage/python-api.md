@@ -666,9 +666,10 @@ File targets are identified by their extension:
 - file:///path/to/dwd.zarr
 - file:///path/to/dwd.nc
 
-CSV, JSON, JSON Lines and spreadsheets are written the way the same formats come back from
-``to_csv`` and the API, with timestamps as ISO strings and a list of station ids as one
-comma-separated field. Zarr and NetCDF go through xarray, grouped by the datasets the frame holds;
+CSV and spreadsheets are written the way ``to_csv`` returns them, with timestamps as ISO strings
+and a list of station ids as one comma-separated field. JSON and JSON Lines hold the same records
+with the list kept as a list, JSON having arrays of its own, rather than the response envelope
+``to_json`` wraps them in. Zarr and NetCDF go through xarray, grouped by the datasets the frame holds;
 NetCDF writes its timestamps as CF units, Zarr as the nanoseconds since the epoch it reads back.
 
 ```python

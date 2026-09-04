@@ -4,6 +4,7 @@
 
 import datetime as dt
 import json
+import math
 import sqlite3
 from pathlib import Path
 from unittest import mock
@@ -896,12 +897,12 @@ def test_create_date_range_covers_the_span_the_string_names() -> None:
 
 @pytest.mark.sql
 def test_filter_by_sql_on_stations(df_stations: pl.DataFrame) -> None:
-    """Station metadata can be filtered by SQL, which is what the CLI offers it for.
+    """Station metadata can be filtered by SQL through a result.
 
-    `--sql "state='Sachsen'"` is documented as a filter on station metadata and reaches
-    `filter_by_sql`, which stripped the time zone off a `date` column -- a stations frame has
-    `start_date` and `end_date` and no `date`, so the documented filter always raised
-    `ColumnNotFoundError`.
+    `ExportMixin.filter_by_sql` stripped the time zone off a `date` column, which a stations frame
+    does not have -- it carries `start_date` and `end_date` -- so `request.all().filter_by_sql(...)`
+    raised `ColumnNotFoundError`. The CLI's own `--sql` goes through `TimeseriesRequest`, which
+    named those two columns itself and so worked; both run this one filter now.
     """
     df = ExportMixin(df=df_stations).filter_by_sql("state='Bayern'")
     assert df.get_column("station_id").to_list() == ["01048"]
@@ -956,6 +957,32 @@ def test_export_netcdf(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> 
     dataset = xarray.open_dataset(filename, group="climate_summary")
     assert str(dataset["date"].values[0]).startswith("2019-01-01T00:00:00")
     assert dataset["taken_station_ids"].values[0] == "01048,1050"
+
+
+def test_export_netcdf_keeps_gaps_as_gaps(df_values: pl.DataFrame, tmp_path: Path) -> None:
+    """A missing value is NaN in NetCDF, not a number standing in for one.
+
+    Zarr fills gaps with -999, which a CF reader would take for a measurement -- an air temperature
+    of -999 degrees, or a station 999 m below the sea.
+    """
+    xarray = pytest.importorskip("xarray")
+    pytest.importorskip("h5netcdf")
+    df = df_values.with_columns(
+        pl.when(pl.col("date").dt.year() == 2019).then(None).otherwise(pl.col("value")).alias("value"),
+    )
+    filename = tmp_path.joinpath("values.nc")
+    ExportMixin(df=df).to_target(f"file://{filename}")
+    values = xarray.open_dataset(filename, group="climate_summary")["value"].values
+    assert math.isnan(values[0])
+    assert -999 not in values
+
+
+def test_export_json_keeps_a_list_a_list(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> None:
+    """JSON has arrays of its own, so the station ids stay a list rather than one joined field."""
+    filename = tmp_path.joinpath("values.json")
+    ExportMixin(df=df_interpolated_values).to_target(f"file://{filename}")
+    record = json.loads(filename.read_text())[0]
+    assert record["taken_station_ids"] == ["01048", "1050"]
 
 
 def test_export_netcdf_without_an_engine_says_so(

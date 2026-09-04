@@ -23,9 +23,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# the timestamp columns a frame of this library can carry, in the order they read
-_DATETIME_COLUMNS = ("date", "start_date", "end_date")
-
 
 @dataclass
 class ExportMixin:
@@ -83,7 +80,11 @@ class ExportMixin:
         `--target=file://out.csv` failed on an interpolation with `CSV format does not support
         nested data` where `--format=csv` wrote the same data out fine.
         """
-        return _join_list_columns(self.df.with_columns(cs.datetime().dt.to_string("iso:strict")))
+        return _join_list_columns(self._iso_datetimes())
+
+    def _iso_datetimes(self) -> pl.DataFrame:
+        """Render every timestamp the frame carries as an ISO string."""
+        return self.df.with_columns(cs.datetime().dt.to_string("iso:strict"))
 
     def _array_group(self) -> str:
         """Name the group the array formats write into.
@@ -109,7 +110,8 @@ class ExportMixin:
         """
         import xarray  # noqa: PLC0415
 
-        if netcdf and not _netcdf_engine():
+        engine = _netcdf_engine() if netcdf else None
+        if netcdf and not engine:
             msg = (
                 "Writing NetCDF needs an engine xarray can use. Install one with "
                 "`pip install wetterdienst[export]`, which carries h5netcdf."
@@ -117,9 +119,14 @@ class ExportMixin:
             raise ImportError(msg)
 
         group = self._array_group()
-        # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
-        # Solution: Fill gaps in the data.
-        df = self.df.fill_null(-999)
+        df = self.df
+        if not netcdf:
+            # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
+            # Solution: Fill gaps in the data.
+            # NetCDF keeps its gaps as NaN, which is what a reader of a CF file expects: -999 with
+            # no `_FillValue` beside it reads as a measurement of -999, and a station with no
+            # height would report one 999 m below the sea
+            df = df.fill_null(-999)
         # xarray encoding cannot handle a pandas Categorical (produced from Enum columns), so cast
         # the Enum metadata columns back to String, and a list column is no more an array than it
         # is a CSV field
@@ -132,10 +139,13 @@ class ExportMixin:
         if netcdf:
             log.info(f"Writing to NetCDF file '{filepath}'")
             dataset = xarray.Dataset.from_dataframe(df.to_pandas())
-            dataset.to_netcdf(filepath, group=group)
+            dataset.to_netcdf(filepath, group=group, engine=engine)
             log.info(f"Wrote NetCDF file with variables={list(dataset.data_vars)}")
             return
 
+        # the columns to read back as timestamps, taken before they are written as strings rather
+        # than from a list of the names this library happens to use
+        datetime_columns = df.select(cs.datetime()).columns
         pandas_df = df.with_columns(cs.datetime().dt.to_string("iso:strict")).to_pandas()
         dataset = xarray.Dataset.from_dataframe(pandas_df)
         log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
@@ -145,7 +155,7 @@ class ExportMixin:
             filepath,
             mode="w",
             group=group,  # use dataset name as group name
-            encoding={name: {"dtype": "datetime64[ns]"} for name in _DATETIME_COLUMNS if name in pandas_df.columns},
+            encoding={name: {"dtype": "datetime64[ns]"} for name in datetime_columns},
         )
 
         # Reporting.
@@ -308,12 +318,15 @@ class ExportMixin:
                 log.info(f"Writing to spreadsheet file '{filepath}'")
                 self._flatten().write_excel(filepath)
             elif target.endswith(".json"):
+                # JSON has arrays of its own, so a list of station ids stays a list. The records
+                # are the frame's, not the `{"metadata": ..., "values": [...]}` envelope `to_json`
+                # returns -- a file holds the data, and the envelope describes a response
                 log.info(f"Writing to JSON file '{filepath}'")
-                self._flatten().write_json(filepath)
+                self._iso_datetimes().write_json(filepath)
             elif target.endswith(".jsonl"):
                 # one JSON object per line, which is what a stream of records is read as
                 log.info(f"Writing to JSON Lines file '{filepath}'")
-                self._flatten().write_ndjson(filepath)
+                self._iso_datetimes().write_ndjson(filepath)
 
             elif target.endswith(".feather"):
                 # https://arrow.apache.org/docs/python/feather.html
@@ -740,10 +753,15 @@ class ExportMixin:
 
 
 def _netcdf_engine() -> str | None:
-    """Name an installed engine xarray can write NetCDF with, if there is one."""
+    """Name an installed engine xarray can write NetCDF with, if there is one.
+
+    Not scipy, which writes NetCDF3: that format has no groups, and every write here is grouped by
+    the datasets the frame holds, so scipy answers with a bare `NotImplementedError` -- the very
+    thing the engine check exists to replace.
+    """
     import importlib.util  # noqa: PLC0415
 
-    for engine in ("h5netcdf", "netCDF4", "scipy"):
+    for engine in ("h5netcdf", "netCDF4"):
         if importlib.util.find_spec(engine):
             return engine
     return None
@@ -760,16 +778,3 @@ def _join_list_columns(df: pl.DataFrame) -> pl.DataFrame:
     if not list_columns:
         return df
     return df.with_columns(pl.col(name).cast(pl.List(pl.String)).list.join(",") for name in list_columns)
-
-
-def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
-    """Convert all datetime columns to ISO format."""
-    date_columns = list(df.select(pl.col(pl.Datetime)).columns)
-    date_columns.extend(["start_date", "end_date", "date"])
-    date_columns = set(date_columns)
-    for date_column in date_columns:
-        if date_column in df:
-            df = df.with_columns(
-                pl.col(date_column).dt.to_string("iso:strict"),
-            )
-    return df
