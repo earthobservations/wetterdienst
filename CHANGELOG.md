@@ -16,8 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON is what the API answers in and
+  could not be written to a file at all; JSON Lines is the same records one per line, for reading
+  as a stream; and NetCDF joins Zarr as the second array format, written through xarray with its
+  timestamps as CF units and grouped by the datasets the frame holds. The `export` extra carries
+  `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF library
+
 ### Fixed
 
+- Export: a file target renders what the matching format returns. `to_csv` joined a list of
+  station ids into one field and the CSV file target did not, so `--target=file://out.csv` on an
+  interpolation or a summary died with `CSV format does not support nested data` where
+  `--format=csv` wrote the same data out fine. Zarr failed on the same column, so neither could be
+  written to an array store either
+- Export: station metadata can be filtered by SQL and written to Zarr, NetCDF or CrateDB. All
+  three named the `date` column that a values frame has, while a stations frame carries
+  `start_date` and `end_date` and no `date`, so `wetterdienst stations --sql "state='Sachsen'"` --
+  documented as a filter on station metadata -- always raised `ColumnNotFoundError`. Every
+  timestamp a frame carries is handled now, whichever they are
 - Unit conversion: the mile and the knot are derived from the metres they are defined as, rather
   than from decimals rounded to four figures. `1.609` put kilometre to mile 0.0214% away from the
   metre-to-mile route, `1.151` did the same to the mile and the nautical mile -- the nautical mile

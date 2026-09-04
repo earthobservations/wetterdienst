@@ -895,6 +895,70 @@ def test_create_date_range_covers_the_span_the_string_names() -> None:
 
 
 @pytest.mark.sql
+def test_filter_by_sql_on_stations(df_stations: pl.DataFrame) -> None:
+    """Station metadata can be filtered by SQL, which is what the CLI offers it for.
+
+    `--sql "state='Sachsen'"` is documented as a filter on station metadata and reaches
+    `filter_by_sql`, which stripped the time zone off a `date` column -- a stations frame has
+    `start_date` and `end_date` and no `date`, so the documented filter always raised
+    `ColumnNotFoundError`.
+    """
+    df = ExportMixin(df=df_stations).filter_by_sql("state='Bayern'")
+    assert df.get_column("station_id").to_list() == ["01048"]
+    # the timestamps keep the zone they came with
+    assert df.schema["start_date"].time_zone == "UTC"
+    assert ExportMixin(df=df_stations).filter_by_sql("state='Sachsen'").is_empty()
+
+
+@pytest.mark.parametrize("extension", ["csv", "json", "jsonl", "xlsx", "parquet", "feather"])
+def test_export_file_targets_take_a_stations_frame(
+    df_stations: pl.DataFrame,
+    tmp_path: Path,
+    extension: str,
+) -> None:
+    """Every flat file target takes a frame without a `date` column."""
+    filename = tmp_path.joinpath(f"stations.{extension}")
+    ExportMixin(df=df_stations).to_target(f"file://{filename}")
+    assert filename.exists()
+
+
+def test_export_csv_file_matches_to_csv(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> None:
+    """The CSV a file target writes is the CSV `to_csv` returns.
+
+    `taken_station_ids` is a list, which `to_csv` joins into one field and the file target did not,
+    so `--target=file://out.csv` on an interpolation died with `CSV format does not support nested
+    data` while `--format=csv` wrote it out fine.
+    """
+    filename = tmp_path.joinpath("values.csv")
+    exporter = ExportMixin(df=df_interpolated_values)
+    exporter.to_target(f"file://{filename}")
+    assert filename.read_text() == exporter.to_csv()
+    assert '"01048,1050"' in filename.read_text()
+
+
+@pytest.mark.parametrize("extension", ["json", "jsonl"])
+def test_export_json_targets(df_values: pl.DataFrame, tmp_path: Path, extension: str) -> None:
+    """JSON and JSON Lines are written as the records they hold."""
+    filename = tmp_path.joinpath(f"values.{extension}")
+    ExportMixin(df=df_values).to_target(f"file://{filename}")
+    read = pl.read_ndjson(filename) if extension == "jsonl" else pl.read_json(filename)
+    assert read.height == df_values.height
+    # timestamps as ISO strings, as in every other flat format
+    assert read.get_column("date").to_list()[0].startswith("2019-01-01T00:00:00")
+
+
+def test_export_netcdf(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> None:
+    """NetCDF is written through xarray, with CF timestamps and the station ids as one field."""
+    xarray = pytest.importorskip("xarray")
+    pytest.importorskip("h5netcdf")
+    filename = tmp_path.joinpath("values.nc")
+    ExportMixin(df=df_interpolated_values).to_target(f"file://{filename}")
+    dataset = xarray.open_dataset(filename, group="climate_summary")
+    assert str(dataset["date"].values[0]).startswith("2019-01-01T00:00:00")
+    assert dataset["taken_station_ids"].values[0] == "01048,1050"
+
+
+@pytest.mark.sql
 def test_filter_by_sql(df_values: pl.DataFrame) -> None:
     """Test filter by sql statement."""
     df = ExportMixin(df=df_values).filter_by_sql(
