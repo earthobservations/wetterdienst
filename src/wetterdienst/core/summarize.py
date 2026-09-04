@@ -200,7 +200,9 @@ def apply_summary(
 ) -> tuple[str, str, str, float | None, float | None, str | None]:
     """Apply summary to row.
 
-    This works by taking the first non-null value and its station id.
+    This works by taking the first non-null value and its station id, which is the nearest station
+    that has one: a row's columns are in the order the stations were collected, which is the order
+    `filter_by_distance` ranked them in.
     """
     vals = {s: v for s, v in row.items() if v is not None}
     if not vals:

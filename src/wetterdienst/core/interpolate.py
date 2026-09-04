@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
@@ -13,7 +14,8 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 import utm
 from scipy.interpolate import LinearNDInterpolator
-from shapely.geometry import Point, Polygon
+from scipy.spatial import QhullError
+from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
 from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values
@@ -23,6 +25,8 @@ from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     import datetime as dt
+
+    from shapely.geometry.base import BaseGeometry
 
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
@@ -99,7 +103,7 @@ def request_stations(
         file=tqdm_out,
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
-        valid_station_groups_exists = not get_valid_station_groups(stations_dict, utm_x, utm_y).empty()
+        valid_station_groups_exists = has_valid_station_group(stations_dict, utm_x, utm_y)
         # check if all parameters found enough stations and the stations build a valid station group
         if len(param_dict) > 0 and all(param.finished for param in param_dict.values()) and valid_station_groups_exists:
             break
@@ -269,6 +273,39 @@ def calculate_interpolation(
     )
 
 
+def _covers(hull: BaseGeometry, point: Point) -> bool:
+    """Say whether the hull surrounds the point with room to interpolate in.
+
+    Shapely below 2.0.6 raises out of `create_collection` when a geometry is built from
+    coordinates under numpy 2, which is what the dependency floor rules out.
+
+    Stations on a line, or all in one place, have a hull with no width. It still covers a point
+    lying on it, and answering yes there would call such a group valid -- one that stops the
+    collection of further stations while being no region to interpolate over, since
+    `LinearNDInterpolator` has no triangle to work with. Duplicate coordinates still give a
+    polygon, so the interpolator is guarded where it is called as well.
+    """
+    return hull.geom_type == "Polygon" and hull.covers(point)
+
+
+def has_valid_station_group(stations_dict: dict, utm_x: float, utm_y: float) -> bool:
+    """Say whether any four of the stations surround the given point.
+
+    Asked once per station collected, where the groups themselves are not wanted -- only whether
+    one exists. Enumerating them to find out costs C(N,4) hulls, which is 91390 of them for the 40
+    stations a wide radius can reach, and seconds per station.
+
+    The hull of all the stations answers it outright: if the point lies inside it, some three of
+    them contain the point (Carathéodory in the plane) and any fourth station only widens the hull
+    of those three, so a covering group exists. If it lies outside, no subset can cover it, every
+    subset's hull being contained in the whole's.
+    """
+    if len(stations_dict) < 4:
+        return False
+    coords = [(x, y) for x, y, _ in stations_dict.values()]
+    return _covers(MultiPoint(coords).convex_hull, Point(utm_x, utm_y))
+
+
 def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) -> Queue:
     """Get all valid station groups that cover the given point.
 
@@ -286,8 +323,15 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) ->
     # get all combinations of 4 stations
     for station_group in combinations(stations_dict.keys(), 4):
         coords = [(stations_dict[s][0], stations_dict[s][1]) for s in station_group]
-        pol = Polygon(coords)
-        if pol.covers(point):
+        # the convex hull of the four, not a polygon through them in the order they are held. That
+        # order is by distance from the point, which says nothing about the order around it, so
+        # roughly half of all groups describe a self-intersecting polygon -- and `covers` on an
+        # invalid polygon is undefined. Measured over random groups ordered as these are, one in
+        # six disagreed with its own hull, every time by rejecting a group that does surround the
+        # point. The hull is the region `LinearNDInterpolator` interpolates over, up to the
+        # degenerate cases at its edge -- four stations on a line have a hull with no width, which
+        # the interpolator cannot triangulate at all
+        if _covers(MultiPoint(coords).convex_hull, point):
             valid_groups.put(station_group)
     return valid_groups
 
@@ -333,6 +377,8 @@ def apply_interpolation(
     if nearby_stations:
         valid_values = {s: v for s, v in row.items() if s in nearby_stations and v is not None}
         if valid_values:
+            # the first is the nearest: a row's columns are in the order the stations were
+            # collected, which is the order `filter_by_distance` ranked them in
             first_station = next(iter(valid_values.keys()))
             return (
                 resolution,
@@ -349,8 +395,22 @@ def apply_interpolation(
         return resolution, dataset, parameter, None, None, []
     xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids], strict=False))
     distance_mean = sum(distances) / len(distances)
-    f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
+    try:
+        f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
+    except QhullError:
+        # a group with no triangle to interpolate over. `_covers` turns away the collinear ones
+        # before they are queued, so nothing production builds should arrive here; what remains is
+        # whatever else Qhull declines to triangulate -- duplicate coordinates give a polygon and
+        # so pass that check -- and scipy says so by raising rather than by answering NaN
+        # debug rather than info: this is reached per timestamp, so one degenerate group would
+        # otherwise write a line for every one of them
+        log.debug(f"stations {station_group_ids} do not span a triangle, so they interpolate nothing")
+        return resolution, dataset, parameter, None, None, []
     value = f(utm_x, utm_y)
+    if math.isnan(value):
+        # the interpolation had no answer, which is not the same as an answer of nothing: read
+        # through the occurrence test below, a NaN would come out as a confident zero
+        return resolution, dataset, parameter, None, None, []
     if PARAMETERS[parameter].zero_inflated:
         f_index = LinearNDInterpolator(points=(xs, ys), values=[float(v > 0) for v in list(vals.values())])
         value_index = f_index(utm_x, utm_y)

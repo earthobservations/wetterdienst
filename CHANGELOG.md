@@ -27,8 +27,41 @@ Types of changes:
   extra carries `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF
   library
 
+### Changed
+
+- Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
+  out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what
+  every other dependency here resolves to, so the floor named a combination that does not work
+
 ### Fixed
 
+- Interpolation: four stations that surround the target point are a valid group however they are
+  ordered. The check drew a polygon through them in the order they are held -- by distance from
+  the point, which says nothing about the order around it -- so roughly half of all groups
+  described a self-intersecting shape, where `covers` is undefined. Around the point the tests
+  interpolate for, 11676 of the 37415 groups that do surround it were rejected, a third of them,
+  leaving the interpolation to fall back on more distant stations or to answer nothing at all
+  where the leading groups had no data for a timestamp. The convex hull decides now, which is also
+  the region `LinearNDInterpolator` can answer for, so a group that passes is one the
+  interpolation can use. No interpolated value in the test suite changes: the nearest four are
+  accepted either way, and what returns are the groups behind them
+- Interpolation: whether four stations surrounding the point exist is answered from the hull of
+  all of them rather than by enumerating groups. It is asked once per station collected and the
+  groups themselves are not wanted there, while enumerating them costs C(N,4) hulls -- 91390 of
+  them for the 40 stations a wide radius reaches, seconds per station, against 0.2 ms for the one
+  hull. A request whose parameters never fill up, which is what walks every station in range, is
+  the case that paid it
+- Interpolation: stations that do not span a triangle are no group. A hull with no width -- four
+  stations on a line, or several in one place -- still covers a point lying on it, so such a set
+  counted as a valid group, which is what stops the collection of further stations: a set that
+  cannot be interpolated at all could end a search that would have found one that can
+- Interpolation: four stations on a line come back without a value rather than raising. Their hull
+  is a line, which covers a point lying on it, so such a group reaches the interpolator -- where
+  scipy answers with a `QhullError` rather than the NaN the guard above expects
+- Interpolation: a point the interpolation has no answer for comes back empty rather than as a
+  zero. `LinearNDInterpolator` answers NaN outside the stations it was given, and for the
+  quantities that carry an occurrence test -- precipitation, new snow -- `NaN >= 0.5` is False, so
+  the NaN was reported as a precipitation of exactly none
 - Export: a file target renders what the matching format returns. `to_csv` joined a list of
   station ids into one field and the CSV file target did not, so `--target=file://out.csv` on an
   interpolation or a summary died with `CSV format does not support nested data` where

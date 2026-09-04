@@ -3,6 +3,8 @@
 """Tests for interpolation."""
 
 import datetime as dt
+import random
+from queue import Queue
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -349,6 +351,126 @@ def test_interpolation_snow_depth_new_daily(default_settings: Settings) -> None:
     # occurrence threshold must prevent negative or NaN values
     values = result.df.drop_nulls().get_column("value")
     assert (values >= 0).all(), "snow_depth_new interpolated values must be non-negative"
+
+
+def test_valid_station_groups_ignore_the_order_the_stations_are_held_in() -> None:
+    """Four stations surrounding a point are a valid group however they are ordered.
+
+    The stations are held in the order they were ranked by distance from the point, which says
+    nothing about the order *around* it, so drawing a polygon through them in that order describes
+    a self-intersecting shape about half the time -- and `covers` on an invalid polygon is
+    undefined. Over random groups ordered as these are, one in six disagreed with its own convex
+    hull, every time by rejecting a group that does surround the point and that
+    `LinearNDInterpolator` can answer for.
+
+    The coordinates are chosen so that the old predicate actually rejects them, which the first
+    version of this test failed to do: a ring can be self-intersecting and still be covered
+    according to GEOS, so `is_valid` being False does not by itself make a discriminating case.
+    """
+    from shapely.geometry import Point, Polygon  # noqa: PLC0415
+
+    # in distance order from the point at the origin, which makes a bowtie of the four
+    stations = {
+        "a": (-2.13, -6.59, 6.93),
+        "b": (0.04, 9.64, 9.64),
+        "c": (9.66, 1.86, 9.84),
+        "d": (-9.13, 4.07, 10.0),
+    }
+    coords = [(x, y) for x, y, _ in stations.values()]
+    # what the check used to do, kept here so the test fails if the fix is reverted
+    assert not Polygon(coords).covers(Point(0.0, 0.0))
+
+    groups = get_valid_station_groups(stations, 0.0, 0.0)
+    assert groups.get_nowait() == ("a", "b", "c", "d")
+    assert groups.empty()
+    groups.put(("a", "b", "c", "d"))
+    row = {"a": 1.0, "b": 3.0, "c": 4.0, "d": 2.0}
+    _, _, _, value, _, taken = apply_interpolation(
+        row, stations, groups, "daily", "kl", "temperature_air_mean_2m", 0.0, 0.0, []
+    )
+    assert value is not None
+    assert sorted(taken) == ["a", "b", "c", "d"]
+
+
+def test_has_valid_station_group_agrees_with_enumerating_them() -> None:
+    """Whether a covering group exists is the hull of all the stations, without enumerating groups.
+
+    Asked once per station collected, where enumerating C(N,4) groups to find out costs seconds for
+    the 40 stations a wide radius reaches. If the point is inside the hull of all of them, three of
+    them contain it and any fourth widens that group's hull, so a covering group exists.
+    """
+    from itertools import combinations  # noqa: PLC0415
+
+    from shapely.geometry import MultiPoint, Point  # noqa: PLC0415
+
+    from wetterdienst.core.interpolate import _covers, has_valid_station_group  # noqa: PLC0415
+
+    rng = random.Random(4)  # noqa: S311
+    for _ in range(50):
+        stations = {str(index): (rng.uniform(-10, 10), rng.uniform(-10, 10), 1.0) for index in range(rng.randint(3, 8))}
+        utm_x, utm_y = rng.uniform(-12, 12), rng.uniform(-12, 12)
+        point = Point(utm_x, utm_y)
+        enumerated = any(
+            _covers(MultiPoint([(stations[s][0], stations[s][1]) for s in group]).convex_hull, point)
+            for group in combinations(stations, 4)
+        )
+        assert has_valid_station_group(stations, utm_x, utm_y) == enumerated
+
+
+def test_collinear_stations_are_no_valid_group() -> None:
+    """Stations on a line are no group, however close the point lies to that line.
+
+    Their hull has no width. It still covers a point lying on it, so `covers` alone called such a
+    group valid -- and a valid group stops the collection of further stations, which is how a set
+    that cannot be interpolated at all would end a search that might have found one that can.
+    """
+    from wetterdienst.core.interpolate import has_valid_station_group  # noqa: PLC0415
+
+    on_a_line = {"a": (0.0, 0.0, 1.0), "b": (1.0, 0.0, 2.0), "c": (2.0, 0.0, 3.0), "d": (3.0, 0.0, 4.0)}
+    assert get_valid_station_groups(on_a_line, 1.5, 0.0).empty()
+    assert not has_valid_station_group(on_a_line, 1.5, 0.0)
+
+
+def test_apply_interpolation_with_collinear_stations_gives_no_value() -> None:
+    """Stations on a line have no triangle to interpolate over, and scipy says so by raising.
+
+    Their hull is a line, which covers a point lying on it, so such a group can reach the
+    interpolator -- where it answers with a `QhullError` rather than with NaN.
+    """
+    stations = {"a": (0.0, 0.0, 1.0), "b": (1.0, 0.0, 2.0), "c": (2.0, 0.0, 3.0), "d": (3.0, 0.0, 4.0)}
+    groups = Queue()
+    groups.put(("a", "b", "c", "d"))
+    row = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0}
+    result = apply_interpolation(row, stations, groups, "daily", "kl", "temperature_air_mean_2m", 1.5, 0.0, [])
+    assert result[3] is None
+    assert result[5] == []
+
+
+def test_valid_station_groups_still_reject_a_point_outside_them() -> None:
+    """Stations that do not surround the point are no group for it."""
+    stations = {"a": (1.0, 1.0, 1.0), "b": (2.0, 1.0, 2.0), "c": (3.0, 2.0, 3.0), "d": (2.0, 3.0, 2.5)}
+    assert get_valid_station_groups(stations, -50.0, -50.0).empty()
+
+
+def test_apply_interpolation_without_an_answer_gives_no_value() -> None:
+    """An interpolation with no answer is a gap, not a zero.
+
+    `LinearNDInterpolator` answers NaN for a point outside the stations it was given. Read through
+    the occurrence test that suppresses a drizzle nobody recorded, `NaN >= 0.5` is False and the
+    NaN came back as a confident zero -- a precipitation of exactly none, at a point the
+    interpolation could not answer for at all.
+    """
+    from queue import Queue  # noqa: PLC0415
+
+    stations = {"a": (1.0, 1.0, 1.0), "b": (2.0, 1.0, 2.0), "c": (3.0, 2.0, 3.0), "d": (2.0, 3.0, 2.5)}
+    groups = Queue()
+    groups.put(("a", "b", "c", "d"))
+    row = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0}
+    # the point lies well outside the four, so the interpolation has nothing to say
+    result = apply_interpolation(row, stations, groups, "daily", "kl", "precipitation_height", -50.0, -50.0, [])
+    assert PARAMETERS["precipitation_height"].zero_inflated
+    assert result[3] is None
+    assert result[5] == []
 
 
 def test_not_interpolatable_parameter(default_settings: Settings, df_interpolated_empty: pl.DataFrame) -> None:
