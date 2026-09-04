@@ -395,9 +395,10 @@ def apply_interpolation(
     try:
         f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
     except QhullError:
-        # stations on a line have no triangle to interpolate over. Their hull covers a point on
-        # that line, so the group can reach here, and scipy says so by raising rather than by
-        # answering NaN
+        # a group with no triangle to interpolate over. `_covers` turns away the collinear ones
+        # before they are queued, so nothing production builds should arrive here; what remains is
+        # whatever else Qhull declines to triangulate -- duplicate coordinates give a polygon and
+        # so pass that check -- and scipy says so by raising rather than by answering NaN
         # debug rather than info: this is reached per timestamp, so one degenerate group would
         # otherwise write a line for every one of them
         log.debug(f"stations {station_group_ids} do not span a triangle, so they interpolate nothing")

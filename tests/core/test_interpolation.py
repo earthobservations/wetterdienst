@@ -362,24 +362,34 @@ def test_valid_station_groups_ignore_the_order_the_stations_are_held_in() -> Non
     undefined. Over random groups ordered as these are, one in six disagreed with its own convex
     hull, every time by rejecting a group that does surround the point and that
     `LinearNDInterpolator` can answer for.
+
+    The coordinates are chosen so that the old predicate actually rejects them, which the first
+    version of this test failed to do: a ring can be self-intersecting and still be covered
+    according to GEOS, so `is_valid` being False does not by itself make a discriminating case.
     """
+    from shapely.geometry import Point, Polygon  # noqa: PLC0415
+
     # in distance order from the point at the origin, which makes a bowtie of the four
     stations = {
-        "near": (0.0, -3.2, 3.2),
-        "mid": (3.84, -2.86, 4.8),
-        "west": (-6.03, 1.11, 6.1),
-        "far": (8.76, -1.34, 8.9),
+        "a": (-2.13, -6.59, 6.93),
+        "b": (0.04, 9.64, 9.64),
+        "c": (9.66, 1.86, 9.84),
+        "d": (-9.13, 4.07, 10.0),
     }
+    coords = [(x, y) for x, y, _ in stations.values()]
+    # what the check used to do, kept here so the test fails if the fix is reverted
+    assert not Polygon(coords).covers(Point(0.0, 0.0))
+
     groups = get_valid_station_groups(stations, 0.0, 0.0)
-    assert groups.get_nowait() == ("near", "mid", "west", "far")
+    assert groups.get_nowait() == ("a", "b", "c", "d")
     assert groups.empty()
-    groups.put(("near", "mid", "west", "far"))
-    row = {"near": 1.0, "mid": 3.0, "west": 4.0, "far": 2.0}
+    groups.put(("a", "b", "c", "d"))
+    row = {"a": 1.0, "b": 3.0, "c": 4.0, "d": 2.0}
     _, _, _, value, _, taken = apply_interpolation(
         row, stations, groups, "daily", "kl", "temperature_air_mean_2m", 0.0, 0.0, []
     )
     assert value is not None
-    assert sorted(taken) == ["far", "mid", "near", "west"]
+    assert sorted(taken) == ["a", "b", "c", "d"]
 
 
 def test_has_valid_station_group_agrees_with_enumerating_them() -> None:
@@ -393,7 +403,7 @@ def test_has_valid_station_group_agrees_with_enumerating_them() -> None:
 
     from shapely.geometry import MultiPoint, Point  # noqa: PLC0415
 
-    from wetterdienst.core.interpolate import has_valid_station_group  # noqa: PLC0415
+    from wetterdienst.core.interpolate import _covers, has_valid_station_group  # noqa: PLC0415
 
     rng = random.Random(4)  # noqa: S311
     for _ in range(50):
@@ -401,7 +411,7 @@ def test_has_valid_station_group_agrees_with_enumerating_them() -> None:
         utm_x, utm_y = rng.uniform(-12, 12), rng.uniform(-12, 12)
         point = Point(utm_x, utm_y)
         enumerated = any(
-            MultiPoint([(stations[s][0], stations[s][1]) for s in group]).convex_hull.covers(point)
+            _covers(MultiPoint([(stations[s][0], stations[s][1]) for s in group]).convex_hull, point)
             for group in combinations(stations, 4)
         )
         assert has_valid_station_group(stations, utm_x, utm_y) == enumerated
