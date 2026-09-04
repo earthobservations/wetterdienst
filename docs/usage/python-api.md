@@ -642,6 +642,36 @@ df = values.filter_by_sql("parameter='temperature_air_mean_2m' AND value < -7.0;
 df
 ```
 
+### Interpolation and summary at an elevation
+
+Air temperature falls with height -- about 0.65 K per 100 m, a dew point about 0.2 -- so stations
+at different altitudes say different things about the same weather. Interpolating them as they come
+fits that vertical difference as though it were horizontal: around Garmisch the stations within
+40 km span 630 m to 2956 m, which is 15 K of it.
+
+Give the point an ``elevation`` in metres and each station's readings are brought to it first:
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters=[("daily", "kl", "temperature_air_mean_2m")],
+    start_date="2022-01-01",
+    end_date="2022-01-05",
+)
+request.interpolate(latlon=(47.48, 11.06), elevation=1500)   # on the mountain
+request.interpolate(latlon=(47.48, 11.06), elevation=200)    # in the valley
+```
+
+``summarize`` takes the same argument, where it matters more still: a summary answers with one
+station's reading rather than a blend, so nothing softens the difference in altitude.
+``interpolate_by_station_id`` and ``summarize_by_station_id`` use the station's own height unless
+told otherwise.
+
+Left out, nothing is corrected. The elevation cannot be derived from the stations themselves: an
+elevation taken from the same linear interpolation cancels out of the correction exactly, leaving
+the result unchanged, so it has to come from the caller.
+
 ### Export
 
 Data can be exported to [SQLite](https://www.sqlite.org/), [DuckDB](https://duckdb.org/docs/sql/introduction),

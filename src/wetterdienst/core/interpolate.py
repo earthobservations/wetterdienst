@@ -18,7 +18,7 @@ from scipy.spatial import QhullError
 from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
-from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values
+from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values, reduce_to_height
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
@@ -42,11 +42,16 @@ log = logging.getLogger(__name__)
 # quantity, so it is declared once in `metadata.parameter_table` rather than listed here.
 
 
-def get_interpolated_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
+def get_interpolated_df(
+    request: TimeseriesRequest,
+    latitude: float,
+    longitude: float,
+    elevation: float | None = None,
+) -> pl.DataFrame:
     """Get the interpolated DataFrame for the given request and location."""
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     settings = cast("Settings", request.settings)
-    stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
+    stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y, elevation)
     return calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
 
 
@@ -56,6 +61,7 @@ def request_stations(
     longitude: float,
     utm_x: float,
     utm_y: float,
+    elevation: float | None = None,
 ) -> tuple[dict, dict]:
     """Request the stations for the interpolation.
 
@@ -65,6 +71,7 @@ def request_stations(
         longitude: longitude of the point to interpolate
         utm_x: longitude in UTM of the point to interpolate
         utm_y: latitude in UTM of the point to interpolate
+        elevation: elevation of the point in metres, to bring each station's readings to
 
     Returns:
         tuple containing the stations dict and the parameter dict
@@ -116,6 +123,7 @@ def request_stations(
             stations_ranked,
             param_dict,
             station,
+            elevation,
             valid_station_groups_exists=valid_station_groups_exists,
         )
     return stations_dict, param_dict
@@ -126,6 +134,7 @@ def apply_station_values_per_parameter(
     stations_ranked: StationsResult,
     param_dict: dict,
     station: dict,
+    elevation: float | None = None,
     *,
     valid_station_groups_exists: bool,
 ) -> None:
@@ -136,6 +145,7 @@ def apply_station_values_per_parameter(
         stations_ranked: stations_result with stations ranked by distance
         param_dict: dict containing the parameter data
         station: dict containing the station data
+        elevation: elevation of the point in metres, to bring each station's readings to
         min_gain_of_value_pairs: minimum gain of value pairs to add a station
         num_additional_stations: number of additional stations to add if the gain is not reached
         valid_station_groups_exists: bool indicating if valid station groups exist
@@ -181,6 +191,7 @@ def apply_station_values_per_parameter(
             param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value")
+        result_series_param = reduce_to_height(result_series_param, parameter.name, station.get("height"), elevation)
         result_series_param = result_series_param.rename(station["station_id"])
         extract_station_values(
             param_dict[param_key],

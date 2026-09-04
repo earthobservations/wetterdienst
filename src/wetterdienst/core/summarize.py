@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 from tqdm import tqdm
 
-from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values
+from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values, reduce_to_height
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
 
@@ -24,24 +24,40 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-def get_summarized_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
+def get_summarized_df(
+    request: TimeseriesRequest,
+    latitude: float,
+    longitude: float,
+    elevation: float | None = None,
+) -> pl.DataFrame:
     """Get summarized DataFrame.
 
     Args:
         request: TimeseriesRequest
         latitude: float of the point to summarize
         longitude: float of the point to summarize
+        elevation: elevation of the point in metres, to bring the station's readings to
 
     Returns:
         Summarized DataFrame
 
     """
-    stations_dict, param_dict = request_stations(request, latitude, longitude)
+    stations_dict, param_dict = request_stations(request, latitude, longitude, elevation)
     return calculate_summary(stations_dict, param_dict)
 
 
-def request_stations(request: TimeseriesRequest, latitude: float, longitude: float) -> tuple[dict, dict]:
-    """Request stations."""
+def request_stations(
+    request: TimeseriesRequest,
+    latitude: float,
+    longitude: float,
+    elevation: float | None = None,
+) -> tuple[dict, dict]:
+    """Request stations.
+
+    A summary answers with one station's reading rather than a blend of several, so a height
+    correction matters more here than in an interpolation, not less: nothing softens the difference
+    between the station's altitude and the one asked about.
+    """
     param_dict = {}
     stations_dict = {}
     settings = cast("Settings", request.settings)
@@ -85,7 +101,7 @@ def request_stations(request: TimeseriesRequest, latitude: float, longitude: flo
         if result.df.drop_nulls("value").is_empty():
             continue
         stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
-        apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station)
+        apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station, elevation)
     return stations_dict, param_dict
 
 
@@ -94,6 +110,7 @@ def apply_station_values_per_parameter(
     stations_ranked: StationsResult,
     param_dict: dict,
     station: dict,
+    elevation: float | None = None,
 ) -> None:
     """Apply station values per parameter."""
     settings = cast("Settings", stations_ranked.stations.settings)
@@ -135,7 +152,9 @@ def apply_station_values_per_parameter(
         result_series_param = (
             param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
         )
-        result_series_param = result_series_param.get_column("value").rename(station["station_id"])
+        result_series_param = result_series_param.get_column("value")
+        result_series_param = reduce_to_height(result_series_param, parameter.name, station.get("height"), elevation)
+        result_series_param = result_series_param.rename(station["station_id"])
         extract_station_values(
             param_dict[param_key],
             result_series_param,

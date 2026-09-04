@@ -27,6 +27,25 @@ Types of changes:
   extra carries `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF
   library
 
+### Added
+
+- Interpolation and summary take an `elevation` for the point they answer for, in metres above sea
+  level, and bring each station's readings to it before using them. Air temperature falls about
+  0.65 K per 100 m and a dew point about 0.2, so a valley station and a summit one say different
+  things about the same weather -- around Garmisch the stations within 40 km span 630 m to 2956 m,
+  which is 15 K interpolated as though it were horizontal structure, and even the flat country
+  around Frankfurt spans 495 m, or 3.2 K. Named as `interpolate(latlon=..., elevation=1500)`, as
+  `--elevation` on the CLI and as `elevation` on the REST API; `interpolate_by_station_id` and
+  `summarize_by_station_id` take the station's own height, that being the one case where the
+  answer is already known. Left out, nothing is corrected and the result is what it was before:
+  an elevation taken from the interpolation itself cancels out of it exactly, so the correction is
+  only possible when a caller says where the point is
+- Parameter table: `lapse_rate` says how fast a quantity falls with height, in its own unit per
+  metre, for the 23 air temperatures and the dew point. Not for anything measured in or on the
+  ground -- soil, concrete, the surface -- which follows the ground rather than the air, nor for
+  the comfort indices, nor for pressure, which falls exponentially and wants the barometric
+  formula rather than a linear rate
+
 ### Changed
 
 - Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise

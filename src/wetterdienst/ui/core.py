@@ -69,6 +69,16 @@ _PeriodsField = Annotated[
         "omitted, else every period those datasets publish.",
     ),
 ]
+# `height` is taken in these models by the image option, so the elevation is named for what it is
+_ElevationField = Annotated[
+    float | None,
+    Field(
+        description="Elevation of the requested point in metres above sea level. Given, a quantity "
+        "that falls with height -- air temperature, dew point -- is brought from each station's "
+        "altitude to this one, which is what tells a valley reading from a summit one. "
+        "Interpolation and summary only.",
+    ),
+]
 _LeadTimeField = Annotated[
     Literal["short", "long"] | None,
     Field(description="Forecast lead time for DWD DMO ('short' or 'long'); ignored for other networks."),
@@ -567,6 +577,7 @@ class InterpolationRequest(BaseModel):
     # latlon
     latitude: _LatitudeField = None
     longitude: _LongitudeField = None
+    elevation: _ElevationField = None
     # sql
     sql_values: _SqlValuesField = None
     humanize: _HumanizeField = True
@@ -666,6 +677,7 @@ class SummaryRequest(BaseModel):
     # latlon
     latitude: _LatitudeField = None
     longitude: _LongitudeField = None
+    elevation: _ElevationField = None
     # sql
     sql_values: _SqlValuesField = None
     humanize: _HumanizeField = True
@@ -976,9 +988,9 @@ def get_interpolate(
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
     if request.latitude and request.longitude:
-        values_ = r.interpolate((request.latitude, request.longitude))
+        values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
     elif request.station:
-        values_ = r.interpolate_by_station_id(request.station)
+        values_ = r.interpolate_by_station_id(request.station, elevation=request.elevation)
     else:
         msg = "Either latitude and longitude or station must be provided"
         raise ValueError(msg)
@@ -999,9 +1011,9 @@ def get_summarize(
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
     if request.latitude and request.longitude:
-        values_ = r.summarize((request.latitude, request.longitude))
+        values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
     elif request.station:
-        values_ = r.summarize_by_station_id(request.station)
+        values_ = r.summarize_by_station_id(request.station, elevation=request.elevation)
     else:
         msg = "Either latitude and longitude or station must be provided"
         raise ValueError(msg)

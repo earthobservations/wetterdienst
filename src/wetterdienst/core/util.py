@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
+from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Frequency
 
 if TYPE_CHECKING:
@@ -57,6 +58,43 @@ def build_date_grid(resolution: Resolution, start_date: dt.datetime, end_date: d
         },
         orient="col",
     )
+
+
+def reduce_to_height(
+    values: pl.Series,
+    parameter_name: str,
+    station_height: float | None,
+    target_height: float | None,
+) -> pl.Series:
+    """Bring a station's readings to the height they are being asked about.
+
+    A quantity that falls with height -- air temperature at about 0.65 K per 100 m, a dew point at
+    0.2 -- says something different at a valley station than at a summit one, and interpolating the
+    two as they come fits that vertical difference as though it were horizontal. Around Garmisch
+    the stations within 40 km span 630 m to 2956 m, which is 15 K of air temperature; even the flat
+    country around Frankfurt spans 495 m, or 3.2 K.
+
+    The correction needs a height for the target, which the interpolation cannot supply itself: a
+    height taken from the same linear interpolation cancels out of it exactly, leaving the result
+    unchanged. So it is applied only when a caller says where the point is, and otherwise the
+    readings are left as they came.
+
+    Args:
+        values: the station's readings
+        parameter_name: the canonical name, which carries the rate the quantity falls at
+        station_height: the height the station stands at, in metres
+        target_height: the height asked about, in metres
+
+    Returns:
+        The readings as they would read at the target height
+
+    """
+    if target_height is None or station_height is None:
+        return values
+    lapse_rate = PARAMETERS[parameter_name].lapse_rate
+    if not lapse_rate:
+        return values
+    return values - lapse_rate * (target_height - station_height)
 
 
 def extract_station_values(
