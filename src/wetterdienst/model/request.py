@@ -745,13 +745,16 @@ class TimeseriesRequest:
     def interpolate_by_station_id(self, station_id: str, elevation: float | None = None) -> InterpolatedValuesResult:
         """Use .interpolate with station_id instead of latlon.
 
-        The station's own height is not used as the elevation. It would be the more correct answer
-        -- asking about where a station stands is asking about its altitude too -- but it changes
-        what this call has always returned, and with the height as the default there is no way to
-        ask for the uncorrected reading at all. Pass `elevation` to get it.
+        Answers at the station's own altitude unless told another: naming a point by a station
+        names its height as well, and it is the one case where an interpolation knows the elevation
+        of its target without being told. For the reading uncorrected, pass the station's
+        coordinates to `interpolate` instead.
         """
-        latlon = self._get_latlon_by_station_id(station_id)
-        return self.interpolate(latlon=latlon, elevation=elevation)
+        latitude, longitude, station_height = self._get_position_by_station_id(station_id)
+        return self.interpolate(
+            latlon=(latitude, longitude),
+            elevation=elevation if elevation is not None else station_height,
+        )
 
     def summarize(self, latlon: tuple[float, float], elevation: float | None = None) -> SummarizedValuesResult:
         """Summarize values across multiple stations.
@@ -825,10 +828,14 @@ class TimeseriesRequest:
     def summarize_by_station_id(self, station_id: str, elevation: float | None = None) -> SummarizedValuesResult:
         """Use .summarize with station_id instead of latlon.
 
-        The station's own height is not used as the elevation, as in `interpolate_by_station_id`.
+        Answers at the station's own altitude unless told another, as `interpolate_by_station_id`
+        does.
         """
-        latlon = self._get_latlon_by_station_id(station_id)
-        return self.summarize(latlon=latlon, elevation=elevation)
+        latitude, longitude, station_height = self._get_position_by_station_id(station_id)
+        return self.summarize(
+            latlon=(latitude, longitude),
+            elevation=elevation if elevation is not None else station_height,
+        )
 
     def _get_latlon_by_station_id(self, station_id: str) -> tuple[float, float]:
         """Get latlon for a station_id.
@@ -836,16 +843,26 @@ class TimeseriesRequest:
         Used for .summary/.interpolate. Typically, we expect a latlon tuple of floats, but
         we want users to be able to request for a station id as well.
         """
+        latitude, longitude, _ = self._get_position_by_station_id(station_id)
+        return latitude, longitude
+
+    def _get_position_by_station_id(self, station_id: str) -> tuple[float, float, float | None]:
+        """Get the coordinates and the height of a station.
+
+        The height comes along because naming a point by a station names its altitude too, which
+        is otherwise the one thing an interpolation cannot know about its target. It is null for
+        the providers that do not report one.
+        """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         stations = self.all().df
         try:
-            lat, lon = (
+            lat, lon, height = (
                 stations.filter(pl.col("station_id").eq(station_id))
-                .select(pl.col("latitude"), pl.col("longitude"))
+                .select(pl.col("latitude"), pl.col("longitude"), pl.col("height"))
                 .transpose()
                 .to_series()
             )
         except NoDataError as e:
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg) from e
-        return lat, lon
+        return lat, lon, height

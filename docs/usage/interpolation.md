@@ -127,10 +127,12 @@ request.interpolate(latlon=(47.48, 11.06), elevation=200)    # in the valley
 ```
 
 `summarize` takes the same argument, where it matters more still: a summary answers with one
-station's reading rather than a blend, so nothing softens the difference in altitude. So do
-`interpolate_by_station_id` and `summarize_by_station_id`, where the elevation is the one asked
-about rather than the station's own — those calls answer at the station's coordinates as they
-always have, and pass its height yourself to ask about its altitude too.
+station's reading rather than a blend, so nothing softens the difference in altitude.
+
+`interpolate_by_station_id` and `summarize_by_station_id` answer at the named station's own
+altitude unless told another one. Naming a point by a station names its height as well, and it is
+the one case where the elevation is known without being given. For the reading uncorrected, pass
+the station's coordinates to `interpolate` instead.
 
 Which quantities are corrected is declared per parameter, alongside whether it can be interpolated
 at all: the air temperatures measured at 2 m and the dew point. Not the readings taken at 5 or

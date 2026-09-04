@@ -16,6 +16,30 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
+def test_summary_by_station_id_answers_at_the_station_altitude(default_settings: Settings) -> None:
+    """A summary named by a station is a summary at that station's altitude.
+
+    Which is the same summary with an elevation, not the same summary: the reading of whichever
+    station answers is brought from its own height to the named station's.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 3, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    station = request.all().df.filter(pl.col("station_id").eq("01050"))
+    latitude, longitude, height = (
+        station.get_column("latitude").item(),
+        station.get_column("longitude").item(),
+        station.get_column("height").item(),
+    )
+    assert_frame_equal(
+        request.summarize_by_station_id(station_id="01050").df,
+        request.summarize(latlon=(latitude, longitude), elevation=height).df,
+    )
+
+
 def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> None:
     """Test summarization of temperature_air_mean_2m."""
     request = DwdObservationRequest(
@@ -64,7 +88,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
         ],
         orient="row",
     )
-    for result in (request.summarize(latlon=(51.0221, 13.8470)), request.summarize_by_station_id(station_id="1050")):
+    for result in (request.summarize(latlon=(51.0221, 13.8470)),):
         given_df = result.df
         given_df = given_df.filter(pl.col("date").is_in(selected_dates))
         assert_frame_equal(given_df, expected_df)

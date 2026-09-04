@@ -35,9 +35,7 @@ Types of changes:
   things about the same weather -- around Garmisch the stations within 40 km span 630 m to 2956 m,
   which is 15 K interpolated as though it were horizontal structure, and even the flat country
   around Frankfurt spans 495 m, or 3.2 K. Named as `interpolate(latlon=..., elevation=1500)`, as
-  `--elevation` on the CLI and as `elevation` on the REST API, the by-station-id variants included
-  -- those name the point by a station rather than by coordinates, and take the elevation asked
-  about rather than the station's own, which would change what they have always answered. The
+  `--elevation` on the CLI and as `elevation` on the REST API. The
   elevation names the point too: two elevations at one place are two answers, and they no longer
   share a station id. A station whose own height the provider does not report is left out of
   an answer about an elevation rather than contributing at its own altitude while its neighbours
@@ -54,6 +52,13 @@ Types of changes:
   formula rather than a linear rate
 
 ### Changed
+
+- Interpolation and summary by station id answer at that station's altitude. Naming a point by a
+  station names its height as well, and it is the one case where the elevation is known without
+  being given, so `interpolate_by_station_id` and `summarize_by_station_id` correct the quantities
+  that fall with height to it. **This changes what those two calls return** where the stations
+  drawn on stand at other altitudes -- for the reading uncorrected, pass the station's coordinates
+  to `interpolate` or `summarize` instead
 
 - Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
   out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what

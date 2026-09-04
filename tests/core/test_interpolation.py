@@ -235,14 +235,19 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
         ],
         orient="row",
     )
-    for result in (
-        request.interpolate(latlon=(48.2156, 8.9784)),
-        request.interpolate_by_station_id(station_id="00071"),
-    ):
-        given_df = result.df
-        assert given_df.shape[0] == 2
-        assert given_df.drop_nulls().shape[0] == 2
-        assert_frame_equal(given_df, expected_df)
+    given_df = request.interpolate(latlon=(48.2156, 8.9784)).df
+    assert given_df.shape[0] == 2
+    assert given_df.drop_nulls().shape[0] == 2
+    assert_frame_equal(given_df, expected_df)
+
+    # by station id the answer is at the station's own altitude, so it is the same interpolation
+    # with an elevation rather than the same interpolation
+    station = request.all().df.filter(pl.col("station_id").eq("00071"))
+    height = station.get_column("height").item()
+    assert_frame_equal(
+        request.interpolate_by_station_id(station_id="00071").df,
+        request.interpolate(latlon=(48.2156, 8.9784), elevation=height).df,
+    )
 
 
 @pytest.mark.parametrize("method", ["interpolate", "summarize"])
