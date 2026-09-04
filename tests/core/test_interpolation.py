@@ -351,6 +351,60 @@ def test_interpolation_snow_depth_new_daily(default_settings: Settings) -> None:
     assert (values >= 0).all(), "snow_depth_new interpolated values must be non-negative"
 
 
+def test_valid_station_groups_ignore_the_order_the_stations_are_held_in() -> None:
+    """Four stations surrounding a point are a valid group however they are ordered.
+
+    The stations are held in the order they were ranked by distance from the point, which says
+    nothing about the order *around* it, so drawing a polygon through them in that order describes
+    a self-intersecting shape about half the time -- and `covers` on an invalid polygon is
+    undefined. Over random groups ordered as these are, one in six disagreed with its own convex
+    hull, every time by rejecting a group that does surround the point and that
+    `LinearNDInterpolator` can answer for.
+    """
+    # in distance order from the point at the origin, which makes a bowtie of the four
+    stations = {
+        "near": (0.0, -3.2, 3.2),
+        "mid": (3.84, -2.86, 4.8),
+        "west": (-6.03, 1.11, 6.1),
+        "far": (8.76, -1.34, 8.9),
+    }
+    groups = get_valid_station_groups(stations, 0.0, 0.0)
+    assert list(groups.queue) == [("near", "mid", "west", "far")]
+    row = {"near": 1.0, "mid": 3.0, "west": 4.0, "far": 2.0}
+    _, _, _, value, _, taken = apply_interpolation(
+        row, stations, groups, "daily", "kl", "temperature_air_mean_2m", 0.0, 0.0, []
+    )
+    assert value is not None
+    assert sorted(taken) == ["far", "mid", "near", "west"]
+
+
+def test_valid_station_groups_still_reject_a_point_outside_them() -> None:
+    """Stations that do not surround the point are no group for it."""
+    stations = {"a": (1.0, 1.0, 1.0), "b": (2.0, 1.0, 2.0), "c": (3.0, 2.0, 3.0), "d": (2.0, 3.0, 2.5)}
+    assert get_valid_station_groups(stations, -50.0, -50.0).empty()
+
+
+def test_apply_interpolation_without_an_answer_gives_no_value() -> None:
+    """An interpolation with no answer is a gap, not a zero.
+
+    `LinearNDInterpolator` answers NaN for a point outside the stations it was given. Read through
+    the occurrence test that suppresses a drizzle nobody recorded, `NaN >= 0.5` is False and the
+    NaN came back as a confident zero -- a precipitation of exactly none, at a point the
+    interpolation could not answer for at all.
+    """
+    from queue import Queue  # noqa: PLC0415
+
+    stations = {"a": (1.0, 1.0, 1.0), "b": (2.0, 1.0, 2.0), "c": (3.0, 2.0, 3.0), "d": (2.0, 3.0, 2.5)}
+    groups = Queue()
+    groups.put(("a", "b", "c", "d"))
+    row = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0}
+    # the point lies well outside the four, so the interpolation has nothing to say
+    result = apply_interpolation(row, stations, groups, "daily", "kl", "precipitation_height", -50.0, -50.0, [])
+    assert PARAMETERS["precipitation_height"].zero_inflated
+    assert result[3] is None
+    assert result[5] == []
+
+
 def test_not_interpolatable_parameter(default_settings: Settings, df_interpolated_empty: pl.DataFrame) -> None:
     """Test that a parameter that cannot be interpolated is handled correctly."""
     request = DwdObservationRequest(

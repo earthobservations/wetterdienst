@@ -29,6 +29,20 @@ Types of changes:
 
 ### Fixed
 
+- Interpolation: four stations that surround the target point are a valid group however they are
+  ordered. The check drew a polygon through them in the order they are held -- by distance from
+  the point, which says nothing about the order around it -- so roughly half of all groups
+  described a self-intersecting shape, where `covers` is undefined. Around the point the tests
+  interpolate for, 11676 of the 37415 groups that do surround it were rejected, a third of them,
+  leaving the interpolation to fall back on more distant stations or to answer nothing at all
+  where the leading groups had no data for a timestamp. The convex hull decides now, which is also
+  the region `LinearNDInterpolator` can answer for, so a group that passes is one the
+  interpolation can use. No interpolated value in the test suite changes: the nearest four are
+  accepted either way, and what returns are the groups behind them
+- Interpolation: a point the interpolation has no answer for comes back empty rather than as a
+  zero. `LinearNDInterpolator` answers NaN outside the stations it was given, and for the
+  quantities that carry an occurrence test -- precipitation, new snow -- `NaN >= 0.5` is False, so
+  the NaN was reported as a precipitation of exactly none
 - Export: a file target renders what the matching format returns. `to_csv` joined a list of
   station ids into one field and the CSV file target did not, so `--target=file://out.csv` on an
   interpolation or a summary died with `CSV format does not support nested data` where

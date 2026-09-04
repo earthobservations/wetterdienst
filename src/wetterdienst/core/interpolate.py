@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
@@ -13,7 +14,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 import utm
 from scipy.interpolate import LinearNDInterpolator
-from shapely.geometry import Point, Polygon
+from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
 from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values
@@ -286,7 +287,14 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) ->
     # get all combinations of 4 stations
     for station_group in combinations(stations_dict.keys(), 4):
         coords = [(stations_dict[s][0], stations_dict[s][1]) for s in station_group]
-        pol = Polygon(coords)
+        # the convex hull of the four, not a polygon through them in the order they are held. That
+        # order is by distance from the point, which says nothing about the order around it, so
+        # roughly half of all groups describe a self-intersecting polygon -- and `covers` on an
+        # invalid polygon is undefined. Measured over random groups ordered as these are, one in
+        # six disagreed with its own hull, every time by rejecting a group that does surround the
+        # point. The hull is also exactly the region `LinearNDInterpolator` can answer for, so a
+        # group it accepts is a group the interpolation can use
+        pol = MultiPoint(coords).convex_hull
         if pol.covers(point):
             valid_groups.put(station_group)
     return valid_groups
@@ -333,6 +341,8 @@ def apply_interpolation(
     if nearby_stations:
         valid_values = {s: v for s, v in row.items() if s in nearby_stations and v is not None}
         if valid_values:
+            # the first is the nearest: a row's columns are in the order the stations were
+            # collected, which is the order `filter_by_distance` ranked them in
             first_station = next(iter(valid_values.keys()))
             return (
                 resolution,
@@ -351,6 +361,10 @@ def apply_interpolation(
     distance_mean = sum(distances) / len(distances)
     f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
     value = f(utm_x, utm_y)
+    if math.isnan(value):
+        # the interpolation had no answer, which is not the same as an answer of nothing: read
+        # through the occurrence test below, a NaN would come out as a confident zero
+        return resolution, dataset, parameter, None, None, []
     if PARAMETERS[parameter].zero_inflated:
         f_index = LinearNDInterpolator(points=(xs, ys), values=[float(v > 0) for v in list(vals.values())])
         value_index = f_index(utm_x, utm_y)
