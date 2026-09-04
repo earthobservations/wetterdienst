@@ -98,7 +98,9 @@ class CanonicalParameter:
 
 # The rates the atmosphere thins at, in kelvin per metre. The dry-bulb figure is the ICAO standard
 # atmosphere's; the dew point falls more slowly, the air holding proportionally more of its moisture
-# as it rises.
+# as it rises. Neither is given to the readings taken at 5 or 10 cm -- the grass minimum and its
+# kin -- which are made in the air but governed by the ground radiating beneath them, the same
+# reason the soil and concrete temperatures carry no rate.
 _AIR_TEMPERATURE_LAPSE_RATE = 0.0065
 _DEW_POINT_LAPSE_RATE = 0.002
 
@@ -1642,7 +1644,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Maximum air temperature at 0.05 m above ground.",
         interpolation="homogeneous",
-        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_max_2m",
@@ -1691,14 +1692,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Mean air temperature at 0.05 m above ground.",
         interpolation="homogeneous",
-        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_mean_0_1m",
         "temperature",
         "Mean air temperature at 0.1 m above ground.",
         interpolation="homogeneous",
-        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_mean_2m",
@@ -1733,21 +1732,18 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Minimum air temperature at 0.05 m above ground.",
         interpolation="homogeneous",
-        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_min_0_05m_last_12h",
         "temperature",
         "Minimum air temperature at 0.05 m above ground over the preceding 12 hours.",
         interpolation="homogeneous",
-        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_min_0_05m_yesterday",
         "temperature",
         "Minimum air temperature at 0.05 m above ground on the previous day.",
         interpolation="homogeneous",
-        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_min_2m",

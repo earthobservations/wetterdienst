@@ -35,16 +35,20 @@ Types of changes:
   things about the same weather -- around Garmisch the stations within 40 km span 630 m to 2956 m,
   which is 15 K interpolated as though it were horizontal structure, and even the flat country
   around Frankfurt spans 495 m, or 3.2 K. Named as `interpolate(latlon=..., elevation=1500)`, as
-  `--elevation` on the CLI and as `elevation` on the REST API; `interpolate_by_station_id` and
-  `summarize_by_station_id` take the station's own height, that being the one case where the
-  answer is already known. A station whose own height the provider does not report is left out of
+  `--elevation` on the CLI and as `elevation` on the REST API, the by-station-id variants included
+  -- those name the point by a station rather than by coordinates, and take the elevation asked
+  about rather than the station's own, which would change what they have always answered. The
+  elevation names the point too: two elevations at one place are two answers, and they no longer
+  share a station id. A station whose own height the provider does not report is left out of
   an answer about an elevation rather than contributing at its own altitude while its neighbours
   are moved -- thirteen providers have such stations, every one of FMI's, IPMA's and the
   Environment Agency's among them. Left out, nothing is corrected and the result is what it was
   before: an elevation taken from the interpolation itself cancels out of it exactly, so the
   correction is only possible when a caller says where the point is
 - Parameter table: `lapse_rate` says how fast a quantity falls with height, in its own unit per
-  metre, for the 23 air temperatures and the dew point. Not for anything measured in or on the
+  metre, for the 17 air temperatures measured at 2 m and the dew point. Not for the 5 and 10 cm
+  readings -- the grass minimum and its kin -- which are made in the air but governed by the
+  ground radiating beneath them. Not for anything measured in or on the
   ground -- soil, concrete, the surface -- which follows the ground rather than the air, nor for
   the comfort indices, nor for pressure, which falls exponentially and wants the barometric
   formula rather than a linear rate

@@ -780,6 +780,7 @@ class InterpolatedValuesResult(_ValuesResult):
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float]
+    elevation: float | None = None
 
     if typing.TYPE_CHECKING:
         # We need to override the signature of the method to_dict() from ValuesResult here
@@ -804,6 +805,8 @@ class InterpolatedValuesResult(_ValuesResult):
             data["metadata"] = self.stations.get_metadata()
         latitude, longitude = self.latlon
         name = f"interpolation({latitude:.4f},{longitude:.4f})"
+        if self.elevation is not None:
+            name = f"interpolation({latitude:.4f},{longitude:.4f},{self.elevation:.1f}m)"
         feature = {
             "type": "Feature",
             "properties": {
@@ -979,6 +982,7 @@ class SummarizedValuesResult(_ValuesResult):
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float]
+    elevation: float | None = None
 
     if typing.TYPE_CHECKING:
         # We need to override the signature of the method to_dict() from ValuesResult here
@@ -1003,6 +1007,8 @@ class SummarizedValuesResult(_ValuesResult):
             data["metadata"] = self.stations.get_metadata()
         latitude, longitude = self.latlon
         name = f"summary({latitude:.4f},{longitude:.4f})"
+        if self.elevation is not None:
+            name = f"summary({latitude:.4f},{longitude:.4f},{self.elevation:.1f}m)"
         feature = {
             "type": "Feature",
             "properties": {

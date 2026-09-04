@@ -18,7 +18,13 @@ from scipy.spatial import QhullError
 from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
-from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values, reduce_to_height
+from wetterdienst.core.util import (
+    _ParameterData,
+    build_date_grid,
+    extract_station_values,
+    lapse_rate_for,
+    reduce_to_height,
+)
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
@@ -116,9 +122,7 @@ def request_stations(
             break
         if result.df.drop_nulls("value").is_empty():
             continue
-        utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
-        stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
-        apply_station_values_per_parameter(
+        contributed = apply_station_values_per_parameter(
             result.df,
             stations_ranked,
             param_dict,
@@ -126,6 +130,14 @@ def request_stations(
             elevation,
             valid_station_groups_exists=valid_station_groups_exists,
         )
+        # only a station that gave something is one of the stations the interpolation has: the hull
+        # that says whether four of them surround the point is built from this, and a station
+        # counted here without a column of its own would let the search stop on a group that cannot
+        # be interpolated from -- which is what a station with no height is, once an elevation is
+        # asked for
+        if contributed:
+            utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
+            stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
     return stations_dict, param_dict
 
 
@@ -137,7 +149,7 @@ def apply_station_values_per_parameter(
     elevation: float | None = None,
     *,
     valid_station_groups_exists: bool,
-) -> None:
+) -> bool:
     """Apply the station values to the parameter data.
 
     Args:
@@ -151,9 +163,10 @@ def apply_station_values_per_parameter(
         valid_station_groups_exists: bool indicating if valid station groups exist
 
     Returns:
-        None - the parameter data is updated in place
+        Whether the station gave a value to any parameter; the parameter data is updated in place
 
     """
+    contributed = False
     settings = cast("Settings", stations_ranked.stations.settings)
     for parameter in stations_ranked.stations.parameters:
         if not isinstance(parameter, ParameterModel):
@@ -191,7 +204,10 @@ def apply_station_values_per_parameter(
             param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column("value")
-        reduced = reduce_to_height(result_series_param, parameter.name, station.get("height"), elevation)
+        lapse_rate = lapse_rate_for(
+            parameter, stations_ranked.values.unit_converter, convert_units=settings.ts_convert_units
+        )
+        reduced = reduce_to_height(result_series_param, lapse_rate, station.get("height"), elevation)
         if reduced is None:
             log.info(
                 f"station {station['station_id']} has no height, so it says nothing about "
@@ -206,6 +222,8 @@ def apply_station_values_per_parameter(
             num_additional_stations=stations_ranked.settings.ts_geo_num_additional_stations,
             valid_station_groups_exists=valid_station_groups_exists,
         )
+        contributed = True
+    return contributed
 
 
 def calculate_interpolation(

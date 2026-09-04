@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     import datetime as dt
 
     from wetterdienst.metadata.resolution import Resolution
+    from wetterdienst.model.metadata import ParameterModel
+    from wetterdienst.model.unit import UnitConverter
 
 
 @dataclass
@@ -60,9 +62,38 @@ def build_date_grid(resolution: Resolution, start_date: dt.datetime, end_date: d
     )
 
 
+def lapse_rate_for(
+    parameter: ParameterModel,
+    unit_converter: UnitConverter,
+    *,
+    convert_units: bool,
+) -> float | None:
+    """Give the rate a quantity falls at, in the unit its values are written in.
+
+    The table declares it per kelvin, which is per degree Celsius too, those being the same step.
+    A step of a degree Fahrenheit is not: with `ts_unit_targets={"temperature": "degree_fahrenheit"}`
+    the values are 1.8 times as far apart as their Celsius readings, and a rate left in kelvin would
+    move them by 8.45 where 15.21 is meant.
+
+    Args:
+        parameter: the parameter whose values are being corrected
+        unit_converter: the converter the values went through
+        convert_units: whether they went through it at all
+
+    Returns:
+        The rate in the values' own unit, or None for a quantity that does not fall with height
+
+    """
+    lapse_rate = PARAMETERS[parameter.name].lapse_rate
+    if not lapse_rate:
+        return None
+    unit = unit_converter.targets[parameter.unit_type].name if convert_units else parameter.unit
+    return lapse_rate * unit_converter.increment_factor("degree_celsius", unit)
+
+
 def reduce_to_height(
     values: pl.Series,
-    parameter_name: str,
+    lapse_rate: float | None,
     station_height: float | None,
     target_height: float | None,
 ) -> pl.Series | None:
@@ -88,7 +119,7 @@ def reduce_to_height(
 
     Args:
         values: the station's readings
-        parameter_name: the canonical name, which carries the rate the quantity falls at
+        lapse_rate: the rate the quantity falls at, in the values' own unit per metre
         station_height: the height the station stands at, in metres
         target_height: the height asked about, in metres
 
@@ -97,10 +128,7 @@ def reduce_to_height(
         placed against it
 
     """
-    if target_height is None:
-        return values
-    lapse_rate = PARAMETERS[parameter_name].lapse_rate
-    if not lapse_rate:
+    if target_height is None or not lapse_rate:
         return values
     if station_height is None:
         return None

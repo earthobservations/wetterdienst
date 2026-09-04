@@ -398,11 +398,43 @@ def test_reduce_to_height_brings_a_reading_to_the_point() -> None:
 
     values = pl.Series("00001", [10.0, 12.0])
     # 500 m above the station, at 0.65 K per 100 m, is 3.25 K colder
-    corrected = reduce_to_height(values, "temperature_air_mean_2m", station_height=100.0, target_height=600.0)
+    corrected = reduce_to_height(values, 0.0065, station_height=100.0, target_height=600.0)
     assert corrected.to_list() == pytest.approx([6.75, 8.75])
     # and below it, warmer
-    corrected = reduce_to_height(values, "temperature_air_mean_2m", station_height=600.0, target_height=100.0)
+    corrected = reduce_to_height(values, 0.0065, station_height=600.0, target_height=100.0)
     assert corrected.to_list() == pytest.approx([13.25, 15.25])
+
+
+def test_lapse_rate_follows_the_unit_the_values_are_in() -> None:
+    """The rate is declared per kelvin, and the values need not be.
+
+    A step of a degree Fahrenheit is 1.8 times a step of a kelvin, so a rate left in kelvin would
+    move a Fahrenheit series by 8.45 where 15.21 is meant -- and the unit targets are a documented
+    setting rather than a corner.
+    """
+    from wetterdienst.core.util import lapse_rate_for  # noqa: PLC0415
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationMetadata  # noqa: PLC0415
+
+    parameter = DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]
+    converter = UnitConverter()
+    assert lapse_rate_for(parameter, converter, convert_units=True) == pytest.approx(0.0065)
+    converter.update_targets({"temperature": "degree_fahrenheit"})
+    assert lapse_rate_for(parameter, converter, convert_units=True) == pytest.approx(0.0065 * 1.8)
+    # 1300 m at the Fahrenheit rate is the 15.21 the Celsius answer comes to
+    assert 1300 * lapse_rate_for(parameter, converter, convert_units=True) == pytest.approx(15.21, abs=0.01)
+    # left unconverted the values keep the source's unit, which for DWD is Celsius
+    assert lapse_rate_for(parameter, converter, convert_units=False) == pytest.approx(0.0065)
+
+
+def test_near_ground_air_temperatures_carry_no_lapse_rate() -> None:
+    """The 5 cm readings are made in the air but governed by the ground radiating beneath them.
+
+    That is the same reason the soil and concrete temperatures carry no rate, so the grass minimum
+    and its kin do not get the free-atmosphere one either.
+    """
+    for name in ("temperature_air_min_0_05m", "temperature_air_max_0_05m", "temperature_air_mean_0_1m"):
+        assert PARAMETERS[name].lapse_rate is None, name
 
 
 def test_reduce_to_height_leaves_alone_what_it_cannot_correct() -> None:
@@ -415,9 +447,9 @@ def test_reduce_to_height_leaves_alone_what_it_cannot_correct() -> None:
     from wetterdienst.core.util import reduce_to_height  # noqa: PLC0415
 
     values = pl.Series("00001", [10.0, 12.0])
-    assert reduce_to_height(values, "temperature_air_mean_2m", 100.0, None).to_list() == [10.0, 12.0]
-    assert reduce_to_height(values, "temperature_soil_mean_0_05m", 100.0, 600.0).to_list() == [10.0, 12.0]
-    assert reduce_to_height(values, "precipitation_height", 100.0, 600.0).to_list() == [10.0, 12.0]
+    assert reduce_to_height(values, 0.0065, 100.0, None).to_list() == [10.0, 12.0]
+    # no rate: a quantity that does not fall with height
+    assert reduce_to_height(values, None, 100.0, 600.0).to_list() == [10.0, 12.0]
 
 
 def test_reduce_to_height_leaves_out_a_station_it_cannot_place() -> None:
@@ -431,16 +463,16 @@ def test_reduce_to_height_leaves_out_a_station_it_cannot_place() -> None:
     from wetterdienst.core.util import reduce_to_height  # noqa: PLC0415
 
     values = pl.Series("00001", [10.0, 12.0])
-    assert reduce_to_height(values, "temperature_air_mean_2m", None, 600.0) is None
+    assert reduce_to_height(values, 0.0065, None, 600.0) is None
     # but with no elevation asked for there is nothing to place it against, so it contributes
-    assert reduce_to_height(values, "temperature_air_mean_2m", None, None).to_list() == [10.0, 12.0]
+    assert reduce_to_height(values, 0.0065, None, None).to_list() == [10.0, 12.0]
     # and a quantity that does not fall with height needs no placing either
-    assert reduce_to_height(values, "precipitation_height", None, 600.0).to_list() == [10.0, 12.0]
+    assert reduce_to_height(values, None, None, 600.0).to_list() == [10.0, 12.0]
 
 
 def test_lapse_rates_are_declared_for_the_air_and_nothing_else() -> None:
     """The rate belongs to quantities measured in the free air, not in or on the ground."""
-    for name in ("temperature_air_mean_2m", "temperature_air_max_2m", "temperature_air_min_0_05m"):
+    for name in ("temperature_air_mean_2m", "temperature_air_max_2m", "temperature_air_min_2m"):
         assert PARAMETERS[name].lapse_rate == 0.0065, name
     # a dew point falls more slowly, the air keeping proportionally more of its moisture as it rises
     assert PARAMETERS["temperature_dew_point_mean_2m"].lapse_rate == 0.002

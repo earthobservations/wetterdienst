@@ -254,7 +254,8 @@ def station_options_interpolate_summarize(command: click.Command) -> click.Comma
                 "Elevation of the reference point in metres above sea level. Given, a quantity that "
                 "falls with height -- air temperature, dew point -- is brought from each station's "
                 "altitude to this one, which is what tells a valley reading from a summit one. "
-                "Taken from the station itself when --station is used."
+                "Applies to --station as well, where it is the elevation asked about rather than "
+                "the station's own."
             ),
         ),
         cloup.constraint(
