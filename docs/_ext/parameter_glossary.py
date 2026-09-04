@@ -71,6 +71,11 @@ class ParameterGlossaryDirective(SphinxDirective):
                     )
                 if parameter.zero_inflated:
                     sentence += " Interpolated values are thresholded on occurrence."
+                if parameter.lapse_rate:
+                    sentence += (
+                        f" Falls with height at {parameter.lapse_rate * 100:g} per 100 m, which an "
+                        f"interpolation or summary corrects for when given an elevation."
+                    )
                 lines.append(sentence)
             lines.append("")
         lines.append("```")

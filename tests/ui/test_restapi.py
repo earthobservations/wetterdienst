@@ -719,17 +719,17 @@ def test_interpolate_dwd(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json()["values"] == [
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 6.37,
+            "value": 6.64,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -758,7 +758,7 @@ def test_interpolate_dwd_lower_interpolation_distance(client: TestClient) -> Non
     assert response.status_code == 200
     assert response.json()["values"] == [
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -768,7 +768,7 @@ def test_interpolate_dwd_lower_interpolation_distance(client: TestClient) -> Non
             "taken_station_ids": [],
         },
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -797,17 +797,17 @@ def test_interpolate_dwd_dont_use_nearby_station(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json()["values"] == [
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 6.37,
+            "value": 6.64,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -839,17 +839,17 @@ def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json()["values"] == [
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 43.47,
+            "value": 43.96,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -1011,17 +1011,17 @@ def test_summarize_dwd(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json()["values"] == [
         {
-            "station_id": "a87291a8",
+            "station_id": "96a83f47",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 6.6,
+            "value": 6.83,
             "distance": 6.97,
             "taken_station_id": "00072",
         },
         {
-            "station_id": "a87291a8",
+            "station_id": "96a83f47",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -1053,17 +1053,17 @@ def test_summarize_dwd_custom_unit(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json()["values"] == [
         {
-            "station_id": "a87291a8",
+            "station_id": "96a83f47",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 43.88,
+            "value": 44.29,
             "distance": 6.97,
             "taken_station_id": "00072",
         },
         {
-            "station_id": "a87291a8",
+            "station_id": "96a83f47",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",

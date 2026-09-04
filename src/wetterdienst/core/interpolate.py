@@ -18,7 +18,13 @@ from scipy.spatial import QhullError
 from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
-from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values
+from wetterdienst.core.util import (
+    can_answer_at_height,
+    extract_station_values,
+    lapse_rate_for,
+    open_parameter_data,
+    reduce_to_height,
+)
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
@@ -42,11 +48,16 @@ log = logging.getLogger(__name__)
 # quantity, so it is declared once in `metadata.parameter_table` rather than listed here.
 
 
-def get_interpolated_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
+def get_interpolated_df(
+    request: TimeseriesRequest,
+    latitude: float,
+    longitude: float,
+    elevation: float | None = None,
+) -> pl.DataFrame:
     """Get the interpolated DataFrame for the given request and location."""
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     settings = cast("Settings", request.settings)
-    stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
+    stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y, elevation)
     return calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
 
 
@@ -56,6 +67,7 @@ def request_stations(
     longitude: float,
     utm_x: float,
     utm_y: float,
+    elevation: float | None = None,
 ) -> tuple[dict, dict]:
     """Request the stations for the interpolation.
 
@@ -65,6 +77,7 @@ def request_stations(
         longitude: longitude of the point to interpolate
         utm_x: longitude in UTM of the point to interpolate
         utm_y: latitude in UTM of the point to interpolate
+        elevation: elevation of the point in metres, to bring each station's readings to
 
     Returns:
         tuple containing the stations dict and the parameter dict
@@ -109,15 +122,22 @@ def request_stations(
             break
         if result.df.drop_nulls("value").is_empty():
             continue
-        utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
-        stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
-        apply_station_values_per_parameter(
+        contributed = apply_station_values_per_parameter(
             result.df,
             stations_ranked,
             param_dict,
             station,
+            elevation,
             valid_station_groups_exists=valid_station_groups_exists,
         )
+        # only a station that gave something is one of the stations the interpolation has: the hull
+        # that says whether four of them surround the point is built from this, and a station
+        # counted here without a column of its own would let the search stop on a group that cannot
+        # be interpolated from -- which is what a station with no height is, once an elevation is
+        # asked for
+        if contributed:
+            utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
+            stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
     return stations_dict, param_dict
 
 
@@ -126,9 +146,10 @@ def apply_station_values_per_parameter(
     stations_ranked: StationsResult,
     param_dict: dict,
     station: dict,
+    elevation: float | None = None,
     *,
     valid_station_groups_exists: bool,
-) -> None:
+) -> bool:
     """Apply the station values to the parameter data.
 
     Args:
@@ -136,15 +157,20 @@ def apply_station_values_per_parameter(
         stations_ranked: stations_result with stations ranked by distance
         param_dict: dict containing the parameter data
         station: dict containing the station data
+        elevation: elevation of the point in metres, to bring each station's readings to
         min_gain_of_value_pairs: minimum gain of value pairs to add a station
         num_additional_stations: number of additional stations to add if the gain is not reached
         valid_station_groups_exists: bool indicating if valid station groups exist
 
     Returns:
-        None - the parameter data is updated in place
+        Whether the station gave a value to any parameter; the parameter data is updated in place
 
     """
+    contributed = False
     settings = cast("Settings", stations_ranked.stations.settings)
+    # once, not once per parameter per station: `values` builds a `TimeseriesValues` and with it a
+    # `UnitConverter`, whose tables run to a couple of hundred entries
+    unit_converter = stations_ranked.values.unit_converter
     for parameter in stations_ranked.stations.parameters:
         if not isinstance(parameter, ParameterModel):
             continue
@@ -169,26 +195,43 @@ def apply_station_values_per_parameter(
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        if param_key not in param_dict:
-            # cast, not parsed: the request declares its dates as `str | datetime | None` because
-            # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`
-            start_date = cast("dt.datetime | None", stations_ranked.stations.start_date)
-            end_date = cast("dt.datetime | None", stations_ranked.stations.end_date)
-            if start_date is None or end_date is None:
-                continue
-            param_dict[param_key] = _ParameterData(build_date_grid(dataset.resolution.value, start_date, end_date))
-        result_series_param = (
-            param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
+        lapse_rate = lapse_rate_for(parameter, unit_converter, convert_units=settings.ts_convert_units)
+        if not can_answer_at_height(station.get("height"), lapse_rate, elevation):
+            # asked before the parameter gets an entry of its own: an entry with no station column
+            # in it comes back as rows with no resolution, dataset or parameter either, the date
+            # grid padded out with nulls where the values would have been
+            log.info(
+                f"station {station['station_id']} has no height, so it says nothing about "
+                f"{parameter.name} at {elevation} m and is left out",
+            )
+            continue
+        # cast, not parsed: the request declares its dates as `str | datetime | None` because
+        # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`
+        param_data = open_parameter_data(
+            param_dict,
+            param_key,
+            dataset.resolution.value,
+            cast("dt.datetime | None", stations_ranked.stations.start_date),
+            cast("dt.datetime | None", stations_ranked.stations.end_date),
         )
+        if param_data is None:
+            continue
+        result_series_param = param_data.values.select("date").join(result_series_param, on="date", how="left")
         result_series_param = result_series_param.get_column("value")
-        result_series_param = result_series_param.rename(station["station_id"])
-        extract_station_values(
-            param_dict[param_key],
+        reduced = reduce_to_height(result_series_param, lapse_rate, station.get("height"), elevation)
+        if reduced is None:  # pragma: no cover - the check above turns such a station away already
+            continue
+        result_series_param = reduced.rename(station["station_id"])
+        # only a column actually taken makes this a station the answer draws on: `finished` turns
+        # one away, and counting it would put a station with no column of its own into the hull
+        contributed |= extract_station_values(
+            param_data,
             result_series_param,
             min_gain_of_value_pairs=stations_ranked.settings.ts_geo_min_gain_of_value_pairs,
             num_additional_stations=stations_ranked.settings.ts_geo_num_additional_stations,
             valid_station_groups_exists=valid_station_groups_exists,
         )
+    return contributed
 
 
 def calculate_interpolation(
@@ -231,6 +274,11 @@ def calculate_interpolation(
         if use_nearby_station_distance is not None and distance < use_nearby_station_distance
     ]
     for (resolution, dataset, parameter), param_data in param_dict.items():
+        if param_data.values.width < 2:
+            # a date grid and no station to answer against it. Concatenating that horizontally
+            # pads the grid with nulls, and the rows come back with no resolution, dataset or
+            # parameter either -- which is not a result for the parameter, it is noise
+            continue
         param_df = pl.DataFrame({"date": param_data.values.get_column("date")})
         results = []
         for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):

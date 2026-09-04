@@ -235,14 +235,16 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
         ],
         orient="row",
     )
-    for result in (
-        request.interpolate(latlon=(48.2156, 8.9784)),
-        request.interpolate_by_station_id(station_id="00071"),
-    ):
-        given_df = result.df
-        assert given_df.shape[0] == 2
-        assert given_df.drop_nulls().shape[0] == 2
-        assert_frame_equal(given_df, expected_df)
+    given_df = request.interpolate(latlon=(48.2156, 8.9784)).df
+    assert given_df.shape[0] == 2
+    assert given_df.drop_nulls().shape[0] == 2
+    assert_frame_equal(given_df, expected_df)
+
+    # by station id the answer is at the station's own altitude, which the result says outright --
+    # a surer contract than comparing two live interpolations, which can draw on different stations
+    # under a slow or partial upstream and then differ for reasons of their own
+    height = request.all().df.filter(pl.col("station_id").eq("00071")).get_column("height").item()
+    assert request.interpolate_by_station_id(station_id="00071").elevation == height
 
 
 @pytest.mark.parametrize("method", ["interpolate", "summarize"])
@@ -390,6 +392,155 @@ def test_valid_station_groups_ignore_the_order_the_stations_are_held_in() -> Non
     )
     assert value is not None
     assert sorted(taken) == ["a", "b", "c", "d"]
+
+
+def test_reduce_to_height_brings_a_reading_to_the_point() -> None:
+    """A reading is corrected by the rate its quantity falls at, over the difference in height."""
+    from wetterdienst.core.util import reduce_to_height  # noqa: PLC0415
+
+    values = pl.Series("00001", [10.0, 12.0])
+    # 500 m above the station, at 0.65 K per 100 m, is 3.25 K colder
+    corrected = reduce_to_height(values, 0.0065, station_height=100.0, target_height=600.0)
+    assert corrected.to_list() == pytest.approx([6.75, 8.75])
+    # and below it, warmer
+    corrected = reduce_to_height(values, 0.0065, station_height=600.0, target_height=100.0)
+    assert corrected.to_list() == pytest.approx([13.25, 15.25])
+
+
+def test_lapse_rate_follows_the_unit_the_values_are_in() -> None:
+    """The rate is declared per kelvin, and the values need not be.
+
+    A step of a degree Fahrenheit is 1.8 times a step of a kelvin, so a rate left in kelvin would
+    move a Fahrenheit series by 8.45 where 15.21 is meant -- and the unit targets are a documented
+    setting rather than a corner.
+    """
+    from wetterdienst.core.util import lapse_rate_for  # noqa: PLC0415
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationMetadata  # noqa: PLC0415
+
+    parameter = DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]
+    converter = UnitConverter()
+    assert lapse_rate_for(parameter, converter, convert_units=True) == pytest.approx(0.0065)
+    converter.update_targets({"temperature": "degree_fahrenheit"})
+    assert lapse_rate_for(parameter, converter, convert_units=True) == pytest.approx(0.0065 * 1.8)
+    # 1300 m at the Fahrenheit rate is the 15.21 the Celsius answer comes to
+    assert 1300 * lapse_rate_for(parameter, converter, convert_units=True) == pytest.approx(15.21, abs=0.01)
+    # left unconverted the values keep the source's unit, which for DWD is Celsius
+    assert lapse_rate_for(parameter, converter, convert_units=False) == pytest.approx(0.0065)
+
+
+def test_near_ground_air_temperatures_carry_no_lapse_rate() -> None:
+    """The 5 cm readings are made in the air but governed by the ground radiating beneath them.
+
+    That is the same reason the soil and concrete temperatures carry no rate, so the grass minimum
+    and its kin do not get the free-atmosphere one either.
+    """
+    for name in ("temperature_air_min_0_05m", "temperature_air_max_0_05m", "temperature_air_mean_0_1m"):
+        assert PARAMETERS[name].lapse_rate is None, name
+
+
+def test_reduce_to_height_leaves_alone_what_it_cannot_correct() -> None:
+    """Without a target, or for a quantity that does not fall with height, the readings stand.
+
+    A soil temperature follows the ground rather than the air, precipitation does not lapse at all,
+    and with no elevation for the target there is nothing to correct towards -- a height taken from
+    the interpolation itself cancels out of it exactly.
+    """
+    from wetterdienst.core.util import reduce_to_height  # noqa: PLC0415
+
+    values = pl.Series("00001", [10.0, 12.0])
+    assert reduce_to_height(values, 0.0065, 100.0, None).to_list() == [10.0, 12.0]
+    # no rate: a quantity that does not fall with height
+    assert reduce_to_height(values, None, 100.0, 600.0).to_list() == [10.0, 12.0]
+
+
+def test_reduce_to_height_leaves_out_a_station_it_cannot_place() -> None:
+    """A station with no height of its own cannot answer a question about a height.
+
+    Thirteen providers have such stations -- every one of FMI's, IPMA's and the Environment
+    Agency's, and a scattering of ECCC's and met.no's. Letting the readings through uncorrected
+    would place them at their own altitude while their neighbours are moved to the caller's, which
+    mixes two vertical references in one interpolation.
+    """
+    from wetterdienst.core.util import reduce_to_height  # noqa: PLC0415
+
+    values = pl.Series("00001", [10.0, 12.0])
+    assert reduce_to_height(values, 0.0065, None, 600.0) is None
+    # but with no elevation asked for there is nothing to place it against, so it contributes
+    assert reduce_to_height(values, 0.0065, None, None).to_list() == [10.0, 12.0]
+    # and a quantity that does not fall with height needs no placing either
+    assert reduce_to_height(values, None, None, 600.0).to_list() == [10.0, 12.0]
+
+
+def test_a_parameter_no_station_answered_gives_no_rows() -> None:
+    """A parameter with a date grid and no station behind it is no rows, not rows of nulls.
+
+    Concatenating an empty result horizontally pads the grid, and the rows come back with no
+    resolution, dataset or parameter either -- noise wearing the shape of an answer. It is
+    reachable where every station is turned away for having no height, which is every station a
+    few providers have.
+    """
+    from wetterdienst.core.interpolate import calculate_interpolation  # noqa: PLC0415
+    from wetterdienst.core.summarize import calculate_summary  # noqa: PLC0415
+    from wetterdienst.core.util import _ParameterData, build_date_grid  # noqa: PLC0415
+    from wetterdienst.metadata.resolution import Resolution  # noqa: PLC0415
+
+    grid = build_date_grid(
+        Resolution.DAILY,
+        dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2022, 1, 3, tzinfo=ZoneInfo("UTC")),
+    )
+    param_dict = {("daily", "kl", "temperature_air_mean_2m"): _ParameterData(grid)}
+    assert calculate_interpolation(0.0, 0.0, {}, param_dict, None).is_empty()
+    assert calculate_summary({}, param_dict).is_empty()
+
+
+def test_extract_station_values_says_whether_it_took_the_column() -> None:
+    """A parameter that has what it needs turns a station away, and says so.
+
+    The caller counts the stations an answer draws on from this, and a station counted without a
+    column of its own goes into the hull that decides whether four of them surround the point.
+    """
+    from wetterdienst.core.util import _ParameterData, extract_station_values  # noqa: PLC0415
+
+    param_data = _ParameterData(pl.DataFrame({"date": [1, 2, 3]}))
+    taken = extract_station_values(
+        param_data,
+        pl.Series("00001", [1.0, 2.0, 3.0]),
+        min_gain_of_value_pairs=0.1,
+        num_additional_stations=3,
+        valid_station_groups_exists=True,
+    )
+    assert taken
+    assert "00001" in param_data.values.columns
+
+    # a parameter with its four stations, no gain from a fifth, and no room for another extra
+    full = _ParameterData(
+        pl.DataFrame({"date": [1, 2, 3], "a": [1.0] * 3, "b": [1.0] * 3, "c": [1.0] * 3, "d": [1.0] * 3}),
+        additional_station_counter=3,
+    )
+    taken = extract_station_values(
+        full,
+        pl.Series("00002", [None, None, None], dtype=pl.Float64),
+        min_gain_of_value_pairs=0.1,
+        num_additional_stations=3,
+        valid_station_groups_exists=True,
+    )
+    assert not taken
+    assert "00002" not in full.values.columns
+    assert full.finished
+
+
+def test_lapse_rates_are_declared_for_the_air_and_nothing_else() -> None:
+    """The rate belongs to quantities measured in the free air, not in or on the ground."""
+    for name in ("temperature_air_mean_2m", "temperature_air_max_2m", "temperature_air_min_2m"):
+        assert PARAMETERS[name].lapse_rate == 0.0065, name
+    # a dew point falls more slowly, the air keeping proportionally more of its moisture as it rises
+    assert PARAMETERS["temperature_dew_point_mean_2m"].lapse_rate == 0.002
+    for name in ("temperature_soil_mean_0_05m", "temperature_concrete_mean_0m", "temperature_surface_mean"):
+        assert PARAMETERS[name].lapse_rate is None, name
+    # pressure falls exponentially and wants the barometric formula, so it carries no linear rate
+    assert PARAMETERS["pressure_air_site"].lapse_rate is None
 
 
 def test_has_valid_station_group_agrees_with_enumerating_them() -> None:
@@ -567,6 +718,31 @@ def test_interpolation_increased_station_distance() -> None:
     )
     values = request.interpolate(latlon=(52.8, 12.9))
     assert values.df.get_column("value").sum() == 21.07
+
+
+@pytest.mark.remote
+def test_interpolation_at_an_elevation(default_settings: Settings) -> None:
+    """A point's elevation moves the answer by the lapse rate over the difference in height.
+
+    Around Garmisch the stations within 40 km span 630 m to 2956 m, which is 15 K of air
+    temperature interpolated as though it were horizontal structure. Naming the elevation is what
+    tells the valley from the summit.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    valley = request.interpolate(latlon=(47.48, 11.06), elevation=200.0).df.get_column("value")
+    summit = request.interpolate(latlon=(47.48, 11.06), elevation=1500.0).df.get_column("value")
+    uncorrected = request.interpolate(latlon=(47.48, 11.06)).df.get_column("value")
+    # 1300 m apart at 0.65 K per 100 m is 8.45 K, whatever the readings themselves are
+    assert (valley - summit).drop_nulls().to_list() == pytest.approx([8.45] * valley.drop_nulls().len(), abs=0.01)
+    # left out, nothing is corrected: the readings sit between the two, at the altitudes the
+    # stations themselves stand at
+    lower, upper = min(valley.mean(), summit.mean()), max(valley.mean(), summit.mean())
+    assert lower < uncorrected.mean() < upper
 
 
 def test_interpolation_error_no_start_date() -> None:

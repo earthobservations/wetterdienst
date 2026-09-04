@@ -35,17 +35,17 @@ def test_cli_interpolate_no_metadata_no_stations() -> None:
     assert response.keys() == {"values"}
     assert response["values"] == [
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 6.37,
+            "value": 6.64,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -171,8 +171,8 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
         "features": [
             {
                 "type": "Feature",
-                "properties": {"id": "6754d04d", "name": "interpolation(48.2156,8.9784)"},
-                "geometry": {"type": "Point", "coordinates": [8.9784, 48.2156]},
+                "properties": {"id": "4fde7164", "name": "interpolation(48.2156,8.9784,759.0m)"},
+                "geometry": {"type": "Point", "coordinates": [8.9784, 48.2156, 759.0]},
                 "stations": [
                     {
                         "resolution": "daily",
@@ -237,17 +237,17 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
                 ],
                 "values": [
                     {
-                        "station_id": "6754d04d",
+                        "station_id": "4fde7164",
                         "resolution": "daily",
                         "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
                         "date": "1986-10-31T00:00:00.000000+00:00",
-                        "value": 6.37,
+                        "value": 6.64,
                         "distance_mean": 16.99,
                         "taken_station_ids": ["00072", "02074", "02638", "04703"],
                     },
                     {
-                        "station_id": "6754d04d",
+                        "station_id": "4fde7164",
                         "resolution": "daily",
                         "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
@@ -287,7 +287,7 @@ def test_cli_interpolate_interpolation_station_distance() -> None:
     assert response.keys() == {"values"}
     assert response["values"] == [
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -297,7 +297,7 @@ def test_cli_interpolate_interpolation_station_distance() -> None:
             "taken_station_ids": [],
         },
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -334,17 +334,17 @@ def test_cli_interpolate_dont_use_nearby_station() -> None:
     assert response.keys() == {"values"}
     assert response["values"] == [
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 6.37,
+            "value": 6.64,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -381,17 +381,17 @@ def test_cli_interpolate_custom_units() -> None:
     assert response.keys() == {"values"}
     assert response["values"] == [
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 43.47,
+            "value": 43.96,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
         {
-            "station_id": "6754d04d",
+            "station_id": "4fde7164",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",

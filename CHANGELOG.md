@@ -27,7 +27,38 @@ Types of changes:
   extra carries `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF
   library
 
+### Added
+
+- Interpolation and summary take an `elevation` for the point they answer for, in metres above sea
+  level, and bring each station's readings to it before using them. Air temperature falls about
+  0.65 K per 100 m and a dew point about 0.2, so a valley station and a summit one say different
+  things about the same weather -- around Garmisch the stations within 40 km span 630 m to 2956 m,
+  which is 15 K interpolated as though it were horizontal structure, and even the flat country
+  around Frankfurt spans 495 m, or 3.2 K. Named as `interpolate(latlon=..., elevation=1500)`, as
+  `--elevation` on the CLI and as `elevation` on the REST API. The
+  elevation names the point too: two elevations at one place are two answers, and they no longer
+  share a station id. A station whose own height the provider does not report is left out of
+  an answer about an elevation rather than contributing at its own altitude while its neighbours
+  are moved -- thirteen providers have such stations, every one of FMI's, IPMA's and the
+  Environment Agency's among them. Left out, nothing is corrected and the result is what it was
+  before: an elevation taken from the interpolation itself cancels out of it exactly, so the
+  correction is only possible when a caller says where the point is
+- Parameter table: `lapse_rate` says how fast a quantity falls with height, in its own unit per
+  metre, for the 17 air temperatures measured at 2 m and the dew point. Not for the 5 and 10 cm
+  readings -- the grass minimum and its kin -- which are made in the air but governed by the
+  ground radiating beneath them. Not for anything measured in or on the
+  ground -- soil, concrete, the surface -- which follows the ground rather than the air, nor for
+  the comfort indices, nor for pressure, which falls exponentially and wants the barometric
+  formula rather than a linear rate
+
 ### Changed
+
+- Interpolation and summary by station id answer at that station's altitude. Naming a point by a
+  station names its height as well, and it is the one case where the elevation is known without
+  being given, so `interpolate_by_station_id` and `summarize_by_station_id` correct the quantities
+  that fall with height to it. **This changes what those two calls return** where the stations
+  drawn on stand at other altitudes -- for the reading uncorrected, pass the station's coordinates
+  to `interpolate` or `summarize` instead
 
 - Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
   out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what

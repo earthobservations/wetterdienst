@@ -670,13 +670,17 @@ class TimeseriesRequest:
             log.info(f"No stations were found for sql {sql}")
         return StationsResult(stations=self, df=df, df_all=df_all, stations_filter=StationsFilter.BY_SQL)
 
-    def interpolate(self, latlon: tuple[float, float]) -> InterpolatedValuesResult:
+    def interpolate(self, latlon: tuple[float, float], elevation: float | None = None) -> InterpolatedValuesResult:
         """Interpolate values across multiple stations.
 
         Interpolation means we interpolate the values of the closest available stations to the requested point.
 
         Args:
             latlon: Latitude and longitude for the requested point.
+            elevation: Elevation of the requested point in metres above sea level. Given, the quantities that fall with
+                height -- air temperature, dew point -- are brought from each station's altitude to
+                this one before being interpolated, which is what tells a valley reading from a
+                summit one. Left out, the readings are interpolated as they come.
 
         Returns:
             InterpolatedValuesResult: Interpolated values.
@@ -699,8 +703,15 @@ class TimeseriesRequest:
 
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
-        df_interpolated = get_interpolated_df(self, lat, lon)
-        station_id = create_station_id_from_string(f"interpolation({lat:.4f},{lon:.4f})")
+        df_interpolated = get_interpolated_df(self, lat, lon, elevation)
+        # the elevation belongs in the name: two elevations at one point are two different
+        # answers, and sharing an id would merge them wherever the id is what identifies a series
+        point = (
+            f"interpolation({lat:.4f},{lon:.4f})"
+            if elevation is None
+            else f"interpolation({lat:.4f},{lon:.4f},{elevation:.1f}m)"
+        )
+        station_id = create_station_id_from_string(point)
         df_interpolated = df_interpolated.select(
             pl.lit(station_id).alias("station_id"),
             pl.col("resolution"),
@@ -724,17 +735,42 @@ class TimeseriesRequest:
             df_all=self.all().df,
             stations_filter=StationsFilter.BY_STATION_ID,
         )
-        return InterpolatedValuesResult(df=df_interpolated, stations=stations_result, latlon=latlon)
+        return InterpolatedValuesResult(
+            df=df_interpolated,
+            stations=stations_result,
+            latlon=latlon,
+            elevation=elevation,
+        )
 
-    def interpolate_by_station_id(self, station_id: str) -> InterpolatedValuesResult:
-        """Use .interpolate with station_id instead of latlon."""
-        latlon = self._get_latlon_by_station_id(station_id)
-        return self.interpolate(latlon=latlon)
+    def interpolate_by_station_id(self, station_id: str, elevation: float | None = None) -> InterpolatedValuesResult:
+        """Use .interpolate with station_id instead of latlon.
 
-    def summarize(self, latlon: tuple[float, float]) -> SummarizedValuesResult:
+        Answers at the station's own altitude unless told another: naming a point by a station
+        names its height as well, and it is the one case where an interpolation knows the elevation
+        of its target without being told. For the reading uncorrected, pass the station's
+        coordinates to `interpolate` instead.
+        """
+        latitude, longitude, station_height = self._get_position_by_station_id(station_id)
+        return self.interpolate(
+            latlon=(latitude, longitude),
+            elevation=elevation if elevation is not None else station_height,
+        )
+
+    def summarize(self, latlon: tuple[float, float], elevation: float | None = None) -> SummarizedValuesResult:
         """Summarize values across multiple stations.
 
         Summarize means we take any available data of the closest station as representative for the timestamp.
+
+        Args:
+            latlon: Latitude and longitude for the requested point.
+            elevation: Elevation of the requested point in metres above sea level. Given, a reading of a quantity that
+                falls with height is brought from the station's altitude to this one -- which
+                matters more here than in an interpolation, one station's reading standing for the
+                point with nothing to soften the difference.
+
+        Returns:
+            SummarizedValuesResult: Summarized values.
+
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
 
@@ -753,8 +789,13 @@ class TimeseriesRequest:
 
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
-        summarized_values = get_summarized_df(self, lat, lon)
-        station_id = create_station_id_from_string(f"summary({lat:.4f},{lon:.4f})")
+        summarized_values = get_summarized_df(self, lat, lon, elevation)
+        # the elevation belongs in the name: two elevations at one point are two different
+        # answers, and sharing an id would merge them wherever the id is what identifies a series
+        point = (
+            f"summary({lat:.4f},{lon:.4f})" if elevation is None else f"summary({lat:.4f},{lon:.4f},{elevation:.1f}m)"
+        )
+        station_id = create_station_id_from_string(point)
         summarized_values = summarized_values.select(
             pl.lit(station_id).alias("station_id"),
             pl.col("resolution"),
@@ -777,12 +818,24 @@ class TimeseriesRequest:
             df_all=self.all().df,
             stations_filter=StationsFilter.BY_STATION_ID,
         )
-        return SummarizedValuesResult(df=summarized_values, stations=stations_result, latlon=latlon)
+        return SummarizedValuesResult(
+            df=summarized_values,
+            stations=stations_result,
+            latlon=latlon,
+            elevation=elevation,
+        )
 
-    def summarize_by_station_id(self, station_id: str) -> SummarizedValuesResult:
-        """Use .summarize with station_id instead of latlon."""
-        latlon = self._get_latlon_by_station_id(station_id)
-        return self.summarize(latlon=latlon)
+    def summarize_by_station_id(self, station_id: str, elevation: float | None = None) -> SummarizedValuesResult:
+        """Use .summarize with station_id instead of latlon.
+
+        Answers at the station's own altitude unless told another, as `interpolate_by_station_id`
+        does.
+        """
+        latitude, longitude, station_height = self._get_position_by_station_id(station_id)
+        return self.summarize(
+            latlon=(latitude, longitude),
+            elevation=elevation if elevation is not None else station_height,
+        )
 
     def _get_latlon_by_station_id(self, station_id: str) -> tuple[float, float]:
         """Get latlon for a station_id.
@@ -790,16 +843,26 @@ class TimeseriesRequest:
         Used for .summary/.interpolate. Typically, we expect a latlon tuple of floats, but
         we want users to be able to request for a station id as well.
         """
+        latitude, longitude, _ = self._get_position_by_station_id(station_id)
+        return latitude, longitude
+
+    def _get_position_by_station_id(self, station_id: str) -> tuple[float, float, float | None]:
+        """Get the coordinates and the height of a station.
+
+        The height comes along because naming a point by a station names its altitude too, which
+        is otherwise the one thing an interpolation cannot know about its target. It is null for
+        the providers that do not report one.
+        """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         stations = self.all().df
         try:
-            lat, lon = (
+            lat, lon, height = (
                 stations.filter(pl.col("station_id").eq(station_id))
-                .select(pl.col("latitude"), pl.col("longitude"))
+                .select(pl.col("latitude"), pl.col("longitude"), pl.col("height"))
                 .transpose()
                 .to_series()
             )
         except NoDataError as e:
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg) from e
-        return lat, lon
+        return lat, lon, height

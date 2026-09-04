@@ -780,6 +780,7 @@ class InterpolatedValuesResult(_ValuesResult):
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float]
+    elevation: float | None = None
 
     if typing.TYPE_CHECKING:
         # We need to override the signature of the method to_dict() from ValuesResult here
@@ -804,6 +805,8 @@ class InterpolatedValuesResult(_ValuesResult):
             data["metadata"] = self.stations.get_metadata()
         latitude, longitude = self.latlon
         name = f"interpolation({latitude:.4f},{longitude:.4f})"
+        if self.elevation is not None:
+            name = f"interpolation({latitude:.4f},{longitude:.4f},{self.elevation:.1f}m)"
         feature = {
             "type": "Feature",
             "properties": {
@@ -818,10 +821,11 @@ class InterpolatedValuesResult(_ValuesResult):
                 # as metres above mean sea level per WGS84.
                 # -- http://wiki.geojson.org/RFC-001
                 "type": "Point",
-                "coordinates": [
-                    longitude,
-                    latitude,
-                ],
+                # the z coordinate when there is one, which is what tells two answers for one
+                # place apart: 200 m and 1500 m are different weather
+                "coordinates": [longitude, latitude]
+                if self.elevation is None
+                else [longitude, latitude, self.elevation],
             },
             "stations": self.stations.to_dict(with_metadata=False)["stations"],
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],
@@ -979,6 +983,7 @@ class SummarizedValuesResult(_ValuesResult):
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float]
+    elevation: float | None = None
 
     if typing.TYPE_CHECKING:
         # We need to override the signature of the method to_dict() from ValuesResult here
@@ -1003,6 +1008,8 @@ class SummarizedValuesResult(_ValuesResult):
             data["metadata"] = self.stations.get_metadata()
         latitude, longitude = self.latlon
         name = f"summary({latitude:.4f},{longitude:.4f})"
+        if self.elevation is not None:
+            name = f"summary({latitude:.4f},{longitude:.4f},{self.elevation:.1f}m)"
         feature = {
             "type": "Feature",
             "properties": {
@@ -1017,10 +1024,11 @@ class SummarizedValuesResult(_ValuesResult):
                 # as metres above mean sea level per WGS84.
                 # -- http://wiki.geojson.org/RFC-001
                 "type": "Point",
-                "coordinates": [
-                    longitude,
-                    latitude,
-                ],
+                # the z coordinate when there is one, which is what tells two answers for one
+                # place apart: 200 m and 1500 m are different weather
+                "coordinates": [longitude, latitude]
+                if self.elevation is None
+                else [longitude, latitude, self.elevation],
             },
             "stations": self.stations.to_dict(with_metadata=False)["stations"],
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],

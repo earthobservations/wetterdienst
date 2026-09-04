@@ -247,6 +247,17 @@ def station_options_interpolate_summarize(command: click.Command) -> click.Comma
             cloup.option("--longitude", type=click.FLOAT, help="Longitude of the reference point."),
             constraint=cloup.constraints.all_or_none,
         ),
+        cloup.option(
+            "--elevation",
+            type=click.FLOAT,
+            help=(
+                "Elevation of the reference point in metres above sea level. Given, a quantity that "
+                "falls with height -- air temperature, dew point -- is brought from each station's "
+                "altitude to this one, which is what tells a valley reading from a summit one. "
+                "Applies to --station as well, where it is the elevation asked about rather than "
+                "the station's own."
+            ),
+        ),
         cloup.constraint(
             RequireExactly(1),
             ["station", "latitude"],
@@ -1479,6 +1490,7 @@ def interpolate(
     station: str,
     latitude: float,
     longitude: float,
+    elevation: float | None,
     sql_values: str,
     fmt: str,
     target: str,
@@ -1512,6 +1524,7 @@ def interpolate(
             "station": station,
             "latitude": latitude,
             "longitude": longitude,
+            "elevation": elevation,
             "sql_values": sql_values,
             "format": fmt,
             "convert_units": convert_units,
@@ -1643,6 +1656,7 @@ def summarize(
     station: str,
     latitude: float,
     longitude: float,
+    elevation: float | None,
     sql_values: str,
     fmt: str,
     target: str,
@@ -1676,6 +1690,7 @@ def summarize(
             "station": station,
             "latitude": latitude,
             "longitude": longitude,
+            "elevation": elevation,
             "sql_values": sql_values,
             "format": fmt,
             "convert_units": convert_units,

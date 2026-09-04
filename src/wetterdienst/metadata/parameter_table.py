@@ -85,7 +85,30 @@ class CanonicalParameter:
     # visibility decorrelates quickly without being zero-inflated, and a precipitation normal is
     # heterogeneous without ever being zero.
     zero_inflated: bool = False
+    # how fast the quantity falls with height, in its own unit per metre, where that is a property
+    # of the free atmosphere rather than of the place: air temperature drops about 0.65 K per 100 m
+    # and a dew point about 0.2 K. Interpolation and summary use it to bring a station's reading to
+    # the height asked for, which is the difference between reading a valley station and a summit
+    # one as if they stood at the same altitude. Left unset for everything measured in or on the
+    # ground -- soil, concrete, the surface -- which follows the ground rather than the air, for the
+    # comfort indices derived from several quantities at once, and for pressure, which falls
+    # exponentially rather than linearly and wants the barometric formula instead
+    lapse_rate: float | None = None
 
+
+# The rates the atmosphere thins at, in kelvin per metre. The dry-bulb figure is the ICAO standard
+# atmosphere's; the dew point falls more slowly, the air holding proportionally more of its moisture
+# as it rises. Neither is given to the readings taken at 5 or 10 cm -- the grass minimum and its
+# kin -- which are made in the air but governed by the ground radiating beneath them, the same
+# reason the soil and concrete temperatures carry no rate.
+#
+# Nor to the wet bulb, which does fall with height, between these two rates and by an amount that
+# depends on how near saturation the air is. A request for it beside a dry-bulb temperature
+# therefore has one series corrected and one not, which can put the wet bulb above the dry one --
+# reason enough to give it a rate, once there is a defensible number to give it rather than a
+# figure picked to sit between the two.
+_AIR_TEMPERATURE_LAPSE_RATE = 0.0065
+_DEW_POINT_LAPSE_RATE = 0.002
 
 PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("chlorid_concentration", "concentration", "Concentration of chloride dissolved in the water."),
@@ -1620,6 +1643,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Air temperature at 2 m above ground, the standard screen height.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_max_0_05m",
@@ -1632,36 +1656,42 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Maximum air temperature at 2 m above ground.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_max_2m_last_12h",
         "temperature",
         "Maximum air temperature at 2 m above ground over the preceding 12 hours.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_max_2m_last_24h",
         "temperature",
         "Maximum air temperature at 2 m above ground over the preceding 24 hours.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_max_2m_mean",
         "temperature",
         "Mean of the daily maximum air temperature at 2 m above ground over the period.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_max_2m_multiday",
         "temperature",
         "Maximum air temperature at 2 m above ground, covering several days where a station did not report daily.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_max_2m_yesterday",
         "temperature",
         "Maximum air temperature at 2 m above ground on the previous day.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_mean_0_05m",
@@ -1680,24 +1710,28 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Mean air temperature at 2 m above ground.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_mean_2m_last_24h",
         "temperature",
         "Mean air temperature at 2 m above ground over the preceding 24 hours.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_mean_2m_normal",
         "temperature",
         "Climatological normal of the mean air temperature at 2 m above ground.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_mean_2m_yesterday",
         "temperature",
         "Mean air temperature at 2 m above ground on the previous day.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_min_0_05m",
@@ -1722,36 +1756,42 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Minimum air temperature at 2 m above ground.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_min_2m_last_12h",
         "temperature",
         "Minimum air temperature at 2 m above ground over the preceding 12 hours.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_min_2m_last_24h",
         "temperature",
         "Minimum air temperature at 2 m above ground over the preceding 24 hours.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_min_2m_mean",
         "temperature",
         "Mean of the daily minimum air temperature at 2 m above ground over the period.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_min_2m_multiday",
         "temperature",
         "Minimum air temperature at 2 m above ground, covering several days where a station did not report daily.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_air_min_2m_yesterday",
         "temperature",
         "Minimum air temperature at 2 m above ground on the previous day.",
         interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_concrete_max_0m",
@@ -1776,6 +1816,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Dew point at 2 m above ground, the temperature at which the air would become saturated.",
         interpolation="homogeneous",
+        lapse_rate=_DEW_POINT_LAPSE_RATE,
     ),
     CanonicalParameter(
         "temperature_humidex",

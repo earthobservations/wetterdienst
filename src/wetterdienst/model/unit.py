@@ -347,6 +347,16 @@ class UnitConverter:
             raise ValueError(msg)
         return unit
 
+    def increment_factor(self, source: str, target: str) -> float:
+        """How much a step of one unit is worth in another.
+
+        Not the conversion itself, which for a temperature carries an offset: 0 degrees Celsius is
+        32 Fahrenheit, while a *step* of one is a step of 1.8. A rate of change -- how fast a
+        quantity falls with height, say -- converts by the step rather than by the value.
+        """
+        convert = self._get_lambda(source, target)
+        return convert(1.0) - convert(0.0)
+
     def update_targets(self, targets: dict[str, str]) -> None:
         """Update the target units for each unit type."""
         for key, value in targets.items():
