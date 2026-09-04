@@ -99,6 +99,61 @@ class ExportMixin:
                     return "_".join(names)
         return "data"
 
+    def _to_array_store(self, filepath: str, *, netcdf: bool) -> None:
+        """Write the frame to a Zarr group or a NetCDF file, through xarray.
+
+        The two share everything but their notion of time. NetCDF has a convention for it, so the
+        timestamps stay timestamps and xarray writes them as CF units; Zarr keeps the ISO strings
+        and the `datetime64` encoding that turns them back into the epoch nanoseconds a reader of
+        an existing store expects, which is a contract this must not break.
+        """
+        import xarray  # noqa: PLC0415
+
+        if netcdf and not _netcdf_engine():
+            msg = (
+                "Writing NetCDF needs an engine xarray can use. Install one with "
+                "`pip install wetterdienst[export]`, which carries h5netcdf."
+            )
+            raise ImportError(msg)
+
+        group = self._array_group()
+        # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
+        # Solution: Fill gaps in the data.
+        df = self.df.fill_null(-999)
+        # xarray encoding cannot handle a pandas Categorical (produced from Enum columns), so cast
+        # the Enum metadata columns back to String, and a list column is no more an array than it
+        # is a CSV field
+        df = _join_list_columns(df).with_columns(pl.col(pl.Enum).cast(pl.String))
+        # every timestamp the frame carries, in UTC without the zone: a stations frame has
+        # `start_date` and `end_date` and no `date`, and naming `date` alone took it down with a
+        # missing column before it could be written at all
+        df = df.with_columns(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
+
+        if netcdf:
+            log.info(f"Writing to NetCDF file '{filepath}'")
+            dataset = xarray.Dataset.from_dataframe(df.to_pandas())
+            dataset.to_netcdf(filepath, group=group)
+            log.info(f"Wrote NetCDF file with variables={list(dataset.data_vars)}")
+            return
+
+        pandas_df = df.with_columns(cs.datetime().dt.to_string("iso:strict")).to_pandas()
+        dataset = xarray.Dataset.from_dataframe(pandas_df)
+        log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
+        log.info(f"Writing to Zarr group '{filepath}'")
+        # TODO: Also use attributes: `store.set_attribute()`
+        store = dataset.to_zarr(
+            filepath,
+            mode="w",
+            group=group,  # use dataset name as group name
+            encoding={name: {"dtype": "datetime64[ns]"} for name in _DATETIME_COLUMNS if name in pandas_df.columns},
+        )
+
+        # Reporting.
+        dimensions = store.get_dimensions()
+        variables = list(store.get_variables().keys())
+        log.info(f"Wrote Zarr file with dimensions={dimensions} and variables={variables}")
+        log.info(f"Zarr Dataset Group info:\n{store.ds.info}")
+
     def to_csv(self, **kwargs: Any) -> str:  # noqa: ANN401
         """Convert DataFrame to CSV format.
 
@@ -285,63 +340,18 @@ class ExportMixin:
 
             elif target.endswith((".zarr", ".nc")):
                 """
-                # Acquire data and store to Zarr group.
+                # Acquire data and store to Zarr group or NetCDF file.
                 alias fetch="wetterdienst dwd observation values --station=1048,4411 --parameters=daily/kl --periods=recent"
                 fetch --target="file://observation.zarr"
+                fetch --target="file://observation.nc"
 
                 # References
                 - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.from_dataframe.html
                 - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.to_zarr.html
+                - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.to_netcdf.html
                 """  # noqa:E501
 
-                import xarray  # noqa: PLC0415
-
-                # the group is named for what the whole frame holds, not for whatever its first
-                # row happens to say: a wide frame merging the datasets of one resolution carries
-                # no dataset name at all -- there is no one name for such a row -- and a group of
-                # `None` would write the arrays into the store root, where `mode="w"` clobbers
-                # every other group already in it
-                group = self._array_group()
-                # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
-                # Solution: Fill gaps in the data.
-                df = self.df.fill_null(-999)
-                # xarray/zarr encoding cannot handle a pandas Categorical (produced from Enum
-                # columns), so cast Enum metadata columns back to String before conversion
-                df = _join_list_columns(df).with_columns(pl.col(pl.Enum).cast(pl.String))
-                # every timestamp the frame carries, in UTC without the zone: a stations frame has
-                # `start_date` and `end_date` and no `date`, and naming `date` alone took it down
-                # with a missing column before it could be written at all
-                df = df.with_columns(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
-
-                if target.endswith(".nc"):
-                    log.info(f"Writing to NetCDF file '{filepath}'")
-                    # NetCDF has its own convention for time, so the timestamps stay timestamps and
-                    # xarray writes them as CF units rather than as the ISO strings zarr keeps
-                    dataset = xarray.Dataset.from_dataframe(df.to_pandas())
-                    dataset.to_netcdf(filepath, group=group)
-                    log.info(f"Wrote NetCDF file with variables={list(dataset.data_vars)}")
-                else:
-                    df = df.with_columns(cs.datetime().dt.to_string("iso:strict")).to_pandas()
-
-                    # Convert pandas DataFrame to xarray Dataset.
-                    dataset = xarray.Dataset.from_dataframe(df)
-                    log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
-                    encoding = {name: {"dtype": "datetime64[ns]"} for name in _DATETIME_COLUMNS if name in df.columns}
-                    log.info(f"Writing to Zarr group '{filepath}'")
-                    # TODO: Also use attributes: `store.set_attribute()`
-                    store = dataset.to_zarr(
-                        filepath,
-                        mode="w",
-                        group=group,  # use dataset name as group name
-                        encoding=encoding,
-                    )
-
-                    # Reporting.
-                    dimensions = store.get_dimensions()
-                    variables = list(store.get_variables().keys())
-
-                    log.info(f"Wrote Zarr file with dimensions={dimensions} and variables={variables}")
-                    log.info(f"Zarr Dataset Group info:\n{store.ds.info}")
+                self._to_array_store(filepath, netcdf=target.endswith(".nc"))
 
             else:
                 msg = "Unknown export file type"
@@ -727,6 +737,16 @@ class ExportMixin:
                 chunksize=chunk_size,
             )
             log.info("Writing to SQL database finished")
+
+
+def _netcdf_engine() -> str | None:
+    """Name an installed engine xarray can write NetCDF with, if there is one."""
+    import importlib.util  # noqa: PLC0415
+
+    for engine in ("h5netcdf", "netCDF4", "scipy"):
+        if importlib.util.find_spec(engine):
+            return engine
+    return None
 
 
 def _join_list_columns(df: pl.DataFrame) -> pl.DataFrame:

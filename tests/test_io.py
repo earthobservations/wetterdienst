@@ -958,6 +958,23 @@ def test_export_netcdf(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> 
     assert dataset["taken_station_ids"].values[0] == "01048,1050"
 
 
+def test_export_netcdf_without_an_engine_says_so(
+    df_values: pl.DataFrame,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without an engine xarray can write NetCDF with, the export names the extra that carries one.
+
+    Left to xarray the failure is a ValueError listing backends, which says nothing about how to
+    get one from here.
+    """
+    from wetterdienst.io import export  # noqa: PLC0415
+
+    monkeypatch.setattr(export, "_netcdf_engine", lambda: None)
+    with pytest.raises(ImportError, match=r"wetterdienst\[export\]"):
+        ExportMixin(df=df_values).to_target(f"file://{tmp_path.joinpath('values.nc')}")
+
+
 @pytest.mark.sql
 def test_filter_by_sql(df_values: pl.DataFrame) -> None:
     """Test filter by sql statement."""
