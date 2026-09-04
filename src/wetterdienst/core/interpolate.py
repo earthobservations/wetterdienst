@@ -15,7 +15,7 @@ import polars as pl
 import utm
 from scipy.interpolate import LinearNDInterpolator
 from scipy.spatial import QhullError
-from shapely.geometry import MultiPoint, Point
+from shapely.geometry import Point, Polygon
 from tqdm import tqdm
 
 from wetterdienst.core.util import _ParameterData, build_date_grid, extract_station_values
@@ -276,6 +276,11 @@ def calculate_interpolation(
 def _covers(hull: BaseGeometry, point: Point) -> bool:
     """Say whether the hull surrounds the point with room to interpolate in.
 
+    Built from `Polygon(...).convex_hull` rather than from a `MultiPoint`: on the oldest shapely
+    this library supports, `MultiPoint` of a list of coordinate pairs reaches `create_collection`
+    with a dtype it will not take and raises, where `Polygon` -- the constructor this check has
+    always used -- takes them. The hull is the same either way, degenerate cases included.
+
     Stations on a line, or all in one place, have a hull with no width. It still covers a point
     lying on it, and answering yes there would call such a group valid -- one that stops the
     collection of further stations while being no region to interpolate over, since
@@ -300,7 +305,7 @@ def has_valid_station_group(stations_dict: dict, utm_x: float, utm_y: float) -> 
     if len(stations_dict) < 4:
         return False
     coords = [(x, y) for x, y, _ in stations_dict.values()]
-    return _covers(MultiPoint(coords).convex_hull, Point(utm_x, utm_y))
+    return _covers(Polygon(coords).convex_hull, Point(utm_x, utm_y))
 
 
 def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) -> Queue:
@@ -328,7 +333,7 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) ->
         # point. The hull is the region `LinearNDInterpolator` interpolates over, up to the
         # degenerate cases at its edge -- four stations on a line have a hull with no width, which
         # the interpolator cannot triangulate at all
-        if _covers(MultiPoint(coords).convex_hull, point):
+        if _covers(Polygon(coords).convex_hull, point):
             valid_groups.put(station_group)
     return valid_groups
 
