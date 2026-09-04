@@ -11,10 +11,10 @@ import polars as pl
 from tqdm import tqdm
 
 from wetterdienst.core.util import (
-    _ParameterData,
-    build_date_grid,
+    can_answer_at_height,
     extract_station_values,
     lapse_rate_for,
+    open_parameter_data,
     reduce_to_height,
 )
 from wetterdienst.model.metadata import ParameterModel
@@ -155,29 +155,35 @@ def apply_station_values_per_parameter(
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        if param_key not in param_dict:
-            # cast, not parsed: the request declares its dates as `str | datetime | None` because
-            # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`
-            start_date = cast("dt.datetime | None", stations_ranked.stations.start_date)
-            end_date = cast("dt.datetime | None", stations_ranked.stations.end_date)
-            if start_date is None or end_date is None:
-                continue
-            param_dict[param_key] = _ParameterData(build_date_grid(dataset.resolution.value, start_date, end_date))
-        result_series_param = (
-            param_dict[param_key].values.select("date").join(result_series_param, on="date", how="left")
-        )
-        result_series_param = result_series_param.get_column("value")
         lapse_rate = lapse_rate_for(parameter, unit_converter, convert_units=settings.ts_convert_units)
-        reduced = reduce_to_height(result_series_param, lapse_rate, station.get("height"), elevation)
-        if reduced is None:
+        if not can_answer_at_height(station.get("height"), lapse_rate, elevation):
+            # asked before the parameter gets an entry of its own: an entry with no station column
+            # in it comes back as rows with no resolution, dataset or parameter either, the date
+            # grid padded out with nulls where the values would have been
             log.info(
                 f"station {station['station_id']} has no height, so it says nothing about "
                 f"{parameter.name} at {elevation} m and is left out",
             )
             continue
+        # cast, not parsed: the request declares its dates as `str | datetime | None` because
+        # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`
+        param_data = open_parameter_data(
+            param_dict,
+            param_key,
+            dataset.resolution.value,
+            cast("dt.datetime | None", stations_ranked.stations.start_date),
+            cast("dt.datetime | None", stations_ranked.stations.end_date),
+        )
+        if param_data is None:
+            continue
+        result_series_param = param_data.values.select("date").join(result_series_param, on="date", how="left")
+        result_series_param = result_series_param.get_column("value")
+        reduced = reduce_to_height(result_series_param, lapse_rate, station.get("height"), elevation)
+        if reduced is None:  # pragma: no cover - the check above turns such a station away already
+            continue
         result_series_param = reduced.rename(station["station_id"])
         contributed |= extract_station_values(
-            param_dict[param_key],
+            param_data,
             result_series_param,
             min_gain_of_value_pairs=settings.ts_geo_min_gain_of_value_pairs,
             num_additional_stations=settings.ts_geo_num_additional_stations,
@@ -202,6 +208,11 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
         ),
     ]
     for (resolution, dataset, parameter), param_data in param_dict.items():
+        if param_data.values.width < 2:
+            # a date grid and no station to answer against it. Concatenating that horizontally
+            # pads the grid with nulls, and the rows come back with no resolution, dataset or
+            # parameter either -- which is not a result for the parameter, it is noise
+            continue
         param_df = pl.DataFrame({"date": param_data.values.get_column("date")})
         results = []
         for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):

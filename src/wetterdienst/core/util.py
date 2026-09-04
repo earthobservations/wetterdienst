@@ -91,6 +91,35 @@ def lapse_rate_for(
     return lapse_rate * unit_converter.increment_factor("degree_celsius", unit)
 
 
+def open_parameter_data(
+    param_dict: dict,
+    param_key: tuple[str, str, str],
+    resolution: Resolution,
+    start_date: dt.datetime | None,
+    end_date: dt.datetime | None,
+) -> _ParameterData | None:
+    """Get the parameter's data, opening it on the date grid the request asks over.
+
+    None where the request named no window, there being no grid to lay the readings on then.
+    """
+    if param_key in param_dict:
+        return param_dict[param_key]
+    if start_date is None or end_date is None:
+        return None
+    param_dict[param_key] = _ParameterData(build_date_grid(resolution, start_date, end_date))
+    return param_dict[param_key]
+
+
+def can_answer_at_height(station_height: float | None, lapse_rate: float | None, target_height: float | None) -> bool:
+    """Whether a station has anything to say about a quantity at a given height.
+
+    It has not when the quantity falls with height, a height was asked about, and the station's own
+    is unknown: its reading cannot be placed against the target, and letting it through would put
+    it at its own altitude among neighbours moved to the caller's.
+    """
+    return not (target_height is not None and lapse_rate and station_height is None)
+
+
 def reduce_to_height(
     values: pl.Series,
     lapse_rate: float | None,

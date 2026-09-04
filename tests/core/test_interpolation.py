@@ -475,6 +475,29 @@ def test_reduce_to_height_leaves_out_a_station_it_cannot_place() -> None:
     assert reduce_to_height(values, None, None, 600.0).to_list() == [10.0, 12.0]
 
 
+def test_a_parameter_no_station_answered_gives_no_rows() -> None:
+    """A parameter with a date grid and no station behind it is no rows, not rows of nulls.
+
+    Concatenating an empty result horizontally pads the grid, and the rows come back with no
+    resolution, dataset or parameter either -- noise wearing the shape of an answer. It is
+    reachable where every station is turned away for having no height, which is every station a
+    few providers have.
+    """
+    from wetterdienst.core.interpolate import calculate_interpolation  # noqa: PLC0415
+    from wetterdienst.core.summarize import calculate_summary  # noqa: PLC0415
+    from wetterdienst.core.util import _ParameterData, build_date_grid  # noqa: PLC0415
+    from wetterdienst.metadata.resolution import Resolution  # noqa: PLC0415
+
+    grid = build_date_grid(
+        Resolution.DAILY,
+        dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2022, 1, 3, tzinfo=ZoneInfo("UTC")),
+    )
+    param_dict = {("daily", "kl", "temperature_air_mean_2m"): _ParameterData(grid)}
+    assert calculate_interpolation(0.0, 0.0, {}, param_dict, None).is_empty()
+    assert calculate_summary({}, param_dict).is_empty()
+
+
 def test_extract_station_values_says_whether_it_took_the_column() -> None:
     """A parameter that has what it needs turns a station away, and says so.
 
