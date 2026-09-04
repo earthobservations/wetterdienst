@@ -34,17 +34,17 @@ def test_cli_summarize_no_metadata_no_stations() -> None:
     assert response.keys() == {"values"}
     assert response["values"] == [
         {
-            "station_id": "a87291a8",
+            "station_id": "96a83f47",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 6.6,
+            "value": 6.83,
             "distance": 6.97,
             "taken_station_id": "00072",
         },
         {
-            "station_id": "a87291a8",
+            "station_id": "96a83f47",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
@@ -84,8 +84,8 @@ def test_cli_summarize_geojson(metadata: dict) -> None:
         "features": [
             {
                 "type": "Feature",
-                "properties": {"id": "a87291a8", "name": "summary(48.2156,8.9784)"},
-                "geometry": {"type": "Point", "coordinates": [8.9784, 48.2156]},
+                "properties": {"id": "96a83f47", "name": "summary(48.2156,8.9784,759.0m)"},
+                "geometry": {"type": "Point", "coordinates": [8.9784, 48.2156, 759.0]},
                 "stations": [
                     {
                         "resolution": "daily",
@@ -114,17 +114,17 @@ def test_cli_summarize_geojson(metadata: dict) -> None:
                 ],
                 "values": [
                     {
-                        "station_id": "a87291a8",
+                        "station_id": "96a83f47",
                         "resolution": "daily",
                         "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
                         "date": "1986-10-31T00:00:00.000000+00:00",
-                        "value": 6.6,
+                        "value": 6.83,
                         "distance": 6.97,
                         "taken_station_id": "00072",
                     },
                     {
-                        "station_id": "a87291a8",
+                        "station_id": "96a83f47",
                         "resolution": "daily",
                         "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
@@ -164,17 +164,17 @@ def test_cli_summarize_custom_units() -> None:
     assert response.keys() == {"values"}
     assert response["values"] == [
         {
-            "station_id": "a87291a8",
+            "station_id": "96a83f47",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00.000000+00:00",
-            "value": 43.88,
+            "value": 44.29,
             "distance": 6.97,
             "taken_station_id": "00072",
         },
         {
-            "station_id": "a87291a8",
+            "station_id": "96a83f47",
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
