@@ -7796,7 +7796,7 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.8.2,<3" },
     { name = "rapidfuzz", specifier = ">=3.1,<4" },
     { name = "scipy", marker = "extra == 'interpolation'", specifier = ">=1.14.1,<2" },
-    { name = "shapely", marker = "extra == 'interpolation'", specifier = ">=2.0.4,<3" },
+    { name = "shapely", marker = "extra == 'interpolation'", specifier = ">=2.0.6,<3" },
     { name = "sqlalchemy", marker = "extra == 'export'", specifier = ">=2,<3" },
     { name = "sqlalchemy-cratedb", marker = "extra == 'cratedb'", specifier = ">=0.40,<1" },
     { name = "stamina", specifier = ">=25.1.0,<27" },

@@ -401,7 +401,7 @@ def test_has_valid_station_group_agrees_with_enumerating_them() -> None:
     """
     from itertools import combinations  # noqa: PLC0415
 
-    from shapely.geometry import Point, Polygon  # noqa: PLC0415
+    from shapely.geometry import MultiPoint, Point  # noqa: PLC0415
 
     from wetterdienst.core.interpolate import _covers, has_valid_station_group  # noqa: PLC0415
 
@@ -411,7 +411,7 @@ def test_has_valid_station_group_agrees_with_enumerating_them() -> None:
         utm_x, utm_y = rng.uniform(-12, 12), rng.uniform(-12, 12)
         point = Point(utm_x, utm_y)
         enumerated = any(
-            _covers(Polygon([(stations[s][0], stations[s][1]) for s in group]).convex_hull, point)
+            _covers(MultiPoint([(stations[s][0], stations[s][1]) for s in group]).convex_hull, point)
             for group in combinations(stations, 4)
         )
         assert has_valid_station_group(stations, utm_x, utm_y) == enumerated

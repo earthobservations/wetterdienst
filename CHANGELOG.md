@@ -27,6 +27,12 @@ Types of changes:
   extra carries `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF
   library
 
+### Changed
+
+- Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
+  out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what
+  every other dependency here resolves to, so the floor named a combination that does not work
+
 ### Fixed
 
 - Interpolation: four stations that surround the target point are a valid group however they are
