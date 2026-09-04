@@ -39,6 +39,15 @@ Types of changes:
   the region `LinearNDInterpolator` can answer for, so a group that passes is one the
   interpolation can use. No interpolated value in the test suite changes: the nearest four are
   accepted either way, and what returns are the groups behind them
+- Interpolation: whether four stations surrounding the point exist is answered from the hull of
+  all of them rather than by enumerating groups. It is asked once per station collected and the
+  groups themselves are not wanted there, while enumerating them costs C(N,4) hulls -- 91390 of
+  them for the 40 stations a wide radius reaches, seconds per station, against 0.2 ms for the one
+  hull. A request whose parameters never fill up, which is what walks every station in range, is
+  the case that paid it
+- Interpolation: four stations on a line come back without a value rather than raising. Their hull
+  is a line, which covers a point lying on it, so such a group reaches the interpolator -- where
+  scipy answers with a `QhullError` rather than the NaN the guard above expects
 - Interpolation: a point the interpolation has no answer for comes back empty rather than as a
   zero. `LinearNDInterpolator` answers NaN outside the stations it was given, and for the
   quantities that carry an occurrence test -- precipitation, new snow -- `NaN >= 0.5` is False, so

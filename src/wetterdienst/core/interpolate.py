@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 import utm
 from scipy.interpolate import LinearNDInterpolator
+from scipy.spatial import QhullError
 from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
@@ -100,7 +101,7 @@ def request_stations(
         file=tqdm_out,
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
-        valid_station_groups_exists = not get_valid_station_groups(stations_dict, utm_x, utm_y).empty()
+        valid_station_groups_exists = has_valid_station_group(stations_dict, utm_x, utm_y)
         # check if all parameters found enough stations and the stations build a valid station group
         if len(param_dict) > 0 and all(param.finished for param in param_dict.values()) and valid_station_groups_exists:
             break
@@ -270,6 +271,24 @@ def calculate_interpolation(
     )
 
 
+def has_valid_station_group(stations_dict: dict, utm_x: float, utm_y: float) -> bool:
+    """Say whether any four of the stations surround the given point.
+
+    Asked once per station collected, where the groups themselves are not wanted -- only whether
+    one exists. Enumerating them to find out costs C(N,4) hulls, which is 91390 of them for the 40
+    stations a wide radius can reach, and seconds per station.
+
+    The hull of all the stations answers it outright: if the point lies inside it, some three of
+    them contain the point (Carathéodory in the plane) and any fourth station only widens the hull
+    of those three, so a covering group exists. If it lies outside, no subset can cover it, every
+    subset's hull being contained in the whole's.
+    """
+    if len(stations_dict) < 4:
+        return False
+    coords = [(x, y) for x, y, _ in stations_dict.values()]
+    return MultiPoint(coords).convex_hull.covers(Point(utm_x, utm_y))
+
+
 def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) -> Queue:
     """Get all valid station groups that cover the given point.
 
@@ -292,8 +311,9 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) ->
         # roughly half of all groups describe a self-intersecting polygon -- and `covers` on an
         # invalid polygon is undefined. Measured over random groups ordered as these are, one in
         # six disagreed with its own hull, every time by rejecting a group that does surround the
-        # point. The hull is also exactly the region `LinearNDInterpolator` can answer for, so a
-        # group it accepts is a group the interpolation can use
+        # point. The hull is the region `LinearNDInterpolator` interpolates over, up to the
+        # degenerate cases at its edge -- four stations on a line have a hull with no width, which
+        # the interpolator cannot triangulate at all
         pol = MultiPoint(coords).convex_hull
         if pol.covers(point):
             valid_groups.put(station_group)
@@ -359,7 +379,14 @@ def apply_interpolation(
         return resolution, dataset, parameter, None, None, []
     xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids], strict=False))
     distance_mean = sum(distances) / len(distances)
-    f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
+    try:
+        f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
+    except QhullError:
+        # stations on a line have no triangle to interpolate over. Their hull covers a point on
+        # that line, so the group can reach here, and scipy says so by raising rather than by
+        # answering NaN
+        log.info(f"stations {station_group_ids} are collinear, so they interpolate nothing")
+        return resolution, dataset, parameter, None, None, []
     value = f(utm_x, utm_y)
     if math.isnan(value):
         # the interpolation had no answer, which is not the same as an answer of nothing: read

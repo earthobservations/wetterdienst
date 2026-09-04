@@ -3,6 +3,8 @@
 """Tests for interpolation."""
 
 import datetime as dt
+import random
+from queue import Queue
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -376,6 +378,46 @@ def test_valid_station_groups_ignore_the_order_the_stations_are_held_in() -> Non
     )
     assert value is not None
     assert sorted(taken) == ["far", "mid", "near", "west"]
+
+
+def test_has_valid_station_group_agrees_with_enumerating_them() -> None:
+    """Whether a covering group exists is the hull of all the stations, without enumerating groups.
+
+    Asked once per station collected, where enumerating C(N,4) groups to find out costs seconds for
+    the 40 stations a wide radius reaches. If the point is inside the hull of all of them, three of
+    them contain it and any fourth widens that group's hull, so a covering group exists.
+    """
+    from itertools import combinations  # noqa: PLC0415
+
+    from shapely.geometry import MultiPoint, Point  # noqa: PLC0415
+
+    from wetterdienst.core.interpolate import has_valid_station_group  # noqa: PLC0415
+
+    rng = random.Random(4)  # noqa: S311
+    for _ in range(50):
+        stations = {str(index): (rng.uniform(-10, 10), rng.uniform(-10, 10), 1.0) for index in range(rng.randint(3, 8))}
+        utm_x, utm_y = rng.uniform(-12, 12), rng.uniform(-12, 12)
+        point = Point(utm_x, utm_y)
+        enumerated = any(
+            MultiPoint([(stations[s][0], stations[s][1]) for s in group]).convex_hull.covers(point)
+            for group in combinations(stations, 4)
+        )
+        assert has_valid_station_group(stations, utm_x, utm_y) == enumerated
+
+
+def test_apply_interpolation_with_collinear_stations_gives_no_value() -> None:
+    """Stations on a line have no triangle to interpolate over, and scipy says so by raising.
+
+    Their hull is a line, which covers a point lying on it, so such a group can reach the
+    interpolator -- where it answers with a `QhullError` rather than with NaN.
+    """
+    stations = {"a": (0.0, 0.0, 1.0), "b": (1.0, 0.0, 2.0), "c": (2.0, 0.0, 3.0), "d": (3.0, 0.0, 4.0)}
+    groups = Queue()
+    groups.put(("a", "b", "c", "d"))
+    row = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0}
+    result = apply_interpolation(row, stations, groups, "daily", "kl", "temperature_air_mean_2m", 1.5, 0.0, [])
+    assert result[3] is None
+    assert result[5] == []
 
 
 def test_valid_station_groups_still_reject_a_point_outside_them() -> None:
