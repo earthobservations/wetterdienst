@@ -19,13 +19,13 @@ from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
 from wetterdienst.core.util import (
-    StationsInReach,
     can_answer_at_height,
     collection_is_done,
     count_stations_in_reach,
     extract_station_values,
     lapse_rate_for,
     open_parameter_data,
+    parameters_still_in_reach,
     reduce_to_height,
     report_height_exclusions,
     unanswerable_at_height,
@@ -71,7 +71,7 @@ def get_interpolated_df(
     """
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     settings = cast("Settings", request.settings)
-    stations_dict, param_dict, dropped_for_height, counts = request_stations(
+    stations_dict, param_dict, dropped_for_height = request_stations(
         request,
         latitude,
         longitude,
@@ -82,14 +82,7 @@ def get_interpolated_df(
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
     # after the frame is built, not before: a parameter the exclusions left with three stations
     # holds columns and still interpolates to nothing, and only the frame knows that
-    report_height_exclusions(
-        df,
-        param_dict,
-        dropped_for_height,
-        counts,
-        elevation,
-        stations_needed=STATIONS_NEEDED,
-    )
+    report_height_exclusions(df, param_dict, dropped_for_height, elevation, stations_needed=STATIONS_NEEDED)
     return df
 
 
@@ -100,7 +93,7 @@ def request_stations(
     utm_x: float,
     utm_y: float,
     elevation: float | None = None,
-) -> tuple[dict, dict, set[tuple[str, str, str]], dict[tuple[str, str, str], StationsInReach]]:
+) -> tuple[dict, dict, dict[tuple[str, str, str], int]]:
     """Request the stations for the interpolation.
 
     Args:
@@ -112,13 +105,13 @@ def request_stations(
         elevation: elevation of the point in metres, to bring each station's readings to
 
     Returns:
-        the stations dict, the parameter dict, the parameters that lost a station for having
-        no height of its own, and what each parameter had in reach to begin with
+        the stations dict, the parameter dict, and how many stations each parameter lost for
+        having no height of its own
 
     """
     param_dict = {}
     stations_dict = {}
-    dropped_for_height: set[tuple[str, str, str]] = set()
+    dropped_for_height: dict[tuple[str, str, str], int] = {}
     settings = cast("Settings", request.settings)
     max_interp_distance = max(
         settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
@@ -142,7 +135,7 @@ def request_stations(
     if unanswerable and unanswerable == set(counts):
         # no station in reach can be brought to the height asked about, and every parameter wants
         # to be: there is nothing a download could add, so the report speaks for the whole request
-        return stations_dict, param_dict, unanswerable, counts
+        return stations_dict, param_dict, {key: counts[key].total for key in unanswerable}
     stations_by_id = {
         station["station_id"]: station
         for station in df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True).iter_rows(
@@ -160,7 +153,12 @@ def request_stations(
         station = stations_by_id[result.df.get_column("station_id")[0]]
         valid_station_groups_exists = has_valid_station_group(stations_dict, utm_x, utm_y)
         # check if all parameters found enough stations and the stations build a valid station group
-        if collection_is_done(param_dict, dropped_for_height - unanswerable) and valid_station_groups_exists:
+        if (
+            collection_is_done(
+                param_dict, dropped_for_height.keys() & parameters_still_in_reach(counts, station["distance"])
+            )
+            and valid_station_groups_exists
+        ):
             break
         if result.df.drop_nulls("value").is_empty():
             continue
@@ -181,7 +179,7 @@ def request_stations(
         if contributed:
             utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
-    return stations_dict, param_dict, dropped_for_height, counts
+    return stations_dict, param_dict, dropped_for_height
 
 
 def apply_station_values_per_parameter(
@@ -191,7 +189,7 @@ def apply_station_values_per_parameter(
     station: dict,
     elevation: float | None = None,
     *,
-    dropped_for_height: set[tuple[str, str, str]],
+    dropped_for_height: dict[tuple[str, str, str], int],
     valid_station_groups_exists: bool,
 ) -> bool:
     """Apply the station values to the parameter data.
@@ -202,7 +200,7 @@ def apply_station_values_per_parameter(
         param_dict: dict containing the parameter data
         station: dict containing the station data
         elevation: elevation of the point in metres, to bring each station's readings to
-        dropped_for_height: the parameters that lost a station for having no height
+        dropped_for_height: how many stations each parameter lost for having no height
         min_gain_of_value_pairs: minimum gain of value pairs to add a station
         num_additional_stations: number of additional stations to add if the gain is not reached
         valid_station_groups_exists: bool indicating if valid station groups exist
@@ -251,7 +249,7 @@ def apply_station_values_per_parameter(
             )
             # noted, not only logged: where this empties a parameter the caller is owed the
             # reason, and a log line is the one place a caller cannot read it from
-            dropped_for_height.add(param_key)
+            dropped_for_height[param_key] = dropped_for_height.get(param_key, 0) + 1
             continue
         # cast, not parsed: the request declares its dates as `str | datetime | None` because
         # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`

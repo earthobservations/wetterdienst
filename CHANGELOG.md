@@ -47,7 +47,9 @@ Types of changes:
   400 and the CLI as a message rather than a traceback. A parameter left unanswered beside one
   that still answered is a warning naming it, the rest of the result standing. Whether a parameter
   was answered is read off the finished frame rather than off the stations collected for it, those
-  being different questions. Left out, the
+  being different questions -- and the exclusions are named as the reason only where the stations
+  they took would have made up what the calculation needs, a parameter that was short of stations
+  either way having failed on something an elevation has nothing to do with. Left out, the
   elevation corrects nothing and the result is what it was before: an elevation taken from the
   interpolation itself cancels out of it exactly, so the correction is only possible when a caller
   says where the point is
