@@ -132,7 +132,7 @@ def request_stations(
     # counted once, off the ranking, before a single value is downloaded: what each parameter has
     # in its own radius, and how much of that reports a height
     counts = count_stations_in_reach(df_stations_ranked, request.parameters, settings)
-    unanswerable = unanswerable_at_height(counts, elevation)
+    unanswerable = unanswerable_at_height(counts, elevation, STATIONS_NEEDED)
     if unanswerable and unanswerable == set(counts):
         # every parameter asked for falls with height and not one station in reach reports one:
         # true of the request whatever the stations hold, so it is said without downloading them

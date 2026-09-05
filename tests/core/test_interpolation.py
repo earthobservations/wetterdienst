@@ -844,13 +844,15 @@ def test_interpolation_error_no_start_date() -> None:
 
 @pytest.mark.remote
 def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
+    caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Stations left over that cannot interpolate are as unanswered as no stations at all.
+    """Stations left over that cannot interpolate are named, the answer being null either way.
 
-    An interpolation wants four that surround the point, so two of known height among neighbours
-    of unknown height hold columns and still come back null. Read off the collected columns that
-    looks answered, and the caller gets a frame of nulls and no reason for them.
+    An interpolation wants four that surround the point, so two of known height among neighbours of
+    unknown height hold columns and still come back null. Whether keeping the other eight would
+    have helped is not something a count can say -- they may not have surrounded the point either
+    -- so it is said in the log rather than raised over the caller's result.
     """
     settings = Settings(ts_geo_use_nearby_station_distance=0.0)
     request = DwdObservationRequest(
@@ -860,8 +862,7 @@ def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
         settings=settings,
     )
     _blank_station_heights(monkeypatch, pl.int_range(pl.len()) < 2)
-    with pytest.raises(
-        NoStationsWithHeightError,
-        match=r"nothing that can answer daily/climate_summary/temperature_air_mean_2m at 200\.0 m",
-    ):
-        request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
+    with caplog.at_level(logging.WARNING):
+        values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
+    assert values.df.drop_nulls("value").is_empty()
+    assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text

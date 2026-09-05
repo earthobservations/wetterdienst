@@ -189,6 +189,7 @@ def count_stations_in_reach(
 def unanswerable_at_height(
     counts: dict[tuple[str, str, str], StationsInReach],
     elevation: float | None,
+    stations_needed: int,
 ) -> set[tuple[str, str, str]]:
     """Find the parameters no station in reach can answer at the height asked about.
 
@@ -196,13 +197,19 @@ def unanswerable_at_height(
     another one. Where not one station inside its radius reports a height -- which is every station
     FMI, IPMA and the Environment Agency publish -- the parameter is unanswerable before anything
     is downloaded, and the walk down the ranking has nothing to look for.
+
+    Which is a claim about heights, so it is made only where there were heights to miss. A point
+    out at sea, or a mistyped coordinate, has no station in reach at all: the answer is empty for a
+    reason that has nothing to do with heights, and saying otherwise sends the caller off to drop
+    an elevation that was never the trouble. Too few stations to answer from is the same story --
+    keeping every one of them would still have left the calculation short.
     """
     if elevation is None:
         return set()
     return {
         param_key
         for param_key, in_reach in counts.items()
-        if not in_reach.with_height and PARAMETERS[param_key[2]].lapse_rate
+        if not in_reach.with_height and stations_needed <= in_reach.total and PARAMETERS[param_key[2]].lapse_rate
     }
 
 
@@ -298,11 +305,13 @@ def report_height_exclusions(
     is sent back for, and where that is still short of what the calculation needs it is not an
     answer at all.
 
-    Counting is as far as this goes, and it errs towards saying nothing. Four stations standing
-    together on one side of the point interpolate to nothing, so an exclusion that left the four
-    surrounding ones out really was the cause and goes unreported -- but telling that case apart
-    wants a hull test per parameter, and a wrong accusation sends the caller back for the same
-    nulls under a reason that is not theirs. Silence is the cheaper mistake of the two.
+    Counting is as far as this goes, and it cannot see where the stations stand. Four standing
+    together on one side of the point interpolate to nothing, so an exclusion that left the
+    surrounding ones out really was the cause and goes unreported; three kept and one lost may be
+    four that would never have surrounded it either. Telling those apart wants a hull test per
+    parameter. Until there is one, a parameter that kept nothing at all is refused and a parameter
+    that kept something is named in the log -- the count decides how loudly this speaks, not
+    whether the caller keeps their result.
 
     Args:
         df: the interpolated or summarized frame, before any nulls are dropped from it
@@ -313,8 +322,8 @@ def report_height_exclusions(
             surrounding the point for an interpolation, one for a summary
 
     Raises:
-        NoStationsWithHeightError: where nothing was answered at all, there being no result for a
-            warning to be read against
+        NoStationsWithHeightError: where nothing was answered at all and a parameter took not one
+            station, there being no result for a warning to be read against and no doubt about why
 
     """
     if not dropped_for_height:
@@ -332,12 +341,18 @@ def report_height_exclusions(
     if not emptied:
         return
     listing = ", ".join("/".join(param_key) for param_key in emptied)
-    if answered:
+    # a parameter that took not one station is the whole story: nothing to interpolate from and
+    # nothing left to wonder about. Where it kept some, the count is all the evidence there is --
+    # three kept and one lost may be four that would never have surrounded the point -- and
+    # refusing on that takes a frame away from a caller over a reason that may not be theirs
+    took_nothing = [param_key for param_key in emptied if param_key not in param_dict]
+    if answered or not took_nothing:
         log.warning(
             f"leaving out the stations of unknown height leaves nothing that can answer {listing} "
             f"at {elevation} m; the rest of the result stands",
         )
         return
+    listing = ", ".join("/".join(param_key) for param_key in took_nothing)
     msg = (
         f"leaving out the stations of unknown height leaves nothing that can answer {listing} at "
         f"{elevation} m. {_ASK_INSTEAD}"
