@@ -138,10 +138,22 @@ function dataSettingsToQuery(settings: DataSettings): Record<string, string> {
 
 const showAbout = ref(false)
 const parameterSelectionState = ref<ParameterSelectionState>(fromQuery(route.query))
+function numberFromQuery(value: unknown): number | undefined {
+  const parsed = Number.parseFloat(String(value ?? ''))
+  return Number.isNaN(parsed) ? undefined : parsed
+}
+
 const stationSelectionState = ref<StationSelectionState>({
   mode: modeFromQuery(route.query),
   selection: { stations: [] },
-  interpolation: { source: (route.query.interpolationSource as 'manual' | 'station') || 'manual' },
+  interpolation: {
+    source: (route.query.interpolationSource as 'manual' | 'station') || 'manual',
+    // read back what `toQuery` writes, or a shared link reproduces a different answer than the
+    // one it was copied from
+    latitude: numberFromQuery(route.query.lat),
+    longitude: numberFromQuery(route.query.lon),
+    elevation: numberFromQuery(route.query.elevation),
+  },
   dateRange: {
     startDate: route.query.startDate?.toString(),
     endDate: route.query.endDate?.toString(),
@@ -231,6 +243,7 @@ watch(
   [
     parameterSelectionState,
     () => stationSelectionState.value.selection.stations,
+    () => stationSelectionState.value.interpolation,
     () => dataSettings.value.humanize,
     () => dataSettings.value.convertUnits,
     () => dataSettings.value.shape,
@@ -454,6 +467,7 @@ function fetchData() {
       : '',
     interpolationLat: ss.interpolation.latitude,
     interpolationLon: ss.interpolation.longitude,
+    interpolationElevation: ss.interpolation.elevation,
     startDate: ss.dateRange.startDate,
     endDate: ss.dateRange.endDate,
     settings: JSON.stringify(dataSettings.value),

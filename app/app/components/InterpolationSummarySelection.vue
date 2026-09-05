@@ -28,18 +28,26 @@ watch(() => modelValue.value.elevation, (elevation) => {
     elevationInput.value = shown
 })
 
-// Watch inputs and update model
-watch([latitudeInput, longitudeInput, elevationInput], ([lat, lon, elevation]) => {
+// Watch inputs and update model. The coordinates and the elevation are watched apart: the boxes
+// above only hold what was typed into them, which in station mode is nothing, and writing all
+// three together let a station's elevation arriving here take the station's coordinates out with
+// it -- the source that fills them is the station, not these boxes
+watch([latitudeInput, longitudeInput], ([lat, lon]) => {
   const latNum = Number.parseFloat(lat)
   const lonNum = Number.parseFloat(lon)
-  const elevationNum = Number.parseFloat(elevation)
   modelValue.value = {
     ...modelValue.value,
     latitude: Number.isNaN(latNum) ? undefined : latNum,
     longitude: Number.isNaN(lonNum) ? undefined : lonNum,
-    // optional: left empty, the readings are interpolated as they come
-    elevation: Number.isNaN(elevationNum) ? undefined : elevationNum,
   }
+})
+
+watch(elevationInput, (elevation) => {
+  const elevationNum = Number.parseFloat(elevation)
+  // optional: left empty, the readings are interpolated as they come
+  const parsed = Number.isNaN(elevationNum) ? undefined : elevationNum
+  if (parsed !== modelValue.value.elevation)
+    modelValue.value = { ...modelValue.value, elevation: parsed }
 })
 
 // For station selection
