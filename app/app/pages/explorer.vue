@@ -139,8 +139,11 @@ function dataSettingsToQuery(settings: DataSettings): Record<string, string> {
 const showAbout = ref(false)
 const parameterSelectionState = ref<ParameterSelectionState>(fromQuery(route.query))
 function numberFromQuery(value: unknown): number | undefined {
-  const parsed = Number.parseFloat(String(value ?? ''))
-  return Number.isNaN(parsed) ? undefined : parsed
+  // a repeated key arrives as an array, and `1e400` parses to Infinity, which travels back into
+  // the URL and on to the API as a number no answer can be given for
+  const first = Array.isArray(value) ? value[0] : value
+  const parsed = Number.parseFloat(String(first ?? ''))
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 const stationSelectionState = ref<StationSelectionState>({
@@ -148,8 +151,10 @@ const stationSelectionState = ref<StationSelectionState>({
   selection: { stations: [] },
   interpolation: {
     source: (route.query.interpolationSource as 'manual' | 'station') || 'manual',
-    // read back what `toQuery` writes, or a shared link reproduces a different answer than the
-    // one it was copied from
+    // read back what `toQuery` writes for a point given by coordinates, so a shared link
+    // reproduces the answer it was copied from. A point given by a station is written as an id
+    // and not restored -- the station itself has to be fetched before it can be selected, which
+    // `initialStationIds` does for station mode and nothing does for this one yet
     latitude: numberFromQuery(route.query.lat),
     longitude: numberFromQuery(route.query.lon),
     elevation: numberFromQuery(route.query.elevation),

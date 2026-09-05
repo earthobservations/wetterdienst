@@ -77,6 +77,22 @@ describe('the point an interpolation answers for', () => {
     expect(wrapper.vm.modelValue.elevation).toBeUndefined()
   })
 
+  it('shows a station\'s coordinates in the boxes, not only in the model', async () => {
+    // the boxes were seeded once at setup while the model was written by the station, so switching
+    // back to manual showed empty coordinates against a model that held them -- and typing one of
+    // them then read the other box, still empty, and wiped a coordinate nobody had touched
+    const wrapper = await mountSuspended(harness({ source: 'station' }))
+    wrapper.vm.fromStation(station as never)
+    await settle()
+    expect(wrapper.vm.latitudeInput).toBe('47.9')
+    expect(wrapper.vm.longitudeInput).toBe('8')
+
+    wrapper.vm.latitudeInput = '48'
+    await settle()
+    expect(wrapper.vm.modelValue.latitude).toBe(48)
+    expect(wrapper.vm.modelValue.longitude).toBe(8)
+  })
+
   it('clears the elevation when its box is emptied', async () => {
     const wrapper = await mountSuspended(harness({ elevation: 250 }))
     wrapper.vm.elevationInput = ''

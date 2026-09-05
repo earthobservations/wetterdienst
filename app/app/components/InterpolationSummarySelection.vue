@@ -121,15 +121,6 @@ const displayCoords = computed(() => {
           :class="{ 'needs-input': modelValue.longitude === undefined }"
         />
       </UFormField>
-      <UFormField :label="t('interpolation.elevation')" :hint="t('interpolation.elevationHint')" class="flex-1">
-        <UInput
-          v-model="elevationInput"
-          type="number"
-          step="1"
-          placeholder="e.g. 34"
-          class="w-full"
-        />
-      </UFormField>
     </div>
 
     <div v-else>
@@ -149,6 +140,18 @@ const displayCoords = computed(() => {
         </div>
       </UFormField>
     </div>
+
+    <!-- part of the point whichever way the point was given: a station fills it with its own
+         height, and leaving it filled in silently is what drops the neighbours that have none -->
+    <UFormField :label="t('interpolation.elevation')" :hint="t('interpolation.elevationHint')">
+      <UInput
+        v-model="elevationInput"
+        type="number"
+        step="1"
+        placeholder="e.g. 34"
+        class="w-full"
+      />
+    </UFormField>
 
     <div v-if="displayCoords" class="text-sm text-gray-500">
       {{ t('interpolation.coords', { coords: displayCoords }) }}

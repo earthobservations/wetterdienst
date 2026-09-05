@@ -14,13 +14,18 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
   const longitudeInput = ref<string>(modelValue.value.longitude?.toString() ?? '')
   const elevationInput = ref<string>(modelValue.value.elevation?.toString() ?? '')
 
-  // choosing a station writes the elevation straight into the model, so the box follows it -- or
-  // it shows empty while the query carries a height the user cannot see
-  watch(() => modelValue.value.elevation, (elevation) => {
-    const shown = elevation?.toString() ?? ''
-    if (shown !== elevationInput.value)
-      elevationInput.value = shown
-  })
+  // choosing a station writes all three straight into the model, so the boxes follow it -- or they
+  // show empty while the query carries a point the user cannot see. All three, not the elevation
+  // alone: with the coordinate boxes left stale, typing one of them made the watcher below read
+  // the other box, still empty, and wipe a coordinate nobody had touched
+  function follow(box: Ref<string>, value: number | undefined) {
+    const shown = value?.toString() ?? ''
+    if (shown !== box.value)
+      box.value = shown
+  }
+  watch(() => modelValue.value.latitude, latitude => follow(latitudeInput, latitude))
+  watch(() => modelValue.value.longitude, longitude => follow(longitudeInput, longitude))
+  watch(() => modelValue.value.elevation, elevation => follow(elevationInput, elevation))
 
   // the coordinates and the elevation are watched apart. These boxes hold only what was typed into
   // them, which in station mode is nothing, so writing all three together let an elevation arriving
