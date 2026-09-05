@@ -11,11 +11,18 @@ import polars as pl
 from tqdm import tqdm
 
 from wetterdienst.core.util import (
+    DroppedForHeight,
     can_answer_at_height,
+    collection_is_done,
+    count_stations_in_reach,
     extract_station_values,
     lapse_rate_for,
+    no_height_in_reach_error,
     open_parameter_data,
+    parameters_still_in_reach,
     reduce_to_height,
+    report_height_exclusions,
+    unanswerable_at_height,
 )
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
@@ -28,6 +35,9 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+# a summary answers with one station's reading, so one is all it wants
+STATIONS_NEEDED = 1
 
 
 def get_summarized_df(
@@ -47,9 +57,24 @@ def get_summarized_df(
     Returns:
         Summarized DataFrame
 
+    Raises:
+        NoStationsWithHeightError: where an elevation is asked about and leaving out the stations
+            of unknown height leaves nothing that can answer it
+
     """
-    stations_dict, param_dict = request_stations(request, latitude, longitude, elevation)
-    return calculate_summary(stations_dict, param_dict)
+    stations_dict, param_dict, dropped_for_height, unanswerable = request_stations(
+        request, latitude, longitude, elevation
+    )
+    df = calculate_summary(stations_dict, param_dict)
+    report_height_exclusions(
+        df,
+        param_dict,
+        dropped_for_height,
+        elevation,
+        stations_needed=STATIONS_NEEDED,
+        unanswerable=unanswerable,
+    )
+    return df
 
 
 def request_stations(
@@ -57,7 +82,7 @@ def request_stations(
     latitude: float,
     longitude: float,
     elevation: float | None = None,
-) -> tuple[dict, dict]:
+) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForHeight], set[tuple[str, str, str]]]:
     """Request stations.
 
     A summary answers with one station's reading rather than a blend of several, so a height
@@ -66,6 +91,7 @@ def request_stations(
     """
     param_dict = {}
     stations_dict = {}
+    dropped_for_height: dict[tuple[str, str, str], DroppedForHeight] = {}
     settings = cast("Settings", request.settings)
     # the widest radius any requested parameter may draw on, as in `interpolate.request_stations`.
     # `max(...values())` used to stand here, which is the widest radius of the *populated* keys --
@@ -92,6 +118,19 @@ def request_stations(
             named=True,
         )
     }
+    # counted once, off the ranking, before a single value is downloaded: what each parameter has
+    # in its own radius, and how much of that reports a height
+    counts = count_stations_in_reach(
+        df_stations_ranked,
+        request.parameters,
+        settings,
+        request.interpolatable_parameters,
+    )
+    unanswerable = unanswerable_at_height(counts, elevation, STATIONS_NEEDED)
+    if unanswerable and unanswerable == set(counts):
+        # every parameter asked for falls with height and not one station in reach reports one:
+        # true of the request whatever the stations hold, so it is said without downloading them
+        raise no_height_in_reach_error(unanswerable, elevation)
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
     for result in tqdm(
         stations_ranked.values.query(),
@@ -102,13 +141,22 @@ def request_stations(
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
         # check if all parameters found enough stations and the stations build a valid station group
-        if len(param_dict) > 0 and all(param.finished for param in param_dict.values()):
+        if collection_is_done(
+            param_dict, dropped_for_height.keys() & parameters_still_in_reach(counts, station["distance"])
+        ):
             break
         if result.df.drop_nulls("value").is_empty():
             continue
-        if apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station, elevation):
+        if apply_station_values_per_parameter(
+            result.df,
+            stations_ranked,
+            param_dict,
+            station,
+            elevation,
+            dropped_for_height=dropped_for_height,
+        ):
             stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
-    return stations_dict, param_dict
+    return stations_dict, param_dict, dropped_for_height, unanswerable
 
 
 def apply_station_values_per_parameter(
@@ -117,6 +165,8 @@ def apply_station_values_per_parameter(
     param_dict: dict,
     station: dict,
     elevation: float | None = None,
+    *,
+    dropped_for_height: dict[tuple[str, str, str], DroppedForHeight],
 ) -> bool:
     """Apply station values per parameter.
 
@@ -163,6 +213,13 @@ def apply_station_values_per_parameter(
             log.info(
                 f"station {station['station_id']} has no height, so it says nothing about "
                 f"{parameter.name} at {elevation} m and is left out",
+            )
+            # noted, not only logged: where this empties a parameter the caller is owed the
+            # reason, and a log line is the one place a caller cannot read it from
+            lost = dropped_for_height.get(param_key)
+            dropped_for_height[param_key] = DroppedForHeight(
+                count=lost.count + 1 if lost else 1,
+                nearest=min(lost.nearest, station["distance"]) if lost else station["distance"],
             )
             continue
         # cast, not parsed: the request declares its dates as `str | datetime | None` because

@@ -19,7 +19,7 @@ from cloup.constraints import AllSet, If, RequireExactly, accept_none
 from pydantic import BaseModel, ValidationError
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
-from wetterdienst.exceptions import ApiNotFoundError
+from wetterdienst.exceptions import ApiNotFoundError, NoStationsWithHeightError
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.ui.core import (
     HistoryRequest,
@@ -1565,6 +1565,11 @@ def interpolate(
             request=request,
             settings=settings,
         )
+    except NoStationsWithHeightError as e:
+        # an answerable request the caller phrased in a way this provider cannot serve:
+        # the message is the whole of it, and a traceback would only bury it
+        log.error(str(e))  # noqa: TRY400
+        sys.exit(1)
     except ValueError:
         log.exception("Error during interpolation")
         sys.exit(1)
@@ -1730,6 +1735,11 @@ def summarize(
             request=request,
             settings=settings,
         )
+    except NoStationsWithHeightError as e:
+        # an answerable request the caller phrased in a way this provider cannot serve:
+        # the message is the whole of it, and a traceback would only bury it
+        log.error(str(e))  # noqa: TRY400
+        sys.exit(1)
     except ValueError:
         log.exception("Error during summarize")
         sys.exit(1)

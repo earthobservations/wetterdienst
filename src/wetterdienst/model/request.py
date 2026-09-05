@@ -685,6 +685,11 @@ class TimeseriesRequest:
         Returns:
             InterpolatedValuesResult: Interpolated values.
 
+        Raises:
+            NoStationsWithHeightError: Where an elevation is asked about and leaving out the
+                stations whose height the provider does not report leaves nothing that can answer
+                it. A few providers report no height for any station.
+
         """
         from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
 
@@ -749,6 +754,13 @@ class TimeseriesRequest:
         names its height as well, and it is the one case where an interpolation knows the elevation
         of its target without being told. For the reading uncorrected, pass the station's
         coordinates to `interpolate` instead.
+
+        Raises:
+            NoStationsWithHeightError: Where leaving out the stations of unknown height leaves
+                nothing that can answer at this station's altitude. There is no elevation to omit
+                here, so the reading as it came is asked for by coordinates: pass the station's
+                own to `interpolate`.
+
         """
         latitude, longitude, station_height = self._get_position_by_station_id(station_id)
         return self.interpolate(
@@ -770,6 +782,11 @@ class TimeseriesRequest:
 
         Returns:
             SummarizedValuesResult: Summarized values.
+
+        Raises:
+            NoStationsWithHeightError: Where an elevation is asked about and leaving out the
+                stations whose height the provider does not report leaves nothing that can answer
+                it. A few providers report no height for any station.
 
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
@@ -830,6 +847,13 @@ class TimeseriesRequest:
 
         Answers at the station's own altitude unless told another, as `interpolate_by_station_id`
         does.
+
+        Raises:
+            NoStationsWithHeightError: Where leaving out the stations of unknown height leaves
+                nothing that can answer at this station's altitude. There is no elevation to omit
+                here, so the reading as it came is asked for by coordinates: pass the station's
+                own to `summarize`.
+
         """
         latitude, longitude, station_height = self._get_position_by_station_id(station_id)
         return self.summarize(

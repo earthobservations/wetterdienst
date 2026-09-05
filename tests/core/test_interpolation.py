@@ -3,6 +3,7 @@
 """Tests for interpolation."""
 
 import datetime as dt
+import logging
 import random
 from queue import Queue
 from zoneinfo import ZoneInfo
@@ -16,8 +17,9 @@ from wetterdienst.core.interpolate import (
     apply_interpolation,
     get_valid_station_groups,
 )
-from wetterdienst.exceptions import StationNotFoundError
+from wetterdienst.exceptions import NoStationsWithHeightError, StationNotFoundError
 from wetterdienst.metadata.parameter_table import PARAMETERS
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -745,6 +747,92 @@ def test_interpolation_at_an_elevation(default_settings: Settings) -> None:
     assert lower < uncorrected.mean() < upper
 
 
+def _blank_station_heights(monkeypatch: pytest.MonkeyPatch, keeps_its_height: pl.Expr) -> None:
+    """Make a DWD request look like a provider that reports heights for only some of its stations.
+
+    FMI, IPMA and the Environment Agency publish no height for any station, and eleven more
+    providers for some of theirs. Borrowing DWD's data and taking the heights away exercises the
+    same path without a second provider's outages deciding whether this test passes. The frame is
+    ranked by distance, so the expression picks by how near the station is.
+    """
+    original = DwdObservationRequest.filter_by_distance
+
+    def without_heights(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
+        stations_ranked = original(self, *args, **kwargs)
+        stations_ranked.df = stations_ranked.df.with_columns(
+            pl.when(keeps_its_height).then(pl.col("height")).otherwise(None).alias("height"),
+        )
+        return stations_ranked
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_heights)
+
+
+@pytest.mark.remote
+def test_interpolation_at_an_elevation_none_of_the_stations_can_answer(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An elevation that empties the request says so instead of coming back empty.
+
+    A station of unknown height cannot be placed against the height asked about, and where that is
+    every station in reach there is nothing left to interpolate. That used to be an empty frame
+    with the reason in a server-side log -- the one place the caller cannot look.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    _blank_station_heights(monkeypatch, pl.lit(value=False))
+    downloads = 0
+    original_query = TimeseriesValues.query
+
+    def counting_query(self: TimeseriesValues) -> object:
+        nonlocal downloads
+        downloads += 1
+        return original_query(self)
+
+    monkeypatch.setattr(TimeseriesValues, "query", counting_query)
+    with pytest.raises(
+        NoStationsWithHeightError,
+        match=r"nothing can be brought to 200\.0 m for daily/climate_summary/temperature_air_mean_2m",
+    ):
+        request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
+    # and not one station's values were fetched to arrive at that: the ranking already said no
+    # station in reach reports a height, and every quantity asked for needs one
+    assert downloads == 0
+    # without an elevation the same stations answer as they always did
+    monkeypatch.setattr(TimeseriesValues, "query", original_query)
+    assert not request.interpolate(latlon=(47.48, 11.06)).df.is_empty()
+
+
+@pytest.mark.remote
+def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A parameter emptied beside one that answered is named, and the rest of the result stands.
+
+    Precipitation does not fall with height in the sense the correction means, so it keeps every
+    station a temperature loses.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl", "temperature_air_mean_2m"), ("daily", "kl", "precipitation_height")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    _blank_station_heights(monkeypatch, pl.lit(value=False))
+    with caplog.at_level(logging.WARNING):
+        values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
+    # of the values that are there, not of the rows: a parameter with a station collected for it
+    # gets rows either way, so this is what says the other parameter really was answered
+    assert values.df.drop_nulls("value").get_column("parameter").unique().to_list() == ["precipitation_height"]
+    assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
+
+
 def test_interpolation_error_no_start_date() -> None:
     """Test that an error is raised when start_date is missing."""
     request = DwdObservationRequest(
@@ -752,3 +840,29 @@ def test_interpolation_error_no_start_date() -> None:
     )
     with pytest.raises(ValueError, match="start_date and end_date are required for interpolation"):
         request.interpolate(latlon=(52.8, 12.9))
+
+
+@pytest.mark.remote
+def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stations left over that cannot interpolate are named, the answer being null either way.
+
+    An interpolation wants four that surround the point, so two of known height among neighbours of
+    unknown height hold columns and still come back null. Whether keeping the other eight would
+    have helped is not something a count can say -- they may not have surrounded the point either
+    -- so it is said in the log rather than raised over the caller's result.
+    """
+    settings = Settings(ts_geo_use_nearby_station_distance=0.0)
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+    )
+    _blank_station_heights(monkeypatch, pl.int_range(pl.len()) < 2)
+    with caplog.at_level(logging.WARNING):
+        values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
+    assert values.df.drop_nulls("value").is_empty()
+    assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
