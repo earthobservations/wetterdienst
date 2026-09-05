@@ -17,7 +17,7 @@ from wetterdienst.model.metadata import ParameterModel
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Iterable
+    from collections.abc import Collection, Iterable
 
     from wetterdienst.metadata.resolution import Resolution
     from wetterdienst.model.unit import UnitConverter
@@ -149,8 +149,13 @@ def count_stations_in_reach(
     df_stations_ranked: pl.DataFrame,
     parameters: Iterable[object],
     settings: Settings,
+    interpolatable: Collection[str],
 ) -> dict[tuple[str, str, str], StationsInReach]:
     """Count what each parameter has within its own radius, before a single value is downloaded.
+
+    Only the parameters the walk would collect: one it skips outright, for not being
+    interpolatable at all, is never unanswerable for want of a height, and counting it would keep
+    the refusal that costs no download from ever being reached.
 
     Per parameter, because the radius is: a quantity that decorrelates fast in space is given a
     narrower one, so "is there a station of known height in reach" has a different answer for
@@ -164,7 +169,7 @@ def count_stations_in_reach(
     """
     counts = {}
     for parameter in parameters:
-        if not isinstance(parameter, ParameterModel):
+        if not isinstance(parameter, ParameterModel) or parameter.name not in interpolatable:
             continue
         dataset = parameter.dataset
         radius = settings.ts_geo_station_distance_for(parameter.name, dataset.resolution.name)
@@ -172,15 +177,16 @@ def count_stations_in_reach(
         # ranking carries a row per station *and* dataset, and two dataset indexes can disagree
         # about a station's height. Taking whichever row sorted last would answer "is there a
         # height in reach" differently from the station the walk actually reads
-        in_reach = (
-            df_stations_ranked.filter(pl.col("distance").le(radius))
-            .unique(subset=["station_id"], keep="first", maintain_order=True)
-            .drop_nulls("height")
+        in_radius = df_stations_ranked.filter(pl.col("distance").le(radius)).unique(
+            subset=["station_id"],
+            keep="first",
+            maintain_order=True,
         )
-        furthest = in_reach.get_column("distance").max()
+        with_height = in_radius.drop_nulls("height")
+        furthest = with_height.get_column("distance").max()
         counts[(dataset.resolution.name, dataset.name, parameter.name)] = StationsInReach(
-            total=df_stations_ranked.filter(pl.col("distance").le(radius)).n_unique("station_id"),
-            with_height=in_reach.height,
+            total=in_radius.height,
+            with_height=with_height.height,
             furthest_with_height=float(cast("float", furthest)) if furthest is not None else None,
         )
     return counts
@@ -352,6 +358,14 @@ def report_height_exclusions(
             f"at {elevation} m; the rest of the result stands",
         )
         return
+    # the ones that kept a station are the same loss under a weaker light, and the exception speaks
+    # only for what is certain -- so they are said here rather than going unmentioned entirely
+    kept_some = [param_key for param_key in emptied if param_key in param_dict]
+    if kept_some:
+        listing = ", ".join("/".join(param_key) for param_key in kept_some)
+        log.warning(
+            f"leaving out the stations of unknown height leaves nothing that can answer {listing} at {elevation} m",
+        )
     listing = ", ".join("/".join(param_key) for param_key in took_nothing)
     msg = (
         f"leaving out the stations of unknown height leaves nothing that can answer {listing} at "

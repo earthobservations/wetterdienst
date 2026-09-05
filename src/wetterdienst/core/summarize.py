@@ -104,7 +104,12 @@ def request_stations(
     # the row that answers for it is the closest one rather than whichever happened to sort last
     # counted once, off the ranking, before a single value is downloaded: what each parameter has
     # in its own radius, and how much of that reports a height
-    counts = count_stations_in_reach(df_stations_ranked, request.parameters, settings)
+    counts = count_stations_in_reach(
+        df_stations_ranked,
+        request.parameters,
+        settings,
+        request.interpolatable_parameters,
+    )
     unanswerable = unanswerable_at_height(counts, elevation, STATIONS_NEEDED)
     if unanswerable and unanswerable == set(counts):
         # every parameter asked for falls with height and not one station in reach reports one:

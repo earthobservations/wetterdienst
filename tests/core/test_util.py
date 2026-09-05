@@ -12,6 +12,7 @@ import pytest
 from wetterdienst import Settings
 from wetterdienst.core.util import StationsInReach, build_date_grid
 from wetterdienst.metadata.resolution import Resolution, reading_interval
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 UTC = ZoneInfo("UTC")
 
@@ -111,6 +112,7 @@ def _answer(*rows: tuple[str, str, str, float | None]) -> pl.DataFrame:
     )
 
 
+INTERPOLATABLE = DwdObservationRequest.interpolatable_parameters
 TEMPERATURE = ("daily", "climate_summary", "temperature_air_mean_2m")
 PRECIPITATION = ("daily", "climate_summary", "precipitation_height")
 
@@ -293,7 +295,6 @@ def test_count_stations_in_reach_asks_per_parameter_radius() -> None:
     One answer for the whole request would be the wrong one for at least one of them.
     """
     from wetterdienst.core.util import count_stations_in_reach  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
     metadata = DwdObservationRequest.metadata["hourly"]
     parameters = [
@@ -310,7 +311,7 @@ def test_count_stations_in_reach_asks_per_parameter_radius() -> None:
         schema={"station_id": pl.String, "distance": pl.Float64, "height": pl.Float64},
         orient="row",
     )
-    counts = count_stations_in_reach(df_stations_ranked, parameters, Settings())
+    counts = count_stations_in_reach(df_stations_ranked, parameters, Settings(), INTERPOLATABLE)
     # 40 km for temperature: three stations, the furthest of them the only one with a height
     assert counts[("hourly", "temperature_air", "temperature_air_mean_2m")] == (3, 1, 35.0)
     # 20 km for precipitation: two stations, and the station that has a height is outside it
@@ -379,7 +380,6 @@ def test_count_stations_in_reach_reads_the_nearest_row_of_a_station() -> None:
     value is downloaded.
     """
     from wetterdienst.core.util import count_stations_in_reach  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
     parameters = [DwdObservationRequest.metadata["hourly"]["temperature_air"]["temperature_air_mean_2m"]]
     df_stations_ranked = pl.DataFrame(
@@ -390,7 +390,7 @@ def test_count_stations_in_reach_reads_the_nearest_row_of_a_station() -> None:
         schema={"station_id": pl.String, "distance": pl.Float64, "height": pl.Float64},
         orient="row",
     )
-    assert count_stations_in_reach(df_stations_ranked, parameters, Settings()) == {
+    assert count_stations_in_reach(df_stations_ranked, parameters, Settings(), INTERPOLATABLE) == {
         ("hourly", "temperature_air", "temperature_air_mean_2m"): (1, 1, 5.0),
     }
 
@@ -429,3 +429,55 @@ def test_no_height_in_reach_error_says_what_the_ranking_alone_can_say() -> None:
     assert "daily/climate_summary/precipitation_height, daily/climate_summary/temperature_air_mean_2m" in str(error)
     # and the remedy that applies to a request named by a station id as much as one by coordinates
     assert "naming a station id instead asks at that station's own height" in str(error)
+
+
+def test_count_stations_in_reach_passes_over_what_the_walk_would_not_collect() -> None:
+    """A parameter that cannot be interpolated at all is not counted.
+
+    It can never be unanswerable for want of a height, so counting it would leave the set of
+    unanswerable parameters short of the set of counted ones for ever -- and the refusal that costs
+    no download, which asks whether those two are the same, would never be reached. Every station
+    inside the radius would be fetched to arrive at the answer the station list already held.
+    """
+    from wetterdienst.core.util import count_stations_in_reach  # noqa: PLC0415
+
+    metadata = DwdObservationRequest.metadata["daily"]["climate_summary"]
+    # precipitation_form is the one member of daily/kl that is not interpolatable
+    parameters = [metadata["temperature_air_mean_2m"], metadata["precipitation_form"]]
+    df_stations_ranked = pl.DataFrame(
+        [{"station_id": "00001", "distance": 5.0, "height": None}],
+        schema={"station_id": pl.String, "distance": pl.Float64, "height": pl.Float64},
+        orient="row",
+    )
+    counts = count_stations_in_reach(df_stations_ranked, parameters, Settings(), INTERPOLATABLE)
+    assert set(counts) == {("daily", "climate_summary", "temperature_air_mean_2m")}
+
+
+def test_report_height_exclusions_names_the_uncertain_losses_beside_the_certain_one(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A parameter that kept a station is still named when another is refused outright.
+
+    The exception speaks only for what is certain, so a parameter emptied under the weaker light
+    would otherwise go unmentioned altogether -- the warning branch having been passed over on the
+    way to the refusal.
+    """
+    from wetterdienst.core.util import _ParameterData, report_height_exclusions  # noqa: PLC0415
+    from wetterdienst.exceptions import NoStationsWithHeightError  # noqa: PLC0415
+
+    maximum = ("daily", "climate_summary", "temperature_air_max_2m")
+    grid = build_date_grid(Resolution.DAILY, dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2022, 1, 3, tzinfo=UTC))
+    kept = grid.with_columns(pl.Series(station_id, [None, None, None], dtype=pl.Float64) for station_id in "ab")
+    df = _answer((*TEMPERATURE, None), (*maximum, None))
+    with (
+        caplog.at_level(logging.WARNING),
+        pytest.raises(NoStationsWithHeightError, match=r"temperature_air_mean_2m at 200\.0 m"),
+    ):
+        report_height_exclusions(
+            df,
+            {maximum: _ParameterData(kept)},
+            {TEMPERATURE: 5, maximum: 3},
+            200.0,
+            stations_needed=4,
+        )
+    assert "daily/climate_summary/temperature_air_max_2m" in caplog.text
