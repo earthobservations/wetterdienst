@@ -20,6 +20,14 @@ const latitudeInput = ref<string>(modelValue.value.latitude?.toString() ?? '')
 const longitudeInput = ref<string>(modelValue.value.longitude?.toString() ?? '')
 const elevationInput = ref<string>(modelValue.value.elevation?.toString() ?? '')
 
+// the station watcher writes the elevation straight into the model, so the box has to follow it
+// or it shows empty while the query carries a height the user cannot see
+watch(() => modelValue.value.elevation, (elevation) => {
+  const shown = elevation?.toString() ?? ''
+  if (shown !== elevationInput.value)
+    elevationInput.value = shown
+})
+
 // Watch inputs and update model
 watch([latitudeInput, longitudeInput, elevationInput], ([lat, lon, elevation]) => {
   const latNum = Number.parseFloat(lat)
@@ -44,8 +52,9 @@ watch(selectedStation, (station) => {
     latitude: station?.latitude,
     longitude: station?.longitude,
     // a station names its altitude as well as its position, which is the height the answer is
-    // wanted at when the point is given as a station
-    elevation: station?.height,
+    // wanted at when the point is given as a station -- except where the provider reports no
+    // height for it, and several report none at all, where there is nothing to name
+    elevation: station?.height ?? undefined,
   }
 })
 

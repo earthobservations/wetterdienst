@@ -107,6 +107,8 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
         q.lat = stationSel.interpolation.latitude.toString()
       if (stationSel.interpolation.longitude !== undefined)
         q.lon = stationSel.interpolation.longitude.toString()
+      if (stationSel.interpolation.elevation !== undefined)
+        q.elevation = stationSel.interpolation.elevation.toString()
     }
     else if (stationSel.interpolation.station) {
       q.interpolationStation = stationSel.interpolation.station.station_id
@@ -369,6 +371,7 @@ const lastFetchedParams = ref<{
   stations: string
   interpolationLat?: number
   interpolationLon?: number
+  interpolationElevation?: number
   startDate?: string
   endDate?: string
   settings: string
@@ -402,6 +405,7 @@ const canFetch = computed(() => {
         : '',
       interpolationLat: ss.interpolation.latitude,
       interpolationLon: ss.interpolation.longitude,
+      interpolationElevation: ss.interpolation.elevation,
       startDate: ss.dateRange.startDate,
       endDate: ss.dateRange.endDate,
       settings: JSON.stringify(dataSettings.value),
@@ -417,6 +421,7 @@ const canFetch = computed(() => {
         && currentParams.stations === lastFetchedParams.value.stations
         && currentParams.interpolationLat === lastFetchedParams.value.interpolationLat
         && currentParams.interpolationLon === lastFetchedParams.value.interpolationLon
+        && currentParams.interpolationElevation === lastFetchedParams.value.interpolationElevation
         && currentParams.startDate === lastFetchedParams.value.startDate
         && currentParams.endDate === lastFetchedParams.value.endDate
         && currentParams.settings === lastFetchedParams.value.settings
