@@ -431,10 +431,10 @@ async function downloadValues(format: string, extension: string) {
     const interp = ss.interpolation
     if (interp?.latitude !== undefined)
       params.set('latitude', interp.latitude.toString())
-    if (interp?.elevation !== undefined)
-      params.set('elevation', interp.elevation.toString())
     if (interp?.longitude !== undefined)
       params.set('longitude', interp.longitude.toString())
+    if (interp?.elevation !== undefined)
+      params.set('elevation', interp.elevation.toString())
     // Add interpolation settings
     params.set('use_nearby_station_distance', props.settings.useNearbyStationDistance.toString())
     const stationDistance = Object.entries(props.settings.useStationDistancePerParameter)
@@ -458,10 +458,10 @@ async function downloadValues(format: string, extension: string) {
     const interp = ss.interpolation
     if (interp?.latitude !== undefined)
       params.set('latitude', interp.latitude.toString())
-    if (interp?.elevation !== undefined)
-      params.set('elevation', interp.elevation.toString())
     if (interp?.longitude !== undefined)
       params.set('longitude', interp.longitude.toString())
+    if (interp?.elevation !== undefined)
+      params.set('elevation', interp.elevation.toString())
     // Add summary settings (uses same settings as interpolation)
     params.set('use_nearby_station_distance', props.settings.useNearbyStationDistance.toString())
     const stationDistance = Object.entries(props.settings.useStationDistancePerParameter)

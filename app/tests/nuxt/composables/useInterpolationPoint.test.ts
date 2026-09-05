@@ -93,6 +93,17 @@ describe('the point an interpolation answers for', () => {
     expect(wrapper.vm.modelValue.longitude).toBe(8)
   })
 
+  it('refuses a number no answer can be given for', async () => {
+    // `1e400` parses to Infinity, which would travel into the model, into a shared link and on to
+    // the API. The explorer's own query parser rejects it; the boxes have to agree
+    const wrapper = await mountSuspended(harness())
+    wrapper.vm.latitudeInput = '1e400'
+    wrapper.vm.elevationInput = '1e400'
+    await settle()
+    expect(wrapper.vm.modelValue.latitude).toBeUndefined()
+    expect(wrapper.vm.modelValue.elevation).toBeUndefined()
+  })
+
   it('clears the elevation when its box is emptied', async () => {
     const wrapper = await mountSuspended(harness({ elevation: 250 }))
     wrapper.vm.elevationInput = ''

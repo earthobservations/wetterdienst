@@ -22,7 +22,8 @@ Types of changes:
   sea level, beside the coordinates. Air temperature falls about 0.65 K per 100 m, so a point in a
   valley and one on the ridge above it get different answers from the same stations; left empty,
   the readings are used as they come. Choosing the point by station fills it with that station's
-  own height, a station naming its altitude as well as its position
+  own height, a station naming its altitude as well as its position, and the field is shown either
+  way so that a height is never carried without being seen
 
 ### Fixed
 

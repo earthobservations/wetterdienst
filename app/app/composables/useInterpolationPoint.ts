@@ -9,7 +9,21 @@ import type { InterpolationSelection } from '~/types/station-selection-state.typ
  * this, and getting it wrong is quiet -- a query that carries a height the form does not show, or
  * a station whose coordinates are cleared by an elevation arriving after them.
  */
+/**
+ * Read a box as the number it names, or nothing.
+ *
+ * Finite, not merely not-NaN: `1e400` parses to Infinity, which would travel into the model, into
+ * a shared link, and on to an API that can give no answer for it.
+ */
+function numberFromBox(value: string | number): number | undefined {
+  const parsed = Number.parseFloat(String(value))
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
+  // `string`, which is what `UInput` declares its model to be -- though one of type number writes
+  // a number back through it at runtime, so everything reading a box says which it wants rather
+  // than trusting the annotation
   const latitudeInput = ref<string>(modelValue.value.latitude?.toString() ?? '')
   const longitudeInput = ref<string>(modelValue.value.longitude?.toString() ?? '')
   const elevationInput = ref<string>(modelValue.value.elevation?.toString() ?? '')
@@ -20,7 +34,9 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
   // the other box, still empty, and wipe a coordinate nobody had touched
   function follow(box: Ref<string>, value: number | undefined) {
     const shown = value?.toString() ?? ''
-    if (shown !== box.value)
+    // against the box as text: it may hold a number, and `'1000' !== 1000` would write on every
+    // change, each write firing the box's own watcher again
+    if (shown !== String(box.value))
       box.value = shown
   }
   watch(() => modelValue.value.latitude, latitude => follow(latitudeInput, latitude))
@@ -31,19 +47,16 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
   // them, which in station mode is nothing, so writing all three together let an elevation arriving
   // from a station take that station's coordinates out with it
   watch([latitudeInput, longitudeInput], ([latitude, longitude]) => {
-    const latitudeNumber = Number.parseFloat(latitude)
-    const longitudeNumber = Number.parseFloat(longitude)
     modelValue.value = {
       ...modelValue.value,
-      latitude: Number.isNaN(latitudeNumber) ? undefined : latitudeNumber,
-      longitude: Number.isNaN(longitudeNumber) ? undefined : longitudeNumber,
+      latitude: numberFromBox(latitude),
+      longitude: numberFromBox(longitude),
     }
   })
 
   watch(elevationInput, (elevation) => {
-    const elevationNumber = Number.parseFloat(elevation)
     // optional: left empty, the readings are interpolated as they come
-    const parsed = Number.isNaN(elevationNumber) ? undefined : elevationNumber
+    const parsed = numberFromBox(elevation)
     if (parsed !== modelValue.value.elevation)
       modelValue.value = { ...modelValue.value, elevation: parsed }
   })
