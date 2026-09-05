@@ -124,7 +124,12 @@ def can_answer_at_height(station_height: float | None, lapse_rate: float | None,
     return not (target_height is not None and lapse_rate and station_height is None)
 
 
-def collection_is_done(param_dict: dict, dropped_for_height: set[tuple[str, str, str]]) -> bool:
+def collection_is_done(
+    param_dict: dict,
+    dropped_for_height: set[tuple[str, str, str]],
+    *,
+    heights_in_reach: bool,
+) -> bool:
     """Whether every parameter has the stations it needs, so the walk down the ranking can stop.
 
     A parameter every station so far was turned away from for having no height never opened an
@@ -132,18 +137,26 @@ def collection_is_done(param_dict: dict, dropped_for_height: set[tuple[str, str,
     report it as unanswerable while a station further out, still inside the radius, has a height
     and could have answered it -- so a parameter that lost a station and has yet to take one keeps
     the walk going.
+
+    Unless no station in reach reports a height at all, which is what FMI, IPMA and the Environment
+    Agency publish: there is nothing to walk towards then, and holding the walk open would query
+    every station within the radius -- hundreds, for a provider that size -- to arrive at the same
+    answer the fourth station already gave.
     """
     return (
         bool(param_dict)
         and all(param_data.finished for param_data in param_dict.values())
-        and not dropped_for_height.difference(param_dict)
+        and (not heights_in_reach or not dropped_for_height.difference(param_dict))
     )
 
 
 def report_height_exclusions(
     df: pl.DataFrame,
+    param_dict: dict,
     dropped_for_height: set[tuple[str, str, str]],
     elevation: float | None,
+    *,
+    stations_needed: int,
 ) -> None:
     """Say what asking about a height cost, once the answer is in.
 
@@ -161,12 +174,18 @@ def report_height_exclusions(
     which is the silent empty result this is here to do away with.
 
     A parameter some other station answered is not reported at all: a station turned away where
-    the rest sufficed cost the answer nothing.
+    the rest sufficed cost the answer nothing. Nor is one the exclusions cannot be blamed for --
+    a parameter that kept the stations its calculation asks for and still came back null failed on
+    the geometry of where they stand or on the data they hold, and telling such a caller to ask
+    without an elevation would send them back for the same nulls under a wrong diagnosis.
 
     Args:
         df: the interpolated or summarized frame, before any nulls are dropped from it
+        param_dict: the parameters that were collected, each holding the columns it took
         dropped_for_height: the parameters that lost a station for having no height
         elevation: the height that was asked about
+        stations_needed: how many stations the calculation wants before it can answer -- four
+            surrounding the point for an interpolation, one for a summary
 
     Raises:
         NoStationsWithHeightError: where nothing was answered at all, there being no result for a
@@ -176,7 +195,12 @@ def report_height_exclusions(
     if not dropped_for_height:
         return
     answered = set(df.drop_nulls("value").select("resolution", "dataset", "parameter").unique().iter_rows())
-    emptied = sorted(dropped_for_height - answered)
+    emptied = sorted(
+        param_key
+        for param_key in dropped_for_height - answered
+        # minus the date column the values are laid on
+        if (param_dict[param_key].values.width - 1 if param_key in param_dict else 0) < stations_needed
+    )
     if not emptied:
         return
     listing = ", ".join("/".join(param_key) for param_key in emptied)

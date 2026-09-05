@@ -31,6 +31,9 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# a summary answers with one station's reading, so one is all it wants
+STATIONS_NEEDED = 1
+
 
 def get_summarized_df(
     request: TimeseriesRequest,
@@ -49,10 +52,14 @@ def get_summarized_df(
     Returns:
         Summarized DataFrame
 
+    Raises:
+        NoStationsWithHeightError: where an elevation is asked about and leaving out the stations
+            of unknown height leaves nothing that can answer it
+
     """
     stations_dict, param_dict, dropped_for_height = request_stations(request, latitude, longitude, elevation)
     df = calculate_summary(stations_dict, param_dict)
-    report_height_exclusions(df, dropped_for_height, elevation)
+    report_height_exclusions(df, param_dict, dropped_for_height, elevation, stations_needed=STATIONS_NEEDED)
     return df
 
 
@@ -91,6 +98,9 @@ def request_stations(
     # so a multi-dataset request has several rows for one station, each with the coordinates and
     # distance its own dataset's meta index reported. `query()` yields one result per station, and
     # the row that answers for it is the closest one rather than whichever happened to sort last
+    # asked once, as in `interpolate.request_stations`: a provider that reports no height for any
+    # station has nothing for the walk to hold out for
+    heights_in_reach = df_stations_ranked.get_column("height").null_count() < df_stations_ranked.height
     stations_by_id = {
         station["station_id"]: station
         for station in df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True).iter_rows(
@@ -107,7 +117,7 @@ def request_stations(
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
         # check if all parameters found enough stations and the stations build a valid station group
-        if collection_is_done(param_dict, dropped_for_height):
+        if collection_is_done(param_dict, dropped_for_height, heights_in_reach=heights_in_reach):
             break
         if result.df.drop_nulls("value").is_empty():
             continue
