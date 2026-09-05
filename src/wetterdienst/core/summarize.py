@@ -11,6 +11,7 @@ import polars as pl
 from tqdm import tqdm
 
 from wetterdienst.core.util import (
+    DroppedForHeight,
     can_answer_at_height,
     collection_is_done,
     count_stations_in_reach,
@@ -72,7 +73,7 @@ def request_stations(
     latitude: float,
     longitude: float,
     elevation: float | None = None,
-) -> tuple[dict, dict, dict[tuple[str, str, str], int]]:
+) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForHeight]]:
     """Request stations.
 
     A summary answers with one station's reading rather than a blend of several, so a height
@@ -81,7 +82,7 @@ def request_stations(
     """
     param_dict = {}
     stations_dict = {}
-    dropped_for_height: dict[tuple[str, str, str], int] = {}
+    dropped_for_height: dict[tuple[str, str, str], DroppedForHeight] = {}
     settings = cast("Settings", request.settings)
     # the widest radius any requested parameter may draw on, as in `interpolate.request_stations`.
     # `max(...values())` used to stand here, which is the widest radius of the *populated* keys --
@@ -156,7 +157,7 @@ def apply_station_values_per_parameter(
     station: dict,
     elevation: float | None = None,
     *,
-    dropped_for_height: dict[tuple[str, str, str], int],
+    dropped_for_height: dict[tuple[str, str, str], DroppedForHeight],
 ) -> bool:
     """Apply station values per parameter.
 
@@ -206,7 +207,11 @@ def apply_station_values_per_parameter(
             )
             # noted, not only logged: where this empties a parameter the caller is owed the
             # reason, and a log line is the one place a caller cannot read it from
-            dropped_for_height[param_key] = dropped_for_height.get(param_key, 0) + 1
+            lost = dropped_for_height.get(param_key)
+            dropped_for_height[param_key] = DroppedForHeight(
+                count=lost.count + 1 if lost else 1,
+                nearest=min(lost.nearest, station["distance"]) if lost else station["distance"],
+            )
             continue
         # cast, not parsed: the request declares its dates as `str | datetime | None` because
         # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`

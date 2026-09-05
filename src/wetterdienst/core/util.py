@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple, cast
 
@@ -135,6 +136,15 @@ def can_answer_at_height(station_height: float | None, lapse_rate: float | None,
     return not (target_height is not None and lapse_rate and station_height is None)
 
 
+class DroppedForHeight(NamedTuple):
+    """What a parameter lost to stations of unknown height, and how near the nearest of them was."""
+
+    count: int
+    #: distance of the nearest station turned away, in km. A station inside the nearby-station
+    #: distance answers on its own, so what it cost is not the four a hull wants but the one it was
+    nearest: float = math.inf
+
+
 class StationsInReach(NamedTuple):
     """What a parameter has inside its own radius, read off the ranking before any download."""
 
@@ -177,11 +187,14 @@ def count_stations_in_reach(
         # ranking carries a row per station *and* dataset, and two dataset indexes can disagree
         # about a station's height. Taking whichever row sorted last would answer "is there a
         # height in reach" differently from the station the walk actually reads
-        in_radius = df_stations_ranked.filter(pl.col("distance").le(radius)).unique(
-            subset=["station_id"],
-            keep="first",
-            maintain_order=True,
-        )
+        # by dataset as well as by distance: the ranking carries a row per station *and* dataset,
+        # so a station that stands in another dataset's index and reports a height there would
+        # otherwise count towards this parameter, which it can never answer
+        in_radius = df_stations_ranked.filter(
+            pl.col("resolution").eq(dataset.resolution.name),
+            pl.col("dataset").eq(dataset.name),
+            pl.col("distance").le(radius),
+        ).unique(subset=["station_id"], keep="first", maintain_order=True)
         with_height = in_radius.drop_nulls("height")
         furthest = with_height.get_column("distance").max()
         counts[(dataset.resolution.name, dataset.name, parameter.name)] = StationsInReach(
@@ -281,10 +294,11 @@ def collection_is_done(param_dict: dict, waiting_on: set[tuple[str, str, str]]) 
 def report_height_exclusions(
     df: pl.DataFrame,
     param_dict: dict,
-    dropped_for_height: dict[tuple[str, str, str], int],
+    dropped_for_height: dict[tuple[str, str, str], DroppedForHeight],
     elevation: float | None,
     *,
     stations_needed: int,
+    nearby_station_distance: float | None = None,
 ) -> None:
     """Say what asking about a height cost, once the answer is in.
 
@@ -326,6 +340,8 @@ def report_height_exclusions(
         elevation: the height that was asked about
         stations_needed: how many stations the calculation wants before it can answer -- four
             surrounding the point for an interpolation, one for a summary
+        nearby_station_distance: how near a station has to stand to answer on its own, where the
+            calculation has such a shortcut, so that turning one away costs one station and not four
 
     Raises:
         NoStationsWithHeightError: where nothing was answered at all and a parameter took not one
@@ -335,14 +351,23 @@ def report_height_exclusions(
     if not dropped_for_height:
         return
     answered = set(df.drop_nulls("value").select("resolution", "dataset", "parameter").unique().iter_rows())
+
+    def needed_for(dropped: DroppedForHeight) -> int:
+        # an interpolation answers from a single station standing near enough to the point, without
+        # the four a hull wants around it -- so where such a station was turned away for its height,
+        # one is what the exclusions cost and four would be the wrong bar to hold them to
+        if nearby_station_distance is not None and dropped.nearest <= nearby_station_distance:
+            return 1
+        return stations_needed
+
     emptied = sorted(
         param_key
         for param_key, dropped in dropped_for_height.items()
         # minus the date column the values are laid on
         if param_key not in answered
         and (kept := param_dict[param_key].values.width - 1 if param_key in param_dict else 0)
-        < stations_needed
-        <= kept + dropped
+        < needed_for(dropped)
+        <= kept + dropped.count
     )
     if not emptied:
         return
@@ -353,9 +378,11 @@ def report_height_exclusions(
     # refusing on that takes a frame away from a caller over a reason that may not be theirs
     took_nothing = [param_key for param_key in emptied if param_key not in param_dict]
     if answered or not took_nothing:
+        # only where something was answered is there a rest of the result to stand
+        stands = "; the rest of the result stands" if answered else ""
         log.warning(
             f"leaving out the stations of unknown height leaves nothing that can answer {listing} "
-            f"at {elevation} m; the rest of the result stands",
+            f"at {elevation} m{stands}",
         )
         return
     # the ones that kept a station are the same loss under a weaker light, and the exception speaks

@@ -19,6 +19,7 @@ from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
 from wetterdienst.core.util import (
+    DroppedForHeight,
     can_answer_at_height,
     collection_is_done,
     count_stations_in_reach,
@@ -83,7 +84,14 @@ def get_interpolated_df(
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
     # after the frame is built, not before: a parameter the exclusions left with three stations
     # holds columns and still interpolates to nothing, and only the frame knows that
-    report_height_exclusions(df, param_dict, dropped_for_height, elevation, stations_needed=STATIONS_NEEDED)
+    report_height_exclusions(
+        df,
+        param_dict,
+        dropped_for_height,
+        elevation,
+        stations_needed=STATIONS_NEEDED,
+        nearby_station_distance=settings.ts_geo_use_nearby_station_distance,
+    )
     return df
 
 
@@ -94,7 +102,7 @@ def request_stations(
     utm_x: float,
     utm_y: float,
     elevation: float | None = None,
-) -> tuple[dict, dict, dict[tuple[str, str, str], int]]:
+) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForHeight]]:
     """Request the stations for the interpolation.
 
     Args:
@@ -112,7 +120,7 @@ def request_stations(
     """
     param_dict = {}
     stations_dict = {}
-    dropped_for_height: dict[tuple[str, str, str], int] = {}
+    dropped_for_height: dict[tuple[str, str, str], DroppedForHeight] = {}
     settings = cast("Settings", request.settings)
     max_interp_distance = max(
         settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
@@ -195,7 +203,7 @@ def apply_station_values_per_parameter(
     station: dict,
     elevation: float | None = None,
     *,
-    dropped_for_height: dict[tuple[str, str, str], int],
+    dropped_for_height: dict[tuple[str, str, str], DroppedForHeight],
     valid_station_groups_exists: bool,
 ) -> bool:
     """Apply the station values to the parameter data.
@@ -255,7 +263,11 @@ def apply_station_values_per_parameter(
             )
             # noted, not only logged: where this empties a parameter the caller is owed the
             # reason, and a log line is the one place a caller cannot read it from
-            dropped_for_height[param_key] = dropped_for_height.get(param_key, 0) + 1
+            lost = dropped_for_height.get(param_key)
+            dropped_for_height[param_key] = DroppedForHeight(
+                count=lost.count + 1 if lost else 1,
+                nearest=min(lost.nearest, station["distance"]) if lost else station["distance"],
+            )
             continue
         # cast, not parsed: the request declares its dates as `str | datetime | None` because
         # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`
