@@ -24,6 +24,14 @@ const selectedStation = ref<Station | undefined>(modelValue.value.station)
 
 watch(selectedStation, fromStation)
 
+// the parent replaces the whole model when the provider or dataset changes, which clears the
+// station -- and a select still holding the old one would write it back, coordinates, height and
+// all, for a station the new dataset may not have
+watch(() => modelValue.value.station, (station) => {
+  if (station !== selectedStation.value)
+    selectedStation.value = station
+})
+
 // Fetch stations for station source
 const { data: stationsData, pending: stationsPending, refresh: refreshStations } = useFetch<StationsResponse>(
   '/api/stations',
@@ -76,8 +84,9 @@ function setSource(source: InterpolationSource) {
   // source change was being undone by the elevation change that followed it
   modelValue.value = source === 'station'
     // back to the station still in the select: it names its height again, where the watcher below
-    // stays silent, the selection itself not having changed
-    ? { ...modelValue.value, source, ...pointFromStation(selectedStation.value) }
+    // stays silent, the selection itself not having changed. With nothing selected it says
+    // nothing -- taking its empty answer would clear coordinates someone had just typed
+    ? { ...modelValue.value, source, ...(selectedStation.value ? pointFromStation(selectedStation.value) : {}) }
     // the elevation came from wherever the point did, so it goes with it
     : { ...modelValue.value, source, elevation: undefined }
 }

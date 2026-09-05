@@ -62,21 +62,6 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
   })
 
   /**
-   * Forget the elevation, and only that.
-   *
-   * Used where the elevation alone changes; a source change puts it into the one assignment that
-   * changes the source, two writes in a tick losing the first.
-   *
-   * Filled from a station it belongs to that station, and carrying it into a hand-typed point
-   * elsewhere reduces every reading to a height the point does not have -- a summit's 1000 m
-   * against a city at 34 m is six degrees of air temperature. The coordinates are left alone: they
-   * are what the manual boxes are about to describe.
-   */
-  function forgetElevation() {
-    modelValue.value = { ...modelValue.value, elevation: undefined }
-  }
-
-  /**
    * What a station says about the point: its position, and its altitude where the provider
    * reports one.
    *
@@ -98,5 +83,5 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
     modelValue.value = { ...modelValue.value, ...pointFromStation(station) }
   }
 
-  return { latitudeInput, longitudeInput, elevationInput, fromStation, pointFromStation, forgetElevation }
+  return { latitudeInput, longitudeInput, elevationInput, fromStation, pointFromStation }
 }

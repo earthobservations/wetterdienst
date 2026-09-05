@@ -93,20 +93,6 @@ describe('the point an interpolation answers for', () => {
     expect(wrapper.vm.modelValue.longitude).toBe(8)
   })
 
-  it('forgets a station\'s height when the point is described afresh', async () => {
-    // pick a summit, then switch to typing coordinates: carrying its 1000 m into a city at 34 m
-    // reduces every reading to a height the point does not have, six degrees of air temperature
-    const wrapper = await mountSuspended(harness({ source: 'station' }))
-    wrapper.vm.fromStation(station as never)
-    await settle()
-    expect(wrapper.vm.modelValue.elevation).toBe(1000)
-
-    wrapper.vm.forgetElevation()
-    await settle()
-    expect(wrapper.vm.modelValue.elevation).toBeUndefined()
-    expect(wrapper.vm.elevationInput).toBe('')
-  })
-
   it('refuses a number no answer can be given for', async () => {
     // `1e400` parses to Infinity, which would travel into the model, into a shared link and on to
     // the API. The explorer's own query parser rejects it; the boxes have to agree

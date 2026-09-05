@@ -1,4 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { flushPromises } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
@@ -37,7 +38,8 @@ async function selection(source: 'manual' | 'station') {
       'onUpdate:modelValue': (value: Record<string, unknown>) => { model.value = value },
     }),
   }), { attachTo: document.body })
-  await new Promise(resolve => setTimeout(resolve, 20))
+  // the tests assign the station directly, so nothing waits on the station list
+  await flushPromises()
   const inner = wrapper.findComponent(InterpolationSummarySelection)
   return { wrapper, model, vm: inner.vm as any }
 }
@@ -61,6 +63,38 @@ describe('choosing the point an interpolation answers for', () => {
     vm.setSource('station')
     await settle()
     expect(model.value.elevation).toBe(1000)
+  })
+
+  it('keeps hand-typed coordinates when the station source has nothing to offer', async () => {
+    // clicking through to the station list and back was taking the empty answer of a select with
+    // nothing chosen in it, and clearing coordinates someone had just typed
+    const { model, vm } = await selection('manual')
+    vm.latitudeInput = '52.52'
+    vm.longitudeInput = '13.40'
+    await settle()
+    expect(model.value.latitude).toBe(52.52)
+
+    vm.setSource('station')
+    await settle()
+    vm.setSource('manual')
+    await settle()
+    expect(model.value.latitude).toBe(52.52)
+    expect(model.value.longitude).toBe(13.4)
+  })
+
+  it('lets go of a station the parent has cleared', async () => {
+    // a provider or dataset change replaces the whole model, and a select still holding the old
+    // station would write it back for a dataset that may not have it
+    const { model, vm } = await selection('station')
+    vm.selectedStation = feldberg
+    await settle()
+    expect(model.value.station).toBeTruthy()
+
+    model.value = { source: 'manual' }
+    await settle()
+    vm.setSource('station')
+    await settle()
+    expect(model.value.station).toBeUndefined()
   })
 
   it('names the station\'s height again on returning to it', async () => {
