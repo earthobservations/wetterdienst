@@ -796,7 +796,7 @@ def test_interpolation_at_an_elevation_none_of_the_stations_can_answer(
     monkeypatch.setattr(TimeseriesValues, "query", counting_query)
     with pytest.raises(
         NoStationsWithHeightError,
-        match=r"nothing that can answer daily/climate_summary/temperature_air_mean_2m at 200\.0 m",
+        match=r"nothing can be brought to 200\.0 m for daily/climate_summary/temperature_air_mean_2m",
     ):
         request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
     # and not one station's values were fetched to arrive at that: the ranking already said no
@@ -827,7 +827,9 @@ def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
     _blank_station_heights(monkeypatch, pl.lit(value=False))
     with caplog.at_level(logging.WARNING):
         values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
-    assert values.df.get_column("parameter").unique().to_list() == ["precipitation_height"]
+    # of the values that are there, not of the rows: a parameter with a station collected for it
+    # gets rows either way, so this is what says the other parameter really was answered
+    assert values.df.drop_nulls("value").get_column("parameter").unique().to_list() == ["precipitation_height"]
     assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
 
 

@@ -25,6 +25,15 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+#: what a caller can do about a height nothing in reach can be brought to. By coordinates,
+#: because a request named by a station id answers at that station's own height and so has no
+#: form that asks about no height at all
+_ASK_INSTEAD = (
+    "Ask by coordinates and without an elevation to take each station's readings as they came "
+    "-- naming a station id instead asks at that station's own height -- or use a provider that "
+    "publishes the heights of its stations."
+)
+
 
 @dataclass
 class _ParameterData:
@@ -215,6 +224,26 @@ def parameters_still_in_reach(
     }
 
 
+def no_height_in_reach_error(
+    unanswerable: set[tuple[str, str, str]],
+    elevation: float | None,
+) -> NoStationsWithHeightError:
+    """Refuse a request no station in reach reports a height for, before anything is downloaded.
+
+    A claim of its own, and one the ranking alone can make: not one station near the point says how
+    high it stands, so no reading can be brought to the height asked about, whatever those stations
+    hold. It is deliberately not the claim `report_height_exclusions` makes -- that one weighs how
+    many stations held the parameter, which is knowable only by downloading them, and downloading
+    every station in the radius to say what the ranking already said is what this avoids.
+    """
+    listing = ", ".join("/".join(param_key) for param_key in sorted(unanswerable))
+    msg = (
+        f"no station near the point reports a height of its own, so nothing can be brought to "
+        f"{elevation} m for {listing}. {_ASK_INSTEAD}"
+    )
+    return NoStationsWithHeightError(msg)
+
+
 def collection_is_done(param_dict: dict, waiting_on: set[tuple[str, str, str]]) -> bool:
     """Whether every parameter has the stations it needs, so the walk down the ranking can stop.
 
@@ -269,6 +298,12 @@ def report_height_exclusions(
     is sent back for, and where that is still short of what the calculation needs it is not an
     answer at all.
 
+    Counting is as far as this goes, and it errs towards saying nothing. Four stations standing
+    together on one side of the point interpolate to nothing, so an exclusion that left the four
+    surrounding ones out really was the cause and goes unreported -- but telling that case apart
+    wants a hull test per parameter, and a wrong accusation sends the caller back for the same
+    nulls under a reason that is not theirs. Silence is the cheaper mistake of the two.
+
     Args:
         df: the interpolated or summarized frame, before any nulls are dropped from it
         param_dict: the parameters that were collected, each holding the columns it took
@@ -305,9 +340,7 @@ def report_height_exclusions(
         return
     msg = (
         f"leaving out the stations of unknown height leaves nothing that can answer {listing} at "
-        f"{elevation} m. Ask by coordinates and without an elevation to take each station's "
-        f"readings as they came -- naming a station id instead asks at that station's own height "
-        f"-- or use a provider that publishes the heights of its stations."
+        f"{elevation} m. {_ASK_INSTEAD}"
     )
     raise NoStationsWithHeightError(msg)
 

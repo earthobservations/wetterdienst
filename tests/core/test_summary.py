@@ -170,7 +170,7 @@ def test_summary_at_an_elevation_none_of_the_stations_can_answer(
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_heights)
     with pytest.raises(
         NoStationsWithHeightError,
-        match=r"nothing that can answer daily/climate_summary/temperature_air_mean_2m at 200\.0 m",
+        match=r"nothing can be brought to 200\.0 m for daily/climate_summary/temperature_air_mean_2m",
     ):
         request.summarize(latlon=(47.48, 11.06), elevation=200.0)
     # and without an elevation the same stations answer as they always did

@@ -395,3 +395,21 @@ def test_parameters_still_in_reach_stops_at_the_last_station_that_has_a_height()
     assert parameters_still_in_reach(counts, 8.0) == {TEMPERATURE, PRECIPITATION}
     assert parameters_still_in_reach(counts, 20.0) == {PRECIPITATION}
     assert parameters_still_in_reach(counts, 31.0) == set()
+
+
+def test_no_height_in_reach_error_says_what_the_ranking_alone_can_say() -> None:
+    """The refusal that costs no download claims only what the station list shows.
+
+    Not one station near the point says how high it stands, so no reading can be brought to the
+    height asked about -- true whether or not those stations hold the parameter, which is the
+    difference between this and the report that follows a walk.
+    """
+    from wetterdienst.core.util import no_height_in_reach_error  # noqa: PLC0415
+
+    error = no_height_in_reach_error({TEMPERATURE, PRECIPITATION}, 200.0)
+    assert "no station near the point reports a height of its own" in str(error)
+    assert "nothing can be brought to 200.0 m" in str(error)
+    # both parameters named, in a settled order
+    assert "daily/climate_summary/precipitation_height, daily/climate_summary/temperature_air_mean_2m" in str(error)
+    # and the remedy that applies to a request named by a station id as much as one by coordinates
+    assert "naming a station id instead asks at that station's own height" in str(error)

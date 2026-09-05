@@ -16,6 +16,7 @@ from wetterdienst.core.util import (
     count_stations_in_reach,
     extract_station_values,
     lapse_rate_for,
+    no_height_in_reach_error,
     open_parameter_data,
     parameters_still_in_reach,
     reduce_to_height,
@@ -106,9 +107,9 @@ def request_stations(
     counts = count_stations_in_reach(df_stations_ranked, request.parameters, settings)
     unanswerable = unanswerable_at_height(counts, elevation)
     if unanswerable and unanswerable == set(counts):
-        # no station in reach can be brought to the height asked about, and every parameter wants
-        # to be: there is nothing a download could add, so the report speaks for the whole request
-        return stations_dict, param_dict, {key: counts[key].total for key in unanswerable}
+        # every parameter asked for falls with height and not one station in reach reports one:
+        # true of the request whatever the stations hold, so it is said without downloading them
+        raise no_height_in_reach_error(unanswerable, elevation)
     stations_by_id = {
         station["station_id"]: station
         for station in df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True).iter_rows(

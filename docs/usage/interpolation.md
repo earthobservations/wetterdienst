@@ -144,7 +144,9 @@ rather than contributing at its own altitude while its neighbours are moved.
 Where that leaves nothing that can answer — every station of a few providers reports no height,
 FMI's, IPMA's and the Environment Agency's among them, and an interpolation wants four of known
 height that surround the point — the request is refused rather than answered empty:
-`NoStationsWithHeightError` names the parameters left unanswered. Asking by coordinates and
+`NoStationsWithHeightError` names the parameters left unanswered. Where not one station near the
+point reports a height, the request is refused off the station list alone, without downloading a
+single reading -- nothing there can be brought to another height whatever it holds. Asking by coordinates and
 without an elevation takes each station's readings as they came; a request named by a station id
 answers at that station's own height, so it has no form that asks about no height at all. A
 parameter left unanswered beside one that still answered is a warning in the log instead, the rest
