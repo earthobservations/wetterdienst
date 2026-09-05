@@ -17,7 +17,7 @@ const sourceOptions = computed(() => [
 
 // the point, and the boxes that describe it -- see `useInterpolationPoint` for why the coordinates
 // and the elevation are kept apart
-const { latitudeInput, longitudeInput, elevationInput, fromStation, forgetPoint } = useInterpolationPoint(modelValue)
+const { latitudeInput, longitudeInput, elevationInput, fromStation, pointFromStation } = useInterpolationPoint(modelValue)
 
 // For station selection
 const selectedStation = ref<Station | undefined>(modelValue.value.station)
@@ -67,12 +67,19 @@ watch(() => props.parameterSelection, () => {
 }, { deep: true, immediate: true })
 
 function setSource(source: InterpolationSource) {
-  modelValue.value = {
-    ...modelValue.value,
-    source,
-  }
-  // the elevation came from wherever the point did, so it goes with it
-  forgetPoint()
+  // clicking the source already in use is not a change, and treating it as one dropped the height
+  // of a station that stayed selected -- the form unchanged on screen, the next answer
+  // uncorrected, which at 1000 m is six degrees of air temperature
+  if (source === modelValue.value.source)
+    return
+  // one assignment: a second write in the same tick spreads the model the first replaced, and the
+  // source change was being undone by the elevation change that followed it
+  modelValue.value = source === 'station'
+    // back to the station still in the select: it names its height again, where the watcher below
+    // stays silent, the selection itself not having changed
+    ? { ...modelValue.value, source, ...pointFromStation(selectedStation.value) }
+    // the elevation came from wherever the point did, so it goes with it
+    : { ...modelValue.value, source, elevation: undefined }
 }
 
 // Display coordinates

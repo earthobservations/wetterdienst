@@ -62,20 +62,30 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
   })
 
   /**
-   * Forget the point, the source having changed.
+   * Forget the elevation, and only that.
    *
-   * The elevation especially: filled from a station, it belongs to that station, and carrying it
-   * into a hand-typed point elsewhere reduces every reading to a height the point does not have
-   * -- a summit's 1000 m against a city at 34 m is six degrees of air temperature.
+   * Used where the elevation alone changes; a source change puts it into the one assignment that
+   * changes the source, two writes in a tick losing the first.
+   *
+   * Filled from a station it belongs to that station, and carrying it into a hand-typed point
+   * elsewhere reduces every reading to a height the point does not have -- a summit's 1000 m
+   * against a city at 34 m is six degrees of air temperature. The coordinates are left alone: they
+   * are what the manual boxes are about to describe.
    */
-  function forgetPoint() {
+  function forgetElevation() {
     modelValue.value = { ...modelValue.value, elevation: undefined }
   }
 
-  /** Take the point from a station: its position, and its altitude where the provider reports one. */
-  function fromStation(station: Station | undefined) {
-    modelValue.value = {
-      ...modelValue.value,
+  /**
+   * What a station says about the point: its position, and its altitude where the provider
+   * reports one.
+   *
+   * Given apart from the writing so that a caller changing something else at the same time can
+   * put both into one assignment -- two writes in a tick have the second spreading a model the
+   * first has already replaced, and the first is lost.
+   */
+  function pointFromStation(station: Station | undefined): Partial<InterpolationSelection> {
+    return {
       station,
       latitude: station?.latitude,
       longitude: station?.longitude,
@@ -83,5 +93,10 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
     }
   }
 
-  return { latitudeInput, longitudeInput, elevationInput, fromStation, forgetPoint }
+  /** Take the point from a station. */
+  function fromStation(station: Station | undefined) {
+    modelValue.value = { ...modelValue.value, ...pointFromStation(station) }
+  }
+
+  return { latitudeInput, longitudeInput, elevationInput, fromStation, pointFromStation, forgetElevation }
 }

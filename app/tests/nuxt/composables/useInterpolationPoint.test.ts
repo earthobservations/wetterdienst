@@ -101,7 +101,7 @@ describe('the point an interpolation answers for', () => {
     await settle()
     expect(wrapper.vm.modelValue.elevation).toBe(1000)
 
-    wrapper.vm.forgetPoint()
+    wrapper.vm.forgetElevation()
     await settle()
     expect(wrapper.vm.modelValue.elevation).toBeUndefined()
     expect(wrapper.vm.elevationInput).toBe('')
