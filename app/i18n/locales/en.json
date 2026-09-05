@@ -512,6 +512,8 @@
     "fromStation": "From station",
     "latitude": "Latitude",
     "longitude": "Longitude",
+    "elevation": "Elevation",
+    "elevationHint": "optional, m above sea level",
     "selectStationForCoords": "Select station for coordinates",
     "selectStation": "Select a station",
     "loadingStations": "Loading stations …",

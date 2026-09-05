@@ -512,6 +512,8 @@
     "fromStation": "Vun enger Statioun",
     "latitude": "Breedegrad",
     "longitude": "Längegrad",
+    "elevation": "Héicht",
+    "elevationHint": "fakultativ, m iwwer dem Mier",
     "selectStationForCoords": "Wielt eng Statioun fir d'Koordinaten",
     "selectStation": "Wielt eng Statioun",
     "loadingStations": "Statioune ginn gelueden …",

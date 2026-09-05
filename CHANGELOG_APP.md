@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Explorer]` An elevation for the point an interpolation or summary answers for, in metres above
+  sea level, beside the coordinates. Air temperature falls about 0.65 K per 100 m, so a point in a
+  valley and one on the ridge above it get different answers from the same stations; left empty,
+  the readings are used as they come. Choosing the point by station fills it with that station's
+  own height, a station naming its altitude as well as its position
+
 ### Fixed
 
 - `[Meteogram]` Wind barbs convert metres per second to knots the way the API does, a knot being a

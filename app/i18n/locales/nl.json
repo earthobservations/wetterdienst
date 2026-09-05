@@ -512,6 +512,8 @@
     "fromStation": "Vanaf een station",
     "latitude": "Breedtegraad",
     "longitude": "Lengtegraad",
+    "elevation": "Hoogte",
+    "elevationHint": "optioneel, m boven zeeniveau",
     "selectStationForCoords": "Selecteer een station voor de coördinaten",
     "selectStation": "Selecteer een station",
     "loadingStations": "Stations laden …",

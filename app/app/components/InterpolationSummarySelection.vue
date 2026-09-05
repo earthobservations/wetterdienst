@@ -18,15 +18,19 @@ const sourceOptions = computed(() => [
 // For manual input
 const latitudeInput = ref<string>(modelValue.value.latitude?.toString() ?? '')
 const longitudeInput = ref<string>(modelValue.value.longitude?.toString() ?? '')
+const elevationInput = ref<string>(modelValue.value.elevation?.toString() ?? '')
 
 // Watch inputs and update model
-watch([latitudeInput, longitudeInput], ([lat, lon]) => {
+watch([latitudeInput, longitudeInput, elevationInput], ([lat, lon, elevation]) => {
   const latNum = Number.parseFloat(lat)
   const lonNum = Number.parseFloat(lon)
+  const elevationNum = Number.parseFloat(elevation)
   modelValue.value = {
     ...modelValue.value,
     latitude: Number.isNaN(latNum) ? undefined : latNum,
     longitude: Number.isNaN(lonNum) ? undefined : lonNum,
+    // optional: left empty, the readings are interpolated as they come
+    elevation: Number.isNaN(elevationNum) ? undefined : elevationNum,
   }
 })
 
@@ -39,6 +43,9 @@ watch(selectedStation, (station) => {
     station,
     latitude: station?.latitude,
     longitude: station?.longitude,
+    // a station names its altitude as well as its position, which is the height the answer is
+    // wanted at when the point is given as a station
+    elevation: station?.height,
   }
 })
 
@@ -137,6 +144,15 @@ const displayCoords = computed(() => {
           placeholder="e.g. 13.4050"
           class="w-full"
           :class="{ 'needs-input': modelValue.longitude === undefined }"
+        />
+      </UFormField>
+      <UFormField :label="t('interpolation.elevation')" :hint="t('interpolation.elevationHint')" class="flex-1">
+        <UInput
+          v-model="elevationInput"
+          type="number"
+          step="1"
+          placeholder="e.g. 34"
+          class="w-full"
         />
       </UFormField>
     </div>

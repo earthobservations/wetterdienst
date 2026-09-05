@@ -24,7 +24,7 @@ const stationSelection = computed(() => {
     return {
       mode: 'station' as const,
       selection: { stations: [] as { station_id: string }[] },
-      interpolation: { source: 'manual' as const, latitude: undefined, longitude: undefined, station: undefined },
+      interpolation: { source: 'manual' as const, latitude: undefined, longitude: undefined, elevation: undefined, station: undefined },
       dateRange: { startDate: undefined, endDate: undefined },
     }
   }
@@ -149,6 +149,7 @@ const apiQuery = computed(() => {
       ...base,
       latitude: interp?.latitude,
       longitude: interp?.longitude,
+      elevation: interp?.elevation,
       use_nearby_station_distance: props.settings.useNearbyStationDistance,
     }
     // Add interpolation station distance if provided (filter out empty values)
@@ -171,6 +172,7 @@ const apiQuery = computed(() => {
       ...base,
       latitude: interp?.latitude,
       longitude: interp?.longitude,
+      elevation: interp?.elevation,
       use_nearby_station_distance: props.settings.useNearbyStationDistance,
     }
     // Add summary station distance if provided (filter out empty values)
@@ -429,6 +431,8 @@ async function downloadValues(format: string, extension: string) {
     const interp = ss.interpolation
     if (interp?.latitude !== undefined)
       params.set('latitude', interp.latitude.toString())
+    if (interp?.elevation !== undefined)
+      params.set('elevation', interp.elevation.toString())
     if (interp?.longitude !== undefined)
       params.set('longitude', interp.longitude.toString())
     // Add interpolation settings
@@ -454,6 +458,8 @@ async function downloadValues(format: string, extension: string) {
     const interp = ss.interpolation
     if (interp?.latitude !== undefined)
       params.set('latitude', interp.latitude.toString())
+    if (interp?.elevation !== undefined)
+      params.set('elevation', interp.elevation.toString())
     if (interp?.longitude !== undefined)
       params.set('longitude', interp.longitude.toString())
     // Add summary settings (uses same settings as interpolation)
