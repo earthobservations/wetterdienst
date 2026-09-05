@@ -62,9 +62,18 @@ def get_summarized_df(
             of unknown height leaves nothing that can answer it
 
     """
-    stations_dict, param_dict, dropped_for_height = request_stations(request, latitude, longitude, elevation)
+    stations_dict, param_dict, dropped_for_height, unanswerable = request_stations(
+        request, latitude, longitude, elevation
+    )
     df = calculate_summary(stations_dict, param_dict)
-    report_height_exclusions(df, param_dict, dropped_for_height, elevation, stations_needed=STATIONS_NEEDED)
+    report_height_exclusions(
+        df,
+        param_dict,
+        dropped_for_height,
+        elevation,
+        stations_needed=STATIONS_NEEDED,
+        unanswerable=unanswerable,
+    )
     return df
 
 
@@ -73,7 +82,7 @@ def request_stations(
     latitude: float,
     longitude: float,
     elevation: float | None = None,
-) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForHeight]]:
+) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForHeight], set[tuple[str, str, str]]]:
     """Request stations.
 
     A summary answers with one station's reading rather than a blend of several, so a height
@@ -147,7 +156,7 @@ def request_stations(
             dropped_for_height=dropped_for_height,
         ):
             stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
-    return stations_dict, param_dict, dropped_for_height
+    return stations_dict, param_dict, dropped_for_height, unanswerable
 
 
 def apply_station_values_per_parameter(

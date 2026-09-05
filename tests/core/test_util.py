@@ -605,3 +605,64 @@ def test_count_stations_in_reach_reads_the_height_the_walk_will_read() -> None:
     counts = count_stations_in_reach(df_stations_ranked, [daily], Settings(), INTERPOLATABLE)
     # the station holds the daily dataset, so it counts -- and it has a height, so nothing is refused
     assert counts[("daily", "climate_summary", "temperature_air_mean_2m")] == (1, 1, 4.0)
+
+
+def test_report_height_exclusions_names_a_nearby_station_lost_beside_others_kept(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Losing the station under the point is the whole answer, however many farther ones were kept.
+
+    An interpolation would have answered from that one alone; the three kept in its place cannot
+    close a hull around the point and come back null. Counting what was lost against what a hull
+    wants misses it entirely -- three kept is not fewer than the one the shortcut needed -- which
+    is how a case the shortcut exists for went unmentioned.
+    """
+    from wetterdienst.core.util import _ParameterData, report_height_exclusions  # noqa: PLC0415
+
+    grid = build_date_grid(Resolution.DAILY, dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2022, 1, 3, tzinfo=UTC))
+    kept = grid.with_columns(pl.Series(station_id, [None, None, None], dtype=pl.Float64) for station_id in "abc")
+    with caplog.at_level(logging.WARNING):
+        report_height_exclusions(
+            _answer((*TEMPERATURE, None)),
+            {TEMPERATURE: _ParameterData(kept)},
+            {TEMPERATURE: DroppedForHeight(count=1, nearest=0.5)},
+            200.0,
+            stations_needed=4,
+            nearby_station_distance=1.0,
+        )
+    assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
+
+
+def test_report_height_exclusions_says_what_the_ranking_already_proved(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A parameter the ranking proved unanswerable is named however far the walk got.
+
+    No station inside its radius reports a height, so every station that held it was turned away --
+    and the walk, having nothing to wait for on its behalf, stops as soon as the other parameters
+    are done. Counting the few drops it managed against the four a hull wants would leave the
+    caller with a null column and no word about it.
+    """
+    from wetterdienst.core.util import report_height_exclusions  # noqa: PLC0415
+
+    with caplog.at_level(logging.WARNING):
+        report_height_exclusions(
+            _answer((*TEMPERATURE, None), (*PRECIPITATION, 1.2)),
+            {},
+            {TEMPERATURE: DroppedForHeight(count=1)},
+            200.0,
+            stations_needed=4,
+            unanswerable={TEMPERATURE},
+        )
+    assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
+    caplog.clear()
+    # without that proof one drop is one station, and four are wanted: nothing to say
+    with caplog.at_level(logging.WARNING):
+        report_height_exclusions(
+            _answer((*TEMPERATURE, None), (*PRECIPITATION, 1.2)),
+            {},
+            {TEMPERATURE: DroppedForHeight(count=1)},
+            200.0,
+            stations_needed=4,
+        )
+    assert not caplog.text

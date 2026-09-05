@@ -73,7 +73,7 @@ def get_interpolated_df(
     """
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     settings = cast("Settings", request.settings)
-    stations_dict, param_dict, dropped_for_height = request_stations(
+    stations_dict, param_dict, dropped_for_height, unanswerable = request_stations(
         request,
         latitude,
         longitude,
@@ -91,6 +91,7 @@ def get_interpolated_df(
         elevation,
         stations_needed=STATIONS_NEEDED,
         nearby_station_distance=settings.ts_geo_use_nearby_station_distance,
+        unanswerable=unanswerable,
     )
     return df
 
@@ -102,7 +103,7 @@ def request_stations(
     utm_x: float,
     utm_y: float,
     elevation: float | None = None,
-) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForHeight]]:
+) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForHeight], set[tuple[str, str, str]]]:
     """Request the stations for the interpolation.
 
     Args:
@@ -114,8 +115,8 @@ def request_stations(
         elevation: elevation of the point in metres, to bring each station's readings to
 
     Returns:
-        the stations dict, the parameter dict, and how many stations each parameter lost for
-        having no height of its own
+        the stations dict, the parameter dict, how many stations each parameter lost for
+        having no height of its own, and the parameters the ranking proved unanswerable
 
     """
     param_dict = {}
@@ -193,7 +194,7 @@ def request_stations(
         if contributed:
             utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
-    return stations_dict, param_dict, dropped_for_height
+    return stations_dict, param_dict, dropped_for_height, unanswerable
 
 
 def apply_station_values_per_parameter(

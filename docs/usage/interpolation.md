@@ -144,9 +144,10 @@ rather than contributing at its own altitude while its neighbours are moved.
 Where that leaves a parameter with no station at all — every station of a few providers reports no
 height, FMI's, IPMA's and the Environment Agency's among them — the request is refused rather than
 answered empty, and `NoStationsWithHeightError` names it. Where every quantity asked for falls with
-height and enough stations stand near the point that their heights would have mattered, none of
-them reporting one, that much is settled off the station list alone, without downloading a reading; ask for such a quantity beside one that does not fall with height
-and the readings are fetched for the second, the first being named once the answer is in.
+height, enough stations stand near the point for their heights to have mattered, and none of
+them reports one, that much is settled off the station list alone, without downloading a
+reading. Ask for such a quantity beside one that does not fall with height and the readings are
+fetched for the second, the first being named once the answer is in.
 
 A parameter that kept some stations and still answered nothing is named in the log rather than
 raised. Whether the stations it lost would have completed the four an interpolation wants is not

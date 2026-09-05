@@ -307,6 +307,7 @@ def report_height_exclusions(
     *,
     stations_needed: int,
     nearby_station_distance: float | None = None,
+    unanswerable: Collection[tuple[str, str, str]] = (),
 ) -> None:
     """Say what asking about a height cost, once the answer is in.
 
@@ -349,7 +350,9 @@ def report_height_exclusions(
         stations_needed: how many stations the calculation wants before it can answer -- four
             surrounding the point for an interpolation, one for a summary
         nearby_station_distance: how near a station has to stand to answer on its own, where the
-            calculation has such a shortcut, so that turning one away costs one station and not four
+            calculation has such a shortcut, so that losing one is the whole answer
+        unanswerable: the parameters the ranking already proved cannot be answered at this height,
+            no station inside their radius reporting one -- what they lost is beyond counting
 
     Raises:
         NoStationsWithHeightError: where nothing was answered at all and a parameter took not one
@@ -360,24 +363,27 @@ def report_height_exclusions(
         return
     answered = set(df.drop_nulls("value").select("resolution", "dataset", "parameter").unique().iter_rows())
 
-    def needed_for(dropped: DroppedForHeight) -> int:
+    def the_exclusions_cost_it(param_key: tuple[str, str, str], dropped: DroppedForHeight) -> bool:
+        """Whether giving the parameter back the stations it lost would have answered it."""
+        if param_key in unanswerable:
+            # the ranking said so before anything was downloaded: no station inside this
+            # parameter's radius reports a height, so every station that held it was turned away
+            return True
         # an interpolation answers from a single station standing near enough to the point, without
-        # the four a hull wants around it -- so where such a station was turned away for its height,
-        # one is what the exclusions cost and four would be the wrong bar to hold them to
-        # strictly nearer, as `calculate_interpolation` builds its nearby set: a station at
-        # exactly the distance is not one the interpolation would have answered from alone
+        # the four a hull wants around it, so losing such a station is the whole answer however
+        # many farther ones were kept -- a different question from how many were lost, not a
+        # smaller number of them. Strictly nearer, as `calculate_interpolation` takes its nearby
+        # set: a station at exactly the distance is not one it would have answered from alone
         if nearby_station_distance is not None and dropped.nearest < nearby_station_distance:
-            return 1
-        return stations_needed
+            return True
+        # minus the date column the values are laid on
+        kept = param_dict[param_key].values.width - 1 if param_key in param_dict else 0
+        return kept < stations_needed <= kept + dropped.count
 
     emptied = sorted(
         param_key
         for param_key, dropped in dropped_for_height.items()
-        # minus the date column the values are laid on
-        if param_key not in answered
-        and (kept := param_dict[param_key].values.width - 1 if param_key in param_dict else 0)
-        < needed_for(dropped)
-        <= kept + dropped.count
+        if param_key not in answered and the_exclusions_cost_it(param_key, dropped)
     )
     if not emptied:
         return
