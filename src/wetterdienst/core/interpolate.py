@@ -20,6 +20,7 @@ from tqdm import tqdm
 
 from wetterdienst.core.util import (
     can_answer_at_height,
+    collection_is_done,
     extract_station_values,
     lapse_rate_for,
     open_parameter_data,
@@ -58,8 +59,19 @@ def get_interpolated_df(
     """Get the interpolated DataFrame for the given request and location."""
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     settings = cast("Settings", request.settings)
-    stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y, elevation)
-    return calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
+    stations_dict, param_dict, dropped_for_height = request_stations(
+        request,
+        latitude,
+        longitude,
+        utm_x,
+        utm_y,
+        elevation,
+    )
+    df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
+    # after the frame is built, not before: a parameter the exclusions left with three stations
+    # holds columns and still interpolates to nothing, and only the frame knows that
+    report_height_exclusions(df, dropped_for_height, elevation)
+    return df
 
 
 def request_stations(
@@ -69,7 +81,7 @@ def request_stations(
     utm_x: float,
     utm_y: float,
     elevation: float | None = None,
-) -> tuple[dict, dict]:
+) -> tuple[dict, dict, set[tuple[str, str, str]]]:
     """Request the stations for the interpolation.
 
     Args:
@@ -81,7 +93,8 @@ def request_stations(
         elevation: elevation of the point in metres, to bring each station's readings to
 
     Returns:
-        tuple containing the stations dict and the parameter dict
+        the stations dict, the parameter dict, and the parameters that lost a station for
+        having no height of its own
 
     """
     param_dict = {}
@@ -120,7 +133,7 @@ def request_stations(
         station = stations_by_id[result.df.get_column("station_id")[0]]
         valid_station_groups_exists = has_valid_station_group(stations_dict, utm_x, utm_y)
         # check if all parameters found enough stations and the stations build a valid station group
-        if len(param_dict) > 0 and all(param.finished for param in param_dict.values()) and valid_station_groups_exists:
+        if collection_is_done(param_dict, dropped_for_height) and valid_station_groups_exists:
             break
         if result.df.drop_nulls("value").is_empty():
             continue
@@ -141,8 +154,7 @@ def request_stations(
         if contributed:
             utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
-    report_height_exclusions(param_dict, dropped_for_height, elevation)
-    return stations_dict, param_dict
+    return stations_dict, param_dict, dropped_for_height
 
 
 def apply_station_values_per_parameter(

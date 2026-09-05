@@ -141,12 +141,14 @@ measured in or on the ground, nor pressure, which falls exponentially rather tha
 station whose own height the provider does not report is left out of an answer about an elevation
 rather than contributing at its own altitude while its neighbours are moved.
 
-Where that leaves nothing to answer with — every station of a few providers reports no height,
-FMI's, IPMA's and the Environment Agency's among them — the request is refused rather than answered
-empty: `NoStationsWithHeightError` names the parameters that lost their stations and says that
-asking without an elevation gets them back. A parameter emptied beside one that still answered is
-a warning in the log instead, the rest of the result standing. Over the REST API both endpoints
-report it as a 400.
+Where that leaves nothing that can answer — every station of a few providers reports no height,
+FMI's, IPMA's and the Environment Agency's among them, and an interpolation wants four of known
+height that surround the point — the request is refused rather than answered empty:
+`NoStationsWithHeightError` names the parameters left unanswered. Asking by coordinates and
+without an elevation takes each station's readings as they came; a request named by a station id
+answers at that station's own height, so it has no form that asks about no height at all. A
+parameter left unanswered beside one that still answered is a warning in the log instead, the rest
+of the result standing. Over the REST API both endpoints report the refusal as a 400.
 
 Left out, nothing is corrected. The elevation cannot be taken from the stations themselves: one
 derived from the same linear interpolation cancels out of the correction exactly, leaving the

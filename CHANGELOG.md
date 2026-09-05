@@ -40,11 +40,14 @@ Types of changes:
   share a station id. A station whose own height the provider does not report is left out of
   an answer about an elevation rather than contributing at its own altitude while its neighbours
   are moved -- thirteen providers have such stations, every one of FMI's, IPMA's and the
-  Environment Agency's among them. Where that leaves nothing to answer with, the request is
-  refused rather than answered empty: `NoStationsWithHeightError` names the parameters that lost
-  their stations and says that asking without an elevation gets them back, which the REST API
-  reports as a 400 and the CLI as a message rather than a traceback. A parameter emptied beside
-  one that still answered is a warning naming it, the rest of the result standing. Left out, the
+  Environment Agency's among them. Where that leaves nothing that can answer -- no station of
+  known height, or too few of them for the four an interpolation wants around the point -- the
+  request is refused rather than answered empty: `NoStationsWithHeightError` names the parameters
+  left unanswered and how to ask for the readings as they came, which the REST API reports as a
+  400 and the CLI as a message rather than a traceback. A parameter left unanswered beside one
+  that still answered is a warning naming it, the rest of the result standing. Whether a parameter
+  was answered is read off the finished frame rather than off the stations collected for it, those
+  being different questions. Left out, the
   elevation corrects nothing and the result is what it was before: an elevation taken from the
   interpolation itself cancels out of it exactly, so the correction is only possible when a caller
   says where the point is

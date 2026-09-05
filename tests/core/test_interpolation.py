@@ -746,18 +746,21 @@ def test_interpolation_at_an_elevation(default_settings: Settings) -> None:
     assert lower < uncorrected.mean() < upper
 
 
-def _strip_station_heights(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make a DWD request look like an FMI one: stations, readings, and no heights at all.
+def _blank_station_heights(monkeypatch: pytest.MonkeyPatch, keeps_its_height: pl.Expr) -> None:
+    """Make a DWD request look like a provider that reports heights for only some of its stations.
 
     FMI, IPMA and the Environment Agency publish no height for any station, and eleven more
     providers for some of theirs. Borrowing DWD's data and taking the heights away exercises the
-    same path without a second provider's outages deciding whether this test passes.
+    same path without a second provider's outages deciding whether this test passes. The frame is
+    ranked by distance, so the expression picks by how near the station is.
     """
     original = DwdObservationRequest.filter_by_distance
 
     def without_heights(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
         stations_ranked = original(self, *args, **kwargs)
-        stations_ranked.df = stations_ranked.df.with_columns(pl.lit(None, dtype=pl.Float64).alias("height"))
+        stations_ranked.df = stations_ranked.df.with_columns(
+            pl.when(keeps_its_height).then(pl.col("height")).otherwise(None).alias("height"),
+        )
         return stations_ranked
 
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_heights)
@@ -780,10 +783,10 @@ def test_interpolation_at_an_elevation_none_of_the_stations_can_answer(
         end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
-    _strip_station_heights(monkeypatch)
+    _blank_station_heights(monkeypatch, pl.lit(value=False))
     with pytest.raises(
         NoStationsWithHeightError,
-        match=r"no answer at 200\.0 m for daily/climate_summary/temperature_air_mean_2m",
+        match=r"nothing that can answer daily/climate_summary/temperature_air_mean_2m at 200\.0 m",
     ):
         request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
     # and without an elevation the same stations answer as they always did
@@ -807,7 +810,7 @@ def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
         end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
-    _strip_station_heights(monkeypatch)
+    _blank_station_heights(monkeypatch, pl.lit(value=False))
     with caplog.at_level(logging.WARNING):
         values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
     assert values.df.get_column("parameter").unique().to_list() == ["precipitation_height"]
@@ -821,3 +824,28 @@ def test_interpolation_error_no_start_date() -> None:
     )
     with pytest.raises(ValueError, match="start_date and end_date are required for interpolation"):
         request.interpolate(latlon=(52.8, 12.9))
+
+
+@pytest.mark.remote
+def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stations left over that cannot interpolate are as unanswered as no stations at all.
+
+    An interpolation wants four that surround the point, so two of known height among neighbours
+    of unknown height hold columns and still come back null. Read off the collected columns that
+    looks answered, and the caller gets a frame of nulls and no reason for them.
+    """
+    settings = Settings(ts_geo_use_nearby_station_distance=0.0)
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+    )
+    _blank_station_heights(monkeypatch, pl.int_range(pl.len()) < 2)
+    with pytest.raises(
+        NoStationsWithHeightError,
+        match=r"nothing that can answer daily/climate_summary/temperature_air_mean_2m at 200\.0 m",
+    ):
+        request.interpolate(latlon=(47.48, 11.06), elevation=200.0)

@@ -101,51 +101,101 @@ def test_build_date_grid_treats_subdaily_as_hourly() -> None:
     assert df.height == 25  # hourly, both ends included
 
 
-def test_report_height_exclusions_raises_where_nothing_is_left() -> None:
-    """A request emptied by heights alone is a question that cannot be answered as asked.
+def _answer(*rows: tuple[str, str, str, float | None]) -> pl.DataFrame:
+    """Build a frame in the shape an interpolation or a summary returns."""
+    return pl.DataFrame(
+        [dict(zip(("resolution", "dataset", "parameter", "value"), row, strict=True)) for row in rows],
+        schema={"resolution": pl.String, "dataset": pl.String, "parameter": pl.String, "value": pl.Float64},
+        orient="row",
+    )
 
-    Left to itself it comes back as an empty frame with the reason in a server-side log, which is
-    the one place the caller cannot look -- so it is raised, and the message says what to do about
-    it. Thirteen providers have stations without heights, FMI's, IPMA's and the Environment
-    Agency's being all of them.
+
+TEMPERATURE = ("daily", "climate_summary", "temperature_air_mean_2m")
+PRECIPITATION = ("daily", "climate_summary", "precipitation_height")
+
+
+def test_report_height_exclusions_raises_where_nothing_was_answered() -> None:
+    """A request left unanswered by heights alone is a question that cannot be answered as asked.
+
+    Rows of nulls are as unanswered as no rows: an interpolation wants four stations that surround
+    the point, so a parameter the exclusions leave with three holds columns and still comes back
+    null. Judged on the columns collected rather than on the frame, that case reads as answered and
+    goes back to the caller silently, which is the whole thing this is here to do away with.
     """
     from wetterdienst.core.util import report_height_exclusions  # noqa: PLC0415
     from wetterdienst.exceptions import NoStationsWithHeightError  # noqa: PLC0415
 
-    param_key = ("daily", "climate_summary", "temperature_air_mean_2m")
-    with pytest.raises(NoStationsWithHeightError, match=r"no answer at 200\.0 m for daily/climate_summary/temperature"):
-        report_height_exclusions({}, {param_key}, 200.0)
+    with pytest.raises(NoStationsWithHeightError, match=r"nothing that can answer daily/climate_summary/temperature"):
+        report_height_exclusions(_answer((*TEMPERATURE, None), (*TEMPERATURE, None)), {TEMPERATURE}, 200.0)
+    # and the same for a parameter that never opened a row at all
+    with pytest.raises(NoStationsWithHeightError, match=r"at 200\.0 m"):
+        report_height_exclusions(_answer(), {TEMPERATURE}, 200.0)
 
 
 def test_report_height_exclusions_warns_where_something_still_answers(caplog: pytest.LogCaptureFixture) -> None:
-    """A parameter emptied beside one that answered is named, not raised.
+    """A parameter left unanswered beside one that answered is named, not raised.
 
     There is a result to read the warning against, and taking the whole request down over one of
     its parameters would throw away readings the caller can use.
     """
-    from wetterdienst.core.util import _ParameterData, report_height_exclusions  # noqa: PLC0415
+    from wetterdienst.core.util import report_height_exclusions  # noqa: PLC0415
 
-    grid = build_date_grid(Resolution.DAILY, dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2022, 1, 3, tzinfo=UTC))
-    answered = _ParameterData(grid.with_columns(pl.Series("00011", [1.0, 2.0, 3.0])))
-    param_dict = {("daily", "climate_summary", "precipitation_height"): answered}
+    df = _answer((*PRECIPITATION, 1.2), (*TEMPERATURE, None))
     with caplog.at_level(logging.WARNING):
-        report_height_exclusions(param_dict, {("daily", "climate_summary", "temperature_air_mean_2m")}, 200.0)
+        report_height_exclusions(df, {TEMPERATURE}, 200.0)
     assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
     assert "the rest of the result stands" in caplog.text
 
 
-def test_report_height_exclusions_keeps_quiet_where_the_answer_stands() -> None:
-    """A station turned away where another was taken cost the answer nothing.
+def test_report_height_exclusions_counts_a_parameter_of_nulls_as_unanswered(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A parameter that produced only nulls does not stand in for a result.
 
-    Nor is a request that lost no station to a height worth a word: the helper runs on every
+    It used to: any parameter holding a station column made this a warning rather than a refusal,
+    columns and answers not being the same thing, so a caller with nothing at all was told so in a
+    log line they could not read.
+    """
+    from wetterdienst.core.util import report_height_exclusions  # noqa: PLC0415
+    from wetterdienst.exceptions import NoStationsWithHeightError  # noqa: PLC0415
+
+    df = _answer((*PRECIPITATION, None), (*TEMPERATURE, None))
+    with caplog.at_level(logging.WARNING), pytest.raises(NoStationsWithHeightError):
+        report_height_exclusions(df, {TEMPERATURE}, 200.0)
+    assert not caplog.text
+
+
+def test_report_height_exclusions_keeps_quiet_where_the_answer_stands(caplog: pytest.LogCaptureFixture) -> None:
+    """A station turned away where the rest sufficed cost the answer nothing.
+
+    Nor is a request that lost no station to a height worth a word: this runs on every
     interpolation and summary, elevation or not.
     """
-    from wetterdienst.core.util import _ParameterData, report_height_exclusions  # noqa: PLC0415
+    from wetterdienst.core.util import report_height_exclusions  # noqa: PLC0415
+
+    with caplog.at_level(logging.WARNING):
+        # the parameter was answered by the stations that kept their heights
+        report_height_exclusions(_answer((*TEMPERATURE, 3.4), (*TEMPERATURE, None)), {TEMPERATURE}, 200.0)
+        # and nothing was turned away at all
+        report_height_exclusions(_answer(), set(), None)
+    assert not caplog.text
+
+
+def test_collection_is_done_waits_for_a_parameter_that_has_yet_to_take_a_station() -> None:
+    """A parameter every station was turned away from cannot hold the walk open by itself.
+
+    It never opened an entry, so `all(finished)` passes over it, and the walk down the ranking
+    stops on the parameters that did open -- reporting it as unanswerable while a station further
+    out, still inside the radius, has a height and could have answered it.
+    """
+    from wetterdienst.core.util import _ParameterData, collection_is_done  # noqa: PLC0415
 
     grid = build_date_grid(Resolution.DAILY, dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2022, 1, 3, tzinfo=UTC))
-    param_key = ("daily", "climate_summary", "temperature_air_mean_2m")
-    answered = {param_key: _ParameterData(grid.with_columns(pl.Series("00011", [1.0, 2.0, 3.0])))}
-    # the parameter kept a station of its own, so the one turned away is not worth reporting
-    report_height_exclusions(answered, {param_key}, 200.0)
-    # and nothing was turned away at all
-    report_height_exclusions({}, set(), None)
+    finished = _ParameterData(grid.with_columns(pl.Series("00011", [1.0, 2.0, 3.0])), finished=True)
+    assert collection_is_done({PRECIPITATION: finished}, set())
+    # precipitation has what it needs, but every station so far said nothing about temperature
+    assert not collection_is_done({PRECIPITATION: finished}, {TEMPERATURE})
+    # once temperature has taken one, it speaks for itself again
+    assert collection_is_done({PRECIPITATION: finished, TEMPERATURE: finished}, {TEMPERATURE})
+    # nothing collected at all is not done, whatever was turned away
+    assert not collection_is_done({}, set())

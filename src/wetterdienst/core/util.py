@@ -124,52 +124,73 @@ def can_answer_at_height(station_height: float | None, lapse_rate: float | None,
     return not (target_height is not None and lapse_rate and station_height is None)
 
 
+def collection_is_done(param_dict: dict, dropped_for_height: set[tuple[str, str, str]]) -> bool:
+    """Whether every parameter has the stations it needs, so the walk down the ranking can stop.
+
+    A parameter every station so far was turned away from for having no height never opened an
+    entry of its own, so it cannot hold the walk open by being unfinished. Stopping there would
+    report it as unanswerable while a station further out, still inside the radius, has a height
+    and could have answered it -- so a parameter that lost a station and has yet to take one keeps
+    the walk going.
+    """
+    return (
+        bool(param_dict)
+        and all(param_data.finished for param_data in param_dict.values())
+        and not dropped_for_height.difference(param_dict)
+    )
+
+
 def report_height_exclusions(
-    param_dict: dict,
+    df: pl.DataFrame,
     dropped_for_height: set[tuple[str, str, str]],
     elevation: float | None,
 ) -> None:
-    """Say what asking about a height cost, once every station has been through.
+    """Say what asking about a height cost, once the answer is in.
 
     A station whose own height is unknown is turned away from a quantity that falls with height,
     and thirteen providers have such stations -- every one of FMI's, IPMA's and the Environment
-    Agency's among them. Where that empties a parameter, the answer is not "no data for those
-    dates": it is a question that cannot be answered as asked, and one the caller can fix by not
-    asking about a height. Left alone it comes back as an empty frame with the reason in a
-    server-side log, which is the one place the caller cannot look.
+    Agency's among them. Where that leaves a parameter unanswered, the result is not "no data for
+    those dates": it is a question that cannot be answered as asked, and one the caller can fix.
+    Left alone it comes back as an empty frame with the reason in a server-side log, which is the
+    one place the caller cannot look.
 
-    A parameter still answered by some other station is not reported at all: a station turned away
-    where three others were taken cost the answer nothing.
+    Whether a parameter was answered is read off the finished frame rather than off the columns
+    that were collected for it, because the two are not the same question. A summary answers from
+    one station, so a column is an answer; an interpolation wants four that surround the point, so
+    a parameter left with three by the exclusions holds columns and still comes back all null --
+    which is the silent empty result this is here to do away with.
+
+    A parameter some other station answered is not reported at all: a station turned away where
+    the rest sufficed cost the answer nothing.
 
     Args:
-        param_dict: the parameters that were collected, each holding the columns it took
+        df: the interpolated or summarized frame, before any nulls are dropped from it
         dropped_for_height: the parameters that lost a station for having no height
         elevation: the height that was asked about
 
     Raises:
-        NoStationsWithHeightError: where nothing is left to answer with, there being no result for
-            a warning to be read against
+        NoStationsWithHeightError: where nothing was answered at all, there being no result for a
+            warning to be read against
 
     """
-    emptied = sorted(
-        param_key
-        for param_key in dropped_for_height
-        # a parameter with a date grid and no station column is as empty as one that never opened
-        if param_key not in param_dict or param_dict[param_key].values.width < 2
-    )
+    if not dropped_for_height:
+        return
+    answered = set(df.drop_nulls("value").select("resolution", "dataset", "parameter").unique().iter_rows())
+    emptied = sorted(dropped_for_height - answered)
     if not emptied:
         return
     listing = ", ".join("/".join(param_key) for param_key in emptied)
-    if any(param_data.values.width > 1 for param_data in param_dict.values()):
+    if answered:
         log.warning(
-            f"no station of known height is in reach for {listing}, so it has no answer at "
-            f"{elevation} m; the rest of the result stands",
+            f"leaving out the stations of unknown height leaves nothing that can answer {listing} "
+            f"at {elevation} m; the rest of the result stands",
         )
         return
     msg = (
-        f"no station of known height is in reach, so there is no answer at {elevation} m for "
-        f"{listing}. Ask without an elevation to take each station's readings as they came, or "
-        f"use a provider that publishes the heights of its stations."
+        f"leaving out the stations of unknown height leaves nothing that can answer {listing} at "
+        f"{elevation} m. Ask by coordinates and without an elevation to take each station's "
+        f"readings as they came -- naming a station id instead asks at that station's own height "
+        f"-- or use a provider that publishes the heights of its stations."
     )
     raise NoStationsWithHeightError(msg)
 

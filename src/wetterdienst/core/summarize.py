@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from wetterdienst.core.util import (
     can_answer_at_height,
+    collection_is_done,
     extract_station_values,
     lapse_rate_for,
     open_parameter_data,
@@ -49,8 +50,10 @@ def get_summarized_df(
         Summarized DataFrame
 
     """
-    stations_dict, param_dict = request_stations(request, latitude, longitude, elevation)
-    return calculate_summary(stations_dict, param_dict)
+    stations_dict, param_dict, dropped_for_height = request_stations(request, latitude, longitude, elevation)
+    df = calculate_summary(stations_dict, param_dict)
+    report_height_exclusions(df, dropped_for_height, elevation)
+    return df
 
 
 def request_stations(
@@ -58,7 +61,7 @@ def request_stations(
     latitude: float,
     longitude: float,
     elevation: float | None = None,
-) -> tuple[dict, dict]:
+) -> tuple[dict, dict, set[tuple[str, str, str]]]:
     """Request stations.
 
     A summary answers with one station's reading rather than a blend of several, so a height
@@ -104,7 +107,7 @@ def request_stations(
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
         # check if all parameters found enough stations and the stations build a valid station group
-        if len(param_dict) > 0 and all(param.finished for param in param_dict.values()):
+        if collection_is_done(param_dict, dropped_for_height):
             break
         if result.df.drop_nulls("value").is_empty():
             continue
@@ -117,8 +120,7 @@ def request_stations(
             dropped_for_height=dropped_for_height,
         ):
             stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
-    report_height_exclusions(param_dict, dropped_for_height, elevation)
-    return stations_dict, param_dict
+    return stations_dict, param_dict, dropped_for_height
 
 
 def apply_station_values_per_parameter(
