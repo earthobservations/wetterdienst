@@ -137,6 +137,12 @@ def request_stations(
     # so a multi-dataset request has several rows for one station, each with the coordinates and
     # distance its own dataset's meta index reported. `query()` yields one result per station, and
     # the row that answers for it is the closest one rather than whichever happened to sort last
+    stations_by_id = {
+        station["station_id"]: station
+        for station in df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True).iter_rows(
+            named=True,
+        )
+    }
     # counted once, off the ranking, before a single value is downloaded: what each parameter has
     # in its own radius, and how much of that reports a height
     counts = count_stations_in_reach(
@@ -150,12 +156,6 @@ def request_stations(
         # every parameter asked for falls with height and not one station in reach reports one:
         # true of the request whatever the stations hold, so it is said without downloading them
         raise no_height_in_reach_error(unanswerable, elevation)
-    stations_by_id = {
-        station["station_id"]: station
-        for station in df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True).iter_rows(
-            named=True,
-        )
-    }
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
     for result in tqdm(
         stations_ranked.values.query(),

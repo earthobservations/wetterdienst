@@ -518,6 +518,10 @@ def test_report_height_exclusions_counts_a_station_near_enough_to_answer_alone()
     # the same station a kilometre further out answers nothing on its own, and four is the bar again
     lost_far = {TEMPERATURE: DroppedForHeight(count=1, nearest=8.0)}
     report_height_exclusions(df, {}, lost_far, 200.0, stations_needed=4, nearby_station_distance=1.0)
+    # nor one standing at exactly the distance: `calculate_interpolation` takes what is nearer than
+    # it, so a station on the line is not one it would have answered from alone either
+    lost_on_the_line = {TEMPERATURE: DroppedForHeight(count=1, nearest=1.0)}
+    report_height_exclusions(df, {}, lost_on_the_line, 200.0, stations_needed=4, nearby_station_distance=1.0)
     # nor where the shortcut is switched off
     report_height_exclusions(df, {}, lost_nearby, 200.0, stations_needed=4, nearby_station_distance=None)
 
@@ -578,3 +582,26 @@ def test_report_height_exclusions_claims_a_standing_result_only_where_there_is_o
             stations_needed=4,
         )
     assert "the rest of the result stands" in caplog.text
+
+
+def test_count_stations_in_reach_reads_the_height_the_walk_will_read() -> None:
+    """A station's height is the one the walk finds, whichever index it comes from.
+
+    The walk keeps one row per station, the nearest over every dataset in the ranking, and reads
+    the height off that. Two dataset indexes can disagree -- a height in one, none in the other --
+    and counting off the requested dataset's row alone would refuse, before downloading anything, a
+    request the walk would have answered from that station.
+    """
+    from wetterdienst.core.util import count_stations_in_reach  # noqa: PLC0415
+
+    daily = DwdObservationRequest.metadata["daily"]["climate_summary"]["temperature_air_mean_2m"]
+    df_stations_ranked = pl.concat(
+        [
+            # the nearer row, from another dataset's index, is the one the walk reads
+            _ranked("temperature_air", [{"station_id": "00001", "distance": 4.0, "height": 210.0}]),
+            _ranked("climate_summary", [{"station_id": "00001", "distance": 5.0, "height": None}]),
+        ],
+    )
+    counts = count_stations_in_reach(df_stations_ranked, [daily], Settings(), INTERPOLATABLE)
+    # the station holds the daily dataset, so it counts -- and it has a height, so nothing is refused
+    assert counts[("daily", "climate_summary", "temperature_air_mean_2m")] == (1, 1, 4.0)

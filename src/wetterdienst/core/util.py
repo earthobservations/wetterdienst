@@ -178,23 +178,31 @@ def count_stations_in_reach(
     to visit can answer a question about another height.
     """
     counts = {}
+    # a station's height and its distance as the walk reads them: `stations_by_id` keeps one row
+    # per station, the nearest, over every dataset in the ranking. Two dataset indexes can disagree
+    # about a station's height, and reading a different row here than the walk does would refuse a
+    # request the walk would have answered
+    as_the_walk_reads_it = df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True)
     for parameter in parameters:
         if not isinstance(parameter, ParameterModel) or parameter.name not in interpolatable:
             continue
         dataset = parameter.dataset
         radius = settings.ts_geo_station_distance_for(parameter.name, dataset.resolution.name)
-        # one row per station and the nearest of them, as the collection loop reads it: the
-        # ranking carries a row per station *and* dataset, and two dataset indexes can disagree
-        # about a station's height. Taking whichever row sorted last would answer "is there a
-        # height in reach" differently from the station the walk actually reads
-        # by dataset as well as by distance: the ranking carries a row per station *and* dataset,
-        # so a station that stands in another dataset's index and reports a height there would
-        # otherwise count towards this parameter, which it can never answer
-        in_radius = df_stations_ranked.filter(
-            pl.col("resolution").eq(dataset.resolution.name),
-            pl.col("dataset").eq(dataset.name),
+        # which stations can answer this parameter is a different question from what they report:
+        # a station that stands only in another dataset's index holds none of this dataset's
+        # readings, so the walk passes over it however near it is, and counting it here would keep
+        # the walk open for a station it will always drop
+        holds_the_dataset = (
+            df_stations_ranked.filter(
+                pl.col("resolution").eq(dataset.resolution.name),
+                pl.col("dataset").eq(dataset.name),
+            )
+            .select("station_id")
+            .unique()
+        )
+        in_radius = as_the_walk_reads_it.join(holds_the_dataset, on="station_id", how="semi").filter(
             pl.col("distance").le(radius),
-        ).unique(subset=["station_id"], keep="first", maintain_order=True)
+        )
         with_height = in_radius.drop_nulls("height")
         furthest = with_height.get_column("distance").max()
         counts[(dataset.resolution.name, dataset.name, parameter.name)] = StationsInReach(
@@ -356,7 +364,9 @@ def report_height_exclusions(
         # an interpolation answers from a single station standing near enough to the point, without
         # the four a hull wants around it -- so where such a station was turned away for its height,
         # one is what the exclusions cost and four would be the wrong bar to hold them to
-        if nearby_station_distance is not None and dropped.nearest <= nearby_station_distance:
+        # strictly nearer, as `calculate_interpolation` builds its nearby set: a station at
+        # exactly the distance is not one the interpolation would have answered from alone
+        if nearby_station_distance is not None and dropped.nearest < nearby_station_distance:
             return 1
         return stations_needed
 
