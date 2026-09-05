@@ -17,7 +17,7 @@ const sourceOptions = computed(() => [
 
 // the point, and the boxes that describe it -- see `useInterpolationPoint` for why the coordinates
 // and the elevation are kept apart
-const { latitudeInput, longitudeInput, elevationInput, fromStation } = useInterpolationPoint(modelValue)
+const { latitudeInput, longitudeInput, elevationInput, fromStation, forgetPoint } = useInterpolationPoint(modelValue)
 
 // For station selection
 const selectedStation = ref<Station | undefined>(modelValue.value.station)
@@ -71,6 +71,8 @@ function setSource(source: InterpolationSource) {
     ...modelValue.value,
     source,
   }
+  // the elevation came from wherever the point did, so it goes with it
+  forgetPoint()
 }
 
 // Display coordinates

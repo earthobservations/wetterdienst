@@ -2,14 +2,6 @@ import type { Ref } from 'vue'
 import type { InterpolationSelection } from '~/types/station-selection-state.type'
 
 /**
- * Wire the point an interpolation or summary answers for to the boxes that describe it.
- *
- * Three values, filled from two places: the coordinates and the elevation are typed in manual
- * mode, while choosing a station writes all three at once. Keeping that straight is the whole of
- * this, and getting it wrong is quiet -- a query that carries a height the form does not show, or
- * a station whose coordinates are cleared by an elevation arriving after them.
- */
-/**
  * Read a box as the number it names, or nothing.
  *
  * Finite, not merely not-NaN: `1e400` parses to Infinity, which would travel into the model, into
@@ -20,6 +12,14 @@ function numberFromBox(value: string | number): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+/**
+ * Wire the point an interpolation or summary answers for to the boxes that describe it.
+ *
+ * Three values, filled from two places: the coordinates and the elevation are typed in manual
+ * mode, while choosing a station writes all three at once. Keeping that straight is the whole of
+ * this, and getting it wrong is quiet -- a query that carries a height the form does not show, or
+ * a station whose coordinates are cleared by an elevation arriving after them.
+ */
 export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
   // `string`, which is what `UInput` declares its model to be -- though one of type number writes
   // a number back through it at runtime, so everything reading a box says which it wants rather
@@ -61,6 +61,17 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
       modelValue.value = { ...modelValue.value, elevation: parsed }
   })
 
+  /**
+   * Forget the point, the source having changed.
+   *
+   * The elevation especially: filled from a station, it belongs to that station, and carrying it
+   * into a hand-typed point elsewhere reduces every reading to a height the point does not have
+   * -- a summit's 1000 m against a city at 34 m is six degrees of air temperature.
+   */
+  function forgetPoint() {
+    modelValue.value = { ...modelValue.value, elevation: undefined }
+  }
+
   /** Take the point from a station: its position, and its altitude where the provider reports one. */
   function fromStation(station: Station | undefined) {
     modelValue.value = {
@@ -72,5 +83,5 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
     }
   }
 
-  return { latitudeInput, longitudeInput, elevationInput, fromStation }
+  return { latitudeInput, longitudeInput, elevationInput, fromStation, forgetPoint }
 }

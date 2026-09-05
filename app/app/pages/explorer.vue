@@ -107,12 +107,14 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
         q.lat = stationSel.interpolation.latitude.toString()
       if (stationSel.interpolation.longitude !== undefined)
         q.lon = stationSel.interpolation.longitude.toString()
-      if (stationSel.interpolation.elevation !== undefined)
-        q.elevation = stationSel.interpolation.elevation.toString()
     }
     else if (stationSel.interpolation.station) {
       q.interpolationStation = stationSel.interpolation.station.station_id
     }
+    // outside the branch: the box is shown for either source and sent for either, and a height
+    // the user typed over a station's is theirs rather than the station's
+    if (stationSel.interpolation.elevation !== undefined)
+      q.elevation = stationSel.interpolation.elevation.toString()
   }
   if (stationSel.dateRange.startDate)
     q.startDate = stationSel.dateRange.startDate
