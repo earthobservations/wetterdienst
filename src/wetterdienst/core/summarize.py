@@ -11,13 +11,16 @@ import polars as pl
 from tqdm import tqdm
 
 from wetterdienst.core.util import (
+    StationsInReach,
     can_answer_at_height,
     collection_is_done,
+    count_stations_in_reach,
     extract_station_values,
     lapse_rate_for,
     open_parameter_data,
     reduce_to_height,
     report_height_exclusions,
+    unanswerable_at_height,
 )
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
@@ -57,9 +60,16 @@ def get_summarized_df(
             of unknown height leaves nothing that can answer it
 
     """
-    stations_dict, param_dict, dropped_for_height = request_stations(request, latitude, longitude, elevation)
+    stations_dict, param_dict, dropped_for_height, counts = request_stations(request, latitude, longitude, elevation)
     df = calculate_summary(stations_dict, param_dict)
-    report_height_exclusions(df, param_dict, dropped_for_height, elevation, stations_needed=STATIONS_NEEDED)
+    report_height_exclusions(
+        df,
+        param_dict,
+        dropped_for_height,
+        counts,
+        elevation,
+        stations_needed=STATIONS_NEEDED,
+    )
     return df
 
 
@@ -68,7 +78,7 @@ def request_stations(
     latitude: float,
     longitude: float,
     elevation: float | None = None,
-) -> tuple[dict, dict, set[tuple[str, str, str]]]:
+) -> tuple[dict, dict, set[tuple[str, str, str]], dict[tuple[str, str, str], StationsInReach]]:
     """Request stations.
 
     A summary answers with one station's reading rather than a blend of several, so a height
@@ -98,9 +108,14 @@ def request_stations(
     # so a multi-dataset request has several rows for one station, each with the coordinates and
     # distance its own dataset's meta index reported. `query()` yields one result per station, and
     # the row that answers for it is the closest one rather than whichever happened to sort last
-    # asked once, as in `interpolate.request_stations`: a provider that reports no height for any
-    # station has nothing for the walk to hold out for
-    heights_in_reach = df_stations_ranked.get_column("height").null_count() < df_stations_ranked.height
+    # counted once, off the ranking, before a single value is downloaded: what each parameter has
+    # in its own radius, and how much of that reports a height
+    counts = count_stations_in_reach(df_stations_ranked, request.parameters, settings)
+    unanswerable = unanswerable_at_height(counts, elevation)
+    if unanswerable and unanswerable == set(counts):
+        # no station in reach can be brought to the height asked about, and every parameter wants
+        # to be: there is nothing a download could add, so the report speaks for the whole request
+        return stations_dict, param_dict, unanswerable, counts
     stations_by_id = {
         station["station_id"]: station
         for station in df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True).iter_rows(
@@ -117,7 +132,7 @@ def request_stations(
     ):
         station = stations_by_id[result.df.get_column("station_id")[0]]
         # check if all parameters found enough stations and the stations build a valid station group
-        if collection_is_done(param_dict, dropped_for_height, heights_in_reach=heights_in_reach):
+        if collection_is_done(param_dict, dropped_for_height - unanswerable):
             break
         if result.df.drop_nulls("value").is_empty():
             continue
@@ -130,7 +145,7 @@ def request_stations(
             dropped_for_height=dropped_for_height,
         ):
             stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
-    return stations_dict, param_dict, dropped_for_height
+    return stations_dict, param_dict, dropped_for_height, counts
 
 
 def apply_station_values_per_parameter(

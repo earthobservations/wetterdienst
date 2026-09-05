@@ -19,6 +19,7 @@ from wetterdienst.core.interpolate import (
 )
 from wetterdienst.exceptions import NoStationsWithHeightError, StationNotFoundError
 from wetterdienst.metadata.parameter_table import PARAMETERS
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -784,12 +785,25 @@ def test_interpolation_at_an_elevation_none_of_the_stations_can_answer(
         settings=default_settings,
     )
     _blank_station_heights(monkeypatch, pl.lit(value=False))
+    downloads = 0
+    original_query = TimeseriesValues.query
+
+    def counting_query(self: TimeseriesValues) -> object:
+        nonlocal downloads
+        downloads += 1
+        return original_query(self)
+
+    monkeypatch.setattr(TimeseriesValues, "query", counting_query)
     with pytest.raises(
         NoStationsWithHeightError,
         match=r"nothing that can answer daily/climate_summary/temperature_air_mean_2m at 200\.0 m",
     ):
         request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
-    # and without an elevation the same stations answer as they always did
+    # and not one station's values were fetched to arrive at that: the ranking already said no
+    # station in reach reports a height, and every quantity asked for needs one
+    assert downloads == 0
+    # without an elevation the same stations answer as they always did
+    monkeypatch.setattr(TimeseriesValues, "query", original_query)
     assert not request.interpolate(latlon=(47.48, 11.06)).df.is_empty()
 
 

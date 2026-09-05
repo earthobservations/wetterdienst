@@ -6,20 +6,22 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import polars as pl
 
 from wetterdienst.exceptions import NoStationsWithHeightError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Frequency
+from wetterdienst.model.metadata import ParameterModel
 
 if TYPE_CHECKING:
     import datetime as dt
+    from collections.abc import Iterable
 
     from wetterdienst.metadata.resolution import Resolution
-    from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.unit import UnitConverter
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -124,12 +126,65 @@ def can_answer_at_height(station_height: float | None, lapse_rate: float | None,
     return not (target_height is not None and lapse_rate and station_height is None)
 
 
-def collection_is_done(
-    param_dict: dict,
-    dropped_for_height: set[tuple[str, str, str]],
-    *,
-    heights_in_reach: bool,
-) -> bool:
+class StationsInReach(NamedTuple):
+    """How many stations a parameter has to draw on, and how many of those report a height."""
+
+    total: int
+    with_height: int
+
+
+def count_stations_in_reach(
+    df_stations_ranked: pl.DataFrame,
+    parameters: Iterable[object],
+    settings: Settings,
+) -> dict[tuple[str, str, str], StationsInReach]:
+    """Count what each parameter has within its own radius, before a single value is downloaded.
+
+    Per parameter, because the radius is: a quantity that decorrelates fast in space is given a
+    narrower one, so "is there a station of known height in reach" has a different answer for
+    temperature at 20 km than for precipitation at 40 km, and one answer for the whole request
+    would be the wrong one for at least one of them.
+
+    Two counts come out of it. The total says whether the exclusions can be blamed for an
+    unanswered parameter: where fewer stations were ever in reach than the calculation needs, the
+    heights are not what emptied it. The height count says whether walking further can help: where
+    no station in reach reports one, nothing this walk downloads will change that.
+    """
+    counts = {}
+    for parameter in parameters:
+        if not isinstance(parameter, ParameterModel):
+            continue
+        dataset = parameter.dataset
+        radius = settings.ts_geo_station_distance_for(parameter.name, dataset.resolution.name)
+        in_reach = df_stations_ranked.filter(pl.col("distance").le(radius)).unique(subset=["station_id"])
+        counts[(dataset.resolution.name, dataset.name, parameter.name)] = StationsInReach(
+            total=in_reach.height,
+            with_height=in_reach.drop_nulls("height").height,
+        )
+    return counts
+
+
+def unanswerable_at_height(
+    counts: dict[tuple[str, str, str], StationsInReach],
+    elevation: float | None,
+) -> set[tuple[str, str, str]]:
+    """Find the parameters no station in reach can answer at the height asked about.
+
+    A quantity that falls with height needs a station whose own height is known to be brought to
+    another one. Where not one station inside its radius reports a height -- which is every station
+    FMI, IPMA and the Environment Agency publish -- the parameter is unanswerable before anything
+    is downloaded, and the walk down the ranking has nothing to look for.
+    """
+    if elevation is None:
+        return set()
+    return {
+        param_key
+        for param_key, in_reach in counts.items()
+        if not in_reach.with_height and PARAMETERS[param_key[2]].lapse_rate
+    }
+
+
+def collection_is_done(param_dict: dict, waiting_on: set[tuple[str, str, str]]) -> bool:
     """Whether every parameter has the stations it needs, so the walk down the ranking can stop.
 
     A parameter every station so far was turned away from for having no height never opened an
@@ -138,15 +193,15 @@ def collection_is_done(
     and could have answered it -- so a parameter that lost a station and has yet to take one keeps
     the walk going.
 
-    Unless no station in reach reports a height at all, which is what FMI, IPMA and the Environment
-    Agency publish: there is nothing to walk towards then, and holding the walk open would query
-    every station within the radius -- hundreds, for a provider that size -- to arrive at the same
-    answer the fourth station already gave.
+    `waiting_on` is those of them that a further station could still answer: a parameter with no
+    station of known height anywhere inside its radius is not among them, since holding the walk
+    open for it would download the rest of the ranking to arrive at the answer the fourth station
+    already gave.
     """
     return (
         bool(param_dict)
         and all(param_data.finished for param_data in param_dict.values())
-        and (not heights_in_reach or not dropped_for_height.difference(param_dict))
+        and not waiting_on.difference(param_dict)
     )
 
 
@@ -154,6 +209,7 @@ def report_height_exclusions(
     df: pl.DataFrame,
     param_dict: dict,
     dropped_for_height: set[tuple[str, str, str]],
+    counts: dict[tuple[str, str, str], StationsInReach],
     elevation: float | None,
     *,
     stations_needed: int,
@@ -177,13 +233,16 @@ def report_height_exclusions(
     the rest sufficed cost the answer nothing. Nor is one the exclusions cannot be blamed for --
     a parameter that kept the stations its calculation asks for and still came back null failed on
     the geometry of where they stand or on the data they hold, and telling such a caller to ask
-    without an elevation would send them back for the same nulls under a wrong diagnosis.
+    without an elevation would send them back for the same nulls under a wrong diagnosis. Nor is a
+    parameter that never had enough stations in reach to answer with: keeping every one of them
+    would still have left it short, so the exclusions are not what emptied it.
 
     Args:
         df: the interpolated or summarized frame, before any nulls are dropped from it
         param_dict: the parameters that were collected, each holding the columns it took
         dropped_for_height: the parameters that lost a station for having no height
         elevation: the height that was asked about
+        counts: how many stations each parameter had in reach, and how many reported a height
         stations_needed: how many stations the calculation wants before it can answer -- four
             surrounding the point for an interpolation, one for a summary
 
@@ -199,7 +258,9 @@ def report_height_exclusions(
         param_key
         for param_key in dropped_for_height - answered
         # minus the date column the values are laid on
-        if (param_dict[param_key].values.width - 1 if param_key in param_dict else 0) < stations_needed
+        if (param_dict[param_key].values.width - 1 if param_key in param_dict else 0)
+        < stations_needed
+        <= counts[param_key].total
     )
     if not emptied:
         return

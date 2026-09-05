@@ -9,7 +9,8 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
-from wetterdienst.core.util import build_date_grid
+from wetterdienst import Settings
+from wetterdienst.core.util import StationsInReach, build_date_grid
 from wetterdienst.metadata.resolution import Resolution, reading_interval
 
 UTC = ZoneInfo("UTC")
@@ -112,6 +113,9 @@ def _answer(*rows: tuple[str, str, str, float | None]) -> pl.DataFrame:
 
 TEMPERATURE = ("daily", "climate_summary", "temperature_air_mean_2m")
 PRECIPITATION = ("daily", "climate_summary", "precipitation_height")
+# nine stations in reach, none of which reports a height: enough that the four an
+# interpolation wants were there to be had before the exclusions took them
+IN_REACH = {TEMPERATURE: StationsInReach(total=9, with_height=0)}
 
 
 def test_report_height_exclusions_raises_where_nothing_was_answered() -> None:
@@ -130,12 +134,13 @@ def test_report_height_exclusions_raises_where_nothing_was_answered() -> None:
             _answer((*TEMPERATURE, None), (*TEMPERATURE, None)),
             {},
             {TEMPERATURE},
+            {TEMPERATURE: StationsInReach(total=9, with_height=0)},
             200.0,
             stations_needed=4,
         )
     # and the same for a parameter that never opened a row at all
     with pytest.raises(NoStationsWithHeightError, match=r"at 200\.0 m"):
-        report_height_exclusions(_answer(), {}, {TEMPERATURE}, 200.0, stations_needed=4)
+        report_height_exclusions(_answer(), {}, {TEMPERATURE}, IN_REACH, 200.0, stations_needed=4)
 
 
 def test_report_height_exclusions_warns_where_something_still_answers(caplog: pytest.LogCaptureFixture) -> None:
@@ -148,7 +153,7 @@ def test_report_height_exclusions_warns_where_something_still_answers(caplog: py
 
     df = _answer((*PRECIPITATION, 1.2), (*TEMPERATURE, None))
     with caplog.at_level(logging.WARNING):
-        report_height_exclusions(df, {}, {TEMPERATURE}, 200.0, stations_needed=4)
+        report_height_exclusions(df, {}, {TEMPERATURE}, IN_REACH, 200.0, stations_needed=4)
     assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
     assert "the rest of the result stands" in caplog.text
 
@@ -167,7 +172,7 @@ def test_report_height_exclusions_counts_a_parameter_of_nulls_as_unanswered(
 
     df = _answer((*PRECIPITATION, None), (*TEMPERATURE, None))
     with caplog.at_level(logging.WARNING), pytest.raises(NoStationsWithHeightError):
-        report_height_exclusions(df, {}, {TEMPERATURE}, 200.0, stations_needed=4)
+        report_height_exclusions(df, {}, {TEMPERATURE}, IN_REACH, 200.0, stations_needed=4)
     assert not caplog.text
 
 
@@ -185,11 +190,12 @@ def test_report_height_exclusions_keeps_quiet_where_the_answer_stands(caplog: py
             _answer((*TEMPERATURE, 3.4), (*TEMPERATURE, None)),
             {},
             {TEMPERATURE},
+            IN_REACH,
             200.0,
             stations_needed=4,
         )
         # and nothing was turned away at all
-        report_height_exclusions(_answer(), {}, set(), None, stations_needed=4)
+        report_height_exclusions(_answer(), {}, set(), IN_REACH, None, stations_needed=4)
     assert not caplog.text
 
 
@@ -204,13 +210,13 @@ def test_collection_is_done_waits_for_a_parameter_that_has_yet_to_take_a_station
 
     grid = build_date_grid(Resolution.DAILY, dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2022, 1, 3, tzinfo=UTC))
     finished = _ParameterData(grid.with_columns(pl.Series("00011", [1.0, 2.0, 3.0])), finished=True)
-    assert collection_is_done({PRECIPITATION: finished}, set(), heights_in_reach=True)
+    assert collection_is_done({PRECIPITATION: finished}, set())
     # precipitation has what it needs, but every station so far said nothing about temperature
-    assert not collection_is_done({PRECIPITATION: finished}, {TEMPERATURE}, heights_in_reach=True)
+    assert not collection_is_done({PRECIPITATION: finished}, {TEMPERATURE})
     # once temperature has taken one, it speaks for itself again
-    assert collection_is_done({PRECIPITATION: finished, TEMPERATURE: finished}, {TEMPERATURE}, heights_in_reach=True)
+    assert collection_is_done({PRECIPITATION: finished, TEMPERATURE: finished}, {TEMPERATURE})
     # nothing collected at all is not done, whatever was turned away
-    assert not collection_is_done({}, set(), heights_in_reach=True)
+    assert not collection_is_done({}, set())
 
 
 def test_report_height_exclusions_does_not_blame_the_heights_for_what_they_did_not_do(
@@ -232,6 +238,7 @@ def test_report_height_exclusions_does_not_blame_the_heights_for_what_they_did_n
             _answer((*TEMPERATURE, None)),
             {TEMPERATURE: _ParameterData(kept)},
             {TEMPERATURE},
+            IN_REACH,
             200.0,
             stations_needed=4,
         )
@@ -254,9 +261,13 @@ def test_report_height_exclusions_blames_the_heights_for_leaving_too_few(
     kept = grid.with_columns(pl.Series(station_id, [None, None, None], dtype=pl.Float64) for station_id in "abc")
     param_dict = {TEMPERATURE: _ParameterData(kept)}
     with pytest.raises(NoStationsWithHeightError, match=r"nothing that can answer"):
-        report_height_exclusions(_answer((*TEMPERATURE, None)), param_dict, {TEMPERATURE}, 200.0, stations_needed=4)
+        report_height_exclusions(
+            _answer((*TEMPERATURE, None)), param_dict, {TEMPERATURE}, IN_REACH, 200.0, stations_needed=4
+        )
     with caplog.at_level(logging.WARNING):
-        report_height_exclusions(_answer((*TEMPERATURE, None)), param_dict, {TEMPERATURE}, 200.0, stations_needed=1)
+        report_height_exclusions(
+            _answer((*TEMPERATURE, None)), param_dict, {TEMPERATURE}, IN_REACH, 200.0, stations_needed=1
+        )
     assert not caplog.text
 
 
@@ -271,6 +282,84 @@ def test_collection_is_done_does_not_wait_where_no_station_reports_a_height() ->
 
     grid = build_date_grid(Resolution.DAILY, dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2022, 1, 3, tzinfo=UTC))
     finished = _ParameterData(grid.with_columns(pl.Series("00011", [1.0, 2.0, 3.0])), finished=True)
-    assert collection_is_done({PRECIPITATION: finished}, {TEMPERATURE}, heights_in_reach=False)
+    assert collection_is_done({PRECIPITATION: finished}, set())
     # where some station does report one, the walk goes on until temperature has taken it
-    assert not collection_is_done({PRECIPITATION: finished}, {TEMPERATURE}, heights_in_reach=True)
+    assert not collection_is_done({PRECIPITATION: finished}, {TEMPERATURE})
+
+
+def test_report_height_exclusions_does_not_blame_the_heights_for_a_thin_neighbourhood(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A parameter that never had four stations in reach was not emptied by the exclusions.
+
+    Three stations hold it in the whole radius and one of them reports no height, so two are left
+    and an interpolation wants four. Keeping all three would still have been one short, so asking
+    without an elevation returns the same nulls -- and a caller sent back for them under this
+    diagnosis is worse off than one who got the empty frame.
+    """
+    from wetterdienst.core.util import _ParameterData, report_height_exclusions  # noqa: PLC0415
+
+    grid = build_date_grid(Resolution.DAILY, dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2022, 1, 3, tzinfo=UTC))
+    kept = grid.with_columns(pl.Series(station_id, [None, None, None], dtype=pl.Float64) for station_id in "ab")
+    with caplog.at_level(logging.WARNING):
+        report_height_exclusions(
+            _answer((*TEMPERATURE, None)),
+            {TEMPERATURE: _ParameterData(kept)},
+            {TEMPERATURE},
+            {TEMPERATURE: StationsInReach(total=3, with_height=2)},
+            200.0,
+            stations_needed=4,
+        )
+    assert not caplog.text
+
+
+def test_count_stations_in_reach_asks_per_parameter_radius() -> None:
+    """Each parameter is counted inside its own radius, not the widest of the request.
+
+    A quantity that decorrelates fast in space is given a narrower one: at hourly resolution
+    precipitation reaches 20 km where temperature reaches 40, so a station at 35 km with a height
+    on it answers the question "is there one in reach" for temperature and not for precipitation.
+    One answer for the whole request would be the wrong one for at least one of them.
+    """
+    from wetterdienst.core.util import count_stations_in_reach  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    metadata = DwdObservationRequest.metadata["hourly"]
+    parameters = [
+        metadata["temperature_air"]["temperature_air_mean_2m"],
+        metadata["precipitation"]["precipitation_height"],
+    ]
+    df_stations_ranked = pl.DataFrame(
+        [
+            {"station_id": "00001", "distance": 5.0, "height": None},
+            {"station_id": "00002", "distance": 15.0, "height": None},
+            {"station_id": "00003", "distance": 35.0, "height": 210.0},
+            {"station_id": "00004", "distance": 60.0, "height": 190.0},
+        ],
+        schema={"station_id": pl.String, "distance": pl.Float64, "height": pl.Float64},
+        orient="row",
+    )
+    counts = count_stations_in_reach(df_stations_ranked, parameters, Settings())
+    # 40 km for temperature: three stations, the furthest of them the only one with a height
+    assert counts[("hourly", "temperature_air", "temperature_air_mean_2m")] == (3, 1)
+    # 20 km for precipitation: two stations, and the station that has a height is outside it
+    assert counts[("hourly", "precipitation", "precipitation_height")] == (2, 0)
+
+
+def test_unanswerable_at_height_names_what_no_walk_can_reach() -> None:
+    """A quantity that falls with height and has no station of known height in reach is unanswerable.
+
+    Whatever the walk downloads, no reading can be brought to the height asked about. A quantity
+    that does not fall with height is answered by those same stations as it always was, and with no
+    elevation asked for nothing is unanswerable at all.
+    """
+    from wetterdienst.core.util import unanswerable_at_height  # noqa: PLC0415
+
+    counts = {
+        TEMPERATURE: StationsInReach(total=9, with_height=0),
+        PRECIPITATION: StationsInReach(total=9, with_height=0),
+    }
+    assert unanswerable_at_height(counts, 200.0) == {TEMPERATURE}
+    # one station reporting a height is enough to be worth walking for
+    assert unanswerable_at_height({TEMPERATURE: StationsInReach(total=9, with_height=1)}, 200.0) == set()
+    assert unanswerable_at_height(counts, None) == set()
