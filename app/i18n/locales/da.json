@@ -512,6 +512,8 @@
     "fromStation": "Fra en station",
     "latitude": "Breddegrad",
     "longitude": "Længdegrad",
+    "elevation": "Højde",
+    "elevationHint": "valgfri, m over havet",
     "selectStationForCoords": "Vælg en station til koordinater",
     "selectStation": "Vælg en station",
     "loadingStations": "Indlæser stationer …",

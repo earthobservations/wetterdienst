@@ -512,6 +512,8 @@
     "fromStation": "Ze stacji",
     "latitude": "Szerokość geograficzna",
     "longitude": "Długość geograficzna",
+    "elevation": "Wysokość",
+    "elevationHint": "opcjonalnie, m n.p.m.",
     "selectStationForCoords": "Wybierz stację dla współrzędnych",
     "selectStation": "Wybierz stację",
     "loadingStations": "Ładowanie stacji …",

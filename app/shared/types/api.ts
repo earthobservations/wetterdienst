@@ -86,7 +86,8 @@ export interface Station {
   state: string
   latitude: number
   longitude: number
-  height: number
+  /** Null where the provider reports no height for the station, which for several is every one. */
+  height: number | null
   start_date?: string
   end_date?: string
 }
@@ -145,6 +146,8 @@ export interface InterpolateQuery {
   parameters: string
   latitude: number
   longitude: number
+  /** Metres above sea level; the readings are brought to it before being used. */
+  elevation?: number
   date?: string
   humanize?: boolean
   convert_units?: boolean
@@ -164,6 +167,8 @@ export interface SummarizeQuery {
   parameters: string
   latitude: number
   longitude: number
+  /** Metres above sea level; the readings are brought to it before being used. */
+  elevation?: number
   date?: string
   humanize?: boolean
   convert_units?: boolean

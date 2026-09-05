@@ -512,6 +512,8 @@
     "fromStation": "Ze stanice",
     "latitude": "Zeměpisná šířka",
     "longitude": "Zeměpisná délka",
+    "elevation": "Nadmořská výška",
+    "elevationHint": "volitelné, m n. m.",
     "selectStationForCoords": "Vyberte stanici pro souřadnice",
     "selectStation": "Vyberte stanici",
     "loadingStations": "Načítání stanic …",

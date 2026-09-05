@@ -111,6 +111,12 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
     else if (stationSel.interpolation.station) {
       q.interpolationStation = stationSel.interpolation.station.station_id
     }
+    // outside the branch: the box is shown for either source and sent for either, and a height
+    // the user typed over a station's is theirs rather than the station's. It survives the round
+    // trip only for a point given by coordinates: picking the station again names its own height,
+    // which is what choosing a station means
+    if (stationSel.interpolation.elevation !== undefined)
+      q.elevation = stationSel.interpolation.elevation.toString()
   }
   if (stationSel.dateRange.startDate)
     q.startDate = stationSel.dateRange.startDate
@@ -136,10 +142,27 @@ function dataSettingsToQuery(settings: DataSettings): Record<string, string> {
 
 const showAbout = ref(false)
 const parameterSelectionState = ref<ParameterSelectionState>(fromQuery(route.query))
+function numberFromQuery(value: unknown): number | undefined {
+  // a repeated key arrives as an array, and `1e400` parses to Infinity, which travels back into
+  // the URL and on to the API as a number no answer can be given for
+  const first = Array.isArray(value) ? value[0] : value
+  const parsed = Number.parseFloat(String(first ?? ''))
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 const stationSelectionState = ref<StationSelectionState>({
   mode: modeFromQuery(route.query),
   selection: { stations: [] },
-  interpolation: { source: (route.query.interpolationSource as 'manual' | 'station') || 'manual' },
+  interpolation: {
+    source: (route.query.interpolationSource as 'manual' | 'station') || 'manual',
+    // read back what `toQuery` writes for a point given by coordinates, so a shared link
+    // reproduces the answer it was copied from. A point given by a station is written as an id
+    // and not restored -- the station itself has to be fetched before it can be selected, which
+    // `initialStationIds` does for station mode and nothing does for this one yet
+    latitude: numberFromQuery(route.query.lat),
+    longitude: numberFromQuery(route.query.lon),
+    elevation: numberFromQuery(route.query.elevation),
+  },
   dateRange: {
     startDate: route.query.startDate?.toString(),
     endDate: route.query.endDate?.toString(),
@@ -229,6 +252,7 @@ watch(
   [
     parameterSelectionState,
     () => stationSelectionState.value.selection.stations,
+    () => stationSelectionState.value.interpolation,
     () => dataSettings.value.humanize,
     () => dataSettings.value.convertUnits,
     () => dataSettings.value.shape,
@@ -369,6 +393,7 @@ const lastFetchedParams = ref<{
   stations: string
   interpolationLat?: number
   interpolationLon?: number
+  interpolationElevation?: number
   startDate?: string
   endDate?: string
   settings: string
@@ -402,6 +427,7 @@ const canFetch = computed(() => {
         : '',
       interpolationLat: ss.interpolation.latitude,
       interpolationLon: ss.interpolation.longitude,
+      interpolationElevation: ss.interpolation.elevation,
       startDate: ss.dateRange.startDate,
       endDate: ss.dateRange.endDate,
       settings: JSON.stringify(dataSettings.value),
@@ -417,6 +443,7 @@ const canFetch = computed(() => {
         && currentParams.stations === lastFetchedParams.value.stations
         && currentParams.interpolationLat === lastFetchedParams.value.interpolationLat
         && currentParams.interpolationLon === lastFetchedParams.value.interpolationLon
+        && currentParams.interpolationElevation === lastFetchedParams.value.interpolationElevation
         && currentParams.startDate === lastFetchedParams.value.startDate
         && currentParams.endDate === lastFetchedParams.value.endDate
         && currentParams.settings === lastFetchedParams.value.settings
@@ -449,6 +476,7 @@ function fetchData() {
       : '',
     interpolationLat: ss.interpolation.latitude,
     interpolationLon: ss.interpolation.longitude,
+    interpolationElevation: ss.interpolation.elevation,
     startDate: ss.dateRange.startDate,
     endDate: ss.dateRange.endDate,
     settings: JSON.stringify(dataSettings.value),
