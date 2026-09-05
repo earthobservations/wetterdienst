@@ -3,6 +3,7 @@
 """Tests for interpolation."""
 
 import datetime as dt
+import logging
 import random
 from queue import Queue
 from zoneinfo import ZoneInfo
@@ -16,7 +17,7 @@ from wetterdienst.core.interpolate import (
     apply_interpolation,
     get_valid_station_groups,
 )
-from wetterdienst.exceptions import StationNotFoundError
+from wetterdienst.exceptions import NoStationsWithHeightError, StationNotFoundError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
@@ -743,6 +744,74 @@ def test_interpolation_at_an_elevation(default_settings: Settings) -> None:
     # stations themselves stand at
     lower, upper = min(valley.mean(), summit.mean()), max(valley.mean(), summit.mean())
     assert lower < uncorrected.mean() < upper
+
+
+def _strip_station_heights(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make a DWD request look like an FMI one: stations, readings, and no heights at all.
+
+    FMI, IPMA and the Environment Agency publish no height for any station, and eleven more
+    providers for some of theirs. Borrowing DWD's data and taking the heights away exercises the
+    same path without a second provider's outages deciding whether this test passes.
+    """
+    original = DwdObservationRequest.filter_by_distance
+
+    def without_heights(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
+        stations_ranked = original(self, *args, **kwargs)
+        stations_ranked.df = stations_ranked.df.with_columns(pl.lit(None, dtype=pl.Float64).alias("height"))
+        return stations_ranked
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_heights)
+
+
+@pytest.mark.remote
+def test_interpolation_at_an_elevation_none_of_the_stations_can_answer(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An elevation that empties the request says so instead of coming back empty.
+
+    A station of unknown height cannot be placed against the height asked about, and where that is
+    every station in reach there is nothing left to interpolate. That used to be an empty frame
+    with the reason in a server-side log -- the one place the caller cannot look.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    _strip_station_heights(monkeypatch)
+    with pytest.raises(
+        NoStationsWithHeightError,
+        match=r"no answer at 200\.0 m for daily/climate_summary/temperature_air_mean_2m",
+    ):
+        request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
+    # and without an elevation the same stations answer as they always did
+    assert not request.interpolate(latlon=(47.48, 11.06)).df.is_empty()
+
+
+@pytest.mark.remote
+def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A parameter emptied beside one that answered is named, and the rest of the result stands.
+
+    Precipitation does not fall with height in the sense the correction means, so it keeps every
+    station a temperature loses.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl", "temperature_air_mean_2m"), ("daily", "kl", "precipitation_height")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    _strip_station_heights(monkeypatch)
+    with caplog.at_level(logging.WARNING):
+        values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
+    assert values.df.get_column("parameter").unique().to_list() == ["precipitation_height"]
+    assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
 
 
 def test_interpolation_error_no_start_date() -> None:

@@ -40,9 +40,14 @@ Types of changes:
   share a station id. A station whose own height the provider does not report is left out of
   an answer about an elevation rather than contributing at its own altitude while its neighbours
   are moved -- thirteen providers have such stations, every one of FMI's, IPMA's and the
-  Environment Agency's among them. Left out, nothing is corrected and the result is what it was
-  before: an elevation taken from the interpolation itself cancels out of it exactly, so the
-  correction is only possible when a caller says where the point is
+  Environment Agency's among them. Where that leaves nothing to answer with, the request is
+  refused rather than answered empty: `NoStationsWithHeightError` names the parameters that lost
+  their stations and says that asking without an elevation gets them back, which the REST API
+  reports as a 400 and the CLI as a message rather than a traceback. A parameter emptied beside
+  one that still answered is a warning naming it, the rest of the result standing. Left out, the
+  elevation corrects nothing and the result is what it was before: an elevation taken from the
+  interpolation itself cancels out of it exactly, so the correction is only possible when a caller
+  says where the point is
 - Parameter table: `lapse_rate` says how fast a quantity falls with height, in its own unit per
   metre, for the 17 air temperatures measured at 2 m and the dew point. Not for the 5 and 10 cm
   readings -- the grass minimum and its kin -- which are made in the air but governed by the
@@ -59,6 +64,10 @@ Types of changes:
   that fall with height to it. **This changes what those two calls return** where the stations
   drawn on stand at other altitudes -- for the reading uncorrected, pass the station's coordinates
   to `interpolate` or `summarize` instead
+
+- REST API: `/api/summarize` answers a window that ends before it starts with a 400 rather than a
+  404, as `/api/interpolate` already did. Both endpoints decide that from one place now, so the
+  status a failure carries no longer depends on which of the two it came through
 
 - Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
   out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what

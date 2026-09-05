@@ -2251,3 +2251,45 @@ def test_mcp_interpolate_tool_returns_data() -> None:
 
     data = asyncio.run(_call())
     assert data is not None
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point"),
+    [
+        ("/api/interpolate", "get_interpolate"),
+        ("/api/summarize", "get_summarize"),
+    ],
+)
+def test_geo_elevation_no_station_can_answer_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str,
+) -> None:
+    """A request understood and unanswerable as phrased is the caller's to fix, so it is a 400.
+
+    Both endpoints used to answer every failure with a 404, which reads as "no such thing" for an
+    elevation no station in reach can be placed against -- and the detail carried the reason to a
+    caller who had no reason to read it.
+    """
+    from wetterdienst.exceptions import NoStationsWithHeightError  # noqa: PLC0415
+
+    msg = "no station of known height is in reach, so there is no answer at 200.0 m for daily/climate_summary/tas"
+
+    def unanswerable(**_kwargs: object) -> None:
+        raise NoStationsWithHeightError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", unanswerable)
+    response = client.get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "00071",
+            "date": "1986-10-31",
+            "elevation": 200.0,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == msg

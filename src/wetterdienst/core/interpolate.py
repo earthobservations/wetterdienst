@@ -24,6 +24,7 @@ from wetterdienst.core.util import (
     lapse_rate_for,
     open_parameter_data,
     reduce_to_height,
+    report_height_exclusions,
 )
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
@@ -85,6 +86,7 @@ def request_stations(
     """
     param_dict = {}
     stations_dict = {}
+    dropped_for_height: set[tuple[str, str, str]] = set()
     settings = cast("Settings", request.settings)
     max_interp_distance = max(
         settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
@@ -128,6 +130,7 @@ def request_stations(
             param_dict,
             station,
             elevation,
+            dropped_for_height=dropped_for_height,
             valid_station_groups_exists=valid_station_groups_exists,
         )
         # only a station that gave something is one of the stations the interpolation has: the hull
@@ -138,6 +141,7 @@ def request_stations(
         if contributed:
             utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
+    report_height_exclusions(param_dict, dropped_for_height, elevation)
     return stations_dict, param_dict
 
 
@@ -148,6 +152,7 @@ def apply_station_values_per_parameter(
     station: dict,
     elevation: float | None = None,
     *,
+    dropped_for_height: set[tuple[str, str, str]],
     valid_station_groups_exists: bool,
 ) -> bool:
     """Apply the station values to the parameter data.
@@ -158,6 +163,7 @@ def apply_station_values_per_parameter(
         param_dict: dict containing the parameter data
         station: dict containing the station data
         elevation: elevation of the point in metres, to bring each station's readings to
+        dropped_for_height: the parameters that lost a station for having no height
         min_gain_of_value_pairs: minimum gain of value pairs to add a station
         num_additional_stations: number of additional stations to add if the gain is not reached
         valid_station_groups_exists: bool indicating if valid station groups exist
@@ -204,6 +210,9 @@ def apply_station_values_per_parameter(
                 f"station {station['station_id']} has no height, so it says nothing about "
                 f"{parameter.name} at {elevation} m and is left out",
             )
+            # noted, not only logged: where this empties a parameter the caller is owed the
+            # reason, and a log line is the one place a caller cannot read it from
+            dropped_for_height.add(param_key)
             continue
         # cast, not parsed: the request declares its dates as `str | datetime | None` because
         # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`

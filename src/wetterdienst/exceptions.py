@@ -49,3 +49,7 @@ class ApiNotFoundError(Exception):
 
 class NoInternetError(OSError):
     """Raised when no internet connection is available."""
+
+
+class NoStationsWithHeightError(ValueError):
+    """Raised when a height is asked about and no station in reach reports one of its own."""

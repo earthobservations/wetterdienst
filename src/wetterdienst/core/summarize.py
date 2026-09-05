@@ -16,6 +16,7 @@ from wetterdienst.core.util import (
     lapse_rate_for,
     open_parameter_data,
     reduce_to_height,
+    report_height_exclusions,
 )
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
@@ -66,6 +67,7 @@ def request_stations(
     """
     param_dict = {}
     stations_dict = {}
+    dropped_for_height: set[tuple[str, str, str]] = set()
     settings = cast("Settings", request.settings)
     # the widest radius any requested parameter may draw on, as in `interpolate.request_stations`.
     # `max(...values())` used to stand here, which is the widest radius of the *populated* keys --
@@ -106,8 +108,16 @@ def request_stations(
             break
         if result.df.drop_nulls("value").is_empty():
             continue
-        if apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station, elevation):
+        if apply_station_values_per_parameter(
+            result.df,
+            stations_ranked,
+            param_dict,
+            station,
+            elevation,
+            dropped_for_height=dropped_for_height,
+        ):
             stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
+    report_height_exclusions(param_dict, dropped_for_height, elevation)
     return stations_dict, param_dict
 
 
@@ -117,6 +127,8 @@ def apply_station_values_per_parameter(
     param_dict: dict,
     station: dict,
     elevation: float | None = None,
+    *,
+    dropped_for_height: set[tuple[str, str, str]],
 ) -> bool:
     """Apply station values per parameter.
 
@@ -164,6 +176,9 @@ def apply_station_values_per_parameter(
                 f"station {station['station_id']} has no height, so it says nothing about "
                 f"{parameter.name} at {elevation} m and is left out",
             )
+            # noted, not only logged: where this empties a parameter the caller is owed the
+            # reason, and a log line is the one place a caller cannot read it from
+            dropped_for_height.add(param_key)
             continue
         # cast, not parsed: the request declares its dates as `str | datetime | None` because
         # that is what a caller may hand it, and resolves them to datetimes in `__post_init__`

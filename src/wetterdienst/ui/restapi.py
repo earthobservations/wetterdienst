@@ -7,14 +7,14 @@ from __future__ import annotations
 import json
 import logging
 from textwrap import dedent
-from typing import Annotated, Any, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import ValidationError
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
-from wetterdienst.exceptions import ApiNotFoundError, StartDateEndDateError
+from wetterdienst.exceptions import ApiNotFoundError, NoStationsWithHeightError, StartDateEndDateError
 
 # needed at runtime: FastAPI resolves this annotation to build the query parameter's enum
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001
@@ -51,6 +51,12 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.ui import read_list
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult
 
 info = Info()
 
@@ -603,6 +609,35 @@ def _geo_settings(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+def _geo_values(
+    get: Callable[..., InterpolatedValuesResult | SummarizedValuesResult],
+    api: type[TimeseriesRequest],
+    request: InterpolationRequest | SummaryRequest,
+    settings: Settings,
+    what: str,
+) -> InterpolatedValuesResult | SummarizedValuesResult:
+    """Run an interpolation or a summary, telling the caller which failures are theirs to fix.
+
+    Both endpoints answered every failure with a 404, which reads as "no such thing" for a request
+    that was understood and simply cannot be served as phrased -- an elevation no station in reach
+    can be placed against, or a window that ends before it starts. Those are 400s, and the same two
+    in both places, so they are decided here rather than twice over.
+    """
+    try:
+        return get(api=api, request=request, settings=settings)
+    except NoStationsWithHeightError as e:
+        # the message is the whole of it: which parameters lost their stations, and that asking
+        # without an elevation gets them back
+        log.info(f"Failed to {what}: {e}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except StartDateEndDateError as e:
+        log.exception(f"Failed to {what}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        log.exception(f"Failed to {what}")
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
 # response models for the different formats are
 # - _InterpolatedValuesDict for json
 # - _InterpolatedValuesOgcFeatureCollection for geojson
@@ -641,21 +676,7 @@ def interpolate(
         request.interpolation_station_distance_heterogeneous,
     )
 
-    try:
-        values_ = get_interpolate(
-            api=api,
-            request=request,
-            settings=settings,
-        )
-    except StartDateEndDateError as e:
-        log.exception("Failed to interpolate")
-        raise HTTPException(
-            status_code=400,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        log.exception("Failed to interpolate")
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    values_ = _geo_values(get_interpolate, api, request, settings, "interpolate")
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {
@@ -721,15 +742,7 @@ def summarize(
         request.summary_station_distance_heterogeneous,
     )
 
-    try:
-        values_ = get_summarize(
-            api=api,
-            request=request,
-            settings=settings,
-        )
-    except Exception as e:
-        log.exception("Failed to summarize")
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    values_ = _geo_values(get_summarize, api, request, settings, "summarize")
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {

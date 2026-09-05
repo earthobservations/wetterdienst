@@ -4,11 +4,13 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import polars as pl
 
+from wetterdienst.exceptions import NoStationsWithHeightError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Frequency
 
@@ -18,6 +20,8 @@ if TYPE_CHECKING:
     from wetterdienst.metadata.resolution import Resolution
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.unit import UnitConverter
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -118,6 +122,56 @@ def can_answer_at_height(station_height: float | None, lapse_rate: float | None,
     it at its own altitude among neighbours moved to the caller's.
     """
     return not (target_height is not None and lapse_rate and station_height is None)
+
+
+def report_height_exclusions(
+    param_dict: dict,
+    dropped_for_height: set[tuple[str, str, str]],
+    elevation: float | None,
+) -> None:
+    """Say what asking about a height cost, once every station has been through.
+
+    A station whose own height is unknown is turned away from a quantity that falls with height,
+    and thirteen providers have such stations -- every one of FMI's, IPMA's and the Environment
+    Agency's among them. Where that empties a parameter, the answer is not "no data for those
+    dates": it is a question that cannot be answered as asked, and one the caller can fix by not
+    asking about a height. Left alone it comes back as an empty frame with the reason in a
+    server-side log, which is the one place the caller cannot look.
+
+    A parameter still answered by some other station is not reported at all: a station turned away
+    where three others were taken cost the answer nothing.
+
+    Args:
+        param_dict: the parameters that were collected, each holding the columns it took
+        dropped_for_height: the parameters that lost a station for having no height
+        elevation: the height that was asked about
+
+    Raises:
+        NoStationsWithHeightError: where nothing is left to answer with, there being no result for
+            a warning to be read against
+
+    """
+    emptied = sorted(
+        param_key
+        for param_key in dropped_for_height
+        # a parameter with a date grid and no station column is as empty as one that never opened
+        if param_key not in param_dict or param_dict[param_key].values.width < 2
+    )
+    if not emptied:
+        return
+    listing = ", ".join("/".join(param_key) for param_key in emptied)
+    if any(param_data.values.width > 1 for param_data in param_dict.values()):
+        log.warning(
+            f"no station of known height is in reach for {listing}, so it has no answer at "
+            f"{elevation} m; the rest of the result stands",
+        )
+        return
+    msg = (
+        f"no station of known height is in reach, so there is no answer at {elevation} m for "
+        f"{listing}. Ask without an elevation to take each station's readings as they came, or "
+        f"use a provider that publishes the heights of its stations."
+    )
+    raise NoStationsWithHeightError(msg)
 
 
 def reduce_to_height(

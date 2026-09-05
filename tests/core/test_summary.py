@@ -10,6 +10,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
+from wetterdienst.exceptions import NoStationsWithHeightError
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -139,3 +140,38 @@ def test_summary_error_no_start_date() -> None:
     )
     with pytest.raises(ValueError, match="start_date and end_date are required for summarization"):
         request.summarize(latlon=(52.8, 12.9))
+
+
+@pytest.mark.remote
+def test_summary_at_an_elevation_none_of_the_stations_can_answer(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A summary emptied by an elevation says so rather than coming back empty.
+
+    A summary answers with one station's reading rather than a blend, so a station it cannot place
+    against the height asked about is the whole answer gone, not a quarter of it. DWD's stations
+    stand in for FMI's here: same data, heights taken away, and no second provider's outages
+    deciding whether this passes.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    original = DwdObservationRequest.filter_by_distance
+
+    def without_heights(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
+        stations_ranked = original(self, *args, **kwargs)
+        stations_ranked.df = stations_ranked.df.with_columns(pl.lit(None, dtype=pl.Float64).alias("height"))
+        return stations_ranked
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_heights)
+    with pytest.raises(
+        NoStationsWithHeightError,
+        match=r"no answer at 200\.0 m for daily/climate_summary/temperature_air_mean_2m",
+    ):
+        request.summarize(latlon=(47.48, 11.06), elevation=200.0)
+    # and without an elevation the same stations answer as they always did
+    assert not request.summarize(latlon=(47.48, 11.06)).df.is_empty()
