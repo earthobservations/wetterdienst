@@ -15,56 +15,14 @@ const sourceOptions = computed(() => [
   { value: 'station' as InterpolationSource, label: t('interpolation.fromStation'), icon: 'i-lucide-map-pin' },
 ])
 
-// For manual input
-const latitudeInput = ref<string>(modelValue.value.latitude?.toString() ?? '')
-const longitudeInput = ref<string>(modelValue.value.longitude?.toString() ?? '')
-const elevationInput = ref<string>(modelValue.value.elevation?.toString() ?? '')
-
-// the station watcher writes the elevation straight into the model, so the box has to follow it
-// or it shows empty while the query carries a height the user cannot see
-watch(() => modelValue.value.elevation, (elevation) => {
-  const shown = elevation?.toString() ?? ''
-  if (shown !== elevationInput.value)
-    elevationInput.value = shown
-})
-
-// Watch inputs and update model. The coordinates and the elevation are watched apart: the boxes
-// above only hold what was typed into them, which in station mode is nothing, and writing all
-// three together let a station's elevation arriving here take the station's coordinates out with
-// it -- the source that fills them is the station, not these boxes
-watch([latitudeInput, longitudeInput], ([lat, lon]) => {
-  const latNum = Number.parseFloat(lat)
-  const lonNum = Number.parseFloat(lon)
-  modelValue.value = {
-    ...modelValue.value,
-    latitude: Number.isNaN(latNum) ? undefined : latNum,
-    longitude: Number.isNaN(lonNum) ? undefined : lonNum,
-  }
-})
-
-watch(elevationInput, (elevation) => {
-  const elevationNum = Number.parseFloat(elevation)
-  // optional: left empty, the readings are interpolated as they come
-  const parsed = Number.isNaN(elevationNum) ? undefined : elevationNum
-  if (parsed !== modelValue.value.elevation)
-    modelValue.value = { ...modelValue.value, elevation: parsed }
-})
+// the point, and the boxes that describe it -- see `useInterpolationPoint` for why the coordinates
+// and the elevation are kept apart
+const { latitudeInput, longitudeInput, elevationInput, fromStation } = useInterpolationPoint(modelValue)
 
 // For station selection
 const selectedStation = ref<Station | undefined>(modelValue.value.station)
 
-watch(selectedStation, (station) => {
-  modelValue.value = {
-    ...modelValue.value,
-    station,
-    latitude: station?.latitude,
-    longitude: station?.longitude,
-    // a station names its altitude as well as its position, which is the height the answer is
-    // wanted at when the point is given as a station -- except where the provider reports no
-    // height for it, and several report none at all, where there is nothing to name
-    elevation: station?.height ?? undefined,
-  }
-})
+watch(selectedStation, fromStation)
 
 // Fetch stations for station source
 const { data: stationsData, pending: stationsPending, refresh: refreshStations } = useFetch<StationsResponse>(
