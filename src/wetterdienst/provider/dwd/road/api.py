@@ -194,6 +194,13 @@ class DwdRoadValues(TimeseriesValues):
             df = self._collect_data_by_station_group(station_group, parameters)
         except ValueError:
             return pl.DataFrame()
+        if df.is_empty():
+            # the group published no file for the requested window, or every file it published was
+            # one of the 142-byte empty ones. That is an ordinary outcome for a network reporting
+            # in fifteen-minute batches, and the caller reads a frame with no columns as "this
+            # station had nothing" -- but only if it is handed back rather than filtered, a filter
+            # on a frame with no columns being a lookup for a column that is not there
+            return df
         df = df.filter(pl.col("station_id").eq(station_id))
         return df.select(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),

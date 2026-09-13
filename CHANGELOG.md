@@ -83,6 +83,15 @@ Types of changes:
 
 ### Fixed
 
+- DWD road: a station group with no usable file is an empty result rather than a broken frame.
+  The stations report in fifteen-minute batches and four groups are already known to go quiet, so
+  a window with no file behind it -- or one holding only the 142-byte empty files of GH-1526 -- is
+  an ordinary outcome. The frame standing for "nothing here" carries no columns, and it was
+  filtered for a station id before anyone asked whether it held anything, so the collection walk
+  raised `ColumnNotFoundError: unable to find column "station_id"; valid columns: []` from its
+  middle. It is handed back instead, which is what the rest of the library already reads as "this
+  station had nothing". This is what failed `test_pdbufr_examples` on every CI job
+
 - Interpolation: four stations that surround the target point are a valid group however they are
   ordered. The check drew a polygon through them in the order they are held -- by distance from
   the point, which says nothing about the order around it -- so roughly half of all groups

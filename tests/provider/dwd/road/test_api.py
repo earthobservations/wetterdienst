@@ -57,3 +57,28 @@ def test_dwd_road_weather_station_groups() -> None:
     if "quality-assured" in files:
         files.remove("quality-assured")
     assert files == {group.value for group in DwdRoadStationGroup}
+
+
+@pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
+@pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed")
+@pytest.mark.skipif(not ensure_eccodes() and not ensure_pdbufr(), reason="pdbufr not installed")
+@pytest.mark.remote
+def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station group with no usable file is an empty result, not a broken frame.
+
+    The road stations report in fifteen-minute batches and four of the groups are already known to
+    go quiet, so a window with no file behind it -- or one holding only the 142-byte empty files of
+    GH-1526 -- is an ordinary outcome. It used to raise `ColumnNotFoundError: unable to find column
+    "station_id"; valid columns: []` out of the middle of the collection walk, because the frame
+    standing for "nothing here" was filtered before anyone asked whether it held anything.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    request = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")]).filter_by_station_id(
+        "A006",
+    )
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+    df = request.values.all().df
+    assert df.is_empty()
+    # and it is an answer rather than a hole: the columns a caller asks the result for are there
+    assert set(df.columns) == {"station_id", "resolution", "dataset", "parameter", "date", "value", "quality"}
