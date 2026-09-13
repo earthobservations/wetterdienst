@@ -150,6 +150,37 @@ def test_dwd_road_weather_file_that_decodes_to_nothing(monkeypatch: pytest.Monke
     assert df.schema["date"] == pl.Datetime(time_zone="UTC")
 
 
+def test_dwd_road_weather_file_with_only_the_first_batch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The columns are read in two batches, and the second comes back empty on its own terms.
+
+    A station reporting temperatures and no wind at all answers the first read and not the second,
+    and `merge` on a frame with no columns is a join on a key that is not there -- `KeyError:
+    'year'`, out of the middle of the collection walk.
+    """
+    import pandas as pd  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
+    first_batch = [parameter.name_original for parameter in parameters][:10]
+    populated = pd.DataFrame(
+        [
+            {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0, "shortStationName": "A006"}
+            | dict.fromkeys(first_batch, 1.0)
+        ],
+    )
+
+    def read_first_batch_only(_path: object, columns: tuple[str, ...], **_kwargs: object) -> pd.DataFrame:
+        return populated if set(first_batch) & set(columns) else pd.DataFrame()
+
+    monkeypatch.setattr("pdbufr.read_bufr", read_first_batch_only)
+    file = File(url="", content=BytesIO(b"not a real bufr message"), status=200)
+    parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
+    df = parse(file, parameters)
+    assert df.is_empty()
+    assert set(df.columns) == {"station_id", "date", "parameter", "value", "quality"}
+
+
 def test_require_bufr_says_what_to_install(monkeypatch: pytest.MonkeyPatch) -> None:
     """Road data without the reader is refused with the remedy, not with a loader error.
 

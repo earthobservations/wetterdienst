@@ -315,11 +315,13 @@ class DwdRoadValues(TimeseriesValues):
                 ),
             )
             if df.empty:
-                # the file decoded to no subsets. The size filter above catches the 142-byte empty
-                # ones of GH-1526 by their exact length, which is a guess at a shape rather than a
-                # reading of it, so a file that holds nothing at some other size arrives here --
-                # and neither the merge below nor the select after it survives a frame with no
-                # columns. Nothing is a valid thing for a file to hold
+                # nothing came back for the first batch. The size filter above catches the
+                # 142-byte empty files of GH-1526 by their exact length, which is a guess at a
+                # shape rather than a reading of one, so a file that holds nothing at some other
+                # size arrives here -- as does one whose subsets are all missing a descriptor,
+                # `read_bufr` emitting an observation only where every column asked for is there.
+                # Neither the merge below nor the select after it survives a frame with no columns
+                log.debug(f"{file.url} holds no reading for {first_batch}, so it is skipped")
                 return pl.DataFrame(schema=_PARSED_SCHEMA)
             if second_batch:
                 df2 = pdbufr.read_bufr(
@@ -330,6 +332,13 @@ class DwdRoadValues(TimeseriesValues):
                         *second_batch,
                     ),
                 )
+                if df2.empty:
+                    # and the second batch is its own read, so it comes back empty on its own
+                    # terms -- a station that reports temperatures and no wind at all has the one
+                    # batch and not the other, and `merge` on a frame with no columns is a join
+                    # on a key that is not there
+                    log.debug(f"{file.url} holds no reading for {second_batch}, so it is skipped")
+                    return pl.DataFrame(schema=_PARSED_SCHEMA)
                 df = df.merge(df2, on=(*TIME_COLUMNS, "shortStationName"))
         df = pl.from_pandas(df)
         df = df.select(
