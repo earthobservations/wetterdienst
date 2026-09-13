@@ -136,8 +136,11 @@ dependencies = [
 
 [project.optional-dependencies]
 bufr = [
+    # eccodes is what does the decoding and pdbufr requires it, so it comes either way -- named
+    # here because this extra is meant to be the whole of what reading BUFR takes, and a user who
+    # installs it should not then have to discover the other half
+    "eccodes>=1.5.2,<3",
     "pdbufr>=0.10.2,<1",
-    "pybufrkit>=0.2,<1",
 ]
 cratedb = [
     "pandas>=2.2.2,<4",
@@ -147,6 +150,7 @@ duckdb = [
     "duckdb>=1,<2",
     "pandas>=2.2.2,<4",
 ]
+# kept for the installs that name it; `bufr` carries this and the reader both
 eccodes = [
     "eccodes>=1.5.2,<3",
 ]

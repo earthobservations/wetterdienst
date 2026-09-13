@@ -4,17 +4,15 @@
 
 import pytest
 
-from tests.conftest import IS_CI, IS_WINDOWS
+from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
-from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
 from wetterdienst.util.network import list_remote_files_fsspec
 
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
-@pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed")
-@pytest.mark.skipif(not ensure_eccodes() and not ensure_pdbufr(), reason="pdbufr not installed")
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.remote
 def test_dwd_road_weather() -> None:
     """Test fetching of DWD road weather data."""
@@ -60,8 +58,7 @@ def test_dwd_road_weather_station_groups() -> None:
 
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
-@pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed")
-@pytest.mark.skipif(not ensure_eccodes() and not ensure_pdbufr(), reason="pdbufr not installed")
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.remote
 def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.MonkeyPatch) -> None:
     """A station group with no usable file is an empty result, not a broken frame.

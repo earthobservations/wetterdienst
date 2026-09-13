@@ -66,6 +66,12 @@ Types of changes:
 
 ### Changed
 
+- Dependencies: the `bufr` extra carries eccodes as well as pdbufr, so one extra is the whole of
+  what reading BUFR takes. pdbufr required eccodes either way, but the two were named as separate
+  extras and the docs told you to install both -- neither is any use without the other. The
+  `eccodes` extra stays for the installs that name it. `pybufrkit` is no longer pulled in by
+  `bufr`: nothing in the library imports it, only the radar tests do
+
 - Interpolation and summary by station id answer at that station's altitude. Naming a point by a
   station names its height as well, and it is the one case where the elevation is known without
   being given, so `interpolate_by_station_id` and `summarize_by_station_id` correct the quantities
@@ -82,6 +88,15 @@ Types of changes:
   every other dependency here resolves to, so the floor named a combination that does not work
 
 ### Fixed
+
+- DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
+  class called `ensure_pdbufr()` in its `__post_init__` and threw the answer away, so it guarded
+  nothing: the request went through, and a bare `ImportError` came back out of the middle of a
+  parse instead. It says what to install now, and where the compiled library comes from
+- Tests: a BUFR skip condition that only skipped when *both* halves were missing. Written as
+  `not ensure_eccodes() and not ensure_pdbufr()`, it was false wherever eccodes was installed and
+  pdbufr was not -- the one case a skip is for -- so the test ran and died on the import. Four
+  spellings of the same question stood across the suite, one of them this one; there is one now
 
 - DWD road: a station group with no usable file is an empty result rather than a broken frame.
   The stations report in fifteen-minute batches and four groups are already known to go quiet, so

@@ -12,7 +12,7 @@ import fsspec.utils as _fsspec_utils
 import pytest
 
 from wetterdienst import Info, Settings
-from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
+from wetterdienst.util.eccodes import bufr_is_available
 
 IS_CI = bool(os.environ.get("CI"))
 IS_LINUX = platform.system() == "Linux"
@@ -20,7 +20,7 @@ IS_LINUX_39 = IS_LINUX and sys.version_info[:2] == (3, 11)
 IS_WINDOWS = platform.system() == "Windows"
 IS_PYTHON_3_10 = sys.version_info[:2] == (3, 10)
 IS_PYTHON_3_14 = sys.version_info[:2] == (3, 14)
-ENSURE_ECCODES_PDBUFR = ensure_eccodes() and ensure_pdbufr()
+BUFR_AVAILABLE = bufr_is_available()
 
 info = Info()
 
