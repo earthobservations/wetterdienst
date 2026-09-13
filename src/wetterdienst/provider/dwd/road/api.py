@@ -234,14 +234,14 @@ class DwdRoadValues(TimeseriesValues):
         try:
             df = self._collect_data_by_station_group(station_group, parameters)
         except ValueError:
-            return pl.DataFrame()
-        if df.is_empty():
-            # the group published no file for the requested window, or every file it published was
-            # one of the 142-byte empty ones. That is an ordinary outcome for a network reporting
-            # in fifteen-minute batches, and the caller reads a frame with no columns as "this
-            # station had nothing" -- but only if it is handed back rather than filtered, a filter
-            # on a frame with no columns being a lookup for a column that is not there
-            return df
+            df = pl.DataFrame(schema=_PARSED_SCHEMA)
+        # nothing to answer with is a shape rather than a special case: the group published no file
+        # for the window, or every file it published held nothing, and either way what comes back
+        # is a frame of no readings rather than a frame of no columns. So the filter has a station
+        # id to look for and the select has columns to name, and one row of this function answers
+        # for the empty case and the populated one alike -- there being one less place to hand a
+        # frame on before asking whether it holds anything, which is how this went wrong four
+        # times over
         df = df.filter(pl.col("station_id").eq(station_id))
         return df.select(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
@@ -315,7 +315,7 @@ class DwdRoadValues(TimeseriesValues):
         """Parse the road weather station data from a given file and returns a DataFrame."""
         data = [self.__parse_dwd_road_weather_data(file, parameters) for file in files]
         if not data:
-            return pl.DataFrame()
+            return pl.DataFrame(schema=_PARSED_SCHEMA)
         return pl.concat(data)
 
     @staticmethod

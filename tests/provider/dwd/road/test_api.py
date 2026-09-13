@@ -254,3 +254,41 @@ def test_dwd_road_weather_parameter_no_subset_carries(monkeypatch: pytest.Monkey
     df = parse(file, parameters)
     assert df.get_column("parameter").n_unique() == len(parameters)
     assert df.drop_nulls("value").get_column("parameter").to_list() == ["airTemperature"]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("files_upstream_has", "case"),
+    [
+        ([], "the group published no file"),
+        (["a-file-holding-nothing"], "every file it published held nothing"),
+    ],
+)
+def test_dwd_road_weather_empty_is_one_shape(
+    monkeypatch: pytest.MonkeyPatch,
+    files_upstream_has: list[str],
+    case: str,
+) -> None:
+    """Nothing to answer with comes back in the shape something to answer with comes back in.
+
+    There were three shapes for this: no columns where the group published no file, five where the
+    files it published held nothing, and the seven columns a reading has. All three were handed to
+    a caller that reads the first as "this station had nothing" and would meet either of the others
+    with a width it did not expect or a column that is not there.
+    """
+    import pandas as pd  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    # big enough to clear the size filter, and holding nothing a reader can use
+    file = File(url="a-file-holding-nothing", content=BytesIO(b"x" * 500), status=200)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: files_upstream_has)
+    monkeypatch.setattr(api, "download_files", lambda **_kwargs: [file] if files_upstream_has else [])
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: pd.DataFrame())
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        station_id="A006",
+        parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
+    )
+    assert df.is_empty(), case
+    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "date", "value", "quality"], case

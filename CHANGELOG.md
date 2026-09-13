@@ -122,6 +122,12 @@ Types of changes:
   answering the one read and not the other, so both are asked -- and where it is the second that
   says nothing it is the merge that is skipped, not the file, the readings from the first still
   standing. A file that is skipped says so in the log rather than going quietly
+- DWD road: having nothing to answer with is one shape. There were three -- no columns where the
+  group published no file, five where the files it published held nothing, and the seven a reading
+  has -- handed to a caller that reads the first as "this station had nothing" and would meet
+  either of the others with a width it did not expect or a column that is not there. A frame of no
+  readings carries the columns a reading does, so the filter has a station id to look for and one
+  line answers for the empty case and the populated one alike
 - DWD road: a station group with no usable file is an empty result rather than a broken frame.
   The stations report in fifteen-minute batches and four groups are already known to go quiet, so
   a window with no file behind it -- or one holding only the 142-byte empty files of GH-1526 -- is
