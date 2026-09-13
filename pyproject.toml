@@ -212,7 +212,7 @@ sql = [
 ]
 mcp = [
     "wetterdienst[restapi]",
-    "fastmcp>=3.4.4,<4.0.0",
+    "fastmcp>=3.4.4,<5.0.0",
 ]
 
 [project.urls]
