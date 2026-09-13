@@ -46,7 +46,8 @@ def dwd_road_weather_example() -> None:
         # stretches, so a day with nothing behind it is an ordinary outcome rather than a fault.
         # There is no comparison to draw from one series, and an empty plot says less than a line
         # of text does
-        print("No overlapping readings in the last day, so there is nothing to compare.")
+        missing = "road weather" if df_drw.is_empty() else "station"
+        print(f"No {missing} readings in the last day, so there is nothing to compare.")
         return
 
     _fig, ax = plt.subplots(tight_layout=True)

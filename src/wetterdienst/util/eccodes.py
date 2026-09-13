@@ -70,9 +70,9 @@ def require_bufr(what: str) -> None:
     """
     if not bufr_is_available():
         msg = (
-            f"{what} is published as BUFR, which needs eccodes and pdbufr to read. "
-            f"Install them with `pip install wetterdienst[bufr]`, which carries both, and a "
-            f"compiled eccodes library -- `apt install libeccodes-dev` or `brew install eccodes` "
-            f"-- where your platform has no wheel for one."
+            f"{what} is published as BUFR, which needs eccodes and pdbufr to read: "
+            f"`pip install wetterdienst[bufr]` installs both. They decode through a compiled "
+            f"eccodes library, which most platforms get as a wheel; where yours does not, it "
+            f"comes from `apt install libeccodes-dev` or `brew install eccodes`."
         )
         raise ImportError(msg)

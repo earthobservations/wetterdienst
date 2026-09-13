@@ -117,11 +117,9 @@ Types of changes:
   of GH-1526 are turned away by their exact length, which is a guess at a shape rather than a
   reading of one, so a file holding no subsets at some other length reached the parse -- where the
   merge of the two column batches raised `KeyError: 'year'` and the select after it would have
-  raised for a column that was not there. The columns are read in two batches and either can come
-  back empty on its own terms, a group of stations reporting temperatures and no wind at all
-  answering the one read and not the other, so both are asked -- and where it is the second that
-  says nothing it is the merge that is skipped, not the file, the readings from the first still
-  standing. A file that is skipped says so in the log rather than going quietly
+  raised for a column that was not there. A read that finds nothing carries its columns back
+  even so, so the merge has keys to join on and the select has columns to name, and a file that
+  says nothing needs no handling of its own. It says so in the log rather than going quietly
 - DWD road: having nothing to answer with is one shape. There were three -- no columns where the
   group published no file, five where the files it published held nothing, and the seven a reading
   has -- handed to a caller that reads the first as "this station had nothing" and would meet

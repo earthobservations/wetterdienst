@@ -190,7 +190,7 @@ _PARSED_SCHEMA = {
 }
 
 
-def _read_batch(path: str, batch: list[str]) -> pd.DataFrame:
+def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
     """Read one batch of columns, as one row per station and minute.
 
     `read_bufr` emits an observation only where every column asked for is present, which is its
@@ -203,12 +203,25 @@ def _read_batch(path: str, batch: list[str]) -> pd.DataFrame:
     subset comes back as its own row, holding its own part of the station's reading. Those parts
     are one reading, so they are folded back together on the keys, `first` taking the value that
     is there over the ones that are not.
+
+    Where two subsets both carry a value for the same descriptor, the earlier one wins and the
+    later is dropped without a word. Across twenty files of the DD group there was no such pair --
+    the subsets of a station divide its descriptors rather than repeating them -- so this is what
+    the data says rather than a choice worth making. A station that did report the same quantity
+    twice, from two sensors, would need one of them named before either could be kept.
     """
+    import pandas as pd  # noqa: PLC0415
     import pdbufr  # noqa: PLC0415
 
-    df = pdbufr.read_bufr(path, columns=(*_READING_KEYS, *batch), required_columns=_READING_KEYS)
+    columns = (*_READING_KEYS, *batch)
+    df = pdbufr.read_bufr(path, columns=columns, required_columns=_READING_KEYS)
     if df.empty:
-        return df
+        # the file's messages decode to no subsets at all, which the size filter upstream tries to
+        # catch by length and cannot do reliably. It comes back carrying its columns even so: the
+        # merge then has keys to join on and the select has columns to name, so having nothing to
+        # say is the same shape here as having something, and neither caller needs a branch for it
+        log.debug(f"{source} holds no reading for {batch}")
+        return pd.DataFrame(columns=pd.Index(columns))
     return df.groupby(list(_READING_KEYS), as_index=False).first()
 
 
@@ -332,30 +345,12 @@ class DwdRoadValues(TimeseriesValues):
                 raise file.content
             tf.write(file.content.read())
             tf.seek(0)
-            df = _read_batch(tf.name, first_batch)
-            if df.empty:
-                # nothing came back for the first batch. The size filter above catches the
-                # 142-byte empty files of GH-1526 by their exact length, which is a guess at a
-                # shape rather than a reading of one, so a file that holds nothing at some other
-                # size arrives here -- as does one whose subsets are all missing a descriptor,
-                # `read_bufr` emitting an observation only where every column asked for is there.
-                # Neither the merge below nor the select after it survives a frame with no columns
-                log.debug(f"{file.url} holds no reading for {first_batch}, so it is skipped")
-                return pl.DataFrame(schema=_PARSED_SCHEMA)
+            df = _read_batch(tf.name, first_batch, file.url)
             if second_batch:
-                df2 = _read_batch(tf.name, second_batch)
-                if df2.empty:
-                    # nothing in the file speaks to the second batch -- a group of stations that
-                    # report temperatures and no wind at all. What the first read returned still
-                    # stands, so it is the merge that is skipped and not the file: joining a frame
-                    # with no columns is a join on a key that is not there, and returning here
-                    # would throw away every temperature in the file to say so. The null fill
-                    # below supplies the columns this read would have brought
-                    log.debug(f"{file.url} holds no reading for {second_batch}, so only the rest is read")
-                else:
-                    # outer, so a station that answered one read and not the other keeps what it
-                    # did say, with nulls for the rest
-                    df = df.merge(df2, on=list(_READING_KEYS), how="outer")
+                # outer, so a station that answered one read and not the other keeps what it did
+                # say, with nulls for the rest
+                df2 = _read_batch(tf.name, second_batch, file.url)
+                df = df.merge(df2, on=list(_READING_KEYS), how="outer")
         df = pl.from_pandas(df)
         # a descriptor no subset in the file carries is not a column at all, so the select below
         # would ask for one that is not there. Absent is null, the same as present and unreported
