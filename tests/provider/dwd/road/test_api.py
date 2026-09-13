@@ -192,3 +192,77 @@ def test_require_bufr_says_what_to_install(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(eccodes, "bufr_is_available", lambda: False)
     with pytest.raises(ImportError, match=r"pip install wetterdienst\[bufr\]"):
         _ = _stub_stations().values
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_folds_a_station_reported_in_parts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station whose reading arrives in parts keeps all of it.
+
+    A road file holds one subset per station carrying the descriptors that station has, and
+    `read_bufr` emits an observation only where every column asked for is present. Asking for
+    fourteen and keeping the complete ones threw away every reading of anything not universally
+    fitted -- against a real file of the DD group it returned 105 values where the file held 121,
+    the whole of `roadSurfaceTemperature` among the missing, on a road weather network.
+    """
+    import pandas as pd  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    keys = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0, "shortStationName": "A006"}
+    asked_for: list[object] = []
+
+    def read_in_parts(_path: object, columns: tuple[str, ...], **kwargs: object) -> pd.DataFrame:
+        asked_for.append(kwargs.get("required_columns"))
+        if "windSpeed" in columns:
+            return pd.DataFrame([{**keys, "windSpeed": 3.0}])
+        # one station and minute, arriving as two subsets, neither of them whole
+        return pd.DataFrame(
+            [
+                {**keys, "airTemperature": 12.0, "roadSurfaceTemperature": None},
+                {**keys, "airTemperature": None, "roadSurfaceTemperature": 18.0},
+            ],
+        )
+
+    monkeypatch.setattr("pdbufr.read_bufr", read_in_parts)
+    parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
+    file = File(url="", content=BytesIO(b"not a real bufr message"), status=200)
+    parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
+    df = parse(file, parameters)
+    readings = dict(df.drop_nulls("value").select("parameter", "value").iter_rows())
+    # both halves of the one reading, where keeping only whole subsets would have kept neither
+    assert readings["airTemperature"] == 12.0
+    assert readings["roadSurfaceTemperature"] == 18.0
+    assert readings["windSpeed"] == 3.0
+    # folded rather than left side by side: the two subsets are one reading, so each parameter of
+    # the dataset comes back once and not once per subset that mentioned it
+    assert df.height == len(parameters)
+    # and it is the keys the reads are required of, which is what lets a part be a part
+    assert asked_for == [api._READING_KEYS, api._READING_KEYS]  # noqa: SLF001
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_parameter_no_subset_carries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A descriptor no subset carries is a null column, not a missing one.
+
+    Required of the keys alone, a column nothing reports is not in the frame at all -- and the
+    select that follows asks for every parameter of the dataset by name.
+    """
+    import pandas as pd  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    keys = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0, "shortStationName": "A006"}
+
+    def read_one_descriptor(_path: object, columns: tuple[str, ...], **_kwargs: object) -> pd.DataFrame:
+        # the two batches ask for disjoint columns, so only the one holding airTemperature has it
+        if "airTemperature" not in columns:
+            return pd.DataFrame([dict(keys)])
+        return pd.DataFrame([{**keys, "airTemperature": 12.0}])
+
+    monkeypatch.setattr("pdbufr.read_bufr", read_one_descriptor)
+    parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
+    file = File(url="", content=BytesIO(b"not a real bufr message"), status=200)
+    parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
+    df = parse(file, parameters)
+    assert df.get_column("parameter").n_unique() == len(parameters)
+    assert df.drop_nulls("value").get_column("parameter").to_list() == ["airTemperature"]

@@ -89,6 +89,17 @@ Types of changes:
 
 ### Fixed
 
+- DWD road: a station's reading is kept whole where it arrives in parts. A road file holds one
+  subset per station carrying the descriptors that station has, and `read_bufr` emits an
+  observation only where every column asked for is present -- its default, and ours. Asking for
+  all fourteen parameters of the dataset and keeping only the complete observations threw away
+  every reading of anything not universally fitted: against a file of the DD group the parse
+  returned 105 values where the file held 121, the whole of `roadSurfaceTemperature` among the
+  missing, on a road weather network. The reads are required of the station and the minute
+  instead, which every subset carries, and the parts of one reading are folded back together on
+  those keys. A parameter no subset in the file carries comes back as a null column rather than
+  as no column at all
+
 - DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
   class called `ensure_pdbufr()` in its `__post_init__` and threw the answer away, so it guarded
   nothing: the request went through, and a bare `ImportError` came back out of the middle of a

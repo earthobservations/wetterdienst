@@ -28,6 +28,8 @@ from wetterdienst.util.eccodes import require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -173,6 +175,10 @@ TEMPORARILY_UNAVAILABLE_STATION_GROUPS = [
 ]
 
 
+#: what identifies one reading: a station and the minute it reported. Both column batches are read
+#: against these and joined on them
+_READING_KEYS = (*TIME_COLUMNS, "shortStationName")
+
 #: the shape `__parse_dwd_road_weather_data` returns, named so that a file holding nothing can be
 #: returned in it and still concatenate with the files that hold something
 _PARSED_SCHEMA = {
@@ -182,6 +188,28 @@ _PARSED_SCHEMA = {
     "value": pl.Float64,
     "quality": pl.Float64,
 }
+
+
+def _read_batch(path: str, batch: list[str]) -> pd.DataFrame:
+    """Read one batch of columns, as one row per station and minute.
+
+    `read_bufr` emits an observation only where every column asked for is present, which is its
+    default and was ours. A road file holds one subset per station carrying the descriptors that
+    station has, so asking for fourteen and keeping only the complete ones threw away every
+    reading of anything not universally fitted: in a sample of the DD group it returned 70 values
+    where the file held 86, the whole of `roadSurfaceTemperature` among the missing.
+
+    Required of the keys instead -- a station and a minute, which every subset carries -- each
+    subset comes back as its own row, holding its own part of the station's reading. Those parts
+    are one reading, so they are folded back together on the keys, `first` taking the value that
+    is there over the ones that are not.
+    """
+    import pdbufr  # noqa: PLC0415
+
+    df = pdbufr.read_bufr(path, columns=(*_READING_KEYS, *batch), required_columns=_READING_KEYS)
+    if df.empty:
+        return df
+    return df.groupby(list(_READING_KEYS), as_index=False).first()
 
 
 class DwdRoadValues(TimeseriesValues):
@@ -296,8 +324,6 @@ class DwdRoadValues(TimeseriesValues):
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """Read the road weather station data from a given file and returns a DataFrame."""
-        import pdbufr  # noqa: PLC0415
-
         parameter_names = [parameter.name_original for parameter in parameters]
         first_batch = parameter_names[:10]
         second_batch = parameter_names[10:]
@@ -306,14 +332,7 @@ class DwdRoadValues(TimeseriesValues):
                 raise file.content
             tf.write(file.content.read())
             tf.seek(0)
-            df = pdbufr.read_bufr(
-                tf.name,
-                columns=(
-                    *TIME_COLUMNS,
-                    "shortStationName",
-                    *first_batch,
-                ),
-            )
+            df = _read_batch(tf.name, first_batch)
             if df.empty:
                 # nothing came back for the first batch. The size filter above catches the
                 # 142-byte empty files of GH-1526 by their exact length, which is a guess at a
@@ -324,14 +343,7 @@ class DwdRoadValues(TimeseriesValues):
                 log.debug(f"{file.url} holds no reading for {first_batch}, so it is skipped")
                 return pl.DataFrame(schema=_PARSED_SCHEMA)
             if second_batch:
-                df2 = pdbufr.read_bufr(
-                    tf.name,
-                    columns=(
-                        *TIME_COLUMNS,
-                        "shortStationName",
-                        *second_batch,
-                    ),
-                )
+                df2 = _read_batch(tf.name, second_batch)
                 if df2.empty:
                     # and the second batch is its own read, so it comes back empty on its own
                     # terms -- a station that reports temperatures and no wind at all has the one
@@ -339,8 +351,15 @@ class DwdRoadValues(TimeseriesValues):
                     # on a key that is not there
                     log.debug(f"{file.url} holds no reading for {second_batch}, so it is skipped")
                     return pl.DataFrame(schema=_PARSED_SCHEMA)
-                df = df.merge(df2, on=(*TIME_COLUMNS, "shortStationName"))
+                # outer, so a station that answered one read and not the other keeps what it
+                # did say, with nulls for the rest
+                df = df.merge(df2, on=list(_READING_KEYS), how="outer")
         df = pl.from_pandas(df)
+        # a descriptor no subset in the file carries is not a column at all, so the select below
+        # would ask for one that is not there. Absent is null, the same as present and unreported
+        df = df.with_columns(
+            pl.lit(None, dtype=pl.Float64).alias(name) for name in parameter_names if name not in df.columns
+        )
         df = df.select(
             pl.col("shortStationName").alias("station_id"),
             pl.concat_str(
