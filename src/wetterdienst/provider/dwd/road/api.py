@@ -206,11 +206,11 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
 
     Where two subsets both carry a value for the same descriptor, the earlier one wins and the
     later is dropped without a word. They repeat each other constantly -- across 25 files of the
-    DD group, 1296 of the 625 station/minute groups' descriptors were carried by more than one
-    subset -- and in none of those did the subsets disagree about the value. That agreement, not
-    any division of descriptors between subsets, is what makes taking the first one safe. A
-    station that did report a quantity twice and differently, from two sensors, would need them
-    told apart before either could be kept.
+    DD group, 1296 descriptors spread over 625 station/minute groups were carried by more than
+    one subset of their group -- and in none of those did the subsets disagree about the value.
+    That agreement, and not any division of descriptors between
+    subsets, is what makes taking the first one safe. A station that did report a quantity twice
+    and differently, from two sensors, would need them told apart before either could be kept.
     """
     import pandas as pd  # noqa: PLC0415
     import pdbufr  # noqa: PLC0415

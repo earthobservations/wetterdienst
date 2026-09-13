@@ -7627,7 +7627,6 @@ dependencies = [
 
 [package.optional-dependencies]
 bufr = [
-    { name = "eccodes" },
     { name = "pdbufr" },
 ]
 cratedb = [
@@ -7759,7 +7758,6 @@ requires-dist = [
     { name = "diskcache", specifier = ">=5.6.3,<6" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=1,<2" },
     { name = "duckdb", marker = "extra == 'sql'", specifier = ">=1,<2" },
-    { name = "eccodes", marker = "extra == 'bufr'", specifier = ">=1.5.2,<3" },
     { name = "eccodes", marker = "extra == 'eccodes'", specifier = ">=1.5.2,<3" },
     { name = "fastapi", marker = "extra == 'restapi'", specifier = ">=0.115,<1" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=3.4.4,<4.0.0" },

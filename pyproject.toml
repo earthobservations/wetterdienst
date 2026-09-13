@@ -136,10 +136,11 @@ dependencies = [
 
 [project.optional-dependencies]
 bufr = [
-    # eccodes is what does the decoding and pdbufr requires it, so it comes either way -- named
-    # here because this extra is meant to be the whole of what reading BUFR takes, and a user who
-    # installs it should not then have to discover the other half
-    "eccodes>=1.5.2,<3",
+    # this extra is the whole of what reading BUFR takes: pdbufr requires eccodes, so both arrive.
+    # eccodes is deliberately *not* named alongside it. The minimum-versions job resolves every
+    # direct dependency to its floor, and naming it here would make that floor 1.5.2 -- a 2023
+    # release published as a source tarball with no wheel -- where leaving it to pdbufr resolves
+    # the current one. That job continues on error, so the downgrade would not announce itself
     "pdbufr>=0.10.2,<1",
 ]
 cratedb = [

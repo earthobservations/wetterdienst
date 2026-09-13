@@ -66,11 +66,14 @@ Types of changes:
 
 ### Changed
 
-- Dependencies: the `bufr` extra carries eccodes as well as pdbufr, so one extra is the whole of
-  what reading BUFR takes. pdbufr required eccodes either way, but the two were named as separate
-  extras and the docs told you to install both -- neither is any use without the other. The
-  `eccodes` extra stays for the installs that name it. `pybufrkit` is no longer pulled in by
-  `bufr`: nothing in the library imports it, only the radar tests do
+- Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes,
+  so both arrive from it, but the two were named as separate extras and the docs told you to
+  install both -- neither is any use without the other. eccodes is deliberately not named
+  alongside pdbufr: the minimum-versions job resolves every direct dependency to its floor, and
+  naming it would make that floor a 2023 release published without a wheel, where leaving it to
+  pdbufr resolves the current one. The `eccodes` extra stays for the installs that name it.
+  `pybufrkit` is no longer pulled in by `bufr`: nothing in the library imports it, only the radar
+  tests do, and they skip on it now rather than failing to collect without it
 
 - Interpolation and summary by station id answer at that station's altitude. Naming a point by a
   station names its height as well, and it is the one case where the elevation is known without
