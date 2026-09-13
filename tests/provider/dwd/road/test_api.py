@@ -182,13 +182,14 @@ def test_dwd_road_weather_file_with_only_the_first_batch(monkeypatch: pytest.Mon
     assert df.get_column("parameter").n_unique() == len(parameters)
 
 
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_folds_a_station_reported_in_parts(monkeypatch: pytest.MonkeyPatch) -> None:
     """A station whose reading arrives in parts keeps all of it.
 
     A road file holds one subset per station carrying the descriptors that station has, and
     `read_bufr` emits an observation only where every column asked for is present. Asking for
     fourteen and keeping the complete ones threw away every reading of anything not universally
-    fitted -- against a real file of the DD group it returned 105 values where the file held 121,
+    fitted -- against a real file of the DD group the parse returned 105 values where the file held 121,
     the whole of `roadSurfaceTemperature` among the missing, on a road weather network.
     """
     import pandas as pd  # noqa: PLC0415

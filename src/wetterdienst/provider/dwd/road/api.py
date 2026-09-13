@@ -196,8 +196,8 @@ def _read_batch(path: str, batch: list[str]) -> pd.DataFrame:
     `read_bufr` emits an observation only where every column asked for is present, which is its
     default and was ours. A road file holds one subset per station carrying the descriptors that
     station has, so asking for fourteen and keeping only the complete ones threw away every
-    reading of anything not universally fitted: in a sample of the DD group it returned 70 values
-    where the file held 86, the whole of `roadSurfaceTemperature` among the missing.
+    reading of anything not universally fitted: of one file of the DD group, the parse returned
+    105 values where the file held 121, the whole of `roadSurfaceTemperature` among the missing.
 
     Required of the keys instead -- a station and a minute, which every subset carries -- each
     subset comes back as its own row, holding its own part of the station's reading. Those parts
