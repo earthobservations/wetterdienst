@@ -205,12 +205,20 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
     is there over the ones that are not.
 
     Where two subsets both carry a value for the same descriptor, the earlier one wins and the
-    later is dropped without a word. They repeat each other constantly -- across 25 files of the
-    DD group, 1296 descriptors spread over 625 station/minute groups were carried by more than
-    one subset of their group -- and in none of those did the subsets disagree about the value.
-    That agreement, and not any division of descriptors between
-    subsets, is what makes taking the first one safe. A station that did report a quantity twice
-    and differently, from two sensors, would need them told apart before either could be kept.
+    later is dropped. They repeat each other constantly, and whether the repeats agree depends on
+    the group -- over the last five files of each, DD had 261 repeated descriptors and no
+    disagreement at all, where FN had 54 disagreements in 270 and HV 56 in 425. Nor are those
+    rounding: `roadSurfaceTemperature` for station P129 came back as both 281.55 K and 304.65 K,
+    which is 8 degrees and 31, and `roadSurfaceCondition` -- a code table, so a difference in kind
+    rather than in degree -- as both 0 and 2.
+
+    A station with two road sensors reports each of them, and this frame has nowhere to put the
+    second: one row per station, minute and parameter, with no axis for which sensor spoke. So one
+    is taken and the other is logged. That is where this stood before the reads were relaxed too
+    -- the cross product of the old inner merge was collapsed just as arbitrarily one step later,
+    by `unique` in `_process_dataset`. Telling them apart is a question about the shape of the
+    result rather than about this fold: the station index carries `road_sector`, so there is
+    something to name them by if it is ever worth naming.
     """
     import pandas as pd  # noqa: PLC0415
     import pdbufr  # noqa: PLC0415
@@ -230,7 +238,21 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
         empty["shortStationName"] = pd.Series(dtype="object")
         empty.update({column: pd.Series(dtype="object") for column in batch})
         return pd.DataFrame(empty)
-    return df.groupby(list(_READING_KEYS), as_index=False).first()
+    keys = list(_READING_KEYS)
+    # a station reporting the same quantity twice and differently has two road sensors, and only
+    # one of them fits in a frame with a row per station, minute and parameter. Which one is kept
+    # is arbitrary; that the other existed is not, so it is said rather than swallowed
+    # of the batch, only what the read actually returned: a descriptor no subset carries is not a
+    # column here at all, which is the same reason the parse fills them in further down
+    present = [column for column in batch if column in df.columns]
+    counts = df.groupby(keys)[present].nunique(dropna=True)
+    disagreeing = counts.columns[counts.gt(1).any()]
+    if len(disagreeing):
+        log.warning(
+            f"{source} reports {', '.join(sorted(disagreeing))} more than once for one station and "
+            f"minute, with different values; keeping the first of each",
+        )
+    return df.groupby(keys, as_index=False).first()
 
 
 class DwdRoadValues(TimeseriesValues):

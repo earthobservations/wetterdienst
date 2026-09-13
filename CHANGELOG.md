@@ -93,6 +93,13 @@ Types of changes:
 
 ### Fixed
 
+- DWD road: a station reporting one quantity twice and differently says so. Two road sensors on
+  one station are two readings, and the frame has one row per station, minute and parameter to put
+  them in, so one is kept and the other dropped -- which is where this stood before, the old inner
+  merge's cross product being collapsed just as arbitrarily a step later. It is logged now rather
+  than silent. How often it happens depends on the group: over the last five files of each, DD
+  disagreed with itself not once in 261 repeated descriptors, where FN did 54 times in 270 and HV
+  56 in 425, `roadSurfaceTemperature` among them by as much as 23 K
 - DWD road: a station's reading is kept whole where it arrives in parts. A road file holds one
   subset per station carrying the descriptors that station has, and `read_bufr` emits an
   observation only where every column asked for is present -- its default, and ours. Asking for
@@ -112,6 +119,8 @@ Types of changes:
   `ImportError` out of the import where a missing package raises `ModuleNotFoundError`, and only
   the second was caught -- so the question raised instead of answering, out of a radar path
   documented to log and carry on rather than fail a query
+- CI: the test workflow watches `examples/**`. `tests/examples` runs those files, so a change to
+  one is a change the suite covers -- and a pull request touching only an example did not run it
 - Tests: a BUFR skip condition that only skipped when *both* halves were missing. Written as
   `not ensure_eccodes() and not ensure_pdbufr()`, it was false wherever eccodes was installed and
   pdbufr was not -- the one case a skip is for -- so the test ran and died on the import. Four

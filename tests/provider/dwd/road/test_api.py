@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD road weather API."""
 
+import logging
 from io import BytesIO
 
 import polars as pl
@@ -292,3 +293,39 @@ def test_dwd_road_weather_empty_is_one_shape(
     )
     assert df.is_empty(), case
     assert df.columns == ["resolution", "dataset", "parameter", "station_id", "date", "value", "quality"], case
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_says_when_it_drops_a_second_sensor(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A station reporting one quantity twice and differently loses one of them, and says so.
+
+    Two road sensors on one station are two readings, and this frame has one row per station,
+    minute and parameter to put them in. Which is kept is arbitrary and cannot be otherwise here,
+    so the one that is dropped is at least named: across the last five files of the HV group there
+    were 56 such disagreements, `roadSurfaceTemperature` among them by as much as 23 K.
+    """
+    import pandas as pd  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    keys = {"year": 2026, "month": 9, "day": 13, "hour": 21, "minute": 15, "shortStationName": "E130"}
+    two_sensors = pd.DataFrame(
+        [
+            {**keys, "roadSurfaceTemperature": 285.99, "airTemperature": 12.0},
+            {**keys, "roadSurfaceTemperature": 286.22, "airTemperature": 12.0},
+        ],
+    )
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: two_sensors)
+    with caplog.at_level(logging.WARNING):
+        df = api._read_batch("nowhere", ["roadSurfaceTemperature", "airTemperature"], "a-file")  # noqa: SLF001
+    # one row, as the shape requires, and the first reading in it
+    assert len(df) == 1
+    assert df["roadSurfaceTemperature"].tolist() == [285.99]
+    # named, so the reading that went is discoverable
+    assert "roadSurfaceTemperature" in caplog.text
+    assert "a-file" in caplog.text
+    # and the one both subsets agreed on is not reported, there being nothing to choose
+    assert "airTemperature" not in caplog.text
