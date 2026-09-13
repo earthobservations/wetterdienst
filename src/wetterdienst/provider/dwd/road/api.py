@@ -205,10 +205,12 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
     is there over the ones that are not.
 
     Where two subsets both carry a value for the same descriptor, the earlier one wins and the
-    later is dropped without a word. Across twenty files of the DD group there was no such pair --
-    the subsets of a station divide its descriptors rather than repeating them -- so this is what
-    the data says rather than a choice worth making. A station that did report the same quantity
-    twice, from two sensors, would need one of them named before either could be kept.
+    later is dropped without a word. They repeat each other constantly -- across 25 files of the
+    DD group, 1296 of the 625 station/minute groups' descriptors were carried by more than one
+    subset -- and in none of those did the subsets disagree about the value. That agreement, not
+    any division of descriptors between subsets, is what makes taking the first one safe. A
+    station that did report a quantity twice and differently, from two sensors, would need them
+    told apart before either could be kept.
     """
     import pandas as pd  # noqa: PLC0415
     import pdbufr  # noqa: PLC0415
@@ -220,8 +222,14 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
         # catch by length and cannot do reliably. It comes back carrying its columns even so: the
         # merge then has keys to join on and the select has columns to name, so having nothing to
         # say is the same shape here as having something, and neither caller needs a branch for it
-        log.debug(f"{source} holds no reading for {batch}")
-        return pd.DataFrame(columns=pd.Index(columns))
+        log.info(f"{source} holds no reading for {batch}")
+        # with the keys typed as they come back populated: merging them against a batch that did
+        # find something is only otherwise allowed because pandas reads an all-empty object column
+        # as dtype "empty" and lets it pass, which is a leniency rather than a promise
+        empty = {key: pd.Series(dtype="int64") for key in TIME_COLUMNS}
+        empty["shortStationName"] = pd.Series(dtype="object")
+        empty.update({column: pd.Series(dtype="object") for column in batch})
+        return pd.DataFrame(empty)
     return df.groupby(list(_READING_KEYS), as_index=False).first()
 
 

@@ -7,7 +7,6 @@ import re
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
-import pybufrkit
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
@@ -25,6 +24,10 @@ from wetterdienst.provider.dwd.radar.api import RadarResult
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
 
+# skipped rather than imported: it comes from the `radarplus` extra, and an environment with
+# `bufr` and `radar` but not `radarplus` used to get it from `bufr` and would now fail here at
+# collection rather than skipping with the rest of this module
+pybufrkit = pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
 h5py = pytest.importorskip("h5py", reason="h5py not installed")
 wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 

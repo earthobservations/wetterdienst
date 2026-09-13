@@ -119,7 +119,8 @@ Types of changes:
   merge of the two column batches raised `KeyError: 'year'` and the select after it would have
   raised for a column that was not there. A read that finds nothing carries its columns back
   even so, so the merge has keys to join on and the select has columns to name, and a file that
-  says nothing needs no handling of its own. It says so in the log rather than going quietly
+  says nothing needs no handling of its own. It says so in the log, at the level its neighbour
+  uses for a group that published no file at all
 - DWD road: having nothing to answer with is one shape. There were three -- no columns where the
   group published no file, five where the files it published held nothing, and the seven a reading
   has -- handed to a caller that reads the first as "this station had nothing" and would meet
