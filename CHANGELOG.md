@@ -118,9 +118,10 @@ Types of changes:
   reading of one, so a file holding no subsets at some other length reached the parse -- where the
   merge of the two column batches raised `KeyError: 'year'` and the select after it would have
   raised for a column that was not there. The columns are read in two batches and either can come
-  back empty on its own terms, a station reporting temperatures and no wind at all answering the
-  one read and not the other, so both are asked. A file that is skipped says so in the log rather
-  than going quietly
+  back empty on its own terms, a group of stations reporting temperatures and no wind at all
+  answering the one read and not the other, so both are asked -- and where it is the second that
+  says nothing it is the merge that is skipped, not the file, the readings from the first still
+  standing. A file that is skipped says so in the log rather than going quietly
 - DWD road: a station group with no usable file is an empty result rather than a broken frame.
   The stations report in fifteen-minute batches and four groups are already known to go quiet, so
   a window with no file behind it -- or one holding only the 142-byte empty files of GH-1526 -- is

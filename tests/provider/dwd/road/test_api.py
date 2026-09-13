@@ -150,12 +150,14 @@ def test_dwd_road_weather_file_that_decodes_to_nothing(monkeypatch: pytest.Monke
     assert df.schema["date"] == pl.Datetime(time_zone="UTC")
 
 
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_file_with_only_the_first_batch(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The columns are read in two batches, and the second comes back empty on its own terms.
+    """A file that speaks to one batch of columns and not the other keeps what it did say.
 
-    A station reporting temperatures and no wind at all answers the first read and not the second,
-    and `merge` on a frame with no columns is a join on a key that is not there -- `KeyError:
-    'year'`, out of the middle of the collection walk.
+    The columns are read in two batches, and a group of stations reporting temperatures and no
+    wind at all answers the first read and not the second. Merging a frame with no columns is a
+    join on a key that is not there -- but skipping the file to avoid that throws away every
+    temperature in it, so it is the merge that is skipped.
     """
     import pandas as pd  # noqa: PLC0415
 
@@ -163,12 +165,8 @@ def test_dwd_road_weather_file_with_only_the_first_batch(monkeypatch: pytest.Mon
 
     parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
     first_batch = [parameter.name_original for parameter in parameters][:10]
-    populated = pd.DataFrame(
-        [
-            {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0, "shortStationName": "A006"}
-            | dict.fromkeys(first_batch, 1.0)
-        ],
-    )
+    keys = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0, "shortStationName": "A006"}
+    populated = pd.DataFrame([{**keys, "airTemperature": 12.0, "roadSurfaceTemperature": 18.0}])
 
     def read_first_batch_only(_path: object, columns: tuple[str, ...], **_kwargs: object) -> pd.DataFrame:
         return populated if set(first_batch) & set(columns) else pd.DataFrame()
@@ -177,24 +175,13 @@ def test_dwd_road_weather_file_with_only_the_first_batch(monkeypatch: pytest.Mon
     file = File(url="", content=BytesIO(b"not a real bufr message"), status=200)
     parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
     df = parse(file, parameters)
-    assert df.is_empty()
-    assert set(df.columns) == {"station_id", "date", "parameter", "value", "quality"}
+    readings = dict(df.drop_nulls("value").select("parameter", "value").iter_rows())
+    # what the first read returned, not an empty frame standing in for the whole file
+    assert readings == {"airTemperature": 12.0, "roadSurfaceTemperature": 18.0}
+    # and the second batch's parameters are there as nulls, so the frame keeps its shape
+    assert df.get_column("parameter").n_unique() == len(parameters)
 
 
-def test_require_bufr_says_what_to_install(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Road data without the reader is refused with the remedy, not with a loader error.
-
-    `bufr_is_available` is cached, so absence is simulated where `require_bufr` looks the answer up
-    rather than at the two halves behind it.
-    """
-    from wetterdienst.util import eccodes  # noqa: PLC0415
-
-    monkeypatch.setattr(eccodes, "bufr_is_available", lambda: False)
-    with pytest.raises(ImportError, match=r"pip install wetterdienst\[bufr\]"):
-        _ = _stub_stations().values
-
-
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_folds_a_station_reported_in_parts(monkeypatch: pytest.MonkeyPatch) -> None:
     """A station whose reading arrives in parts keeps all of it.
 

@@ -345,15 +345,17 @@ class DwdRoadValues(TimeseriesValues):
             if second_batch:
                 df2 = _read_batch(tf.name, second_batch)
                 if df2.empty:
-                    # and the second batch is its own read, so it comes back empty on its own
-                    # terms -- a station that reports temperatures and no wind at all has the one
-                    # batch and not the other, and `merge` on a frame with no columns is a join
-                    # on a key that is not there
-                    log.debug(f"{file.url} holds no reading for {second_batch}, so it is skipped")
-                    return pl.DataFrame(schema=_PARSED_SCHEMA)
-                # outer, so a station that answered one read and not the other keeps what it
-                # did say, with nulls for the rest
-                df = df.merge(df2, on=list(_READING_KEYS), how="outer")
+                    # nothing in the file speaks to the second batch -- a group of stations that
+                    # report temperatures and no wind at all. What the first read returned still
+                    # stands, so it is the merge that is skipped and not the file: joining a frame
+                    # with no columns is a join on a key that is not there, and returning here
+                    # would throw away every temperature in the file to say so. The null fill
+                    # below supplies the columns this read would have brought
+                    log.debug(f"{file.url} holds no reading for {second_batch}, so only the rest is read")
+                else:
+                    # outer, so a station that answered one read and not the other keeps what it
+                    # did say, with nulls for the rest
+                    df = df.merge(df2, on=list(_READING_KEYS), how="outer")
         df = pl.from_pandas(df)
         # a descriptor no subset in the file carries is not a column at all, so the select below
         # would ask for one that is not there. Absent is null, the same as present and unreported
