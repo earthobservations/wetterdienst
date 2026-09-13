@@ -67,12 +67,12 @@ Types of changes:
 ### Changed
 
 - Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes,
-  so both arrive from it, but the two were named as separate extras and the docs told you to
-  install both -- neither is any use without the other. The `eccodes` extra stays for the installs
-  that name it, and its floor is now a release that exists as a wheel for every Python this
-  project supports: it stood at 1.5.2, a 2023 source tarball, and the minimum-versions job
-  resolves every direct dependency to its floor across extras -- so that is what it had to build,
-  and it continues on error if it cannot. `pybufrkit` is no longer pulled in by `bufr`: nothing in
+  but asks for any version at all, and the two were named as separate extras with the docs telling
+  you to install both -- neither being any use without the other. The floor is a release that
+  exists as a wheel for every Python this project supports, named in both extras so that it binds
+  for anyone installing `wetterdienst[bufr]` and not only inside this repository's lockfile. It
+  stood at 1.5.2, a 2023 source tarball, which the minimum-versions job -- resolving every direct
+  dependency to its floor, across extras -- had to build, and continues on error if it cannot. `pybufrkit` is no longer pulled in by `bufr`: nothing in
   the library imports it, only the radar tests do, and they skip on it now rather than failing to
   collect without it
 

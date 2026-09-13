@@ -154,10 +154,10 @@ def test_dwd_road_weather_file_that_decodes_to_nothing(monkeypatch: pytest.Monke
 def test_dwd_road_weather_file_with_only_the_first_batch(monkeypatch: pytest.MonkeyPatch) -> None:
     """A file that speaks to one batch of columns and not the other keeps what it did say.
 
-    The columns are read in two batches, and a group of stations reporting temperatures and no
-    wind at all answers the first read and not the second. Merging a frame with no columns is a
-    join on a key that is not there -- but skipping the file to avoid that throws away every
-    temperature in it, so it is the merge that is skipped.
+    The columns are read in two batches, and a read that finds nothing carries its columns back
+    even so, so the merge joins as it always does and what the other read found survives it. There
+    is no branch here to look for: the shape does the work. Earlier versions skipped the merge, or
+    skipped the file, and those are what threw the temperatures away.
     """
     import pandas as pd  # noqa: PLC0415
 
