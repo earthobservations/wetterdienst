@@ -173,6 +173,17 @@ TEMPORARILY_UNAVAILABLE_STATION_GROUPS = [
 ]
 
 
+#: the shape `__parse_dwd_road_weather_data` returns, named so that a file holding nothing can be
+#: returned in it and still concatenate with the files that hold something
+_PARSED_SCHEMA = {
+    "station_id": pl.String,
+    "date": pl.Datetime(time_zone="UTC"),
+    "parameter": pl.String,
+    "value": pl.Float64,
+    "quality": pl.Float64,
+}
+
+
 class DwdRoadValues(TimeseriesValues):
     """Values class for DWD road weather data."""
 
@@ -303,6 +314,13 @@ class DwdRoadValues(TimeseriesValues):
                     *first_batch,
                 ),
             )
+            if df.empty:
+                # the file decoded to no subsets. The size filter above catches the 142-byte empty
+                # ones of GH-1526 by their exact length, which is a guess at a shape rather than a
+                # reading of it, so a file that holds nothing at some other size arrives here --
+                # and neither the merge below nor the select after it survives a frame with no
+                # columns. Nothing is a valid thing for a file to hold
+                return pl.DataFrame(schema=_PARSED_SCHEMA)
             if second_batch:
                 df2 = pdbufr.read_bufr(
                     tf.name,

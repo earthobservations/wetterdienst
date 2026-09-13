@@ -93,11 +93,20 @@ Types of changes:
   class called `ensure_pdbufr()` in its `__post_init__` and threw the answer away, so it guarded
   nothing: the request went through, and a bare `ImportError` came back out of the middle of a
   parse instead. It says what to install now, and where the compiled library comes from
+- BUFR: an eccodes with no compiled library behind it is read as absent. It raises the plain
+  `ImportError` out of the import where a missing package raises `ModuleNotFoundError`, and only
+  the second was caught -- so the question raised instead of answering, out of a radar path
+  documented to log and carry on rather than fail a query
 - Tests: a BUFR skip condition that only skipped when *both* halves were missing. Written as
   `not ensure_eccodes() and not ensure_pdbufr()`, it was false wherever eccodes was installed and
   pdbufr was not -- the one case a skip is for -- so the test ran and died on the import. Four
   spellings of the same question stood across the suite, one of them this one; there is one now
 
+- DWD road: a file that decodes to nothing is nothing rather than a broken frame. The empty files
+  of GH-1526 are turned away by their exact length, which is a guess at a shape rather than a
+  reading of one, so a file holding no subsets at some other length reached the parse -- where the
+  merge of the two column batches raised `KeyError: 'year'` and the select after it would have
+  raised for a column that was not there
 - DWD road: a station group with no usable file is an empty result rather than a broken frame.
   The stations report in fifteen-minute batches and four groups are already known to go quiet, so
   a window with no file behind it -- or one holding only the 142-byte empty files of GH-1526 -- is

@@ -20,7 +20,12 @@ def ensure_eccodes() -> bool:
         import eccodes  # noqa: PLC0415
 
         eccodes.eccodes.codes_get_api_version()
-    except (ModuleNotFoundError, RuntimeError):
+    except (ImportError, RuntimeError):
+        # ImportError rather than ModuleNotFoundError: an eccodes with no compiled library behind
+        # it raises the plain one out of the import ("libeccodes.so: cannot open shared object
+        # file"), and that is the same answer as not being installed -- this environment cannot
+        # decode. `_attach_bufr` promises to log and carry on rather than fail a query, which it
+        # cannot do if the question itself raises
         return False
     return True
 

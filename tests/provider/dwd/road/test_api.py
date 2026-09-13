@@ -2,13 +2,17 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD road weather API."""
 
+from io import BytesIO
+
+import polars as pl
 import pytest
 
 from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
-from wetterdienst.util.network import list_remote_files_fsspec
+from wetterdienst.util.network import File, list_remote_files_fsspec
 
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
@@ -57,9 +61,53 @@ def test_dwd_road_weather_station_groups() -> None:
     assert files == {group.value for group in DwdRoadStationGroup}
 
 
-@pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
+def _stub_stations() -> StationsResult:
+    """Stand a road station up rather than look one up.
+
+    Asked of the real index, a test about frame handling would find no station the day A006 leaves
+    the network, walk no stations, and pass on an empty frame having exercised nothing.
+    """
+    request = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")])
+    df_stations = pl.DataFrame(
+        [
+            {
+                "resolution": "15_minutes",
+                "dataset": "data",
+                "station_id": "A006",
+                "start_date": None,
+                "end_date": None,
+                "latitude": 54.8892,
+                "longitude": 8.9087,
+                "height": 2.0,
+                "name": "Boeglum",
+                "state": "SH",
+                "station_group": "DD",
+            },
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "height": pl.Float64,
+            "name": pl.String,
+            "state": pl.String,
+            "station_group": pl.String,
+        },
+        orient="row",
+    )
+    return StationsResult(
+        stations=request,
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.BY_STATION_ID,
+    )
+
+
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-@pytest.mark.remote
 def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.MonkeyPatch) -> None:
     """A station group with no usable file is an empty result, not a broken frame.
 
@@ -71,11 +119,45 @@ def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.Monke
     """
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
-    request = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")]).filter_by_station_id(
-        "A006",
-    )
+    # the group publishes nothing for the window, which is the whole of what upstream has to say
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
-    df = request.values.all().df
+    df = _stub_stations().values.all().df
     assert df.is_empty()
     # and it is an answer rather than a hole: the columns a caller asks the result for are there
     assert set(df.columns) == {"station_id", "resolution", "dataset", "parameter", "date", "value", "quality"}
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_file_that_decodes_to_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A file that survives the size filter and decodes to nothing is nothing, not a broken frame.
+
+    The size filter turns the empty files away by their exact length, which is a guess at a shape
+    rather than a reading of one. A file holding no subsets at some other length reaches the parse,
+    where an empty read took the select into a column that was not there.
+    """
+    import pandas as pd  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: pd.DataFrame())
+    parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
+    file = File(url="", content=BytesIO(b"not a real bufr message"), status=200)
+    parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
+    df = parse(file, parameters)
+    assert df.is_empty()
+    # in the shape the files that do hold something come back in, so the two concatenate
+    assert set(df.columns) == {"station_id", "date", "parameter", "value", "quality"}
+    assert df.schema["date"] == pl.Datetime(time_zone="UTC")
+
+
+def test_require_bufr_says_what_to_install(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Road data without the reader is refused with the remedy, not with a loader error.
+
+    `bufr_is_available` is cached, so absence is simulated where `require_bufr` looks the answer up
+    rather than at the two halves behind it.
+    """
+    from wetterdienst.util import eccodes  # noqa: PLC0415
+
+    monkeypatch.setattr(eccodes, "bufr_is_available", lambda: False)
+    with pytest.raises(ImportError, match=r"pip install wetterdienst\[bufr\]"):
+        _ = _stub_stations().values
