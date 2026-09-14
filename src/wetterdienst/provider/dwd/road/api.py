@@ -242,20 +242,23 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
         empty.update({column: pd.Series(dtype="object") for column in batch})
         return pd.DataFrame(empty)
     keys = list(_READING_KEYS)
+    grouped = df.groupby(keys)
+    # of the batch, only what the read returned: a descriptor no subset carries is not a column
+    # here at all, which is the same reason the parse fills them in further down
+    present = [column for column in batch if column in df.columns]
     # a station reporting the same quantity twice and differently has two road sensors, and only
     # one of them fits in a frame with a row per station, minute and parameter. Which one is kept
-    # is arbitrary; that the other existed is not, so it is said rather than swallowed
-    # of the batch, only what the read actually returned: a descriptor no subset carries is not a
-    # column here at all, which is the same reason the parse fills them in further down
-    present = [column for column in batch if column in df.columns]
-    counts = df.groupby(keys)[present].nunique(dropna=True)
+    # is arbitrary; that the other existed is not, so it is said rather than swallowed. At info
+    # rather than warning because it is routine -- for some groups it is every file -- and nothing
+    # the caller can act on until GH-1908 finds something in the data that names the sensor
+    counts = grouped[present].nunique(dropna=True)
     disagreeing = counts.columns[counts.gt(1).any()]
     if len(disagreeing):
-        log.warning(
+        log.info(
             f"{source} reports {', '.join(sorted(disagreeing))} more than once for one station and "
-            f"minute, with different values; keeping the first of each",
+            f"minute, with different values; keeping the first of each (GH-1908)",
         )
-    return df.groupby(keys, as_index=False).first()
+    return grouped.first().reset_index()
 
 
 class DwdRoadValues(TimeseriesValues):
