@@ -46,22 +46,41 @@ def test_dwd_road_weather() -> None:
     }
     values = request.values.all().df.drop_nulls(subset="value")
     if values.is_empty():
-        # a group that has gone quiet publishes nothing, which four of them are already known to
-        # do, and there is no reading to check the range of. But an empty result with files behind
-        # it is the regression this test is here to catch -- a parse that returns nothing is what
-        # `test_pdbufr_examples` was failing on -- so the excuse has to be visible upstream before
-        # it is accepted, rather than every such failure skipping quietly
+        # one station going quiet is ordinary and so is its whole group, and neither leaves a
+        # reading to check the range of. A parse that returns nothing for *every* station is not
+        # ordinary -- that is what `test_pdbufr_examples` was failing on -- so the excuse has to
+        # be shown before it is taken, rather than every such failure skipping quietly.
+        #
+        # Asked of the group rather than of the listing: the same files are already downloaded and
+        # cached by the request above, so this parses them again and not much more, and it answers
+        # the question this test actually rests on -- whether anything at all came out of them.
         group = request.df.get_column("station_group").item()
         listed = list_remote_files_fsspec(
             f"https://opendata.dwd.de/weather/weather_reports/road_weather_stations/{group}/",
             settings=request.stations.settings,
         )
-        # a group that exists and holds nothing lists as itself -- seven of them are in that state
-        # today -- so the listing has to be read for files rather than for length. A file carries
-        # the timestamp the file index reads it by
+        # a group that exists and holds nothing lists as itself -- seven are in that state today --
+        # so the listing is read for files rather than for length, by the timestamp the file index
+        # reads them by
         published = [url for url in listed if re.search(DATE_REGEX, url.rsplit("/", 1)[-1])]
-        assert not published, f"group {group} published {len(published)} files and none of them parsed"
-        pytest.skip(f"station group {group} published nothing for the requested window")
+        if not published:
+            pytest.skip(f"group {group} published nothing for the requested window")
+        # files were published, so somebody's reading is in them. Asking the whole group tells the
+        # two remaining cases apart: this station alone is quiet, which is ordinary, or nothing
+        # parses for anyone, which is the regression. The files are already downloaded and cached
+        stations = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")]).all().df
+        in_group = stations.filter(pl.col("station_group").eq(group)).get_column("station_id").to_list()
+        whole_group = (
+            DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")])
+            .filter_by_station_id(in_group)
+            .values.all()
+            .df.drop_nulls(subset="value")
+        )
+        assert not whole_group.is_empty(), (
+            f"group {group} published {len(published)} files and none of them parsed for any of "
+            f"its {len(in_group)} stations"
+        )
+        pytest.skip(f"group {group} parsed, but station {request.df.get_column('station_id').item()} is quiet")
     assert -40 <= values.get_column("value").min() <= 40  # approx. -+40 K
 
 
@@ -280,7 +299,7 @@ def test_dwd_road_weather_parameter_no_subset_carries(monkeypatch: pytest.Monkey
     ("files_upstream_has", "case"),
     [
         ([], "the group published no file"),
-        (["a-file-holding-nothing"], "every file it published held nothing"),
+        (["swis2-ISXD70_DWDD_142045-2609142045-DD---bin"], "every file it published held nothing"),
     ],
 )
 def test_dwd_road_weather_empty_is_one_shape(
@@ -300,7 +319,7 @@ def test_dwd_road_weather_empty_is_one_shape(
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     # big enough to clear the size filter, and holding nothing a reader can use
-    file = File(url="a-file-holding-nothing", content=BytesIO(b"x" * 500), status=200)
+    file = File(url=files_upstream_has[0] if files_upstream_has else "", content=BytesIO(b"x" * 500), status=200)
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: files_upstream_has)
     monkeypatch.setattr(api, "download_files", lambda **_kwargs: [file] if files_upstream_has else [])
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: pd.DataFrame())

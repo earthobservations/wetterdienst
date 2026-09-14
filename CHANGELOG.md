@@ -116,10 +116,12 @@ Types of changes:
   those keys. A parameter no subset in the file carries comes back as a null column rather than
   as no column at all
 
-- DWD road: a group that exists and publishes nothing is read as publishing nothing. Its listing
-  is the group itself, which carries no timestamp and is no file -- but it made the listing
-  non-empty, so `No files found` never said so, and a request without dates downloaded the
-  directory and handed it to the reader as though it were a BUFR message
+- DWD road: a listing entry is a file when it carries the timestamp the file index reads it by.
+  The listing of a group that exists and holds nothing is the group itself, which made the listing
+  non-empty, so `No files found` never said so and a request without dates downloaded the
+  directory and handed it to the reader as a BUFR message. The same rule drops the `LATEST` alias
+  of each populated group, which duplicates the newest timestamped file -- so a request without
+  dates no longer parses that quarter hour twice
 - BUFR: any `RuntimeError` from importing pdbufr is read as "this environment cannot decode"
   rather than re-raised. It was matched against the words "Cannot find the ecCodes library",
   which is gribapi's present phrasing and no promise -- and the question is asked from two places
