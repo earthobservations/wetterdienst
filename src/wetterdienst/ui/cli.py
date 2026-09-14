@@ -44,6 +44,8 @@ from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from wetterdienst.model.request import TimeseriesRequest
 
 log = logging.getLogger(__name__)
@@ -696,6 +698,37 @@ Create warming stripes (only DWD Observation data):
     # Create warming stripes for a specific station and write to file
     wetterdienst warming_stripes --station=1048 --target=warming_stripes.png
 """  # noqa: E501
+
+
+def _collect_or_exit(
+    get: Callable[..., Any],
+    *,
+    api: Any,  # noqa: ANN401
+    request: Any,  # noqa: ANN401
+    settings: Settings,
+    what: str,
+) -> Any:  # noqa: ANN401
+    """Run one of the values getters, reporting the failures a caller can do something about.
+
+    Three of them can be acted on rather than debugged: an optional reader that is not installed,
+    a request this provider cannot serve as phrased, and a window that holds no readings. Each is
+    a sentence the caller needs and a traceback buries, so each is printed and nothing else.
+    """
+    try:
+        values_ = get(api=api, request=request, settings=settings)
+    except (ImportError, NoStationsWithHeightError) as e:
+        # the message names what to install, or what to ask instead: the whole of what is to be
+        # done about it. NoStationsWithHeightError subclasses ValueError, so it is caught here or
+        # not at all
+        log.error(str(e))  # noqa: TRY400
+        sys.exit(1)
+    except ValueError:
+        log.exception(f"Error during {what}")
+        sys.exit(1)
+    if values_.df.is_empty():
+        log.error("No data available for given constraints")
+        sys.exit(1)
+    return values_
 
 
 @cloup.group(
@@ -1392,19 +1425,7 @@ def values(
         ts_drop_nulls=request.drop_nulls,
     )
 
-    try:
-        values_ = get_values(
-            api=api,
-            request=request,
-            settings=settings,
-        )
-    except ValueError:
-        log.exception("Error during data acquisition")
-        sys.exit(1)
-    else:
-        if values_.df.is_empty():
-            log.error("No data available for given constraints")
-            sys.exit(1)
+    values_ = _collect_or_exit(get_values, api=api, request=request, settings=settings, what="data acquisition")
 
     if target:
         values_.to_target(target)
@@ -1559,24 +1580,7 @@ def interpolate(
         # a distance given for a name that is not a canonical parameter, or a negative one
         raise click.BadParameter(str(e)) from e
 
-    try:
-        values_ = get_interpolate(
-            api=api,
-            request=request,
-            settings=settings,
-        )
-    except NoStationsWithHeightError as e:
-        # an answerable request the caller phrased in a way this provider cannot serve:
-        # the message is the whole of it, and a traceback would only bury it
-        log.error(str(e))  # noqa: TRY400
-        sys.exit(1)
-    except ValueError:
-        log.exception("Error during interpolation")
-        sys.exit(1)
-    else:
-        if values_.df.is_empty():
-            log.error("No data available for given constraints")
-            sys.exit(1)
+    values_ = _collect_or_exit(get_interpolate, api=api, request=request, settings=settings, what="interpolation")
 
     if target:
         values_.to_target(target)
@@ -1729,24 +1733,7 @@ def summarize(
         # a distance given for a name that is not a canonical parameter, or a negative one
         raise click.BadParameter(str(e)) from e
 
-    try:
-        values_ = get_summarize(
-            api=api,
-            request=request,
-            settings=settings,
-        )
-    except NoStationsWithHeightError as e:
-        # an answerable request the caller phrased in a way this provider cannot serve:
-        # the message is the whole of it, and a traceback would only bury it
-        log.error(str(e))  # noqa: TRY400
-        sys.exit(1)
-    except ValueError:
-        log.exception("Error during summarize")
-        sys.exit(1)
-    else:
-        if values_.df.is_empty():
-            log.error("No data available for given constraints")
-            sys.exit(1)
+    values_ = _collect_or_exit(get_summarize, api=api, request=request, settings=settings, what="summarize")
 
     if target:
         values_.to_target(target)

@@ -128,6 +128,11 @@ Types of changes:
   that cannot take a raise: the radar path documented to log and carry on, and the constant the
   test suite computes while collecting, where a raise aborts collection instead of skipping the
   tests that want a reader
+- CLI: a missing optional reader is reported rather than raised. `values`, `interpolate` and
+  `summarize` caught `ValueError`, and the `ImportError` naming the extra to install is not one, so
+  the sentence saying what to do arrived as the last line of a traceback. The three of them share
+  one handler now, which reports that, a request the provider cannot serve as phrased, and a window
+  holding no readings -- the three failures a caller can act on rather than debug
 - DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
   class called `ensure_pdbufr()` in its `__post_init__` and threw the answer away, so it guarded
   nothing: the request went through, and a bare `ImportError` came back out of the middle of a
