@@ -13,6 +13,8 @@ BUFR", which is the only question any caller has: use `bufr_is_available` for th
 import logging
 from functools import lru_cache
 
+from wetterdienst.exceptions import BufrReaderMissingError
+
 log = logging.getLogger(__name__)
 
 
@@ -23,12 +25,17 @@ def ensure_eccodes() -> bool:
         import eccodes  # noqa: PLC0415
 
         eccodes.eccodes.codes_get_api_version()
+    except ModuleNotFoundError:
+        # not installed, which `require_bufr` already knows how to explain
+        return False
     except (ImportError, RuntimeError):
-        # ImportError rather than ModuleNotFoundError: an eccodes with no compiled library behind
-        # it raises the plain one out of the import ("libeccodes.so: cannot open shared object
-        # file"), and that is the same answer as not being installed -- this environment cannot
-        # decode. `_attach_bufr` promises to log and carry on rather than fail a query, which it
-        # cannot do if the question itself raises
+        # installed, and it did not work: an eccodes with no compiled library behind it raises the
+        # plain ImportError out of the import ("libeccodes.so: cannot open shared object file").
+        # That is the same answer -- this environment cannot decode -- but not the same advice, so
+        # the reason is said out loud rather than left for someone to find at debug. `_attach_bufr`
+        # promises to log and carry on rather than fail a query, which it cannot do if the question
+        # itself raises
+        log.warning("eccodes is installed but did not load", exc_info=True)
         return False
     return True
 
@@ -47,10 +54,10 @@ def ensure_pdbufr() -> bool:
     """
     try:
         import pdbufr  # noqa: F401, PLC0415
-    except ImportError:
+    except ModuleNotFoundError:
         return False
-    except RuntimeError:
-        log.debug("pdbufr is installed but did not import", exc_info=True)
+    except (ImportError, RuntimeError):
+        log.warning("pdbufr is installed but did not import", exc_info=True)
         return False
     return True
 
@@ -84,4 +91,4 @@ def require_bufr(what: str) -> None:
             f"eccodes library, which most platforms get as a wheel; where yours does not, it "
             f"comes from `apt install libeccodes-dev` or `brew install eccodes`."
         )
-        raise ImportError(msg)
+        raise BufrReaderMissingError(msg)

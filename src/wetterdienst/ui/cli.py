@@ -19,7 +19,7 @@ from cloup.constraints import AllSet, If, RequireExactly, accept_none
 from pydantic import BaseModel, ValidationError
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
-from wetterdienst.exceptions import ApiNotFoundError, NoStationsWithHeightError
+from wetterdienst.exceptions import ApiNotFoundError, BufrReaderMissingError, NoStationsWithHeightError
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.ui.core import (
     HistoryRequest,
@@ -716,10 +716,12 @@ def _collect_or_exit(
     """
     try:
         values_ = get(api=api, request=request, settings=settings)
-    except (ImportError, NoStationsWithHeightError) as e:
+    except (BufrReaderMissingError, NoStationsWithHeightError) as e:
         # the message names what to install, or what to ask instead: the whole of what is to be
-        # done about it. NoStationsWithHeightError subclasses ValueError, so it is caught here or
-        # not at all
+        # done about it. Both are narrow on purpose -- a bare `ImportError` would swallow a cycle
+        # or a typo inside a provider module, which is a defect and wants its traceback, not an
+        # instruction. NoStationsWithHeightError subclasses ValueError, so it is caught here or not
+        # at all
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
     except ValueError:

@@ -132,7 +132,13 @@ Types of changes:
   `summarize` caught `ValueError`, and the `ImportError` naming the extra to install is not one, so
   the sentence saying what to do arrived as the last line of a traceback. The three of them share
   one handler now, which reports that, a request the provider cannot serve as phrased, and a window
-  holding no readings -- the three failures a caller can act on rather than debug
+  holding no readings -- the three failures a caller can act on rather than debug. The refusal has
+  a type of its own, `BufrReaderMissingError`, so reporting it does not mean reporting every import
+  failure that way: a cycle or a typo inside a provider module is a defect and keeps its traceback
+- BUFR: a reader that is installed and does not work says why. "Install the extra" is the whole
+  story where nothing is installed and no help at all where the package is present and its compiled
+  library is not, and the advice cannot tell those apart -- so the loader's own words are logged at
+  warning rather than left at debug for someone who already knows to look
 - DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
   class called `ensure_pdbufr()` in its `__post_init__` and threw the answer away, so it guarded
   nothing: the request went through, and a bare `ImportError` came back out of the middle of a

@@ -70,15 +70,18 @@ def test_dwd_road_weather() -> None:
         # neighbours answer that: the collector reads the whole group's files for any one of them,
         # so each station costs another pass over the same cached files -- and all 63 of KK's
         # stations cost minutes, in ten matrix jobs, on the path this branch expects to be common
-        stations = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")]).all().df
+        stations = DwdRoadRequest(parameters=[("15_minutes", "data")]).all().df
         neighbours = (
             stations.filter(pl.col("station_group").eq(group))
             .filter(pl.col("station_id").ne(request.df.get_column("station_id").item()))
             .get_column("station_id")
-            .to_list()[:3]
+            .to_list()[:8]
         )
+        # the whole dataset, not the one parameter: a road station may report a surface temperature
+        # and no air temperature, so asking eight of them for everything answers "did anything come
+        # out of these files" without resting on which sensors those eight happen to carry
         parsed = (
-            DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")])
+            DwdRoadRequest(parameters=[("15_minutes", "data")])
             .filter_by_station_id(neighbours)
             .values.all()
             .df.drop_nulls(subset="value")
@@ -99,7 +102,7 @@ def test_dwd_road_weather() -> None:
             with_content = [file for file in downloaded if file.nbytes > 142]
             assert not with_content, (
                 f"group {group} published {len(with_content)} files with content in them and none "
-                f"of them parsed for any of {len(neighbours) + 1} stations"
+                f"of them parsed any parameter for any of {len(neighbours) + 1} stations"
             )
             pytest.skip(f"group {group} published {len(published)} files and all of them are empty")
         pytest.skip(f"group {group} parsed, but station {request.df.get_column('station_id').item()} is quiet")

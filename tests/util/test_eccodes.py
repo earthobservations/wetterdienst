@@ -3,6 +3,7 @@
 """Tests for the BUFR reader availability helpers."""
 
 import builtins
+import logging
 
 import pytest
 
@@ -87,3 +88,58 @@ def test_ensure_pdbufr_reads_any_import_failure_as_absent(monkeypatch: pytest.Mo
     monkeypatch.setattr(builtins, "__import__", import_with_some_other_complaint)
     assert eccodes.ensure_pdbufr() is False
     assert eccodes.bufr_is_available() is False
+
+
+def test_a_reader_that_is_there_and_does_not_work_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Installed and broken is a different answer from not installed, and wants different words.
+
+    `require_bufr` tells the caller to install the extra, which is the whole story where nothing is
+    installed and no help at all where the package is there and its compiled library is not. The
+    advice cannot tell those apart, so the reason is logged at warning rather than left at debug
+    for someone who already knows to look.
+    """
+    real_import = builtins.__import__
+
+    def import_of_something_broken(name: str, *args: object, **kwargs: object) -> object:
+        if name in {"eccodes", "pdbufr"}:
+            msg = "libeccodes.so: cannot open shared object file: No such file or directory"
+            raise ImportError(msg)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_of_something_broken)
+    with caplog.at_level(logging.WARNING):
+        assert eccodes.bufr_is_available() is False
+    assert "did not load" in caplog.text
+    assert "libeccodes.so" in caplog.text
+
+
+def test_not_installed_at_all_stays_quiet(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Nothing installed is what the message already explains, so it is not also a warning."""
+    real_import = builtins.__import__
+
+    def import_of_something_absent(name: str, *args: object, **kwargs: object) -> object:
+        if name in {"eccodes", "pdbufr"}:
+            raise ModuleNotFoundError(name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_of_something_absent)
+    with caplog.at_level(logging.WARNING):
+        assert eccodes.bufr_is_available() is False
+    assert not caplog.text
+
+
+def test_require_bufr_raises_its_own_kind(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The refusal has a type of its own, so reporting it does not mean reporting every ImportError.
+
+    The CLI turns this one into a line of advice with no traceback. A cycle or a typo inside a
+    provider module is also an ImportError and is a defect, which wants its traceback.
+    """
+    from wetterdienst.exceptions import BufrReaderMissingError  # noqa: PLC0415
+
+    monkeypatch.setattr(eccodes, "bufr_is_available", lambda: False)
+    with pytest.raises(BufrReaderMissingError):
+        eccodes.require_bufr("DWD road weather data")
+    assert issubclass(BufrReaderMissingError, ImportError)
