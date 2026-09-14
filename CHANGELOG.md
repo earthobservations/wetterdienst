@@ -99,7 +99,8 @@ Types of changes:
   merge's cross product being collapsed just as arbitrarily a step later. It is logged now rather
   than silent. How often it happens depends on the group: over the last five files of each, DD
   disagreed with itself not once in 261 repeated descriptors, where FN did 54 times in 270 and HV
-  56 in 425, `roadSurfaceTemperature` among them by as much as 23 K
+  56 in 425, `roadSurfaceTemperature` among them by as much as 23 K. Keeping both would need
+  something in the data that names the sensor, and nothing found so far does: GH-1908
 - DWD road: a station's reading is kept whole where it arrives in parts. A road file holds one
   subset per station carrying the descriptors that station has, and `read_bufr` emits an
   observation only where every column asked for is present -- its default, and ours. Asking for

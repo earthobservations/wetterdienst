@@ -216,9 +216,12 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
     second: one row per station, minute and parameter, with no axis for which sensor spoke. So one
     is taken and the other is logged. That is where this stood before the reads were relaxed too
     -- the cross product of the old inner merge was collapsed just as arbitrarily one step later,
-    by `unique` in `_process_dataset`. Telling them apart is a question about the shape of the
-    result rather than about this fold: the station index carries `road_sector`, so there is
-    something to name them by if it is ever worth naming.
+    by `unique` in `_process_dataset`. Telling them apart would take a discriminator, and no
+    obvious one holds: `positionOfRoadSensors` reads 0 for both subsets of the stations measured,
+    `subsetNumber` comes back as the whole file's numbering rather than the row's, and
+    `road_sector` sits in the station index, one row per station, so it names where the station is
+    and not which of its sensors spoke. Finding one is the first part of the problem rather than
+    the easy part, and is tracked in GH-1908.
     """
     import pandas as pd  # noqa: PLC0415
     import pdbufr  # noqa: PLC0415
