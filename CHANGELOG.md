@@ -124,8 +124,9 @@ Types of changes:
   `ImportError` out of the import where a missing package raises `ModuleNotFoundError`, and only
   the second was caught -- so the question raised instead of answering, out of a radar path
   documented to log and carry on rather than fail a query
-- CI: the test workflow watches `examples/**`. `tests/examples` runs those files, so a change to
-  one is a change the suite covers -- and a pull request touching only an example did not run it
+- CI: the test and coverage workflows watch `examples/**`. `tests/examples` runs those files, so a
+  change to one is a change both suites cover -- and a pull request touching only an example ran
+  neither, while the coverage workflow's header said it takes the same inputs as the test matrix
 - Tests: a BUFR skip condition that only skipped when *both* halves were missing. Written as
   `not ensure_eccodes() and not ensure_pdbufr()`, it was false wherever eccodes was installed and
   pdbufr was not -- the one case a skip is for -- so the test ran and died on the import. Four

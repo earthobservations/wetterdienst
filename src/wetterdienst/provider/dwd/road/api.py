@@ -260,7 +260,8 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
         # the rows rather than only learn that some exist
         stations = counts.index[counts[disagreeing].gt(1).any(axis=1)].get_level_values(-1)
         log.info(
-            f"{source} reports {', '.join(sorted(disagreeing))} more than once for one minute at "
+            f"{source} reports {', '.join(sorted(disagreeing))} with more than one value for one "
+            f"station and minute at "
             f"{', '.join(sorted(set(stations)))}; keeping the first of each (GH-1908)",
         )
     return grouped.first().reset_index()

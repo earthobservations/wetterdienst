@@ -3,6 +3,7 @@
 """Tests for DWD road weather API."""
 
 import logging
+import re
 from io import BytesIO
 
 import polars as pl
@@ -12,7 +13,7 @@ from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.result import StationsFilter, StationsResult
-from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
+from wetterdienst.provider.dwd.road.api import DATE_REGEX, DwdRoadRequest, DwdRoadStationGroup
 from wetterdienst.util.network import File, list_remote_files_fsspec
 
 
@@ -51,10 +52,14 @@ def test_dwd_road_weather() -> None:
         # `test_pdbufr_examples` was failing on -- so the excuse has to be visible upstream before
         # it is accepted, rather than every such failure skipping quietly
         group = request.df.get_column("station_group").item()
-        published = list_remote_files_fsspec(
+        listed = list_remote_files_fsspec(
             f"https://opendata.dwd.de/weather/weather_reports/road_weather_stations/{group}/",
             settings=request.stations.settings,
         )
+        # a group that exists and holds nothing lists as itself -- seven of them are in that state
+        # today -- so the listing has to be read for files rather than for length. A file carries
+        # the timestamp the file index reads it by
+        published = [url for url in listed if re.search(DATE_REGEX, url.rsplit("/", 1)[-1])]
         assert not published, f"group {group} published {len(published)} files and none of them parsed"
         pytest.skip(f"station group {group} published nothing for the requested window")
     assert -40 <= values.get_column("value").min() <= 40  # approx. -+40 K
