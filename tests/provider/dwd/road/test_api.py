@@ -14,7 +14,7 @@ from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.road.api import DATE_REGEX, DwdRoadRequest, DwdRoadStationGroup
-from wetterdienst.util.network import File, list_remote_files_fsspec
+from wetterdienst.util.network import File, download_files, list_remote_files_fsspec
 
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
@@ -65,21 +65,43 @@ def test_dwd_road_weather() -> None:
         published = [url for url in listed if re.search(DATE_REGEX, url.rsplit("/", 1)[-1])]
         if not published:
             pytest.skip(f"group {group} published nothing for the requested window")
-        # files were published, so somebody's reading is in them. Asking the whole group tells the
-        # two remaining cases apart: this station alone is quiet, which is ordinary, or nothing
-        # parses for anyone, which is the regression. The files are already downloaded and cached
+        # files were published, and the two remaining cases are this station being quiet, which is
+        # ordinary, and nothing parsing for anyone, which is the regression. A few of the group's
+        # neighbours answer that: the collector reads the whole group's files for any one of them,
+        # so each station costs another pass over the same cached files -- and all 63 of KK's
+        # stations cost minutes, in ten matrix jobs, on the path this branch expects to be common
         stations = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")]).all().df
-        in_group = stations.filter(pl.col("station_group").eq(group)).get_column("station_id").to_list()
-        whole_group = (
+        neighbours = (
+            stations.filter(pl.col("station_group").eq(group))
+            .filter(pl.col("station_id").ne(request.df.get_column("station_id").item()))
+            .get_column("station_id")
+            .to_list()[:3]
+        )
+        parsed = (
             DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")])
-            .filter_by_station_id(in_group)
+            .filter_by_station_id(neighbours)
             .values.all()
             .df.drop_nulls(subset="value")
         )
-        assert not whole_group.is_empty(), (
-            f"group {group} published {len(published)} files and none of them parsed for any of "
-            f"its {len(in_group)} stations"
-        )
+        if parsed.is_empty():
+            # nothing came out of them for anyone asked, and a listing cannot say whether that is
+            # because the files hold nothing. The collector turns away the 142-byte empty files of
+            # GH-1526 by size, so the same rule answers it here: a window of nothing but those is
+            # a quiet group, and a window holding a real file that parsed for nobody is the
+            # regression this test exists to catch
+            downloaded = download_files(
+                urls=published,
+                cache_dir=request.stations.settings.cache_dir,
+                ttl=CacheExpiry.TWELVE_HOURS,
+                client_kwargs=request.stations.settings.fsspec_client_kwargs,
+                cache_disable=request.stations.settings.cache_disable,
+            )
+            with_content = [file for file in downloaded if file.nbytes > 142]
+            assert not with_content, (
+                f"group {group} published {len(with_content)} files with content in them and none "
+                f"of them parsed for any of {len(neighbours) + 1} stations"
+            )
+            pytest.skip(f"group {group} published {len(published)} files and all of them are empty")
         pytest.skip(f"group {group} parsed, but station {request.df.get_column('station_id').item()} is quiet")
     assert -40 <= values.get_column("value").min() <= 40  # approx. -+40 K
 
@@ -357,12 +379,14 @@ def test_dwd_road_weather_says_when_it_drops_a_second_sensor(
         ],
     )
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: two_sensors)
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.DEBUG):
         df = api._read_batch("nowhere", ["roadSurfaceTemperature", "airTemperature"], "a-file")  # noqa: SLF001
     # one row, as the shape requires, and the first reading in it
     assert len(df) == 1
     assert df["roadSurfaceTemperature"].tolist() == [285.99]
-    # named, so the reading that went is discoverable
+    # named, so the reading that went is discoverable -- and at debug, because it is per file and
+    # routine, where the CLI logs at info by default and would print thousands of them
+    assert [record.levelname for record in caplog.records] == ["DEBUG"]
     assert "roadSurfaceTemperature" in caplog.text
     assert "a-file" in caplog.text
     # and the one both subsets agreed on is not reported, there being nothing to choose

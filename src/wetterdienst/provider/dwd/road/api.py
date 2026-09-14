@@ -248,9 +248,11 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
     present = [column for column in batch if column in df.columns]
     # a station reporting the same quantity twice and differently has two road sensors, and only
     # one of them fits in a frame with a row per station, minute and parameter. Which one is kept
-    # is arbitrary; that the other existed is not, so it is said rather than swallowed. At info
-    # rather than warning because it is routine -- for some groups it is every file -- and nothing
-    # the caller can act on until GH-1908 finds something in the data that names the sensor
+    # is arbitrary; that the other existed is not, so it is said rather than swallowed. At debug,
+    # because it is per file and routine -- HV disagrees in nearly every one, so a month of road
+    # data is a few thousand of these and the CLI logs at info by default. What the fold does is
+    # in the docstring above and in GH-1908, which is where someone would look; this line is for
+    # the run where they want to know which stations, and when
     counts = grouped[present].nunique(dropna=True)
     disagreeing = counts.columns[counts.gt(1).any()]
     if len(disagreeing):
@@ -259,7 +261,7 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
         # surface temperature -- a reading no sensor took. Naming them is what lets a caller find
         # the rows rather than only learn that some exist
         stations = counts.index[counts[disagreeing].gt(1).any(axis=1)].get_level_values(-1)
-        log.info(
+        log.debug(
             f"{source} reports {', '.join(sorted(disagreeing))} with more than one value for one "
             f"station and minute at "
             f"{', '.join(sorted(set(stations)))}; keeping the first of each (GH-1908)",
