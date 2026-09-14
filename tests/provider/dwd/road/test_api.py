@@ -45,10 +45,18 @@ def test_dwd_road_weather() -> None:
     }
     values = request.values.all().df.drop_nulls(subset="value")
     if values.is_empty():
-        # the group this station reports in has gone quiet for the window, which four of the
-        # groups are already known to do. `min()` of nothing is None, and comparing that to a
-        # number raises a TypeError that says nothing about why
-        pytest.skip("station group published no readings for the requested window")
+        # a group that has gone quiet publishes nothing, which four of them are already known to
+        # do, and there is no reading to check the range of. But an empty result with files behind
+        # it is the regression this test is here to catch -- a parse that returns nothing is what
+        # `test_pdbufr_examples` was failing on -- so the excuse has to be visible upstream before
+        # it is accepted, rather than every such failure skipping quietly
+        group = request.df.get_column("station_group").item()
+        published = list_remote_files_fsspec(
+            f"https://opendata.dwd.de/weather/weather_reports/road_weather_stations/{group}/",
+            settings=request.stations.settings,
+        )
+        assert not published, f"group {group} published {len(published)} files and none of them parsed"
+        pytest.skip(f"station group {group} published nothing for the requested window")
     assert -40 <= values.get_column("value").min() <= 40  # approx. -+40 K
 
 

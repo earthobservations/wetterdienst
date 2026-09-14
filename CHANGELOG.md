@@ -68,11 +68,13 @@ Types of changes:
 
 - Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes,
   but asks for any version at all, and the two were named as separate extras with the docs telling
-  you to install both -- neither being any use without the other. The floor is a release that
-  exists as a wheel for every Python this project supports, named in both extras so that it binds
-  for anyone installing `wetterdienst[bufr]` and not only inside this repository's lockfile. It
-  stood at 1.5.2, a 2023 source tarball, which the minimum-versions job -- resolving every direct
-  dependency to its floor, across extras -- had to build, and continues on error if it cannot. `pybufrkit` is no longer pulled in by `bufr`: nothing in
+  you to install both -- neither being any use without the other. The floor is the oldest release
+  published as a wheel, named in both extras so that it binds for anyone installing
+  `wetterdienst[bufr]` and not only inside this repository's lockfile. It stood at 1.5.2, a 2023
+  source tarball, which the minimum-versions job -- resolving every direct dependency to its
+  floor, across extras -- had to build, and continues on error if it cannot. It is raised only
+  that far on purpose: nothing here needs eccodes 2.x, so an install pinned to 1.x keeps
+  resolving. `pybufrkit` is no longer pulled in by `bufr`: nothing in
   the library imports it, only the radar tests do, and they skip on it now rather than failing to
   collect without it
 
@@ -102,7 +104,7 @@ Types of changes:
   56 in 425, `roadSurfaceTemperature` among them by as much as 23 K. Said at info rather than
   warning, being routine for those groups -- every file of some of them -- and nothing a caller
   can act on: keeping both would need something in the data that names the sensor, and nothing
-  found so far does. GH-1908
+  found so far does, and the stations it happened at are named so the rows can be found. GH-1908
 - DWD road: a station's reading is kept whole where it arrives in parts. A road file holds one
   subset per station carrying the descriptors that station has, and `read_bufr` emits an
   observation only where every column asked for is present -- its default, and ours. Asking for

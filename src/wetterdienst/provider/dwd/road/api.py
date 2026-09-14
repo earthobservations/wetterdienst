@@ -254,9 +254,14 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
     counts = grouped[present].nunique(dropna=True)
     disagreeing = counts.columns[counts.gt(1).any()]
     if len(disagreeing):
+        # the stations too, not only the descriptors: `first` is taken per column, so a row of a
+        # station that reports twice may hold one sensor's air temperature beside the other's road
+        # surface temperature -- a reading no sensor took. Naming them is what lets a caller find
+        # the rows rather than only learn that some exist
+        stations = counts.index[counts[disagreeing].gt(1).any(axis=1)].get_level_values(-1)
         log.info(
-            f"{source} reports {', '.join(sorted(disagreeing))} more than once for one station and "
-            f"minute, with different values; keeping the first of each (GH-1908)",
+            f"{source} reports {', '.join(sorted(disagreeing))} more than once for one minute at "
+            f"{', '.join(sorted(set(stations)))}; keeping the first of each (GH-1908)",
         )
     return grouped.first().reset_index()
 
@@ -280,10 +285,7 @@ class DwdRoadValues(TimeseriesValues):
         station_group = self.sr.df.filter(pl.col("station_id").eq(station_id)).get_column("station_group").item()
         station_group = DwdRoadStationGroup(station_group)
         parameters = list(parameter_or_dataset)
-        try:
-            df = self._collect_data_by_station_group(station_group, parameters)
-        except ValueError:
-            df = pl.DataFrame(schema=_PARSED_SCHEMA)
+        df = self._collect_data_by_station_group(station_group, parameters)
         # nothing to answer with is a shape rather than a special case: the group published no file
         # for the window, or every file it published held nothing, and either way what comes back
         # is a frame of no readings rather than a frame of no columns. So the filter has a station

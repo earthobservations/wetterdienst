@@ -141,7 +141,7 @@ bufr = [
     # resolving `wetterdienst[bufr]` may be handed the 2023 source tarball this floor exists to
     # keep out. Inside this repo one lock covers every extra and the `eccodes` extra below would
     # have bound it either way; a consumer installing this extra alone has no such luck
-    "eccodes>=2.39.1,<3",
+    "eccodes>=1.7.1,<3",
     "pdbufr>=0.10.2,<1",
 ]
 cratedb = [
@@ -152,13 +152,15 @@ duckdb = [
     "duckdb>=1,<2",
     "pandas>=2.2.2,<4",
 ]
-# kept for the installs that name it; `bufr` carries this and the reader both. The floor is a
-# release that exists as a wheel for every Python this project supports: 1.5.2 stood here and is a
-# 2023 source tarball, which the minimum-versions job -- resolving every direct dependency to its
-# floor, across extras, whether or not this one is installed -- would have had to build, and would
-# have continued on error if it could not
+# kept for the installs that name it; `bufr` carries this and the reader both. The floor is the
+# oldest release published as a wheel: 1.5.2 stood here and is a 2023 source tarball, which the
+# minimum-versions job -- resolving every direct dependency to its floor, across extras, whether
+# or not this one is installed -- would have had to build, and would have continued on error if it
+# could not. Raising it only that far is deliberate: `ensure_eccodes` asks for
+# `codes_get_api_version`, which 1.x has, so nothing here needs 2.x and an install pinned to 1.x
+# keeps resolving
 eccodes = [
-    "eccodes>=2.39.1,<3",
+    "eccodes>=1.7.1,<3",
 ]
 excel = [
     "xlsxwriter>=3.0.9,<4",
