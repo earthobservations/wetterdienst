@@ -116,6 +116,16 @@ Types of changes:
   those keys. A parameter no subset in the file carries comes back as a null column rather than
   as no column at all
 
+- DWD road: a group that exists and publishes nothing is read as publishing nothing. Its listing
+  is the group itself, which carries no timestamp and is no file -- but it made the listing
+  non-empty, so `No files found` never said so, and a request without dates downloaded the
+  directory and handed it to the reader as though it were a BUFR message
+- BUFR: any `RuntimeError` from importing pdbufr is read as "this environment cannot decode"
+  rather than re-raised. It was matched against the words "Cannot find the ecCodes library",
+  which is gribapi's present phrasing and no promise -- and the question is asked from two places
+  that cannot take a raise: the radar path documented to log and carry on, and the constant the
+  test suite computes while collecting, where a raise aborts collection instead of skipping the
+  tests that want a reader
 - DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
   class called `ensure_pdbufr()` in its `__post_init__` and threw the answer away, so it guarded
   nothing: the request went through, and a bare `ImportError` came back out of the middle of a

@@ -10,7 +10,10 @@ BUFR", which is the only question any caller has: use `bufr_is_available` for th
 `require_bufr` where the answer has to be no further than the first line of a method.
 """
 
+import logging
 from functools import lru_cache
+
+log = logging.getLogger(__name__)
 
 
 @lru_cache
@@ -32,17 +35,23 @@ def ensure_eccodes() -> bool:
 
 @lru_cache
 def ensure_pdbufr() -> bool:
-    """Ensure that pdbufr is loaded."""
+    """Ensure that pdbufr is loaded.
+
+    Any `RuntimeError` out of the import is an answer and not an incident. It used to be read for
+    the words "Cannot find the ecCodes library" and re-raised otherwise, which is gribapi's current
+    phrasing and no promise -- and this question is asked from two places that cannot take a raise:
+    `_attach_bufr`, documented to log and carry on rather than fail a query, and the `BUFR_AVAILABLE`
+    the test suite computes while collecting, where raising aborts the collection instead of
+    skipping the tests that need a reader. Whatever went wrong, it went wrong on the way to reading
+    BUFR, which is the whole of what this answers.
+    """
     try:
         import pdbufr  # noqa: F401, PLC0415
     except ImportError:
         return False
-    except RuntimeError as e:
-        # pdbufr may raise a RuntimeError if the underlying ecCodes library is not found, which is a common issue
-        # and should be treated as a missing dependency rather than a critical error
-        if "Cannot find the ecCodes library" in str(e):
-            return False
-        raise
+    except RuntimeError:
+        log.debug("pdbufr is installed but did not import", exc_info=True)
+        return False
     return True
 
 

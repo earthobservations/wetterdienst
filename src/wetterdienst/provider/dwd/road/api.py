@@ -320,12 +320,7 @@ class DwdRoadValues(TimeseriesValues):
             ),
             settings=self.sr.settings,
         )
-        if not files:
-            log.info(f"No files found for {road_weather_station_group.value}.")
-            if road_weather_station_group in TEMPORARILY_UNAVAILABLE_STATION_GROUPS:
-                log.info(f"Station group {road_weather_station_group.value} may be temporarily unavailable.")
-        df = pl.DataFrame({"filename": files}, schema={"filename": pl.String})
-        return df.with_columns(
+        df = pl.DataFrame({"filename": files}, schema={"filename": pl.String}).with_columns(
             pl.col("filename")
             .str.split("/")
             .list.last()
@@ -333,6 +328,16 @@ class DwdRoadValues(TimeseriesValues):
             .str.to_datetime("%y%m%d%H%M", time_zone="UTC")
             .alias("date"),
         )
+        # a listing of a group that exists and holds nothing is the group itself, which carries no
+        # timestamp and is no file. Left in, it is downloaded and handed to the reader as though it
+        # were one -- and it makes `files` non-empty, so the two lines below never say what is
+        # actually the case
+        df = df.drop_nulls("date")
+        if df.is_empty():
+            log.info(f"No files found for {road_weather_station_group.value}.")
+            if road_weather_station_group in TEMPORARILY_UNAVAILABLE_STATION_GROUPS:
+                log.info(f"Station group {road_weather_station_group.value} may be temporarily unavailable.")
+        return df
 
     def _collect_data_by_station_group(
         self,

@@ -65,3 +65,25 @@ def test_require_bufr_names_the_extra_and_the_library(monkeypatch: pytest.Monkey
         eccodes.require_bufr("DWD road weather data")
     assert "DWD road weather data" in str(excinfo.value)
     assert "libeccodes-dev" in str(excinfo.value)
+
+
+def test_ensure_pdbufr_reads_any_import_failure_as_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A RuntimeError out of the import is an answer, whatever it says.
+
+    It used to be read for the words "Cannot find the ecCodes library" and re-raised otherwise --
+    gribapi's present phrasing, and no promise. Two callers cannot take a raise: `_attach_bufr`,
+    which logs and carries on rather than fail a query, and the `BUFR_AVAILABLE` the suite computes
+    while collecting, where raising aborts collection instead of skipping the tests that want a
+    reader.
+    """
+    real_import = builtins.__import__
+
+    def import_with_some_other_complaint(name: str, *args: object, **kwargs: object) -> object:
+        if name == "pdbufr":
+            msg = "ecCodes bindings unavailable: some future wording nobody matched on"
+            raise RuntimeError(msg)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_with_some_other_complaint)
+    assert eccodes.ensure_pdbufr() is False
+    assert eccodes.bufr_is_available() is False
