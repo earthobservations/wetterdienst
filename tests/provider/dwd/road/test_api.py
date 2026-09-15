@@ -3,6 +3,7 @@
 """Tests for DWD road weather API."""
 
 import logging
+import re
 from io import BytesIO
 
 import polars as pl
@@ -13,7 +14,7 @@ from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
-from wetterdienst.util.network import File, list_remote_files_fsspec
+from wetterdienst.util.network import File, download_files, list_remote_files_fsspec
 
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
@@ -385,3 +386,47 @@ def test_dwd_road_weather_keeps_the_station_that_was_asked_for(monkeypatch: pyte
     readings = df.drop_nulls("value").select("station_id", "parameter", "value").rows()
     # the station asked for, and only it -- the other station's reading is in the same file
     assert readings == [("A006", "airTemperature", 12.0)]
+
+
+@pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.remote
+def test_dwd_road_weather_a_real_file_decodes() -> None:
+    """A published file with bytes in it decodes to readings.
+
+    The tests around this one stub `read_bufr`, so they cover the filtering and folding and cannot
+    see pdbufr or eccodes changing under them -- a `required_columns` that came to mean something
+    else, or a descriptor renamed, would empty every road request upstream-wide with every stubbed
+    test still green.
+
+    This asks the one question about live data that does not need guessing at what upstream ought
+    to have sent: here is a file it did send, with content in it. Does it decode? A window with
+    nothing published skips; a file with bytes that yields no rows fails.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    settings = Settings()
+    listed = list_remote_files_fsspec(
+        "https://opendata.dwd.de/weather/weather_reports/road_weather_stations/DD/",
+        settings=settings,
+    )
+    published = [url for url in listed if re.search(api.DATE_REGEX, url.rsplit("/", 1)[-1])]
+    if not published:
+        pytest.skip("the group published nothing to decode")
+    files = download_files(
+        urls=published[-1:],
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.TWELVE_HOURS,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+    )
+    # the size the collector itself uses to tell an empty file from one with readings in it
+    with_content = [file for file in files if file.nbytes > 142]
+    if not with_content:
+        pytest.skip("the group published only empty files")
+    parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
+    parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
+    df = parse(with_content[0], parameters)
+    assert not df.drop_nulls("value").is_empty(), (
+        f"{with_content[0].url} holds {with_content[0].nbytes} bytes and decoded to no readings"
+    )

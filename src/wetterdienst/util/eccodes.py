@@ -61,7 +61,10 @@ def ensure_pdbufr() -> bool:
     try:
         import pdbufr  # noqa: F401, PLC0415
     except ModuleNotFoundError as e:
-        if e.name in (None, "pdbufr"):
+        if e.name is None or e.name.split(".")[0] in {"pdbufr", "eccodes"}:
+            # pdbufr requires eccodes, so an absent eccodes surfaces from this import as well --
+            # still absence, and `require_bufr` covers it. Anything else missing is something
+            # inside a package that is present
             return False
         log.warning(f"pdbufr is installed but {e.name} is missing", exc_info=True)
         return False

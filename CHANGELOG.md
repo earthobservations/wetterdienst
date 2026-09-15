@@ -116,10 +116,13 @@ Types of changes:
   those keys. A parameter no subset in the file carries comes back as a null column rather than
   as no column at all
 
-- DWD road: a listing entry is a file when it carries a timestamp that parses. The pattern admits
+- DWD road: a listing entry is a file when it carries a timestamp that parses. The pattern matched
   a digit run longer than the format reads, so a matched entry that would not parse raised out of
   the file index and took the request with it, where an entry that never matched was simply
-  dropped -- one rule now, and both are dropped
+  dropped. It matches the ten digits the format reads and parses them leniently, so neither a
+  longer run elsewhere in a name nor an unreadable one decides anything -- and a listing whose
+  entries all fail to carry a timestamp says so, rather than emptying every group behind a line
+  about finding no files
 - DWD road: a listing entry is a file when it carries the timestamp the file index reads it by.
   The listing of a group that exists and holds nothing is the group itself, which made the listing
   non-empty, so `No files found` never said so and a request without dates downloaded the

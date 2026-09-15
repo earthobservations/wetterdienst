@@ -34,7 +34,9 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-DATE_REGEX = r"-(\d{10,})-"
+#: the stamp a road file carries, exactly as long as `%y%m%d%H%M` reads. Ten and not "ten or
+#: more": a longer run anywhere else in the name would otherwise be captured instead of this
+DATE_REGEX = r"-(\d{10})-"
 TIME_COLUMNS = ("year", "month", "day", "hour", "minute")
 
 
@@ -342,9 +344,20 @@ class DwdRoadValues(TimeseriesValues):
         # timestamp and is no file. Left in, it is downloaded and handed to the reader as though it
         # were one -- and it makes `files` non-empty, so the two lines below never say what is
         # actually the case
+        listed = df.height
         df = df.drop_nulls("date")
         if df.is_empty():
-            log.info(f"No files found for {road_weather_station_group.value}.")
+            if listed:
+                # entries were there and not one of them was a file. The group listing itself is
+                # one such entry and is expected; a listing full of them is not, and would mean
+                # the names have changed shape -- which would otherwise empty every group at once
+                # behind a line saying no files were found
+                log.warning(
+                    f"{listed} entries listed for {road_weather_station_group.value} and none of "
+                    f"them carries a timestamp; the file names may have changed",
+                )
+            else:
+                log.info(f"No files found for {road_weather_station_group.value}.")
             if road_weather_station_group in TEMPORARILY_UNAVAILABLE_STATION_GROUPS:
                 log.info(f"Station group {road_weather_station_group.value} may be temporarily unavailable.")
         return df
