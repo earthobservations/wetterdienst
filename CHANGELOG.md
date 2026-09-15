@@ -116,6 +116,10 @@ Types of changes:
   those keys. A parameter no subset in the file carries comes back as a null column rather than
   as no column at all
 
+- DWD road: a listing entry is a file when it carries a timestamp that parses. The pattern admits
+  a digit run longer than the format reads, so a matched entry that would not parse raised out of
+  the file index and took the request with it, where an entry that never matched was simply
+  dropped -- one rule now, and both are dropped
 - DWD road: a listing entry is a file when it carries the timestamp the file index reads it by.
   The listing of a group that exists and holds nothing is the group itself, which made the listing
   non-empty, so `No files found` never said so and a request without dates downloaded the
@@ -135,7 +139,10 @@ Types of changes:
   holding no readings -- the three failures a caller can act on rather than debug. The refusal has
   a type of its own, `BufrReaderMissingError`, so reporting it does not mean reporting every import
   failure that way: a cycle or a typo inside a provider module is a defect and keeps its traceback
-- BUFR: a reader that is installed and does not work says why. "Install the extra" is the whole
+- BUFR: a reader that is installed and does not work says why, including when it fails as a
+  `ModuleNotFoundError` from inside itself -- `No module named 'gribapi.bindings'` is a broken
+  install and not an absent one, and reading it as absence hands the caller advice to install what
+  they have. "Install the extra" is the whole
   story where nothing is installed and no help at all where the package is present and its compiled
   library is not, and the advice cannot tell those apart -- so the loader's own words are logged at
   warning rather than left at debug for someone who already knows to look

@@ -25,8 +25,14 @@ def ensure_eccodes() -> bool:
         import eccodes  # noqa: PLC0415
 
         eccodes.eccodes.codes_get_api_version()
-    except ModuleNotFoundError:
-        # not installed, which `require_bufr` already knows how to explain
+    except ModuleNotFoundError as e:
+        if e.name in (None, "eccodes"):
+            # not installed -- or nothing to go on, in which case the quiet path is the one
+            # that was here before. `require_bufr` already knows how to explain absence
+            return False
+        # something *inside* it is missing -- a broken install raises `No module named
+        # 'gribapi.bindings'` from within the package, which is the case the advice cannot help
+        log.warning(f"eccodes is installed but {e.name} is missing", exc_info=True)
         return False
     except (ImportError, RuntimeError):
         # installed, and it did not work: an eccodes with no compiled library behind it raises the
@@ -54,7 +60,10 @@ def ensure_pdbufr() -> bool:
     """
     try:
         import pdbufr  # noqa: F401, PLC0415
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as e:
+        if e.name in (None, "pdbufr"):
+            return False
+        log.warning(f"pdbufr is installed but {e.name} is missing", exc_info=True)
         return False
     except (ImportError, RuntimeError):
         log.warning("pdbufr is installed but did not import", exc_info=True)

@@ -122,7 +122,10 @@ def test_not_installed_at_all_stays_quiet(monkeypatch: pytest.MonkeyPatch, caplo
 
     def import_of_something_absent(name: str, *args: object, **kwargs: object) -> object:
         if name in {"eccodes", "pdbufr"}:
-            raise ModuleNotFoundError(name)
+            # as the import machinery raises it: `name` set, which is what tells "this package is
+            # absent" from "something inside it is"
+            msg = f"No module named {name!r}"
+            raise ModuleNotFoundError(msg, name=name)
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", import_of_something_absent)
@@ -143,3 +146,27 @@ def test_require_bufr_raises_its_own_kind(monkeypatch: pytest.MonkeyPatch) -> No
     with pytest.raises(BufrReaderMissingError):
         eccodes.require_bufr("DWD road weather data")
     assert issubclass(BufrReaderMissingError, ImportError)
+
+
+def test_a_broken_install_is_not_read_as_an_absent_one(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A package that is present and internally broken raises absence's exception, not absence.
+
+    `import eccodes` on a broken install commonly fails as `No module named 'gribapi.bindings'` --
+    a `ModuleNotFoundError` raised from *inside* the package. Read as "not installed", the caller
+    is told to install what they have, which is the advice this warning exists to avoid.
+    """
+    real_import = builtins.__import__
+
+    def import_missing_something_inside(name: str, *args: object, **kwargs: object) -> object:
+        if name in {"eccodes", "pdbufr"}:
+            msg = "No module named 'gribapi.bindings'"
+            raise ModuleNotFoundError(msg, name="gribapi.bindings")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_missing_something_inside)
+    with caplog.at_level(logging.WARNING):
+        assert eccodes.bufr_is_available() is False
+    assert "gribapi.bindings" in caplog.text

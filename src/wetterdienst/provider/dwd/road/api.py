@@ -253,8 +253,12 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
     # data is a few thousand of these and the CLI logs at info by default. What the fold does is
     # in the docstring above and in GH-1908, which is where someone would look; this line is for
     # the run where they want to know which stations, and when
-    counts = grouped[present].nunique(dropna=True)
-    disagreeing = counts.columns[counts.gt(1).any()]
+    # asked only when it will be said: this is a groupby per file and per batch, about a tenth of
+    # what the read itself costs, and it exists to write the line below and nothing else
+    disagreeing = []
+    if log.isEnabledFor(logging.DEBUG):
+        counts = grouped[present].nunique(dropna=True)
+        disagreeing = counts.columns[counts.gt(1).any()]
     if len(disagreeing):
         # the stations too, not only the descriptors: `first` is taken per column, so a row of a
         # station that reports twice may hold one sensor's air temperature beside the other's road
@@ -327,7 +331,11 @@ class DwdRoadValues(TimeseriesValues):
             .str.split("/")
             .list.last()
             .str.extract(DATE_REGEX, 1)
-            .str.to_datetime("%y%m%d%H%M", time_zone="UTC")
+            # not strict: `DATE_REGEX` admits a digit run longer than ten and this format does
+            # not, so a match that will not parse becomes a null here and is dropped below with
+            # the entries that never matched -- one rule for what counts as a file, rather than a
+            # crash for one kind of not-a-file and a drop for the other
+            .str.to_datetime("%y%m%d%H%M", time_zone="UTC", strict=False)
             .alias("date"),
         )
         # a listing of a group that exists and holds nothing is the group itself, which carries no

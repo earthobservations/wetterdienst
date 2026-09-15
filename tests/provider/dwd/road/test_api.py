@@ -3,7 +3,6 @@
 """Tests for DWD road weather API."""
 
 import logging
-import re
 from io import BytesIO
 
 import polars as pl
@@ -13,8 +12,8 @@ from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.result import StationsFilter, StationsResult
-from wetterdienst.provider.dwd.road.api import DATE_REGEX, DwdRoadRequest, DwdRoadStationGroup
-from wetterdienst.util.network import File, download_files, list_remote_files_fsspec
+from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
+from wetterdienst.util.network import File, list_remote_files_fsspec
 
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
@@ -46,66 +45,12 @@ def test_dwd_road_weather() -> None:
     }
     values = request.values.all().df.drop_nulls(subset="value")
     if values.is_empty():
-        # one station going quiet is ordinary and so is its whole group, and neither leaves a
-        # reading to check the range of. A parse that returns nothing for *every* station is not
-        # ordinary -- that is what `test_pdbufr_examples` was failing on -- so the excuse has to
-        # be shown before it is taken, rather than every such failure skipping quietly.
-        #
-        # Asked of the group rather than of the listing: the same files are already downloaded and
-        # cached by the request above, so this parses them again and not much more, and it answers
-        # the question this test actually rests on -- whether anything at all came out of them.
-        group = request.df.get_column("station_group").item()
-        listed = list_remote_files_fsspec(
-            f"https://opendata.dwd.de/weather/weather_reports/road_weather_stations/{group}/",
-            settings=request.stations.settings,
-        )
-        # a group that exists and holds nothing lists as itself -- seven are in that state today --
-        # so the listing is read for files rather than for length, by the timestamp the file index
-        # reads them by
-        published = [url for url in listed if re.search(DATE_REGEX, url.rsplit("/", 1)[-1])]
-        if not published:
-            pytest.skip(f"group {group} published nothing for the requested window")
-        # files were published, and the two remaining cases are this station being quiet, which is
-        # ordinary, and nothing parsing for anyone, which is the regression. A few of the group's
-        # neighbours answer that: the collector reads the whole group's files for any one of them,
-        # so each station costs another pass over the same cached files -- and all 63 of KK's
-        # stations cost minutes, in ten matrix jobs, on the path this branch expects to be common
-        stations = DwdRoadRequest(parameters=[("15_minutes", "data")]).all().df
-        neighbours = (
-            stations.filter(pl.col("station_group").eq(group))
-            .filter(pl.col("station_id").ne(request.df.get_column("station_id").item()))
-            .get_column("station_id")
-            .to_list()[:8]
-        )
-        # the whole dataset, not the one parameter: a road station may report a surface temperature
-        # and no air temperature, so asking eight of them for everything answers "did anything come
-        # out of these files" without resting on which sensors those eight happen to carry
-        parsed = (
-            DwdRoadRequest(parameters=[("15_minutes", "data")])
-            .filter_by_station_id(neighbours)
-            .values.all()
-            .df.drop_nulls(subset="value")
-        )
-        if parsed.is_empty():
-            # nothing came out of them for anyone asked, and a listing cannot say whether that is
-            # because the files hold nothing. The collector turns away the 142-byte empty files of
-            # GH-1526 by size, so the same rule answers it here: a window of nothing but those is
-            # a quiet group, and a window holding a real file that parsed for nobody is the
-            # regression this test exists to catch
-            downloaded = download_files(
-                urls=published,
-                cache_dir=request.stations.settings.cache_dir,
-                ttl=CacheExpiry.TWELVE_HOURS,
-                client_kwargs=request.stations.settings.fsspec_client_kwargs,
-                cache_disable=request.stations.settings.cache_disable,
-            )
-            with_content = [file for file in downloaded if file.nbytes > 142]
-            assert not with_content, (
-                f"group {group} published {len(with_content)} files with content in them and none "
-                f"of them parsed any parameter for any of {len(neighbours) + 1} stations"
-            )
-            pytest.skip(f"group {group} published {len(published)} files and all of them are empty")
-        pytest.skip(f"group {group} parsed, but station {request.df.get_column('station_id').item()} is quiet")
+        # this station, or its whole group, published nothing for the window -- ordinary for a
+        # network where groups go quiet, and not something this test can tell from a regression
+        # without asking the network what it ought to have sent. That question belongs to
+        # `test_dwd_road_weather_keeps_the_station_that_was_asked_for`, which asks it of data it
+        # knows: four rewrites of a guard here each traded one wrong answer for another
+        pytest.skip("no reading published for the requested window")
     assert -40 <= values.get_column("value").min() <= 40  # approx. -+40 K
 
 
@@ -394,3 +339,49 @@ def test_dwd_road_weather_says_when_it_drops_a_second_sensor(
     assert "a-file" in caplog.text
     # and the one both subsets agreed on is not reported, there being nothing to choose
     assert "airTemperature" not in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_keeps_the_station_that_was_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A file holding the station's reading comes back holding it.
+
+    This is the regression the remote test was straining to catch -- a parse that returns nothing
+    for everyone, from a bad filter or a broken merge -- and it belongs here, where the data is
+    known. Asked of the network it cannot be told from an upstream outage without guessing, which
+    is how that guard came to be rewritten four times.
+    """
+    import pandas as pd  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    keys = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0}
+    reading = pd.DataFrame(
+        [
+            {**keys, "shortStationName": "A006", "airTemperature": 12.0},
+            {**keys, "shortStationName": "B999", "airTemperature": 9.0},
+        ],
+    )
+
+    def read_the_batch_asked_for(_path: object, columns: tuple[str, ...], **_kwargs: object) -> pd.DataFrame:
+        # the two batches ask for disjoint columns, and answering both with the same frame would
+        # collide them in the merge rather than test anything
+        return reading if "airTemperature" in columns else reading.drop(columns=["airTemperature"])
+
+    monkeypatch.setattr("pdbufr.read_bufr", read_the_batch_asked_for)
+    monkeypatch.setattr(
+        api, "list_remote_files_fsspec", lambda *_args, **_kwargs: ["swis2-ISXD70_DWDD_131200-2609131200-DD---bin"]
+    )
+    monkeypatch.setattr(
+        api,
+        "download_files",
+        lambda **_kwargs: [
+            File(url="swis2-ISXD70_DWDD_131200-2609131200-DD---bin", content=BytesIO(b"x" * 500), status=200)
+        ],
+    )
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        station_id="A006",
+        parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
+    )
+    readings = df.drop_nulls("value").select("station_id", "parameter", "value").rows()
+    # the station asked for, and only it -- the other station's reading is in the same file
+    assert readings == [("A006", "airTemperature", 12.0)]
