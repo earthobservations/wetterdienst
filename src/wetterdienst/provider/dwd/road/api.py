@@ -333,10 +333,11 @@ class DwdRoadValues(TimeseriesValues):
             .str.split("/")
             .list.last()
             .str.extract(DATE_REGEX, 1)
-            # not strict: `DATE_REGEX` admits a digit run longer than ten and this format does
-            # not, so a match that will not parse becomes a null here and is dropped below with
-            # the entries that never matched -- one rule for what counts as a file, rather than a
-            # crash for one kind of not-a-file and a drop for the other
+            # not strict: ten digits are not necessarily a date, and `26091319ZZ` or `2699999999`
+            # would raise here and take the request with it. A match that will not parse becomes a
+            # null and is dropped below beside the entries that never matched -- one rule for what
+            # counts as a file, rather than a crash for one kind of not-a-file and a drop for the
+            # other
             .str.to_datetime("%y%m%d%H%M", time_zone="UTC", strict=False)
             .alias("date"),
         )
