@@ -7,10 +7,10 @@ import re
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
-import pybufrkit
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
+from tests.conftest import BUFR_AVAILABLE
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -23,8 +23,11 @@ from wetterdienst.provider.dwd.radar import (
 from wetterdienst.provider.dwd.radar.api import RadarResult
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
-from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
 
+# skipped rather than imported: it comes from the `radarplus` extra, and an environment with
+# `bufr` and `radar` but not `radarplus` used to get it from `bufr` and would now fail here at
+# collection rather than skipping with the rest of this module
+pybufrkit = pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
 h5py = pytest.importorskip("h5py", reason="h5py not installed")
 wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
@@ -536,7 +539,7 @@ def test_attach_bufr_noop_when_read_bufr_disabled() -> None:
 
 
 @pytest.mark.remote
-@pytest.mark.skipif(not (ensure_eccodes() and ensure_pdbufr()), reason="eccodes/pdbufr not installed")
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_radar_request_site_historic_pe_bufr_dataframe() -> None:
     """With read_bufr enabled, PE_ECHO_TOP BUFR data is parsed into RadarResult.df as a long grid."""
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)

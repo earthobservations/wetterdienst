@@ -4,6 +4,7 @@
 
 import datetime as dt
 import json
+import logging
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
@@ -740,3 +741,48 @@ def test_cli_values_date_and_end_date_conflict() -> None:
     )
     assert result.exit_code != 0
     assert "Use either --date or --start-date" in result.output
+
+
+def test_cli_values_without_the_bufr_reader_says_what_to_install(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A network that needs an optional reader says so, rather than ending in a traceback.
+
+    `require_bufr` raises `BufrReaderMissingError` at the request, and the CLI caught `ValueError`
+    -- which that is not -- so the message naming the extra to install, the whole of what a caller
+    can do about it, arrived as the last line of a stack trace.
+
+    Raised from a stubbed `get_values` rather than by asking DWD for a road station: this is about
+    what the CLI does with the error, and the real path downloads a station list on the way to it,
+    which would make an offline run fail here for a reason that has nothing to do with the test.
+    """
+    from wetterdienst.exceptions import BufrReaderMissingError  # noqa: PLC0415
+
+    msg = (
+        "DWD road weather data is published as BUFR, which needs eccodes and pdbufr to read: "
+        "`pip install wetterdienst[bufr]` installs both."
+    )
+
+    def refuse(**_kwargs: object) -> None:
+        raise BufrReaderMissingError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_values", refuse)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [
+                "values",
+                "--provider=dwd",
+                "--network=road",
+                "--parameters=15_minutes/data/temperature_air_mean_2m",
+                "--station=A006",
+                "--start-date=2024-01-01",
+                "--end-date=2024-01-02",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "pip install wetterdienst[bufr]" in caplog.text
+    # handled rather than propagated: the command chose to exit, and the error did not escape it.
+    # `CliRunner` never renders a traceback into `output`, so looking for one there proves nothing
+    assert isinstance(result.exception, SystemExit)
