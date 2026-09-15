@@ -51,5 +51,14 @@ class NoInternetError(OSError):
     """Raised when no internet connection is available."""
 
 
+class BufrReaderMissingError(ImportError):
+    """Raised when data published as BUFR is asked for and the reader to decode it is unavailable.
+
+    An `ImportError`, because that is what it is, and its own type because a caller reporting it
+    as an instruction to the user must not report every other import failure that way -- a typo or
+    a cycle inside a provider module is a defect and wants its traceback.
+    """
+
+
 class NoStationsWithHeightError(ValueError):
     """Raised when a height is asked about and no station in reach reports one of its own."""

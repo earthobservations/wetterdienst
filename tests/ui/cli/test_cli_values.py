@@ -4,6 +4,7 @@
 
 import datetime as dt
 import json
+import logging
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
@@ -740,3 +741,35 @@ def test_cli_values_date_and_end_date_conflict() -> None:
     )
     assert result.exit_code != 0
     assert "Use either --date or --start-date" in result.output
+
+
+def test_cli_values_without_the_bufr_reader_says_what_to_install(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A network that needs an optional reader says so, rather than ending in a traceback.
+
+    `require_bufr` raises `ImportError` at the request, which the CLI caught nowhere -- it handles
+    `ValueError` and `ImportError` is not one -- so the message naming the extra to install, which
+    is the whole of what the caller can do about it, arrived as the last line of a stack trace.
+    """
+    from wetterdienst.util import eccodes  # noqa: PLC0415
+
+    monkeypatch.setattr(eccodes, "bufr_is_available", lambda: False)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [
+                "values",
+                "--provider=dwd",
+                "--network=road",
+                "--parameters=15_minutes/data/temperature_air_mean_2m",
+                "--station=A006",
+                "--start-date=2024-01-01",
+                "--end-date=2024-01-02",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "pip install wetterdienst[bufr]" in caplog.text
+    # the message and nothing else: a traceback would bury the one sentence that helps
+    assert "Traceback" not in (result.output or "")

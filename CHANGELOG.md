@@ -66,6 +66,18 @@ Types of changes:
 
 ### Changed
 
+- Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes,
+  but asks for any version at all, and the two were named as separate extras with the docs telling
+  you to install both -- neither being any use without the other. The floor is the oldest release
+  published as a wheel, named in both extras so that it binds for anyone installing
+  `wetterdienst[bufr]` and not only inside this repository's lockfile. It stood at 1.5.2, a 2023
+  source tarball, which the minimum-versions job -- resolving every direct dependency to its
+  floor, across extras -- had to build, and continues on error if it cannot. It is raised only
+  that far on purpose: nothing here needs eccodes 2.x, so an install pinned to 1.x keeps
+  resolving. `pybufrkit` is no longer pulled in by `bufr`: nothing in
+  the library imports it, only the radar tests do, and they skip on it now rather than failing to
+  collect without it
+
 - Interpolation and summary by station id answer at that station's altitude. Naming a point by a
   station names its height as well, and it is the one case where the elevation is known without
   being given, so `interpolate_by_station_id` and `summarize_by_station_id` correct the quantities
@@ -82,6 +94,99 @@ Types of changes:
   every other dependency here resolves to, so the floor named a combination that does not work
 
 ### Fixed
+
+- DWD road: a station reporting one quantity twice and differently says so. Two road sensors on
+  one station are two readings, and the frame has one row per station, minute and parameter to put
+  them in, so one is kept and the other dropped -- which is where this stood before, the old inner
+  merge's cross product being collapsed just as arbitrarily a step later. It is logged now rather
+  than silent. How often it happens depends on the group: over the last five files of each, DD
+  disagreed with itself not once in 261 repeated descriptors, where FN did 54 times in 270 and HV
+  56 in 425, `roadSurfaceTemperature` among them by as much as 23 K. Said at debug, being per file and
+  routine for those groups -- nearly every file of some -- where the CLI logs at info and a month
+  of road data would be thousands of lines. Keeping both readings would need something in the data
+  that names the sensor, and nothing found so far does. GH-1908
+- DWD road: a station's reading is kept whole where it arrives in parts. A road file holds one
+  subset per station carrying the descriptors that station has, and `read_bufr` emits an
+  observation only where every column asked for is present -- its default, and ours. Asking for
+  all fourteen parameters of the dataset and keeping only the complete observations threw away
+  every reading of anything not universally fitted: against a file of the DD group the parse
+  returned 105 values where the file held 121, the whole of `roadSurfaceTemperature` among the
+  missing, on a road weather network. The reads are required of the station and the minute
+  instead, which every subset carries, and the parts of one reading are folded back together on
+  those keys. A parameter no subset in the file carries comes back as a null column rather than
+  as no column at all
+
+- DWD road: a listing entry is a file when it carries a timestamp that parses. The pattern matched
+  a digit run longer than the format reads, so a matched entry that would not parse raised out of
+  the file index and took the request with it, where an entry that never matched was simply
+  dropped. It matches the ten digits the format reads and parses them leniently, so neither a
+  longer run elsewhere in a name nor an unreadable one decides anything -- and a listing whose
+  entries all fail to carry a timestamp says so, rather than emptying every group behind a line
+  about finding no files
+- DWD road: a listing entry is a file when it carries the timestamp the file index reads it by.
+  The listing of a group that exists and holds nothing is the group itself, which made the listing
+  non-empty, so `No files found` never said so and a request without dates downloaded the
+  directory and handed it to the reader as a BUFR message. The same rule drops the `LATEST` alias
+  of each populated group, which duplicates the newest timestamped file -- so a request without
+  dates no longer parses that quarter hour twice
+- BUFR: any `RuntimeError` from importing pdbufr is read as "this environment cannot decode"
+  rather than re-raised. It was matched against the words "Cannot find the ecCodes library",
+  which is gribapi's present phrasing and no promise -- and the question is asked from two places
+  that cannot take a raise: the radar path documented to log and carry on, and the constant the
+  test suite computes while collecting, where a raise aborts collection instead of skipping the
+  tests that want a reader
+- CLI: a missing optional reader is reported rather than raised. `values`, `interpolate` and
+  `summarize` caught `ValueError`, and the `ImportError` naming the extra to install is not one, so
+  the sentence saying what to do arrived as the last line of a traceback. The three of them share
+  one handler now, which reports that, a request the provider cannot serve as phrased, and a window
+  holding no readings -- the three failures a caller can act on rather than debug. The refusal has
+  a type of its own, `BufrReaderMissingError`, so reporting it does not mean reporting every import
+  failure that way: a cycle or a typo inside a provider module is a defect and keeps its traceback
+- BUFR: a reader that is installed and does not work says why, including when it fails as a
+  `ModuleNotFoundError` from inside itself -- `No module named 'gribapi.bindings'` is a broken
+  install and not an absent one, and reading it as absence hands the caller advice to install what
+  they have. "Install the extra" is the whole
+  story where nothing is installed and no help at all where the package is present and its compiled
+  library is not, and the advice cannot tell those apart -- so the loader's own words are logged at
+  warning rather than left at debug for someone who already knows to look
+- DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
+  class called `ensure_pdbufr()` in its `__post_init__` and threw the answer away, so it guarded
+  nothing: the request went through, and a bare `ImportError` came back out of the middle of a
+  parse instead. It says what to install now, and where the compiled library comes from
+- BUFR: an eccodes with no compiled library behind it is read as absent. It raises the plain
+  `ImportError` out of the import where a missing package raises `ModuleNotFoundError`, and only
+  the second was caught -- so the question raised instead of answering, out of a radar path
+  documented to log and carry on rather than fail a query
+- CI: the test and coverage workflows watch `examples/**`. `tests/examples` runs those files, so a
+  change to one is a change both suites cover -- and a pull request touching only an example ran
+  neither, while the coverage workflow's header said it takes the same inputs as the test matrix
+- Tests: a BUFR skip condition that only skipped when *both* halves were missing. Written as
+  `not ensure_eccodes() and not ensure_pdbufr()`, it was false wherever eccodes was installed and
+  pdbufr was not -- the one case a skip is for -- so the test ran and died on the import. Four
+  spellings of the same question stood across the suite, one of them this one; there is one now
+
+- DWD road: a file that decodes to nothing is nothing rather than a broken frame. The empty files
+  of GH-1526 are turned away by their exact length, which is a guess at a shape rather than a
+  reading of one, so a file holding no subsets at some other length reached the parse -- where the
+  merge of the two column batches raised `KeyError: 'year'` and the select after it would have
+  raised for a column that was not there. A read that finds nothing carries its columns back
+  even so, so the merge has keys to join on and the select has columns to name, and a file that
+  says nothing needs no handling of its own. It says so in the log, at the level its neighbour
+  uses for a group that published no file at all
+- DWD road: having nothing to answer with is one shape. There were three -- no columns where the
+  group published no file, five where the files it published held nothing, and the seven a reading
+  has -- handed to a caller that reads the first as "this station had nothing" and would meet
+  either of the others with a width it did not expect or a column that is not there. A frame of no
+  readings carries the columns a reading does, so the filter has a station id to look for and one
+  line answers for the empty case and the populated one alike
+- DWD road: a station group with no usable file is an empty result rather than a broken frame.
+  The stations report in fifteen-minute batches and four groups are already known to go quiet, so
+  a window with no file behind it -- or one holding only the 142-byte empty files of GH-1526 -- is
+  an ordinary outcome. The frame standing for "nothing here" carries no columns, and it was
+  filtered for a station id before anyone asked whether it held anything, so the collection walk
+  raised `ColumnNotFoundError: unable to find column "station_id"; valid columns: []` from its
+  middle. It is handed back instead, which is what the rest of the library already reads as "this
+  station had nothing". This is what failed `test_pdbufr_examples` on every CI job
 
 - Interpolation: four stations that surround the target point are a valid group however they are
   ordered. The check drew a polygon through them in the order they are held -- by distance from
