@@ -26,7 +26,7 @@ into a [polars](https://pola.rs/) DataFrame. Enable the `read_bufr` setting and 
 `RadarResult` returned by `query()` will carry the parsed data on its `.df` attribute (a long
 frame with one row per grid pixel: station/grid metadata plus the pixel `value`, with missing
 pixels as null); the raw payload remains available on `.data`. This requires the optional
-`eccodes` and `bufr` dependency extras — without them, or with `read_bufr` disabled, `.df`
+`bufr` dependency extra — without it, or with `read_bufr` disabled, `.df`
 stays `None`.
 
 ```python

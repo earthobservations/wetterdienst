@@ -16,11 +16,51 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes,
+  but asks for any version at all, and the two were named as separate extras with the docs telling
+  you to install both -- neither being any use without the other. The floor is the oldest release
+  published as a wheel, named in both extras so that it binds for anyone installing
+  `wetterdienst[bufr]` and not only inside this repository's lockfile. It stood at 1.5.2, a 2023
+  source tarball, which the minimum-versions job -- resolving every direct dependency to its floor,
+  across extras -- had to build, and continues on error if it cannot. It is raised only that far on
+  purpose: nothing here needs eccodes 2.x, so an install pinned to 1.x keeps resolving. `pybufrkit`
+  is no longer pulled in by `bufr`: nothing in the library imports it, only the radar tests do, and
+  they skip on it now rather than failing to collect without it
+
 ### Fixed
 
 - CI: the test and coverage workflows watch `examples/**`. `tests/examples` runs those files, so a
   change to one is a change both suites cover -- and a pull request touching only an example ran
   neither, while the coverage workflow's header said it takes the same inputs as the test matrix
+- BUFR: one question, asked in one place. Reading BUFR takes two halves that fail apart -- pdbufr,
+  which reads the messages, and eccodes, the binding to the library that decodes them -- and no
+  caller cares which is missing. The codebase asked it four ways, one of them wrong:
+  `not ensure_eccodes() and not ensure_pdbufr()` skips only when *both* are missing, so with
+  eccodes installed and pdbufr not, the case a skip exists for, tests ran and died on the import.
+  `bufr_is_available` answers it now, and `require_bufr` refuses where the answer has to come early
+- DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
+  class called `ensure_pdbufr()` and threw the answer away, so it guarded nothing: the request went
+  through and a bare `ImportError` came back out of the middle of a parse instead
+- CLI: a missing optional reader is reported rather than raised. `values`, `interpolate` and
+  `summarize` caught `ValueError`, and the `ImportError` naming the extra to install is not one, so
+  the sentence saying what to do arrived as the last line of a traceback. The three share one
+  handler now, which reports that, a request the provider cannot serve as phrased, and a window
+  holding no readings -- the three failures a caller can act on rather than debug. The refusal has
+  a type of its own, `BufrReaderMissingError`, so reporting it does not mean reporting every import
+  failure that way: a cycle or a typo inside a provider module is a defect and keeps its traceback
+- BUFR: an eccodes with no compiled library behind it is read as absent. It raises the plain
+  `ImportError` out of the import where a missing package raises `ModuleNotFoundError`, and only
+  the second was caught -- so the question raised instead of answering, out of a radar path
+  documented to log and carry on rather than fail a query. Any `RuntimeError` from importing pdbufr
+  is read the same way: it was matched against gribapi's present phrasing, which is no promise, and
+  the question is asked while the test suite is collecting, where a raise aborts the collection
+  instead of skipping the tests that want a reader
+- BUFR: a reader that is installed and does not work says why, including when it fails as a
+  `ModuleNotFoundError` from inside itself -- `No module named 'gribapi.bindings'` is a broken
+  install and not an absent one, and reading it as absence hands the caller advice to install what
+  they have
 
 ### Added
 

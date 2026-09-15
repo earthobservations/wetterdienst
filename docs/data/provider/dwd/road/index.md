@@ -8,7 +8,7 @@ observations at 15-minute resolution.
 
 The data is published as
 [weather reports](https://opendata.dwd.de/weather/weather_reports/road_weather_stations/) in
-BUFR format, so parsing requires the optional `eccodes`/`bufr` dependency extras. Station
+BUFR format, so parsing requires the optional `bufr` dependency extra. Station
 metadata is resolved from the DWD
 [station list](https://www.dwd.de/DE/leistungen/opendata/help/stationen/sws_stations_xls.xlsx).
 No authentication is required.
