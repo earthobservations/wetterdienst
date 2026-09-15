@@ -170,3 +170,52 @@ def test_a_broken_install_is_not_read_as_an_absent_one(
     with caplog.at_level(logging.WARNING):
         assert eccodes.bufr_is_available() is False
     assert "gribapi.bindings" in caplog.text
+
+
+def test_the_probe_answers_whatever_the_import_does(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Nothing escapes the question, not only the failures seen so far.
+
+    It was widened twice by naming what had been seen -- `ModuleNotFoundError`, then `ImportError`,
+    then `RuntimeError` -- and an `AttributeError` from `eccodes.eccodes` moving, or a gribapi
+    error class, would have escaped all three. Two callers cannot take a raise: the radar path that
+    logs and carries on, and `BUFR_AVAILABLE`, computed while the suite is collecting.
+    """
+    real_import = builtins.__import__
+
+    def import_that_fails_unusually(name: str, *args: object, **kwargs: object) -> object:
+        if name in {"eccodes", "pdbufr"}:
+            msg = "something nobody wrote a handler for"
+            raise AttributeError(msg)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_that_fails_unusually)
+    with caplog.at_level(logging.WARNING):
+        assert eccodes.bufr_is_available() is False
+    assert "did not load" in caplog.text
+
+
+def test_a_broken_eccodes_seen_through_pdbufr_is_not_read_as_absence(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`eccodes.eccodes` missing means eccodes is there and broken, whichever import surfaces it.
+
+    The two probes read the name differently: one exactly, one by prefix, so the same failure was
+    a warning through `ensure_eccodes` and silent absence through `ensure_pdbufr` -- and silent
+    absence is what hands the caller advice to install what they have.
+    """
+    real_import = builtins.__import__
+
+    def import_with_a_broken_eccodes(name: str, *args: object, **kwargs: object) -> object:
+        if name == "pdbufr":
+            msg = "No module named 'eccodes.eccodes'"
+            raise ModuleNotFoundError(msg, name="eccodes.eccodes")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_with_a_broken_eccodes)
+    with caplog.at_level(logging.WARNING):
+        assert eccodes.ensure_pdbufr() is False
+    assert "eccodes.eccodes" in caplog.text

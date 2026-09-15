@@ -51,6 +51,11 @@ Types of changes:
   holding no readings -- the three failures a caller can act on rather than debug. The refusal has
   a type of its own, `BufrReaderMissingError`, so reporting it does not mean reporting every import
   failure that way: a cycle or a typo inside a provider module is a defect and keeps its traceback
+- BUFR: asking whether this environment can read BUFR answers, whatever the import does. The catch
+  was widened twice by naming what had been seen -- `ModuleNotFoundError`, then `ImportError`, then
+  `RuntimeError` -- and anything else would still have escaped, out of a radar path documented to
+  log and carry on and out of a constant the test suite computes while collecting, where a raise
+  ends the collection rather than skipping the tests that want a reader
 - BUFR: an eccodes with no compiled library behind it is read as absent. It raises the plain
   `ImportError` out of the import where a missing package raises `ModuleNotFoundError`, and only
   the second was caught -- so the question raised instead of answering, out of a radar path
