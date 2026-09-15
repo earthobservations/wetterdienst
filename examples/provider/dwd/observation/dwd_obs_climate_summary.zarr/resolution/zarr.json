@@ -1,0 +1,50 @@
+{
+  "shape": [
+    1,
+    1,
+    10,
+    17348
+  ],
+  "data_type": "string",
+  "chunk_grid": {
+    "name": "regular",
+    "configuration": {
+      "chunk_shape": [
+        1,
+        1,
+        10,
+        17348
+      ]
+    }
+  },
+  "chunk_key_encoding": {
+    "name": "default",
+    "configuration": {
+      "separator": "/"
+    }
+  },
+  "fill_value": "",
+  "codecs": [
+    {
+      "name": "vlen-utf8",
+      "configuration": {}
+    },
+    {
+      "name": "zstd",
+      "configuration": {
+        "level": 0,
+        "checksum": false
+      }
+    }
+  ],
+  "attributes": {},
+  "dimension_names": [
+    "station_id",
+    "dataset",
+    "parameter",
+    "date"
+  ],
+  "zarr_format": 3,
+  "node_type": "array",
+  "storage_transformers": []
+}

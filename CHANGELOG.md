@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- CI: the test and coverage workflows watch `examples/**`. `tests/examples` runs those files, so a
+  change to one is a change both suites cover -- and a pull request touching only an example ran
+  neither, while the coverage workflow's header said it takes the same inputs as the test matrix
+
 ### Added
 
 - Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON could not be written to a file
