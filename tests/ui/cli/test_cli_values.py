@@ -749,13 +749,25 @@ def test_cli_values_without_the_bufr_reader_says_what_to_install(
 ) -> None:
     """A network that needs an optional reader says so, rather than ending in a traceback.
 
-    `require_bufr` raises `ImportError` at the request, which the CLI caught nowhere -- it handles
-    `ValueError` and `ImportError` is not one -- so the message naming the extra to install, which
-    is the whole of what the caller can do about it, arrived as the last line of a stack trace.
-    """
-    from wetterdienst.util import eccodes  # noqa: PLC0415
+    `require_bufr` raises `BufrReaderMissingError` at the request, and the CLI caught `ValueError`
+    -- which that is not -- so the message naming the extra to install, the whole of what a caller
+    can do about it, arrived as the last line of a stack trace.
 
-    monkeypatch.setattr(eccodes, "bufr_is_available", lambda: False)
+    Raised from a stubbed `get_values` rather than by asking DWD for a road station: this is about
+    what the CLI does with the error, and the real path downloads a station list on the way to it,
+    which would make an offline run fail here for a reason that has nothing to do with the test.
+    """
+    from wetterdienst.exceptions import BufrReaderMissingError  # noqa: PLC0415
+
+    msg = (
+        "DWD road weather data is published as BUFR, which needs eccodes and pdbufr to read: "
+        "`pip install wetterdienst[bufr]` installs both."
+    )
+
+    def refuse(**_kwargs: object) -> None:
+        raise BufrReaderMissingError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_values", refuse)
     with caplog.at_level(logging.ERROR):
         result = CliRunner().invoke(
             cli,
@@ -771,5 +783,6 @@ def test_cli_values_without_the_bufr_reader_says_what_to_install(
         )
     assert result.exit_code == 1
     assert "pip install wetterdienst[bufr]" in caplog.text
-    # the message and nothing else: a traceback would bury the one sentence that helps
-    assert "Traceback" not in (result.output or "")
+    # handled rather than propagated: the command chose to exit, and the error did not escape it.
+    # `CliRunner` never renders a traceback into `output`, so looking for one there proves nothing
+    assert isinstance(result.exception, SystemExit)

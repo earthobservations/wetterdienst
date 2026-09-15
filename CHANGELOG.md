@@ -38,8 +38,9 @@ Types of changes:
   which reads the messages, and eccodes, the binding to the library that decodes them -- and no
   caller cares which is missing. The codebase asked it four ways, one of them wrong:
   `not ensure_eccodes() and not ensure_pdbufr()` skips only when *both* are missing, so with
-  eccodes installed and pdbufr not, the case a skip exists for, tests ran and died on the import.
-  `bufr_is_available` answers it now, and `require_bufr` refuses where the answer has to come early
+  eccodes installed and pdbufr not, the case a skip exists for, tests ran and died on the import --
+  and would now error earlier still, `require_bufr` refusing at the request. All four call sites
+  ask `bufr_is_available` now, and `require_bufr` refuses where the answer has to come early
 - DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
   class called `ensure_pdbufr()` and threw the answer away, so it guarded nothing: the request went
   through and a bare `ImportError` came back out of the middle of a parse instead
