@@ -14,7 +14,12 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from pydantic import ValidationError
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
-from wetterdienst.exceptions import ApiNotFoundError, NoStationsWithHeightError, StartDateEndDateError
+from wetterdienst.exceptions import (
+    ApiNotFoundError,
+    BufrReaderMissingError,
+    NoStationsWithHeightError,
+    StartDateEndDateError,
+)
 
 # needed at runtime: FastAPI resolves this annotation to build the query parameter's enum
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001
@@ -56,7 +61,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from wetterdienst.model.request import TimeseriesRequest
-    from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult
+    from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
 
 info = Info()
 
@@ -82,6 +87,28 @@ REQUEST_EXAMPLES = {
     "dwd_dmo_issues": "api/issues?provider=dwd&network=dmo&station=10147",
     "dwd_weather_alerts": "api/alerts?granularity=community&format=geojson",
 }
+
+
+def _reader_missing_on_the_server(e: BufrReaderMissingError, what: str) -> HTTPException:
+    """Report a reader this deployment does not have as the server's lack, not the caller's error.
+
+    The blanket handlers answered it with a 400 carrying `pip install wetterdienst[bufr]` -- an
+    instruction for a machine the caller does not administer, about a request that was perfectly
+    well formed. Over HTTP the missing half is a property of the deployment, and 501 is what says
+    so: this server does not implement the networks published as BUFR. The install line is not
+    lost, it moves to where someone can act on it -- the server log, carried there by the message
+    itself rather than by a traceback, since a dependency that was never installed has no incident
+    to show.
+    """
+    log.error(f"Failed to {what}, this deployment cannot decode BUFR: {e}")
+    return HTTPException(
+        status_code=501,
+        detail=(
+            "This server cannot decode BUFR, which the requested network is published as. The "
+            "request was valid; the deployment is missing the eccodes and pdbufr readers that "
+            "read it. Ask whoever runs this instance to install them."
+        ),
+    )
 
 
 @app.get("/")
@@ -540,21 +567,7 @@ def values(
         ts_drop_nulls=request.drop_nulls,
     )
 
-    try:
-        values_ = get_values(
-            api=api,
-            request=request,
-            settings=settings,
-        )
-    except StartDateEndDateError as e:
-        log.exception("Failed to get values.")
-        raise HTTPException(
-            status_code=400,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        log.exception("Failed to get values.")
-        raise HTTPException(status_code=400, detail=str(e)) from e
+    values_ = _values(api=api, request=request, settings=settings)
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {
@@ -609,6 +622,29 @@ def _geo_settings(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+def _values(
+    api: type[TimeseriesRequest],
+    request: ValuesRequest,
+    settings: Settings,
+) -> ValuesResult:
+    """Collect values, telling the caller which failures are theirs to fix.
+
+    The sibling of `_geo_values` for the plain values endpoint, and lifted out of the endpoint for
+    the same reason: which failure earns which status is a decision of its own, and the endpoint --
+    which also assembles a response format, a target and a set of kwargs -- is not where it belongs.
+    """
+    try:
+        return get_values(api=api, request=request, settings=settings)
+    except StartDateEndDateError as e:
+        log.exception("Failed to get values.")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except BufrReaderMissingError as e:
+        raise _reader_missing_on_the_server(e, "get values") from e
+    except Exception as e:
+        log.exception("Failed to get values.")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 def _geo_values(
     get: Callable[..., InterpolatedValuesResult | SummarizedValuesResult],
     api: type[TimeseriesRequest],
@@ -620,8 +656,9 @@ def _geo_values(
 
     Both endpoints answered every failure with a 404, which reads as "no such thing" for a request
     that was understood and simply cannot be served as phrased -- an elevation no station in reach
-    can be placed against, or a window that ends before it starts. Those are 400s, and the same two
-    in both places, so they are decided here rather than twice over.
+    can be placed against, or a window that ends before it starts. Those are 400s, and a reader
+    missing on the server is a 501; the same three in both places, so they are decided here rather
+    than twice over.
     """
     try:
         return get(api=api, request=request, settings=settings)
@@ -633,6 +670,8 @@ def _geo_values(
     except StartDateEndDateError as e:
         log.exception(f"Failed to {what}")
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except BufrReaderMissingError as e:
+        raise _reader_missing_on_the_server(e, what) from e
     except Exception as e:
         log.exception(f"Failed to {what}")
         raise HTTPException(status_code=404, detail=str(e)) from e
