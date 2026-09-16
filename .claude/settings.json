@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run poe format *)",
+      "Bash(uv run pytest *)",
+      "Bash(uv run poe typecheck *)",
+      "Bash(uv run poe lint *)",
+      "Bash(uv run poe unused *)",
+      "Bash(pnpm lint *)",
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm test:ci *)",
+      "Bash(pnpm vitest run *)"
+    ]
+  }
+}

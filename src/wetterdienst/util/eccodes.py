@@ -34,13 +34,14 @@ def ensure_eccodes() -> bool:
         # 'gribapi.bindings'` from within the package, which is the case the advice cannot help
         log.warning(f"eccodes is installed but {e.name} is missing", exc_info=True)
         return False
-    except (ImportError, RuntimeError):
-        # installed, and it did not work: an eccodes with no compiled library behind it raises the
-        # plain ImportError out of the import ("libeccodes.so: cannot open shared object file").
-        # That is the same answer -- this environment cannot decode -- but not the same advice, so
-        # the reason is said out loud rather than left for someone to find at debug. `_attach_bufr`
-        # promises to log and carry on rather than fail a query, which it cannot do if the question
-        # itself raises
+    except Exception:
+        # installed, and it did not work. The plain ImportError of a binding with no compiled
+        # library behind it ("libeccodes.so: cannot open shared object file"), a RuntimeError out
+        # of gribapi, an AttributeError if `eccodes.eccodes` ever moves -- one answer for all of
+        # them, and naming the ones seen so far is how this came to be widened twice already.
+        # Whatever it was, it happened on the way to decoding, and a question that raises is no use
+        # to `_attach_bufr`, which logs and carries on, nor to the constant the suite computes
+        # while collecting, where a raise ends the collection
         log.warning("eccodes is installed but did not load", exc_info=True)
         return False
     return True
@@ -61,14 +62,16 @@ def ensure_pdbufr() -> bool:
     try:
         import pdbufr  # noqa: F401, PLC0415
     except ModuleNotFoundError as e:
-        if e.name is None or e.name.split(".")[0] in {"pdbufr", "eccodes"}:
+        if e.name in (None, "pdbufr", "eccodes"):
             # pdbufr requires eccodes, so an absent eccodes surfaces from this import as well --
-            # still absence, and `require_bufr` covers it. Anything else missing is something
-            # inside a package that is present
+            # still absence, and `require_bufr` covers it. Matched on the whole name and not a
+            # prefix of it, as in the sibling probe above: `eccodes.eccodes` missing means eccodes
+            # is *there* and broken, which is what the warning below is for
             return False
         log.warning(f"pdbufr is installed but {e.name} is missing", exc_info=True)
         return False
-    except (ImportError, RuntimeError):
+    except Exception:
+        # as above: anything out of this import is an answer, not an incident
         log.warning("pdbufr is installed but did not import", exc_info=True)
         return False
     return True
