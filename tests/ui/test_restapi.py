@@ -3,6 +3,7 @@
 """Tests for the REST API."""
 
 import json
+import logging
 
 import pytest
 from dirty_equals import IsApprox, IsNumber, IsStr
@@ -2293,3 +2294,80 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
     )
     assert response.status_code == 400
     assert response.json()["detail"] == msg
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "params"),
+    [
+        (
+            "/api/values",
+            "get_values",
+            {
+                "provider": "dwd",
+                "network": "road",
+                "parameters": "15_minutes/data/temperature_air_mean_2m",
+                "station": "A006",
+                "date": "2024-01-01/2024-01-02",
+            },
+        ),
+        (
+            "/api/interpolate",
+            "get_interpolate",
+            {
+                "provider": "dwd",
+                "network": "road",
+                "parameters": "15_minutes/data/temperature_air_mean_2m",
+                "station": "A006",
+                "date": "2024-01-01",
+            },
+        ),
+        (
+            "/api/summarize",
+            "get_summarize",
+            {
+                "provider": "dwd",
+                "network": "road",
+                "parameters": "15_minutes/data/temperature_air_mean_2m",
+                "station": "A006",
+                "date": "2024-01-01",
+            },
+        ),
+    ],
+)
+def test_a_reader_missing_on_the_server_is_a_501(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    entry_point: str,
+    params: dict[str, str],
+) -> None:
+    """A reader the deployment lacks is the server's lack, and it says so with the right status.
+
+    The blanket handler turned it into a 400 -- the caller's fault -- carrying `pip install
+    wetterdienst[bufr]`, which is an instruction for a machine the caller does not administer. The
+    request was well formed; it is this instance that cannot serve it, which is a 501.
+
+    Raised from a stubbed getter rather than by asking DWD for a road station: what is under test
+    is the status and the body, and the real path downloads a station list on the way to the error.
+    """
+    from wetterdienst.exceptions import BufrReaderMissingError  # noqa: PLC0415
+
+    msg = (
+        "DWD road weather data is published as BUFR, which needs eccodes and pdbufr to read: "
+        "`pip install wetterdienst[bufr]` installs both."
+    )
+
+    def refuse(**_kwargs: object) -> None:
+        raise BufrReaderMissingError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
+    with caplog.at_level(logging.ERROR):
+        response = client.get(endpoint, params=params)
+
+    assert response.status_code == 501
+    detail = response.json()["detail"]
+    assert "eccodes and pdbufr" in detail
+    # the install line is for whoever runs the instance, and reaches them through the log
+    assert "pip install" not in detail
+    assert "pip install wetterdienst[bufr]" in caplog.text

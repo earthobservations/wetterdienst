@@ -31,6 +31,12 @@ Types of changes:
 
 ### Fixed
 
+- REST API: a BUFR reader missing on the server answers 501 rather than 400. The blanket handler
+  read every failure as the caller's, so a deployment installed without the `bufr` extra told the
+  client to `pip install wetterdienst[bufr]` on a machine they do not administer, for a request
+  that was perfectly well formed -- and `interpolate` and `summarize` called the same thing a 404,
+  which reads as "no such network". The install line moves to the server log, where whoever runs
+  the instance can act on it
 - CI: the test and coverage workflows watch `examples/**`. `tests/examples` runs those files, so a
   change to one is a change both suites cover -- and a pull request touching only an example ran
   neither, while the coverage workflow's header said it takes the same inputs as the test matrix
