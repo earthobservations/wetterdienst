@@ -31,6 +31,59 @@ Types of changes:
 
 ### Fixed
 
+- DWD road: a station reporting one quantity twice and differently says so. Two road sensors on
+  one station are two readings, and the frame has one row per station, minute and parameter to put
+  them in, so one is kept and the other dropped -- which is where this stood before, the old inner
+  merge's cross product being collapsed just as arbitrarily a step later. It is logged now rather
+  than silent. How often it happens depends on the group: over the last five files of each, DD
+  disagreed with itself not once in 261 repeated descriptors, where FN did 54 times in 270 and HV
+  56 in 425, `roadSurfaceTemperature` among them by as much as 23 K. Said at debug, being per file and
+  routine for those groups -- nearly every file of some -- where the CLI logs at info and a month
+  of road data would be thousands of lines. Keeping both readings would need something in the data
+  that names the sensor, and nothing found so far does. GH-1908
+- DWD road: a station's reading is kept whole where it arrives in parts. A road file holds one
+  subset per station carrying the descriptors that station has, and `read_bufr` emits an
+  observation only where every column asked for is present -- its default, and ours. Asking for
+  all fourteen parameters of the dataset and keeping only the complete observations threw away
+  every reading of anything not universally fitted: against a file of the DD group the parse
+  returned 105 values where the file held 121, the whole of `roadSurfaceTemperature` among the
+  missing, on a road weather network. The reads are required of the station and the minute
+  instead, which every subset carries, and the parts of one reading are folded back together on
+  those keys. A parameter no subset in the file carries comes back as a null column rather than
+  as no column at all
+- DWD road: a listing entry is a file when it carries the timestamp the file index reads it by.
+  Two entries never do. The listing of a group that exists and holds nothing is the group itself,
+  which made the listing non-empty, so `No files found` never said so and a request without dates
+  downloaded the directory and handed it to the reader as a BUFR message; and each family a group
+  publishes under keeps a `LATEST` alias duplicating its newest file, which a request without
+  dates parsed a second time. Both are dropped now. The timestamp is read leniently and from the
+  ten digits the format takes, where the pattern used to match a longer run and raise out of the
+  file index on a match that would not parse -- taking the request with it, while an entry that
+  never matched was simply dropped. A name that is neither a file nor one of those two is one the
+  index cannot read, and it is said: a group publishing under two families, as FN does, would
+  otherwise lose half its readings to a rename of one of them as quietly as it drops the alias
+- DWD road: a file that decodes to nothing is nothing rather than a broken frame. The empty files
+  of GH-1526 are turned away by their exact length, which is a guess at a shape rather than a
+  reading of one, so a file holding no subsets at some other length reached the parse -- where the
+  merge of the two column batches raised `KeyError: 'year'` and the select after it would have
+  raised for a column that was not there. A read that finds nothing carries its columns back
+  even so, so the merge has keys to join on and the select has columns to name, and a file that
+  says nothing needs no handling of its own. It says so in the log, at the level its neighbour
+  uses for a group that published no file at all
+- DWD road: having nothing to answer with is one shape. There were three -- no columns where the
+  group published no file, five where the files it published held nothing, and the seven a reading
+  has -- handed to a caller that reads the first as "this station had nothing" and would meet
+  either of the others with a width it did not expect or a column that is not there. A frame of no
+  readings carries the columns a reading does, so the filter has a station id to look for and one
+  line answers for the empty case and the populated one alike
+- DWD road: a station group with no usable file is an empty result rather than a broken frame.
+  The stations report in fifteen-minute batches and four groups are already known to go quiet, so
+  a window with no file behind it -- or one holding only the 142-byte empty files of GH-1526 -- is
+  an ordinary outcome. The frame standing for "nothing here" carries no columns, and it was
+  filtered for a station id before anyone asked whether it held anything, so the collection walk
+  raised `ColumnNotFoundError: unable to find column "station_id"; valid columns: []` from its
+  middle. It is handed back instead, which is what the rest of the library already reads as "this
+  station had nothing". This is what failed `test_pdbufr_examples` on every CI job
 - REST API: a BUFR reader missing on the server answers 501 rather than 400. The blanket handler
   read every failure as the caller's, so a deployment installed without the `bufr` extra told the
   client to `pip install wetterdienst[bufr]` on a machine they do not administer, for a request
@@ -45,8 +98,9 @@ Types of changes:
   caller cares which is missing. The codebase asked it four ways, one of them wrong:
   `not ensure_eccodes() and not ensure_pdbufr()` skips only when *both* are missing, so with
   eccodes installed and pdbufr not, the case a skip exists for, tests ran and died on the import --
-  and would now error earlier still, `require_bufr` refusing at the request. All four call sites
-  ask `bufr_is_available` now, and `require_bufr` refuses where the answer has to come early
+  and would now error earlier still, `require_bufr` refusing at the request. The four spellings are
+  one question now: `bufr_is_available` where an answer will do, `require_bufr` where it has to
+  come early, and one `BUFR_AVAILABLE` for the tests that skip on it
 - DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
   class called `ensure_pdbufr()` and threw the answer away, so it guarded nothing: the request went
   through and a bare `ImportError` came back out of the middle of a parse instead
@@ -57,17 +111,14 @@ Types of changes:
   holding no readings -- the three failures a caller can act on rather than debug. The refusal has
   a type of its own, `BufrReaderMissingError`, so reporting it does not mean reporting every import
   failure that way: a cycle or a typo inside a provider module is a defect and keeps its traceback
-- BUFR: asking whether this environment can read BUFR answers, whatever the import does. The catch
-  was widened twice by naming what had been seen -- `ModuleNotFoundError`, then `ImportError`, then
-  `RuntimeError` -- and anything else would still have escaped, out of a radar path documented to
-  log and carry on and out of a constant the test suite computes while collecting, where a raise
-  ends the collection rather than skipping the tests that want a reader
-- BUFR: an eccodes with no compiled library behind it is read as absent. It raises the plain
-  `ImportError` out of the import where a missing package raises `ModuleNotFoundError`, and only
-  the second was caught -- so the question raised instead of answering, out of a radar path
-  documented to log and carry on rather than fail a query. Any `RuntimeError` from importing pdbufr
-  is read the same way: it was matched against gribapi's present phrasing, which is no promise, and
-  the question is asked while the test suite is collecting, where a raise aborts the collection
+- BUFR: asking whether this environment can read BUFR answers, whatever the import does. Each
+  probe had a hole of its own: `ensure_eccodes` caught `ModuleNotFoundError` and `RuntimeError`
+  but not the plain `ImportError` an eccodes with no compiled library behind it raises, and
+  `ensure_pdbufr` caught `ImportError` but re-raised a `RuntimeError` whose message did not say
+  "Cannot find the ecCodes library" -- gribapi's phrasing of the day, and no promise. Naming what
+  had been seen would have left the next one out in turn, so the catch is anything at all: the
+  question is asked from a radar path documented to log and carry on rather than fail a query, and
+  from a constant the test suite computes while collecting, where a raise ends the collection
   instead of skipping the tests that want a reader
 - BUFR: a reader that is installed and does not work says why, including when it fails as a
   `ModuleNotFoundError` from inside itself -- `No module named 'gribapi.bindings'` is a broken

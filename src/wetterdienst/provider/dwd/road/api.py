@@ -28,11 +28,15 @@ from wetterdienst.util.eccodes import require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
-DATE_REGEX = r"-(\d{10,})-"
+#: the stamp a road file carries, exactly as long as `%y%m%d%H%M` reads. Ten and not "ten or
+#: more": a longer run anywhere else in the name would otherwise be captured instead of this
+DATE_REGEX = r"-(\d{10})-"
 TIME_COLUMNS = ("year", "month", "day", "hour", "minute")
 
 
@@ -173,6 +177,108 @@ TEMPORARILY_UNAVAILABLE_STATION_GROUPS = [
 ]
 
 
+#: what identifies one reading: a station and the minute it reported. Both column batches are read
+#: against these and joined on them
+_READING_KEYS = (*TIME_COLUMNS, "shortStationName")
+
+#: the shape `__parse_dwd_road_weather_data` returns, named so that a file holding nothing can be
+#: returned in it and still concatenate with the files that hold something
+_PARSED_SCHEMA = {
+    "station_id": pl.String,
+    "date": pl.Datetime(time_zone="UTC"),
+    "parameter": pl.String,
+    "value": pl.Float64,
+    "quality": pl.Float64,
+}
+
+
+def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
+    """Read one batch of columns, as one row per station and minute.
+
+    `read_bufr` emits an observation only where every column asked for is present, which is its
+    default and was ours. A road file holds one subset per station carrying the descriptors that
+    station has, so asking for fourteen and keeping only the complete ones threw away every
+    reading of anything not universally fitted: of one file of the DD group, the parse returned
+    105 values where the file held 121, the whole of `roadSurfaceTemperature` among the missing.
+
+    Required of the keys instead -- a station and a minute, which every subset carries -- each
+    subset comes back as its own row, holding its own part of the station's reading. Those parts
+    are one reading, so they are folded back together on the keys, `first` taking the value that
+    is there over the ones that are not.
+
+    Where two subsets both carry a value for the same descriptor, the earlier one wins and the
+    later is dropped. They repeat each other constantly, and whether the repeats agree depends on
+    the group -- over the last five files of each, DD had 261 repeated descriptors and no
+    disagreement at all, where FN had 54 disagreements in 270 and HV 56 in 425. Nor are those
+    rounding: `roadSurfaceTemperature` for station P129 came back as both 281.55 K and 304.65 K,
+    which is 8 degrees and 31, and `roadSurfaceCondition` -- a code table, so a difference in kind
+    rather than in degree -- as both 0 and 2.
+
+    A station with two road sensors reports each of them, and this frame has nowhere to put the
+    second: one row per station, minute and parameter, with no axis for which sensor spoke. So one
+    is taken and the other is logged. That is where this stood before the reads were relaxed too
+    -- the cross product of the old inner merge was collapsed just as arbitrarily one step later,
+    by `unique` in `_process_dataset`. Telling them apart would take a discriminator, and no
+    obvious one holds: `positionOfRoadSensors` reads 0 for both subsets of the stations measured,
+    `subsetNumber` comes back as the whole file's numbering rather than the row's, and
+    `road_sector` sits in the station index, one row per station, so it names where the station is
+    and not which of its sensors spoke. Finding one is the first part of the problem rather than
+    the easy part, and is tracked in GH-1908.
+    """
+    import pandas as pd  # noqa: PLC0415
+    import pdbufr  # noqa: PLC0415
+
+    columns = (*_READING_KEYS, *batch)
+    df = pdbufr.read_bufr(path, columns=columns, required_columns=_READING_KEYS)
+    if df.empty:
+        # the file's messages decode to no subsets at all, which the size filter upstream tries to
+        # catch by length and cannot do reliably. It comes back carrying its columns even so: the
+        # merge then has keys to join on and the select has columns to name, so having nothing to
+        # say is the same shape here as having something, and neither caller needs a branch for it.
+        # Said by the caller rather than here: both batches are read with the same
+        # `required_columns` and so answer alike, which made a file that decodes to nothing say so
+        # twice over, once per batch and each naming its descriptors
+        # with the keys typed as they come back populated: merging them against a batch that did
+        # find something is only otherwise allowed because pandas reads an all-empty object column
+        # as dtype "empty" and lets it pass, which is a leniency rather than a promise
+        empty = {key: pd.Series(dtype="int64") for key in TIME_COLUMNS}
+        empty["shortStationName"] = pd.Series(dtype="object")
+        empty.update({column: pd.Series(dtype="object") for column in batch})
+        return pd.DataFrame(empty)
+    keys = list(_READING_KEYS)
+    grouped = df.groupby(keys)
+    # of the batch, only what the read returned: a descriptor no subset carries is not a column
+    # here at all, which is the same reason the parse fills them in further down
+    present = [column for column in batch if column in df.columns]
+    # a station reporting the same quantity twice and differently has two road sensors, and only
+    # one of them fits in a frame with a row per station, minute and parameter. Which one is kept
+    # is arbitrary; that the other existed is not, so it is said rather than swallowed. At debug,
+    # because it is per file and routine -- HV disagrees in nearly every one, so a month of road
+    # data is a few thousand of these and the CLI logs at info by default. What the fold does is
+    # in the docstring above and in GH-1908, which is where someone would look; this line is for
+    # the run where they want to know which stations, and when
+    # asked only when it will be said: this is a groupby per file and per batch, about a tenth of
+    # what the read itself costs, and it exists to write the line below and nothing else
+    if log.isEnabledFor(logging.DEBUG):
+        counts = grouped[present].nunique(dropna=True)
+        disagreeing = counts.columns[counts.gt(1).any()]
+        if len(disagreeing):
+            # the stations too, not only the descriptors: `first` is taken per column, so a row of
+            # a station that reports twice may hold one sensor's air temperature beside the other's
+            # road surface temperature -- a reading no sensor took. Naming them is what lets a
+            # caller find the rows rather than only learn that some exist.
+            # Inside the gate that binds `counts`, rather than beside it on the strength of
+            # `disagreeing` being empty otherwise: read from out here it is a `NameError` waiting
+            # for the first station that disagrees, on a path no test without debug logging runs
+            stations = counts.index[counts[disagreeing].gt(1).any(axis=1)].get_level_values(-1)
+            log.debug(
+                f"{source} reports {', '.join(sorted(disagreeing))} with more than one value for "
+                f"one station and minute at "
+                f"{', '.join(sorted(set(stations)))}; keeping the first of each (GH-1908)",
+            )
+    return grouped.first().reset_index()
+
+
 class DwdRoadValues(TimeseriesValues):
     """Values class for DWD road weather data."""
 
@@ -192,10 +298,14 @@ class DwdRoadValues(TimeseriesValues):
         station_group = self.sr.df.filter(pl.col("station_id").eq(station_id)).get_column("station_group").item()
         station_group = DwdRoadStationGroup(station_group)
         parameters = list(parameter_or_dataset)
-        try:
-            df = self._collect_data_by_station_group(station_group, parameters)
-        except ValueError:
-            return pl.DataFrame()
+        df = self._collect_data_by_station_group(station_group, parameters)
+        # nothing to answer with is a shape rather than a special case: the group published no file
+        # for the window, or every file it published held nothing, and either way what comes back
+        # is a frame of no readings rather than a frame of no columns. So the filter has a station
+        # id to look for and the select has columns to name, and one row of this function answers
+        # for the empty case and the populated one alike -- there being one less place to hand a
+        # frame on before asking whether it holds anything, which is how this went wrong four
+        # times over
         df = df.filter(pl.col("station_id").eq(station_id))
         return df.select(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
@@ -222,19 +332,47 @@ class DwdRoadValues(TimeseriesValues):
             ),
             settings=self.sr.settings,
         )
-        if not files:
+        df = (
+            pl.DataFrame({"filename": files}, schema={"filename": pl.String})
+            .with_columns(
+                pl.col("filename").str.split("/").list.last().alias("name"),
+            )
+            .with_columns(
+                pl.col("name")
+                .str.extract(DATE_REGEX, 1)
+                # not strict: ten digits are not necessarily a date, and `26091319ZZ` or `2699999999`
+                # would raise here and take the request with it. A match that will not parse becomes a
+                # null and is dropped below beside the entries that never matched -- one rule for what
+                # counts as a file, rather than a crash for one kind of not-a-file and a drop for the
+                # other
+                .str.to_datetime("%y%m%d%H%M", time_zone="UTC", strict=False)
+                .alias("date"),
+            )
+        )
+        # what is dropped below and expected to be: the listing of a group that exists and holds
+        # nothing is the group itself, which comes back named for the group or not named at all
+        # depending on whether the URL it was asked for ended in a slash, and each family a group
+        # publishes under keeps a `LATEST` alias duplicating its newest file -- FN publishes two,
+        # under `DWFN` and `DWNB`. Left in, either is downloaded and handed to the reader as
+        # though it were a file
+        expected = pl.col("name").is_in(["", road_weather_station_group.value]) | pl.col("name").str.contains("LATEST")
+        unreadable = df.filter(pl.col("date").is_null() & ~expected).get_column("name").to_list()
+        if unreadable:
+            # a name the index cannot read, which is asked of every listing rather than only of one
+            # that came back empty: a group publishing under two families loses half its readings
+            # when one of them is renamed, and the drop is as quiet as the alias's -- so the
+            # request would simply return less, with nothing said anywhere
+            log.warning(
+                f"{len(unreadable)} of {df.height} entries listed for "
+                f"{road_weather_station_group.value} carry no timestamp the file index reads "
+                f"({', '.join(sorted(unreadable)[:3])}); the file names may have changed",
+            )
+        df = df.drop_nulls("date")
+        if df.is_empty():
             log.info(f"No files found for {road_weather_station_group.value}.")
             if road_weather_station_group in TEMPORARILY_UNAVAILABLE_STATION_GROUPS:
                 log.info(f"Station group {road_weather_station_group.value} may be temporarily unavailable.")
-        df = pl.DataFrame({"filename": files}, schema={"filename": pl.String})
-        return df.with_columns(
-            pl.col("filename")
-            .str.split("/")
-            .list.last()
-            .str.extract(DATE_REGEX, 1)
-            .str.to_datetime("%y%m%d%H%M", time_zone="UTC")
-            .alias("date"),
-        )
+        return df
 
     def _collect_data_by_station_group(
         self,
@@ -269,7 +407,7 @@ class DwdRoadValues(TimeseriesValues):
         """Parse the road weather station data from a given file and returns a DataFrame."""
         data = [self.__parse_dwd_road_weather_data(file, parameters) for file in files]
         if not data:
-            return pl.DataFrame()
+            return pl.DataFrame(schema=_PARSED_SCHEMA)
         return pl.concat(data)
 
     @staticmethod
@@ -278,8 +416,6 @@ class DwdRoadValues(TimeseriesValues):
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """Read the road weather station data from a given file and returns a DataFrame."""
-        import pdbufr  # noqa: PLC0415
-
         parameter_names = [parameter.name_original for parameter in parameters]
         first_batch = parameter_names[:10]
         second_batch = parameter_names[10:]
@@ -288,25 +424,20 @@ class DwdRoadValues(TimeseriesValues):
                 raise file.content
             tf.write(file.content.read())
             tf.seek(0)
-            df = pdbufr.read_bufr(
-                tf.name,
-                columns=(
-                    *TIME_COLUMNS,
-                    "shortStationName",
-                    *first_batch,
-                ),
-            )
+            df = _read_batch(tf.name, first_batch, file.url)
             if second_batch:
-                df2 = pdbufr.read_bufr(
-                    tf.name,
-                    columns=(
-                        *TIME_COLUMNS,
-                        "shortStationName",
-                        *second_batch,
-                    ),
-                )
-                df = df.merge(df2, on=(*TIME_COLUMNS, "shortStationName"))
+                # outer, so a station that answered one read and not the other keeps what it did
+                # say, with nulls for the rest
+                df2 = _read_batch(tf.name, second_batch, file.url)
+                df = df.merge(df2, on=list(_READING_KEYS), how="outer")
+        if df.empty:
+            log.info(f"{file.url} holds no readings")
         df = pl.from_pandas(df)
+        # a descriptor no subset in the file carries is not a column at all, so the select below
+        # would ask for one that is not there. Absent is null, the same as present and unreported
+        df = df.with_columns(
+            pl.lit(None, dtype=pl.Float64).alias(name) for name in parameter_names if name not in df.columns
+        )
         df = df.select(
             pl.col("shortStationName").alias("station_id"),
             pl.concat_str(
