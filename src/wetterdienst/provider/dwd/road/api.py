@@ -348,11 +348,13 @@ class DwdRoadValues(TimeseriesValues):
         listed = df.height
         df = df.drop_nulls("date")
         if df.is_empty():
-            if listed:
-                # entries were there and not one of them was a file. The group listing itself is
-                # one such entry and is expected; a listing full of them is not, and would mean
-                # the names have changed shape -- which would otherwise empty every group at once
-                # behind a line saying no files were found
+            if listed > 1:
+                # entries were there and not one of them was a file. Counted above one because a
+                # quiet group can still list a single entry that is no file -- the group itself,
+                # or the `LATEST` alias outliving the last timestamped file it pointed at -- and
+                # that is the ordinary way to publish nothing, not a rename. Several of them is
+                # not, and would mean the names have changed shape, which would otherwise empty
+                # every group at once behind a line saying no files were found
                 log.warning(
                     f"{listed} entries listed for {road_weather_station_group.value} and none of "
                     f"them carries a timestamp; the file names may have changed",

@@ -136,6 +136,50 @@ def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.Monke
     assert set(df.columns) == {"station_id", "resolution", "dataset", "parameter", "date", "value", "quality"}
 
 
+@pytest.mark.parametrize(
+    ("listed", "expected_level", "expected_message"),
+    [
+        ([], logging.INFO, "No files found for DD."),
+        # the `LATEST` alias outliving the file it pointed at, or the group listing itself
+        (["https://example.com/road/DD/swis2-ISXD70_DWDD_LATEST-DD---bin"], logging.INFO, "No files found for DD."),
+        (
+            [
+                "https://example.com/road/DD/swis2-ISXD70_DWDD_LATEST-DD---bin",
+                "https://example.com/road/DD/swis2-ISXD70_DWDD_renamed-DD---bin",
+            ],
+            logging.WARNING,
+            "the file names may have changed",
+        ),
+    ],
+)
+def test_dwd_road_weather_tells_a_quiet_group_from_a_rename(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    listed: list[str],
+    expected_level: int,
+    expected_message: str,
+) -> None:
+    """One entry that is no file is how a quiet group looks; several mean the names moved.
+
+    The warning exists because a rename upstream would empty every group at once behind a line
+    saying no files were found, which reads as "nothing published today". But a group that has gone
+    quiet can still list a single entry that is no file -- the group itself, or the `LATEST` alias
+    outliving the last timestamped file it pointed at -- and warning about that is a false alarm
+    on every poll, for the ordinary way to publish nothing.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listed)
+    values = _stub_stations().values
+    with caplog.at_level(logging.INFO):
+        df = values._create_file_index_for_dwd_road_weather_station(DwdRoadStationGroup.DD)  # noqa: SLF001
+
+    assert df.is_empty()
+    records = [record for record in caplog.records if expected_message in record.message]
+    assert records, caplog.text
+    assert records[0].levelno == expected_level
+
+
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_file_that_decodes_to_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
     """A file that survives the size filter and decodes to nothing is nothing, not a broken frame.
@@ -400,8 +444,15 @@ def test_dwd_road_weather_a_real_file_decodes() -> None:
     test still green.
 
     This asks the one question about live data that does not need guessing at what upstream ought
-    to have sent: here is a file it did send, with content in it. Does it decode? A window with
-    nothing published skips; a file with bytes that yields no rows fails.
+    to have sent: here is a file it did send, with content in it. Does it decode? A file with bytes
+    that yields no rows fails.
+
+    A listing that comes back empty is not an answer: DD is a populated group that reports every
+    quarter hour, so nothing listed means the request did not arrive, and the canary has no file to
+    ask about. That skips. A listing that arrives and holds no file is a different thing -- the
+    names moved -- and fails here rather than going quiet, because the skip is the one way this
+    test can stop testing anything while the suite stays green, and the remote test above it now
+    skips on an empty window too.
     """
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
@@ -410,9 +461,13 @@ def test_dwd_road_weather_a_real_file_decodes() -> None:
         "https://opendata.dwd.de/weather/weather_reports/road_weather_stations/DD/",
         settings=settings,
     )
+    if not listed:
+        pytest.skip("the listing came back empty, so upstream was not reached")
     published = [url for url in listed if re.search(api.DATE_REGEX, url.rsplit("/", 1)[-1])]
-    if not published:
-        pytest.skip("the group published nothing to decode")
+    assert published, (
+        f"{len(listed)} entries listed for DD and not one of them is a file the index reads: "
+        f"{[url.rsplit('/', 1)[-1] for url in listed[:3]]}"
+    )
     files = download_files(
         urls=published[-1:],
         cache_dir=settings.cache_dir,

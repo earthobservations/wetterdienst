@@ -57,7 +57,9 @@ Types of changes:
   dropped. It matches the ten digits the format reads and parses them leniently, so neither a
   longer run elsewhere in a name nor an unreadable one decides anything -- and a listing whose
   entries all fail to carry a timestamp says so, rather than emptying every group behind a line
-  about finding no files
+  about finding no files. Said of more than one such entry: a quiet group can still list a single
+  entry that is no file -- the group itself, or a `LATEST` alias outliving the file it pointed at
+  -- which is the ordinary way to publish nothing and not a rename to warn about
 - DWD road: a listing entry is a file when it carries the timestamp the file index reads it by.
   The listing of a group that exists and holds nothing is the group itself, which made the listing
   non-empty, so `No files found` never said so and a request without dates downloaded the
