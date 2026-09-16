@@ -51,23 +51,17 @@ Types of changes:
   instead, which every subset carries, and the parts of one reading are folded back together on
   those keys. A parameter no subset in the file carries comes back as a null column rather than
   as no column at all
-- DWD road: a listing entry is a file when it carries a timestamp that parses. The pattern matched
-  a digit run longer than the format reads, so a matched entry that would not parse raised out of
-  the file index and took the request with it, where an entry that never matched was simply
-  dropped. It matches the ten digits the format reads and parses them leniently, so neither a
-  longer run elsewhere in a name nor an unreadable one decides anything -- and a listing whose
-  entries all fail to carry a timestamp says so, rather than emptying every group behind a line
-  about finding no files. Said of a name the index cannot read rather than of any entry it drops:
-  two are dropped as a matter of course -- the group listing itself, and the `LATEST` alias each
-  family keeps -- and it is asked of every listing rather than only of one that came back empty,
-  since a group publishing under two families, as FN does, loses half its readings when one of
-  them is renamed and that drop is otherwise as quiet as the alias's
 - DWD road: a listing entry is a file when it carries the timestamp the file index reads it by.
-  The listing of a group that exists and holds nothing is the group itself, which made the listing
-  non-empty, so `No files found` never said so and a request without dates downloaded the
-  directory and handed it to the reader as a BUFR message. The same rule drops the `LATEST` alias
-  of each populated group, which duplicates the newest timestamped file -- so a request without
-  dates no longer parses that quarter hour twice
+  Two entries never do. The listing of a group that exists and holds nothing is the group itself,
+  which made the listing non-empty, so `No files found` never said so and a request without dates
+  downloaded the directory and handed it to the reader as a BUFR message; and each family a group
+  publishes under keeps a `LATEST` alias duplicating its newest file, which a request without
+  dates parsed a second time. Both are dropped now. The timestamp is read leniently and from the
+  ten digits the format takes, where the pattern used to match a longer run and raise out of the
+  file index on a match that would not parse -- taking the request with it, while an entry that
+  never matched was simply dropped. A name that is neither a file nor one of those two is one the
+  index cannot read, and it is said: a group publishing under two families, as FN does, would
+  otherwise lose half its readings to a rename of one of them as quietly as it drops the alias
 - DWD road: a file that decodes to nothing is nothing rather than a broken frame. The empty files
   of GH-1526 are turned away by their exact length, which is a guess at a shape rather than a
   reading of one, so a file holding no subsets at some other length reached the parse -- where the
@@ -104,8 +98,9 @@ Types of changes:
   caller cares which is missing. The codebase asked it four ways, one of them wrong:
   `not ensure_eccodes() and not ensure_pdbufr()` skips only when *both* are missing, so with
   eccodes installed and pdbufr not, the case a skip exists for, tests ran and died on the import --
-  and would now error earlier still, `require_bufr` refusing at the request. All four call sites
-  ask `bufr_is_available` now, and `require_bufr` refuses where the answer has to come early
+  and would now error earlier still, `require_bufr` refusing at the request. The four spellings are
+  one question now: `bufr_is_available` where an answer will do, `require_bufr` where it has to
+  come early, and one `BUFR_AVAILABLE` for the tests that skip on it
 - DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
   class called `ensure_pdbufr()` and threw the answer away, so it guarded nothing: the request went
   through and a bare `ImportError` came back out of the middle of a parse instead
@@ -116,17 +111,14 @@ Types of changes:
   holding no readings -- the three failures a caller can act on rather than debug. The refusal has
   a type of its own, `BufrReaderMissingError`, so reporting it does not mean reporting every import
   failure that way: a cycle or a typo inside a provider module is a defect and keeps its traceback
-- BUFR: asking whether this environment can read BUFR answers, whatever the import does. The catch
-  was widened twice by naming what had been seen -- `ModuleNotFoundError`, then `ImportError`, then
-  `RuntimeError` -- and anything else would still have escaped, out of a radar path documented to
-  log and carry on and out of a constant the test suite computes while collecting, where a raise
-  ends the collection rather than skipping the tests that want a reader
-- BUFR: an eccodes with no compiled library behind it is read as absent. It raises the plain
-  `ImportError` out of the import where a missing package raises `ModuleNotFoundError`, and only
-  the second was caught -- so the question raised instead of answering, out of a radar path
-  documented to log and carry on rather than fail a query. Any `RuntimeError` from importing pdbufr
-  is read the same way: it was matched against gribapi's present phrasing, which is no promise, and
-  the question is asked while the test suite is collecting, where a raise aborts the collection
+- BUFR: asking whether this environment can read BUFR answers, whatever the import does. Each
+  probe had a hole of its own: `ensure_eccodes` caught `ModuleNotFoundError` and `RuntimeError`
+  but not the plain `ImportError` an eccodes with no compiled library behind it raises, and
+  `ensure_pdbufr` caught `ImportError` but re-raised a `RuntimeError` whose message did not say
+  "Cannot find the ecCodes library" -- gribapi's phrasing of the day, and no promise. Naming what
+  had been seen would have left the next one out in turn, so the catch is anything at all: the
+  question is asked from a radar path documented to log and carry on rather than fail a query, and
+  from a constant the test suite computes while collecting, where a raise ends the collection
   instead of skipping the tests that want a reader
 - BUFR: a reader that is installed and does not work says why, including when it fails as a
   `ModuleNotFoundError` from inside itself -- `No module named 'gribapi.bindings'` is a broken
