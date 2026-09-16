@@ -16,6 +16,51 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON could not be written to a file
+  at all; it holds the frame's records, with a list of station ids kept as a list since JSON has
+  arrays, rather than the `{"metadata": ..., "values": [...]}` envelope a response carries. JSON
+  Lines is the same records one per line, for reading as a stream. NetCDF joins Zarr as the second
+  array format, written through xarray with its timestamps as CF units, its gaps as NaN rather
+  than the -999 Zarr fills them with, and grouped by the datasets the frame holds. The `export`
+  extra carries `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF
+  library
+- Interpolation and summary take an `elevation` for the point they answer for, in metres above sea
+  level, and bring each station's readings to it before using them. Air temperature falls about
+  0.65 K per 100 m and a dew point about 0.2, so a valley station and a summit one say different
+  things about the same weather -- around Garmisch the stations within 40 km span 630 m to 2956 m,
+  which is 15 K interpolated as though it were horizontal structure, and even the flat country
+  around Frankfurt spans 495 m, or 3.2 K. Named as `interpolate(latlon=..., elevation=1500)`, as
+  `--elevation` on the CLI and as `elevation` on the REST API. The
+  elevation names the point too: two elevations at one place are two answers, and they no longer
+  share a station id. A station whose own height the provider does not report is left out of
+  an answer about an elevation rather than contributing at its own altitude while its neighbours
+  are moved -- thirteen providers have such stations, every one of FMI's, IPMA's and the
+  Environment Agency's among them. Where that leaves a parameter with no station at all, the
+  request is refused rather than answered empty: `NoStationsWithHeightError` names it and how to
+  ask for the readings as they came, which the REST API reports as a 400 and the CLI as a message
+  rather than a traceback. Where every quantity asked for falls with height and no station near
+  the point reports one, that is settled off the station list without downloading a reading. A
+  parameter that kept some stations and still answered nothing is named in the log instead, the
+  rest of the result standing: whether the stations it lost would have completed the four an
+  interpolation wants is not something a count can say, and the readings that are there stay with
+  the caller. Whether a parameter
+  was answered is read off the finished frame rather than off the stations collected for it, those
+  being different questions -- and the exclusions are named as the reason only where the stations
+  they took would have made up what the calculation needs, a parameter that was short of stations
+  either way having failed on something an elevation has nothing to do with. Left out, the
+  elevation corrects nothing and the result is what it was before: an elevation taken from the
+  interpolation itself cancels out of it exactly, so the correction is only possible when a caller
+  says where the point is
+- Parameter table: `lapse_rate` says how fast a quantity falls with height, in its own unit per
+  metre, for the 17 air temperatures measured at 2 m and the dew point. Not for the 5 and 10 cm
+  readings -- the grass minimum and its kin -- which are made in the air but governed by the
+  ground radiating beneath them. Not for anything measured in or on the
+  ground -- soil, concrete, the surface -- which follows the ground rather than the air, nor for
+  the comfort indices, nor for pressure, which falls exponentially and wants the barometric
+  formula rather than a linear rate
+
 ### Changed
 
 - Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes,
@@ -28,6 +73,18 @@ Types of changes:
   purpose: nothing here needs eccodes 2.x, so an install pinned to 1.x keeps resolving. `pybufrkit`
   is no longer pulled in by `bufr`: nothing in the library imports it, only the radar tests do, and
   they skip on it now rather than failing to collect without it
+- Interpolation and summary by station id answer at that station's altitude. Naming a point by a
+  station names its height as well, and it is the one case where the elevation is known without
+  being given, so `interpolate_by_station_id` and `summarize_by_station_id` correct the quantities
+  that fall with height to it. **This changes what those two calls return** where the stations
+  drawn on stand at other altitudes -- for the reading uncorrected, pass the station's coordinates
+  to `interpolate` or `summarize` instead
+- REST API: `/api/summarize` answers a window that ends before it starts with a 400 rather than a
+  404, as `/api/interpolate` already did. Both endpoints decide that from one place now, so the
+  status a failure carries no longer depends on which of the two it came through
+- Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
+  out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what
+  every other dependency here resolves to, so the floor named a combination that does not work
 
 ### Fixed
 
@@ -129,74 +186,6 @@ Types of changes:
   exiting, so a single empty result read as two. Reporting it belongs to the caller -- the CLI says
   it and exits, the REST API returns the empty result -- and the library still notes it at info
   level on the way out of `.all()`
-
-### Added
-
-- Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON could not be written to a file
-  at all; it holds the frame's records, with a list of station ids kept as a list since JSON has
-  arrays, rather than the `{"metadata": ..., "values": [...]}` envelope a response carries. JSON
-  Lines is the same records one per line, for reading as a stream. NetCDF joins Zarr as the second
-  array format, written through xarray with its timestamps as CF units, its gaps as NaN rather
-  than the -999 Zarr fills them with, and grouped by the datasets the frame holds. The `export`
-  extra carries `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF
-  library
-
-### Added
-
-- Interpolation and summary take an `elevation` for the point they answer for, in metres above sea
-  level, and bring each station's readings to it before using them. Air temperature falls about
-  0.65 K per 100 m and a dew point about 0.2, so a valley station and a summit one say different
-  things about the same weather -- around Garmisch the stations within 40 km span 630 m to 2956 m,
-  which is 15 K interpolated as though it were horizontal structure, and even the flat country
-  around Frankfurt spans 495 m, or 3.2 K. Named as `interpolate(latlon=..., elevation=1500)`, as
-  `--elevation` on the CLI and as `elevation` on the REST API. The
-  elevation names the point too: two elevations at one place are two answers, and they no longer
-  share a station id. A station whose own height the provider does not report is left out of
-  an answer about an elevation rather than contributing at its own altitude while its neighbours
-  are moved -- thirteen providers have such stations, every one of FMI's, IPMA's and the
-  Environment Agency's among them. Where that leaves a parameter with no station at all, the
-  request is refused rather than answered empty: `NoStationsWithHeightError` names it and how to
-  ask for the readings as they came, which the REST API reports as a 400 and the CLI as a message
-  rather than a traceback. Where every quantity asked for falls with height and no station near
-  the point reports one, that is settled off the station list without downloading a reading. A
-  parameter that kept some stations and still answered nothing is named in the log instead, the
-  rest of the result standing: whether the stations it lost would have completed the four an
-  interpolation wants is not something a count can say, and the readings that are there stay with
-  the caller. Whether a parameter
-  was answered is read off the finished frame rather than off the stations collected for it, those
-  being different questions -- and the exclusions are named as the reason only where the stations
-  they took would have made up what the calculation needs, a parameter that was short of stations
-  either way having failed on something an elevation has nothing to do with. Left out, the
-  elevation corrects nothing and the result is what it was before: an elevation taken from the
-  interpolation itself cancels out of it exactly, so the correction is only possible when a caller
-  says where the point is
-- Parameter table: `lapse_rate` says how fast a quantity falls with height, in its own unit per
-  metre, for the 17 air temperatures measured at 2 m and the dew point. Not for the 5 and 10 cm
-  readings -- the grass minimum and its kin -- which are made in the air but governed by the
-  ground radiating beneath them. Not for anything measured in or on the
-  ground -- soil, concrete, the surface -- which follows the ground rather than the air, nor for
-  the comfort indices, nor for pressure, which falls exponentially and wants the barometric
-  formula rather than a linear rate
-
-### Changed
-
-- Interpolation and summary by station id answer at that station's altitude. Naming a point by a
-  station names its height as well, and it is the one case where the elevation is known without
-  being given, so `interpolate_by_station_id` and `summarize_by_station_id` correct the quantities
-  that fall with height to it. **This changes what those two calls return** where the stations
-  drawn on stand at other altitudes -- for the reading uncorrected, pass the station's coordinates
-  to `interpolate` or `summarize` instead
-
-- REST API: `/api/summarize` answers a window that ends before it starts with a 400 rather than a
-  404, as `/api/interpolate` already did. Both endpoints decide that from one place now, so the
-  status a failure carries no longer depends on which of the two it came through
-
-- Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
-  out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what
-  every other dependency here resolves to, so the floor named a combination that does not work
-
-### Fixed
-
 - Interpolation: four stations that surround the target point are a valid group however they are
   ordered. The check drew a polygon through them in the order they are held -- by distance from
   the point, which says nothing about the order around it -- so roughly half of all groups
