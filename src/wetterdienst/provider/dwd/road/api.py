@@ -24,7 +24,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
-from wetterdienst.util.eccodes import ensure_pdbufr
+from wetterdienst.util.eccodes import require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 if TYPE_CHECKING:
@@ -179,7 +179,9 @@ class DwdRoadValues(TimeseriesValues):
     def __post_init__(self) -> None:
         """Post-initialization of the DwdRoadValues class."""
         super().__post_init__()
-        ensure_pdbufr()
+        # asked here so the answer comes back with the request rather than out of the middle of a
+        # parse. It used to call `ensure_pdbufr()` and throw the answer away, which guarded nothing
+        require_bufr("DWD road weather data")
 
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,

@@ -42,7 +42,7 @@ from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_stri
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import _parse_datetime_from_formats, raster_minutes, round_minutes
-from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
+from wetterdienst.util.eccodes import bufr_is_available
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 
@@ -379,7 +379,7 @@ class DwdRadarValues:  # noqa: PLW1641
         """
         if self.format != DwdRadarDataFormat.BUFR or not self.settings.read_bufr:
             return
-        if not (ensure_eccodes() and ensure_pdbufr()):
+        if not bufr_is_available():
             log.warning("read_bufr is enabled but eccodes/pdbufr are unavailable; skipping BUFR parsing.")
             return
         if self.parameter not in _BUFR_VALUE_FIELD:
