@@ -88,26 +88,34 @@ Types of changes:
 
 ### Fixed
 
-- DWD road: a station reporting one quantity twice and differently says so. Two road sensors on
-  one station are two readings, and the frame has one row per station, minute and parameter to put
-  them in, so one is kept and the other dropped -- which is where this stood before, the old inner
-  merge's cross product being collapsed just as arbitrarily a step later. It is logged now rather
-  than silent. How often it happens depends on the group: over the last five files of each, DD
-  disagreed with itself not once in 261 repeated descriptors, where FN did 54 times in 270 and HV
-  56 in 425, `roadSurfaceTemperature` among them by as much as 23 K. Said at debug, being per file and
-  routine for those groups -- nearly every file of some -- where the CLI logs at info and a month
-  of road data would be thousands of lines. Keeping both readings would need something in the data
-  that names the sensor, and nothing found so far does. GH-1908
+- DWD road: a station with two road sensors is read as having two, and a reading is one sensor's.
+  The sensors are a delayed replication inside the station's subset -- `1 09 000` and `0 31 001`
+  wrapping the surface temperature, the sub-surface temperatures at their depths, the water film
+  and the surface condition -- so the rank on the key names the sensor, where
+  `positionOfRoadSensors` reads 0 or missing in all 1199 subsets measured and names nothing. The
+  file is read flat to keep it. Only what is inside that replication can arrive twice: of the
+  fourteen parameters this dataset maps, three do, and the other eleven -- the air temperature and
+  dew point and humidity and visibility, the wind and the precipitation -- come once per station,
+  so a row can never hold one sensor's air temperature beside another's road surface. Where two
+  sensors report the same quantity they are measuring one road at two points and they disagree: of
+  75 stations whose sensors both reported a surface temperature, 68 did, by as much as 22 K where
+  one lies in sun and the other in shade. Everything contested is taken from the one sensor
+  reporting most of it, so the row is a road rather than an average of two, and what is dropped is
+  named in the log at debug -- per file and routine, where the CLI logs at info and a month of road
+  data would be thousands of lines. Where two sensors report different quantities they are one
+  installation and both are kept: that is the whole of the DD group, whose first sensor carries the
+  surface temperature and second the surface condition for 24 of its 25 stations, and answering
+  such a row from one sensor would drop the other quantity for nothing. GH-1908
 - DWD road: a station's reading is kept whole where it arrives in parts. A road file holds one
   subset per station carrying the descriptors that station has, and `read_bufr` emits an
   observation only where every column asked for is present -- its default, and ours. Asking for
   all fourteen parameters of the dataset and keeping only the complete observations threw away
   every reading of anything not universally fitted: against a file of the DD group the parse
   returned 105 values where the file held 121, the whole of `roadSurfaceTemperature` among the
-  missing, on a road weather network. The reads are required of the station and the minute
-  instead, which every subset carries, and the parts of one reading are folded back together on
-  those keys. A parameter no subset in the file carries comes back as a null column rather than
-  as no column at all
+  missing, on a road weather network. The file is read flat instead -- every key it holds, named by
+  its rank -- which is one row per subset and so one row per station and minute, with no column
+  list for a descriptor to fall out of. A parameter no subset in the file carries comes back as a
+  null column rather than as no column at all
 - DWD road: a listing entry is a file when it carries the timestamp the file index reads it by.
   Two entries never do. The listing of a group that exists and holds nothing is the group itself,
   which made the listing non-empty, so `No files found` never said so and a request without dates
@@ -123,9 +131,9 @@ Types of changes:
   of GH-1526 are turned away by their exact length, which is a guess at a shape rather than a
   reading of one, so a file holding no subsets at some other length reached the parse -- where the
   merge of the two column batches raised `KeyError: 'year'` and the select after it would have
-  raised for a column that was not there. A read that finds nothing carries its columns back
-  even so, so the merge has keys to join on and the select has columns to name, and a file that
-  says nothing needs no handling of its own. It says so in the log, at the level its neighbour
+  raised for a column that was not there. A file with no subsets in it, or with no station named in
+  them, is now answered in the shape the files that hold readings come back in, so it concatenates
+  with them and needs no handling of its own. It says so in the log, at the level its neighbour
   uses for a group that published no file at all
 - DWD road: having nothing to answer with is one shape. There were three -- no columns where the
   group published no file, five where the files it published held nothing, and the seven a reading

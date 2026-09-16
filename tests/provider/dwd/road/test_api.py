@@ -6,6 +6,7 @@ import logging
 import re
 from io import BytesIO
 
+import pandas as pd
 import polars as pl
 import pytest
 
@@ -217,8 +218,6 @@ def test_dwd_road_weather_file_that_decodes_to_nothing(
     rather than a reading of one. A file holding no subsets at some other length reaches the parse,
     where an empty read took the select into a column that was not there.
     """
-    import pandas as pd  # noqa: PLC0415
-
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: pd.DataFrame())
@@ -231,113 +230,152 @@ def test_dwd_road_weather_file_that_decodes_to_nothing(
     # in the shape the files that do hold something come back in, so the two concatenate
     assert set(df.columns) == {"station_id", "date", "parameter", "value", "quality"}
     assert df.schema["date"] == pl.Datetime(time_zone="UTC")
-    # once for the file, not once per batch: the two are read with the same `required_columns` and
-    # answer alike, so saying it per batch said it twice and named ten descriptors, then four
+    # once for the file: the whole of it is one read now, so there is one thing to say
     assert [record.message for record in caplog.records] == ["a-file-of-no-readings holds no readings"]
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_dwd_road_weather_file_with_only_the_first_batch(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A file that speaks to one batch of columns and not the other keeps what it did say.
+def _flat(*subsets: dict[str, object]) -> pd.DataFrame:
+    """One subset per row, every key named by its rank, as a flat read returns them.
 
-    The columns are read in two batches, and a read that finds nothing carries its columns back
-    even so, so the merge joins as it always does and what the other read found survives it. There
-    is no branch here to look for: the shape does the work. Earlier versions skipped the merge, or
-    skipped the file, and those are what threw the temperatures away.
+    A road file holds one subset per station, and the station's road sensors sit inside it as a
+    replication -- so a second sensor is `#2#roadSurfaceTemperature` beside `#1#`, and not a second
+    row.
     """
-    import pandas as pd  # noqa: PLC0415
+    keys = {"#1#year": 2026, "#1#month": 9, "#1#day": 13, "#1#hour": 12, "#1#minute": 0}
+    return pd.DataFrame([{**keys, **subset} for subset in subsets])
 
+
+def _parse(monkeypatch: pytest.MonkeyPatch, df: pd.DataFrame) -> pl.DataFrame:
+    """Parse a stubbed flat read, as a published file would be parsed."""
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: df)
     parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
-    first_batch = [parameter.name_original for parameter in parameters][:10]
-    keys = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0, "shortStationName": "A006"}
-    populated = pd.DataFrame([{**keys, "airTemperature": 12.0, "roadSurfaceTemperature": 18.0}])
+    file = File(url="a-file", content=BytesIO(b"not a real bufr message"), status=200)
+    return api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data(file, parameters)  # noqa: SLF001
 
-    def read_first_batch_only(_path: object, columns: tuple[str, ...], **_kwargs: object) -> pd.DataFrame:
-        return populated if set(first_batch) & set(columns) else pd.DataFrame()
 
-    monkeypatch.setattr("pdbufr.read_bufr", read_first_batch_only)
-    file = File(url="", content=BytesIO(b"not a real bufr message"), status=200)
-    parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
-    df = parse(file, parameters)
-    readings = dict(df.drop_nulls("value").select("parameter", "value").iter_rows())
-    # what the first read returned, not an empty frame standing in for the whole file
-    assert readings == {"airTemperature": 12.0, "roadSurfaceTemperature": 18.0}
-    # and the second batch's parameters are there as nulls, so the frame keeps its shape
-    assert df.get_column("parameter").n_unique() == len(parameters)
+def _readings(df: pl.DataFrame, station_id: str) -> dict[str, float]:
+    return dict(
+        df.filter(pl.col("station_id").eq(station_id)).drop_nulls("value").select("parameter", "value").iter_rows(),
+    )
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_dwd_road_weather_folds_a_station_reported_in_parts(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A station whose reading arrives in parts keeps all of it.
+def test_dwd_road_weather_keeps_sensors_that_report_different_quantities(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Two road sensors reporting different quantities are one installation, and both are kept.
 
-    A road file holds one subset per station carrying the descriptors that station has, and
-    `read_bufr` emits an observation only where every column asked for is present. Asking for
-    fourteen and keeping the complete ones threw away every reading of anything not universally
-    fitted -- against a real file of the DD group the parse returned 105 values where the file held 121,
-    the whole of `roadSurfaceTemperature` among the missing, on a road weather network.
+    This is the whole of the DD group: for 24 of its 25 stations the first sensor carries the
+    surface temperature and the second the surface condition, and neither carries the other. There
+    is nothing contested to choose between, so answering the row from one sensor alone would throw
+    away the condition of every station in the group for no gain.
     """
-    import pandas as pd  # noqa: PLC0415
-
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    keys = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0, "shortStationName": "A006"}
-    asked_for: list[object] = []
-
-    def read_in_parts(_path: object, columns: tuple[str, ...], **kwargs: object) -> pd.DataFrame:
-        asked_for.append(kwargs.get("required_columns"))
-        if "windSpeed" in columns:
-            return pd.DataFrame([{**keys, "windSpeed": 3.0}])
-        # one station and minute, arriving as two subsets, neither of them whole
-        return pd.DataFrame(
-            [
-                {**keys, "airTemperature": 12.0, "roadSurfaceTemperature": None},
-                {**keys, "airTemperature": None, "roadSurfaceTemperature": 18.0},
-            ],
+    with caplog.at_level(logging.DEBUG):
+        df = _parse(
+            monkeypatch,
+            _flat(
+                {
+                    "#1#shortStationName": "O452",
+                    "#1#airTemperature": 286.65,
+                    "#1#roadSurfaceTemperature": 287.85,
+                    "#1#roadSurfaceCondition": None,
+                    "#2#roadSurfaceTemperature": None,
+                    "#2#roadSurfaceCondition": 0.0,
+                },
+            ),
         )
+    assert _readings(df, "O452") == {
+        "airTemperature": 286.65,
+        "roadSurfaceTemperature": 287.85,
+        "roadSurfaceCondition": 0.0,
+    }
+    # and nothing was dropped, so nothing is said about dropping any
+    assert "GH-1908" not in caplog.text
 
-    monkeypatch.setattr("pdbufr.read_bufr", read_in_parts)
-    parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
-    file = File(url="", content=BytesIO(b"not a real bufr message"), status=200)
-    parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
-    df = parse(file, parameters)
-    readings = dict(df.drop_nulls("value").select("parameter", "value").iter_rows())
-    # both halves of the one reading, where keeping only whole subsets would have kept neither
-    assert readings["airTemperature"] == 12.0
-    assert readings["roadSurfaceTemperature"] == 18.0
-    assert readings["windSpeed"] == 3.0
-    # folded rather than left side by side: the two subsets are one reading, so each parameter of
-    # the dataset comes back once and not once per subset that mentioned it
-    assert df.height == len(parameters)
-    # and it is the keys the reads are required of, which is what lets a part be a part
-    assert asked_for == [api._READING_KEYS, api._READING_KEYS]  # noqa: SLF001
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_answers_a_contested_reading_from_one_sensor(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Where two road sensors report one quantity, everything contested comes from one of them.
+
+    Two sensors on one road measure it at two points and disagree -- 68 of the 75 stations whose
+    sensors both reported a surface temperature, by as much as 22 K where one lies in sun and one in
+    shade. Taken per descriptor instead, the row holds the first sensor's temperature beside the
+    second's condition: a state of a road that neither sensor measured.
+    """
+    with caplog.at_level(logging.DEBUG):
+        df = _parse(
+            monkeypatch,
+            _flat(
+                {
+                    "#1#shortStationName": "E723",
+                    "#1#airTemperature": 286.34,
+                    "#1#roadSurfaceTemperature": 286.02,
+                    "#1#roadSurfaceCondition": 2.0,
+                    "#2#roadSurfaceTemperature": 287.31,
+                    "#2#roadSurfaceCondition": 0.0,
+                },
+            ),
+        )
+    readings = _readings(df, "E723")
+    # both from the first sensor, which is the one the tie goes to -- and not 286.02 beside 0.0
+    assert readings["roadSurfaceTemperature"] == 286.02
+    assert readings["roadSurfaceCondition"] == 2.0
+    # the air temperature is outside the sensor replication, so it is the station's either way
+    assert readings["airTemperature"] == 286.34
+    # and what went is named, at debug: it is per file and routine, where the CLI logs at info
+    dropped = [record for record in caplog.records if "GH-1908" in record.message]
+    assert [record.levelname for record in dropped] == ["DEBUG"]
+    assert "E723" in dropped[0].message
+    assert "a-file" in dropped[0].message
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_answers_from_the_sensor_carrying_most_of_the_contest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The sensor chosen is the one reporting most of what is contested, not the first to report.
+
+    Counted over what this row has twice rather than over everything a sensor carries, so that a
+    sensor holding nothing contested cannot win a contest on the strength of what nobody disputes.
+    """
+    df = _parse(
+        monkeypatch,
+        _flat(
+            {
+                "#1#shortStationName": "K677",
+                # the first sensor contests only the temperature, and carries a film besides
+                "#1#roadSurfaceTemperature": 273.15,
+                "#1#roadSurfaceCondition": None,
+                "#1#waterFilmThickness": 0.0,
+                # the second contests both of the quantities it reports
+                "#2#roadSurfaceTemperature": 291.55,
+                "#2#roadSurfaceCondition": 1.0,
+                "#3#roadSurfaceCondition": 2.0,
+            },
+        ),
+    )
+    readings = _readings(df, "K677")
+    assert readings["roadSurfaceTemperature"] == 291.55
+    assert readings["roadSurfaceCondition"] == 1.0
+    # uncontested, so it is kept as it came rather than dropped for sitting on another sensor
+    assert readings["waterFilmThickness"] == 0.0
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_parameter_no_subset_carries(monkeypatch: pytest.MonkeyPatch) -> None:
     """A descriptor no subset carries is a null column, not a missing one.
 
-    Required of the keys alone, a column nothing reports is not in the frame at all -- and the
-    select that follows asks for every parameter of the dataset by name.
+    A descriptor nothing in the file reports is not a column of the read at all, and the select
+    that follows asks for every parameter of the dataset by name.
     """
-    import pandas as pd  # noqa: PLC0415
-
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    keys = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0, "shortStationName": "A006"}
-
-    def read_one_descriptor(_path: object, columns: tuple[str, ...], **_kwargs: object) -> pd.DataFrame:
-        # the two batches ask for disjoint columns, so only the one holding airTemperature has it
-        if "airTemperature" not in columns:
-            return pd.DataFrame([dict(keys)])
-        return pd.DataFrame([{**keys, "airTemperature": 12.0}])
-
-    monkeypatch.setattr("pdbufr.read_bufr", read_one_descriptor)
+    df = _parse(monkeypatch, _flat({"#1#shortStationName": "A006", "#1#airTemperature": 12.0}))
     parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
-    file = File(url="", content=BytesIO(b"not a real bufr message"), status=200)
-    parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
-    df = parse(file, parameters)
     assert df.get_column("parameter").n_unique() == len(parameters)
     assert df.drop_nulls("value").get_column("parameter").to_list() == ["airTemperature"]
 
@@ -381,71 +419,21 @@ def test_dwd_road_weather_empty_is_one_shape(
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_dwd_road_weather_says_when_it_drops_a_second_sensor(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A station reporting one quantity twice and differently loses one of them, and says so.
-
-    Two road sensors on one station are two readings, and this frame has one row per station,
-    minute and parameter to put them in. Which is kept is arbitrary and cannot be otherwise until
-    GH-1908 finds something in the data that names the sensor, so the one that is dropped is at
-    least said: across the last five files of the HV group there were 56 such disagreements,
-    `roadSurfaceTemperature` among them by as much as 23 K.
-    """
-    import pandas as pd  # noqa: PLC0415
-
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    keys = {"year": 2026, "month": 9, "day": 13, "hour": 21, "minute": 15, "shortStationName": "E130"}
-    two_sensors = pd.DataFrame(
-        [
-            {**keys, "roadSurfaceTemperature": 285.99, "airTemperature": 12.0},
-            {**keys, "roadSurfaceTemperature": 286.22, "airTemperature": 12.0},
-        ],
-    )
-    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: two_sensors)
-    with caplog.at_level(logging.DEBUG):
-        df = api._read_batch("nowhere", ["roadSurfaceTemperature", "airTemperature"], "a-file")  # noqa: SLF001
-    # one row, as the shape requires, and the first reading in it
-    assert len(df) == 1
-    assert df["roadSurfaceTemperature"].tolist() == [285.99]
-    # named, so the reading that went is discoverable -- and at debug, because it is per file and
-    # routine, where the CLI logs at info by default and would print thousands of them
-    assert [record.levelname for record in caplog.records] == ["DEBUG"]
-    assert "roadSurfaceTemperature" in caplog.text
-    assert "a-file" in caplog.text
-    # and the one both subsets agreed on is not reported, there being nothing to choose
-    assert "airTemperature" not in caplog.text
-
-
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_keeps_the_station_that_was_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
     """A file holding the station's reading comes back holding it.
 
     This is the regression the remote test was straining to catch -- a parse that returns nothing
-    for everyone, from a bad filter or a broken merge -- and it belongs here, where the data is
-    known. Asked of the network it cannot be told from an upstream outage without guessing, which
-    is how that guard came to be rewritten four times.
+    for everyone, from a bad filter or a read that stopped returning what it used to -- and it
+    belongs here, where the data is known. Asked of the network it cannot be told from an
+    upstream outage without guessing, which is how that guard came to be rewritten four times.
     """
-    import pandas as pd  # noqa: PLC0415
-
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
-    keys = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0}
-    reading = pd.DataFrame(
-        [
-            {**keys, "shortStationName": "A006", "airTemperature": 12.0},
-            {**keys, "shortStationName": "B999", "airTemperature": 9.0},
-        ],
+    reading = _flat(
+        {"#1#shortStationName": "A006", "#1#airTemperature": 12.0},
+        {"#1#shortStationName": "B999", "#1#airTemperature": 9.0},
     )
-
-    def read_the_batch_asked_for(_path: object, columns: tuple[str, ...], **_kwargs: object) -> pd.DataFrame:
-        # the two batches ask for disjoint columns, and answering both with the same frame would
-        # collide them in the merge rather than test anything
-        return reading if "airTemperature" in columns else reading.drop(columns=["airTemperature"])
-
-    monkeypatch.setattr("pdbufr.read_bufr", read_the_batch_asked_for)
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
     monkeypatch.setattr(
         api, "list_remote_files_fsspec", lambda *_args, **_kwargs: ["swis2-ISXD70_DWDD_131200-2609131200-DD---bin"]
     )
@@ -472,9 +460,9 @@ def test_dwd_road_weather_a_real_file_decodes() -> None:
     """A published file with bytes in it decodes to readings.
 
     The tests around this one stub `read_bufr`, so they cover the filtering and folding and cannot
-    see pdbufr or eccodes changing under them -- a `required_columns` that came to mean something
-    else, or a descriptor renamed, would empty every road request upstream-wide with every stubbed
-    test still green.
+    see pdbufr or eccodes changing under them -- a flat read that came to name its keys differently,
+    or a descriptor renamed, would empty every road request upstream-wide with every stubbed test
+    still green.
 
     This asks the one question about live data that does not need guessing at what upstream ought
     to have sent: here is a file it did send, with content in it. Does it decode? A file with bytes
