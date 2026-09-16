@@ -136,19 +136,40 @@ def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.Monke
     assert set(df.columns) == {"station_id", "resolution", "dataset", "parameter", "date", "value", "quality"}
 
 
+def _listing(*names: str) -> list[str]:
+    return [f"https://example.com/road/DD/{name}" for name in names]
+
+
 @pytest.mark.parametrize(
-    ("listed", "expected_level", "expected_message"),
+    ("listed", "expected_files", "expected_warning"),
     [
-        ([], logging.INFO, "No files found for DD."),
-        # the `LATEST` alias outliving the file it pointed at, or the group listing itself
-        (["https://example.com/road/DD/swis2-ISXD70_DWDD_LATEST-DD---bin"], logging.INFO, "No files found for DD."),
+        # a group that publishes nothing lists nothing, or lists itself and nothing else -- named
+        # for the group, or not named at all, depending on the trailing slash of the URL asked for
+        ([], 0, False),
+        (_listing(""), 0, False),
+        (_listing("DD"), 0, False),
+        # the alias of each family a group publishes under duplicates that family's newest file,
+        # and is no file of its own. FN publishes two
+        (_listing("swis2-ISXD70_DWDD_LATEST-DD---bin"), 0, False),
         (
-            [
-                "https://example.com/road/DD/swis2-ISXD70_DWDD_LATEST-DD---bin",
-                "https://example.com/road/DD/swis2-ISXD70_DWDD_renamed-DD---bin",
-            ],
-            logging.WARNING,
-            "the file names may have changed",
+            _listing(
+                "swis2-ISXD70_DWFN_LATEST-BY---bin",
+                "swis2-ISXD70_DWNB_LATEST-NB---bin",
+                "swis2-ISXD70_DWFN_141915-2609141915-BY---bin",
+            ),
+            1,
+            False,
+        ),
+        # a name that is neither, whether or not files were found beside it
+        (_listing("swis2-ISXD70_DWDD_renamed-DD---bin"), 0, True),
+        (
+            _listing(
+                "swis2-ISXD70_DWDD_LATEST-DD---bin",
+                "swis2-ISXD70_DWDD_141915-2609141915-DD---bin",
+                "swis2-ISXD70_DWNB_renamed-NB---bin",
+            ),
+            1,
+            True,
         ),
     ],
 )
@@ -156,16 +177,17 @@ def test_dwd_road_weather_tells_a_quiet_group_from_a_rename(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
     listed: list[str],
-    expected_level: int,
-    expected_message: str,
+    expected_files: int,
+    *,
+    expected_warning: bool,
 ) -> None:
-    """One entry that is no file is how a quiet group looks; several mean the names moved.
+    """A name the index cannot read is worth saying; the ones it drops every time are not.
 
-    The warning exists because a rename upstream would empty every group at once behind a line
-    saying no files were found, which reads as "nothing published today". But a group that has gone
-    quiet can still list a single entry that is no file -- the group itself, or the `LATEST` alias
-    outliving the last timestamped file it pointed at -- and warning about that is a false alarm
-    on every poll, for the ordinary way to publish nothing.
+    Two entries are dropped as a matter of course -- the group listing itself, and the `LATEST`
+    alias each family keeps -- and warning about those would be a false alarm on every poll. A name
+    that is neither is one the index cannot read, and it is asked of every listing rather than only
+    of one that came back empty: a group publishing under two families, as FN does, loses half its
+    readings when one is renamed, and that drop is otherwise as quiet as the alias's.
     """
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
@@ -174,14 +196,21 @@ def test_dwd_road_weather_tells_a_quiet_group_from_a_rename(
     with caplog.at_level(logging.INFO):
         df = values._create_file_index_for_dwd_road_weather_station(DwdRoadStationGroup.DD)  # noqa: SLF001
 
-    assert df.is_empty()
-    records = [record for record in caplog.records if expected_message in record.message]
-    assert records, caplog.text
-    assert records[0].levelno == expected_level
+    assert df.height == expected_files
+    warnings = [record for record in caplog.records if "the file names may have changed" in record.message]
+    assert bool(warnings) is expected_warning, caplog.text
+    if expected_warning:
+        assert warnings[0].levelno == logging.WARNING
+    # and the quiet group still says what is actually the case
+    quiet = [record for record in caplog.records if record.message == "No files found for DD."]
+    assert bool(quiet) is (expected_files == 0)
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_dwd_road_weather_file_that_decodes_to_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dwd_road_weather_file_that_decodes_to_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """A file that survives the size filter and decodes to nothing is nothing, not a broken frame.
 
     The size filter turns the empty files away by their exact length, which is a guess at a shape
@@ -194,13 +223,17 @@ def test_dwd_road_weather_file_that_decodes_to_nothing(monkeypatch: pytest.Monke
 
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: pd.DataFrame())
     parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
-    file = File(url="", content=BytesIO(b"not a real bufr message"), status=200)
+    file = File(url="a-file-of-no-readings", content=BytesIO(b"not a real bufr message"), status=200)
     parse = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data  # noqa: SLF001
-    df = parse(file, parameters)
+    with caplog.at_level(logging.INFO):
+        df = parse(file, parameters)
     assert df.is_empty()
     # in the shape the files that do hold something come back in, so the two concatenate
     assert set(df.columns) == {"station_id", "date", "parameter", "value", "quality"}
     assert df.schema["date"] == pl.Datetime(time_zone="UTC")
+    # once for the file, not once per batch: the two are read with the same `required_columns` and
+    # answer alike, so saying it per batch said it twice and named ten descriptors, then four
+    assert [record.message for record in caplog.records] == ["a-file-of-no-readings holds no readings"]
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

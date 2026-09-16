@@ -234,8 +234,10 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
         # the file's messages decode to no subsets at all, which the size filter upstream tries to
         # catch by length and cannot do reliably. It comes back carrying its columns even so: the
         # merge then has keys to join on and the select has columns to name, so having nothing to
-        # say is the same shape here as having something, and neither caller needs a branch for it
-        log.info(f"{source} holds no reading for {batch}")
+        # say is the same shape here as having something, and neither caller needs a branch for it.
+        # Said by the caller rather than here: both batches are read with the same
+        # `required_columns` and so answer alike, which made a file that decodes to nothing say so
+        # twice over, once per batch and each naming its descriptors
         # with the keys typed as they come back populated: merging them against a batch that did
         # find something is only otherwise allowed because pandas reads an all-empty object column
         # as dtype "empty" and lets it pass, which is a leniency rather than a promise
@@ -257,21 +259,23 @@ def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
     # the run where they want to know which stations, and when
     # asked only when it will be said: this is a groupby per file and per batch, about a tenth of
     # what the read itself costs, and it exists to write the line below and nothing else
-    disagreeing = []
     if log.isEnabledFor(logging.DEBUG):
         counts = grouped[present].nunique(dropna=True)
         disagreeing = counts.columns[counts.gt(1).any()]
-    if len(disagreeing):
-        # the stations too, not only the descriptors: `first` is taken per column, so a row of a
-        # station that reports twice may hold one sensor's air temperature beside the other's road
-        # surface temperature -- a reading no sensor took. Naming them is what lets a caller find
-        # the rows rather than only learn that some exist
-        stations = counts.index[counts[disagreeing].gt(1).any(axis=1)].get_level_values(-1)
-        log.debug(
-            f"{source} reports {', '.join(sorted(disagreeing))} with more than one value for one "
-            f"station and minute at "
-            f"{', '.join(sorted(set(stations)))}; keeping the first of each (GH-1908)",
-        )
+        if len(disagreeing):
+            # the stations too, not only the descriptors: `first` is taken per column, so a row of
+            # a station that reports twice may hold one sensor's air temperature beside the other's
+            # road surface temperature -- a reading no sensor took. Naming them is what lets a
+            # caller find the rows rather than only learn that some exist.
+            # Inside the gate that binds `counts`, rather than beside it on the strength of
+            # `disagreeing` being empty otherwise: read from out here it is a `NameError` waiting
+            # for the first station that disagrees, on a path no test without debug logging runs
+            stations = counts.index[counts[disagreeing].gt(1).any(axis=1)].get_level_values(-1)
+            log.debug(
+                f"{source} reports {', '.join(sorted(disagreeing))} with more than one value for "
+                f"one station and minute at "
+                f"{', '.join(sorted(set(stations)))}; keeping the first of each (GH-1908)",
+            )
     return grouped.first().reset_index()
 
 
@@ -328,39 +332,44 @@ class DwdRoadValues(TimeseriesValues):
             ),
             settings=self.sr.settings,
         )
-        df = pl.DataFrame({"filename": files}, schema={"filename": pl.String}).with_columns(
-            pl.col("filename")
-            .str.split("/")
-            .list.last()
-            .str.extract(DATE_REGEX, 1)
-            # not strict: ten digits are not necessarily a date, and `26091319ZZ` or `2699999999`
-            # would raise here and take the request with it. A match that will not parse becomes a
-            # null and is dropped below beside the entries that never matched -- one rule for what
-            # counts as a file, rather than a crash for one kind of not-a-file and a drop for the
-            # other
-            .str.to_datetime("%y%m%d%H%M", time_zone="UTC", strict=False)
-            .alias("date"),
+        df = (
+            pl.DataFrame({"filename": files}, schema={"filename": pl.String})
+            .with_columns(
+                pl.col("filename").str.split("/").list.last().alias("name"),
+            )
+            .with_columns(
+                pl.col("name")
+                .str.extract(DATE_REGEX, 1)
+                # not strict: ten digits are not necessarily a date, and `26091319ZZ` or `2699999999`
+                # would raise here and take the request with it. A match that will not parse becomes a
+                # null and is dropped below beside the entries that never matched -- one rule for what
+                # counts as a file, rather than a crash for one kind of not-a-file and a drop for the
+                # other
+                .str.to_datetime("%y%m%d%H%M", time_zone="UTC", strict=False)
+                .alias("date"),
+            )
         )
-        # a listing of a group that exists and holds nothing is the group itself, which carries no
-        # timestamp and is no file. Left in, it is downloaded and handed to the reader as though it
-        # were one -- and it makes `files` non-empty, so the two lines below never say what is
-        # actually the case
-        listed = df.height
+        # what is dropped below and expected to be: the listing of a group that exists and holds
+        # nothing is the group itself, which comes back named for the group or not named at all
+        # depending on whether the URL it was asked for ended in a slash, and each family a group
+        # publishes under keeps a `LATEST` alias duplicating its newest file -- FN publishes two,
+        # under `DWFN` and `DWNB`. Left in, either is downloaded and handed to the reader as
+        # though it were a file
+        expected = pl.col("name").is_in(["", road_weather_station_group.value]) | pl.col("name").str.contains("LATEST")
+        unreadable = df.filter(pl.col("date").is_null() & ~expected).get_column("name").to_list()
+        if unreadable:
+            # a name the index cannot read, which is asked of every listing rather than only of one
+            # that came back empty: a group publishing under two families loses half its readings
+            # when one of them is renamed, and the drop is as quiet as the alias's -- so the
+            # request would simply return less, with nothing said anywhere
+            log.warning(
+                f"{len(unreadable)} of {df.height} entries listed for "
+                f"{road_weather_station_group.value} carry no timestamp the file index reads "
+                f"({', '.join(sorted(unreadable)[:3])}); the file names may have changed",
+            )
         df = df.drop_nulls("date")
         if df.is_empty():
-            if listed > 1:
-                # entries were there and not one of them was a file. Counted above one because a
-                # quiet group can still list a single entry that is no file -- the group itself,
-                # or the `LATEST` alias outliving the last timestamped file it pointed at -- and
-                # that is the ordinary way to publish nothing, not a rename. Several of them is
-                # not, and would mean the names have changed shape, which would otherwise empty
-                # every group at once behind a line saying no files were found
-                log.warning(
-                    f"{listed} entries listed for {road_weather_station_group.value} and none of "
-                    f"them carries a timestamp; the file names may have changed",
-                )
-            else:
-                log.info(f"No files found for {road_weather_station_group.value}.")
+            log.info(f"No files found for {road_weather_station_group.value}.")
             if road_weather_station_group in TEMPORARILY_UNAVAILABLE_STATION_GROUPS:
                 log.info(f"Station group {road_weather_station_group.value} may be temporarily unavailable.")
         return df
@@ -421,6 +430,8 @@ class DwdRoadValues(TimeseriesValues):
                 # say, with nulls for the rest
                 df2 = _read_batch(tf.name, second_batch, file.url)
                 df = df.merge(df2, on=list(_READING_KEYS), how="outer")
+        if df.empty:
+            log.info(f"{file.url} holds no readings")
         df = pl.from_pandas(df)
         # a descriptor no subset in the file carries is not a column at all, so the select below
         # would ask for one that is not there. Absent is null, the same as present and unreported
