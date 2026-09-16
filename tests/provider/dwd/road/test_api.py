@@ -303,10 +303,11 @@ def test_dwd_road_weather_answers_a_contested_reading_from_one_sensor(
 ) -> None:
     """Where two road sensors report one quantity, everything contested comes from one of them.
 
-    Two sensors on one road measure it at two points and disagree -- 68 of the 75 stations whose
-    sensors both reported a surface temperature, by as much as 22 K where one lies in sun and one in
-    shade. Taken per descriptor instead, the row holds the first sensor's temperature beside the
-    second's condition: a state of a road that neither sensor measured.
+    Two sensors on one road measure it at two points and mostly agree -- of the 75 stations whose
+    sensors both reported a surface temperature the median disagreement was 0.3 K -- but two of
+    those 75 were 22 K and 18 K apart, one sensor of each being broken. Taken per descriptor
+    instead, the row holds the first sensor's temperature beside the second's condition: a state of
+    a road that neither sensor measured.
     """
     with caplog.at_level(logging.DEBUG):
         df = _parse(

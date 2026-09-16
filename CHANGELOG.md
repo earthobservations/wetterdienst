@@ -97,12 +97,16 @@ Types of changes:
   fourteen parameters this dataset maps, three do, and the other eleven -- the air temperature and
   dew point and humidity and visibility, the wind and the precipitation -- come once per station,
   so a row can never hold one sensor's air temperature beside another's road surface. Where two
-  sensors report the same quantity they are measuring one road at two points and they disagree: of
-  75 stations whose sensors both reported a surface temperature, 68 did, by as much as 22 K where
-  one lies in sun and the other in shade. Everything contested is taken from the one sensor
-  reporting most of it, so the row is a road rather than an average of two, and what is dropped is
-  named in the log at debug -- per file and routine, where the CLI logs at info and a month of road
-  data would be thousands of lines. Where two sensors report different quantities they are one
+  sensors report the same quantity they are measuring one road at two points, and they mostly agree
+  closely: of 75 stations whose sensors both reported a surface temperature the median disagreement
+  was 0.3 K and 97 in 100 sat inside 3 K, so which sensor answers rarely changes the reading. Two of
+  the 75 did not, at 22 K and 18 K, and both were a broken sensor rather than a road -- one stuck at
+  273.14 K for a day of readings, the other 22 K hot with a normal daily swing. Everything contested
+  is taken from the one sensor reporting most of it, so the row is a road rather than an average of
+  two, and what is dropped is named in the log at debug -- per file and routine, where the CLI logs
+  at info and a month of road data would be thousands of lines. Which sensor answers a wild
+  disagreement is the rank order and nothing better: this library does not judge a reading's
+  plausibility here any more than anywhere else. Where two sensors report different quantities they are one
   installation and both are kept: that is the whole of the DD group, whose first sensor carries the
   surface temperature and second the surface condition for 24 of its 25 stations, and answering
   such a row from one sensor would drop the other quantity for nothing. GH-1908

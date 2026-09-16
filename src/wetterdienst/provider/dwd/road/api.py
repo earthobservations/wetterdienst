@@ -472,10 +472,17 @@ class DwdRoadValues(TimeseriesValues):
 
         Two sensors are two things, and which of the two a station is doing can be read off what
         they reported. Where they carry the same quantity they are measuring one road twice, from
-        different points of it -- and they disagree: of 75 stations whose sensors both reported a
-        surface temperature, 68 disagreed, by as much as 22 K where one lies in sun and one in
-        shade. One has to be chosen, and everything contested is then taken from that one sensor so
-        the row is a road rather than an average of two.
+        different points of it. They mostly agree closely -- of 75 stations whose sensors both
+        reported a surface temperature, the median disagreement was 0.3 K and 97 in 100 were inside
+        3 K -- so which one answers rarely changes the reading. Two of the 75 were nothing like
+        that, at 22 K and 18 K, and both were a broken sensor rather than a property of the road:
+        one stuck at 273.14 K for a whole day of readings, the other running some 22 K hot while
+        keeping a normal daily swing. The network carries such readings at about one station in
+        forty, on stations with one sensor as much as two, and none of that is decided here: a
+        sensor has to be chosen, everything contested is then taken from that one so the row is a
+        road rather than an average of two, and where the two disagree wildly the choice is the
+        rank order and nothing better. This library does not judge whether a reading is plausible,
+        here or anywhere else.
 
         Where they carry different quantities they are two instruments of one installation -- the
         whole of the DD group, where the first sensor holds the surface temperature and the second
