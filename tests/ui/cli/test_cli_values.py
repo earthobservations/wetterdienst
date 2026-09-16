@@ -6,6 +6,7 @@ import datetime as dt
 import json
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
@@ -786,3 +787,39 @@ def test_cli_values_without_the_bufr_reader_says_what_to_install(
     # handled rather than propagated: the command chose to exit, and the error did not escape it.
     # `CliRunner` never renders a traceback into `output`, so looking for one there proves nothing
     assert isinstance(result.exception, SystemExit)
+
+
+def test_cli_values_reports_an_empty_window_once(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A window holding no readings is one sentence, not the same one twice.
+
+    `core.get_values` logged "No data available for given constraints" and handed the empty frame
+    back, and the CLI logged the identical line again on its way to exiting -- so the caller read
+    it twice for a single empty result. Reporting it belongs to the caller: the CLI says it and
+    exits, the REST API returns the empty result, and `.all()` already notes it at info level on
+    the way out of the library.
+
+    Stubbed at `get_stations` rather than asked of DWD: this is about how many times the CLI says
+    it, and a real empty window would need the network to arrive at.
+    """
+    stations = SimpleNamespace(values=SimpleNamespace(all=lambda: SimpleNamespace(df=pl.DataFrame())))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [
+                "values",
+                "--provider=dwd",
+                "--network=observation",
+                "--parameters=daily/kl",
+                "--station=01048",
+                "--date=2020-06-30",
+            ],
+        )
+
+    assert result.exit_code == 1
+    messages = [record.message for record in caplog.records]
+    assert messages.count("No data available for given constraints") == 1

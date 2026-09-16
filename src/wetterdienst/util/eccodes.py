@@ -64,9 +64,9 @@ def ensure_pdbufr() -> bool:
     except ModuleNotFoundError as e:
         if e.name in (None, "pdbufr", "eccodes"):
             # pdbufr requires eccodes, so an absent eccodes surfaces from this import as well --
-            # still absence, and `require_bufr` covers it. Named exactly rather than by prefix, as
-            # the sibling probe does: `eccodes.eccodes` missing means eccodes is *there* and
-            # broken, which is what the warning below is for
+            # still absence, and `require_bufr` covers it. Matched on the whole name and not a
+            # prefix of it, as in the sibling probe above: `eccodes.eccodes` missing means eccodes
+            # is *there* and broken, which is what the warning below is for
             return False
         log.warning(f"pdbufr is installed but {e.name} is missing", exc_info=True)
         return False

@@ -67,6 +67,11 @@ Types of changes:
   `ModuleNotFoundError` from inside itself -- `No module named 'gribapi.bindings'` is a broken
   install and not an absent one, and reading it as absence hands the caller advice to install what
   they have
+- CLI: an empty window is reported once. `get_values` logged "No data available for given
+  constraints" and handed the empty frame back, and the CLI logged the identical line again before
+  exiting, so a single empty result read as two. Reporting it belongs to the caller -- the CLI says
+  it and exits, the REST API returns the empty result -- and the library still notes it at info
+  level on the way out of `.all()`
 
 ### Added
 

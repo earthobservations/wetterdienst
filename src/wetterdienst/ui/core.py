@@ -967,10 +967,13 @@ def get_values(
     except ValueError:
         log.exception("Error while fetching values")
         sys.exit(1)
-    else:
-        if values_.df.is_empty():
-            log.error("No data available for given constraints")
-            return values_
+
+    if values_.df.is_empty():
+        # nothing to filter, and nothing more to say about it. An empty window is the caller's
+        # news to report: the CLI says so once and exits, the REST API hands the empty result
+        # back, and `.all()` has already logged it on the way here. Saying it again here made the
+        # CLI print the same sentence twice
+        return values_
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
