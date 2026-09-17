@@ -369,6 +369,157 @@ def test_dwd_road_weather_answers_from_the_sensor_carrying_most_of_the_contest(
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_one_subset_without_a_minute_does_not_take_the_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A subset that names no minute costs its own reading and no one else's.
+
+    The read is required of nothing but its own structure now, so a subset missing a time key
+    arrives like any other -- and one null in the minute makes the whole of pandas' column a float,
+    where 2026 becomes "2026.0" and the timestamp of every station in the file fails to parse with
+    it. The keys go through `Int64` on the way to a string for that reason.
+    """
+    keys = {"#1#year": 2026, "#1#month": 9, "#1#day": 13, "#1#hour": 12, "#1#minute": 0}
+    df = _parse(
+        monkeypatch,
+        pd.DataFrame(
+            [
+                {**keys, "#1#shortStationName": "A006", "#1#airTemperature": 285.15},
+                # no minute, and so no reading -- but the file still has one
+                {k: v for k, v in keys.items() if k != "#1#minute"} | {"#1#shortStationName": "B999"},
+            ],
+        ),
+    )
+    assert df.get_column("station_id").unique().to_list() == ["A006"]
+    assert _readings(df, "A006")["airTemperature"] == 285.15
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_reads_a_key_at_whatever_rank_it_arrives(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rank 1 is where a key usually is, not where it must be.
+
+    A descriptor absent from the first subset of a file and present in a later one comes back
+    numbered from where it appears, so addressing `#1#` is a `KeyError` waiting for the first file
+    that does that.
+    """
+    keys = {"#1#year": 2026, "#1#month": 9, "#1#day": 13, "#1#hour": 12, "#1#minute": 0}
+    df = _parse(monkeypatch, pd.DataFrame([{**keys, "#2#shortStationName": "A006", "#1#airTemperature": 285.15}]))
+    assert df.get_column("station_id").unique().to_list() == ["A006"]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_keeps_a_reading_the_chosen_sensor_never_took(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A quantity the chosen sensor does not report is taken from one that does, not dropped.
+
+    With three sensors the one answering a row's contests need not carry every contested quantity.
+    Insisting the reading come from it anyway loses a value that two sensors reported, and there is
+    nothing of the chosen sensor's for it to have been paired against in the first place.
+    """
+    df = _parse(
+        monkeypatch,
+        _flat(
+            {
+                "#1#shortStationName": "K677",
+                # the first sensor answers the temperature contest and reports no film at all
+                "#1#roadSurfaceTemperature": 280.0,
+                "#3#roadSurfaceTemperature": 281.0,
+                "#1#roadSurfaceCondition": 1.0,
+                "#2#roadSurfaceCondition": 2.0,
+                "#2#waterFilmThickness": 0.5,
+                "#3#waterFilmThickness": 0.7,
+            },
+        ),
+    )
+    readings = _readings(df, "K677")
+    assert readings["roadSurfaceTemperature"] == 280.0
+    assert readings["roadSurfaceCondition"] == 1.0
+    # reported by two sensors, neither of them the chosen one, and kept rather than lost
+    assert readings["waterFilmThickness"] == 0.5
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_reads_an_identity_key_from_whichever_rank_carries_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Subsets numbering their station differently are all read, not just the first numbering.
+
+    The keys that say which station and which minute occur once per subset, and a file whose
+    messages do not agree on their structure -- which is every road file, and what the read's own
+    warning is about -- can carry one subset's station at `#1#` and the next one's at `#2#`. Read
+    from the lowest rank alone, every subset numbered otherwise had no station and was dropped for
+    having none, without a word anywhere.
+    """
+    keys = {"#1#year": 2026, "#1#month": 9, "#1#day": 13, "#1#hour": 12, "#1#minute": 0}
+    df = _parse(
+        monkeypatch,
+        pd.DataFrame(
+            [
+                {**keys, "#1#shortStationName": "A001", "#1#airTemperature": 285.0},
+                {**keys, "#2#shortStationName": "B002", "#1#airTemperature": 286.0},
+            ],
+        ),
+    )
+    assert sorted(df.get_column("station_id").unique().to_list()) == ["A001", "B002"]
+    assert _readings(df, "B002")["airTemperature"] == 286.0
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_prefers_the_sensor_that_reported_more_on_a_tied_contest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Where two sensors settle as many contests, the fuller one answers the row.
+
+    Both here report the surface condition and disagree, so the contest alone cannot separate them
+    and the tie went to the first -- which left the row holding the first sensor's condition beside
+    the second's temperature, the first having taken no temperature at all. The second settles the
+    contest just as well and took both readings, so answering from it makes the row wholly one
+    sensor's instead of pairing two.
+    """
+    df = _parse(
+        monkeypatch,
+        _flat(
+            {
+                "#1#shortStationName": "S001",
+                "#1#roadSurfaceCondition": 1.0,
+                "#2#roadSurfaceCondition": 2.0,
+                "#1#roadSurfaceTemperature": None,
+                "#2#roadSurfaceTemperature": 290.0,
+            },
+        ),
+    )
+    readings = _readings(df, "S001")
+    assert readings["roadSurfaceCondition"] == 2.0
+    assert readings["roadSurfaceTemperature"] == 290.0
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_folds_a_station_minute_reported_twice(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A station and minute arriving twice keeps the reading, not the blank.
+
+    No published file has done this -- 1199 subsets of fifteen groups, and not one station twice --
+    but one row per subset would hand a caller both, and the deduplication every provider passes
+    through afterwards keeps whichever came first. First being null, the reading went out with the
+    duplicate and nothing said so.
+    """
+    keys = {"#1#year": 2026, "#1#month": 9, "#1#day": 13, "#1#hour": 12, "#1#minute": 0}
+    with caplog.at_level(logging.WARNING):
+        df = _parse(
+            monkeypatch,
+            pd.DataFrame(
+                [
+                    {**keys, "#1#shortStationName": "A001", "#1#airTemperature": None},
+                    {**keys, "#1#shortStationName": "A001", "#1#airTemperature": 285.0},
+                ],
+            ),
+        )
+    assert _readings(df, "A001")["airTemperature"] == 285.0
+    assert "more than once" in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_parameter_no_subset_carries(monkeypatch: pytest.MonkeyPatch) -> None:
     """A descriptor no subset carries is a null column, not a missing one.
 

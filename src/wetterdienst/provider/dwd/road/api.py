@@ -36,6 +36,22 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# the flat read unions the keys of subsets that do not carry the same ones and says so, which for
+# this network is every file: road stations are fitted differently, so one carries a second sensor
+# where the next does not. What it warns of is the column order it returns them in, and nothing
+# here reads a column by position.
+#
+# Filtered once, rather than inside a `catch_warnings` around each parse: that swaps the whole of
+# the process's warning filters for the duration, and `wetterdienst restapi` answers from a thread
+# pool, where two road requests overlapping leaves one of them holding the other's filters after it
+# returns. There is no per-thread alternative in the standard library, and the pattern below is
+# narrow enough to belong to this reader alone
+warnings.filterwarnings(
+    "ignore",
+    message="not all BUFR messages/subsets have the same structure",
+    category=UserWarning,
+)
+
 #: the stamp a road file carries, exactly as long as `%y%m%d%H%M` reads. Ten and not "ten or
 #: more": a longer run anywhere else in the name would otherwise be captured instead of this
 DATE_REGEX = r"-(\d{10})-"
@@ -212,6 +228,21 @@ def _columns_by_rank(columns: Iterable[str], wanted: Collection[str]) -> dict[st
     return by_name
 
 
+def _identity(columns: dict[int, str]) -> pl.Expr:
+    """Read a key that identifies a reading -- its station, or one part of its minute.
+
+    Rank 1 is not promised. A key absent from a file's first subset and present in a later one is
+    numbered from where it appears, and a file whose messages do not agree on their structure --
+    which is every road file, and what the read's own warning is about -- can carry one subset's
+    station at `#1#` and the next one's at `#2#`. Taken from the lowest rank alone, every subset
+    numbered otherwise loses its station and is dropped for having none.
+
+    Coalesced instead, because these occur once per subset: whichever rank a row carries it at is
+    the one it has, and there is no second value for the coalesce to choose wrongly between.
+    """
+    return pl.coalesce([pl.col(column) for _rank, column in sorted(columns.items())])
+
+
 def _contested(columns: dict[int, str]) -> pl.Expr:
     """Whether more than one road sensor reported this descriptor for the row.
 
@@ -224,22 +255,34 @@ def _contested(columns: dict[int, str]) -> pl.Expr:
 
 
 def _sensor_choice(replicated: dict[str, dict[int, str]], ranks: list[int]) -> pl.Expr:
-    """Name the sensor a row's contested readings come from: whichever reported most of them.
+    """Name the sensor a row is answered from: most contests settled, then most reported.
 
-    Counted over the descriptors this row actually has twice, not over the file's columns or over
-    everything the sensor reported: a sensor that carries nothing contested cannot be the answer to
-    a contest, and counting what it does carry would let it win one.
+    Two questions in one order. First, which sensor settles the most of what this row has twice --
+    a sensor carrying nothing contested cannot answer a contest, and counting everything it does
+    carry would let it win one. Then, among sensors that settle as many, which reported the most
+    altogether: where two both answer one contest and only one of them also took a temperature, the
+    fuller sensor gives a row that is wholly its own, where the other leaves a reading to be
+    fetched from elsewhere.
+
+    The two are weighed as one score rather than in sequence, a contest being worth more than the
+    four quantities a sensor can report, so that no amount of the second outweighs the first.
 
     The first sensor on a tie, which is the ordinary case -- two sensors fitted alike report the
-    same three quantities, so the count cannot separate them and the order DWD encodes them in is
-    the only thing left. Arbitrary between the two, but fixed: the same file parses the same way
-    twice, and the reading that is dropped is named in the log rather than lost quietly.
+    same three quantities, so neither count separates them and the order DWD encodes them in is the
+    only thing left. Arbitrary between the two, but fixed: the same file parses the same way twice,
+    and the reading that is dropped is named in the log rather than lost quietly. Fixed within a
+    row, that is, and not across them: a station with three sensors can be answered from one at
+    noon and another at a quarter past, which a caller reading a series should know.
     """
     contested = {name: _contested(columns) for name, columns in replicated.items()}
+    # more than any count of reported quantities can reach, so a contest settled always outweighs
+    # a quantity merely reported
+    contest_weight = len(replicated) + 1
     chosen = pl.lit(None, dtype=pl.Int32)
     most = pl.lit(0, dtype=pl.Int32)
     for rank in ranks:
-        reported = pl.sum_horizontal(
+        present = [pl.col(columns[rank]).is_not_null() for _name, columns in replicated.items() if rank in columns]
+        settles = pl.sum_horizontal(
             [
                 pl.when(contested[name] & pl.col(columns[rank]).is_not_null()).then(1).otherwise(0)
                 for name, columns in replicated.items()
@@ -247,30 +290,65 @@ def _sensor_choice(replicated: dict[str, dict[int, str]], ranks: list[int]) -> p
             ]
             or [pl.lit(0, dtype=pl.Int32)],
         )
-        beats = reported.gt(most)
+        reported = pl.sum_horizontal([flag.cast(pl.Int32) for flag in present] or [pl.lit(0, dtype=pl.Int32)])
+        score = settles * contest_weight + reported
+        # strictly greater, over ranks in order, so the first sensor keeps a tie
+        beats = score.gt(most) & settles.gt(0).or_(reported.gt(0))
         chosen = pl.when(beats).then(pl.lit(rank, dtype=pl.Int32)).otherwise(chosen)
-        most = pl.when(beats).then(reported).otherwise(most)
+        most = pl.when(beats).then(score).otherwise(most)
     return chosen
 
 
 def _reading(name: str, columns: dict[int, str], chosen: pl.Expr) -> pl.Expr:
     """One descriptor's value for a row.
 
-    From the chosen sensor where the row has it twice, so that everything contested comes from one
-    sensor and the row does not pair one sensor's surface temperature with another's surface
-    condition. Otherwise as it came, there being one reading and nothing to decide.
+    From the chosen sensor wherever that sensor reported it, so that what the row has twice is
+    settled once and it does not pair one sensor's surface temperature against another's surface
+    condition. Where the chosen sensor reported nothing, the first sensor that did stands instead:
+    that is the whole of a row with nothing contested, and it is also the only answer left where
+    three sensors contest different quantities and the one settling this row's contests never took
+    this reading. So the row is one sensor's wherever the question arose, and not a promise that
+    every number in it came from the same instrument.
     """
     if not columns:
         return pl.lit(None, dtype=pl.Float64).alias(name)
     if len(columns) == 1:
         return pl.col(next(iter(columns.values()))).cast(pl.Float64).alias(name)
     order = sorted(columns.items())
-    return (
-        pl.when(_contested(columns))
-        .then(pl.coalesce([pl.when(chosen.eq(rank)).then(pl.col(column).cast(pl.Float64)) for rank, column in order]))
-        .otherwise(pl.coalesce([pl.col(column).cast(pl.Float64) for _, column in order]))
-        .alias(name)
+    from_chosen = pl.coalesce(
+        [pl.when(chosen.eq(rank)).then(pl.col(column).cast(pl.Float64)) for rank, column in order]
     )
+    as_reported = pl.coalesce([pl.col(column).cast(pl.Float64) for _, column in order])
+    # the chosen sensor's reading, falling back to the first that reported one. The fallback is
+    # what answers a row with nothing contested, `chosen` being null there and the first reading
+    # the only one. It also answers the case that row cannot: with three sensors, the one carrying
+    # this row's contests need not carry this descriptor at all, and then there is nothing of the
+    # chosen sensor's to pair against -- which is not a reason to lose the reading, only a reason
+    # it cannot come from the chosen sensor
+    return pl.coalesce([from_chosen, as_reported]).alias(name)
+
+
+def _one_row_per_reading(rows: pl.DataFrame, source: str) -> pl.DataFrame:
+    """Keep a station and minute to one row, folding a repeat onto the readings it is missing.
+
+    A road file holds one subset per station -- 1199 subsets of fifteen groups, and not one station
+    twice -- so this ordinarily does nothing but ask. What it guards is the file that does: the
+    batched read folded a station-minute with `first`, which prefers a reading to a null, where one
+    row per subset leaves two rows for the caller and the deduplication every provider passes
+    through afterwards keeps whichever came first, null or not. A repeat would then cost the
+    reading rather than the duplicate, quietly, on the way out.
+
+    Asked with a count rather than answered with a fold, the fold being the per-file cost this
+    parse was rewritten to drop and a repeat being something no published file has yet done.
+    """
+    keys = ["station_id", "date"]
+    if rows.height == rows.select(keys).n_unique():
+        return rows
+    log.warning(
+        f"{source} reports {rows.height - rows.select(keys).n_unique()} station-minutes more than "
+        f"once, which no road file has been seen to do; folding each onto the first reading of it",
+    )
+    return rows.group_by(keys, maintain_order=True).agg(pl.exclude(keys).drop_nulls().first())
 
 
 def _log_dropped_sensors(
@@ -298,9 +376,9 @@ def _log_dropped_sensors(
         ],
     )
     dropped = df.select(
-        pl.col(ranked["shortStationName"][1]).alias("station"),
+        _identity(ranked["shortStationName"]).cast(pl.String).alias("station"),
         lost.alias("lost"),
-    ).filter(pl.col("lost").gt(0))
+    ).filter(pl.col("lost").gt(0) & pl.col("station").is_not_null())
     if dropped.is_empty():
         return
     stations = sorted(dropped.get_column("station").to_list())
@@ -502,27 +580,20 @@ class DwdRoadValues(TimeseriesValues):
                 raise file.content
             tf.write(file.content.read())
             tf.seek(0)
-            with warnings.catch_warnings():
-                # the flat read unions the keys of subsets that do not carry the same ones and
-                # says so, which for this network is every file: road stations are fitted
-                # differently, so one carries a second sensor where the next does not. What it
-                # warns of is the column order it returns them in, and nothing below reads a
-                # column by position
-                warnings.filterwarnings(
-                    "ignore",
-                    message="not all BUFR messages/subsets have the same structure",
-                    category=UserWarning,
-                )
-                # every key, rather than the fourteen asked for: flat, a read that names its
-                # columns returns the first rank of each and drops the rest, which is the sensor
-                # thrown away before anything can choose between them
-                df = pdbufr.read_bufr(tf.name, flat=True)
+            # "data", so the read returns the message's values and not its header too: the
+            # twenty-one header keys of a road file are read, converted and dropped again, being
+            # none of the fourteen this parse is after
+            #
+            # and every data key rather than the fourteen: flat, a read that names its columns
+            # returns the first rank of each and drops the rest, which is the sensor thrown away
+            # before anything can choose between them
+            df = pdbufr.read_bufr(tf.name, "data", flat=True)
         ranked = _columns_by_rank(df.columns, {*TIME_COLUMNS, "shortStationName", *parameter_names})
         # a file whose messages decode to no subsets comes back with no columns at all, and one
         # that decodes to subsets carrying no station is as unreadable. Either is nothing to
         # answer with rather than something to fail on -- the group published, and what it
         # published held no readings
-        if df.empty or "shortStationName" not in ranked:
+        if df.empty or not {"shortStationName", *TIME_COLUMNS} <= ranked.keys():
             log.info(f"{file.url} holds no readings")
             return pl.DataFrame(schema=_PARSED_SCHEMA)
         df = pl.from_pandas(df)
@@ -531,12 +602,20 @@ class DwdRoadValues(TimeseriesValues):
         chosen = _sensor_choice(replicated, ranks)
         if replicated and log.isEnabledFor(logging.DEBUG):
             _log_dropped_sensors(df, ranked, replicated, ranks, chosen, file.url)
-        return (
+        rows = (
             df.select(
-                pl.col(ranked["shortStationName"][1]).cast(pl.String).alias("station_id"),
+                _identity(ranked["shortStationName"]).cast(pl.String).alias("station_id"),
                 pl.concat_str(
                     exprs=[
-                        pl.col(ranked[name][1]).cast(pl.String).str.pad_start(2 if name != "year" else 4, "0")
+                        # through `Int64` rather than straight to `String`: a subset that carries
+                        # no minute makes the whole of pandas' column a float, and 2026 written as
+                        # a float is "2026.0", which takes the timestamp of every station in the
+                        # file with it. Not strict, so a key that is somehow not a whole number is
+                        # a null date and one dropped reading rather than a failed request
+                        _identity(ranked[name])
+                        .cast(pl.Int64, strict=False)
+                        .cast(pl.String)
+                        .str.pad_start(4 if name == "year" else 2, "0")
                         for name in TIME_COLUMNS
                     ],
                 )
@@ -547,6 +626,13 @@ class DwdRoadValues(TimeseriesValues):
                 # and unreported are the same thing to a caller
                 *(_reading(name, ranked.get(name, {}), chosen) for name in parameter_names),
             )
+            # what the read no longer filters: required of nothing but its own structure, a subset
+            # that names no station or no minute arrives like any other, and there is nowhere to
+            # put a reading that does not say where or when it was taken
+            .filter(pl.col("station_id").is_not_null() & pl.col("date").is_not_null())
+        )
+        return (
+            _one_row_per_reading(rows, file.url)
             .unpivot(
                 index=["station_id", "date"],
                 variable_name="parameter",

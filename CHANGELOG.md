@@ -61,8 +61,14 @@ Types of changes:
   the comfort indices, nor for pressure, which falls exponentially and wants the barometric
   formula rather than a linear rate
 
-### Changed
+### Fixed
 
+- DWD road: a subset that names no station or no minute is one reading lost rather than a file.
+  The read is required of nothing but its own structure now, so such a subset arrives like any
+  other -- and one null minute makes the whole of pandas' column a float, where 2026 written as
+  "2026.0" took the timestamp of every station in the file with it. The keys go through an integer
+  on the way to a string, a key at a rank other than the first is read where it actually is, and a
+  reading with no station or no minute is dropped
 - Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes,
   but asks for any version at all, and the two were named as separate extras with the docs telling
   you to install both -- neither being any use without the other. The floor is the oldest release
@@ -85,9 +91,6 @@ Types of changes:
 - Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
   out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what
   every other dependency here resolves to, so the floor named a combination that does not work
-
-### Fixed
-
 - DWD road: a station with two road sensors is read as having two, and a reading is one sensor's.
   The sensors are a delayed replication inside the station's subset -- `1 09 000` and `0 31 001`
   wrapping the surface temperature, the sub-surface temperatures at their depths, the water film
@@ -104,7 +107,12 @@ Types of changes:
   273.14 K for a day of readings, the other 22 K hot with a normal daily swing. Everything contested
   is taken from the one sensor reporting most of it, so the row is a road rather than an average of
   two, and what is dropped is named in the log at debug -- per file and routine, where the CLI logs
-  at info and a month of road data would be thousands of lines. Which sensor answers a wild
+  at info and a month of road data would be thousands of lines. A quantity the chosen sensor does
+  not report at all is taken from one that does rather than dropped -- with three sensors the one
+  answering a row's contests need not carry every contested quantity, and there is nothing of its
+  own for that reading to have been paired against. Where two sensors settle as many contests as
+  each other, the one that reported more altogether answers the row, so that a row is wholly one
+  sensor's wherever a sensor could supply the whole of it. Which sensor answers a wild
   disagreement is the rank order and nothing better: this library does not judge a reading's
   plausibility here any more than anywhere else. Where two sensors report different quantities they are one
   installation and both are kept: that is the whole of the DD group, whose first sensor carries the
