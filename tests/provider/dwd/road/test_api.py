@@ -378,6 +378,147 @@ def test_dwd_road_weather_answers_from_the_sensor_carrying_most_of_the_contest(
     assert readings["waterFilmThickness"] == 0.0
 
 
+def _quality(df: pl.DataFrame, station_id: str) -> dict[str, float | None]:
+    return dict(
+        df.filter(pl.col("station_id").eq(station_id)).select("parameter", "quality").iter_rows(),
+    )
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_carries_the_stations_verdict_on_its_own_sensors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The quality flag the station publishes reaches the reading it speaks for.
+
+    Every road subset ends with `0 33 005`, a 30-bit flag table naming which of the station's
+    quantities are suspect, and the frame has a `quality` column that used to be null on every road
+    reading while upstream was saying which not to trust. Bit 7, "ground temperature data suspect",
+    is the one this was verified against: the four stations carrying it in a network-wide file are
+    exactly the four whose road surface temperature is impossible.
+    """
+    ground_suspect = 1 << (30 - 7)
+    df = _parse(
+        monkeypatch,
+        _flat(
+            {
+                "#1#shortStationName": "P034",
+                "#1#qualityInformationAwsData": ground_suspect,
+                "#1#roadSurfaceTemperature": 338.75,
+                "#1#airTemperature": 285.25,
+                "#1#windSpeed": 2.0,
+            },
+        ),
+    )
+    quality = _quality(df, "P034")
+    # the reading the flag names
+    assert quality["roadSurfaceTemperature"] == 1.0
+    # and the ones it does not, which the same station checked and did not complain about
+    assert quality["airTemperature"] == 0.0
+    assert quality["windSpeed"] == 0.0
+    # the value itself is untouched: this says the road surface is suspect, it does not drop it
+    values = _readings(df, "P034")
+    assert values["roadSurfaceTemperature"] == 338.75
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_unchecked_is_unknown_rather_than_good(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station that ran no checks says so, and that is not a clean bill of health.
+
+    Bit 1 is "no automated meteorological data checks performed", and it is the ordinary answer
+    rather than an exception -- 817 of 1199 subsets measured. Reported as zero it would read as
+    "checked, nothing wrong", which is the opposite of what the station said. It is also where the
+    unflagged nonsense sits: 17 of the 21 stations more than 10 K from their own air temperature
+    carry this and nothing else.
+    """
+    df = _parse(
+        monkeypatch,
+        _flat(
+            {
+                "#1#shortStationName": "L702",
+                "#1#qualityInformationAwsData": 1 << (30 - 1),
+                # 79.8 C at 23:00 local, and the station has nothing to say about it
+                "#1#roadSurfaceTemperature": 352.95,
+                "#1#airTemperature": 284.55,
+            },
+        ),
+    )
+    quality = _quality(df, "L702")
+    assert quality["roadSurfaceTemperature"] is None
+    assert quality["airTemperature"] is None
+    assert _readings(df, "L702")["roadSurfaceTemperature"] == 352.95
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("subset", "case"),
+    [
+        ({"#1#shortStationName": "A006", "#1#airTemperature": 285.15}, "the file carries no flag at all"),
+        (
+            {"#1#shortStationName": "A006", "#1#airTemperature": 285.15, "#1#qualityInformationAwsData": None},
+            "the station left its flag empty",
+        ),
+    ],
+)
+def test_dwd_road_weather_no_flag_is_no_verdict(
+    monkeypatch: pytest.MonkeyPatch,
+    subset: dict[str, object],
+    case: str,
+) -> None:
+    """Nothing said about a reading's quality is a null, not a zero."""
+    df = _parse(monkeypatch, _flat(subset))
+    assert _quality(df, "A006")["airTemperature"] is None, case
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_road_surface_condition_has_no_flag_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A descriptor the flag table does not name gets a null rather than its nearest neighbour.
+
+    The table is the WMO's generic one for an automatic weather station and has no entry for the
+    state of a road. Its nearest neighbour, bit 19 "state of ground", is about bare earth, and
+    reading one as the other would assert a correspondence DWD has not made -- on a bit that is set
+    nowhere in the data.
+    """
+    df = _parse(
+        monkeypatch,
+        _flat(
+            {
+                "#1#shortStationName": "A006",
+                # a station that checked everything and found nothing wrong
+                "#1#qualityInformationAwsData": 0,
+                "#1#roadSurfaceCondition": 2.0,
+                "#1#roadSurfaceTemperature": 285.15,
+            },
+        ),
+    )
+    quality = _quality(df, "A006")
+    assert quality["roadSurfaceCondition"] is None
+    # where the reading beside it, which the table does name, is answered
+    assert quality["roadSurfaceTemperature"] == 0.0
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_precipitation_type_is_flags_not_a_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The road's precipitation type keeps its own name, because it keeps its own encoding.
+
+    `precipitationType` is BUFR `0 20 021`, a 30-bit flag table with a bit per type, where
+    `precipitation_form` everywhere else in this library is a single code from a table of its own --
+    DWD observation's `wrtr`, whose 6 means liquid precipitation. Rain arrives here as 33554432,
+    bit 5 of a 30-bit field. Reported under one name the two would be one quantity with two
+    incomparable encodings, and a caller comparing the road network to the observation network
+    would be comparing 33554432 against 6.
+    """
+    df = _parse(
+        monkeypatch,
+        _flat({"#1#shortStationName": "M521", "#1#precipitationType": float(1 << (30 - 5))}),
+    )
+    readings = _readings(df, "M521")
+    assert readings["precipitationType"] == 33554432.0
+    # under the name that says what the number is, and not under the one that promises a code
+    parameters = {parameter.name for parameter in DwdRoadRequest.metadata["15_minutes"]["data"]}
+    assert "precipitation_type_flags" in parameters
+    assert "precipitation_form" not in parameters
+
+
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_one_subset_without_a_minute_does_not_take_the_file(
     monkeypatch: pytest.MonkeyPatch,
@@ -445,6 +586,23 @@ def test_dwd_road_weather_keeps_a_reading_the_chosen_sensor_never_took(monkeypat
     assert readings["roadSurfaceCondition"] == 1.0
     # reported by two sensors, neither of them the chosen one, and kept rather than lost
     assert readings["waterFilmThickness"] == 0.5
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_says_nothing_about_a_reading_that_is_not_there(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station's clean bill of health covers what it reported, not what it did not.
+
+    The flag is one verdict for the station, and a station that checked its sensors and found
+    nothing wrong says nothing whatever about the twelve quantities it does not measure. Answering
+    0 for those reads as "checked, not suspect" about a reading that does not exist.
+    """
+    df = _parse(
+        monkeypatch,
+        _flat({"#1#shortStationName": "A006", "#1#qualityInformationAwsData": 0, "#1#airTemperature": 285.15}),
+    )
+    quality = _quality(df, "A006")
+    assert quality["airTemperature"] == 0.0
+    assert quality["windSpeed"] is None
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -593,6 +751,34 @@ def test_dwd_road_weather_keeps_one_group_rather_than_every_group(monkeypatch: p
     # the repeat is served from what is kept; moving away and back is a fresh read, one group
     # being all that is held
     assert seen == ["DD", "HV", "DD"]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_water_film_has_no_flag_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The water film gets no verdict from a bit about the moisture in soil.
+
+    `waterFilmThickness` is a road descriptor of DWD's own, and the flag table's nearest offer is
+    "water content data suspect", which in a generic automatic weather station is the ground's. The
+    road surface temperature is mapped to "ground temperature data suspect" because the data
+    confirms that reading, and nothing confirms this one: the stations setting the bit reported the
+    same film as everyone else. A wrong `0` would tell a caller filtering on quality that a suspect
+    reading had been checked and found sound.
+    """
+    df = _parse(
+        monkeypatch,
+        _flat(
+            {
+                "#1#shortStationName": "S001",
+                "#1#qualityInformationAwsData": 1 << (30 - 21),
+                "#1#waterFilmThickness": 0.0,
+                "#1#airTemperature": 285.15,
+            },
+        ),
+    )
+    quality = _quality(df, "S001")
+    assert quality["waterFilmThickness"] is None
+    # where the reading the table does name is still answered, the flag having been read
+    assert quality["airTemperature"] == 0.0
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

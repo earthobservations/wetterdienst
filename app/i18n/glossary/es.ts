@@ -35,6 +35,7 @@ export const parameters: Record<string, string> = {
   precipitation_height: 'Precipitación',
   precipitation_height_max: 'Precipitación máxima',
   precipitation_form: 'Tipo de precipitación',
+  precipitation_type_flags: 'Indicadores de tipo de precipitación',
   precipitation_duration: 'Duración de la precipitación',
   precipitation_index: 'Indicador de precipitación',
   sunshine_duration: 'Horas de sol',

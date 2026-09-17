@@ -35,6 +35,7 @@ export const parameters: Record<string, string> = {
   precipitation_height: 'Neerslag',
   precipitation_height_max: 'Hoogste neerslag',
   precipitation_form: 'Neerslagvorm',
+  precipitation_type_flags: 'Vlaggen voor neerslagtype',
   precipitation_duration: 'Neerslagduur',
   precipitation_index: 'Neerslagindicator',
   sunshine_duration: 'Zonneschijnduur',

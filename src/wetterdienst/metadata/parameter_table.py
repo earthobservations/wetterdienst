@@ -734,6 +734,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "precipitation_form", "dimensionless", "Coded form of the precipitation, such as rain, snow or freezing rain."
     ),
     CanonicalParameter(
+        "precipitation_type_flags",
+        "dimensionless",
+        "Set of precipitation types observed at once, as a bit per type rather than a single code.",
+    ),
+    CanonicalParameter(
         "precipitation_height",
         "precipitation",
         "Depth of precipitation collected over the period.",
