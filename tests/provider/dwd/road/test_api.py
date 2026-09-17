@@ -2,9 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD road weather API."""
 
+import datetime as dt
 import logging
 import re
 from io import BytesIO
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import polars as pl
@@ -805,6 +807,118 @@ def test_dwd_road_weather_water_film_has_no_flag_of_its_own(monkeypatch: pytest.
     assert quality["waterFilmThickness"] is None
     # where the reading the table does name is still answered, the flag having been read
     assert quality["airTemperature"] == 0.0
+
+
+def _series(station_id: str, parameter: str, values: list[float | None]) -> pl.DataFrame:
+    """Build a station's readings at the quarter-hours, as the per-file parses concatenate to."""
+    return pl.DataFrame(
+        {
+            "station_id": [station_id] * len(values),
+            "date": [
+                dt.datetime(2026, 9, 13, tzinfo=ZoneInfo("UTC")) + dt.timedelta(minutes=15 * i)
+                for i in range(len(values))
+            ],
+            "parameter": [parameter] * len(values),
+            "value": values,
+            "quality": [None] * len(values),
+        },
+        schema={
+            "station_id": pl.String,
+            "date": pl.Datetime(time_zone="UTC"),
+            "parameter": pl.String,
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
+    )
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_marks_a_sensor_that_has_stopped(caplog: pytest.LogCaptureFixture) -> None:
+    """A temperature that has not moved for six hours is a sensor, not a road.
+
+    DWD's own flag names 4 of the 21 stations in a network-wide file that sit more than 10 K from
+    their own air temperature; the other 17 say "no automated checks performed". This is the one
+    fault the data alone can settle without knowing the season -- and it is what the exact `-75.00`,
+    `-30.00` and `-25.00` readings turn out to be: not values to recognise, but sensors that have
+    stopped. Matching them by value would have been worse than useless, -25 and -30 both being
+    reachable in a German winter.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    stuck = _series("H659", "roadSurfaceTemperature", [198.15] * 30)
+    with caplog.at_level(logging.INFO):
+        df = api._flag_stuck_sensors(stuck, "a-group")  # noqa: SLF001
+
+    assert df.get_column("quality").to_list() == [1.0] * 30
+    # marked, not removed: the reading is still exactly what DWD published
+    assert df.get_column("value").to_list() == [198.15] * 30
+    assert "H659/roadSurfaceTemperature" in caplog.text
+    assert "kept as published" in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("values", "expected", "case"),
+    [
+        ([280.0] * 23, False, "a run one short of the threshold is left alone"),
+        ([280.0] * 24, True, "a run of exactly the threshold is marked"),
+        # a working sensor's longest run of one value over a day was 14 readings for the air
+        # temperature, 17 for the dew point and 9 for the road surface, across ~700 stations each
+        ([280.0] * 17 + [280.1] * 17, False, "two long-ish runs of different values are a working sensor"),
+        ([280.0] * 12 + [None] + [280.0] * 12, False, "a gap breaks a run, not being evidence of anything"),
+    ],
+)
+def test_dwd_road_weather_stuck_threshold(
+    values: list[float | None],
+    expected: bool,  # noqa: FBT001
+    case: str,
+) -> None:
+    """The run that counts as stopped sits between what a working sensor does and what a dead one does."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    df = api._flag_stuck_sensors(_series("A006", "roadSurfaceTemperature", values), "a-group")  # noqa: SLF001
+    assert (df.get_column("quality").eq(1.0).any()) is expected, case
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    "parameter",
+    ["roadSurfaceCondition", "waterFilmThickness", "precipitationType", "relativeHumidity", "windSpeed"],
+)
+def test_dwd_road_weather_does_not_call_a_quiet_day_a_fault(parameter: str) -> None:
+    """Standing still is only a fault for the quantities it is a fault for.
+
+    The road surface condition and the water film sit at 0 for the whole of a dry day, as does the
+    precipitation type; the humidity saturates in fog and the wind falls calm. Measured over a day
+    of five groups, a threshold applied to these would have called 547 of 571 stations' surface
+    condition a fault, and 61 of 581 humidities -- a quiet day reported as a broken network.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    df = api._flag_stuck_sensors(_series("A006", parameter, [0.0] * 96), "a-group")  # noqa: SLF001
+    assert df.get_column("quality").to_list() == [None] * 96
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_stuck_check_keeps_one_station_out_of_another(caplog: pytest.LogCaptureFixture) -> None:
+    """One station standing still says nothing about the next one's readings."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    moving = [280.0 + 0.1 * i for i in range(30)]
+    df = pl.concat(
+        [
+            _series("H659", "roadSurfaceTemperature", [198.15] * 30),
+            _series("A006", "roadSurfaceTemperature", moving),
+        ],
+    )
+    with caplog.at_level(logging.INFO):
+        out = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
+
+    assert out.filter(pl.col("station_id").eq("H659")).get_column("quality").to_list() == [1.0] * 30
+    assert out.filter(pl.col("station_id").eq("A006")).get_column("quality").to_list() == [None] * 30
+    # and the frame comes back in the order it arrived, the check having sorted to find the runs
+    assert out.get_column("station_id").to_list() == ["H659"] * 30 + ["A006"] * 30
+    assert out.get_column("value").to_list() == [198.15] * 30 + moving
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

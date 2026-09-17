@@ -18,6 +18,23 @@ Types of changes:
 
 ### Added
 
+- DWD road: a sensor that has stopped is marked suspect. Where an air temperature, a dew point or a
+  road surface temperature reports the identical value for 24 readings -- six hours at this
+  resolution -- `quality` becomes `1` and the reading is left exactly as DWD published it. The
+  threshold is measured rather than chosen: over a day of five station groups and around 700
+  stations per quantity, a working sensor's longest run of one value was 14 readings for the air
+  temperature, 17 for the dew point and 9 for the road surface, where a broken one held its value
+  for 86 to 96 of the day's 96 and reported a single distinct value for the whole day. Only those
+  three quantities, because only for those is standing still a fault -- the road surface condition
+  and the water film sit at 0 for the whole of a dry day, as does the precipitation type, the
+  humidity saturates in fog and the wind falls calm, and a 24-reading rule applied to those would
+  have called 547 of 571 stations' surface condition a fault. It adds 12 sensors across the five
+  groups that DWD's own flag does not name. This is also what the exact `-75.00`, `-30.00` and
+  `-25.00` readings are -- sensors that have stopped, not a sentinel value to recognise, and
+  matching them by value would have been worse than useless since -25 and -30 are both reachable in
+  a German winter. What it cannot catch is a sensor that moves and is wrong: the difference from a
+  station's own air temperature does not separate those, stations with no sign of a fault reaching
+  42.0 K above their air where one that is certainly broken sits between 31.8 and 38.9. GH-1917
 - DWD road: the `quality` column carries the station's own verdict on its sensors, where it was
   null on every road reading. Each subset ends with `qualityInformationAwsData` (BUFR `0 33 005`), a
   30-bit flag naming which of the station's quantities are suspect, and it was read and thrown away.

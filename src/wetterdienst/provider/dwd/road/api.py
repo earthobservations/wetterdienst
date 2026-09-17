@@ -259,6 +259,76 @@ _QUALITY_BITS = {
 }
 
 
+#: the quantities a motionless reading is a fault in, and the run of them that says so.
+#:
+#: Measured over a day of five station groups, around 700 stations for each quantity: a working
+#: sensor's longest run of one identical value is 14 readings for the air temperature, 17 for the
+#: dew point and 9 for the road surface. A broken one holds its value for 86 to 96 of the day's 96,
+#: and every one of those reported a single distinct value for the whole day rather than a long
+#: spell inside a varying series. 24 readings -- six hours at this resolution -- sits between the
+#: two with room on either side.
+#:
+#: Only these three quantities, because only for these is standing still a fault. Everything else
+#: the dataset reports is legitimately constant for hours at a time: the road surface condition and
+#: the water film sit at 0 for the whole of a dry day, as does the precipitation type, the humidity
+#: saturates in fog, the wind falls calm, and the visibility rests against the top of its range.
+#: Measured on the same day, a 24-reading rule would have called 547 of 571 stations' surface
+#: condition a fault, and 61 of 581 humidities -- which is a quiet day reported as a broken network
+_STUCK_PARAMETERS = ("airTemperature", "dewpointTemperature", "roadSurfaceTemperature")
+_STUCK_RUN = 24
+
+
+def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
+    """Mark a reading suspect where the sensor that took it has not moved for hours.
+
+    DWD's own flag catches four of the twenty-one stations in a network-wide file that sit more
+    than 10 K from their own air temperature; the rest report "no automated checks performed". This
+    is the one fault that can be told from the data itself without knowing the season: a sensor
+    reading identical to a hundredth of a degree for six hours is not measuring a road.
+
+    It marks rather than removes. The value stays exactly as DWD published it and `quality` becomes
+    1, which is what that column is for -- a caller filtering on it drops the reading, and one that
+    is not sees what upstream sent. Nothing here is confident enough to delete a measurement.
+
+    This is also the whole of what the flagged "sentinel" readings turn out to be: the exact
+    `-75.00`, `-30.00` and `-25.00` degree values repeating across one group's stations are not a
+    value to be recognised but sensors that have stopped, each reporting one distinct value for a
+    whole day. Matching them by value would have been worse than useless -- -25 and -30 are both
+    reachable in a German winter.
+    """
+    if df.is_empty():
+        return df
+    keys = ["station_id", "parameter"]
+    flagged = (
+        df.with_row_index("_row")
+        .sort(*keys, "date")
+        .with_columns(
+            # a run breaks where the value changes, and a null breaks it too: a gap is not evidence
+            # that the sensor held still across it
+            _run=pl.col("value").ne(pl.col("value").shift().over(keys)).fill_null(value=True).cum_sum().over(keys),
+        )
+        .with_columns(_stuck=pl.len().over(*keys, "_run").ge(_STUCK_RUN))
+        .with_columns(
+            _stuck=pl.col("_stuck") & pl.col("value").is_not_null() & pl.col("parameter").is_in(_STUCK_PARAMETERS),
+        )
+        .sort("_row")
+    )
+    if not flagged.get_column("_stuck").any():
+        return df
+    stations = (
+        flagged.filter(pl.col("_stuck")).select("station_id", "parameter").unique().sort("station_id", "parameter")
+    )
+    log.info(
+        f"{source}: {stations.height} sensors reported one value for "
+        f"{_STUCK_RUN} readings or more and are marked suspect "
+        f"({', '.join(f'{s}/{p}' for s, p in stations.head(5).iter_rows())}"
+        f"{', ...' if stations.height > 5 else ''}); the readings are kept as published (GH-1917)",
+    )
+    return flagged.with_columns(
+        quality=pl.when(pl.col("_stuck")).then(pl.lit(1.0)).otherwise(pl.col("quality")),
+    ).select(df.columns)
+
+
 def _quality(flag: pl.Expr, bit: pl.Expr) -> pl.Expr:
     """Read one reading's quality off the station's flag: 1 suspect, 0 checked and not, null unknown.
 
@@ -671,7 +741,9 @@ class DwdRoadValues(TimeseriesValues):
         data = [self.__parse_dwd_road_weather_data(file, parameters) for file in files]
         if not data:
             return pl.DataFrame(schema=_PARSED_SCHEMA)
-        return pl.concat(data)
+        # here rather than in the per-file parse: a sensor that has stopped can only be told from
+        # one that is merely steady by watching it over hours, and one file is one minute
+        return _flag_stuck_sensors(pl.concat(data), files[0].url.rsplit("/", 1)[0] or "road")
 
     @staticmethod
     def __parse_dwd_road_weather_data(
