@@ -44,7 +44,8 @@ Types of changes:
   melting point is exempt where the station's own air came near freezing: melting ice holds a road
   at 0.00 C for hours, which is what this network is for, and only the air tells that from a sensor
   stopped at zero -- FN/P717 reads 0.00 all day while its own air reaches 26 C. Within 10 C of
-  freezing, an ordinary thaw running to +6 or +10 with snow still lying -- and not only at 0.00 C,
+  freezing either side -- brine pinning a road no better at -20 than ice does at +26 -- an ordinary
+  thaw running to +6 or +10 with snow still lying -- and not only at 0.00 C,
   German roads being salted and brine depressing the freezing point, so a treated road in the same
   thaw sits at a constant sub-zero value by the same physics. The run must cover the hours as well
   as the readings, the count having been measured at this network's quarter hour, so a station

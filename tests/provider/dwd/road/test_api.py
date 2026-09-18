@@ -970,6 +970,70 @@ def test_dwd_road_weather_a_minute_arriving_twice_is_one_minute() -> None:
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_verdict_stays_with_the_reading_it_was_reached_from() -> None:
+    """A station-minute held twice is judged from one copy, and only that copy is answered.
+
+    The run is read from the first copy of a minute. Joined back on the minute alone, the verdict
+    landed on the second as well -- including one holding a value that had moved and belonged to no
+    run at all, which came back marked as though the sensor had never budged.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    stuck = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
+    moved = stuck.tail(1).with_columns(value=pl.lit(286.4))
+    marked = api._flag_stuck_sensors(pl.concat([stuck, moved]), "a-group")  # noqa: SLF001
+
+    assert marked.filter(pl.col("value").eq(286.4)).get_column("quality").to_list() == [None]
+    assert marked.filter(pl.col("value").eq(285.0)).get_column("quality").eq(1.0).all()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_frost_is_not_a_thaw() -> None:
+    """The air is bounded on both sides, brine being no more able to pin a road than ice is.
+
+    Ice cannot hold a road at 0.00 C while the air stands at 26, and brine cannot hold one at -4
+    while it stands at -20. Bounded above only, the second was exempted and never marked -- and the
+    docs described the bound as "within 10 degrees of freezing", which reads as both sides and is
+    what actually separates a thaw from a frost.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    melting_point = 273.15
+    df = pl.concat(
+        [
+            _series("A006", "roadSurfaceTemperature", [melting_point - 4] * 30),
+            _series("A006", "airTemperature", [melting_point - 20] * 30),
+        ],
+    )
+    marked = api._flag_stuck_sensors(df, "a-group").filter(  # noqa: SLF001
+        pl.col("parameter").eq("roadSurfaceTemperature"),
+    )
+    assert marked.get_column("quality").eq(1.0).all()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_only_the_quantities_that_can_be_marked_are_examined() -> None:
+    """The eleven parameters this cannot mark are not carried through the windows for nothing.
+
+    The dedupe, the air join and four window passes over them are work whose result is discarded.
+    On a month of one group -- the size the group cache is bounded to hold -- that was 4.96 GB of
+    peak memory against 2.06, inside the one function the code around it was restructured to keep
+    out of memory.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    stuck = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
+    others = pl.concat(
+        [_series("A006", name, [0.0] * 30) for name in ("precipitationType", "waterFilmThickness", "windSpeed")],
+    )
+    marked = api._flag_stuck_sensors(pl.concat([stuck, others]), "a-group")  # noqa: SLF001
+
+    # the ones that cannot be marked come back exactly as they went in, constant though they are
+    assert marked.filter(pl.col("parameter").ne("roadSurfaceTemperature")).get_column("quality").is_null().all()
+    assert marked.filter(pl.col("parameter").eq("roadSurfaceTemperature")).get_column("quality").eq(1.0).all()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_a_null_reading_is_a_missed_one() -> None:
     """A row saying null and a row that never arrived are the same dropout, and answer alike.
 

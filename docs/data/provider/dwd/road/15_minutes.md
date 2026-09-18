@@ -134,7 +134,7 @@ them: 99.5% of this network's intervals are the quarter hour it publishes on, bu
 sensor stopped on both sides of one is still stopped on both sides of it.
 
 A road surface held at or below freezing is exempt for the readings whose own minute had air within
-10 °C of freezing -- an ordinary thaw runs to +6 or +10 °C with snow still lying, and the road under
+10 °C of freezing **either side** -- an ordinary thaw runs to +6 or +10 °C with snow still lying, and the road under
 it stays pinned for hours. Not only at 0.00 °C: German roads are salted, and brine depresses the
 freezing point, so a treated road in the same thaw sits at a constant sub-zero value by the same
 physics. The exemption reaches 10 °C below freezing, a little past where rock salt stops working,
