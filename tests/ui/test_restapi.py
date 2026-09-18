@@ -2140,7 +2140,9 @@ def test_mcp_server_is_agent_friendly() -> None:
     async def _introspect() -> tuple[set[str], str | None]:
         async with Client(mcp) as client:
             names = {tool.name for tool in await client.list_tools()}
-            return names, client.initialize_result.instructions
+            # client.instructions, not initialize_result: a FastMCP 4 discovery connection
+            # negotiates a DiscoverResult and leaves initialize_result None
+            return names, client.instructions
 
     tools, instructions = asyncio.run(_introspect())
     # data endpoints exposed under clean, agent-friendly names
@@ -2156,6 +2158,32 @@ def test_mcp_server_is_agent_friendly() -> None:
     # interpolate/summarize are steered as opt-in, not the default for weather at a place
     assert "interpolate" in instructions
     assert "opt-in" in instructions or "explicitly" in instructions
+
+
+def test_mcp_server_reports_the_wetterdienst_version() -> None:
+    """The MCP server info carries wetterdienst's version, not FastMCP's.
+
+    `FastMCP(version=...)` left unset reports the installed FastMCP release as the server's own
+    version, so a client asking what it is talking to is told "Wetterdienst 4.0.3".
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst import __version__  # noqa: PLC0415
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _server_info() -> object:
+        async with Client(mcp) as client:
+            return client.server_info
+
+    server_info = asyncio.run(_server_info())
+    assert server_info.name == "Wetterdienst"
+    assert server_info.version == __version__
 
 
 @pytest.mark.parametrize(

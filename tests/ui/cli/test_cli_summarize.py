@@ -7,6 +7,7 @@ import json
 import pytest
 from click.testing import CliRunner
 
+from tests.conftest import is_html_document
 from wetterdienst.ui.cli import cli
 
 
@@ -230,7 +231,7 @@ def test_cli_summarize_image_html() -> None:
         ],
     )
     assert result.exit_code == 0
-    assert result.output.startswith("<html>")
+    assert is_html_document(result.output)
 
 
 @pytest.mark.remote

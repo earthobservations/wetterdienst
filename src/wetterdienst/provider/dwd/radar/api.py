@@ -193,7 +193,7 @@ class DwdRadarValues:  # noqa: PLW1641
         self.subset = parse_enumeration_from_template(subset, DwdRadarDataSubset)
         self.elevation = elevation and int(elevation)
         self.resolution: Resolution = parse_enumeration_from_template(resolution, DwdRadarResolution, Resolution)  # ty: ignore[invalid-assignment]
-        self.period: Period = parse_enumeration_from_template(period, DwdRadarPeriod, Period)  # ty: ignore[invalid-assignment]
+        self.period: Period | None = parse_enumeration_from_template(period, DwdRadarPeriod, Period)
 
         # Sanity checks.
         if self.parameter == DwdRadarParameter.RADOLAN_CDC and self.resolution not in (

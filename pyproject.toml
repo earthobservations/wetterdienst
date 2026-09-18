@@ -110,7 +110,7 @@ dependencies = [
     "backports-datetime-fromisoformat>=2; python_version<'3.11'",
     "certifi>=2024.2.2",
     "click>=8.2,<9",
-    "cloup>=3.0.1,<4",
+    "cloup>=3.0.1,<5",
     "fsspec[http]>=2024.6",
     "lxml>=4.9.1,<7",
     "measurement>=3.2,<4",
@@ -131,7 +131,7 @@ dependencies = [
     # pydantic refuses typing.TypedDict as a response model below 3.12
     "typing-extensions>=4.15.0,<5",
     "tzdata>=2024.2",
-    "tzfpy>=0.15.2,<2",
+    "tzfpy>=0.15.2,<3",
 ]
 
 [project.optional-dependencies]
@@ -224,7 +224,10 @@ sql = [
 ]
 mcp = [
     "wetterdienst[restapi]",
-    "fastmcp>=3.4.4,<4.0.0",
+    # >=4: the OpenAPIProvider takes an httpx2 client there, where 3.x took an httpx one
+    "fastmcp>=4,<5",
+    # ui/mcp.py builds the OpenAPIProvider's ASGI client with it; >=2.12 for CVE-2026-84379/80/82
+    "httpx2>=2.12,<3",
 ]
 
 [project.urls]
@@ -267,7 +270,7 @@ dev = [
     "zizmor>=1.28.0",
     "deptry>=0.25.1",
     "ty>=0.0.64",
-    "httpx2>=2.4.0",
+    "httpx2>=2.12",
 ]
 
 docs = [
@@ -373,7 +376,6 @@ scikit-learn = "sklearn"
 [tool.deptry.per_rule_ignores]
 DEP002 = [
     "httpx",
-    "httpx2",
     "kaleido",
     "mysqlclient",
     "pandas",

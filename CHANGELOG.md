@@ -16,6 +16,41 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py` builds the
+  `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP 4 moved off
+  httpx entirely and types that provider's `client` as `httpx2.AsyncClient`; an httpx client is
+  still taken there by duck typing, but warns and is to be rejected in a later release, so the
+  floor now says which library the code is written against. `httpx2` is declared alongside the
+  extra (`>=2.12,<3`) rather than leaned on as a transitive dependency of `fastmcp`
+- Locked dependencies refreshed to their latest compatible versions -- 74 packages, among them the
+  majors cloup 4, fastmcp 4 (mcp 2), plotly 7 and tzfpy 2 -- and the dev toolchain with them (ruff
+  0.16.7, ty 0.0.81, zizmor 1.30.1). Three specifiers had to widen to admit them: `cloup<5`,
+  `tzfpy<3` and the fastmcp bound above. Plotly 7 leads an HTML export with a doctype where 6.x
+  began straight at `<html>`, which is the only change visible in output
+- `DwdRadarValues.period` is annotated `Period | None`, which is what it has always held: the
+  argument is optional and `parse_enumeration_from_template` returns `None` for it. The annotation
+  claimed `Period` and carried a `ty: ignore` to say so, which in turn made both `not self.period`
+  guards in the radar API read as dead code to the type checker
+
+### Fixed
+
+- The MCP server tells a client which wetterdienst it is talking to. `FastMCP(version=...)` was
+  never set, and left unset it reports the installed FastMCP release as the server's own version --
+  so a client asking what it had connected to was answered "Wetterdienst 4.0.3". It now answers
+  with wetterdienst's version, the same one `GET /api/version` gives
+
+### Security
+
+- `httpx2` now has a floor of `>=2.12` wherever it is declared -- the dev group, which held
+  `>=2.4.0`, and the `mcp` extra, which now declares it -- and the lockfile carries 2.13.0 where it
+  held 2.10.0. Six advisories stand against 2.10.0: multipart part header injection through an
+  unvalidated file `Content-Type` (CVE-2026-84379, fixed in 2.11.0), conflicting `Content-Length`
+  and `Transfer-Encoding` headers being generated together (CVE-2026-84380, 2.11.0), and unbounded
+  peak memory when decompressing a streamed response (CVE-2026-84382, 2.12.0). `uv audit` has
+  failed on `main` since 2026-09-16 on exactly these, and passes again
+
 ## [0.137.0] - 2026-09-18
 
 ### Added

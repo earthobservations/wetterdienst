@@ -75,6 +75,9 @@ def parse_enumeration_from_template(  # noqa: C901
             enum_name = enum_.name
 
     try:
+        if enum_name is None:
+            # Nothing to look up by name -- fall through to the value-based attempts below.
+            raise KeyError(enum_)  # noqa: TRY301
         enum_parsed = intermediate[enum_name.upper()]
     except (KeyError, AttributeError):
         try:
