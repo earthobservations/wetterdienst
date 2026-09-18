@@ -40,7 +40,12 @@ Types of changes:
   caller filtering on quality that a suspect reading had been checked and found sound. A parameter
   the station did not report is left null rather than answered 0 as well: one verdict covers the
   station, and a clean bill of health says nothing whatever about the quantities it does not
-  measure. GH-1917
+  measure -- and neither is a flag carrying only the table's own missing marker, the top bit of a
+  30-bit flag table, which read as a verdict said the station had checked and was satisfied. The
+  numbers are this network's own: `quality` carries whatever a source publishes and the scale
+  differs by provider, DWD observation putting `qn` codes there where a larger number means a more
+  thorough check, so the canonical description of the column says so now rather than promising one
+  meaning. GH-1917
 - Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON could not be written to a file
   at all; it holds the frame's records, with a list of station ids kept as a list since JSON has
   arrays, rather than the `{"metadata": ..., "values": [...]}` envelope a response carries. JSON

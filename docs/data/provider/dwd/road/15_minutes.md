@@ -84,7 +84,11 @@ read from the `qualityInformationAwsData` flag (BUFR `0 33 005`) that ends every
 |---------|---------------------------------------------------------------------|
 | `1`     | the station checked this quantity and reports it as **suspect**      |
 | `0`     | the station checked this quantity and did not                        |
-| `null`  | nothing is known -- the station ran no automated checks, or said nothing |
+| `null`  | nothing is known -- the station ran no automated checks, said nothing, or sent only the flag table's own missing marker |
+
+These numbers are this network's own. `quality` carries whatever a source publishes, and the scale
+differs by provider -- DWD observation puts its `qn` codes there, where a *larger* number means a
+more thorough check, so a number from one network says nothing about a number from another.
 
 `null` is the common case, not the exception: in a network-wide sample of 1199 station-minutes, 817
 reported "no automated meteorological data checks performed" and 40 carried no flag at all. It says

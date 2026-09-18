@@ -470,6 +470,32 @@ def test_dwd_road_weather_no_flag_is_no_verdict(
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_flag_of_nothing_is_not_a_clean_bill(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A flag carrying only its own missing marker says nothing, and nothing is not "nothing wrong".
+
+    The top bit of a 30-bit flag table is how BUFR says it has nothing to report -- `0 20 021`
+    spells it out as "ALL 30 MISSING VALUE", and this table's entries simply stop at 23, leaving
+    the bit either that marker or undefined. Read as a verdict it says the station checked and was
+    satisfied, which is the one thing it certainly does not mean, and it is the same false clean
+    bill the bit-1 handling exists to prevent.
+    """
+    df = _parse(
+        monkeypatch,
+        _flat(
+            {
+                "#1#shortStationName": "A006",
+                "#1#qualityInformationAwsData": 1,
+                "#1#roadSurfaceTemperature": 285.15,
+                "#1#airTemperature": 285.15,
+            },
+        ),
+    )
+    quality = _quality(df, "A006")
+    assert quality["roadSurfaceTemperature"] is None
+    assert quality["airTemperature"] is None
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_road_surface_condition_has_no_flag_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
     """A descriptor the flag table does not name gets a null rather than its nearest neighbour.
 

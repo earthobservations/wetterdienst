@@ -217,6 +217,12 @@ def _flag_bit(bit: int) -> int:
 #: is unknown. Null, then, and not zero
 _QUALITY_UNCHECKED = _flag_bit(1)
 
+#: the top bit of a 30-bit flag table, which is how a BUFR flag table says it has nothing to
+#: report -- `0 20 021` spells it out as "ALL 30 MISSING VALUE" and this table's entries simply
+#: stop at 23, leaving the bit either that marker or undefined. Read as a verdict it would say the
+#: station checked and was satisfied, which is the one answer it certainly does not mean
+_QUALITY_MISSING = _flag_bit(30)
+
 #: which bit of the flag speaks for which descriptor. The table is the WMO's generic one for an
 #: automatic weather station and DWD writes the road quantities into it: bit 7, "ground temperature
 #: data suspect", is the one this was verified against -- the four stations carrying it in a
@@ -260,7 +266,7 @@ def _quality(flag: pl.Expr, bit: pl.Expr) -> pl.Expr:
     nothing wrong from one that did not check. Collapsing those onto zero would report the second
     as a clean bill of health, which is the opposite of what it says.
     """
-    unknown = flag.is_null() | bit.is_null() | (flag & _QUALITY_UNCHECKED).gt(0)
+    unknown = flag.is_null() | bit.is_null() | (flag & _QUALITY_UNCHECKED).gt(0) | (flag & _QUALITY_MISSING).gt(0)
     return (
         pl.when(unknown)
         .then(pl.lit(None, dtype=pl.Float64))
