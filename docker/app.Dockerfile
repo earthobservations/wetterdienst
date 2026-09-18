@@ -1,5 +1,5 @@
 # ─── base: node + pnpm ────────────────────────────────────────────────────────
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 WORKDIR /app
 
 RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && \
@@ -41,7 +41,7 @@ COPY app/nuxt.config.ts ./
 RUN pnpm run build
 
 # ─── prod: production runtime ─────────────────────────────────────────────────
-FROM node:24-alpine AS prod
+FROM node:26-alpine AS prod
 WORKDIR /app
 
 RUN apk add --no-cache curl
