@@ -277,18 +277,19 @@ _QUALITY_BITS = {
 _STUCK_PARAMETERS = ("airTemperature", "dewpointTemperature", "roadSurfaceTemperature")
 _STUCK_RUN = 24
 
-#: how full of readings a run has to be to count as one. A run is what a sensor did without
-#: moving, and that cannot be read across a window where nothing was published: two three-hour
-#: plateaus either side of a three-day outage are not a six-hour one.
+#: how much larger than a station's own usual interval a gap has to be before it ends a run. A run
+#: is what a sensor did without moving, and that cannot be read across a window where nothing was
+#: published: twelve readings, three days of nothing and twelve more are not a six-hour run.
 #:
-#: As a share of the minutes the run spans rather than as a gap between readings, because there is
-#: no gap that separates the two. Measured over five groups for a day, 99.5% of the intervals
-#: between consecutive readings are the quarter hour the network publishes on -- but the tail runs
-#: out to 405 minutes, longer than the six hours this looks for, so any threshold tight enough to
-#: break a three-day hole also breaks the ordinary missed file. Density does separate them: a
-#: station missing seven files of 88 is 94% full, where twelve readings either side of three days
-#: is 8%
-_STUCK_MIN_DENSITY = 0.8
+#: Against the station's own cadence rather than against a fixed number of minutes. Of 67134
+#: intervals measured over five groups for a day, 99.5% are the quarter hour this network
+#: publishes on, but the tail reaches 405 minutes -- so a fixed gap tight enough to end an outage
+#: also ends the ordinary missed file, and FN/P367 holds one air temperature for 88 readings with
+#: seven of those among them. Four times the usual interval separates them: P367's gaps are twice
+#: its cadence, where a 405-minute hole is twenty-seven times it. Taking the cadence from the
+#: readings also keeps the count meaning what it says for a station reporting on any other
+#: interval, where dividing by a fixed quarter hour made a slower one impossible to flag at all
+_STUCK_GAP_FACTOR = 4
 
 #: melting ice holds a road surface at its melting point for as long as the ice lasts, which is
 #: hours, and is exactly the condition this network exists to report. That plateau is indexed on
@@ -326,13 +327,17 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     if df.is_empty():
         return df
     keys = ["station_id", "parameter"]
-    air = (
-        df.filter(pl.col("parameter").eq("airTemperature"))
-        .group_by("station_id")
-        .agg(pl.col("value").min().alias("_air_min"))
+    # the station's air beside each reading, because the question is whether ice could be melting
+    # at that minute. Asked of a whole run, or worse of the whole request, one cold hour at the end
+    # of a fortnight excuses every plateau in it -- and the same day then answers differently
+    # depending on how much of the year the caller asked for
+    air = df.filter(pl.col("parameter").eq("airTemperature")).select(
+        "station_id",
+        "date",
+        pl.col("value").alias("_air"),
     )
     flagged = (
-        df.join(air, on="station_id", how="left")
+        df.join(air, on=["station_id", "date"], how="left")
         .with_row_index("_row")
         .sort(*keys, "date")
         .with_columns(
@@ -341,23 +346,21 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
             # and in this network a gap is almost always an absent row -- a station missing from a
             # subset, a file too small to read, a file never published -- rather than a row saying
             # null, which the value comparison alone would never see
-            _run=pl.col("value").ne(pl.col("value").shift().over(keys)).fill_null(value=True).cum_sum().over(keys),
+            _gap=pl.col("date").diff().over(keys),
+        )
+        .with_columns(
+            _run=(
+                pl.col("value").ne(pl.col("value").shift().over(keys)).fill_null(value=True)
+                | pl.col("_gap").gt(pl.col("_gap").median().over(keys).mul(_STUCK_GAP_FACTOR)).fill_null(value=False)
+            )
+            .cum_sum()
+            .over(keys),
         )
         # the minutes a run covers rather than the rows holding them: a station-minute that
         # arrives in two files of one request -- a group publishing under two families, a file
         # republished -- would otherwise count twice and halve the window, and a working sensor's
         # measured 14-reading plateau doubles into a fault
-        .with_columns(
-            _readings=pl.col("date").n_unique().over(*keys, "_run"),
-            # the quarter-hours the run covers, end to end, counting both ends
-            _span=(pl.col("date").max().over(*keys, "_run") - pl.col("date").min().over(*keys, "_run"))
-            .dt.total_minutes()
-            .floordiv(15)
-            .add(1),
-        )
-        .with_columns(
-            _stuck=pl.col("_readings").ge(_STUCK_RUN) & pl.col("_readings").ge(pl.col("_span").mul(_STUCK_MIN_DENSITY)),
-        )
+        .with_columns(_stuck=pl.col("date").n_unique().over(*keys, "_run").ge(_STUCK_RUN))
         .with_columns(
             _stuck=pl.col("_stuck")
             & pl.col("value").is_not_null()
@@ -368,29 +371,37 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
             & ~(
                 pl.col("parameter").eq("roadSurfaceTemperature")
                 & pl.col("value").sub(_MELTING_POINT).abs().le(_MELTING_PLATEAU)
-                & pl.col("_air_min").le(_MELTING_POINT + _MELTING_AIR_MARGIN).fill_null(value=True)
+                & pl.col("_air").le(_MELTING_POINT + _MELTING_AIR_MARGIN).fill_null(value=True)
             ),
         )
         .sort("_row")
     )
     if not flagged.get_column("_stuck").any():
         return df
+    # asked only when it will be said, like the line about dropped sensors: this filters, uniques
+    # and sorts a frame that may hold a month of a group, to write one line nobody is listening for
+    #
+    # and at debug for that line's reason too -- the road values are collected a station at a time
+    # and each of them parses the whole group again, so at info this group-wide line is printed
+    # once per station asked for
+    if log.isEnabledFor(logging.DEBUG):
+        _log_stuck_sensors(flagged, source)
+    return flagged.with_columns(
+        quality=pl.when(pl.col("_stuck")).then(pl.lit(1.0)).otherwise(pl.col("quality")),
+    ).select(df.columns)
+
+
+def _log_stuck_sensors(flagged: pl.DataFrame, source: str) -> None:
+    """Name the sensors marked as stopped, for the run where someone wants to know which."""
     stations = (
         flagged.filter(pl.col("_stuck")).select("station_id", "parameter").unique().sort("station_id", "parameter")
     )
-    # at debug, like the line about dropped sensors and for its reason: the road values are
-    # collected a station at a time, and each of them parses the whole group again, so this would
-    # be printed once per station asked for -- the same group-wide line, hundreds of times, at the
-    # level the CLI prints by default
     log.debug(
         f"{source}: {stations.height} sensors reported one value for "
         f"{_STUCK_RUN} readings or more and are marked suspect "
         f"({', '.join(f'{s}/{p}' for s, p in stations.head(5).iter_rows())}"
         f"{', ...' if stations.height > 5 else ''}); the readings are kept as published (GH-1917)",
     )
-    return flagged.with_columns(
-        quality=pl.when(pl.col("_stuck")).then(pl.lit(1.0)).otherwise(pl.col("quality")),
-    ).select(df.columns)
 
 
 def _quality(flag: pl.Expr, bit: pl.Expr) -> pl.Expr:

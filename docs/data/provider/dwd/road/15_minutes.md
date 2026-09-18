@@ -126,13 +126,15 @@ air temperature, a dew point or a road surface temperature reports the identical
 readings -- six hours at this resolution -- `quality` becomes `1`. The reading is left exactly as
 published.
 
-The run has to be a run: the readings must fill at least 80% of the minutes they span, so two
-three-hour plateaus either side of a three-day outage do not compose into a six-hour one. As a
-density rather than as a gap between readings, because no gap separates the two -- 99.5% of this
-network's intervals are the quarter hour it publishes on, and the tail runs past six hours, so any
-gap tight enough to break an outage also breaks the ordinary missed file.
+A run ends where the readings stop for more than four times the station's own usual interval, so
+two three-hour plateaus either side of a three-day outage are not a six-hour one. Against the
+station's own cadence rather than a fixed number of minutes, because a fixed one cannot separate
+them: 99.5% of this network's intervals are the quarter hour it publishes on, but the tail reaches
+405 minutes, longer than the six hours this looks for. A hole ends the run and nothing more -- a
+sensor stopped on both sides of one is still stopped on both sides of it.
 
-A road surface at its melting point is exempt where the station's own air came near freezing.
+A road surface at its melting point is exempt for the readings whose own minute had air near
+freezing.
 Melting ice holds a road at 0.00 °C for as long as the ice lasts, which is the condition this
 network exists to report, and it cannot be told from a sensor stopped at zero by the reading alone.
 The air tells it: ice does not melt on a road whose station reports 26 °C, which is what FN/P717's
@@ -166,5 +168,6 @@ Two things it does not catch, and one it cannot:
 So `quality` of `1` means suspect, whether DWD said so or this check did. The two do not have the
 same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
 temperature carrying it, where this is a threshold fitted to one day -- and the column does not
-distinguish them. The log does: the line naming the stations it marked says which check fired. A
-`null` still means nobody has looked.
+distinguish them. The log distinguishes them, for a caller who turns it up: the line naming the stations this check
+marked is written at `DEBUG`, which neither the CLI nor the REST API prints by default, and it
+names the first five of them. A `null` still means nobody has looked.
