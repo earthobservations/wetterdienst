@@ -37,8 +37,15 @@ function settingsKey(type: string): string {
 }
 
 // the first call of a run pays for whatever the endpoint has to build before it can answer, and
-// `/api/coverage` walks every provider in the registry -- seconds warm, and the CI cache is cold
+// `/api/coverage` walks every provider in the registry -- seconds warm, and the CI cache is cold.
+// With `WD_AUTH__*` configured it validates each of those credentials over the network besides
+//
+// the test's own budget has to be raised with it: the request allowance cannot outlast the test
+// holding it, and the config sets no `timeout` of its own, so every test here had Playwright's
+// thirty seconds however long a request was allowed to wait
 const SLOW = { timeout: 120_000 }
+
+test.describe.configure({ timeout: 150_000 })
 
 async function glossary(request: { get: (url: string, options?: object) => Promise<{ ok: () => boolean, json: () => Promise<unknown> }> }) {
   const response = await request.get(`${BACKEND_URL}/api/glossary`, SLOW)

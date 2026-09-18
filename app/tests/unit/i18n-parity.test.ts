@@ -124,7 +124,7 @@ describe('glossary label parity', () => {
     // Concentration" -- which reads as English in every language. This is a ratchet against
     // deleting them again; it cannot notice a parameter *added* upstream, since the catalog and
     // the number below would both stay put. That direction is checked from the backend, where the
-    // addition happens, by tests/test_app_i18n.py.
+    // addition happens, by tests/e2e/i18n-coverage.spec.ts.
     expect(glossaryKeys('en', 'parameters').length).toBeGreaterThanOrEqual(514)
   })
 

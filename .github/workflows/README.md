@@ -20,7 +20,8 @@ look at `src/wetterdienst`, and `uv audit` only at the resolved dependency set. 
 the widest of them, because the suite reaches outside `src/` and `tests/`: `tests/test_docs.py`
 checks the provider pages under `docs/data/provider` against the metadata model,
 `tests/test_citation.py` ties `CITATION.cff` to `README.md` and `CHANGELOG.md`, and
-`tests/test_app_i18n.py` reads the app translation catalogs under `app/i18n` and the app home page.
+`app/tests/e2e/i18n-coverage.spec.ts` checks the app translation catalogs under `app/i18n` and the
+app home page against a running backend, so the Python suite no longer reads either.
 
 Being drawn that tightly, the filters have to be maintained with the code: a test that starts
 reading a tree nobody listed will simply stop being run on changes to it. When you teach a test to
