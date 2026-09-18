@@ -32,8 +32,8 @@ Types of changes:
   `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP 4 types
   that provider's `client` as `httpx2.AsyncClient` and drives it directly, so the two clients are
   not interchangeable there and the floor has to say which one the code is written against.
-  `httpx2` is declared alongside the extra rather than leaned on as a transitive dependency of
-  `fastmcp`
+  `httpx2` is declared alongside the extra (`>=2.12,<3`) rather than leaned on as a transitive
+  dependency of `fastmcp`
 - Locked dependencies refreshed to their latest compatible versions -- 74 packages, among them the
   majors cloup 4, fastmcp 4 (mcp 2), plotly 7 and tzfpy 2 -- and the dev toolchain with them (ruff
   0.16.7, ty 0.0.81, zizmor 1.30.1). Three specifiers had to widen to admit them: `cloup<5`,

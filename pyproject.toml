@@ -227,7 +227,7 @@ mcp = [
     # >=4: the OpenAPIProvider takes an httpx2 client there, where 3.x took an httpx one
     "fastmcp>=4,<5",
     # ui/mcp.py builds the OpenAPIProvider's ASGI client with it; >=2.12 for CVE-2026-84379/80/82
-    "httpx2>=2.12",
+    "httpx2>=2.12,<3",
 ]
 
 [project.urls]
