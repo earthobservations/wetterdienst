@@ -150,6 +150,7 @@ def _listing(*names: str) -> list[str]:
     return [f"https://example.com/road/DD/{name}" for name in names]
 
 
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
     ("listed", "expected_files", "expected_warning"),
     [
