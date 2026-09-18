@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 import re
 from dataclasses import dataclass
@@ -257,6 +258,217 @@ _QUALITY_BITS = {
     "totalPrecipitationOrTotalWaterEquivalent": 18,
     "intensityOfPrecipitation": 18,
 }
+
+
+#: the quantities a motionless reading is a fault in, and the run of them that says so.
+#:
+#: Measured over a day of five station groups, around 700 stations for each quantity: a working
+#: sensor's longest run of one identical value is 14 readings for the air temperature, 17 for the
+#: dew point and 9 for the road surface. A broken one holds its value for 86 to 96 of the day's 96,
+#: and every one of those reported a single distinct value for the whole day rather than a long
+#: spell inside a varying series. 24 readings -- six hours at this resolution -- sits between the
+#: two with room on either side.
+#:
+#: Only these three quantities, because only for these is standing still a fault. Everything else
+#: the dataset reports is legitimately constant for hours at a time: the road surface condition and
+#: the water film sit at 0 for the whole of a dry day, as does the precipitation type, the humidity
+#: saturates in fog, the wind falls calm, and the visibility rests against the top of its range.
+#: Measured on the same day, a 24-reading rule would have called 547 of 571 stations' surface
+#: condition a fault, and 61 of 581 humidities -- which is a quiet day reported as a broken network
+_STUCK_PARAMETERS = ("airTemperature", "dewpointTemperature", "roadSurfaceTemperature")
+_STUCK_RUN = 24
+
+#: and the time those readings have to cover: what they cover at the quarter hour this network
+#: publishes on, which is 23 intervals of it rather than 24, the first reading standing at zero.
+#:
+#: The count alone was measured there, so a station reporting more often would trip it on less
+#: evidence than the measurement was taken from -- a working sensor having held one value for 14
+#: readings, three and a half hours. A floor and not a divisor: a station reporting less often
+#: still trips on the count, 24 readings half an hour apart covering half a day
+_STUCK_MIN_SPAN = dt.timedelta(minutes=15) * (_STUCK_RUN - 1)
+
+#: how much larger than a station's own usual interval a gap has to be before it ends a run. A run
+#: is what a sensor did without moving, and that cannot be read across a window where nothing was
+#: published: twelve readings, three days of nothing and twelve more are not a six-hour run.
+#:
+#: Against the station's own cadence rather than against a fixed number of minutes. Of 67134
+#: intervals measured over five groups for a day, 99.5% are the quarter hour this network
+#: publishes on, but the tail reaches 405 minutes -- so a fixed gap tight enough to end an outage
+#: also ends the ordinary missed file, and FN/P367 holds one air temperature for 88 readings with
+#: seven of those among them. Four times the usual interval separates them: P367's gaps are twice
+#: its cadence, where a 405-minute hole is twenty-seven times it. Taking the cadence from the
+#: readings also keeps the count meaning what it says for a station reporting on any other
+#: interval, where dividing by a fixed quarter hour made a slower one impossible to flag at all
+_STUCK_GAP_FACTOR = 4
+
+#: melting ice holds a road surface at its melting point for as long as the ice lasts, which is
+#: hours, and is exactly the condition this network exists to report. That plateau is indexed on
+#: the September day this threshold was measured over, when no road was anywhere near it.
+#:
+#: It cannot be told from a sensor stopped at zero by the reading alone -- FN/P717 sits at 0.00 C
+#: all day and is certainly broken -- so it is told by the air instead: ice does not melt on a road
+#: whose station reports 26 C, which is what P717's does. A reading at the melting point is left
+#: alone where the air at that minute was near enough to freezing for melting to be possible, and
+#: where the air is unknown it is left alone too, a missed fault being the safer error than a
+#: winter's worth of genuine readings marked suspect.
+#:
+#: Ten degrees and not five. An ordinary thaw runs to +6 or +10 C with snow still lying, and the
+#: road under it stays at 0.00 for hours -- five would have marked that suspect, which is the very
+#: thing this exemption exists to prevent, and nothing in a September measurement constrains the
+#: number. What it costs is a sensor stopped at zero at a station whose air stays under 10 C: that
+#: one is left unmarked. Neither of the two in the measured day is, P717's air reaching 11.6 C and
+#: both of them carrying DWD's own bit 7 besides
+_MELTING_POINT = 273.15
+_MELTING_PLATEAU = 0.05
+
+#: how far below freezing a treated road's plateau can sit. German roads are salted, and brine
+#: depresses the freezing point -- so a salted road in a thaw is pinned at a constant sub-zero
+#: surface temperature for as long, and by the same physics, as an untreated one is pinned at
+#: 0.00 C. Rock salt works to about -8 C in practice, so ten degrees covers it with room.
+#:
+#: Bounded rather than open: it is what keeps a sensor stopped at -30 C in a frost from being
+#: excused, that being 30 degrees below a freezing point no brine reaches
+_MELTING_BRINE_DEPRESSION = 10.0
+_MELTING_AIR_MARGIN = 10.0
+
+
+def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
+    """Mark a reading suspect where the sensor that took it has not moved for hours.
+
+    DWD's own flag catches four of the twenty-one stations in a network-wide file that sit more
+    than 10 K from their own air temperature; the rest report "no automated checks performed". This
+    is the one fault that can be told from the data itself without knowing the season: a sensor
+    reading identical to a hundredth of a degree for six hours is not measuring a road.
+
+    It marks rather than removes. The value stays exactly as DWD published it and `quality` becomes
+    1, which is what that column is for -- a caller filtering on it drops the reading, and one that
+    is not sees what upstream sent. Nothing here is confident enough to delete a measurement.
+
+    This is also the whole of what the flagged "sentinel" readings turn out to be: the exact
+    `-75.00`, `-30.00` and `-25.00` degree values repeating across one group's stations are not a
+    value to be recognised but sensors that have stopped, each reporting one distinct value for a
+    whole day. Matching them by value would have been worse than useless -- -25 and -30 are both
+    reachable in a German winter.
+    """
+    if df.is_empty():
+        return df
+    keys = ["station_id", "parameter"]
+    # what the question is asked of: one row per station, parameter and minute, and only where
+    # there is a reading. A minute arriving twice -- a group publishing under two families, a file
+    # republished -- is one minute, and counting it twice put a zero in the middle of the intervals
+    # and so a zero in their median, which ended every run at every reading and quietly answered
+    # that nothing anywhere had stopped. A row saying null is not a reading at all: it is the same
+    # dropout as a row that never arrived, and treated as a value it ended runs that an absent row
+    # is allowed to span
+    readings = (
+        # narrowed first: only these three can be marked, and the dedupe, the join and four window
+        # passes over the other eleven parameters are work whose result is thrown away. On a month
+        # of one group -- the size the group cache is bounded to hold -- that is 4.96 GB of peak
+        # memory against 2.06, and 4.2 seconds against 0.83. `airTemperature` is one of the three,
+        # so the air the melting exemption reads survives the narrowing
+        df.filter(pl.col("parameter").is_in(_STUCK_PARAMETERS) & pl.col("value").is_not_null())
+        .unique(subset=[*keys, "date"], keep="first")
+        .sort(*keys, "date")
+    )
+    # the station's air beside each reading, because the question is whether ice could be melting
+    # at that minute. Asked of a whole run, or worse of the whole request, one cold hour at the end
+    # of a fortnight excuses every plateau in it -- and the same day then answers differently
+    # depending on how much of the year the caller asked for
+    air = readings.filter(pl.col("parameter").eq("airTemperature")).select(
+        "station_id",
+        "date",
+        pl.col("value").alias("_air"),
+    )
+    marked = (
+        readings.join(air, on=["station_id", "date"], how="left")
+        # sorted after the join and not only before it: the run below reads each row against the
+        # one before it, and `join` promises nothing about the order it returns. Left unsorted, a
+        # reordering would put a negative interval among the gaps and so drag their median under
+        # every ordinary one, ending a run at every reading and answering that nothing had stopped
+        .sort(*keys, "date")
+        .with_columns(
+            # a run breaks where the value changes and where the readings stop for longer than
+            # this station usually leaves between them: a gap is not evidence that the sensor held
+            # still across it, and the hole ends the run and nothing more -- a sensor stopped on
+            # both sides of one is still stopped on both sides of it
+            _gap=pl.col("date").diff().over(keys),
+        )
+        .with_columns(
+            _run=(
+                pl.col("value").ne(pl.col("value").shift().over(keys)).fill_null(value=True)
+                | pl.col("_gap").gt(pl.col("_gap").median().over(keys).mul(_STUCK_GAP_FACTOR)).fill_null(value=False)
+            )
+            .cum_sum()
+            .over(keys),
+        )
+        .with_columns(
+            _stuck=pl.len().over(*keys, "_run").ge(_STUCK_RUN)
+            & (pl.col("date").max().over(*keys, "_run") - pl.col("date").min().over(*keys, "_run")).ge(
+                _STUCK_MIN_SPAN,
+            ),
+        )
+        .with_columns(
+            _stuck=pl.col("_stuck")
+            & pl.col("parameter").is_in(_STUCK_PARAMETERS)
+            # melting ice holds a road at its melting point for hours, which is a reading and not
+            # a fault. Told from a sensor stopped at zero by the air the station reports, ice not
+            # melting on a road whose own air is at 26 C
+            & ~(
+                pl.col("parameter").eq("roadSurfaceTemperature")
+                & pl.col("value").le(_MELTING_POINT + _MELTING_PLATEAU)
+                & pl.col("value").ge(_MELTING_POINT - _MELTING_BRINE_DEPRESSION)
+                # within ten degrees of freezing on either side: brine cannot pin a road at -4 C
+                # while the air stands at -20, any more than ice can hold one at 0.00 while the air
+                # is at 26
+                & pl.col("_air")
+                .is_between(_MELTING_POINT - _MELTING_AIR_MARGIN, _MELTING_POINT + _MELTING_AIR_MARGIN)
+                .fill_null(value=True)
+            ),
+        )
+        .filter(pl.col("_stuck"))
+        # the value too, so the verdict stays with the reading it was reached from. A station-minute
+        # arriving twice is judged from the first copy, and joining on the minute alone marked the
+        # second as well -- including one holding a value that had moved and belonged to no run
+        .select("station_id", "parameter", "date", "value", "_stuck")
+    )
+    if marked.is_empty():
+        return df
+    # asked only when it will be said, like the line about dropped sensors: this filters, uniques
+    # and sorts a frame that may hold a month of a group, to write one line nobody is listening for
+    #
+    # and at debug for that line's reason too -- the road values are collected a station at a time
+    # and each of them parses the whole group again, so at info this group-wide line is printed
+    # once per station asked for
+    if log.isEnabledFor(logging.DEBUG):
+        _log_stuck_sensors(marked, source)
+    # the index is taken before the join and restored after it, `join` promising nothing about the
+    # order it returns. `marked` holds each station-minute once, so a frame that holds one twice is
+    # answered for both rows and gains none
+    return (
+        df.with_row_index("_row")
+        .join(marked, on=["station_id", "parameter", "date", "value"], how="left")
+        .sort("_row")
+        # and only where there is a reading to judge, as the parse itself does: a station-minute
+        # arriving twice, once with the reading and once with a null for this descriptor, would
+        # otherwise have the null marked suspect too
+        .with_columns(
+            quality=pl.when(pl.col("_stuck") & pl.col("value").is_not_null())
+            .then(pl.lit(1.0))
+            .otherwise(pl.col("quality")),
+        )
+        .select(df.columns)
+    )
+
+
+def _log_stuck_sensors(marked: pl.DataFrame, source: str) -> None:
+    """Name the sensors marked as stopped, for the run where someone wants to know which."""
+    stations = marked.select("station_id", "parameter").unique().sort("station_id", "parameter")
+    log.debug(
+        f"{source}: {stations.height} sensors reported one value for "
+        f"{_STUCK_RUN} readings or more and are marked suspect "
+        f"({', '.join(f'{s}/{p}' for s, p in stations.head(5).iter_rows())}"
+        f"{', ...' if stations.height > 5 else ''}); the readings are kept as published (GH-1917)",
+    )
 
 
 def _quality(flag: pl.Expr, bit: pl.Expr) -> pl.Expr:
@@ -671,7 +883,9 @@ class DwdRoadValues(TimeseriesValues):
         data = [self.__parse_dwd_road_weather_data(file, parameters) for file in files]
         if not data:
             return pl.DataFrame(schema=_PARSED_SCHEMA)
-        return pl.concat(data)
+        # here rather than in the per-file parse: a sensor that has stopped can only be told from
+        # one that is merely steady by watching it over hours, and one file is one minute
+        return _flag_stuck_sensors(pl.concat(data), files[0].url.rsplit("/", 1)[0] or "road")
 
     @staticmethod
     def __parse_dwd_road_weather_data(
@@ -721,8 +935,9 @@ class DwdRoadValues(TimeseriesValues):
         and wind and humidity are three instruments already.
 
         What is dropped is only ever a reading that a station reported twice and differently, which
-        is 36 of a populated group's file, and it is named in the log. Keeping those would want an
-        axis this frame has not got, which is GH-1908.
+        is 11 of a populated group's file -- the same file reports 36 twice, and 25 of those are
+        the same number arriving again, which decides nothing and loses nothing. Each is named in
+        the log. Keeping the ones that differ would want an axis this frame has not got, GH-1908.
         """
         import pdbufr  # noqa: PLC0415
 

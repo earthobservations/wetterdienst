@@ -18,6 +18,43 @@ Types of changes:
 
 ### Added
 
+- DWD road: a sensor that has stopped is marked suspect. Where an air temperature, a dew point or a
+  road surface temperature reports the identical value for 24 readings -- six hours at this
+  resolution -- `quality` becomes `1` and the reading is left exactly as DWD published it. The
+  threshold is measured rather than chosen: over a day of five station groups and around 700
+  stations per quantity, a working sensor's longest run of one value was 14 readings for the air
+  temperature, 17 for the dew point and 9 for the road surface, where a broken one held its value
+  for 86 to 96 of the day's 96 and reported a single distinct value for the whole day. Only those
+  three quantities, because only for those is standing still a fault -- the road surface condition
+  and the water film sit at 0 for the whole of a dry day, as does the precipitation type, the
+  humidity saturates in fog and the wind falls calm, and a 24-reading rule applied to those would
+  have called 547 of 571 stations' surface condition a fault. It adds 12 sensors across the five
+  groups that DWD's own flag does not name. This is also what the exact `-75.00`, `-30.00` and
+  `-25.00` readings are -- sensors that have stopped, not a sentinel value to recognise, and
+  matching them by value would have been worse than useless since -25 and -30 are both reachable in
+  a German winter. What it cannot catch is a sensor that moves and is wrong: the difference from a
+  station's own air temperature does not separate those, stations with no sign of a fault reaching
+  42.0 K above their air where one that is certainly broken sits between 31.8 and 38.9. A run ends
+  where the readings stop for more than four times the station's own usual interval, so two
+  three-hour plateaus either side of a three-day outage are not a six-hour one -- against the
+  station's own cadence rather than a fixed number of minutes, no fixed one separating them when
+  99.5% of this network's intervals are its quarter hour and the tail reaches 405. The run is
+  counted in readings, so a station publishing on another interval is neither exempt nor tripped
+  early. And a road surface at its
+  melting point is exempt where the station's own air came near freezing: melting ice holds a road
+  at 0.00 C for hours, which is what this network is for, and only the air tells that from a sensor
+  stopped at zero -- FN/P717 reads 0.00 all day while its own air reaches 26 C. Within 10 C of
+  freezing either side -- brine pinning a road no better at -20 than ice does at +26 -- an ordinary
+  thaw running to +6 or +10 with snow still lying -- and not only at 0.00 C,
+  German roads being salted and brine depressing the freezing point, so a treated road in the same
+  thaw sits at a constant sub-zero value by the same physics. The run must cover the hours as well
+  as the readings, the count having been measured at this network's quarter hour, so a station
+  reporting more often does not trip on less evidence than that. The question is asked of
+  the readings rather than of the rows throughout: a station-minute arriving in two files is one
+  minute, where counting it twice put a zero among the intervals and so a zero in their median,
+  which ended a run at every reading and answered that nothing anywhere had stopped; and a row
+  saying null is the same dropout as a row that never arrived, where reading it as a value ended
+  runs an absent row was allowed to span. GH-1917
 - DWD road: the `quality` column carries the station's own verdict on its sensors, where it was
   null on every road reading. Each subset ends with `qualityInformationAwsData` (BUFR `0 33 005`), a
   30-bit flag naming which of the station's quantities are suspect, and it was read and thrown away.

@@ -117,7 +117,63 @@ A caller reading this network at face value should expect, at roughly one statio
 - **stuck sensors**, holding one value for a whole day -- one station's second road sensor read
   `-0.0 °C` in all 96 readings of a day while its first ran a normal 17.4 to 33.5 °C.
 
-Wetterdienst does not filter these. It reports what DWD publishes, and the plausibility of a reading
-is left to the caller -- a road surface really does reach 60 °C in July sun, so a threshold that
-removed the nonsense above would remove genuine extremes with it. Filter on `quality` where the
-station offers a verdict, and sanity-check against {term}`temperature_air_mean_2m` where it does not.
+Wetterdienst removes none of these. It reports what DWD publishes, and a reading's plausibility is
+left to the caller -- a road surface really does reach 60 °C in July sun, so a threshold that took
+out the nonsense above would take genuine extremes with it.
+
+One of the three it does **mark**, in the same `quality` column: a sensor that has stopped. Where an
+air temperature, a dew point or a road surface temperature reports the identical value for 24
+readings -- six hours at this resolution -- `quality` becomes `1`. The reading is left exactly as
+published.
+
+A run ends where the readings stop for more than four times the station's own usual interval, so
+two three-hour plateaus either side of a three-day outage are not a six-hour one. Against the
+station's own cadence rather than a fixed number of minutes, because a fixed one cannot separate
+them: 99.5% of this network's intervals are the quarter hour it publishes on, but the tail reaches
+405 minutes, longer than the six hours this looks for. A hole ends the run and nothing more -- a
+sensor stopped on both sides of one is still stopped on both sides of it.
+
+A road surface held at or below freezing is exempt for the readings whose own minute had air within
+10 °C of freezing **either side** -- an ordinary thaw runs to +6 or +10 °C with snow still lying, and the road under
+it stays pinned for hours. Not only at 0.00 °C: German roads are salted, and brine depresses the
+freezing point, so a treated road in the same thaw sits at a constant sub-zero value by the same
+physics. The exemption reaches 10 °C below freezing, a little past where rock salt stops working,
+and no further -- which is what keeps a sensor stopped at −30 °C from being excused with it.
+Melting ice holds a road at 0.00 °C for as long as the ice lasts, which is the condition this
+network exists to report, and it cannot be told from a sensor stopped at zero by the reading alone.
+The air tells it: ice does not melt on a road whose station reports 26 °C, which is what FN/P717's
+does while its surface reads 0.00 all day. Where the air is unknown the reading is left alone too --
+a missed fault is the safer error than a winter's worth of genuine readings marked suspect.
+
+That threshold is measured, not chosen. Over a day of five station groups and around 700 stations
+per quantity, a working sensor's longest run of one identical value was 14 readings for the air
+temperature, 17 for the dew point and 9 for the road surface; a broken one held its value for 86 to
+96 of the day's 96, every one of them reporting a single distinct value for the whole day. It is
+applied only to those three quantities, because only for those is standing still a fault: the road
+surface condition and the water film sit at `0` for the whole of a dry day, as does the
+precipitation type, the humidity saturates in fog, and the wind falls calm.
+
+This is also what the exact round values are. `-75.00`, `-30.00` and `-25.00` are not a sentinel to
+be recognised but sensors that have stopped, and matching them by value would have been worse than
+useless -- -25 °C and -30 °C are both reachable in a German winter.
+
+Two things it does not catch, and one it cannot:
+
+- a run shorter than the window. A request covering less than six hours has too few readings for the
+  question to be asked at all -- and because the check sees only the files the window selected, the
+  same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
+  filtering on `quality` should ask for the window it means.
+- a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
+  57.2 °C, both varying hour to hour exactly as a working sensor does.
+- **the difference from air temperature cannot separate the two.** Over a full day of five groups,
+  stations with no sign of a fault reached 42.0 K above their own air temperature, while E237 --
+  which is certainly broken -- sat between 31.8 and 38.9 K. The broken station is inside the healthy
+  range. There is no threshold here that catches one without condemning the other, which is why this
+  library does not try.
+
+So `quality` of `1` means suspect, whether DWD said so or this check did. The two do not have the
+same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
+temperature carrying it, where this is a threshold fitted to one day -- and the column does not
+distinguish them. The log distinguishes them, for a caller who turns it up: the line naming the stations this check
+marked is written at `DEBUG`, which neither the CLI nor the REST API prints by default, and it
+names the first five of them. A `null` still means nobody has looked.
