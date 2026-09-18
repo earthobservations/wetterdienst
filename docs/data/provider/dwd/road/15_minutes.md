@@ -126,6 +126,19 @@ air temperature, a dew point or a road surface temperature reports the identical
 readings -- six hours at this resolution -- `quality` becomes `1`. The reading is left exactly as
 published.
 
+The run has to be a run: the readings must fill at least 80% of the minutes they span, so two
+three-hour plateaus either side of a three-day outage do not compose into a six-hour one. As a
+density rather than as a gap between readings, because no gap separates the two -- 99.5% of this
+network's intervals are the quarter hour it publishes on, and the tail runs past six hours, so any
+gap tight enough to break an outage also breaks the ordinary missed file.
+
+A road surface at its melting point is exempt where the station's own air came near freezing.
+Melting ice holds a road at 0.00 °C for as long as the ice lasts, which is the condition this
+network exists to report, and it cannot be told from a sensor stopped at zero by the reading alone.
+The air tells it: ice does not melt on a road whose station reports 26 °C, which is what FN/P717's
+does while its surface reads 0.00 all day. Where the air is unknown the reading is left alone too --
+a missed fault is the safer error than a winter's worth of genuine readings marked suspect.
+
 That threshold is measured, not chosen. Over a day of five station groups and around 700 stations
 per quantity, a working sensor's longest run of one identical value was 14 readings for the air
 temperature, 17 for the dew point and 9 for the road surface; a broken one held its value for 86 to
@@ -150,5 +163,8 @@ Two things it does not catch, and one it cannot:
   range. There is no threshold here that catches one without condemning the other, which is why this
   library does not try.
 
-So `quality` of `1` means suspect, whether DWD said so or this check did; the log line names which
-stations were marked and why. A `null` still means nobody has looked.
+So `quality` of `1` means suspect, whether DWD said so or this check did. The two do not have the
+same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
+temperature carrying it, where this is a threshold fitted to one day -- and the column does not
+distinguish them. The log does: the line naming the stations it marked says which check fired. A
+`null` still means nobody has looked.

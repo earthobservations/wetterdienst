@@ -884,6 +884,77 @@ def test_dwd_road_weather_stuck_threshold(
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_run_is_not_read_across_an_outage() -> None:
+    """Readings either side of a hole are not one run, however alike they are.
+
+    A gap here is almost always an absent row -- a station missing from a subset, a file too small
+    to read, a file never published -- rather than a row saying null, which a comparison of values
+    would never see. Two three-hour plateaus either side of three days of nothing are not a
+    six-hour one, and three hours is well inside what a working sensor does.
+
+    Measured as how full the run is rather than as a gap between readings, because no gap separates
+    the two: 99.5% of this network's intervals are the quarter hour it publishes on, and the tail
+    runs past six hours.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    plateau = _series("A006", "roadSurfaceTemperature", [285.0] * 12)
+    later = plateau.with_columns(pl.col("date") + pl.duration(days=3))
+    across = api._flag_stuck_sensors(pl.concat([plateau, later]), "a-group")  # noqa: SLF001
+    assert not across.get_column("quality").eq(1.0).any()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_missed_file_does_not_break_a_run() -> None:
+    """A station that misses a file here and there is still a station that has stopped.
+
+    Of 67134 intervals measured over five groups, 219 are half an hour and 36 three quarters --
+    the ordinary missed file. FN/P367 holds one air temperature for 88 readings with seven such
+    gaps among them, and is certainly broken.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    readings = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
+    # every seventh reading dropped, which is a good deal worse than the network manages
+    sparse = readings.filter(pl.int_range(pl.len()).mod(7).ne(0))
+    assert api._flag_stuck_sensors(sparse, "a-group").get_column("quality").eq(1.0).all()  # noqa: SLF001
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("air", "expected", "case"),
+    [
+        (271.0, False, "air below freezing, so the ice that holds the road there can exist"),
+        (276.0, False, "air a few degrees above, where melting is still possible"),
+        (284.75, True, "air at 11.6 C, which is FN/P717 -- nothing is melting on that road"),
+    ],
+)
+def test_dwd_road_weather_a_melting_road_is_not_a_stopped_sensor(
+    air: float,
+    expected: bool,  # noqa: FBT001
+    case: str,
+) -> None:
+    """Melting ice holds a road at its melting point for hours, and that is a reading.
+
+    It is the condition this network exists to report, and it could not appear in the September day
+    the threshold was measured over. It cannot be told from a sensor stopped at zero by the reading
+    -- FN/P717 sits at 0.00 C all day and is broken -- so it is told by the air: ice does not melt
+    on a road whose own station reports 26 C, which is what P717's does.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    df = pl.concat(
+        [
+            _series("A006", "roadSurfaceTemperature", [273.15] * 30),
+            _series("A006", "airTemperature", [air + 0.01 * i for i in range(30)]),
+        ],
+    )
+    marked = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
+    surface = marked.filter(pl.col("parameter").eq("roadSurfaceTemperature"))
+    assert surface.get_column("quality").eq(1.0).any() is expected, case
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
     "parameter",
     ["roadSurfaceCondition", "waterFilmThickness", "precipitationType", "relativeHumidity", "windSpeed"],

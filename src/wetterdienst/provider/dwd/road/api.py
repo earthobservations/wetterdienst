@@ -277,6 +277,33 @@ _QUALITY_BITS = {
 _STUCK_PARAMETERS = ("airTemperature", "dewpointTemperature", "roadSurfaceTemperature")
 _STUCK_RUN = 24
 
+#: how full of readings a run has to be to count as one. A run is what a sensor did without
+#: moving, and that cannot be read across a window where nothing was published: two three-hour
+#: plateaus either side of a three-day outage are not a six-hour one.
+#:
+#: As a share of the minutes the run spans rather than as a gap between readings, because there is
+#: no gap that separates the two. Measured over five groups for a day, 99.5% of the intervals
+#: between consecutive readings are the quarter hour the network publishes on -- but the tail runs
+#: out to 405 minutes, longer than the six hours this looks for, so any threshold tight enough to
+#: break a three-day hole also breaks the ordinary missed file. Density does separate them: a
+#: station missing seven files of 88 is 94% full, where twelve readings either side of three days
+#: is 8%
+_STUCK_MIN_DENSITY = 0.8
+
+#: melting ice holds a road surface at its melting point for as long as the ice lasts, which is
+#: hours, and is exactly the condition this network exists to report. That plateau is indexed on
+#: the September day this threshold was measured over, when no road was anywhere near it.
+#:
+#: It cannot be told from a sensor stopped at zero by the reading alone -- FN/P717 sits at 0.00 C
+#: all day and is certainly broken -- so it is told by the air instead: ice does not melt on a road
+#: whose station reports 26 C, which is what P717's does. A run at the melting point is left alone
+#: only where the air came near enough to freezing for melting to be possible at all, and where the
+#: air is unknown it is left alone too, a missed fault being the safer error than a winter's worth
+#: of genuine readings marked suspect
+_MELTING_POINT = 273.15
+_MELTING_PLATEAU = 0.05
+_MELTING_AIR_MARGIN = 5.0
+
 
 def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     """Mark a reading suspect where the sensor that took it has not moved for hours.
@@ -299,21 +326,50 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     if df.is_empty():
         return df
     keys = ["station_id", "parameter"]
+    air = (
+        df.filter(pl.col("parameter").eq("airTemperature"))
+        .group_by("station_id")
+        .agg(pl.col("value").min().alias("_air_min"))
+    )
     flagged = (
-        df.with_row_index("_row")
+        df.join(air, on="station_id", how="left")
+        .with_row_index("_row")
         .sort(*keys, "date")
         .with_columns(
-            # a run breaks where the value changes, and a null breaks it too: a gap is not evidence
-            # that the sensor held still across it
+            # a run breaks where the value changes, where a null interrupts it, and where the
+            # readings themselves stop: a gap is not evidence that the sensor held still across it,
+            # and in this network a gap is almost always an absent row -- a station missing from a
+            # subset, a file too small to read, a file never published -- rather than a row saying
+            # null, which the value comparison alone would never see
             _run=pl.col("value").ne(pl.col("value").shift().over(keys)).fill_null(value=True).cum_sum().over(keys),
         )
         # the minutes a run covers rather than the rows holding them: a station-minute that
         # arrives in two files of one request -- a group publishing under two families, a file
         # republished -- would otherwise count twice and halve the window, and a working sensor's
         # measured 14-reading plateau doubles into a fault
-        .with_columns(_stuck=pl.col("date").n_unique().over(*keys, "_run").ge(_STUCK_RUN))
         .with_columns(
-            _stuck=pl.col("_stuck") & pl.col("value").is_not_null() & pl.col("parameter").is_in(_STUCK_PARAMETERS),
+            _readings=pl.col("date").n_unique().over(*keys, "_run"),
+            # the quarter-hours the run covers, end to end, counting both ends
+            _span=(pl.col("date").max().over(*keys, "_run") - pl.col("date").min().over(*keys, "_run"))
+            .dt.total_minutes()
+            .floordiv(15)
+            .add(1),
+        )
+        .with_columns(
+            _stuck=pl.col("_readings").ge(_STUCK_RUN) & pl.col("_readings").ge(pl.col("_span").mul(_STUCK_MIN_DENSITY)),
+        )
+        .with_columns(
+            _stuck=pl.col("_stuck")
+            & pl.col("value").is_not_null()
+            & pl.col("parameter").is_in(_STUCK_PARAMETERS)
+            # melting ice holds a road at its melting point for hours, which is a reading and not
+            # a fault. Told from a sensor stopped at zero by the air the station reports, ice not
+            # melting on a road whose own air is at 26 C
+            & ~(
+                pl.col("parameter").eq("roadSurfaceTemperature")
+                & pl.col("value").sub(_MELTING_POINT).abs().le(_MELTING_PLATEAU)
+                & pl.col("_air_min").le(_MELTING_POINT + _MELTING_AIR_MARGIN).fill_null(value=True)
+            ),
         )
         .sort("_row")
     )

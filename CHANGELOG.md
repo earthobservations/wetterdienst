@@ -34,7 +34,14 @@ Types of changes:
   matching them by value would have been worse than useless since -25 and -30 are both reachable in
   a German winter. What it cannot catch is a sensor that moves and is wrong: the difference from a
   station's own air temperature does not separate those, stations with no sign of a fault reaching
-  42.0 K above their air where one that is certainly broken sits between 31.8 and 38.9. GH-1917
+  42.0 K above their air where one that is certainly broken sits between 31.8 and 38.9. A run has
+  to be a run, its readings filling at least 80% of the minutes they span, so two three-hour
+  plateaus either side of a three-day outage do not compose into a six-hour one -- as a density
+  rather than a gap between readings, no gap separating the two when 99.5% of this network's
+  intervals are its quarter hour and the tail runs past six hours. And a road surface at its
+  melting point is exempt where the station's own air came near freezing: melting ice holds a road
+  at 0.00 C for hours, which is what this network is for, and only the air tells that from a sensor
+  stopped at zero -- FN/P717 reads 0.00 all day while its own air reaches 26 C. GH-1917
 - DWD road: the `quality` column carries the station's own verdict on its sensors, where it was
   null on every road reading. Each subset ends with `qualityInformationAwsData` (BUFR `0 33 005`), a
   30-bit flag naming which of the station's quantities are suspect, and it was read and thrown away.
