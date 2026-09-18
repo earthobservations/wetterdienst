@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- `[Tests]` The catalogs are checked against the backend the app runs on, rather than from the
+  Python suite by reading `app/`. Every canonical parameter, every unit type and every provider has
+  to be nameable here in eleven languages, and the app's own unit tests cannot notice one being
+  added upstream: they read the catalogs and hold the locales to each other, so a new name in the
+  backend leaves every catalog untouched and the parity green while the name falls back to a
+  prettified English id in all eleven. `tests/e2e/i18n-coverage.spec.ts` asks `/api/glossary` for
+  the names and the quantities and `/api/coverage` for the providers, which loses nothing -- the
+  glossary serves the same 23 unit types the converter knows -- and the E2E workflow already runs
+  on a change to `src/wetterdienst/**`, so an addition there still trips it
 - `[Explorer]` An elevation for the point an interpolation or summary answers for, in metres above
   sea level, beside the coordinates. Air temperature falls about 0.65 K per 100 m, so a point in a
   valley and one on the ridge above it get different answers from the same stations; left empty,
