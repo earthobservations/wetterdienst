@@ -1089,8 +1089,11 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
         from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
         mcp_app = build_mcp_server(rest_app).http_app(path="/mcp")
-    except ModuleNotFoundError:
-        # optional [mcp] extra (fastmcp) not installed -> plain REST API, no /mcp route
+    except ModuleNotFoundError as exc:
+        # optional [mcp] extra (fastmcp, httpx2) not installed -> plain REST API, no /mcp route.
+        # Said out loud, because an instance missing /mcp for want of a dependency otherwise looks
+        # exactly like one that was never meant to have it.
+        log.info("No MCP endpoint: %s is not installed (optional [mcp] extra), continuing without /mcp", exc.name)
         return False
     except Exception:
         # never let an MCP build/version error take down the whole REST API; degrade to no /mcp
