@@ -29,11 +29,11 @@ Types of changes:
 ### Changed
 
 - The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py` builds the
-  `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP 4 types
-  that provider's `client` as `httpx2.AsyncClient` and drives it directly, so the two clients are
-  not interchangeable there and the floor has to say which one the code is written against.
-  `httpx2` is declared alongside the extra (`>=2.12,<3`) rather than leaned on as a transitive
-  dependency of `fastmcp`
+  `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP 4 moved off
+  httpx entirely and types that provider's `client` as `httpx2.AsyncClient`; an httpx client is
+  still taken there by duck typing, but warns and is to be rejected in a later release, so the
+  floor now says which library the code is written against. `httpx2` is declared alongside the
+  extra (`>=2.12,<3`) rather than leaned on as a transitive dependency of `fastmcp`
 - Locked dependencies refreshed to their latest compatible versions -- 74 packages, among them the
   majors cloup 4, fastmcp 4 (mcp 2), plotly 7 and tzfpy 2 -- and the dev toolchain with them (ruff
   0.16.7, ty 0.0.81, zizmor 1.30.1). Three specifiers had to widen to admit them: `cloup<5`,
@@ -43,6 +43,13 @@ Types of changes:
   argument is optional and `parse_enumeration_from_template` returns `None` for it. The annotation
   claimed `Period` and carried a `ty: ignore` to say so, which in turn made both `not self.period`
   guards in the radar API read as dead code to the type checker
+
+### Fixed
+
+- The MCP server tells a client which wetterdienst it is talking to. `FastMCP(version=...)` was
+  never set, and left unset it reports the installed FastMCP release as the server's own version --
+  so a client asking what it had connected to was answered "Wetterdienst 4.0.3". It now answers
+  with wetterdienst's version, the same one `GET /api/version` gives
 
 ## [0.137.0] - 2026-09-18
 

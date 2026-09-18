@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from wetterdienst import __version__
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastmcp import FastMCP
@@ -156,4 +158,12 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         finally:
             await client.aclose()
 
-    return FastMCP(name="Wetterdienst", instructions=INSTRUCTIONS, providers=[provider], lifespan=lifespan)
+    # `version` is the wetterdienst version rather than FastMCP's: left unset, a client's
+    # server info reports the FastMCP release as the server's own version.
+    return FastMCP(
+        name="Wetterdienst",
+        version=__version__,
+        instructions=INSTRUCTIONS,
+        providers=[provider],
+        lifespan=lifespan,
+    )
