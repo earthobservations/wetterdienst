@@ -529,7 +529,6 @@ def test_dwd_road_weather_folds_a_station_minute_reported_twice(
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_parses_a_group_once_for_all_its_stations(monkeypatch: pytest.MonkeyPatch) -> None:
     """A road file holds a whole group, so it is read for the group and not for each station.
 
@@ -595,6 +594,7 @@ def test_dwd_road_weather_keeps_one_group_rather_than_every_group(monkeypatch: p
     assert seen == ["DD", "HV", "DD"]
 
 
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_parameter_no_subset_carries(monkeypatch: pytest.MonkeyPatch) -> None:
     """A descriptor no subset carries is a null column, not a missing one.
 

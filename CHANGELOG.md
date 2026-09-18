@@ -85,6 +85,7 @@ Types of changes:
 - Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
   out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what
   every other dependency here resolves to, so the floor named a combination that does not work
+
 ### Fixed
 
 - DWD road: a station group is read once for a request rather than once per station of it. A road

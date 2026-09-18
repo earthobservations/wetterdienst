@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import logging
 import re
-import warnings
 from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
@@ -35,22 +34,6 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
-
-# the flat read unions the keys of subsets that do not carry the same ones and says so, which for
-# this network is every file: road stations are fitted differently, so one carries a second sensor
-# where the next does not. What it warns of is the column order it returns them in, and nothing
-# here reads a column by position.
-#
-# Filtered once, rather than inside a `catch_warnings` around each parse: that swaps the whole of
-# the process's warning filters for the duration, and `wetterdienst restapi` answers from a thread
-# pool, where two road requests overlapping leaves one of them holding the other's filters after it
-# returns. There is no per-thread alternative in the standard library, and the pattern below is
-# narrow enough to belong to this reader alone
-warnings.filterwarnings(
-    "ignore",
-    message="not all BUFR messages/subsets have the same structure",
-    category=UserWarning,
-)
 
 #: the stamp a road file carries, exactly as long as `%y%m%d%H%M` reads. Ten and not "ten or
 #: more": a longer run anywhere else in the name would otherwise be captured instead of this
@@ -246,12 +229,25 @@ def _identity(columns: dict[int, str]) -> pl.Expr:
 def _contested(columns: dict[int, str]) -> pl.Expr:
     """Whether more than one road sensor reported this descriptor for the row.
 
-    Contested is the only case that needs deciding. Two sensors reporting different quantities --
-    the whole of the DD group, where one carries the surface temperature and the other the surface
-    condition -- leave nothing to choose between, and taking both composes a row the same way every
-    row in this library is composed, out of the several instruments a station is fitted with.
+    Contested is the only case that needs deciding, and two sensors reporting the same number are
+    not deciding anything: of the 36 readings one populated group's file reports twice, 25 are
+    identical to the one kept. Counted as contests they would inflate what the log says was
+    dropped, and credit a sensor in the choice below for settling a question nobody asked.
+
+    Two sensors reporting different quantities are not a contest either -- the whole of the DD
+    group, where one carries the surface temperature and the other the surface condition -- and
+    taking both composes a row the way every row in this library is composed, out of the several
+    instruments a station is fitted with.
     """
-    return pl.sum_horizontal([pl.col(column).is_not_null().cast(pl.Int32) for column in columns.values()]).gt(1)
+    # cast, as the readings themselves are: a descriptor no subset of the file carries comes back
+    # from pandas as a column of nulls typed as strings, and coalescing that beside a float column
+    # makes both strings, which will not compare
+    order = [pl.col(column).cast(pl.Float64) for _rank, column in sorted(columns.items())]
+    reported = pl.sum_horizontal([column.is_not_null().cast(pl.Int32) for column in order])
+    # more than one reading, and not all of them the same
+    first = pl.coalesce(order)
+    differs = pl.any_horizontal([column.ne(first) for column in order])
+    return reported.gt(1) & differs.fill_null(value=False)
 
 
 def _sensor_choice(replicated: dict[str, dict[int, str]], ranks: list[int]) -> pl.Expr:
@@ -277,26 +273,34 @@ def _sensor_choice(replicated: dict[str, dict[int, str]], ranks: list[int]) -> p
     contested = {name: _contested(columns) for name, columns in replicated.items()}
     # more than any count of reported quantities can reach, so a contest settled always outweighs
     # a quantity merely reported
+    if not replicated or not ranks:
+        # nothing in this file is reported twice, so there is no sensor to name
+        return pl.lit(None, dtype=pl.Int32)
     contest_weight = len(replicated) + 1
-    chosen = pl.lit(None, dtype=pl.Int32)
-    most = pl.lit(0, dtype=pl.Int32)
+    scores = []
     for rank in ranks:
-        present = [pl.col(columns[rank]).is_not_null() for _name, columns in replicated.items() if rank in columns]
+        mine = [(name, columns[rank]) for name, columns in replicated.items() if rank in columns]
         settles = pl.sum_horizontal(
-            [
-                pl.when(contested[name] & pl.col(columns[rank]).is_not_null()).then(1).otherwise(0)
-                for name, columns in replicated.items()
-                if rank in columns
-            ]
+            [pl.when(contested[name] & pl.col(column).is_not_null()).then(1).otherwise(0) for name, column in mine]
             or [pl.lit(0, dtype=pl.Int32)],
         )
-        reported = pl.sum_horizontal([flag.cast(pl.Int32) for flag in present] or [pl.lit(0, dtype=pl.Int32)])
-        score = settles * contest_weight + reported
-        # strictly greater, over ranks in order, so the first sensor keeps a tie
-        beats = score.gt(most) & settles.gt(0).or_(reported.gt(0))
-        chosen = pl.when(beats).then(pl.lit(rank, dtype=pl.Int32)).otherwise(chosen)
-        most = pl.when(beats).then(score).otherwise(most)
-    return chosen
+        reported = pl.sum_horizontal(
+            [pl.col(column).is_not_null().cast(pl.Int32) for _name, column in mine] or [pl.lit(0, dtype=pl.Int32)],
+        )
+        scores.append(settles * contest_weight + reported)
+    # the best score, then the first rank holding it. Written as one horizontal maximum and a
+    # coalesce rather than as a running maximum: carrying the winner so far from rank to rank
+    # names it twice per step, once to compare against and once to keep, so the expression doubles
+    # with every sensor -- 0.02s to build and run for two of them, 0.14 for four, 13.5 for eight,
+    # where a station fitted with eight makes every file of its group pay that. Stations with four
+    # are already published
+    best = pl.max_horizontal(scores)
+    return pl.coalesce(
+        [
+            pl.when(score.eq(best) & best.gt(0)).then(pl.lit(rank, dtype=pl.Int32))
+            for rank, score in zip(ranks, scores, strict=True)
+        ],
+    )
 
 
 def _reading(name: str, columns: dict[int, str], chosen: pl.Expr) -> pl.Expr:
@@ -351,6 +355,21 @@ def _one_row_per_reading(rows: pl.DataFrame, source: str) -> pl.DataFrame:
     return rows.group_by(keys, maintain_order=True).agg(pl.exclude(keys).drop_nulls().first())
 
 
+def _kept_rank(columns: dict[int, str], chosen: pl.Expr) -> pl.Expr:
+    """Which sensor a descriptor's reading comes from, mirroring `_reading`'s own answer."""
+    order = sorted(columns.items())
+    from_chosen = pl.coalesce(
+        [
+            pl.when(chosen.eq(rank) & pl.col(column).is_not_null()).then(pl.lit(rank, dtype=pl.Int32))
+            for rank, column in order
+        ],
+    )
+    as_reported = pl.coalesce(
+        [pl.when(pl.col(column).is_not_null()).then(pl.lit(rank, dtype=pl.Int32)) for rank, column in order],
+    )
+    return pl.coalesce([from_chosen, as_reported])
+
+
 def _log_dropped_sensors(
     df: pl.DataFrame,
     ranked: dict[str, dict[int, str]],
@@ -367,9 +386,13 @@ def _log_dropped_sensors(
     someone would look; this is for the run where they want to know which stations, and when.
     """
     contested = {name: _contested(columns) for name, columns in replicated.items()}
+    # against the rank the reading actually comes from, which is not always the chosen sensor:
+    # where that sensor did not report a descriptor, `_reading` falls back to the first that did,
+    # and counting every rank but the chosen one called that fallback lost while it was being kept
+    kept = {name: _kept_rank(columns, chosen) for name, columns in replicated.items()}
     lost = pl.sum_horizontal(
         [
-            pl.when(contested[name] & pl.col(columns[rank]).is_not_null() & chosen.ne(rank)).then(1).otherwise(0)
+            pl.when(contested[name] & pl.col(columns[rank]).is_not_null() & kept[name].ne(rank)).then(1).otherwise(0)
             for name, columns in replicated.items()
             for rank in ranks
             if rank in columns
@@ -381,7 +404,10 @@ def _log_dropped_sensors(
     ).filter(pl.col("lost").gt(0) & pl.col("station").is_not_null())
     if dropped.is_empty():
         return
-    stations = sorted(dropped.get_column("station").to_list())
+    # distinct stations: a file carries one minute today, so a row is a station -- but the fold
+    # above exists because one need not, and then this counted station-minutes and could name the
+    # same station twice in the sample
+    stations = sorted(dropped.get_column("station").unique().to_list())
     log.debug(
         f"{source}: {len(stations)} stations reported the same quantity from more than one road "
         f"sensor ({', '.join(stations[:5])}{', ...' if len(stations) > 5 else ''}); answered from "
@@ -613,6 +639,22 @@ class DwdRoadValues(TimeseriesValues):
                 raise file.content
             tf.write(file.content.read())
             tf.seek(0)
+            # pdbufr warns here that the file's subsets do not all carry the same keys, which for
+            # this network is every file -- road stations are fitted differently, so one carries a
+            # second sensor where the next does not. It warns about the column order it returns
+            # them in, and nothing below reads a column by position. It is left to reach the caller
+            # rather than filtered: Python shows it once per process whatever the request asks for,
+            # and suppressing it means editing the process's global warning filters, which are not
+            # this library's to edit -- it would go on suppressing the same warning for anything
+            # else reading BUFR alongside it
+            #
+            # "data", so the read returns the message's values and not its header too: the
+            # twenty-one header keys of a road file are read, converted and dropped again, being
+            # none of the fourteen this parse is after
+            #
+            # and every data key rather than the fourteen: flat, a read that names its columns
+            # returns the first rank of each and drops the rest, which is the sensor thrown away
+            # before anything can choose between them
             # "data", so the read returns the message's values and not its header too: the
             # twenty-one header keys of a road file are read, converted and dropped again, being
             # none of the fourteen this parse is after
@@ -633,6 +675,14 @@ class DwdRoadValues(TimeseriesValues):
         replicated = {name: columns for name, columns in ranked.items() if name in parameter_names and len(columns) > 1}
         ranks = sorted({rank for columns in replicated.values() for rank in columns})
         chosen = _sensor_choice(replicated, ranks)
+        if replicated:
+            # worked out once and held as a column, rather than handed on as an expression for
+            # every reading and every log term to carry a copy of. The choice names each rank's
+            # score, so re-embedding it once per rank per descriptor cubes it: eight sensors cost
+            # 1.2s a file that way against 0.05 held as a column, and the cost falls on every file
+            # of the group, not only on the station fitted with them
+            df = df.with_columns(_chosen=chosen)
+            chosen = pl.col("_chosen")
         if replicated and log.isEnabledFor(logging.DEBUG):
             _log_dropped_sensors(df, ranked, replicated, ranks, chosen, file.url)
         rows = (
