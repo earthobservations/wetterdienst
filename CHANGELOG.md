@@ -63,6 +63,16 @@ Types of changes:
 
 ### Fixed
 
+- DWD road: a station group is read once for a request rather than once per station of it. A road
+  file holds a whole group where the collection above asks for one station at a time, so every file
+  of a group was decoded and built into a frame once per station and all but that station's rows
+  thrown away -- three stations of one group over two hours parsed nine files twenty-seven times.
+  The files themselves came from the cache; what repeated was the BUFR decode, which is the
+  expensive half. The group parsed for the previous station is kept, and one group rather than all
+  of them: stations arrive in group order, 1653 of them across 19 groups changing group 21 times,
+  so holding the last is worth almost exactly what holding every one would be -- 22 reads against
+  19 -- and it bounds what is held to a single group's readings, a month of which is some thirteen
+  million rows. Measured on those three stations, 27 parses became 9. GH-1922
 - DWD road: a subset that names no station or no minute is one reading lost rather than a file.
   The read is required of nothing but its own structure now, so such a subset arrives like any
   other -- and one null minute makes the whole of pandas' column a float, where 2026 written as

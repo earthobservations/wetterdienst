@@ -17,6 +17,14 @@ from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
 from wetterdienst.util.network import File, download_files, list_remote_files_fsspec
 
+_PARSED_SCHEMA_FOR_TEST = {
+    "station_id": pl.String,
+    "date": pl.Datetime(time_zone="UTC"),
+    "parameter": pl.String,
+    "value": pl.Float64,
+    "quality": pl.Float64,
+}
+
 
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -71,7 +79,7 @@ def test_dwd_road_weather_station_groups() -> None:
     assert files == {group.value for group in DwdRoadStationGroup}
 
 
-def _stub_stations() -> StationsResult:
+def _stub_stations(station_ids: tuple[str, ...] = ("A006",)) -> StationsResult:
     """Stand a road station up rather than look one up.
 
     Asked of the real index, a test about frame handling would find no station the day A006 leaves
@@ -83,7 +91,7 @@ def _stub_stations() -> StationsResult:
             {
                 "resolution": "15_minutes",
                 "dataset": "data",
-                "station_id": "A006",
+                "station_id": station_id,
                 "start_date": None,
                 "end_date": None,
                 "latitude": 54.8892,
@@ -92,7 +100,8 @@ def _stub_stations() -> StationsResult:
                 "name": "Boeglum",
                 "state": "SH",
                 "station_group": "DD",
-            },
+            }
+            for station_id in station_ids
         ],
         schema={
             "resolution": pl.String,
@@ -520,6 +529,72 @@ def test_dwd_road_weather_folds_a_station_minute_reported_twice(
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_parses_a_group_once_for_all_its_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A road file holds a whole group, so it is read for the group and not for each station.
+
+    The collection above this asks for one station at a time, and a road file holds them all -- so
+    every file of a group was decoded once per station of that group, with all but one station's
+    rows thrown away each time. Three stations of one group over two hours parsed nine files
+    twenty-seven times.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    reading = _flat(
+        {"#1#shortStationName": "A006", "#1#airTemperature": 12.0},
+        {"#1#shortStationName": "B999", "#1#airTemperature": 9.0},
+        {"#1#shortStationName": "C111", "#1#airTemperature": 7.0},
+    )
+    parses = []
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: parses.append(1) or reading)
+    monkeypatch.setattr(
+        api, "list_remote_files_fsspec", lambda *_args, **_kwargs: ["swis2-ISXD70_DWDD_131200-2609131200-DD---bin"]
+    )
+    monkeypatch.setattr(
+        api,
+        "download_files",
+        lambda **_kwargs: [
+            File(url="swis2-ISXD70_DWDD_131200-2609131200-DD---bin", content=BytesIO(b"x" * 500), status=200)
+        ],
+    )
+    values = _stub_stations(("A006", "B999", "C111")).values
+    dataset = DwdRoadRequest.metadata["15_minutes"]["data"]
+    answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999", "C111")]  # noqa: SLF001
+
+    assert len(parses) == 1, "the group's one file should be decoded once, not once per station"
+    # and each station still gets its own reading out of it
+    assert [df.get_column("station_id").unique().to_list() for df in answers] == [["A006"], ["B999"], ["C111"]]
+    assert [df.drop_nulls("value").get_column("value").to_list() for df in answers] == [[12.0], [9.0], [7.0]]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_keeps_one_group_rather_than_every_group(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Moving to another group replaces what is kept, rather than adding to it.
+
+    Stations arrive in group order -- 1653 of them across 19 groups change group 21 times -- so
+    holding the last group is worth almost exactly what holding every one would be, and it bounds
+    what this keeps to a single group's readings. A month of one group is some thirteen million
+    rows, which is the whole of whether a wide request fits in memory.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    values = _stub_stations().values
+    parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
+    seen = []
+
+    def parse_group(self: object, group: DwdRoadStationGroup, params: list[object]) -> pl.DataFrame:  # noqa: ARG001
+        seen.append(group.value)
+        return pl.DataFrame(schema=_PARSED_SCHEMA_FOR_TEST)
+
+    monkeypatch.setattr(api.DwdRoadValues, "_DwdRoadValues__collect_data_by_station_group", parse_group)
+    for group in (DwdRoadStationGroup.DD, DwdRoadStationGroup.DD, DwdRoadStationGroup.HV, DwdRoadStationGroup.DD):
+        values._collect_data_by_station_group(group, parameters)  # noqa: SLF001
+
+    # the repeat is served from what is kept; moving away and back is a fresh read, one group
+    # being all that is held
+    assert seen == ["DD", "HV", "DD"]
+
+
 def test_dwd_road_weather_parameter_no_subset_carries(monkeypatch: pytest.MonkeyPatch) -> None:
     """A descriptor no subset carries is a null column, not a missing one.
 

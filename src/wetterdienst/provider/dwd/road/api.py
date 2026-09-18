@@ -399,6 +399,9 @@ class DwdRoadValues(TimeseriesValues):
         # asked here so the answer comes back with the request rather than out of the middle of a
         # parse. It used to call `ensure_pdbufr()` and throw the answer away, which guarded nothing
         require_bufr("DWD road weather data")
+        # the group parsed for the station asked about before this one, and the key it answers for.
+        # See `_collect_data_by_station_group`
+        self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame] | None = None
 
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
@@ -490,7 +493,37 @@ class DwdRoadValues(TimeseriesValues):
         road_weather_station_group: DwdRoadStationGroup,
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
-        """Collect data from DWD Road Weather stations."""
+        """Collect data from DWD Road Weather stations, once per group rather than per station.
+
+        A road file holds a whole station group, where the collection above it asks for one station
+        at a time -- so every file of a group was read, decoded and built into a frame once per
+        station of that group, and all but one station's rows thrown away each time. Three stations
+        of one group over two hours parsed nine files twenty-seven times. The files themselves come
+        from the cache; what was repeated is the BUFR decode, which is the expensive half.
+
+        One group is kept, not all of them. Stations arrive in group order -- 1653 of them across 19
+        groups change group 21 times -- so holding the last is worth almost exactly what holding
+        every one would be, 22 parses against 19, and it bounds what this keeps to a single group's
+        readings rather than to every group a request touches. A month of one group is some
+        thirteen million rows, so that difference is the whole of whether a wide request fits in
+        memory.
+
+        Keyed by the parameters as well as the group: a caller asking for two datasets would
+        otherwise be answered for the second from a frame parsed for the first.
+        """
+        key = (road_weather_station_group.value, tuple(parameter.name_original for parameter in parameters))
+        if self._group_cache is not None and self._group_cache[0] == key:
+            return self._group_cache[1]
+        df = self.__collect_data_by_station_group(road_weather_station_group, parameters)
+        self._group_cache = (key, df)
+        return df
+
+    def __collect_data_by_station_group(
+        self,
+        road_weather_station_group: DwdRoadStationGroup,
+        parameters: list[ParameterModel],
+    ) -> pl.DataFrame:
+        """Read every file the group published for the window."""
         df_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
         if self.sr.start_date:
             df_files = df_files.filter(
