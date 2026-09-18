@@ -25,6 +25,15 @@ BUFR_AVAILABLE = bufr_is_available()
 info = Info()
 
 
+def is_html_document(output: str) -> bool:
+    """Say whether an HTML export is a whole document rather than a fragment.
+
+    plotly 7 leads the document with a doctype where 6.x began straight at ``<html>``, and the
+    plotly floor allows either.
+    """
+    return output.lstrip().lower().startswith(("<!doctype html>", "<html>"))
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _worker_unique_cache_dir(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> None:
     """Give each pytest-xdist worker its own cache directory.

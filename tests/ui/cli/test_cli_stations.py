@@ -12,7 +12,7 @@ import pytest
 from click.testing import CliRunner, Result
 from dirty_equals import IsFloat, IsStr
 
-from tests.conftest import IS_WINDOWS
+from tests.conftest import IS_WINDOWS, is_html_document
 from wetterdienst.ui.cli import cli
 
 SETTINGS_STATIONS = (
@@ -455,7 +455,7 @@ def test_cli_stations_image_html() -> None:
         fmt="html",
     )
     assert result.exit_code == 0
-    assert result.output.startswith("<html>")
+    assert is_html_document(result.output)
 
 
 def test_cli_stations_image_pdf() -> None:

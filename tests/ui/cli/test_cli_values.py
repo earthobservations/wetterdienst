@@ -16,7 +16,7 @@ import pytest
 from click.testing import CliRunner, Result
 from dirty_equals import IsInstance, IsStr
 
-from tests.conftest import IS_WINDOWS
+from tests.conftest import IS_WINDOWS, is_html_document
 from wetterdienst.ui.cli import cli
 
 SETTINGS_VALUES = (
@@ -608,7 +608,7 @@ def test_cli_values_image_html() -> None:
         fmt="html",
     )
     assert result.exit_code == 0
-    assert result.output.startswith("<html>")
+    assert is_html_document(result.output)
 
 
 @pytest.mark.remote

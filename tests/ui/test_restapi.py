@@ -2140,7 +2140,9 @@ def test_mcp_server_is_agent_friendly() -> None:
     async def _introspect() -> tuple[set[str], str | None]:
         async with Client(mcp) as client:
             names = {tool.name for tool in await client.list_tools()}
-            return names, client.initialize_result.instructions
+            # client.instructions, not initialize_result: a FastMCP 4 discovery connection
+            # negotiates a DiscoverResult and leaves initialize_result None
+            return names, client.instructions
 
     tools, instructions = asyncio.run(_introspect())
     # data endpoints exposed under clean, agent-friendly names

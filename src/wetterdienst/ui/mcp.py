@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastmcp import FastMCP
 
-# Internal ASGI base URL for the in-process httpx client that backs the tools.
+# Internal ASGI base URL for the in-process httpx2 client that backs the tools.
 _ASGI_BASE_URL = "http://wetterdienst.local"
 
 INSTRUCTIONS = """\
@@ -132,12 +132,14 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     """
     from contextlib import asynccontextmanager  # noqa: PLC0415
 
-    import httpx  # noqa: PLC0415
+    import httpx2  # noqa: PLC0415
     from fastmcp import FastMCP  # noqa: PLC0415
     from fastmcp.server.providers.openapi import MCPType, OpenAPIProvider, RouteMap  # noqa: PLC0415
 
     route_maps = [RouteMap(pattern=pattern, mcp_type=MCPType.EXCLUDE) for pattern in _EXCLUDE_PATTERNS]
-    client = httpx.AsyncClient(transport=httpx.ASGITransport(app=rest_app), base_url=_ASGI_BASE_URL)
+    # httpx2, not httpx: FastMCP 4 types ``OpenAPIProvider.client`` as ``httpx2.AsyncClient`` and
+    # drives it directly, so the two clients are not interchangeable here.
+    client = httpx2.AsyncClient(transport=httpx2.ASGITransport(app=rest_app), base_url=_ASGI_BASE_URL)
     provider = OpenAPIProvider(
         openapi_spec=rest_app.openapi(),
         client=client,
@@ -147,7 +149,7 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
 
     @asynccontextmanager
     async def lifespan(_server: FastMCP):  # noqa: ANN202
-        # Tie the in-process httpx client to the server lifespan so it is closed on shutdown; this
+        # Tie the in-process httpx2 client to the server lifespan so it is closed on shutdown; this
         # lifespan is composed into the REST app's lifespan when /mcp is mounted (see restapi.py).
         try:
             yield
