@@ -1028,6 +1028,77 @@ def test_dwd_road_weather_melting_is_asked_of_the_reading_not_the_window() -> No
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
+    ("surface", "air", "expected", "case"),
+    [
+        (273.15, 274.15, False, "an untreated road at 0.00 in a thaw"),
+        (270.15, 274.15, False, "a salted road at -3.0, brine holding it below zero in the same thaw"),
+        (265.15, 272.15, False, "heavily salted at -8.0, about where rock salt stops working"),
+        (243.15, 271.15, True, "stopped at -30 in a frost, which no brine reaches"),
+        (273.15, 299.15, True, "stopped at 0.00 while its own air is at 26 C, which is FN/P717"),
+        (278.15, 279.15, True, "a road above freezing holds still for no physical reason"),
+    ],
+)
+def test_dwd_road_weather_brine_holds_a_salted_road_below_zero(
+    surface: float,
+    air: float,
+    expected: bool,  # noqa: FBT001
+    case: str,
+) -> None:
+    """A salted road in a thaw is pinned below zero as an untreated one is pinned at zero.
+
+    German roads are salted, and brine depresses the freezing point -- so the plateau the exemption
+    exists to protect is not only the one at 0.00 C. Rock salt works to about -8 C in practice. The
+    range is bounded below all the same, which is what keeps a sensor stopped at -30 C in a frost
+    from being excused along with it.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    df = pl.concat(
+        [
+            _series("A006", "roadSurfaceTemperature", [surface] * 30),
+            _series("A006", "airTemperature", [air] * 30),
+        ],
+    )
+    marked = api._flag_stuck_sensors(df, "a-group").filter(  # noqa: SLF001
+        pl.col("parameter").eq("roadSurfaceTemperature"),
+    )
+    assert marked.get_column("quality").eq(1.0).any() is expected, case
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("every", "readings", "expected", "case"),
+    [
+        (5, 24, False, "24 readings five minutes apart is under two hours, not the six measured"),
+        (5, 70, True, "the same station once it has covered the hours"),
+        (15, 23, False, "one reading short at the cadence the count was measured on"),
+        (15, 24, True, "the case the count was measured on"),
+        (30, 24, True, "a station reporting less often still trips on the count"),
+    ],
+)
+def test_dwd_road_weather_stuck_needs_the_hours_as_well_as_the_readings(
+    every: int,
+    readings: int,
+    expected: bool,  # noqa: FBT001
+    case: str,
+) -> None:
+    """The count was measured at a quarter hour, so it carries a floor on the time it covers.
+
+    A station reporting more often would otherwise trip on less evidence than the measurement was
+    taken from -- a working sensor held one value for 14 readings there, three and a half hours.
+    A floor and not a divisor: measuring against a fixed cadence instead once made a station
+    reporting every twenty minutes impossible to flag at all.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    series = _series("A006", "roadSurfaceTemperature", [285.0] * readings)
+    spaced = series.with_columns(pl.col("date").first() + pl.duration(minutes=every) * pl.int_range(pl.len()))
+    marked = api._flag_stuck_sensors(spaced, "a-group")  # noqa: SLF001
+    assert marked.get_column("quality").eq(1.0).any() is expected, case
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
     ("air", "expected", "case"),
     [
         (271.0, False, "air below freezing, so the ice that holds the road there can exist"),

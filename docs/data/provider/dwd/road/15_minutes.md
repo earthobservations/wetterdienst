@@ -133,9 +133,12 @@ them: 99.5% of this network's intervals are the quarter hour it publishes on, bu
 405 minutes, longer than the six hours this looks for. A hole ends the run and nothing more -- a
 sensor stopped on both sides of one is still stopped on both sides of it.
 
-A road surface at its melting point is exempt for the readings whose own minute had air within
+A road surface held at or below freezing is exempt for the readings whose own minute had air within
 10 °C of freezing -- an ordinary thaw runs to +6 or +10 °C with snow still lying, and the road under
-it stays at 0.00 °C for hours.
+it stays pinned for hours. Not only at 0.00 °C: German roads are salted, and brine depresses the
+freezing point, so a treated road in the same thaw sits at a constant sub-zero value by the same
+physics. The exemption reaches 10 °C below freezing, a little past where rock salt stops working,
+and no further -- which is what keeps a sensor stopped at −30 °C from being excused with it.
 Melting ice holds a road at 0.00 °C for as long as the ice lasts, which is the condition this
 network exists to report, and it cannot be told from a sensor stopped at zero by the reading alone.
 The air tells it: ice does not melt on a road whose station reports 26 °C, which is what FN/P717's
@@ -157,7 +160,9 @@ useless -- -25 °C and -30 °C are both reachable in a German winter.
 Two things it does not catch, and one it cannot:
 
 - a run shorter than the window. A request covering less than six hours has too few readings for the
-  question to be asked at all.
+  question to be asked at all -- and because the check sees only the files the window selected, the
+  same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
+  filtering on `quality` should ask for the window it means.
 - a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
   57.2 °C, both varying hour to hour exactly as a working sensor does.
 - **the difference from air temperature cannot separate the two.** Over a full day of five groups,

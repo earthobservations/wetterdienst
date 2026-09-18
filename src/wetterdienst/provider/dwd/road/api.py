@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 import re
 from dataclasses import dataclass
@@ -277,6 +278,15 @@ _QUALITY_BITS = {
 _STUCK_PARAMETERS = ("airTemperature", "dewpointTemperature", "roadSurfaceTemperature")
 _STUCK_RUN = 24
 
+#: and the time those readings have to cover: what they cover at the quarter hour this network
+#: publishes on, which is 23 intervals of it rather than 24, the first reading standing at zero.
+#:
+#: The count alone was measured there, so a station reporting more often would trip it on less
+#: evidence than the measurement was taken from -- a working sensor having held one value for 14
+#: readings, three and a half hours. A floor and not a divisor: a station reporting less often
+#: still trips on the count, 24 readings half an hour apart covering half a day
+_STUCK_MIN_SPAN = dt.timedelta(minutes=15) * (_STUCK_RUN - 1)
+
 #: how much larger than a station's own usual interval a gap has to be before it ends a run. A run
 #: is what a sensor did without moving, and that cannot be read across a window where nothing was
 #: published: twelve readings, three days of nothing and twelve more are not a six-hour run.
@@ -310,6 +320,15 @@ _STUCK_GAP_FACTOR = 4
 #: both of them carrying DWD's own bit 7 besides
 _MELTING_POINT = 273.15
 _MELTING_PLATEAU = 0.05
+
+#: how far below freezing a treated road's plateau can sit. German roads are salted, and brine
+#: depresses the freezing point -- so a salted road in a thaw is pinned at a constant sub-zero
+#: surface temperature for as long, and by the same physics, as an untreated one is pinned at
+#: 0.00 C. Rock salt works to about -8 C in practice, so ten degrees covers it with room.
+#:
+#: Bounded rather than open: it is what keeps a sensor stopped at -30 C in a frost from being
+#: excused, that being 30 degrees below a freezing point no brine reaches
+_MELTING_BRINE_DEPRESSION = 10.0
 _MELTING_AIR_MARGIN = 10.0
 
 
@@ -353,6 +372,11 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     )
     marked = (
         readings.join(air, on=["station_id", "date"], how="left")
+        # sorted after the join and not only before it: the run below reads each row against the
+        # one before it, and `join` promises nothing about the order it returns. Left unsorted, a
+        # reordering would put a negative interval among the gaps and so drag their median under
+        # every ordinary one, ending a run at every reading and answering that nothing had stopped
+        .sort(*keys, "date")
         .with_columns(
             # a run breaks where the value changes and where the readings stop for longer than
             # this station usually leaves between them: a gap is not evidence that the sensor held
@@ -368,7 +392,12 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
             .cum_sum()
             .over(keys),
         )
-        .with_columns(_stuck=pl.len().over(*keys, "_run").ge(_STUCK_RUN))
+        .with_columns(
+            _stuck=pl.len().over(*keys, "_run").ge(_STUCK_RUN)
+            & (pl.col("date").max().over(*keys, "_run") - pl.col("date").min().over(*keys, "_run")).ge(
+                _STUCK_MIN_SPAN,
+            ),
+        )
         .with_columns(
             _stuck=pl.col("_stuck")
             & pl.col("parameter").is_in(_STUCK_PARAMETERS)
@@ -377,7 +406,8 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
             # melting on a road whose own air is at 26 C
             & ~(
                 pl.col("parameter").eq("roadSurfaceTemperature")
-                & pl.col("value").sub(_MELTING_POINT).abs().le(_MELTING_PLATEAU)
+                & pl.col("value").le(_MELTING_POINT + _MELTING_PLATEAU)
+                & pl.col("value").ge(_MELTING_POINT - _MELTING_BRINE_DEPRESSION)
                 & pl.col("_air").le(_MELTING_POINT + _MELTING_AIR_MARGIN).fill_null(value=True)
             ),
         )
@@ -401,7 +431,14 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
         df.with_row_index("_row")
         .join(marked, on=["station_id", "parameter", "date"], how="left")
         .sort("_row")
-        .with_columns(quality=pl.when(pl.col("_stuck")).then(pl.lit(1.0)).otherwise(pl.col("quality")))
+        # and only where there is a reading to judge, as the parse itself does: a station-minute
+        # arriving twice, once with the reading and once with a null for this descriptor, would
+        # otherwise have the null marked suspect too
+        .with_columns(
+            quality=pl.when(pl.col("_stuck") & pl.col("value").is_not_null())
+            .then(pl.lit(1.0))
+            .otherwise(pl.col("quality")),
+        )
         .select(df.columns)
     )
 
