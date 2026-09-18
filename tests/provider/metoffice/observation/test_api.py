@@ -141,10 +141,13 @@ def _fake_jwt(exp: float) -> str:
 
 def test_ceda_token_is_cached_until_expiry(monkeypatch: pytest.MonkeyPatch) -> None:
     """The CEDA token is minted once and reused from cache until shortly before its ``exp`` claim."""
+    import json  # noqa: PLC0415
     import time  # noqa: PLC0415
+    from io import BytesIO  # noqa: PLC0415
 
     from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
     from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
 
     creds = ("user", "pass")
     download._TOKEN_CACHE.clear()  # noqa: SLF001
@@ -152,17 +155,12 @@ def test_ceda_token_is_cached_until_expiry(monkeypatch: pytest.MonkeyPatch) -> N
 
     calls = {"n": 0}
 
-    def _fake_post(*_args: object, **_kwargs: object) -> object:
+    def _fake_post(*_args: object, **_kwargs: object) -> File:
         calls["n"] += 1
+        body = json.dumps({"access_token": _fake_jwt(time.time() + 3 * 24 * 3600)}).encode()
+        return File(url=download._TOKEN_URL, content=BytesIO(body), status=200)  # noqa: SLF001
 
-        class _Resp:
-            def raise_for_status(self) -> None: ...
-            def json(self) -> dict:
-                return {"access_token": _fake_jwt(time.time() + 3 * 24 * 3600)}
-
-        return _Resp()
-
-    monkeypatch.setattr(download.httpx, "post", _fake_post)
+    monkeypatch.setattr(download, "post_file", _fake_post)
 
     first = download.get_ceda_token(settings)
     second = download.get_ceda_token(settings)
@@ -196,25 +194,42 @@ def test_ceda_token_missing_credentials_returns_none() -> None:
 def test_ceda_token_bad_response_returns_none(body: object, monkeypatch: pytest.MonkeyPatch) -> None:
     """A 200 whose body is not usable JSON with an access_token is an auth failure, not a crash."""
     import json  # noqa: PLC0415
+    from io import BytesIO  # noqa: PLC0415
 
     from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
     from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
 
     download._TOKEN_CACHE.clear()  # noqa: SLF001
 
-    def _fake_post(*_args: object, **_kwargs: object) -> object:
-        class _Resp:
-            def raise_for_status(self) -> None: ...
-            def json(self) -> object:
-                if isinstance(body, str):
-                    return json.loads(body)  # invalid JSON raises JSONDecodeError, like httpx does
-                return body
+    def _fake_post(*_args: object, **_kwargs: object) -> File:
+        payload = body.encode() if isinstance(body, str) else json.dumps(body).encode()
+        return File(url=download._TOKEN_URL, content=BytesIO(payload), status=200)  # noqa: SLF001
 
-        return _Resp()
-
-    monkeypatch.setattr(download.httpx, "post", _fake_post)
+    monkeypatch.setattr(download, "post_file", _fake_post)
     assert download.get_ceda_token(Settings(auth={"ceda": "user:pass"})) is None
     download._TOKEN_CACHE.clear()  # noqa: SLF001
+
+
+def test_ceda_token_failed_exchange_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A token exchange that never reached CEDA is "not authenticated", not a crash, and not cached."""
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+
+    def _fake_post(*_args: object, **_kwargs: object) -> File:
+        return File(
+            url=download._TOKEN_URL,  # noqa: SLF001
+            content=NoInternetError("Cannot connect to host services.ceda.ac.uk:443"),
+            status=503,
+        )
+
+    monkeypatch.setattr(download, "post_file", _fake_post)
+    assert download.get_ceda_token(Settings(auth={"ceda": "user:pass"})) is None
+    assert not download._TOKEN_CACHE  # noqa: SLF001
 
 
 def test_ceda_token_valid_until_falls_back_on_unreadable_payload() -> None:

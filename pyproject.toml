@@ -216,7 +216,6 @@ radarplus = [
 ]
 restapi = [
     "fastapi>=0.115,<1",
-    "httpx>=0.27,<1",
     "uvicorn[standard]>=0.30,<1",
 ]
 sql = [
@@ -375,7 +374,6 @@ scikit-learn = "sklearn"
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
-    "httpx",
     "kaleido",
     "mysqlclient",
     "pandas",
