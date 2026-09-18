@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
@@ -28,7 +29,7 @@ from wetterdienst.util.eccodes import require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 if TYPE_CHECKING:
-    import pandas as pd
+    from collections.abc import Collection, Iterable
 
     from wetterdienst.settings import Settings
 
@@ -177,9 +178,10 @@ TEMPORARILY_UNAVAILABLE_STATION_GROUPS = [
 ]
 
 
-#: what identifies one reading: a station and the minute it reported. Both column batches are read
-#: against these and joined on them
-_READING_KEYS = (*TIME_COLUMNS, "shortStationName")
+#: `pdbufr`'s flat read names every value by its rank in the message -- `#1#airTemperature`, and
+#: for a station carrying two road sensors `#1#roadSurfaceTemperature` beside
+#: `#2#roadSurfaceTemperature`. The rank is what names the sensor
+_RANKED_KEY = re.compile(r"^#(\d+)#(.+)$")
 
 #: the shape `__parse_dwd_road_weather_data` returns, named so that a file holding nothing can be
 #: returned in it and still concatenate with the files that hold something
@@ -192,91 +194,226 @@ _PARSED_SCHEMA = {
 }
 
 
-def _read_batch(path: str, batch: list[str], source: str) -> pd.DataFrame:
-    """Read one batch of columns, as one row per station and minute.
+def _columns_by_rank(columns: Iterable[str], wanted: Collection[str]) -> dict[str, dict[int, str]]:
+    """Group a flat read's columns by the descriptor they carry, keyed by rank.
 
-    `read_bufr` emits an observation only where every column asked for is present, which is its
-    default and was ours. A road file holds one subset per station carrying the descriptors that
-    station has, so asking for fourteen and keeping only the complete ones threw away every
-    reading of anything not universally fitted: of one file of the DD group, the parse returned
-    105 values where the file held 121, the whole of `roadSurfaceTemperature` among the missing.
-
-    Required of the keys instead -- a station and a minute, which every subset carries -- each
-    subset comes back as its own row, holding its own part of the station's reading. Those parts
-    are one reading, so they are folded back together on the keys, `first` taking the value that
-    is there over the ones that are not.
-
-    Where two subsets both carry a value for the same descriptor, the earlier one wins and the
-    later is dropped. They repeat each other constantly, and whether the repeats agree depends on
-    the group -- over the last five files of each, DD had 261 repeated descriptors and no
-    disagreement at all, where FN had 54 disagreements in 270 and HV 56 in 425. Nor are those
-    rounding: `roadSurfaceTemperature` for station P129 came back as both 281.55 K and 304.65 K,
-    which is 8 degrees and 31, and `roadSurfaceCondition` -- a code table, so a difference in kind
-    rather than in degree -- as both 0 and 2.
-
-    A station with two road sensors reports each of them, and this frame has nowhere to put the
-    second: one row per station, minute and parameter, with no axis for which sensor spoke. So one
-    is taken and the other is logged. That is where this stood before the reads were relaxed too
-    -- the cross product of the old inner merge was collapsed just as arbitrarily one step later,
-    by `unique` in `_process_dataset`. Telling them apart would take a discriminator, and no
-    obvious one holds: `positionOfRoadSensors` reads 0 for both subsets of the stations measured,
-    `subsetNumber` comes back as the whole file's numbering rather than the row's, and
-    `road_sector` sits in the station index, one row per station, so it names where the station is
-    and not which of its sensors spoke. Finding one is the first part of the problem rather than
-    the easy part, and is tracked in GH-1908.
+    `#1#roadSurfaceTemperature` and `#2#roadSurfaceTemperature` become one entry holding both, so
+    that what replicates can be told from what does not by asking how many ranks it has.
     """
-    import pandas as pd  # noqa: PLC0415
-    import pdbufr  # noqa: PLC0415
+    by_name: dict[str, dict[int, str]] = {}
+    for column in columns:
+        match = _RANKED_KEY.match(column)
+        if not match:
+            continue
+        rank, name = int(match.group(1)), match.group(2)
+        if name in wanted:
+            by_name.setdefault(name, {})[rank] = column
+    return by_name
 
-    columns = (*_READING_KEYS, *batch)
-    df = pdbufr.read_bufr(path, columns=columns, required_columns=_READING_KEYS)
-    if df.empty:
-        # the file's messages decode to no subsets at all, which the size filter upstream tries to
-        # catch by length and cannot do reliably. It comes back carrying its columns even so: the
-        # merge then has keys to join on and the select has columns to name, so having nothing to
-        # say is the same shape here as having something, and neither caller needs a branch for it.
-        # Said by the caller rather than here: both batches are read with the same
-        # `required_columns` and so answer alike, which made a file that decodes to nothing say so
-        # twice over, once per batch and each naming its descriptors
-        # with the keys typed as they come back populated: merging them against a batch that did
-        # find something is only otherwise allowed because pandas reads an all-empty object column
-        # as dtype "empty" and lets it pass, which is a leniency rather than a promise
-        empty = {key: pd.Series(dtype="int64") for key in TIME_COLUMNS}
-        empty["shortStationName"] = pd.Series(dtype="object")
-        empty.update({column: pd.Series(dtype="object") for column in batch})
-        return pd.DataFrame(empty)
-    keys = list(_READING_KEYS)
-    grouped = df.groupby(keys)
-    # of the batch, only what the read returned: a descriptor no subset carries is not a column
-    # here at all, which is the same reason the parse fills them in further down
-    present = [column for column in batch if column in df.columns]
-    # a station reporting the same quantity twice and differently has two road sensors, and only
-    # one of them fits in a frame with a row per station, minute and parameter. Which one is kept
-    # is arbitrary; that the other existed is not, so it is said rather than swallowed. At debug,
-    # because it is per file and routine -- HV disagrees in nearly every one, so a month of road
-    # data is a few thousand of these and the CLI logs at info by default. What the fold does is
-    # in the docstring above and in GH-1908, which is where someone would look; this line is for
-    # the run where they want to know which stations, and when
-    # asked only when it will be said: this is a groupby per file and per batch, about a tenth of
-    # what the read itself costs, and it exists to write the line below and nothing else
-    if log.isEnabledFor(logging.DEBUG):
-        counts = grouped[present].nunique(dropna=True)
-        disagreeing = counts.columns[counts.gt(1).any()]
-        if len(disagreeing):
-            # the stations too, not only the descriptors: `first` is taken per column, so a row of
-            # a station that reports twice may hold one sensor's air temperature beside the other's
-            # road surface temperature -- a reading no sensor took. Naming them is what lets a
-            # caller find the rows rather than only learn that some exist.
-            # Inside the gate that binds `counts`, rather than beside it on the strength of
-            # `disagreeing` being empty otherwise: read from out here it is a `NameError` waiting
-            # for the first station that disagrees, on a path no test without debug logging runs
-            stations = counts.index[counts[disagreeing].gt(1).any(axis=1)].get_level_values(-1)
-            log.debug(
-                f"{source} reports {', '.join(sorted(disagreeing))} with more than one value for "
-                f"one station and minute at "
-                f"{', '.join(sorted(set(stations)))}; keeping the first of each (GH-1908)",
-            )
-    return grouped.first().reset_index()
+
+def _identity(columns: dict[int, str]) -> pl.Expr:
+    """Read a key that identifies a reading -- its station, or one part of its minute.
+
+    Rank 1 is not promised. A key absent from a file's first subset and present in a later one is
+    numbered from where it appears, and a file whose messages do not agree on their structure --
+    which is every road file, and what the read's own warning is about -- can carry one subset's
+    station at `#1#` and the next one's at `#2#`. Taken from the lowest rank alone, every subset
+    numbered otherwise loses its station and is dropped for having none.
+
+    Coalesced instead, because these occur once per subset: whichever rank a row carries it at is
+    the one it has, and there is no second value for the coalesce to choose wrongly between.
+    """
+    return pl.coalesce([pl.col(column) for _rank, column in sorted(columns.items())])
+
+
+def _contested(columns: dict[int, str]) -> pl.Expr:
+    """Whether more than one road sensor reported this descriptor for the row.
+
+    Contested is the only case that needs deciding, and two sensors reporting the same number are
+    not deciding anything: of the 36 readings one populated group's file reports twice, 25 are
+    identical to the one kept. Counted as contests they would inflate what the log says was
+    dropped, and credit a sensor in the choice below for settling a question nobody asked.
+
+    Two sensors reporting different quantities are not a contest either -- the whole of the DD
+    group, where one carries the surface temperature and the other the surface condition -- and
+    taking both composes a row the way every row in this library is composed, out of the several
+    instruments a station is fitted with.
+    """
+    # cast, as the readings themselves are: a descriptor no subset of the file carries comes back
+    # from pandas as a column of nulls typed as strings, and coalescing that beside a float column
+    # makes both strings, which will not compare
+    order = [pl.col(column).cast(pl.Float64) for _rank, column in sorted(columns.items())]
+    reported = pl.sum_horizontal([column.is_not_null().cast(pl.Int32) for column in order])
+    # more than one reading, and not all of them the same
+    first = pl.coalesce(order)
+    differs = pl.any_horizontal([column.ne(first) for column in order])
+    return reported.gt(1) & differs.fill_null(value=False)
+
+
+def _sensor_choice(replicated: dict[str, dict[int, str]], ranks: list[int]) -> pl.Expr:
+    """Name the sensor a row is answered from: most contests settled, then most reported.
+
+    Two questions in one order. First, which sensor settles the most of what this row has twice --
+    a sensor carrying nothing contested cannot answer a contest, and counting everything it does
+    carry would let it win one. Then, among sensors that settle as many, which reported the most
+    altogether: where two both answer one contest and only one of them also took a temperature, the
+    fuller sensor gives a row that is wholly its own, where the other leaves a reading to be
+    fetched from elsewhere.
+
+    The two are weighed as one score rather than in sequence, a contest being worth more than the
+    four quantities a sensor can report, so that no amount of the second outweighs the first.
+
+    The first sensor on a tie, which is the ordinary case -- two sensors fitted alike report the
+    same three quantities, so neither count separates them and the order DWD encodes them in is the
+    only thing left. Arbitrary between the two, but fixed: the same file parses the same way twice,
+    and the reading that is dropped is named in the log rather than lost quietly. Fixed within a
+    row, that is, and not across them: a station with three sensors can be answered from one at
+    noon and another at a quarter past, which a caller reading a series should know.
+    """
+    contested = {name: _contested(columns) for name, columns in replicated.items()}
+    # more than any count of reported quantities can reach, so a contest settled always outweighs
+    # a quantity merely reported
+    if not replicated or not ranks:
+        # nothing in this file is reported twice, so there is no sensor to name
+        return pl.lit(None, dtype=pl.Int32)
+    contest_weight = len(replicated) + 1
+    scores = []
+    for rank in ranks:
+        mine = [(name, columns[rank]) for name, columns in replicated.items() if rank in columns]
+        settles = pl.sum_horizontal(
+            [pl.when(contested[name] & pl.col(column).is_not_null()).then(1).otherwise(0) for name, column in mine]
+            or [pl.lit(0, dtype=pl.Int32)],
+        )
+        reported = pl.sum_horizontal(
+            [pl.col(column).is_not_null().cast(pl.Int32) for _name, column in mine] or [pl.lit(0, dtype=pl.Int32)],
+        )
+        scores.append(settles * contest_weight + reported)
+    # the best score, then the first rank holding it. Written as one horizontal maximum and a
+    # coalesce rather than as a running maximum: carrying the winner so far from rank to rank
+    # names it twice per step, once to compare against and once to keep, so the expression doubles
+    # with every sensor -- 0.02s to build and run for two of them, 0.14 for four, 13.5 for eight,
+    # where a station fitted with eight makes every file of its group pay that. Stations with four
+    # are already published
+    best = pl.max_horizontal(scores)
+    return pl.coalesce(
+        [
+            pl.when(score.eq(best) & best.gt(0)).then(pl.lit(rank, dtype=pl.Int32))
+            for rank, score in zip(ranks, scores, strict=True)
+        ],
+    )
+
+
+def _reading(name: str, columns: dict[int, str], chosen: pl.Expr) -> pl.Expr:
+    """One descriptor's value for a row.
+
+    From the chosen sensor wherever that sensor reported it, so that what the row has twice is
+    settled once and it does not pair one sensor's surface temperature against another's surface
+    condition. Where the chosen sensor reported nothing, the first sensor that did stands instead:
+    that is the whole of a row with nothing contested, and it is also the only answer left where
+    three sensors contest different quantities and the one settling this row's contests never took
+    this reading. So the row is one sensor's wherever the question arose, and not a promise that
+    every number in it came from the same instrument.
+    """
+    if not columns:
+        return pl.lit(None, dtype=pl.Float64).alias(name)
+    if len(columns) == 1:
+        return pl.col(next(iter(columns.values()))).cast(pl.Float64).alias(name)
+    order = sorted(columns.items())
+    from_chosen = pl.coalesce(
+        [pl.when(chosen.eq(rank)).then(pl.col(column).cast(pl.Float64)) for rank, column in order]
+    )
+    as_reported = pl.coalesce([pl.col(column).cast(pl.Float64) for _, column in order])
+    # the chosen sensor's reading, falling back to the first that reported one. The fallback is
+    # what answers a row with nothing contested, `chosen` being null there and the first reading
+    # the only one. It also answers the case that row cannot: with three sensors, the one carrying
+    # this row's contests need not carry this descriptor at all, and then there is nothing of the
+    # chosen sensor's to pair against -- which is not a reason to lose the reading, only a reason
+    # it cannot come from the chosen sensor
+    return pl.coalesce([from_chosen, as_reported]).alias(name)
+
+
+def _one_row_per_reading(rows: pl.DataFrame, source: str) -> pl.DataFrame:
+    """Keep a station and minute to one row, folding a repeat onto the readings it is missing.
+
+    A road file holds one subset per station -- 1199 subsets of fifteen groups, and not one station
+    twice -- so this ordinarily does nothing but ask. What it guards is the file that does: the
+    batched read folded a station-minute with `first`, which prefers a reading to a null, where one
+    row per subset leaves two rows for the caller and the deduplication every provider passes
+    through afterwards keeps whichever came first, null or not. A repeat would then cost the
+    reading rather than the duplicate, quietly, on the way out.
+
+    Asked with a count rather than answered with a fold, the fold being the per-file cost this
+    parse was rewritten to drop and a repeat being something no published file has yet done.
+    """
+    keys = ["station_id", "date"]
+    if rows.height == rows.select(keys).n_unique():
+        return rows
+    log.warning(
+        f"{source} reports {rows.height - rows.select(keys).n_unique()} station-minutes more than "
+        f"once, which no road file has been seen to do; folding each onto the first reading of it",
+    )
+    return rows.group_by(keys, maintain_order=True).agg(pl.exclude(keys).drop_nulls().first())
+
+
+def _kept_rank(columns: dict[int, str], chosen: pl.Expr) -> pl.Expr:
+    """Which sensor a descriptor's reading comes from, mirroring `_reading`'s own answer."""
+    order = sorted(columns.items())
+    from_chosen = pl.coalesce(
+        [
+            pl.when(chosen.eq(rank) & pl.col(column).is_not_null()).then(pl.lit(rank, dtype=pl.Int32))
+            for rank, column in order
+        ],
+    )
+    as_reported = pl.coalesce(
+        [pl.when(pl.col(column).is_not_null()).then(pl.lit(rank, dtype=pl.Int32)) for rank, column in order],
+    )
+    return pl.coalesce([from_chosen, as_reported])
+
+
+def _log_dropped_sensors(
+    df: pl.DataFrame,
+    ranked: dict[str, dict[int, str]],
+    replicated: dict[str, dict[int, str]],
+    ranks: list[int],
+    chosen: pl.Expr,
+    source: str,
+) -> None:
+    """Say which stations reported one quantity from two road sensors, and how much went.
+
+    At debug, because it is per file and routine -- a tenth of the stations of a populated group
+    carry a second sensor, so a month of road data is thousands of these and the CLI logs at info.
+    What the choice is and why is in `__parse_dwd_road_weather_data` and in GH-1908, which is where
+    someone would look; this is for the run where they want to know which stations, and when.
+    """
+    contested = {name: _contested(columns) for name, columns in replicated.items()}
+    # against the rank the reading actually comes from, which is not always the chosen sensor:
+    # where that sensor did not report a descriptor, `_reading` falls back to the first that did,
+    # and counting every rank but the chosen one called that fallback lost while it was being kept
+    kept = {name: _kept_rank(columns, chosen) for name, columns in replicated.items()}
+    lost = pl.sum_horizontal(
+        [
+            pl.when(contested[name] & pl.col(columns[rank]).is_not_null() & kept[name].ne(rank)).then(1).otherwise(0)
+            for name, columns in replicated.items()
+            for rank in ranks
+            if rank in columns
+        ],
+    )
+    dropped = df.select(
+        _identity(ranked["shortStationName"]).cast(pl.String).alias("station"),
+        lost.alias("lost"),
+    ).filter(pl.col("lost").gt(0) & pl.col("station").is_not_null())
+    if dropped.is_empty():
+        return
+    # distinct stations: a file carries one minute today, so a row is a station -- but the fold
+    # above exists because one need not, and then this counted station-minutes and could name the
+    # same station twice in the sample
+    stations = sorted(dropped.get_column("station").unique().to_list())
+    log.debug(
+        f"{source}: {len(stations)} stations reported the same quantity from more than one road "
+        f"sensor ({', '.join(stations[:5])}{', ...' if len(stations) > 5 else ''}); answered from "
+        f"the one carrying most of {', '.join(sorted(replicated))}, dropping "
+        f"{dropped.get_column('lost').sum()} readings from the others (GH-1908)",
+    )
 
 
 class DwdRoadValues(TimeseriesValues):
@@ -288,6 +425,9 @@ class DwdRoadValues(TimeseriesValues):
         # asked here so the answer comes back with the request rather than out of the middle of a
         # parse. It used to call `ensure_pdbufr()` and throw the answer away, which guarded nothing
         require_bufr("DWD road weather data")
+        # the group parsed for the station asked about before this one, and the key it answers for.
+        # See `_collect_data_by_station_group`
+        self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame] | None = None
 
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
@@ -379,7 +519,37 @@ class DwdRoadValues(TimeseriesValues):
         road_weather_station_group: DwdRoadStationGroup,
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
-        """Collect data from DWD Road Weather stations."""
+        """Collect data from DWD Road Weather stations, once per group rather than per station.
+
+        A road file holds a whole station group, where the collection above it asks for one station
+        at a time -- so every file of a group was read, decoded and built into a frame once per
+        station of that group, and all but one station's rows thrown away each time. Three stations
+        of one group over two hours parsed nine files twenty-seven times. The files themselves come
+        from the cache; what was repeated is the BUFR decode, which is the expensive half.
+
+        One group is kept, not all of them. Stations arrive in group order -- 1653 of them across 19
+        groups change group 21 times -- so holding the last is worth almost exactly what holding
+        every one would be, 22 parses against 19, and it bounds what this keeps to a single group's
+        readings rather than to every group a request touches. A month of one group is some
+        thirteen million rows, so that difference is the whole of whether a wide request fits in
+        memory.
+
+        Keyed by the parameters as well as the group: a caller asking for two datasets would
+        otherwise be answered for the second from a frame parsed for the first.
+        """
+        key = (road_weather_station_group.value, tuple(parameter.name_original for parameter in parameters))
+        if self._group_cache is not None and self._group_cache[0] == key:
+            return self._group_cache[1]
+        df = self.__collect_data_by_station_group(road_weather_station_group, parameters)
+        self._group_cache = (key, df)
+        return df
+
+    def __collect_data_by_station_group(
+        self,
+        road_weather_station_group: DwdRoadStationGroup,
+        parameters: list[ParameterModel],
+    ) -> pl.DataFrame:
+        """Read every file the group published for the window."""
         df_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
         if self.sr.start_date:
             df_files = df_files.filter(
@@ -415,52 +585,143 @@ class DwdRoadValues(TimeseriesValues):
         file: File,
         parameters: list[ParameterModel],
     ) -> pl.DataFrame:
-        """Read the road weather station data from a given file and returns a DataFrame."""
+        """Read one road file as one row per station, minute and parameter.
+
+        A road file holds one subset per station -- 1199 subsets across fifteen groups, and no
+        station appeared in two of them -- and the road sensors sit inside that subset as a delayed
+        replication: `1 09 000` and `0 31 001` wrapping `positionOfRoadSensors`,
+        `roadSurfaceTemperature`, the sub-surface temperatures at their depths, `waterFilmThickness`
+        and `roadSurfaceCondition`. A station with two sensors carries that group twice, and one
+        with four carries it four times.
+
+        Read flat, the replication comes back as the rank on the key -- `#1#roadSurfaceTemperature`
+        beside `#2#roadSurfaceTemperature` -- and the rank is what names the sensor. Nothing else
+        does: `positionOfRoadSensors` reads 0 or missing in all 1199 subsets, and `road_sector` is
+        in the station index, one row per station, so it says where the station is rather than
+        which of its sensors spoke.
+
+        So only what is inside that replication can arrive twice. Of the fourteen descriptors this
+        dataset maps, three do -- the surface temperature, the surface condition and the water film
+        -- and the other eleven, air temperature and dew point and humidity and visibility and the
+        wind and the precipitation among them, are outside it and come once per station. A row can
+        therefore never hold one sensor's air temperature beside another's road surface temperature,
+        there being only ever one air temperature to hold.
+
+        Two sensors are two things, and which of the two a station is doing can be read off what
+        they reported. Where they carry the same quantity they are measuring one road twice, from
+        different points of it. They mostly agree closely -- of 75 stations whose sensors both
+        reported a surface temperature, the median disagreement was 0.3 K and 97 in 100 were inside
+        3 K -- so which one answers rarely changes the reading. Two of the 75 were nothing like
+        that, at 22 K and 18 K, and both were a broken sensor rather than a property of the road:
+        one stuck at 273.14 K for a whole day of readings, the other running some 22 K hot while
+        keeping a normal daily swing. The network carries such readings at about one station in
+        forty, on stations with one sensor as much as two, and none of that is decided here: a
+        sensor has to be chosen, everything contested is then taken from that one so the row is a
+        road rather than an average of two, and where the two disagree wildly the choice is the
+        rank order and nothing better. This library does not judge whether a reading is plausible,
+        here or anywhere else.
+
+        Where they carry different quantities they are two instruments of one installation -- the
+        whole of the DD group, where the first sensor holds the surface temperature and the second
+        the surface condition, for 24 of its 25 stations. Nothing is contested there, so both are
+        kept: composing that row is what this library does with every station, whose air temperature
+        and wind and humidity are three instruments already.
+
+        What is dropped is only ever a reading that a station reported twice and differently, which
+        is 36 of a populated group's file, and it is named in the log. Keeping those would want an
+        axis this frame has not got, which is GH-1908.
+        """
+        import pdbufr  # noqa: PLC0415
+
         parameter_names = [parameter.name_original for parameter in parameters]
-        first_batch = parameter_names[:10]
-        second_batch = parameter_names[10:]
         with NamedTemporaryFile("w+b") as tf:
             if isinstance(file.content, Exception):
                 raise file.content
             tf.write(file.content.read())
             tf.seek(0)
-            df = _read_batch(tf.name, first_batch, file.url)
-            if second_batch:
-                # outer, so a station that answered one read and not the other keeps what it did
-                # say, with nulls for the rest
-                df2 = _read_batch(tf.name, second_batch, file.url)
-                df = df.merge(df2, on=list(_READING_KEYS), how="outer")
-        if df.empty:
+            # pdbufr warns here that the file's subsets do not all carry the same keys, which for
+            # this network is every file -- road stations are fitted differently, so one carries a
+            # second sensor where the next does not. It warns about the column order it returns
+            # them in, and nothing below reads a column by position. It is left to reach the caller
+            # rather than filtered: Python shows it once per process whatever the request asks for,
+            # and suppressing it means editing the process's global warning filters, which are not
+            # this library's to edit -- it would go on suppressing the same warning for anything
+            # else reading BUFR alongside it
+            #
+            # "data", so the read returns the message's values and not its header too: the
+            # twenty-one header keys of a road file are read, converted and dropped again, being
+            # none of the fourteen this parse is after
+            #
+            # and every data key rather than the fourteen: flat, a read that names its columns
+            # returns the first rank of each and drops the rest, which is the sensor thrown away
+            # before anything can choose between them
+            # "data", so the read returns the message's values and not its header too: the
+            # twenty-one header keys of a road file are read, converted and dropped again, being
+            # none of the fourteen this parse is after
+            #
+            # and every data key rather than the fourteen: flat, a read that names its columns
+            # returns the first rank of each and drops the rest, which is the sensor thrown away
+            # before anything can choose between them
+            df = pdbufr.read_bufr(tf.name, "data", flat=True)
+        ranked = _columns_by_rank(df.columns, {*TIME_COLUMNS, "shortStationName", *parameter_names})
+        # a file whose messages decode to no subsets comes back with no columns at all, and one
+        # that decodes to subsets carrying no station is as unreadable. Either is nothing to
+        # answer with rather than something to fail on -- the group published, and what it
+        # published held no readings
+        if df.empty or not {"shortStationName", *TIME_COLUMNS} <= ranked.keys():
             log.info(f"{file.url} holds no readings")
+            return pl.DataFrame(schema=_PARSED_SCHEMA)
         df = pl.from_pandas(df)
-        # a descriptor no subset in the file carries is not a column at all, so the select below
-        # would ask for one that is not there. Absent is null, the same as present and unreported
-        df = df.with_columns(
-            pl.lit(None, dtype=pl.Float64).alias(name) for name in parameter_names if name not in df.columns
-        )
-        df = df.select(
-            pl.col("shortStationName").alias("station_id"),
-            pl.concat_str(
-                exprs=[
-                    pl.col("year").cast(pl.String),
-                    pl.col("month").cast(pl.String).str.pad_start(2, "0"),
-                    pl.col("day").cast(pl.String).str.pad_start(2, "0"),
-                    pl.col("hour").cast(pl.String).str.pad_start(2, "0"),
-                    pl.col("minute").cast(pl.String).str.pad_start(2, "0"),
-                ],
+        replicated = {name: columns for name, columns in ranked.items() if name in parameter_names and len(columns) > 1}
+        ranks = sorted({rank for columns in replicated.values() for rank in columns})
+        chosen = _sensor_choice(replicated, ranks)
+        if replicated:
+            # worked out once and held as a column, rather than handed on as an expression for
+            # every reading and every log term to carry a copy of. The choice names each rank's
+            # score, so re-embedding it once per rank per descriptor cubes it: eight sensors cost
+            # 1.2s a file that way against 0.05 held as a column, and the cost falls on every file
+            # of the group, not only on the station fitted with them
+            df = df.with_columns(_chosen=chosen)
+            chosen = pl.col("_chosen")
+        if replicated and log.isEnabledFor(logging.DEBUG):
+            _log_dropped_sensors(df, ranked, replicated, ranks, chosen, file.url)
+        rows = (
+            df.select(
+                _identity(ranked["shortStationName"]).cast(pl.String).alias("station_id"),
+                pl.concat_str(
+                    exprs=[
+                        # through `Int64` rather than straight to `String`: a subset that carries
+                        # no minute makes the whole of pandas' column a float, and 2026 written as
+                        # a float is "2026.0", which takes the timestamp of every station in the
+                        # file with it. Not strict, so a key that is somehow not a whole number is
+                        # a null date and one dropped reading rather than a failed request
+                        _identity(ranked[name])
+                        .cast(pl.Int64, strict=False)
+                        .cast(pl.String)
+                        .str.pad_start(4 if name == "year" else 2, "0")
+                        for name in TIME_COLUMNS
+                    ],
+                )
+                .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
+                .alias("date"),
+                # a descriptor no subset in the file carries is not a column of the read at all,
+                # and is null here for the same reason a station that did not report it is: absent
+                # and unreported are the same thing to a caller
+                *(_reading(name, ranked.get(name, {}), chosen) for name in parameter_names),
             )
-            .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
-            .alias("date"),
-            *parameter_names,
+            # what the read no longer filters: required of nothing but its own structure, a subset
+            # that names no station or no minute arrives like any other, and there is nowhere to
+            # put a reading that does not say where or when it was taken
+            .filter(pl.col("station_id").is_not_null() & pl.col("date").is_not_null())
         )
-        df = df.unpivot(
-            index=["station_id", "date"],
-            variable_name="parameter",
-            value_name="value",
-        )
-        return df.with_columns(
-            pl.col("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+        return (
+            _one_row_per_reading(rows, file.url)
+            .unpivot(
+                index=["station_id", "date"],
+                variable_name="parameter",
+                value_name="value",
+            )
+            .with_columns(pl.lit(None, dtype=pl.Float64).alias("quality"))
         )
 
 
