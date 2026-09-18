@@ -18,6 +18,34 @@ Types of changes:
 
 ### Added
 
+- DWD road: the `quality` column carries the station's own verdict on its sensors, where it was
+  null on every road reading. Each subset ends with `qualityInformationAwsData` (BUFR `0 33 005`), a
+  30-bit flag naming which of the station's quantities are suspect, and it was read and thrown away.
+  A reading is now `1` where the station checked it and calls it suspect, `0` where it checked and
+  does not, and null where nothing is known -- which is the common case rather than the exception,
+  817 of 1199 station-minutes measured reporting "no automated meteorological data checks performed"
+  and 40 carrying no flag at all. Null and not `0`, those saying the station did not look rather
+  than that it looked and was satisfied. Bit 7, "ground temperature data suspect", is the one this
+  was verified against: the four stations carrying it in a network-wide file are exactly the four
+  whose road surface temperature is impossible -- 65.6 C, 57.8 C, -0.7 C and 0.0 C against an air
+  temperature near 12 C -- and no station within 5 K of its own air temperature carries it. The
+  other bits follow the flag table's own wording. `road_surface_condition` is left null: the table
+  is the WMO's generic one for an automatic weather station and names no state of a road, its
+  nearest neighbour being about bare earth, so a reading with nothing to say about it gets a null
+  rather than a guess -- and `water_film_thickness` is left null for the same reason, "water
+  content" in a generic automatic weather station being the moisture in the ground. Bit 7 is
+  mapped because the data confirms that reading of it, not because its wording is close, and
+  nothing confirms those two: bit 19 is set nowhere at all, and the stations setting bit 21
+  reported the same film as everyone else. A wrong `0` would be worse than a null, telling a
+  caller filtering on quality that a suspect reading had been checked and found sound. A parameter
+  the station did not report is left null rather than answered 0 as well: one verdict covers the
+  station, and a clean bill of health says nothing whatever about the quantities it does not
+  measure -- and neither is a flag carrying only the table's own missing marker, the top bit of a
+  30-bit flag table, which read as a verdict said the station had checked and was satisfied. The
+  numbers are this network's own: `quality` carries whatever a source publishes and the scale
+  differs by provider, DWD observation putting `qn` codes there where a larger number means a more
+  thorough check, so the canonical description of the column says so now rather than promising one
+  meaning. GH-1917
 - Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON could not be written to a file
   at all; it holds the frame's records, with a list of station ids kept as a list since JSON has
   arrays, rather than the `{"metadata": ..., "values": [...]}` envelope a response carries. JSON
@@ -63,6 +91,19 @@ Types of changes:
 
 ### Changed
 
+- DWD road: the precipitation type is reported as `precipitation_type_flags` rather than
+  `precipitation_form`, being a different kind of number. `precipitationType` is BUFR `0 20 021`, a
+  30-bit *flag* table with a bit per type of precipitation, where `precipitation_form` everywhere
+  else in this library holds a single code from a table of its own -- DWD observation's `wrtr`,
+  documented as 0 for no precipitation and 6 for liquid. So rain came back from the road network as
+  `33554432`, bit 5 of a 30-bit field, against `wrtr`'s `6` for the same weather, under one
+  canonical name. The value is unchanged and still what DWD publishes; what changes is that it no
+  longer claims to be comparable with a code it shares nothing with. Decoding it into `wrtr`
+  instead would need a correspondence DWD has not published -- the flag table's twenty types would
+  have to collapse onto liquid, solid and unknown, and the freezing and depositional ones, glaze
+  and rime and clear ice, have no home there at all, which on a road weather network is the
+  distinction most worth keeping. The bit layout and how to mask for a type are on the provider's
+  docs page. GH-1916
 - Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes,
   but asks for any version at all, and the two were named as separate extras with the docs telling
   you to install both -- neither being any use without the other. The floor is the oldest release

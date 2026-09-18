@@ -35,6 +35,7 @@ export const parameters: Record<string, string> = {
   precipitation_height: 'Srážky',
   precipitation_height_max: 'Nejvyšší srážky',
   precipitation_form: 'Druh srážek',
+  precipitation_type_flags: 'Příznaky druhu srážek',
   precipitation_duration: 'Doba trvání srážek',
   precipitation_index: 'Indikátor srážek',
   sunshine_duration: 'Doba slunečního svitu',

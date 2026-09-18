@@ -35,6 +35,7 @@ export const parameters: Record<string, string> = {
   precipitation_height: 'Nidderschlag',
   precipitation_height_max: 'Héchsten Nidderschlag',
   precipitation_form: 'Nidderschlagsform',
+  precipitation_type_flags: 'Nidderschlagsform-Flags',
   precipitation_duration: 'Nidderschlagsdauer',
   precipitation_index: 'Nidderschlagsindikator',
   sunshine_duration: 'Sonnenscheindauer',

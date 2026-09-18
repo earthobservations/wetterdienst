@@ -63,7 +63,13 @@ DwdRoadMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_form",
+                            # not `precipitation_form`, which every other provider fills with a
+                            # single code from a table of its own -- DWD observation with `wrtr`,
+                            # whose 0 means no precipitation and 6 liquid. `precipitationType` is
+                            # BUFR 0 20 021, a 30-bit *flag* table with a bit per type, so rain
+                            # arrives as 33554432 where `wrtr` would say 6. Reported under the same
+                            # name the two would be one quantity with two incomparable encodings
+                            "name": "precipitation_type_flags",
                             "name_original": "precipitationType",
                             "unit": "dimensionless",
                         },
@@ -192,6 +198,82 @@ _PARSED_SCHEMA = {
     "value": pl.Float64,
     "quality": pl.Float64,
 }
+
+
+#: the station's own verdict on its sensors, BUFR 0 33 005, last descriptor of every road subset.
+#: A 30-bit flag table, and BUFR numbers a flag table's bits from the most significant end, so bit
+#: n of a 30-bit field is worth `1 << (30 - n)`
+QUALITY_FLAG = "qualityInformationAwsData"
+
+
+def _flag_bit(bit: int) -> int:
+    """Give the value bit `bit` of a 30-bit BUFR flag table takes when it is set."""
+    return 1 << (30 - bit)
+
+
+#: bit 1, "no automated meteorological data checks performed" -- the station saying it did not look
+#: rather than that it looked and found nothing. 817 of the 1199 subsets measured say this, so it
+#: is the ordinary answer and not an exception, and what it means for a reading is that its quality
+#: is unknown. Null, then, and not zero
+_QUALITY_UNCHECKED = _flag_bit(1)
+
+#: the top bit of a 30-bit flag table, which is how a BUFR flag table says it has nothing to
+#: report -- `0 20 021` spells it out as "ALL 30 MISSING VALUE" and this table's entries simply
+#: stop at 23, leaving the bit either that marker or undefined. Read as a verdict it would say the
+#: station checked and was satisfied, which is the one answer it certainly does not mean
+_QUALITY_MISSING = _flag_bit(30)
+
+#: which bit of the flag speaks for which descriptor. The table is the WMO's generic one for an
+#: automatic weather station and DWD writes the road quantities into it: bit 7, "ground temperature
+#: data suspect", is the one this was verified against -- the four stations carrying it in a
+#: network-wide file are exactly the four whose road surface temperature is impossible (65.6 C,
+#: 57.8 C, -0.7 C and 0.0 C against an air temperature near 12 C), and no station within 5 K of its
+#: own air temperature carries it. The others follow the table's own wording and are not
+#: contradicted by the data, though a single dry night cannot confirm them: nothing was reporting a
+#: water film to flag, and only one station flagged its dry bulb.
+#:
+#: `roadSurfaceCondition` and `waterFilmThickness` are deliberately absent, both being road
+#: descriptors of DWD's own (`0 20 241` and `0 13 241`) rather than quantities this table names. Its
+#: nearest offers are bit 19, "state of ground", which is about bare earth, and bit 21, "water
+#: content", which is the moisture in it. Bit 7 shows DWD does write road quantities into the
+#: table, but it is mapped here because the data confirms it and not because the wording is close,
+#: and neither of those two has anything to confirm it: bit 19 is set nowhere at all, and the 14
+#: stations setting bit 21 reported the same film as everyone else on a dry night. A wrong `0`
+#: there would be worse than a null, telling a caller filtering on quality that a suspect reading
+#: was checked and found sound
+_QUALITY_BITS = {
+    "windDirection": 3,
+    "windSpeed": 3,
+    "maximumWindGustDirection": 3,
+    "maximumWindGustSpeed": 3,
+    "airTemperature": 4,
+    # the table has no dew point. A road station carries one probe for temperature and humidity and
+    # computes the dew point from it, so the humidity's verdict is the dew point's too
+    "relativeHumidity": 6,
+    "dewpointTemperature": 6,
+    "roadSurfaceTemperature": 7,
+    "horizontalVisibility": 14,
+    "precipitationType": 18,
+    "totalPrecipitationOrTotalWaterEquivalent": 18,
+    "intensityOfPrecipitation": 18,
+}
+
+
+def _quality(flag: pl.Expr, bit: pl.Expr) -> pl.Expr:
+    """Read one reading's quality off the station's flag: 1 suspect, 0 checked and not, null unknown.
+
+    Three answers rather than two, because the flag distinguishes a station that checked and found
+    nothing wrong from one that did not check. Collapsing those onto zero would report the second
+    as a clean bill of health, which is the opposite of what it says.
+    """
+    unknown = flag.is_null() | bit.is_null() | (flag & _QUALITY_UNCHECKED).gt(0) | (flag & _QUALITY_MISSING).gt(0)
+    return (
+        pl.when(unknown)
+        .then(pl.lit(None, dtype=pl.Float64))
+        .when((flag & bit).gt(0))
+        .then(pl.lit(1.0))
+        .otherwise(pl.lit(0.0))
+    )
 
 
 def _columns_by_rank(columns: Iterable[str], wanted: Collection[str]) -> dict[str, dict[int, str]]:
@@ -330,6 +412,17 @@ def _reading(name: str, columns: dict[int, str], chosen: pl.Expr) -> pl.Expr:
     # chosen sensor's to pair against -- which is not a reason to lose the reading, only a reason
     # it cannot come from the chosen sensor
     return pl.coalesce([from_chosen, as_reported]).alias(name)
+
+
+def _flag(columns: dict[int, str]) -> pl.Expr:
+    """Take the station's quality flag for the row, as an integer to read bits out of.
+
+    A file whose stations carry no flag at all has no column for it, which is the same to a caller
+    as a station that carried one and left it empty: nothing is known about the reading either way.
+    """
+    if not columns:
+        return pl.lit(None, dtype=pl.Int64).alias("_flag")
+    return _identity(columns).cast(pl.Int64).alias("_flag")
 
 
 def _one_row_per_reading(rows: pl.DataFrame, source: str) -> pl.DataFrame:
@@ -663,7 +756,7 @@ class DwdRoadValues(TimeseriesValues):
             # returns the first rank of each and drops the rest, which is the sensor thrown away
             # before anything can choose between them
             df = pdbufr.read_bufr(tf.name, "data", flat=True)
-        ranked = _columns_by_rank(df.columns, {*TIME_COLUMNS, "shortStationName", *parameter_names})
+        ranked = _columns_by_rank(df.columns, {*TIME_COLUMNS, "shortStationName", QUALITY_FLAG, *parameter_names})
         # a file whose messages decode to no subsets comes back with no columns at all, and one
         # that decodes to subsets carrying no station is as unreadable. Either is nothing to
         # answer with rather than something to fail on -- the group published, and what it
@@ -704,6 +797,10 @@ class DwdRoadValues(TimeseriesValues):
                 )
                 .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
                 .alias("date"),
+                # the station's verdict on its own sensors, carried through the unpivot so that
+                # each reading can be told apart from the others it was reported beside. Outside
+                # the sensor replication, so one per station and minute however many sensors it has
+                _flag(ranked.get(QUALITY_FLAG, {})),
                 # a descriptor no subset in the file carries is not a column of the read at all,
                 # and is null here for the same reason a station that did not report it is: absent
                 # and unreported are the same thing to a caller
@@ -717,11 +814,30 @@ class DwdRoadValues(TimeseriesValues):
         return (
             _one_row_per_reading(rows, file.url)
             .unpivot(
-                index=["station_id", "date"],
+                index=["station_id", "date", "_flag"],
                 variable_name="parameter",
                 value_name="value",
             )
-            .with_columns(pl.lit(None, dtype=pl.Float64).alias("quality"))
+            .with_columns(
+                # only where there is a reading to judge: a station that checked its sensors and
+                # found nothing wrong says nothing about the twelve quantities it does not report,
+                # and answering 0 for those reads as "checked, not suspect"
+                pl.when(pl.col("value").is_not_null())
+                .then(
+                    _quality(
+                        pl.col("_flag"),
+                        # the bit that speaks for this reading, which for a descriptor the flag table
+                        # has no entry for is none at all
+                        pl.col("parameter").replace_strict(
+                            {name: _flag_bit(bit) for name, bit in _QUALITY_BITS.items()},
+                            default=None,
+                            return_dtype=pl.Int64,
+                        ),
+                    ),
+                )
+                .alias("quality"),
+            )
+            .drop("_flag")
         )
 
 

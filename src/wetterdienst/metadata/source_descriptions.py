@@ -1038,7 +1038,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("15_minutes", "data", "intensityOfPrecipitation"): "precipitation intensity",
         ("15_minutes", "data", "maximumWindGustDirection"): "direction of maximum wind gust",
         ("15_minutes", "data", "maximumWindGustSpeed"): "maximum wind gust",
-        ("15_minutes", "data", "precipitationType"): "form of precipitation",
+        ("15_minutes", "data", "precipitationType"): "types of precipitation, as flags",
         ("15_minutes", "data", "relativeHumidity"): "mean humidity",
         ("15_minutes", "data", "roadSurfaceCondition"): "road surface condition",
         ("15_minutes", "data", "roadSurfaceTemperature"): "road surface temperature",

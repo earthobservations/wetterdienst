@@ -734,6 +734,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "precipitation_form", "dimensionless", "Coded form of the precipitation, such as rain, snow or freezing rain."
     ),
     CanonicalParameter(
+        "precipitation_type_flags",
+        "dimensionless",
+        "Set of precipitation types observed at once, as a bit per type rather than a single code.",
+    ),
+    CanonicalParameter(
         "precipitation_height",
         "precipitation",
         "Depth of precipitation collected over the period.",
@@ -1335,7 +1340,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "quality", "dimensionless", "Quality flag published by the source for the values in the same dataset."
+        "quality",
+        "dimensionless",
+        "Quality mark for the values in the same dataset, in whatever the source publishes or, "
+        "where the source publishes a flag the library decodes, what that decoding says. The scale "
+        "is the provider's own and does not compare between them -- DWD observation carries its "
+        "`qn` codes, where a larger number is a more thorough check, and DWD road a 1 where the "
+        "station reports a reading suspect. See the provider's page for what its numbers mean.",
     ),
     CanonicalParameter(
         "quality_3", "dimensionless", "Quality flag for the 3-hourly maximum wind gust reported in the same dataset."
