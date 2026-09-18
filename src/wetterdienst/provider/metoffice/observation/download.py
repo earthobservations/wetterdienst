@@ -27,7 +27,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-import httpx
+from wetterdienst.util.network import post_file
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -90,17 +90,20 @@ def get_ceda_token(settings: Settings) -> str | None:
         cached = _TOKEN_CACHE.get(credentials)
         if cached is not None and cached[1] > time.time():
             return cached[0]
-        try:
-            response = httpx.post(_TOKEN_URL, auth=(username, password), timeout=30)
-            response.raise_for_status()
-        except httpx.HTTPError as e:
-            log.warning(f"Failed to obtain CEDA access token: {e}")
+        file = post_file(
+            _TOKEN_URL,
+            auth=(username, password),
+            client_kwargs=settings.fsspec_client_kwargs,
+            use_certifi=settings.use_certifi,
+        )
+        if isinstance(file.content, Exception):
+            log.warning(f"Failed to obtain CEDA access token: {file.content}")
             return None
         try:
             # a 200 with a non-JSON body (e.g. an HTML login/error page) or a JSON body missing the
             # access_token field is an exchange failure, not data -- surface it as "not authenticated"
-            token = response.json()["access_token"]
-        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            token = json.loads(file.content.getvalue())["access_token"]
+        except (json.JSONDecodeError, UnicodeDecodeError, KeyError, TypeError) as e:
             log.warning(f"Unexpected CEDA token response: {e}")
             return None
         _TOKEN_CACHE[credentials] = (token, _token_valid_until(token))

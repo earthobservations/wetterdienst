@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
@@ -20,7 +21,7 @@ from urllib.parse import urlparse
 
 import stamina
 from aiohttp import ClientConnectorError, ClientPayloadError, ClientResponseError
-from fsspec.asyn import sync_wrapper
+from fsspec.asyn import sync, sync_wrapper
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
@@ -618,6 +619,77 @@ def download_file(
     except ClientPayloadError as e:
         log.info(f"Failed to download file {url}.")
         return File(url=url, content=e, status=500)
+
+
+def post_file(
+    url: str,
+    *,
+    auth: tuple[str, str] | None = None,
+    timeout: float = 30.0,
+    client_kwargs: dict | None = None,
+    use_certifi: bool = False,
+) -> File:
+    """Post to a URL and return the response body.
+
+    The download path cannot express this: ``download_file`` is a GET through a caching filesystem,
+    where minting a token is a POST whose answer must never be cached. It still goes through
+    fsspec's HTTP filesystem -- its event loop, its aiohttp session, its SSL handling and the
+    caller's client settings -- so one HTTP stack serves every request the package makes rather
+    than a second client being carried for one of them.
+
+    Failures come back as a ``File`` carrying the exception and a status, the same shape
+    ``download_file`` returns them in, so a caller decides what a failed exchange means rather than
+    having an exception thrown through it.
+
+    Args:
+        url: The URL to post to.
+        auth: Username and password for HTTP basic auth, if the endpoint wants them.
+        timeout: Total timeout for the request, in seconds.
+        client_kwargs: Additional keyword arguments for the client.
+        use_certifi: If True, use certifi certificate bundle instead of system certificates.
+
+    Returns:
+        A File holding the response body, or the exception that stopped it.
+
+    """
+    filesystem = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0,
+        use_certifi=use_certifi,
+        client_kwargs={**(client_kwargs or {}), "timeout": timeout},
+    )
+    # RFC 7617 by hand rather than through aiohttp: its ``BasicAuth`` and the ``auth=`` parameter are
+    # both deprecated for removal in aiohttp 4, and its replacement (``encode_basic_auth``) is newer
+    # than the aiohttp any given install carries. Sent per request, so credentials never reach
+    # ``client_kwargs`` -- which is hashed into the filesystem cache key.
+    headers = None
+    if auth:
+        credentials = base64.b64encode(":".join(auth).encode()).decode("ascii")
+        headers = {"Authorization": f"Basic {credentials}"}
+
+    async def _post() -> bytes:
+        session = await filesystem.set_session()
+        async with session.post(url, headers=headers) as response:
+            response.raise_for_status()
+            return await response.read()
+
+    log.info(f"Posting to {url}")
+    try:
+        payload = sync(filesystem.loop, _post)
+    except ClientResponseError as e:
+        log.info(f"Failed to post to {url}.")
+        return File(url=url, content=e, status=e.status or 500)
+    except ClientConnectorError as e:
+        log.info(f"No internet connection while posting to {url}.")
+        return File(url=url, content=NoInternetError(str(e)), status=503)
+    except FSTimeoutError as e:
+        log.info(f"Failed to post to {url}.")
+        return File(url=url, content=e, status=408)
+    except ClientPayloadError as e:
+        log.info(f"Failed to post to {url}.")
+        return File(url=url, content=e, status=500)
+    log.info(f"Posted to {url}")
+    return File(url=url, content=BytesIO(payload), status=200)
 
 
 def download_files(
