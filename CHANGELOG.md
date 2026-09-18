@@ -16,16 +16,6 @@ Types of changes:
 
 ## [Unreleased]
 
-### Security
-
-- `httpx2` now has a floor of `>=2.12` wherever it is declared -- the dev group, which held
-  `>=2.4.0`, and the `mcp` extra, which now declares it -- and the lockfile carries 2.13.0 where it
-  held 2.10.0. Six advisories stand against 2.10.0: multipart part header injection through an
-  unvalidated file `Content-Type` (CVE-2026-84379, fixed in 2.11.0), conflicting `Content-Length`
-  and `Transfer-Encoding` headers being generated together (CVE-2026-84380, 2.11.0), and unbounded
-  peak memory when decompressing a streamed response (CVE-2026-84382, 2.12.0). `uv audit` has
-  failed on `main` since 2026-09-16 on exactly these, and passes again
-
 ### Changed
 
 - The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py` builds the
@@ -50,6 +40,16 @@ Types of changes:
   never set, and left unset it reports the installed FastMCP release as the server's own version --
   so a client asking what it had connected to was answered "Wetterdienst 4.0.3". It now answers
   with wetterdienst's version, the same one `GET /api/version` gives
+
+### Security
+
+- `httpx2` now has a floor of `>=2.12` wherever it is declared -- the dev group, which held
+  `>=2.4.0`, and the `mcp` extra, which now declares it -- and the lockfile carries 2.13.0 where it
+  held 2.10.0. Six advisories stand against 2.10.0: multipart part header injection through an
+  unvalidated file `Content-Type` (CVE-2026-84379, fixed in 2.11.0), conflicting `Content-Length`
+  and `Transfer-Encoding` headers being generated together (CVE-2026-84380, 2.11.0), and unbounded
+  peak memory when decompressing a streamed response (CVE-2026-84382, 2.12.0). `uv audit` has
+  failed on `main` since 2026-09-16 on exactly these, and passes again
 
 ## [0.137.0] - 2026-09-18
 
