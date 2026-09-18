@@ -846,10 +846,13 @@ def test_dwd_road_weather_marks_a_sensor_that_has_stopped(caplog: pytest.LogCapt
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     stuck = _series("H659", "roadSurfaceTemperature", [198.15] * 30)
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.DEBUG):
         df = api._flag_stuck_sensors(stuck, "a-group")  # noqa: SLF001
 
     assert df.get_column("quality").to_list() == [1.0] * 30
+    # at debug, not info: the road values are collected a station at a time and each of those
+    # parses the whole group again, so at info this group-wide line is printed once per station
+    assert [record.levelname for record in caplog.records if "GH-1917" in record.message] == ["DEBUG"]
     # marked, not removed: the reading is still exactly what DWD published
     assert df.get_column("value").to_list() == [198.15] * 30
     assert "H659/roadSurfaceTemperature" in caplog.text
@@ -919,6 +922,67 @@ def test_dwd_road_weather_stuck_check_keeps_one_station_out_of_another(caplog: p
     # and the frame comes back in the order it arrived, the check having sorted to find the runs
     assert out.get_column("station_id").to_list() == ["H659"] * 30 + ["A006"] * 30
     assert out.get_column("value").to_list() == [198.15] * 30 + moving
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_stuck_check_counts_minutes_not_rows() -> None:
+    """A reading that arrives twice is one minute, not two.
+
+    The check runs over every file of a request concatenated, before the deduplication each
+    provider passes through afterwards. A station-minute arriving in two of those files -- a group
+    publishing under two families, a file republished -- counted twice would halve the window, and
+    a working sensor's measured 14-reading plateau would double into a fault.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    # thirteen minutes at one value, which is three and a quarter hours and no fault
+    plateau = _series("A006", "airTemperature", [285.0] * 13)
+    assert not api._flag_stuck_sensors(plateau, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
+    doubled = pl.concat([plateau, plateau])
+    assert doubled.get_column("date").n_unique() == 13
+    assert not api._flag_stuck_sensors(doubled, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_two_sensors_that_agree_are_not_a_contest(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Two sensors reporting the same number decide nothing, and nothing is dropped.
+
+    Of the 36 readings one populated group's file reports twice, 25 are identical to the one kept.
+    Counted as contests they inflate what the log says went, and credit a sensor in the choice for
+    settling a question nobody asked.
+    """
+    with caplog.at_level(logging.DEBUG):
+        df = _parse(
+            monkeypatch,
+            _flat(
+                {
+                    "#1#shortStationName": "E719",
+                    "#1#roadSurfaceTemperature": 287.24,
+                    "#2#roadSurfaceTemperature": 287.24,
+                    "#1#roadSurfaceCondition": 0.0,
+                    "#2#roadSurfaceCondition": 0.0,
+                },
+            ),
+        )
+    assert _readings(df, "E719")["roadSurfaceTemperature"] == 287.24
+    assert not [record for record in caplog.records if "GH-1908" in record.message], caplog.text
+    # and where they do differ it is still reported
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG):
+        _parse(
+            monkeypatch,
+            _flat(
+                {
+                    "#1#shortStationName": "E723",
+                    "#1#roadSurfaceTemperature": 286.02,
+                    "#2#roadSurfaceTemperature": 287.31,
+                },
+            ),
+        )
+    assert [record for record in caplog.records if "GH-1908" in record.message], caplog.text
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

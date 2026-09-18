@@ -307,7 +307,11 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
             # that the sensor held still across it
             _run=pl.col("value").ne(pl.col("value").shift().over(keys)).fill_null(value=True).cum_sum().over(keys),
         )
-        .with_columns(_stuck=pl.len().over(*keys, "_run").ge(_STUCK_RUN))
+        # the minutes a run covers rather than the rows holding them: a station-minute that
+        # arrives in two files of one request -- a group publishing under two families, a file
+        # republished -- would otherwise count twice and halve the window, and a working sensor's
+        # measured 14-reading plateau doubles into a fault
+        .with_columns(_stuck=pl.col("date").n_unique().over(*keys, "_run").ge(_STUCK_RUN))
         .with_columns(
             _stuck=pl.col("_stuck") & pl.col("value").is_not_null() & pl.col("parameter").is_in(_STUCK_PARAMETERS),
         )
@@ -318,7 +322,11 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     stations = (
         flagged.filter(pl.col("_stuck")).select("station_id", "parameter").unique().sort("station_id", "parameter")
     )
-    log.info(
+    # at debug, like the line about dropped sensors and for its reason: the road values are
+    # collected a station at a time, and each of them parses the whole group again, so this would
+    # be printed once per station asked for -- the same group-wide line, hundreds of times, at the
+    # level the CLI prints by default
+    log.debug(
         f"{source}: {stations.height} sensors reported one value for "
         f"{_STUCK_RUN} readings or more and are marked suspect "
         f"({', '.join(f'{s}/{p}' for s, p in stations.head(5).iter_rows())}"
@@ -793,8 +801,9 @@ class DwdRoadValues(TimeseriesValues):
         and wind and humidity are three instruments already.
 
         What is dropped is only ever a reading that a station reported twice and differently, which
-        is 36 of a populated group's file, and it is named in the log. Keeping those would want an
-        axis this frame has not got, which is GH-1908.
+        is 11 of a populated group's file -- the same file reports 36 twice, and 25 of those are
+        the same number arriving again, which decides nothing and loses nothing. Each is named in
+        the log. Keeping the ones that differ would want an axis this frame has not got, GH-1908.
         """
         import pdbufr  # noqa: PLC0415
 
