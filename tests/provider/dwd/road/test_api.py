@@ -868,7 +868,9 @@ def test_dwd_road_weather_marks_a_sensor_that_has_stopped(caplog: pytest.LogCapt
         # a working sensor's longest run of one value over a day was 14 readings for the air
         # temperature, 17 for the dew point and 9 for the road surface, across ~700 stations each
         ([280.0] * 17 + [280.1] * 17, False, "two long-ish runs of different values are a working sensor"),
-        ([280.0] * 12 + [None] + [280.0] * 12, False, "a gap breaks a run, not being evidence of anything"),
+        # a row saying null is the same dropout as a row that never arrived, and the gap rule
+        # decides both: one missed reading in the middle does not make two runs out of one
+        ([280.0] * 12 + [None] + [280.0] * 12, True, "a null is a missed reading, not a new run"),
     ],
 )
 def test_dwd_road_weather_stuck_threshold(
@@ -943,6 +945,61 @@ def test_dwd_road_weather_stuck_run_counts_readings_whatever_the_cadence(every: 
         pl.col("date").first() + pl.duration(minutes=every) * pl.int_range(pl.len()),
     )
     assert api._flag_stuck_sensors(spaced, "a-group").get_column("quality").eq(1.0).all()  # noqa: SLF001
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_minute_arriving_twice_is_one_minute() -> None:
+    """A station-minute in two files of one request neither multiplies the frame nor blinds the check.
+
+    Both followed from asking the question of the rows rather than of the readings. The air joined
+    on for the melting test multiplied every row of a doubled minute, and the frame that comes back
+    is what the group cache holds -- a month of one group being some thirteen million rows. Worse,
+    a duplicated minute puts a zero among the intervals and so a zero in their median, which ends
+    a run at every reading: a sensor stuck for a whole day came back with nothing marked at all.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    stuck = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
+    air = _series("B999", "airTemperature", [280.0] * 30)
+    doubled_air = pl.concat([stuck, _series("A006", "airTemperature", [280.0] * 30), air, air])
+    assert api._flag_stuck_sensors(doubled_air, "a-group").height == doubled_air.height  # noqa: SLF001
+
+    doubled_readings = pl.concat([stuck, stuck])
+    marked = api._flag_stuck_sensors(doubled_readings, "a-group")  # noqa: SLF001
+    assert marked.get_column("quality").eq(1.0).all()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_null_reading_is_a_missed_one() -> None:
+    """A row saying null and a row that never arrived are the same dropout, and answer alike.
+
+    A station missing from a file leaves no row; one present and not reporting leaves a null. Read
+    as a value, the null ended a run that the absent row was allowed to span, so a sensor dropping
+    one reading in twenty was never flagged however long it had stopped.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    with_nulls = _series("A006", "roadSurfaceTemperature", [285.0 if i % 20 else None for i in range(96)])
+    absent = with_nulls.drop_nulls("value")
+    marked_nulls = api._flag_stuck_sensors(with_nulls, "a-group")  # noqa: SLF001
+    marked_absent = api._flag_stuck_sensors(absent, "a-group")  # noqa: SLF001
+    assert marked_nulls.get_column("quality").eq(1.0).sum() == marked_absent.get_column("quality").eq(1.0).sum()
+    assert marked_absent.get_column("quality").eq(1.0).all()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_stuck_marking_leaves_the_frame_as_it_found_it() -> None:
+    """Marking changes a verdict and nothing else about the frame."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    df = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
+    marked = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
+    assert marked.get_column("value").to_list() == df.get_column("value").to_list()
+    assert marked.select("station_id", "date", "parameter").equals(df.select("station_id", "date", "parameter"))
+    # and running it again says the same thing, the column it writes being one it also reads
+    assert api._flag_stuck_sensors(marked, "a-group").get_column("quality").to_list() == (  # noqa: SLF001
+        marked.get_column("quality").to_list()
+    )
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

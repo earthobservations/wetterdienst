@@ -297,13 +297,20 @@ _STUCK_GAP_FACTOR = 4
 #:
 #: It cannot be told from a sensor stopped at zero by the reading alone -- FN/P717 sits at 0.00 C
 #: all day and is certainly broken -- so it is told by the air instead: ice does not melt on a road
-#: whose station reports 26 C, which is what P717's does. A run at the melting point is left alone
-#: only where the air came near enough to freezing for melting to be possible at all, and where the
-#: air is unknown it is left alone too, a missed fault being the safer error than a winter's worth
-#: of genuine readings marked suspect
+#: whose station reports 26 C, which is what P717's does. A reading at the melting point is left
+#: alone where the air at that minute was near enough to freezing for melting to be possible, and
+#: where the air is unknown it is left alone too, a missed fault being the safer error than a
+#: winter's worth of genuine readings marked suspect.
+#:
+#: Ten degrees and not five. An ordinary thaw runs to +6 or +10 C with snow still lying, and the
+#: road under it stays at 0.00 for hours -- five would have marked that suspect, which is the very
+#: thing this exemption exists to prevent, and nothing in a September measurement constrains the
+#: number. What it costs is a sensor stopped at zero at a station whose air stays under 10 C: that
+#: one is left unmarked. Neither of the two in the measured day is, P717's air reaching 11.6 C and
+#: both of them carrying DWD's own bit 7 besides
 _MELTING_POINT = 273.15
 _MELTING_PLATEAU = 0.05
-_MELTING_AIR_MARGIN = 5.0
+_MELTING_AIR_MARGIN = 10.0
 
 
 def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
@@ -327,25 +334,30 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     if df.is_empty():
         return df
     keys = ["station_id", "parameter"]
+    # what the question is asked of: one row per station, parameter and minute, and only where
+    # there is a reading. A minute arriving twice -- a group publishing under two families, a file
+    # republished -- is one minute, and counting it twice put a zero in the middle of the intervals
+    # and so a zero in their median, which ended every run at every reading and quietly answered
+    # that nothing anywhere had stopped. A row saying null is not a reading at all: it is the same
+    # dropout as a row that never arrived, and treated as a value it ended runs that an absent row
+    # is allowed to span
+    readings = df.filter(pl.col("value").is_not_null()).unique(subset=[*keys, "date"], keep="first").sort(*keys, "date")
     # the station's air beside each reading, because the question is whether ice could be melting
     # at that minute. Asked of a whole run, or worse of the whole request, one cold hour at the end
     # of a fortnight excuses every plateau in it -- and the same day then answers differently
     # depending on how much of the year the caller asked for
-    air = df.filter(pl.col("parameter").eq("airTemperature")).select(
+    air = readings.filter(pl.col("parameter").eq("airTemperature")).select(
         "station_id",
         "date",
         pl.col("value").alias("_air"),
     )
-    flagged = (
-        df.join(air, on=["station_id", "date"], how="left")
-        .with_row_index("_row")
-        .sort(*keys, "date")
+    marked = (
+        readings.join(air, on=["station_id", "date"], how="left")
         .with_columns(
-            # a run breaks where the value changes, where a null interrupts it, and where the
-            # readings themselves stop: a gap is not evidence that the sensor held still across it,
-            # and in this network a gap is almost always an absent row -- a station missing from a
-            # subset, a file too small to read, a file never published -- rather than a row saying
-            # null, which the value comparison alone would never see
+            # a run breaks where the value changes and where the readings stop for longer than
+            # this station usually leaves between them: a gap is not evidence that the sensor held
+            # still across it, and the hole ends the run and nothing more -- a sensor stopped on
+            # both sides of one is still stopped on both sides of it
             _gap=pl.col("date").diff().over(keys),
         )
         .with_columns(
@@ -356,14 +368,9 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
             .cum_sum()
             .over(keys),
         )
-        # the minutes a run covers rather than the rows holding them: a station-minute that
-        # arrives in two files of one request -- a group publishing under two families, a file
-        # republished -- would otherwise count twice and halve the window, and a working sensor's
-        # measured 14-reading plateau doubles into a fault
-        .with_columns(_stuck=pl.col("date").n_unique().over(*keys, "_run").ge(_STUCK_RUN))
+        .with_columns(_stuck=pl.len().over(*keys, "_run").ge(_STUCK_RUN))
         .with_columns(
             _stuck=pl.col("_stuck")
-            & pl.col("value").is_not_null()
             & pl.col("parameter").is_in(_STUCK_PARAMETERS)
             # melting ice holds a road at its melting point for hours, which is a reading and not
             # a fault. Told from a sensor stopped at zero by the air the station reports, ice not
@@ -374,9 +381,10 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
                 & pl.col("_air").le(_MELTING_POINT + _MELTING_AIR_MARGIN).fill_null(value=True)
             ),
         )
-        .sort("_row")
+        .filter(pl.col("_stuck"))
+        .select("station_id", "parameter", "date", "_stuck")
     )
-    if not flagged.get_column("_stuck").any():
+    if marked.is_empty():
         return df
     # asked only when it will be said, like the line about dropped sensors: this filters, uniques
     # and sorts a frame that may hold a month of a group, to write one line nobody is listening for
@@ -385,17 +393,22 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     # and each of them parses the whole group again, so at info this group-wide line is printed
     # once per station asked for
     if log.isEnabledFor(logging.DEBUG):
-        _log_stuck_sensors(flagged, source)
-    return flagged.with_columns(
-        quality=pl.when(pl.col("_stuck")).then(pl.lit(1.0)).otherwise(pl.col("quality")),
-    ).select(df.columns)
-
-
-def _log_stuck_sensors(flagged: pl.DataFrame, source: str) -> None:
-    """Name the sensors marked as stopped, for the run where someone wants to know which."""
-    stations = (
-        flagged.filter(pl.col("_stuck")).select("station_id", "parameter").unique().sort("station_id", "parameter")
+        _log_stuck_sensors(marked, source)
+    # the index is taken before the join and restored after it, `join` promising nothing about the
+    # order it returns. `marked` holds each station-minute once, so a frame that holds one twice is
+    # answered for both rows and gains none
+    return (
+        df.with_row_index("_row")
+        .join(marked, on=["station_id", "parameter", "date"], how="left")
+        .sort("_row")
+        .with_columns(quality=pl.when(pl.col("_stuck")).then(pl.lit(1.0)).otherwise(pl.col("quality")))
+        .select(df.columns)
     )
+
+
+def _log_stuck_sensors(marked: pl.DataFrame, source: str) -> None:
+    """Name the sensors marked as stopped, for the run where someone wants to know which."""
+    stations = marked.select("station_id", "parameter").unique().sort("station_id", "parameter")
     log.debug(
         f"{source}: {stations.height} sensors reported one value for "
         f"{_STUCK_RUN} readings or more and are marked suspect "

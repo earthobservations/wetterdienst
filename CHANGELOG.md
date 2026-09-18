@@ -43,7 +43,13 @@ Types of changes:
   early. And a road surface at its
   melting point is exempt where the station's own air came near freezing: melting ice holds a road
   at 0.00 C for hours, which is what this network is for, and only the air tells that from a sensor
-  stopped at zero -- FN/P717 reads 0.00 all day while its own air reaches 26 C. GH-1917
+  stopped at zero -- FN/P717 reads 0.00 all day while its own air reaches 26 C. Within 10 C of
+  freezing, an ordinary thaw running to +6 or +10 with snow still lying. The question is asked of
+  the readings rather than of the rows throughout: a station-minute arriving in two files is one
+  minute, where counting it twice put a zero among the intervals and so a zero in their median,
+  which ended a run at every reading and answered that nothing anywhere had stopped; and a row
+  saying null is the same dropout as a row that never arrived, where reading it as a value ended
+  runs an absent row was allowed to span. GH-1917
 - DWD road: the `quality` column carries the station's own verdict on its sensors, where it was
   null on every road reading. Each subset ends with `qualityInformationAwsData` (BUFR `0 33 005`), a
   30-bit flag naming which of the station's quantities are suspect, and it was read and thrown away.

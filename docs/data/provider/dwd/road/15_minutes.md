@@ -133,8 +133,9 @@ them: 99.5% of this network's intervals are the quarter hour it publishes on, bu
 405 minutes, longer than the six hours this looks for. A hole ends the run and nothing more -- a
 sensor stopped on both sides of one is still stopped on both sides of it.
 
-A road surface at its melting point is exempt for the readings whose own minute had air near
-freezing.
+A road surface at its melting point is exempt for the readings whose own minute had air within
+10 °C of freezing -- an ordinary thaw runs to +6 or +10 °C with snow still lying, and the road under
+it stays at 0.00 °C for hours.
 Melting ice holds a road at 0.00 °C for as long as the ice lasts, which is the condition this
 network exists to report, and it cannot be told from a sensor stopped at zero by the reading alone.
 The air tells it: ice does not melt on a road whose station reports 26 °C, which is what FN/P717's
