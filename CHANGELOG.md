@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.137.0] - 2026-09-18
+
 ### Added
 
 - DWD road: a sensor that has stopped is marked suspect. Where an air temperature, a dew point or a
@@ -3465,7 +3467,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.136.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.137.0...HEAD
+[0.137.0]: https://github.com/earthobservations/wetterdienst/compare/v0.136.0...v0.137.0
 [0.136.0]: https://github.com/earthobservations/wetterdienst/compare/v0.135.0...v0.136.0
 [0.135.0]: https://github.com/earthobservations/wetterdienst/compare/v0.134.0...v0.135.0
 [0.134.0]: https://github.com/earthobservations/wetterdienst/compare/v0.133.0...v0.134.0
