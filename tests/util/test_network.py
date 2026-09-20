@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for network utilities."""
 
+import json
 import pickle
 import time
 from collections.abc import Iterator, MutableMapping
@@ -593,6 +594,60 @@ def test_network_filesystem_manager_accepts_client_kwargs_none(tmp_path: Path) -
     assert isinstance(fs, HTTPFileSystem)
 
 
+@pytest.fixture
+def http_server() -> Iterator[tuple[str, list]]:
+    """Serve the three answers a token endpoint gives, and record what was asked of it.
+
+    A real server rather than a mocked ``sync``: what is under test is the request ``post_file``
+    builds -- its Authorization header, and its refusal to follow a redirect -- which a mock at that
+    level stands in front of.
+    """
+    import json as json_module  # noqa: PLC0415
+    import threading  # noqa: PLC0415
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: PLC0415
+
+    requests: list[dict] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            requests.append({"method": "POST", "path": self.path, "headers": dict(self.headers)})
+            self._answer()
+
+        def do_GET(self) -> None:
+            requests.append({"method": "GET", "path": self.path, "headers": dict(self.headers)})
+            self._answer()
+
+        def _answer(self) -> None:
+            if self.path == "/login-redirect":
+                self.send_response(302)
+                self.send_header("Location", "/login")
+                self.end_headers()
+                return
+            if self.path == "/denied":
+                self.send_response(401)
+                self.end_headers()
+                return
+            body = json_module.dumps({"access_token": "t"}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args: object) -> None:
+            """Keep the test output free of the server's own access log."""
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}", requests
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
 def test_post_file_returns_a_dropped_connection_as_a_file() -> None:
     """A connection the server closed comes back as a File, not as an exception through the caller.
 
@@ -630,24 +685,62 @@ def test_post_file_retries_a_dropped_connection_once() -> None:
 
 
 def test_post_file_keeps_the_callers_timeout() -> None:
-    """A timeout the caller configured is honoured, the argument being the default rather than a cap."""
+    """A timeout the caller configured is honoured; the module's own stands in only when none is."""
     with (
         patch("wetterdienst.util.network.HTTPFileSystem") as mock_filesystem,
         patch("wetterdienst.util.network.sync", return_value=(200, b"{}")),
     ):
-        post_file("http://example.com/token", timeout=30.0, client_kwargs={"timeout": 120})
+        post_file("http://example.com/token", client_kwargs={"timeout": 120})
+        post_file("http://example.com/token")
 
-    assert mock_filesystem.call_args.kwargs["client_kwargs"]["timeout"] == 120
+    configured, defaulted = mock_filesystem.call_args_list
+    assert configured.kwargs["client_kwargs"]["timeout"] == 120
+    assert defaulted.kwargs["client_kwargs"]["timeout"] == 30.0
 
 
-def test_post_file_reports_a_redirect_as_itself() -> None:
-    """A redirect is the answer, not a detour: post_file does not follow it and carries its status.
+def test_post_file_sends_basic_auth_and_does_not_follow_a_redirect(http_server: tuple[str, list]) -> None:
+    """Against a real server: the Authorization header is sent, and a redirect comes back as itself.
 
-    aiohttp follows a redirected POST as a GET, which turns a login page into a 200 with a body that
-    parses as nothing. The status is what says what happened.
+    These are the two things the mocked tests above cannot see, ``sync`` standing in for the whole
+    request: aiohttp follows a redirected POST as a GET, which would turn a login page into a 200
+    with a body that parses as nothing, and the basic-auth header is built here rather than by a
+    library.
     """
-    with patch("wetterdienst.util.network.sync", return_value=(302, b"")):
-        result = post_file("http://example.com/token", auth=("user", "pass"))
+    import base64  # noqa: PLC0415
 
-    assert result.status == 302
-    assert result.content.getvalue() == b""
+    base_url, requests = http_server
+
+    ok = post_file(f"{base_url}/token", auth=("user", "pa:ss"))
+    assert ok.status == 200
+    assert json.loads(ok.content.getvalue()) == {"access_token": "t"}
+
+    # RFC 7617: base64 of "user:pa:ss" -- a colon is allowed in the password, not in the username
+    expected = base64.b64encode(b"user:pa:ss").decode()
+    assert requests[-1]["headers"]["Authorization"] == f"Basic {expected}"
+    assert requests[-1]["method"] == "POST"
+
+    redirected = post_file(f"{base_url}/login-redirect", auth=("user", "pa:ss"))
+    assert redirected.status == 302
+    # one request, not two: the redirect was not followed, and never became a GET
+    assert len(requests) == 2
+
+
+def test_post_file_keeps_credentials_out_of_the_error_it_returns(http_server: tuple[str, list]) -> None:
+    """A 401 comes back as an error whose repr does not carry the credential that earned it.
+
+    aiohttp hangs the request headers on the exception and on its ``args``, so a repr -- a pytest
+    dump, an error reporter walking the object -- would otherwise print the base64 of
+    username:password.
+    """
+    import base64  # noqa: PLC0415
+
+    base_url, _ = http_server
+
+    result = post_file(f"{base_url}/denied", auth=("user", "pa:ss"))
+
+    assert result.status == 401
+    assert isinstance(result.content, ClientResponseError)
+    secret = base64.b64encode(b"user:pa:ss").decode()
+    assert secret not in repr(result.content)
+    assert secret not in str(result.content)
+    assert result.content.request_info.headers["Authorization"] == "<redacted>"

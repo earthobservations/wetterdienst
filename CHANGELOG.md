@@ -48,7 +48,10 @@ Types of changes:
   imported it, and starlette's test client has moved to `httpx2`. The basic-auth header is written
   by hand rather than through aiohttp's `BasicAuth`, which is deprecated for removal in aiohttp 4,
   and is sent per request so credentials never reach `client_kwargs`, which is hashed into the
-  filesystem cache key. A failed exchange is a `File` carrying the exception whichever way it
+  filesystem cache key. An error from an authenticated request has that header redacted before it
+  is handed back: aiohttp hangs the request's headers on the exception and on its `args`, so a
+  `repr` of it -- a pytest dump, an error reporter walking the object -- would otherwise print the
+  base64 of username and password, where `str` of it does not. A failed exchange is a `File` carrying the exception whichever way it
   failed, the base `ClientError` being caught rather than a list of its subclasses: fsspec holds one
   session and its keep-alive pool for the life of the process while a token is minted days apart, so
   a mint can be handed a connection the server closed hours ago. That one is retried once, where a

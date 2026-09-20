@@ -627,11 +627,36 @@ def download_file(
         return File(url=url, content=e, status=500)
 
 
+def _without_credentials(error: ClientResponseError) -> ClientResponseError:
+    """Redact the Authorization header from the request info an aiohttp error carries.
+
+    aiohttp hangs the request's headers on the exception, and on its ``args`` -- which is what a
+    ``repr`` renders. So an error from an authenticated request carries the credential into every
+    traceback, pytest assertion dump and error reporter that touches the object, even though
+    ``str(error)`` does not show it. The error is handed back to a caller to log or raise, so it is
+    scrubbed before it travels.
+    """
+    request_info = error.request_info
+    if request_info is None or "Authorization" not in request_info.headers:
+        return error
+    headers = request_info.headers.copy()
+    headers["Authorization"] = "<redacted>"
+    # rebuilt as the same (immutable) mapping type the request info was given, without naming it
+    scrubbed = request_info._replace(headers=type(request_info.headers)(headers))
+    error.request_info = scrubbed
+    error.args = (scrubbed, *error.args[1:])
+    return error
+
+
+# How long a post waits when the caller's ``client_kwargs`` does not say. Settings carries a
+# default of the same length, so this stands in only for a caller that passes none at all.
+_POST_TIMEOUT_SECONDS = 30.0
+
+
 def post_file(
     url: str,
     *,
     auth: tuple[str, str] | None = None,
-    timeout: float = 30.0,
     client_kwargs: dict | None = None,
     use_certifi: bool = False,
 ) -> File:
@@ -651,8 +676,7 @@ def post_file(
     Args:
         url: The URL to post to.
         auth: Username and password for HTTP basic auth, if the endpoint wants them.
-        timeout: Total timeout for the request, in seconds.
-        client_kwargs: Additional keyword arguments for the client.
+        client_kwargs: Additional keyword arguments for the client, ``timeout`` among them.
         use_certifi: If True, use certifi certificate bundle instead of system certificates.
 
     Returns:
@@ -663,9 +687,10 @@ def post_file(
         use_listings_cache=False,
         listings_expiry_time=0,
         use_certifi=use_certifi,
-        # the caller's own timeout wins: ``timeout`` is the default for a caller that set none,
-        # not an override of one that did
-        client_kwargs={"timeout": timeout, **(client_kwargs or {})},
+        # a default for a caller that set none, rather than an argument of its own: every caller
+        # here passes ``Settings.fsspec_client_kwargs``, which always carries a timeout, so a
+        # separate parameter could be passed and never take effect
+        client_kwargs={"timeout": _POST_TIMEOUT_SECONDS, **(client_kwargs or {})},
     )
     # RFC 7617 by hand rather than through aiohttp: its ``BasicAuth`` and the ``auth=`` parameter are
     # both deprecated for removal in aiohttp 4, and its replacement (``encode_basic_auth``) is newer
@@ -703,7 +728,7 @@ def post_file(
         raise AssertionError(msg)
     except ClientResponseError as e:
         log.info(f"Failed to post to {url}.")
-        return File(url=url, content=e, status=e.status or 500)
+        return File(url=url, content=_without_credentials(e), status=e.status or 500)
     except ClientConnectorError as e:
         log.info(f"No internet connection while posting to {url}.")
         return File(url=url, content=NoInternetError(str(e)), status=503)
