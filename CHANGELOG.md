@@ -63,17 +63,6 @@ Types of changes:
 
 ### Security
 
-- A credential no longer travels in the error a failed request hands back. KNMI sends its API key,
-  met.no Frost its basic auth and Met Office its bearer token as an `Authorization` header, and
-  aiohttp hangs the request's headers on a `ClientResponseError` -- and on its `args`, which is what
-  a `repr` renders -- so the key reached anything that rendered the `File` a failed download
-  returned. The exception's traceback carried it a second way, its frames in `util/network.py`
-  holding the header, its encoding and the caller's client kwargs as locals: that is what
-  `pytest --showlocals` prints and what an error reporter capturing frame locals sends. Neither
-  shows in `str(error)`, which is what made it easy to miss. The header is now redacted and the
-  traceback dropped for any request that carried credentials, in `download_file` and `post_file`
-  alike
-
 - `httpx2` now has a floor of `>=2.12` wherever it is declared -- the dev group, which held
   `>=2.4.0`, and the `mcp` extra, which now declares it -- and the lockfile carries 2.13.0 where it
   held 2.10.0. Six advisories stand against 2.10.0: multipart part header injection through an
@@ -90,7 +79,9 @@ Types of changes:
   caller's client kwargs as locals: that is what `pytest --showlocals` prints and what an error
   reporter capturing frame locals sends. Neither shows in `str(error)`, which is what made it easy
   to miss. The header is now redacted and the traceback dropped, for a request that carried
-  credentials and only for one -- an ordinary 404's traceback is worth more than it costs
+  credentials and only for one -- an ordinary 404's traceback is worth more than it costs. The
+  token exchange added below is held to the same rule, its own frames holding the header and its
+  encoding
 
 ## [0.137.0] - 2026-09-18
 
