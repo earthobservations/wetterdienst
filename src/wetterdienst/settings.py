@@ -32,6 +32,24 @@ log = logging.getLogger(__name__)
 _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 
 
+#: what pydantic renders a secret as, and so what a credential looks like after a JSON round-trip
+_MASK = "*" * 10
+
+#: what a credential may arrive as: the text of one, or one that has already been validated once
+_Secretish = str | SecretStr
+
+
+def _as_given(value: object) -> _Secretish:
+    """Pass a secret through as it is, and anything else on as text for the field to wrap.
+
+    ``str()`` of a ``SecretStr`` is its mask, so a pair that has already been validated once --
+    which is what a ``model_dump()`` round-trip hands back -- would come back as ten asterisks and
+    fail at the provider later with nothing to say why. The single-valued fields never had this to
+    worry about: pydantic passes an existing secret straight through.
+    """
+    return value if isinstance(value, SecretStr) else str(value)
+
+
 def reveal(secret: SecretStr | None) -> str | None:
     """Return what a secret holds, or None where there is no secret.
 
@@ -58,25 +76,53 @@ class Auth(BaseModel):
     metno_frost: tuple[SecretStr, SecretStr] | None = Field(default=None)
     ceda: tuple[SecretStr, SecretStr] | None = Field(default=None)
 
+    @field_validator("aemet", "knmi", "metno_frost", "ceda", mode="before")
+    @classmethod
+    def reject_a_masked_credential(cls, value: object) -> object:
+        """Refuse the mask that a dumped credential leaves behind.
+
+        Dumping the settings to JSON writes ten asterisks where a credential is -- that is the point
+        of holding them as secrets. Reading such a dump back would otherwise take the mask for the
+        credential and fail at the provider much later, with nothing at all to say why.
+        """
+        items = value if isinstance(value, (tuple, list)) else (value,)
+        for item in items:
+            text = item.get_secret_value() if isinstance(item, SecretStr) else item
+            if text == _MASK:
+                msg = "the value is the mask a dumped credential leaves behind, not a credential"
+                raise ValueError(msg)
+        return value
+
     @field_validator("metno_frost", mode="before")
     @classmethod
-    def validate_metno_frost(cls, value: tuple[str, str] | str | None) -> tuple[str, str] | None:  # noqa: D102
+    def validate_metno_frost(
+        cls,
+        value: tuple[_Secretish, _Secretish] | _Secretish | None,
+    ) -> tuple[_Secretish, _Secretish] | None:
+        """Parse the Frost (client_id, secret) pair, a lone client id counting as one with no secret."""
         if value is None:
             return None
-        if isinstance(value, str):
+        if isinstance(value, (str, SecretStr)):
             return value, ""
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        return str(as_tuple[0]), str(as_tuple[1])
+        return _as_given(as_tuple[0]), _as_given(as_tuple[1])
 
     @field_validator("ceda", mode="before")
     @classmethod
-    def validate_ceda(cls, value: tuple[str, str] | str | None) -> tuple[str, str] | None:
+    def validate_ceda(
+        cls,
+        value: tuple[_Secretish, _Secretish] | _Secretish | None,
+    ) -> tuple[_Secretish, _Secretish] | None:
         """Parse the CEDA (username, password) pair, e.g. from ``WD_AUTH__CEDA=username:password``."""
         if value is None:
             return None
+        if isinstance(value, SecretStr):
+            # the pair given as a single secret: read it out to split it, and the halves are wrapped
+            # again by the field
+            value = value.get_secret_value()
         if isinstance(value, str):
             username, sep, password = value.partition(":")
             if not sep:
@@ -87,7 +133,7 @@ class Auth(BaseModel):
         if len(as_tuple) != 2:
             msg = f"ceda must be a (username, password) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        return str(as_tuple[0]), str(as_tuple[1])
+        return _as_given(as_tuple[0]), _as_given(as_tuple[1])
 
 
 #: how far a station may be from the target point to still be used, in km

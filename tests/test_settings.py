@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings, reveal
@@ -506,3 +506,46 @@ def test_a_credential_that_is_empty_is_still_no_credential() -> None:
     settings = Settings(auth={"aemet": ""})
 
     assert not settings.auth.aemet
+
+
+def test_credentials_survive_a_round_trip_through_a_dump() -> None:
+    """Settings taken apart and rebuilt keep the credentials they had, pairs included.
+
+    `model_dump()` hands back the secrets themselves, and `str()` of a secret is its mask -- so a
+    pair validator that texts its elements would rebuild the pair as ten asterisks and fail at the
+    provider later with nothing to say why. The single-valued fields never had this to worry about,
+    which is what made the asymmetry easy to miss.
+    """
+    settings = Settings(auth=_DUMMY_CREDENTIALS)
+
+    rebuilt = Settings.model_validate(settings.model_dump())
+
+    assert reveal(rebuilt.auth.aemet) == "DUMMY-AEMET-KEY"
+    assert tuple(reveal(part) for part in rebuilt.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+    assert tuple(reveal(part) for part in rebuilt.auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
+
+
+def test_a_credential_given_as_one_secret_is_still_split_into_its_pair() -> None:
+    """A pair handed over as a single secret is read apart the way the same text would be."""
+    settings = Settings(auth={"ceda": SecretStr("DUMMY-CEDA-USER:DUMMY-CEDA-PASSWORD")})
+
+    assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+
+
+@pytest.mark.parametrize(
+    "auth",
+    [
+        {"aemet": "*" * 10},
+        {"ceda": ("*" * 10, "*" * 10)},
+        {"metno_frost": ("DUMMY-FROST-ID", "*" * 10)},
+    ],
+)
+def test_a_masked_value_is_refused_as_a_credential(auth: dict) -> None:
+    """The mask a JSON dump leaves behind is not accepted as the credential it stands for.
+
+    A JSON dump writes asterisks where a credential is, which is the point of holding them as
+    secrets -- and there is no reading that back. Taken as the credential it would fail at the
+    provider much later, with nothing at all to say why, so it is refused where it is given.
+    """
+    with pytest.raises(ValidationError, match="mask"):
+        Settings(auth=auth)

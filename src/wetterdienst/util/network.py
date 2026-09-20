@@ -646,10 +646,17 @@ def download_file(
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
 
 
+#: header names a credential is sent under. `Authorization` is the standard one -- KNMI's API key,
+#: met.no Frost's basic auth and Met Office's bearer token all go there -- but AEMET wants `api_key`,
+#: and a header named anything else is a header this cannot know to redact: a provider that invents
+#: one has to name it here for its failures to be scrubbed along with the rest.
+_CREDENTIAL_HEADERS = frozenset({"authorization", "proxy-authorization", "api_key", "api-key", "x-api-key"})
+
+
 def _sends_credentials(client_kwargs: dict | None) -> bool:
-    """Whether these client kwargs carry an Authorization header."""
+    """Whether these client kwargs carry a credential in a header."""
     headers = (client_kwargs or {}).get("headers") or {}
-    return any(str(name).lower() == "authorization" for name in headers)
+    return any(str(name).lower() in _CREDENTIAL_HEADERS for name in headers)
 
 
 def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
@@ -675,10 +682,15 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     if not isinstance(error, ClientResponseError):
         return error
     request_info = error.request_info
-    if request_info is None or "Authorization" not in request_info.headers:
+    if request_info is None:
+        return error
+    carried = [name for name in request_info.headers if str(name).lower() in _CREDENTIAL_HEADERS]
+    if not carried:
         return error
     headers = request_info.headers.copy()
-    headers["Authorization"] = "<redacted>"
+    for name in carried:
+        # assignment replaces every entry of that name rather than adding one
+        headers[name] = "<redacted>"
     # rebuilt as the same (immutable) mapping type the request info was given, without naming it
     scrubbed = request_info._replace(headers=type(request_info.headers)(headers))
     error.request_info = scrubbed
