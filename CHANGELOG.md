@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- A credential no longer travels in the error a failed download hands back. KNMI sends its API key,
+  met.no Frost its basic auth and Met Office its bearer token as an `Authorization` header, and
+  aiohttp hangs the request's headers on a `ClientResponseError` -- and on its `args`, which is what
+  a `repr` renders -- so the key reached anything that rendered the `File` the download returned.
+  The exception's traceback carried it a second way, its frames in `util/network.py` holding the
+  caller's client kwargs as locals: that is what `pytest --showlocals` prints and what an error
+  reporter capturing frame locals sends. Neither shows in `str(error)`, which is what made it easy
+  to miss. The header is now redacted and the traceback dropped, for a request that carried
+  credentials and only for one -- an ordinary 404's traceback is worth more than it costs
+
 ### Changed
 
 - The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py` builds the

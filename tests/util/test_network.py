@@ -590,3 +590,97 @@ def test_network_filesystem_manager_accepts_client_kwargs_none(tmp_path: Path) -
         cache_disable=True,
     )
     assert isinstance(fs, HTTPFileSystem)
+
+
+def _every_carrier_of(error: BaseException) -> str:
+    """Render everything an exception hands onward: its text, its repr, and its frames' locals.
+
+    ``--showlocals`` and an error reporter's frame capture read the last of those, which is where a
+    credential hides when the exception itself looks clean.
+    """
+    import traceback  # noqa: PLC0415
+
+    rendered = [repr(error), str(error), *traceback.format_exception(type(error), error, error.__traceback__)]
+    frame = error.__traceback__
+    while frame:
+        rendered.append(repr(frame.tb_frame.f_locals))
+        frame = frame.tb_next
+    return "".join(rendered)
+
+
+@pytest.fixture
+def http_server() -> Iterator[tuple[str, list]]:
+    """Serve the answers an authenticated endpoint gives, and record what was asked of it.
+
+    A real server rather than a mocked filesystem: what is under test is the request that goes out
+    and the error that comes back from it, which a mock at that level stands in front of.
+    """
+    import json as json_module  # noqa: PLC0415
+    import threading  # noqa: PLC0415
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: PLC0415
+
+    requests: list[dict] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            requests.append({"method": "POST", "path": self.path, "headers": dict(self.headers)})
+            self._answer()
+
+        def do_GET(self) -> None:
+            requests.append({"method": "GET", "path": self.path, "headers": dict(self.headers)})
+            self._answer()
+
+        def _answer(self) -> None:
+            if self.path == "/login-redirect":
+                self.send_response(302)
+                self.send_header("Location", "/login")
+                self.end_headers()
+                return
+            if self.path == "/denied":
+                self.send_response(401)
+                self.end_headers()
+                return
+            body = json_module.dumps({"access_token": "t"}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args: object) -> None:
+            """Keep the test output free of the server's own access log."""
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}", requests
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_download_file_keeps_an_authorization_header_out_of_its_error(
+    http_server: tuple[str, list],
+    tmp_path: Path,
+) -> None:
+    """A provider's API key does not travel in the error a failed download hands back.
+
+    KNMI sends its key, met.no Frost its basic auth and Met Office its bearer token through
+    ``client_kwargs["headers"]``, and aiohttp merges those into the request info it hangs on the
+    error -- which is then stored on the File the caller gets.
+    """
+    base_url, _ = http_server
+    key = "SUPER-SECRET-API-KEY"
+
+    result = download_file(
+        url=f"{base_url}/denied",
+        cache_dir=tmp_path,
+        ttl=CacheExpiry.NO_CACHE,
+        client_kwargs={"headers": {"Authorization": key}},
+        cache_disable=True,
+    )
+
+    assert result.status == 401
+    assert key not in _every_carrier_of(result.content)

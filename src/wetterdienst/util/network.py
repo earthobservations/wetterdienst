@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar
 from urllib.parse import urlparse
 
 import stamina
@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+_E = TypeVar("_E", bound=BaseException)
 
 
 def _create_ssl_context(*, use_certifi: bool) -> ssl.SSLContext | None:
@@ -592,6 +594,9 @@ def download_file(
         use_certifi=use_certifi,
     )
     log.info(f"Downloading file {url}")
+    # knmi sends its API key, metno frost its basic auth and metoffice its bearer token this way,
+    # and aiohttp merges those headers into the request info it hangs on an error
+    sent_credentials = _sends_credentials(client_kwargs)
     try:
         for attempt in stamina.retry_context(
             on=(FileNotFoundError, FSTimeoutError, ClientConnectorError, ClientResponseError, ClientPayloadError),
@@ -605,19 +610,66 @@ def download_file(
         raise AssertionError(msg)
     except FileNotFoundError as e:
         log.info(f"Failed to download file {url}.")
-        return File(url=url, content=e, status=404)
+        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=404)
     except FSTimeoutError as e:
         log.info(f"Failed to download file {url}.")
-        return File(url=url, content=e, status=408)
+        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=408)
     except ClientConnectorError as e:
         log.info(f"No internet connection while downloading file {url}.")
         return File(url=url, content=NoInternetError(str(e)), status=503)
     except ClientResponseError as e:
         log.info(f"Failed to download file {url}.")
-        return File(url=url, content=e, status=e.status or 500)
+        return File(
+            url=url,
+            content=_without_credentials(e, sent_credentials=sent_credentials),
+            status=e.status or 500,
+        )
     except ClientPayloadError as e:
         log.info(f"Failed to download file {url}.")
-        return File(url=url, content=e, status=500)
+        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
+
+
+def _sends_credentials(client_kwargs: dict | None) -> bool:
+    """Whether these client kwargs carry an Authorization header."""
+    headers = (client_kwargs or {}).get("headers") or {}
+    return any(str(name).lower() == "authorization" for name in headers)
+
+
+def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
+    """Keep the credential of an authenticated request out of the error it produced.
+
+    Two places hold it, neither of them ``str(error)`` -- which is what makes it easy to miss:
+
+    - the request info aiohttp hangs on a ``ClientResponseError``, and on its ``args``, which is
+      what a ``repr`` renders, and
+    - the traceback, whose frames in this module have the header, its encoding and the caller's
+      client kwargs as locals. That is what ``pytest --showlocals`` prints and what an error
+      reporter capturing frame locals sends.
+
+    The error is handed back to a caller to log, raise or store, so both are dealt with before it
+    travels. The traceback is dropped only for a request that carried credentials: for every other
+    one it is worth more than it costs.
+    """
+    if not sent_credentials:
+        return error
+    error = error.with_traceback(None)
+    # only a response error carries request info; a timeout or a dropped connection has none, and
+    # for those the traceback was the whole of the exposure
+    if not isinstance(error, ClientResponseError):
+        return error
+    request_info = error.request_info
+    if request_info is None or "Authorization" not in request_info.headers:
+        return error
+    headers = request_info.headers.copy()
+    headers["Authorization"] = "<redacted>"
+    # rebuilt as the same (immutable) mapping type the request info was given, without naming it
+    scrubbed = request_info._replace(headers=type(request_info.headers)(headers))
+    error.request_info = scrubbed
+    # aiohttp builds args as (request_info, history); rewritten only where that still holds, rather
+    # than assuming the first element of any subclass's args is the request info
+    if error.args and error.args[0] is request_info:
+        error.args = (scrubbed, *error.args[1:])
+    return error
 
 
 def download_files(
