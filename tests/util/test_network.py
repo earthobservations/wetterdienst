@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for network utilities."""
 
+import json
 import logging
 import pickle
 import time
@@ -28,6 +29,7 @@ from wetterdienst.util.network import (
     download_file,
     list_remote_directory_fsspec,
     list_remote_files_fsspec,
+    post_file,
 )
 
 
@@ -611,10 +613,11 @@ def _every_carrier_of(error: BaseException) -> str:
 
 @pytest.fixture
 def http_server() -> Iterator[tuple[str, list]]:
-    """Serve the answers an authenticated endpoint gives, and record what was asked of it.
+    """Serve the three answers a token endpoint gives, and record what was asked of it.
 
-    A real server rather than a mocked filesystem: what is under test is the request that goes out
-    and the error that comes back from it, which a mock at that level stands in front of.
+    A real server rather than a mocked ``sync``: what is under test is the request ``post_file``
+    builds -- its Authorization header, and its refusal to follow a redirect -- which a mock at that
+    level stands in front of.
     """
     import json as json_module  # noqa: PLC0415
     import threading  # noqa: PLC0415
@@ -668,6 +671,106 @@ def http_server() -> Iterator[tuple[str, list]]:
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_post_file_returns_a_dropped_connection_as_a_file() -> None:
+    """A connection the server closed comes back as a File, not as an exception through the caller.
+
+    fsspec keeps one filesystem -- and one aiohttp session with its keep-alive pool -- for the life
+    of the process, so a caller that posts days apart can be handed a connection closed long ago.
+    ``ServerDisconnectedError`` is neither of the two connection errors named above it, which is why
+    the base class is caught.
+    """
+    error = ServerDisconnectedError()
+
+    with (
+        stamina.set_testing(True, attempts=1),
+        patch("wetterdienst.util.network.sync", side_effect=error),
+    ):
+        result = post_file("http://example.com/token", auth=("user", "pass"))
+
+    assert result.status == 500
+    assert result.content is error
+    assert not result.is_no_internet_error
+
+
+def test_post_file_retries_a_dropped_connection_once() -> None:
+    """A dropped connection is retried, where a response that did arrive would not be."""
+    payload = b'{"access_token": "t"}'
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        patch("wetterdienst.util.network.sync", side_effect=[ServerDisconnectedError(), (200, payload)]) as mock_sync,
+    ):
+        result = post_file("http://example.com/token")
+
+    assert mock_sync.call_count == 2
+    assert result.status == 200
+    assert result.content.getvalue() == payload
+
+
+def test_post_file_keeps_the_callers_timeout() -> None:
+    """A timeout the caller configured is honoured; the module's own stands in only when none is."""
+    with (
+        patch("wetterdienst.util.network.HTTPFileSystem") as mock_filesystem,
+        patch("wetterdienst.util.network.sync", return_value=(200, b"{}")),
+    ):
+        post_file("http://example.com/token", client_kwargs={"timeout": 120})
+        post_file("http://example.com/token")
+
+    configured, defaulted = mock_filesystem.call_args_list
+    assert configured.kwargs["client_kwargs"]["timeout"] == 120
+    assert defaulted.kwargs["client_kwargs"]["timeout"] == 30.0
+
+
+def test_post_file_sends_basic_auth_and_does_not_follow_a_redirect(http_server: tuple[str, list]) -> None:
+    """Against a real server: the Authorization header is sent, and a redirect comes back as itself.
+
+    These are the two things the mocked tests above cannot see, ``sync`` standing in for the whole
+    request: aiohttp follows a redirected POST as a GET, which would turn a login page into a 200
+    with a body that parses as nothing, and the basic-auth header is built here rather than by a
+    library.
+    """
+    import base64  # noqa: PLC0415
+
+    base_url, requests = http_server
+
+    ok = post_file(f"{base_url}/token", auth=("user", "pa:ss"))
+    assert ok.status == 200
+    assert json.loads(ok.content.getvalue()) == {"access_token": "t"}
+
+    # RFC 7617: base64 of "user:pa:ss" -- a colon is allowed in the password, not in the username
+    expected = base64.b64encode(b"user:pa:ss").decode()
+    assert requests[-1]["headers"]["Authorization"] == f"Basic {expected}"
+    assert requests[-1]["method"] == "POST"
+
+    redirected = post_file(f"{base_url}/login-redirect", auth=("user", "pa:ss"))
+    assert redirected.status == 302
+    # one request, not two: the redirect was not followed, and never became a GET
+    assert len(requests) == 2
+
+
+def test_post_file_keeps_credentials_out_of_the_error_it_returns(http_server: tuple[str, list]) -> None:
+    """A 401 comes back as an error whose repr does not carry the credential that earned it.
+
+    aiohttp hangs the request headers on the exception and on its ``args``, so a repr -- a pytest
+    dump, an error reporter walking the object -- would otherwise print the base64 of
+    username:password.
+    """
+    import base64  # noqa: PLC0415
+
+    base_url, _ = http_server
+
+    result = post_file(f"{base_url}/denied", auth=("user", "pa:ss"))
+
+    assert result.status == 401
+    assert isinstance(result.content, ClientResponseError)
+    secret = base64.b64encode(b"user:pa:ss").decode()
+    assert secret not in repr(result.content)
+    assert secret not in str(result.content)
+    assert result.content.request_info.headers["Authorization"] == "<redacted>"
+    # and not in the traceback either, whose frames in network.py held the header as a local
+    assert secret not in _every_carrier_of(result.content)
 
 
 def test_download_file_keeps_an_authorization_header_out_of_its_error(

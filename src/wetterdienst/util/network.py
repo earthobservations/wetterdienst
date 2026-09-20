@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
@@ -19,8 +20,14 @@ from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar
 from urllib.parse import urlparse
 
 import stamina
-from aiohttp import ClientConnectorError, ClientError, ClientPayloadError, ClientResponseError
-from fsspec.asyn import sync_wrapper
+from aiohttp import (
+    ClientConnectionError,
+    ClientConnectorError,
+    ClientError,
+    ClientPayloadError,
+    ClientResponseError,
+)
+from fsspec.asyn import sync, sync_wrapper
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
@@ -685,6 +692,107 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     if error.args and error.args[0] is request_info:
         error.args = (scrubbed, (), *error.args[2:])
     return error
+
+
+# How long a post waits when the caller's ``client_kwargs`` does not say. Settings carries a
+# default of the same length, so this stands in only for a caller that passes none at all.
+_POST_TIMEOUT_SECONDS = 30.0
+
+
+def post_file(
+    url: str,
+    *,
+    auth: tuple[str, str] | None = None,
+    client_kwargs: dict | None = None,
+    use_certifi: bool = False,
+) -> File:
+    """Post to a URL and return the response body.
+
+    The download path cannot express this: ``download_file`` is a GET through a caching filesystem,
+    where minting a token is a POST whose answer must never be cached. It still goes through
+    fsspec's HTTP filesystem -- its event loop, its aiohttp session, its SSL handling and the
+    caller's client settings -- so one HTTP stack serves every request the package makes rather
+    than a second client being carried for one of them.
+
+    Failures come back as a ``File`` carrying the exception and a status, the same shape
+    ``download_file`` returns them in, so a caller decides what a failed exchange means rather than
+    having an exception thrown through it. A redirect is not followed and arrives as itself, so a
+    caller that expected a body should read ``File.status`` before the content.
+
+    Args:
+        url: The URL to post to.
+        auth: Username and password for HTTP basic auth, if the endpoint wants them.
+        client_kwargs: Additional keyword arguments for the client, ``timeout`` among them.
+        use_certifi: If True, use certifi certificate bundle instead of system certificates.
+
+    Returns:
+        A File holding the response body, or the exception that stopped it.
+
+    """
+    filesystem = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0,
+        use_certifi=use_certifi,
+        # a default for a caller that set none, rather than an argument of its own: every caller
+        # here passes ``Settings.fsspec_client_kwargs``, which always carries a timeout, so a
+        # separate parameter could be passed and never take effect
+        client_kwargs={"timeout": _POST_TIMEOUT_SECONDS, **(client_kwargs or {})},
+    )
+    # RFC 7617 by hand rather than through aiohttp: its ``BasicAuth`` and the ``auth=`` parameter are
+    # both deprecated for removal in aiohttp 4, and its replacement (``encode_basic_auth``) is newer
+    # than the aiohttp any given install carries. Sent per request, so credentials never reach
+    # ``client_kwargs`` -- which is hashed into the filesystem cache key.
+    headers = None
+    if auth:
+        headers = {"Authorization": f"Basic {base64.b64encode(':'.join(auth).encode()).decode('ascii')}"}
+    sent_credentials = headers is not None or _sends_credentials(client_kwargs)
+
+    async def _post() -> tuple[int, bytes]:
+        session = await filesystem.set_session()
+        # A POST is not repeated as a POST across a redirect: aiohttp would follow it as a GET and
+        # answer with whatever that returned -- an HTML login page reads as a 200 with an
+        # unparseable body, where the 302 says plainly what happened. So the redirect is the answer.
+        async with session.post(url, headers=headers, allow_redirects=False) as response:
+            response.raise_for_status()
+            return response.status, await response.read()
+
+    log.info(f"Posting to {url}")
+    try:
+        # fsspec keeps one filesystem instance -- and so one aiohttp session and its keep-alive
+        # pool -- for the life of the process, where a token is minted days apart. The first attempt
+        # can therefore pick a pooled connection the server closed hours ago, which the second gets
+        # to retry on a fresh one. A response that did arrive is never retried: a 401 is an answer.
+        for attempt in stamina.retry_context(
+            on=(ClientConnectionError, FSTimeoutError, TimeoutError),
+            attempts=2,
+        ):
+            with attempt:
+                try:
+                    status, payload = sync(filesystem.loop, _post)
+                except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
+                    # as in download_file: stamina's retry hook logs ``repr(caused_by)``, which
+                    # renders an aiohttp error's request info. None of the errors retried here
+                    # carries one today, which is exactly the kind of thing a later edit changes
+                    raise _without_credentials(e, sent_credentials=sent_credentials) from None
+                log.info(f"Posted to {url}")
+                return File(url=url, content=BytesIO(payload), status=status)
+        msg = "unreachable"
+        raise AssertionError(msg)
+    except ClientResponseError as e:
+        log.info(f"Failed to post to {url}.")
+        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=e.status or 500)
+    except ClientConnectorError as e:
+        log.info(f"No internet connection while posting to {url}.")
+        return File(url=url, content=NoInternetError(str(e)), status=503)
+    except (FSTimeoutError, TimeoutError) as e:
+        log.info(f"Failed to post to {url}.")
+        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=408)
+    except ClientError as e:
+        # every other aiohttp client failure -- a dropped keep-alive connection
+        # (ServerDisconnectedError), a reset, a broken payload. Caught as the base class rather than
+        # named one by one, because the promise made above is that a failure comes back as a File.
+        log.info(f"Failed to post to {url}.")
+        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
 
 
 def download_files(

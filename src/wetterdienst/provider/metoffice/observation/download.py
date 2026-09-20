@@ -27,7 +27,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-import httpx
+from wetterdienst.util.network import post_file
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -90,17 +90,29 @@ def get_ceda_token(settings: Settings) -> str | None:
         cached = _TOKEN_CACHE.get(credentials)
         if cached is not None and cached[1] > time.time():
             return cached[0]
-        try:
-            response = httpx.post(_TOKEN_URL, auth=(username, password), timeout=30)
-            response.raise_for_status()
-        except httpx.HTTPError as e:
-            log.warning(f"Failed to obtain CEDA access token: {e}")
+        file = post_file(
+            _TOKEN_URL,
+            auth=(username, password),
+            client_kwargs=settings.fsspec_client_kwargs,
+            use_certifi=settings.use_certifi,
+        )
+        if isinstance(file.content, Exception):
+            # said out loud whichever way it failed, and once every three days at that: a refused
+            # connection, an intercepted TLS handshake and an unreachable host all arrive here, and
+            # every one of them ends as an empty Met Office result the user would otherwise have no
+            # account of. The reason is named rather than the account blamed.
+            log.warning(f"Failed to obtain CEDA access token: {file.content}")
+            return None
+        if file.status != 200:
+            # a redirect, which post_file does not follow: CEDA answering the token request with
+            # anything but a token, most likely its login page
+            log.warning(f"Failed to obtain CEDA access token: CEDA answered {file.status}")
             return None
         try:
             # a 200 with a non-JSON body (e.g. an HTML login/error page) or a JSON body missing the
             # access_token field is an exchange failure, not data -- surface it as "not authenticated"
-            token = response.json()["access_token"]
-        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            token = json.loads(file.content.getvalue())["access_token"]
+        except (json.JSONDecodeError, UnicodeDecodeError, KeyError, TypeError) as e:
             log.warning(f"Unexpected CEDA token response: {e}")
             return None
         _TOKEN_CACHE[credentials] = (token, _token_valid_until(token))

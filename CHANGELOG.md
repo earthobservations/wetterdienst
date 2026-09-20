@@ -36,6 +36,26 @@ Types of changes:
 
 ### Fixed
 
+- Met Office works on a plain `pip install wetterdienst`. Its CEDA token exchange imported `httpx`
+  at module level, but `httpx` was declared only by the `restapi` extra and nothing pulls it in
+  transitively, so `Wetterdienst("metoffice", "observation")` raised on an installation that had
+  not asked for the REST API -- reported as `Module wetterdienst.provider.metoffice.observation not
+  found`, since the registry rewrites a `ModuleNotFoundError` and drops the name of what was
+  actually missing. The exchange now goes through fsspec's HTTP filesystem like every other request
+  the package makes, by way of a new `post_file` in `util/network.py`: the download path could not
+  serve it, being a GET through a caching filesystem where a token mint is a POST whose answer must
+  never be cached. `httpx` is no longer a dependency of wetterdienst at all -- the REST API never
+  imported it, and starlette's test client has moved to `httpx2`. The basic-auth header is written
+  by hand rather than through aiohttp's `BasicAuth`, which is deprecated for removal in aiohttp 4,
+  and is sent per request so credentials never reach `client_kwargs`, which is hashed into the
+  filesystem cache key. A failed exchange is a `File` carrying the exception whichever way it
+  failed, the base `ClientError` being caught rather than a list of its subclasses: fsspec holds one
+  session and its keep-alive pool for the life of the process while a token is minted days apart, so
+  a mint can be handed a connection the server closed hours ago. That one is retried once, where a
+  response that did arrive -- a 401 among them -- is an answer and is not. A redirect is not
+  followed either: aiohttp would repeat a redirected POST as a GET, turning CEDA's login page into a
+  200 whose body parses as nothing, where the 302 says plainly what happened. GH-1929
+
 - The MCP server tells a client which wetterdienst it is talking to. `FastMCP(version=...)` was
   never set, and left unset it reports the installed FastMCP release as the server's own version --
   so a client asking what it had connected to was answered "Wetterdienst 4.0.3". It now answers
@@ -66,7 +86,8 @@ Types of changes:
   -- for a request that carried credentials and only for one, an ordinary 404's traceback being
   worth more than it costs. An aiohttp failure that is none of the named ones, a dropped connection
   among them, is answered with a `File` rather than raised through the caller, so it cannot leave
-  by way of a traceback either
+  by way of a traceback either. The token exchange added below is held to the same rule, its own
+  frames holding the header and its encoding
 
 ## [0.137.0] - 2026-09-18
 
