@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for network utilities."""
 
+import logging
 import pickle
 import time
 from collections.abc import Iterator, MutableMapping
@@ -11,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import stamina
-from aiohttp import ClientConnectorError, ClientResponseError, ClientTimeout
+from aiohttp import ClientConnectorError, ClientResponseError, ClientTimeout, ServerDisconnectedError
 from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
 
@@ -590,3 +591,194 @@ def test_network_filesystem_manager_accepts_client_kwargs_none(tmp_path: Path) -
         cache_disable=True,
     )
     assert isinstance(fs, HTTPFileSystem)
+
+
+def _every_carrier_of(error: BaseException) -> str:
+    """Render everything an exception hands onward: its text, its repr, and its frames' locals.
+
+    ``--showlocals`` and an error reporter's frame capture read the last of those, which is where a
+    credential hides when the exception itself looks clean.
+    """
+    import traceback  # noqa: PLC0415
+
+    rendered = [repr(error), str(error), *traceback.format_exception(type(error), error, error.__traceback__)]
+    frame = error.__traceback__
+    while frame:
+        rendered.append(repr(frame.tb_frame.f_locals))
+        frame = frame.tb_next
+    return "".join(rendered)
+
+
+@pytest.fixture
+def http_server() -> Iterator[tuple[str, list]]:
+    """Serve the answers an authenticated endpoint gives, and record what was asked of it.
+
+    A real server rather than a mocked filesystem: what is under test is the request that goes out
+    and the error that comes back from it, which a mock at that level stands in front of.
+    """
+    import json as json_module  # noqa: PLC0415
+    import threading  # noqa: PLC0415
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: PLC0415
+
+    requests: list[dict] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            requests.append({"method": "POST", "path": self.path, "headers": dict(self.headers)})
+            self._answer()
+
+        def do_GET(self) -> None:
+            requests.append({"method": "GET", "path": self.path, "headers": dict(self.headers)})
+            self._answer()
+
+        def _answer(self) -> None:
+            if self.path == "/login-redirect":
+                self.send_response(302)
+                self.send_header("Location", "/denied")
+                self.end_headers()
+                return
+            if self.path == "/denied":
+                self.send_response(401)
+                self.end_headers()
+                return
+            if self.path == "/boom":
+                self.send_response(500)
+                self.end_headers()
+                return
+            if self.path == "/drop":
+                # answer nothing and hang up, which aiohttp reports as ServerDisconnectedError
+                self.connection.close()
+                return
+            body = json_module.dumps({"access_token": "t"}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args: object) -> None:
+            """Keep the test output free of the server's own access log."""
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}", requests
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_download_file_keeps_an_authorization_header_out_of_its_error(
+    http_server: tuple[str, list],
+    tmp_path: Path,
+) -> None:
+    """A provider's API key does not travel in the error a failed download hands back.
+
+    KNMI sends its key, met.no Frost its basic auth and Met Office its bearer token through
+    ``client_kwargs["headers"]``, and aiohttp merges those into the request info it hangs on the
+    error -- which is then stored on the File the caller gets.
+    """
+    base_url, requests = http_server
+    key = "SUPER-SECRET-API-KEY"
+
+    result = download_file(
+        url=f"{base_url}/denied",
+        cache_dir=tmp_path,
+        ttl=CacheExpiry.NO_CACHE,
+        client_kwargs={"headers": {"Authorization": key}},
+        cache_disable=True,
+    )
+
+    # the header did reach the server, so the scrubbing under test actually had something to do:
+    # without this the test would pass just as well on a request that never carried the key
+    assert requests[0]["headers"]["Authorization"] == key
+    assert result.status == 401
+    assert key not in _every_carrier_of(result.content)
+
+
+def test_download_file_keeps_credentials_out_of_a_redirect_chain(
+    http_server: tuple[str, list],
+    tmp_path: Path,
+) -> None:
+    """A redirect that ends in a refusal leaves no copy of the header in the error's history.
+
+    ``ClientResponseError.history`` holds the responses that came before, each with its own request
+    and so its own copy of the header -- a second carrier that redacting the final request info
+    alone leaves untouched. It is the shape a login-page redirect takes.
+    """
+    base_url, requests = http_server
+    key = "SUPER-SECRET-API-KEY"
+
+    result = download_file(
+        url=f"{base_url}/login-redirect",
+        cache_dir=tmp_path,
+        ttl=CacheExpiry.NO_CACHE,
+        client_kwargs={"headers": {"Authorization": key}},
+        cache_disable=True,
+    )
+
+    # the redirect was followed, so there was a history to scrub -- the first two of them, the 401
+    # being retried once and so asking the whole chain again
+    assert [request["path"] for request in requests[:2]] == ["/login-redirect", "/denied"]
+    assert result.status == 401
+    assert not result.content.history
+    assert key not in _every_carrier_of(result.content)
+
+
+def test_download_file_keeps_credentials_out_of_the_retry_log(
+    http_server: tuple[str, list],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The credential does not reach stamina's retry hook, which logs a repr of what failed.
+
+    That hook fires on the first failure of every retried download, before any handler here is
+    reached, and ``repr`` of an aiohttp error renders the request info with its headers. So the
+    error is scrubbed on the way into the retry as well as on the way out of it.
+    """
+    base_url, _ = http_server
+    key = "SUPER-SECRET-API-KEY"
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        caplog.at_level(logging.DEBUG, logger="stamina"),
+    ):
+        result = download_file(
+            url=f"{base_url}/boom",
+            cache_dir=tmp_path,
+            ttl=CacheExpiry.NO_CACHE,
+            client_kwargs={"headers": {"Authorization": key}},
+            cache_disable=True,
+        )
+
+    assert result.status == 500
+    assert caplog.records, "stamina logged nothing, so this test would pass for the wrong reason"
+    assert not [record for record in caplog.records if key in record.getMessage() + str(record.__dict__)]
+
+
+def test_download_file_returns_a_dropped_connection_as_a_file(
+    http_server: tuple[str, list],
+    tmp_path: Path,
+) -> None:
+    """A server that hangs up is answered with a File, not with an exception through the caller.
+
+    ServerDisconnectedError is none of the specific errors named above, and an exception leaving
+    this way carries a traceback whose frames hold the caller's client kwargs -- credentials and
+    all -- as locals.
+    """
+    base_url, _ = http_server
+    key = "SUPER-SECRET-API-KEY"
+
+    result = download_file(
+        url=f"{base_url}/drop",
+        cache_dir=tmp_path,
+        ttl=CacheExpiry.NO_CACHE,
+        client_kwargs={"headers": {"Authorization": key}},
+        cache_disable=True,
+    )
+
+    assert result.status == 500
+    assert isinstance(result.content, ServerDisconnectedError)
+    assert key not in _every_carrier_of(result.content)

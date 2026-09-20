@@ -51,6 +51,23 @@ Types of changes:
   peak memory when decompressing a streamed response (CVE-2026-84382, 2.12.0). `uv audit` has
   failed on `main` since 2026-09-16 on exactly these, and passes again
 
+- A credential no longer travels in the error a failed download hands back. KNMI sends its API key,
+  met.no Frost its basic auth and Met Office its bearer token as an `Authorization` header, and
+  aiohttp hangs the request's headers on a `ClientResponseError` -- and on its `args`, which is what
+  a `repr` renders -- so the key reached anything that rendered the `File` the download returned.
+  It travelled three further ways. The traceback's frames in `util/network.py` hold the caller's
+  client kwargs as locals, which is what `pytest --showlocals` prints and what an error reporter
+  capturing frame locals sends. `ClientResponseError.history` holds the responses a redirect chain
+  passed through, each with its own copy of the header -- the shape a login-page redirect takes.
+  And `stamina`'s retry hook logs a `repr` of what failed on the first failure of every retried
+  download, rendering the request info before any of this could redact it. None of the four shows
+  in `str(error)`, which is what made them easy to miss. The header is now redacted, the history
+  and the traceback dropped, and the error scrubbed on its way into the retry as well as out of it
+  -- for a request that carried credentials and only for one, an ordinary 404's traceback being
+  worth more than it costs. An aiohttp failure that is none of the named ones, a dropped connection
+  among them, is answered with a `File` rather than raised through the caller, so it cannot leave
+  by way of a traceback either
+
 ## [0.137.0] - 2026-09-18
 
 ### Added
