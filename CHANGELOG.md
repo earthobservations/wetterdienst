@@ -48,10 +48,7 @@ Types of changes:
   imported it, and starlette's test client has moved to `httpx2`. The basic-auth header is written
   by hand rather than through aiohttp's `BasicAuth`, which is deprecated for removal in aiohttp 4,
   and is sent per request so credentials never reach `client_kwargs`, which is hashed into the
-  filesystem cache key. An error from an authenticated request has that header redacted before it
-  is handed back: aiohttp hangs the request's headers on the exception and on its `args`, so a
-  `repr` of it -- a pytest dump, an error reporter walking the object -- would otherwise print the
-  base64 of username and password, where `str` of it does not. A failed exchange is a `File` carrying the exception whichever way it
+  filesystem cache key. A failed exchange is a `File` carrying the exception whichever way it
   failed, the base `ClientError` being caught rather than a list of its subclasses: fsspec holds one
   session and its keep-alive pool for the life of the process while a token is minted days apart, so
   a mint can be handed a connection the server closed hours ago. That one is retried once, where a
@@ -65,6 +62,17 @@ Types of changes:
   with wetterdienst's version, the same one `GET /api/version` gives
 
 ### Security
+
+- A credential no longer travels in the error a failed request hands back. KNMI sends its API key,
+  met.no Frost its basic auth and Met Office its bearer token as an `Authorization` header, and
+  aiohttp hangs the request's headers on a `ClientResponseError` -- and on its `args`, which is what
+  a `repr` renders -- so the key reached anything that rendered the `File` a failed download
+  returned. The exception's traceback carried it a second way, its frames in `util/network.py`
+  holding the header, its encoding and the caller's client kwargs as locals: that is what
+  `pytest --showlocals` prints and what an error reporter capturing frame locals sends. Neither
+  shows in `str(error)`, which is what made it easy to miss. The header is now redacted and the
+  traceback dropped for any request that carried credentials, in `download_file` and `post_file`
+  alike
 
 - `httpx2` now has a floor of `>=2.12` wherever it is declared -- the dev group, which held
   `>=2.4.0`, and the `mcp` extra, which now declares it -- and the lockfile carries 2.13.0 where it
