@@ -620,7 +620,7 @@ def test_post_file_retries_a_dropped_connection_once() -> None:
 
     with (
         stamina.set_testing(True, attempts=2),
-        patch("wetterdienst.util.network.sync", side_effect=[ServerDisconnectedError(), payload]) as mock_sync,
+        patch("wetterdienst.util.network.sync", side_effect=[ServerDisconnectedError(), (200, payload)]) as mock_sync,
     ):
         result = post_file("http://example.com/token")
 
@@ -633,8 +633,21 @@ def test_post_file_keeps_the_callers_timeout() -> None:
     """A timeout the caller configured is honoured, the argument being the default rather than a cap."""
     with (
         patch("wetterdienst.util.network.HTTPFileSystem") as mock_filesystem,
-        patch("wetterdienst.util.network.sync", return_value=b"{}"),
+        patch("wetterdienst.util.network.sync", return_value=(200, b"{}")),
     ):
         post_file("http://example.com/token", timeout=30.0, client_kwargs={"timeout": 120})
 
     assert mock_filesystem.call_args.kwargs["client_kwargs"]["timeout"] == 120
+
+
+def test_post_file_reports_a_redirect_as_itself() -> None:
+    """A redirect is the answer, not a detour: post_file does not follow it and carries its status.
+
+    aiohttp follows a redirected POST as a GET, which turns a login page into a 200 with a body that
+    parses as nothing. The status is what says what happened.
+    """
+    with patch("wetterdienst.util.network.sync", return_value=(302, b"")):
+        result = post_file("http://example.com/token", auth=("user", "pass"))
+
+    assert result.status == 302
+    assert result.content.getvalue() == b""

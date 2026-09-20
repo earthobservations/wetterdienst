@@ -645,7 +645,8 @@ def post_file(
 
     Failures come back as a ``File`` carrying the exception and a status, the same shape
     ``download_file`` returns them in, so a caller decides what a failed exchange means rather than
-    having an exception thrown through it.
+    having an exception thrown through it. A redirect is not followed and arrives as itself, so a
+    caller that expected a body should read ``File.status`` before the content.
 
     Args:
         url: The URL to post to.
@@ -675,11 +676,14 @@ def post_file(
         credentials = base64.b64encode(":".join(auth).encode()).decode("ascii")
         headers = {"Authorization": f"Basic {credentials}"}
 
-    async def _post() -> bytes:
+    async def _post() -> tuple[int, bytes]:
         session = await filesystem.set_session()
-        async with session.post(url, headers=headers) as response:
+        # A POST is not repeated as a POST across a redirect: aiohttp would follow it as a GET and
+        # answer with whatever that returned -- an HTML login page reads as a 200 with an
+        # unparseable body, where the 302 says plainly what happened. So the redirect is the answer.
+        async with session.post(url, headers=headers, allow_redirects=False) as response:
             response.raise_for_status()
-            return await response.read()
+            return response.status, await response.read()
 
     log.info(f"Posting to {url}")
     try:
@@ -692,9 +696,9 @@ def post_file(
             attempts=2,
         ):
             with attempt:
-                payload = sync(filesystem.loop, _post)
+                status, payload = sync(filesystem.loop, _post)
                 log.info(f"Posted to {url}")
-                return File(url=url, content=BytesIO(payload), status=200)
+                return File(url=url, content=BytesIO(payload), status=status)
         msg = "unreachable"
         raise AssertionError(msg)
     except ClientResponseError as e:

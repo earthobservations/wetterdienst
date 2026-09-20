@@ -97,12 +97,16 @@ def get_ceda_token(settings: Settings) -> str | None:
             use_certifi=settings.use_certifi,
         )
         if isinstance(file.content, Exception):
-            if file.is_no_internet_error:
-                # being offline is not a credentials problem, and the download path stays quiet
-                # about it too -- say it at debug rather than implying the account is at fault
-                log.debug(f"No CEDA access token: {file.content}")
-            else:
-                log.warning(f"Failed to obtain CEDA access token: {file.content}")
+            # said out loud whichever way it failed, and once every three days at that: a refused
+            # connection, an intercepted TLS handshake and an unreachable host all arrive here, and
+            # every one of them ends as an empty Met Office result the user would otherwise have no
+            # account of. The reason is named rather than the account blamed.
+            log.warning(f"Failed to obtain CEDA access token: {file.content}")
+            return None
+        if file.status != 200:
+            # a redirect, which post_file does not follow: CEDA answering the token request with
+            # anything but a token, most likely its login page
+            log.warning(f"Failed to obtain CEDA access token: CEDA answered {file.status}")
             return None
         try:
             # a 200 with a non-JSON body (e.g. an HTML login/error page) or a JSON body missing the

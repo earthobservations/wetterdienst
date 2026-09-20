@@ -211,6 +211,24 @@ def test_ceda_token_bad_response_returns_none(body: object, monkeypatch: pytest.
     download._TOKEN_CACHE.clear()  # noqa: SLF001
 
 
+def test_ceda_token_redirect_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CEDA answering the token request with a redirect is an auth failure, named by its status."""
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+
+    def _fake_post(*_args: object, **_kwargs: object) -> File:
+        return File(url=download._TOKEN_URL, content=BytesIO(b""), status=302)  # noqa: SLF001
+
+    monkeypatch.setattr(download, "post_file", _fake_post)
+    assert download.get_ceda_token(Settings(auth={"ceda": "user:pass"})) is None
+    assert not download._TOKEN_CACHE  # noqa: SLF001
+
+
 def test_ceda_token_failed_exchange_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
     """A token exchange that never reached CEDA is "not authenticated", not a crash, and not cached."""
     from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415

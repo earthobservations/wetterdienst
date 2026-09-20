@@ -52,7 +52,9 @@ Types of changes:
   failed, the base `ClientError` being caught rather than a list of its subclasses: fsspec holds one
   session and its keep-alive pool for the life of the process while a token is minted days apart, so
   a mint can be handed a connection the server closed hours ago. That one is retried once, where a
-  response that did arrive -- a 401 among them -- is an answer and is not. GH-1929
+  response that did arrive -- a 401 among them -- is an answer and is not. A redirect is not
+  followed either: aiohttp would repeat a redirected POST as a GET, turning CEDA's login page into a
+  200 whose body parses as nothing, where the 302 says plainly what happened. GH-1929
 
 - The MCP server tells a client which wetterdienst it is talking to. `FastMCP(version=...)` was
   never set, and left unset it reports the installed FastMCP release as the server's own version --
