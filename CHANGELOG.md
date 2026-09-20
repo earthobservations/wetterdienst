@@ -45,6 +45,14 @@ Types of changes:
 
 ### Fixed
 
+- The three paths that do not go through the provider registry say which extra they want, where
+  they used to raise a bare `ModuleNotFoundError`: `wetterdienst restapi` without `[restapi]`,
+  `.interpolate()` without `[interpolation]`, and the radar HDF5 dump without `[radar]`. Each names
+  the package and the command that installs it, as the plotting helpers already did. Where several
+  extras install the same package -- `h5py` belongs to both `knmi` and `radar` -- the caller's own
+  is the one named, and only where the metadata agrees that it installs it, so a renamed extra
+  falls back to what is actually there rather than to a wrong instruction. GH-1938
+
 - A provider that cannot be loaded says which package it is missing. `importlib` raises
   `ModuleNotFoundError` for an absent *dependency* of a module just as readily as for an absent
   module, and `Wetterdienst.resolve` rewrote both into `Module wetterdienst.provider.X not found` --
