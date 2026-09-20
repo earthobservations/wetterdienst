@@ -48,7 +48,11 @@ Types of changes:
   imported it, and starlette's test client has moved to `httpx2`. The basic-auth header is written
   by hand rather than through aiohttp's `BasicAuth`, which is deprecated for removal in aiohttp 4,
   and is sent per request so credentials never reach `client_kwargs`, which is hashed into the
-  filesystem cache key. GH-1929
+  filesystem cache key. A failed exchange is a `File` carrying the exception whichever way it
+  failed, the base `ClientError` being caught rather than a list of its subclasses: fsspec holds one
+  session and its keep-alive pool for the life of the process while a token is minted days apart, so
+  a mint can be handed a connection the server closed hours ago. That one is retried once, where a
+  response that did arrive -- a 401 among them -- is an answer and is not. GH-1929
 
 - The MCP server tells a client which wetterdienst it is talking to. `FastMCP(version=...)` was
   never set, and left unset it reports the installed FastMCP release as the server's own version --

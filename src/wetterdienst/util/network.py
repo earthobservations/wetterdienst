@@ -20,7 +20,13 @@ from typing import TYPE_CHECKING, ClassVar, Literal
 from urllib.parse import urlparse
 
 import stamina
-from aiohttp import ClientConnectorError, ClientPayloadError, ClientResponseError
+from aiohttp import (
+    ClientConnectionError,
+    ClientConnectorError,
+    ClientError,
+    ClientPayloadError,
+    ClientResponseError,
+)
 from fsspec.asyn import sync, sync_wrapper
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
@@ -656,7 +662,9 @@ def post_file(
         use_listings_cache=False,
         listings_expiry_time=0,
         use_certifi=use_certifi,
-        client_kwargs={**(client_kwargs or {}), "timeout": timeout},
+        # the caller's own timeout wins: ``timeout`` is the default for a caller that set none,
+        # not an override of one that did
+        client_kwargs={"timeout": timeout, **(client_kwargs or {})},
     )
     # RFC 7617 by hand rather than through aiohttp: its ``BasicAuth`` and the ``auth=`` parameter are
     # both deprecated for removal in aiohttp 4, and its replacement (``encode_basic_auth``) is newer
@@ -675,21 +683,35 @@ def post_file(
 
     log.info(f"Posting to {url}")
     try:
-        payload = sync(filesystem.loop, _post)
+        # fsspec keeps one filesystem instance -- and so one aiohttp session and its keep-alive
+        # pool -- for the life of the process, where a token is minted days apart. The first attempt
+        # can therefore pick a pooled connection the server closed hours ago, which the second gets
+        # to retry on a fresh one. A response that did arrive is never retried: a 401 is an answer.
+        for attempt in stamina.retry_context(
+            on=(ClientConnectionError, FSTimeoutError, TimeoutError),
+            attempts=2,
+        ):
+            with attempt:
+                payload = sync(filesystem.loop, _post)
+                log.info(f"Posted to {url}")
+                return File(url=url, content=BytesIO(payload), status=200)
+        msg = "unreachable"
+        raise AssertionError(msg)
     except ClientResponseError as e:
         log.info(f"Failed to post to {url}.")
         return File(url=url, content=e, status=e.status or 500)
     except ClientConnectorError as e:
         log.info(f"No internet connection while posting to {url}.")
         return File(url=url, content=NoInternetError(str(e)), status=503)
-    except FSTimeoutError as e:
+    except (FSTimeoutError, TimeoutError) as e:
         log.info(f"Failed to post to {url}.")
         return File(url=url, content=e, status=408)
-    except ClientPayloadError as e:
+    except ClientError as e:
+        # every other aiohttp client failure -- a dropped keep-alive connection
+        # (ServerDisconnectedError), a reset, a broken payload. Caught as the base class rather than
+        # named one by one, because the promise made above is that a failure comes back as a File.
         log.info(f"Failed to post to {url}.")
         return File(url=url, content=e, status=500)
-    log.info(f"Posted to {url}")
-    return File(url=url, content=BytesIO(payload), status=200)
 
 
 def download_files(

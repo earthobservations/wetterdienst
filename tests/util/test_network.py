@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import stamina
-from aiohttp import ClientConnectorError, ClientResponseError, ClientTimeout
+from aiohttp import ClientConnectorError, ClientResponseError, ClientTimeout, ServerDisconnectedError
 from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
 
@@ -27,6 +27,7 @@ from wetterdienst.util.network import (
     download_file,
     list_remote_directory_fsspec,
     list_remote_files_fsspec,
+    post_file,
 )
 
 
@@ -590,3 +591,50 @@ def test_network_filesystem_manager_accepts_client_kwargs_none(tmp_path: Path) -
         cache_disable=True,
     )
     assert isinstance(fs, HTTPFileSystem)
+
+
+def test_post_file_returns_a_dropped_connection_as_a_file() -> None:
+    """A connection the server closed comes back as a File, not as an exception through the caller.
+
+    fsspec keeps one filesystem -- and one aiohttp session with its keep-alive pool -- for the life
+    of the process, so a caller that posts days apart can be handed a connection closed long ago.
+    ``ServerDisconnectedError`` is neither of the two connection errors named above it, which is why
+    the base class is caught.
+    """
+    error = ServerDisconnectedError()
+
+    with (
+        stamina.set_testing(True, attempts=1),
+        patch("wetterdienst.util.network.sync", side_effect=error),
+    ):
+        result = post_file("http://example.com/token", auth=("user", "pass"))
+
+    assert result.status == 500
+    assert result.content is error
+    assert not result.is_no_internet_error
+
+
+def test_post_file_retries_a_dropped_connection_once() -> None:
+    """A dropped connection is retried, where a response that did arrive would not be."""
+    payload = b'{"access_token": "t"}'
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        patch("wetterdienst.util.network.sync", side_effect=[ServerDisconnectedError(), payload]) as mock_sync,
+    ):
+        result = post_file("http://example.com/token")
+
+    assert mock_sync.call_count == 2
+    assert result.status == 200
+    assert result.content.getvalue() == payload
+
+
+def test_post_file_keeps_the_callers_timeout() -> None:
+    """A timeout the caller configured is honoured, the argument being the default rather than a cap."""
+    with (
+        patch("wetterdienst.util.network.HTTPFileSystem") as mock_filesystem,
+        patch("wetterdienst.util.network.sync", return_value=b"{}"),
+    ):
+        post_file("http://example.com/token", timeout=30.0, client_kwargs={"timeout": 120})
+
+    assert mock_filesystem.call_args.kwargs["client_kwargs"]["timeout"] == 120

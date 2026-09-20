@@ -97,7 +97,12 @@ def get_ceda_token(settings: Settings) -> str | None:
             use_certifi=settings.use_certifi,
         )
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to obtain CEDA access token: {file.content}")
+            if file.is_no_internet_error:
+                # being offline is not a credentials problem, and the download path stays quiet
+                # about it too -- say it at debug rather than implying the account is at fault
+                log.debug(f"No CEDA access token: {file.content}")
+            else:
+                log.warning(f"Failed to obtain CEDA access token: {file.content}")
             return None
         try:
             # a 200 with a non-JSON body (e.g. an HTML login/error page) or a JSON body missing the
