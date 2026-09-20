@@ -9,10 +9,10 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings
+from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings, reveal
 
 WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
@@ -424,3 +424,128 @@ def test_settings_skip_empty_stands_on_its_own() -> None:
     assert settings.ts_skip_empty
     assert settings.ts_skip_criteria == "mean"
     assert settings.ts_skip_threshold == 0.9
+
+
+# what each credential is set to below, so a test can look for it in what an object renders
+_DUMMY_CREDENTIALS = {
+    "aemet": "DUMMY-AEMET-KEY",
+    "knmi": "DUMMY-KNMI-KEY",
+    "metno_frost": ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET"),
+    "ceda": ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD"),
+}
+_DUMMY_VALUES = sorted(
+    {value for entry in _DUMMY_CREDENTIALS.values() for value in ((entry,) if isinstance(entry, str) else entry)},
+)
+
+
+def _rendered(settings: Settings) -> str:
+    """Render the settings every way something else might, and return the lot as one string."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    request = DwdObservationRequest(parameters=[("daily", "kl")], periods="recent", settings=settings)
+    return "".join(
+        [
+            repr(settings),
+            str(settings),
+            f"{settings}",
+            str(settings.model_dump()),
+            str(settings.model_dump(mode="json")),
+            settings.model_dump_json(),
+            # a request's dataclass repr embeds the settings, which is how this was found: an
+            # unrelated test failed and pytest printed the request, credentials and all
+            repr(request),
+            str(request),
+        ],
+    )
+
+
+def test_credentials_do_not_appear_in_what_settings_render() -> None:
+    """No credential is printed by any ordinary way of looking at the settings, or at a request.
+
+    They are not logged anywhere in normal operation. What exposes them is a failure path: a pytest
+    assertion diff, an unhandled traceback, `print(request)`, a debugger. Anyone pasting one of
+    those into an issue or a CI log would publish every credential they had configured (GH-1920).
+    """
+    settings = Settings(auth=_DUMMY_CREDENTIALS)
+
+    rendered = _rendered(settings)
+
+    assert not [value for value in _DUMMY_VALUES if value in rendered]
+    # and the masking is visible rather than the field being dropped, so a reader can see that
+    # something is there
+    assert "**********" in rendered
+
+
+def test_credentials_are_still_readable_where_they_are_needed() -> None:
+    """Hiding them from a repr does not hide them from the code that sends them."""
+    settings = Settings(auth=_DUMMY_CREDENTIALS)
+
+    assert reveal(settings.auth.aemet) == "DUMMY-AEMET-KEY"
+    assert reveal(settings.auth.knmi) == "DUMMY-KNMI-KEY"
+    assert tuple(reveal(part) for part in settings.auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
+    assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+    assert reveal(None) is None
+
+
+def test_credentials_read_from_the_environment_are_secret_too() -> None:
+    """The env vars are the way most of these are set, and take the same shape once parsed."""
+    env = {
+        "WD_AUTH__AEMET": "DUMMY-AEMET-KEY",
+        "WD_AUTH__CEDA": "DUMMY-CEDA-USER:DUMMY-CEDA-PASSWORD",
+    }
+    with mock.patch.dict(os.environ, env, clear=False):
+        settings = Settings()
+
+    assert reveal(settings.auth.aemet) == "DUMMY-AEMET-KEY"
+    assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+    assert "DUMMY-CEDA-PASSWORD" not in _rendered(settings)
+
+
+def test_a_credential_that_is_empty_is_still_no_credential() -> None:
+    """An empty value stays falsy, which is what every "is this configured" check reads."""
+    settings = Settings(auth={"aemet": ""})
+
+    assert not settings.auth.aemet
+
+
+def test_credentials_survive_a_round_trip_through_a_dump() -> None:
+    """Settings taken apart and rebuilt keep the credentials they had, pairs included.
+
+    `model_dump()` hands back the secrets themselves, and `str()` of a secret is its mask -- so a
+    pair validator that texts its elements would rebuild the pair as ten asterisks and fail at the
+    provider later with nothing to say why. The single-valued fields never had this to worry about,
+    which is what made the asymmetry easy to miss.
+    """
+    settings = Settings(auth=_DUMMY_CREDENTIALS)
+
+    rebuilt = Settings.model_validate(settings.model_dump())
+
+    assert reveal(rebuilt.auth.aemet) == "DUMMY-AEMET-KEY"
+    assert tuple(reveal(part) for part in rebuilt.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+    assert tuple(reveal(part) for part in rebuilt.auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
+
+
+def test_a_credential_given_as_one_secret_is_still_split_into_its_pair() -> None:
+    """A pair handed over as a single secret is read apart the way the same text would be."""
+    settings = Settings(auth={"ceda": SecretStr("DUMMY-CEDA-USER:DUMMY-CEDA-PASSWORD")})
+
+    assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+
+
+@pytest.mark.parametrize(
+    "auth",
+    [
+        {"aemet": "*" * 10},
+        {"ceda": ("*" * 10, "*" * 10)},
+        {"metno_frost": ("DUMMY-FROST-ID", "*" * 10)},
+    ],
+)
+def test_a_masked_value_is_refused_as_a_credential(auth: dict) -> None:
+    """The mask a JSON dump leaves behind is not accepted as the credential it stands for.
+
+    A JSON dump writes asterisks where a credential is, which is the point of holding them as
+    secrets -- and there is no reading that back. Taken as the credential it would fail at the
+    provider much later, with nothing at all to say why, so it is refused where it is given.
+    """
+    with pytest.raises(ValidationError, match="mask"):
+        Settings(auth=auth)

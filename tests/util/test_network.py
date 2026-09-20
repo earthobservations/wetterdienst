@@ -773,15 +773,17 @@ def test_post_file_keeps_credentials_out_of_the_error_it_returns(http_server: tu
     assert secret not in _every_carrier_of(result.content)
 
 
-def test_download_file_keeps_an_authorization_header_out_of_its_error(
+@pytest.mark.parametrize("header", ["Authorization", "api_key"])
+def test_download_file_keeps_a_credential_header_out_of_its_error(
+    header: str,
     http_server: tuple[str, list],
     tmp_path: Path,
 ) -> None:
     """A provider's API key does not travel in the error a failed download hands back.
 
-    KNMI sends its key, met.no Frost its basic auth and Met Office its bearer token through
-    ``client_kwargs["headers"]``, and aiohttp merges those into the request info it hangs on the
-    error -- which is then stored on the File the caller gets.
+    KNMI sends its key, met.no Frost its basic auth and Met Office its bearer token as
+    ``Authorization`` -- but AEMET sends its key as ``api_key``, and a scrub that knows only the
+    standard name leaves the one provider with a header of its own the only one still leaking.
     """
     base_url, requests = http_server
     key = "SUPER-SECRET-API-KEY"
@@ -790,13 +792,13 @@ def test_download_file_keeps_an_authorization_header_out_of_its_error(
         url=f"{base_url}/denied",
         cache_dir=tmp_path,
         ttl=CacheExpiry.NO_CACHE,
-        client_kwargs={"headers": {"Authorization": key}},
+        client_kwargs={"headers": {header: key}},
         cache_disable=True,
     )
 
     # the header did reach the server, so the scrubbing under test actually had something to do:
     # without this the test would pass just as well on a request that never carried the key
-    assert requests[0]["headers"]["Authorization"] == key
+    assert requests[0]["headers"][header] == key
     assert result.status == 401
     assert key not in _every_carrier_of(result.content)
 

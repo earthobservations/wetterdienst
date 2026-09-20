@@ -32,6 +32,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.knmi.observation.metadata import KnmiObservationMetadata
 from wetterdienst.provider.knmi.observation.parser import decode_str, parse_knmi_netcdf, public_station_id
+from wetterdienst.settings import reveal
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -153,7 +154,7 @@ def _latest_filename(dataset_name: str, version: str, settings: Settings) -> str
     url = f"{_BASE_URL}/datasets/{dataset_name}/versions/{version}/files?maxKeys=1&orderBy=created&sorting=desc"
     client_kwargs = {
         **settings.fsspec_client_kwargs,
-        "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "Authorization": settings.auth.knmi},
+        "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "Authorization": reveal(settings.auth.knmi)},
     }
     file = _download_with_retry(url, settings, CacheExpiry.ONE_HOUR, client_kwargs=client_kwargs)
     if isinstance(file.content, Exception):
@@ -181,7 +182,7 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     resolve_url = f"{_BASE_URL}/datasets/{dataset_name}/versions/{version}/files/{filename}/url"
     client_kwargs = {
         **settings.fsspec_client_kwargs,
-        "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "Authorization": settings.auth.knmi},
+        "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "Authorization": reveal(settings.auth.knmi)},
     }
     resolve_file = _download_with_retry(resolve_url, settings, CacheExpiry.FIVE_MINUTES, client_kwargs=client_kwargs)
     if isinstance(resolve_file.content, Exception):

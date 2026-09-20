@@ -18,6 +18,15 @@ Types of changes:
 
 ### Changed
 
+- `Settings.auth` holds `SecretStr` rather than `str`, so code that reads a credential off the
+  settings has to ask for it: `reveal(settings.auth.aemet)`, or `.get_secret_value()`. Setting them
+  is unchanged -- the env vars, the strings and the pairs all read as they did -- and so is every
+  `if not settings.auth.x` check, an empty secret being falsy. What changes is reading one back
+  without asking: an f-string or a `str()` of a credential now yields `**********` rather than the
+  value, which is the point of the change but is silent where the old behaviour was not. The mask
+  is refused as a credential on the way in, so a JSON dump read back fails where it is given rather
+  than at the provider later
+
 - The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py` builds the
   `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP 4 moved off
   httpx entirely and types that provider's `client` as `httpx2.AsyncClient`; an httpx client is
@@ -72,6 +81,23 @@ Types of changes:
   with wetterdienst's version, the same one `GET /api/version` gives
 
 ### Security
+
+- Provider credentials are held as `SecretStr`, so that rendering the settings does not print them.
+  `Settings.__repr__` and `__str__` serialise the whole model, `auth` included, and a request's
+  dataclass repr embeds a `Settings` -- so an API key reached every ordinary way of looking at an
+  object on a failure path: a pytest assertion diff, an unhandled traceback, `print(request)`, a
+  debugger, a notebook. Nothing logs a `Settings` in normal operation, which is what kept this out
+  of sight; what it costs is that anyone pasting such a traceback into an issue, a chat or a CI log
+  published every credential they had configured. All four -- AEMET, KNMI, met.no Frost and CEDA --
+  now render as `**********`, and `reveal()` is the one way back to a value, called where the
+  credential is actually sent. The Met Office token cache is keyed by the secrets themselves rather
+  than by what they hold, so it is not somewhere the pair sits in plain text either. GH-1920
+
+- A failed request that carried its credential in a header of another name has that header redacted
+  too. The scrubbing added above knew `Authorization`, which is where KNMI's key, met.no Frost's
+  basic auth and Met Office's bearer token go -- but AEMET sends its key as `api_key`, leaving the
+  one provider with a header of its own the only one whose key still reached a traceback and
+  stamina's retry log
 
 - `httpx2` now has a floor of `>=2.12` wherever it is declared -- the dev group, which held
   `>=2.4.0`, and the `mcp` extra, which now declares it -- and the lockfile carries 2.13.0 where it

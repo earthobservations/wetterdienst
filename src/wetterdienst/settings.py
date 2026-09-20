@@ -12,7 +12,15 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import platformdirs
-from pydantic import BaseModel, Field, PrivateAttr, field_serializer, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    PrivateAttr,
+    SecretStr,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -24,33 +32,97 @@ log = logging.getLogger(__name__)
 _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 
 
-class Auth(BaseModel):
-    """Authentication credentials for providers requiring API keys."""
+#: what pydantic renders a secret as, and so what a credential looks like after a JSON round-trip
+_MASK = "*" * 10
 
-    aemet: str | None = Field(default=None)
-    knmi: str | None = Field(default=None)
-    metno_frost: tuple[str, str] | None = Field(default=None)
-    ceda: tuple[str, str] | None = Field(default=None)
+#: what a credential may arrive as: the text of one, or one that has already been validated once
+_Secretish = str | SecretStr
+
+
+def _as_given(value: object) -> _Secretish:
+    """Pass a secret through as it is, and anything else on as text for the field to wrap.
+
+    ``str()`` of a ``SecretStr`` is its mask, so a pair that has already been validated once --
+    which is what a ``model_dump()`` round-trip hands back -- would come back as ten asterisks and
+    fail at the provider later with nothing to say why. The single-valued fields never had this to
+    worry about: pydantic passes an existing secret straight through.
+    """
+    return value if isinstance(value, SecretStr) else str(value)
+
+
+def reveal(secret: SecretStr | None) -> str | None:
+    """Return what a secret holds, or None where there is no secret.
+
+    The one place a credential is meant to be read back out, so that the sites that need the value
+    say plainly that they are taking it out of hiding.
+    """
+    return secret.get_secret_value() if secret is not None else None
+
+
+class Auth(BaseModel):
+    """Authentication credentials for providers requiring API keys.
+
+    Held as `SecretStr`, so that rendering the settings -- or a request, whose dataclass repr embeds
+    them -- does not print them. They are not logged anywhere in normal operation; what exposes them
+    is every ordinary way of looking at an object on a failure path: a pytest assertion diff, an
+    unhandled traceback, `print(request)`, a debugger, a notebook. Anyone pasting such a traceback
+    into an issue or a CI log would publish every credential they had configured (GH-1920).
+
+    `reveal()` takes a value back out, and is the only thing that should.
+    """
+
+    aemet: SecretStr | None = Field(default=None)
+    knmi: SecretStr | None = Field(default=None)
+    metno_frost: tuple[SecretStr, SecretStr] | None = Field(default=None)
+    ceda: tuple[SecretStr, SecretStr] | None = Field(default=None)
+
+    @field_validator("aemet", "knmi", "metno_frost", "ceda", mode="before")
+    @classmethod
+    def reject_a_masked_credential(cls, value: object) -> object:
+        """Refuse the mask that a dumped credential leaves behind.
+
+        Dumping the settings to JSON writes ten asterisks where a credential is -- that is the point
+        of holding them as secrets. Reading such a dump back would otherwise take the mask for the
+        credential and fail at the provider much later, with nothing at all to say why.
+        """
+        items = value if isinstance(value, (tuple, list)) else (value,)
+        for item in items:
+            text = item.get_secret_value() if isinstance(item, SecretStr) else item
+            if text == _MASK:
+                msg = "the value is the mask a dumped credential leaves behind, not a credential"
+                raise ValueError(msg)
+        return value
 
     @field_validator("metno_frost", mode="before")
     @classmethod
-    def validate_metno_frost(cls, value: tuple[str, str] | str | None) -> tuple[str, str] | None:  # noqa: D102
+    def validate_metno_frost(
+        cls,
+        value: tuple[_Secretish, _Secretish] | _Secretish | None,
+    ) -> tuple[_Secretish, _Secretish] | None:
+        """Parse the Frost (client_id, secret) pair, a lone client id counting as one with no secret."""
         if value is None:
             return None
-        if isinstance(value, str):
+        if isinstance(value, (str, SecretStr)):
             return value, ""
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        return str(as_tuple[0]), str(as_tuple[1])
+        return _as_given(as_tuple[0]), _as_given(as_tuple[1])
 
     @field_validator("ceda", mode="before")
     @classmethod
-    def validate_ceda(cls, value: tuple[str, str] | str | None) -> tuple[str, str] | None:
+    def validate_ceda(
+        cls,
+        value: tuple[_Secretish, _Secretish] | _Secretish | None,
+    ) -> tuple[_Secretish, _Secretish] | None:
         """Parse the CEDA (username, password) pair, e.g. from ``WD_AUTH__CEDA=username:password``."""
         if value is None:
             return None
+        if isinstance(value, SecretStr):
+            # the pair given as a single secret: read it out to split it, and the halves are wrapped
+            # again by the field
+            value = value.get_secret_value()
         if isinstance(value, str):
             username, sep, password = value.partition(":")
             if not sep:
@@ -61,7 +133,7 @@ class Auth(BaseModel):
         if len(as_tuple) != 2:
             msg = f"ceda must be a (username, password) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        return str(as_tuple[0]), str(as_tuple[1])
+        return _as_given(as_tuple[0]), _as_given(as_tuple[1])
 
 
 #: how far a station may be from the target point to still be used, in km
