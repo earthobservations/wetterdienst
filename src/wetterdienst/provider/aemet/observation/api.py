@@ -27,7 +27,7 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_monthly_value,
     parse_wind_direction,
 )
-from wetterdienst.settings import Settings
+from wetterdienst.settings import Settings, reveal
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -183,7 +183,7 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     """
     client_kwargs = {
         **settings.fsspec_client_kwargs,
-        "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "api_key": settings.auth.aemet},
+        "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "api_key": reveal(settings.auth.aemet)},
     }
     file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
     if isinstance(file.content, Exception):

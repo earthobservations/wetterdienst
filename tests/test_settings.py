@@ -12,7 +12,7 @@ import pytest
 from pydantic import ValidationError
 
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings
+from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings, reveal
 
 WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
@@ -424,3 +424,85 @@ def test_settings_skip_empty_stands_on_its_own() -> None:
     assert settings.ts_skip_empty
     assert settings.ts_skip_criteria == "mean"
     assert settings.ts_skip_threshold == 0.9
+
+
+# what each credential is set to below, so a test can look for it in what an object renders
+_DUMMY_CREDENTIALS = {
+    "aemet": "DUMMY-AEMET-KEY",
+    "knmi": "DUMMY-KNMI-KEY",
+    "metno_frost": ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET"),
+    "ceda": ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD"),
+}
+_DUMMY_VALUES = sorted(
+    {value for entry in _DUMMY_CREDENTIALS.values() for value in ((entry,) if isinstance(entry, str) else entry)},
+)
+
+
+def _rendered(settings: Settings) -> str:
+    """Render the settings every way something else might, and return the lot as one string."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    request = DwdObservationRequest(parameters=[("daily", "kl")], periods="recent", settings=settings)
+    return "".join(
+        [
+            repr(settings),
+            str(settings),
+            f"{settings}",
+            str(settings.model_dump()),
+            str(settings.model_dump(mode="json")),
+            settings.model_dump_json(),
+            # a request's dataclass repr embeds the settings, which is how this was found: an
+            # unrelated test failed and pytest printed the request, credentials and all
+            repr(request),
+            str(request),
+        ],
+    )
+
+
+def test_credentials_do_not_appear_in_what_settings_render() -> None:
+    """No credential is printed by any ordinary way of looking at the settings, or at a request.
+
+    They are not logged anywhere in normal operation. What exposes them is a failure path: a pytest
+    assertion diff, an unhandled traceback, `print(request)`, a debugger. Anyone pasting one of
+    those into an issue or a CI log would publish every credential they had configured (GH-1920).
+    """
+    settings = Settings(auth=_DUMMY_CREDENTIALS)
+
+    rendered = _rendered(settings)
+
+    assert not [value for value in _DUMMY_VALUES if value in rendered]
+    # and the masking is visible rather than the field being dropped, so a reader can see that
+    # something is there
+    assert "**********" in rendered
+
+
+def test_credentials_are_still_readable_where_they_are_needed() -> None:
+    """Hiding them from a repr does not hide them from the code that sends them."""
+    settings = Settings(auth=_DUMMY_CREDENTIALS)
+
+    assert reveal(settings.auth.aemet) == "DUMMY-AEMET-KEY"
+    assert reveal(settings.auth.knmi) == "DUMMY-KNMI-KEY"
+    assert tuple(reveal(part) for part in settings.auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
+    assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+    assert reveal(None) is None
+
+
+def test_credentials_read_from_the_environment_are_secret_too() -> None:
+    """The env vars are the way most of these are set, and take the same shape once parsed."""
+    env = {
+        "WD_AUTH__AEMET": "DUMMY-AEMET-KEY",
+        "WD_AUTH__CEDA": "DUMMY-CEDA-USER:DUMMY-CEDA-PASSWORD",
+    }
+    with mock.patch.dict(os.environ, env, clear=False):
+        settings = Settings()
+
+    assert reveal(settings.auth.aemet) == "DUMMY-AEMET-KEY"
+    assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+    assert "DUMMY-CEDA-PASSWORD" not in _rendered(settings)
+
+
+def test_a_credential_that_is_empty_is_still_no_credential() -> None:
+    """An empty value stays falsy, which is what every "is this configured" check reads."""
+    settings = Settings(auth={"aemet": ""})
+
+    assert not settings.auth.aemet

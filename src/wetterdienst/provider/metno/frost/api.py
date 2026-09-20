@@ -467,9 +467,10 @@ class MetnoFrostValues(TimeseriesValues):
         settings = self.sr.settings
         client_kwargs = {**settings.fsspec_client_kwargs}
         if settings.auth.metno_frost:
+            client_id, secret = settings.auth.metno_frost
             client_kwargs["headers"] = {
                 **client_kwargs.get("headers", {}),
-                "Authorization": encode_basic_auth(*settings.auth.metno_frost),
+                "Authorization": encode_basic_auth(client_id.get_secret_value(), secret.get_secret_value()),
             }
 
         # Fetch all elements of the dataset in a single request instead of one request per
@@ -715,7 +716,11 @@ def _probe_frost_credentials(settings: Settings) -> bool:
     if not settings.auth.metno_frost:
         return False
     client_kwargs = {**settings.fsspec_client_kwargs}
-    client_kwargs.setdefault("headers", {})["Authorization"] = encode_basic_auth(*settings.auth.metno_frost)
+    client_id, secret = settings.auth.metno_frost
+    client_kwargs.setdefault("headers", {})["Authorization"] = encode_basic_auth(
+        client_id.get_secret_value(),
+        secret.get_secret_value(),
+    )
     file = download_file(
         url="https://frost.met.no/sources/v0.jsonld?ids=SN18700&fields=id",
         cache_dir=settings.cache_dir,
@@ -758,9 +763,10 @@ class MetnoFrostRequest(TimeseriesRequest):
         settings = cast("Settings", self.settings)
         client_kwargs = {**settings.fsspec_client_kwargs}
         if settings.auth.metno_frost:
+            client_id, secret = settings.auth.metno_frost
             client_kwargs["headers"] = {
                 **client_kwargs.get("headers", {}),
-                "Authorization": encode_basic_auth(*settings.auth.metno_frost),
+                "Authorization": encode_basic_auth(client_id.get_secret_value(), secret.get_secret_value()),
             }
         file = download_file(
             url=self._sources_url,

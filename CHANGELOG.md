@@ -73,6 +73,17 @@ Types of changes:
 
 ### Security
 
+- Provider credentials are held as `SecretStr`, so that rendering the settings does not print them.
+  `Settings.__repr__` and `__str__` serialise the whole model, `auth` included, and a request's
+  dataclass repr embeds a `Settings` -- so an API key reached every ordinary way of looking at an
+  object on a failure path: a pytest assertion diff, an unhandled traceback, `print(request)`, a
+  debugger, a notebook. Nothing logs a `Settings` in normal operation, which is what kept this out
+  of sight; what it costs is that anyone pasting such a traceback into an issue, a chat or a CI log
+  published every credential they had configured. All four -- AEMET, KNMI, met.no Frost and CEDA --
+  now render as `**********`, and `reveal()` is the one way back to a value, called where the
+  credential is actually sent. The Met Office token cache is keyed by the secrets themselves rather
+  than by what they hold, so it is not somewhere the pair sits in plain text either. GH-1920
+
 - `httpx2` now has a floor of `>=2.12` wherever it is declared -- the dev group, which held
   `>=2.4.0`, and the `mcp` extra, which now declares it -- and the lockfile carries 2.13.0 where it
   held 2.10.0. Six advisories stand against 2.10.0: multipart part header injection through an

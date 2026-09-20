@@ -30,6 +30,8 @@ from typing import TYPE_CHECKING
 from wetterdienst.util.network import post_file
 
 if TYPE_CHECKING:
+    from pydantic import SecretStr
+
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -42,8 +44,10 @@ _EXPIRY_MARGIN_SECONDS = 300
 # used only if the token's ``exp`` claim can't be read; comfortably under the ~3-day real lifetime.
 _FALLBACK_TTL_SECONDS = 3600
 
-# in-process cache: (username, password) -> (token, epoch seconds after which it must be re-minted).
-_TOKEN_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
+# in-process cache: the credentials -> (token, epoch seconds after which it must be re-minted).
+# Keyed by the secrets themselves rather than by what they hold, so that the cache does not become
+# somewhere the credentials sit in plain text for a debugger or a dump to find.
+_TOKEN_CACHE: dict[tuple[SecretStr, SecretStr], tuple[str, float]] = {}
 # serialises the check-then-mint so concurrent callers (e.g. the REST API's thread pool) don't each
 # mint a redundant token on a cold cache.
 _TOKEN_LOCK = threading.Lock()
@@ -84,7 +88,7 @@ def get_ceda_token(settings: Settings) -> str | None:
     cached = _TOKEN_CACHE.get(credentials)
     if cached is not None and cached[1] > time.time():
         return cached[0]
-    username, password = credentials
+    username, password = (part.get_secret_value() for part in credentials)
     with _TOKEN_LOCK:
         # re-check under the lock: another thread may have minted while we waited
         cached = _TOKEN_CACHE.get(credentials)

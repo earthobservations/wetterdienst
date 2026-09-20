@@ -149,9 +149,10 @@ def test_ceda_token_is_cached_until_expiry(monkeypatch: pytest.MonkeyPatch) -> N
     from wetterdienst.settings import Settings  # noqa: PLC0415
     from wetterdienst.util.network import File  # noqa: PLC0415
 
-    creds = ("user", "pass")
     download._TOKEN_CACHE.clear()  # noqa: SLF001
     settings = Settings(auth={"ceda": "user:pass"})
+    # the cache is keyed by the secrets themselves, not by what they hold
+    creds = settings.auth.ceda
 
     calls = {"n": 0}
 

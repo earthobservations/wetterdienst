@@ -12,7 +12,15 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import platformdirs
-from pydantic import BaseModel, Field, PrivateAttr, field_serializer, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    PrivateAttr,
+    SecretStr,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -24,13 +32,31 @@ log = logging.getLogger(__name__)
 _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 
 
-class Auth(BaseModel):
-    """Authentication credentials for providers requiring API keys."""
+def reveal(secret: SecretStr | None) -> str | None:
+    """Return what a secret holds, or None where there is no secret.
 
-    aemet: str | None = Field(default=None)
-    knmi: str | None = Field(default=None)
-    metno_frost: tuple[str, str] | None = Field(default=None)
-    ceda: tuple[str, str] | None = Field(default=None)
+    The one place a credential is meant to be read back out, so that the sites that need the value
+    say plainly that they are taking it out of hiding.
+    """
+    return secret.get_secret_value() if secret is not None else None
+
+
+class Auth(BaseModel):
+    """Authentication credentials for providers requiring API keys.
+
+    Held as `SecretStr`, so that rendering the settings -- or a request, whose dataclass repr embeds
+    them -- does not print them. They are not logged anywhere in normal operation; what exposes them
+    is every ordinary way of looking at an object on a failure path: a pytest assertion diff, an
+    unhandled traceback, `print(request)`, a debugger, a notebook. Anyone pasting such a traceback
+    into an issue or a CI log would publish every credential they had configured (GH-1920).
+
+    `reveal()` takes a value back out, and is the only thing that should.
+    """
+
+    aemet: SecretStr | None = Field(default=None)
+    knmi: SecretStr | None = Field(default=None)
+    metno_frost: tuple[SecretStr, SecretStr] | None = Field(default=None)
+    ceda: tuple[SecretStr, SecretStr] | None = Field(default=None)
 
     @field_validator("metno_frost", mode="before")
     @classmethod
