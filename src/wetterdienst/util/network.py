@@ -610,7 +610,13 @@ def download_file(
             attempts=2,
         ):
             with attempt:
-                payload = filesystem.cat_file(url)
+                try:
+                    payload = filesystem.cat_file(url)
+                except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
+                    # scrubbed here as well as on the way out, because stamina's retry hook logs
+                    # ``repr(caused_by)`` on the first failure -- and that repr renders the request
+                    # info, header and all, before any of the handlers below are reached
+                    raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Downloaded file {url}")
                 return File(url=url, content=BytesIO(payload), status=200)
         msg = "unreachable"
@@ -631,7 +637,11 @@ def download_file(
             content=_without_credentials(e, sent_credentials=sent_credentials),
             status=e.status or 500,
         )
-    except ClientPayloadError as e:
+    except ClientError as e:
+        # ClientPayloadError among them, and every other aiohttp client failure -- a dropped
+        # keep-alive connection (ServerDisconnectedError), a reset, too many redirects. Caught as
+        # the base class so that none of them leaves by way of a traceback through this frame, where
+        # the caller's client kwargs, credentials included, are a local
         log.info(f"Failed to download file {url}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
 
@@ -672,10 +682,15 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     # rebuilt as the same (immutable) mapping type the request info was given, without naming it
     scrubbed = request_info._replace(headers=type(request_info.headers)(headers))
     error.request_info = scrubbed
+    # the history is the responses of a redirect chain, each holding its own copy of the request and
+    # so of the header. Dropped rather than rebuilt: what a redirected request has to say is that it
+    # was redirected, which the status already says, and ClientResponse keeps its request info
+    # behind a property with no setter
+    error.history = ()
     # aiohttp builds args as (request_info, history); rewritten only where that still holds, rather
     # than assuming the first element of any subclass's args is the request info
     if error.args and error.args[0] is request_info:
-        error.args = (scrubbed, *error.args[1:])
+        error.args = (scrubbed, (), *error.args[2:])
     return error
 
 
@@ -752,7 +767,13 @@ def post_file(
             attempts=2,
         ):
             with attempt:
-                status, payload = sync(filesystem.loop, _post)
+                try:
+                    status, payload = sync(filesystem.loop, _post)
+                except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
+                    # as in download_file: stamina's retry hook logs ``repr(caused_by)``, which
+                    # renders an aiohttp error's request info. None of the errors retried here
+                    # carries one today, which is exactly the kind of thing a later edit changes
+                    raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Posted to {url}")
                 return File(url=url, content=BytesIO(payload), status=status)
         msg = "unreachable"
