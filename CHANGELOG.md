@@ -36,6 +36,16 @@ Types of changes:
 
 ### Fixed
 
+- A provider that cannot be loaded says which package it is missing. `importlib` raises
+  `ModuleNotFoundError` for an absent *dependency* of a module just as readily as for an absent
+  module, and `Wetterdienst.resolve` rewrote both into `Module wetterdienst.provider.X not found` --
+  so a reader went looking for a provider that was in fact right there, while the package they
+  needed went unnamed. The two are now told apart by the name the exception carries, and where an
+  extra of this package would install it, the message says which: `pip install wetterdienst[knmi]`.
+  The extras are read out of the installed metadata rather than from a list kept in the code, so one
+  that gains or loses a package cannot leave a wrong instruction behind, and nothing is suggested
+  for a package that belongs to no extra. GH-1929
+
 - Met Office works on a plain `pip install wetterdienst`. Its CEDA token exchange imported `httpx`
   at module level, but `httpx` was declared only by the `restapi` extra and nothing pulls it in
   transitively, so `Wetterdienst("metoffice", "observation")` raised on an installation that had

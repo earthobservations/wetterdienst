@@ -3,6 +3,7 @@
 """Tests for the API."""
 
 import collections
+import importlib
 import zoneinfo
 from datetime import datetime
 from typing import get_args
@@ -140,6 +141,59 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
     """Test wetterdienst API."""
     request = Wetterdienst.resolve(provider, network)
     assert request
+
+
+def test_resolve_names_the_package_a_provider_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider whose dependency is absent says which package that is, and how to install it.
+
+    `importlib` raises ModuleNotFoundError for a missing dependency of a module just as readily as
+    for a missing module, and the two want different advice. Reported as "module not found", a
+    reader goes looking for a provider that is in fact right there (GH-1929).
+    """
+
+    def _raise(_module_path: str) -> None:
+        msg = "No module named 'h5py'"
+        raise ModuleNotFoundError(msg, name="h5py")
+
+    monkeypatch.setattr(importlib, "import_module", _raise)
+
+    with pytest.raises(ImportError) as excinfo:
+        Wetterdienst.resolve("knmi", "observation")
+
+    message = str(excinfo.value)
+    assert "requires h5py" in message
+    # and which extra brings it, read from the installed metadata rather than from a list in the code
+    assert "pip install wetterdienst[knmi]" in message
+
+
+def test_resolve_still_reports_a_module_that_is_really_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider module that is itself missing is still reported as the missing module it is."""
+
+    def _raise(module_path: str) -> None:
+        msg = f"No module named {module_path!r}"
+        raise ModuleNotFoundError(msg, name=module_path)
+
+    monkeypatch.setattr(importlib, "import_module", _raise)
+
+    with pytest.raises(ImportError, match=r"Module wetterdienst\.provider\.knmi\.observation not found\."):
+        Wetterdienst.resolve("knmi", "observation")
+
+
+def test_resolve_says_nothing_it_cannot_know_about_an_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A dependency that belongs to no extra is named, without an install line invented for it."""
+
+    def _raise(_module_path: str) -> None:
+        msg = "No module named 'polars'"
+        raise ModuleNotFoundError(msg, name="polars")
+
+    monkeypatch.setattr(importlib, "import_module", _raise)
+
+    with pytest.raises(ImportError) as excinfo:
+        Wetterdienst.resolve("knmi", "observation")
+
+    message = str(excinfo.value)
+    assert "requires polars" in message
+    assert "pip install" not in message
 
 
 @pytest.mark.parametrize(

@@ -3,10 +3,42 @@
 """API request factory."""
 
 import importlib
+import re
 from typing import ClassVar
 
 from wetterdienst.exceptions import ApiNotFoundError
 from wetterdienst.model.request import TimeseriesRequest
+
+
+def _extras_installing(module_name: str) -> list[str]:
+    """Return the extras of wetterdienst that would install the distribution providing ``module_name``.
+
+    Read out of the installed metadata rather than from a list kept here, so an extra that gains or
+    loses a package cannot leave a wrong instruction behind. Returns nothing rather than guessing
+    where the metadata cannot be read, or where the module belongs to no extra at all.
+    """
+    from importlib.metadata import PackageNotFoundError, metadata, packages_distributions  # noqa: PLC0415
+
+    def canonical(name: str) -> str:
+        return re.sub(r"[-_.]+", "-", name).lower()
+
+    try:
+        # the module is by definition not importable here, so its distribution is usually unknown to
+        # the interpreter -- the module's own name is the fallback, which is the same for all but a
+        # handful of packages
+        distributions = {canonical(name) for name in packages_distributions().get(module_name, [module_name])}
+        requirements = metadata("wetterdienst").get_all("Requires-Dist") or []
+    except PackageNotFoundError:
+        return []
+    extras = set()
+    for requirement in requirements:
+        specifier, _, marker = requirement.partition(";")
+        extra = re.search(r"""extra\s*==\s*['"]([^'"]+)['"]""", marker)
+        if not extra:
+            continue
+        if canonical(re.split(r"[<>=!~\[ ]", specifier, maxsplit=1)[0]) in distributions:
+            extras.add(extra.group(1))
+    return sorted(extras)
 
 
 class Wetterdienst:
@@ -120,7 +152,17 @@ class Wetterdienst:
             module = importlib.import_module(module_path)
             return getattr(module, class_name)
         except ModuleNotFoundError as e:
-            msg = f"Module {module_path} not found."
+            # a dependency of the provider module raises this just as readily as the module itself
+            # being absent, and the two want different advice. The name says which happened, and
+            # the provider modules all ship with the package -- so in practice it is the former
+            if e.name and module_path != e.name and not module_path.startswith(f"{e.name}."):
+                msg = f"Module {module_path} requires {e.name}, which is not installed."
+                extras = _extras_installing(e.name)
+                if extras:
+                    options = " or ".join(f"pip install wetterdienst[{extra}]" for extra in extras)
+                    msg = f"{msg} Install it with: {options}"
+            else:
+                msg = f"Module {module_path} not found."
             raise ImportError(msg) from e
         except AttributeError as e:
             msg = f"Class {class_name} not found in module {module_path}."
