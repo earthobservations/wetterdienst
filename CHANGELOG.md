@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- DWD road: a temperature below -60 °C is marked suspect whatever window was asked for. The stopped
+  sensors that report `-75.00` °C to the hundredth were already found by the rule that marks a
+  sensor holding one value for six hours, but only where the request covered six hours to find them
+  in: over one hour of the whole network -- 809 stations, 11 505 temperature readings -- that rule
+  marks nothing for the two stations sitting at -75 °C, having five readings where it needs
+  twenty-four, and this marks all ten of their readings. Germany's record low air temperature is
+  -45.9 °C and a road surface tracks the air rather than running far beneath it, so the line stands
+  14 K under that record and 29 K above the world's. `-30.00` and `-25.00` are deliberately left to
+  the run rule, both being reachable on a German road in winter, and no line is drawn at the warm
+  end, where 79.8 °C is implausible rather than impossible. The reading is kept exactly as DWD
+  published it, as everywhere else here. GH-1917
+
 ### Changed
 
 - `Settings.auth` holds `SecretStr` rather than `str`, so code that reads a credential off the
