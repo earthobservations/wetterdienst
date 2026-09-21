@@ -832,7 +832,6 @@ def _series(station_id: str, parameter: str, values: list[float | None]) -> pl.D
     )
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_marks_a_sensor_that_has_stopped(caplog: pytest.LogCaptureFixture) -> None:
     """A temperature that has not moved for six hours is a sensor, not a road.
 
@@ -859,7 +858,6 @@ def test_dwd_road_weather_marks_a_sensor_that_has_stopped(caplog: pytest.LogCapt
     assert "kept as published" in caplog.text
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
     ("values", "expected", "case"),
     [
@@ -885,7 +883,6 @@ def test_dwd_road_weather_stuck_threshold(
     assert (df.get_column("quality").eq(1.0).any()) is expected, case
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_a_run_is_not_read_across_an_outage() -> None:
     """Readings either side of a hole are not one run, however alike they are.
 
@@ -913,7 +910,6 @@ def test_dwd_road_weather_a_run_is_not_read_across_an_outage() -> None:
     assert both.get_column("quality").eq(1.0).all()
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_a_missed_file_does_not_break_a_run() -> None:
     """A station that misses a file here and there is still a station that has stopped.
 
@@ -929,7 +925,6 @@ def test_dwd_road_weather_a_missed_file_does_not_break_a_run() -> None:
     assert api._flag_stuck_sensors(sparse, "a-group").get_column("quality").eq(1.0).all()  # noqa: SLF001
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize("every", [5, 15, 20, 30])
 def test_dwd_road_weather_stuck_run_counts_readings_whatever_the_cadence(every: int) -> None:
     """The run is counted in readings, so a station reporting on another interval is not exempt.
@@ -947,7 +942,6 @@ def test_dwd_road_weather_stuck_run_counts_readings_whatever_the_cadence(every: 
     assert api._flag_stuck_sensors(spaced, "a-group").get_column("quality").eq(1.0).all()  # noqa: SLF001
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_a_minute_arriving_twice_is_one_minute() -> None:
     """A station-minute in two files of one request neither multiplies the frame nor blinds the check.
 
@@ -969,7 +963,6 @@ def test_dwd_road_weather_a_minute_arriving_twice_is_one_minute() -> None:
     assert marked.get_column("quality").eq(1.0).all()
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_a_verdict_stays_with_the_reading_it_was_reached_from() -> None:
     """A station-minute held twice is judged from one copy, and only that copy is answered.
 
@@ -987,7 +980,6 @@ def test_dwd_road_weather_a_verdict_stays_with_the_reading_it_was_reached_from()
     assert marked.filter(pl.col("value").eq(285.0)).get_column("quality").eq(1.0).all()
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_a_frost_is_not_a_thaw() -> None:
     """The air is bounded on both sides, brine being no more able to pin a road than ice is.
 
@@ -1011,7 +1003,6 @@ def test_dwd_road_weather_a_frost_is_not_a_thaw() -> None:
     assert marked.get_column("quality").eq(1.0).all()
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_only_the_quantities_that_can_be_marked_are_examined() -> None:
     """The eleven parameters this cannot mark are not carried through the windows for nothing.
 
@@ -1033,7 +1024,6 @@ def test_dwd_road_weather_only_the_quantities_that_can_be_marked_are_examined() 
     assert marked.filter(pl.col("parameter").eq("roadSurfaceTemperature")).get_column("quality").eq(1.0).all()
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_a_null_reading_is_a_missed_one() -> None:
     """A row saying null and a row that never arrived are the same dropout, and answer alike.
 
@@ -1051,7 +1041,6 @@ def test_dwd_road_weather_a_null_reading_is_a_missed_one() -> None:
     assert marked_absent.get_column("quality").eq(1.0).all()
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_stuck_marking_leaves_the_frame_as_it_found_it() -> None:
     """Marking changes a verdict and nothing else about the frame."""
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
@@ -1066,7 +1055,6 @@ def test_dwd_road_weather_stuck_marking_leaves_the_frame_as_it_found_it() -> Non
     )
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_melting_is_asked_of_the_reading_not_the_window() -> None:
     """Whether ice could be melting is a question about that minute, not about the request.
 
@@ -1090,7 +1078,6 @@ def test_dwd_road_weather_melting_is_asked_of_the_reading_not_the_window() -> No
     assert surface.get_column("quality").eq(1.0).sum() == 90
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
     ("surface", "air", "expected", "case"),
     [
@@ -1129,7 +1116,6 @@ def test_dwd_road_weather_brine_holds_a_salted_road_below_zero(
     assert marked.get_column("quality").eq(1.0).any() is expected, case
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
     ("every", "readings", "expected", "case"),
     [
@@ -1161,7 +1147,6 @@ def test_dwd_road_weather_stuck_needs_the_hours_as_well_as_the_readings(
     assert marked.get_column("quality").eq(1.0).any() is expected, case
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
     ("air", "expected", "case"),
     [
@@ -1195,7 +1180,6 @@ def test_dwd_road_weather_a_melting_road_is_not_a_stopped_sensor(
     assert surface.get_column("quality").eq(1.0).any() is expected, case
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
     "parameter",
     ["roadSurfaceCondition", "waterFilmThickness", "precipitationType", "relativeHumidity", "windSpeed"],
@@ -1214,7 +1198,6 @@ def test_dwd_road_weather_does_not_call_a_quiet_day_a_fault(parameter: str) -> N
     assert df.get_column("quality").to_list() == [None] * 96
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_stuck_check_keeps_one_station_out_of_another(caplog: pytest.LogCaptureFixture) -> None:
     """One station standing still says nothing about the next one's readings."""
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
@@ -1236,7 +1219,6 @@ def test_dwd_road_weather_stuck_check_keeps_one_station_out_of_another(caplog: p
     assert out.get_column("value").to_list() == [198.15] * 30 + moving
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_stuck_check_counts_minutes_not_rows() -> None:
     """A reading that arrives twice is one minute, not two.
 

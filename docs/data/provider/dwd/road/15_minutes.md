@@ -122,9 +122,11 @@ left to the caller -- a road surface really does reach 60 °C in July sun, so a 
 *out* the nonsense above would take genuine extremes with it. Two of those shapes it does **mark**,
 in the `quality` column, which is a different thing: the reading stays exactly as published, and a
 caller who wants the extremes keeps them. The two are the stuck sensors, and the part of the exact
-round values that no reading could hold -- the `-75.00`, but not the `-30.00` or the `-25.00`. The
-impossible values of the first bullet are left alone: 79.8 °C on a road in September is implausible,
-and there is no line at that end an honest reading cannot cross.
+round values that no reading could hold -- the `-75.00`, but not the `-30.00` or the `-25.00`.
+
+Which of the first bullet's readings are marked depends on the sensor rather than the value: its
+cold outliers are marked where the sensor that took them has stopped, and its warm ones are not
+marked at all, 79.8 °C on a road in September being implausible rather than impossible.
 
 ##### sensors that have stopped
 
@@ -168,8 +170,8 @@ Two things the run rule does not catch, and one it cannot:
 - a run shorter than the window. A request covering less than six hours has too few readings for the
   question to be asked at all -- and because the check sees only the files the window selected, the
   same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
-  filtering on `quality` should ask for the window it means. The -60 °C line is the exception: it
-  needs no window, a value being impossible on its own.
+  filtering on `quality` should ask for the window it means. The one exception is the line drawn in
+  the next section, which reads a value rather than a run and so needs no window at all.
 - a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
   57.2 °C, both varying hour to hour exactly as a working sensor does.
 - **the difference from air temperature cannot separate the two.** Over a full day of five groups,
@@ -204,6 +206,8 @@ cannot reach.
 So `quality` of `1` means suspect, whether DWD said so or either of these checks did. They do not
 have the same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
 temperature carrying it, where the run length is a threshold fitted to one day -- and the column
-does not distinguish them. The log distinguishes them, for a caller who turns it up: the line naming the stations this check
-marked is written at `DEBUG`, which neither the CLI nor the REST API prints by default, and it
-names the first five of them. A `null` still means nobody has looked.
+does not distinguish them. Nor do the two of ours stand alike: a run length is a threshold fitted to one day
+of one network, where -60 °C is a statement about what temperatures exist. The log distinguishes all
+three, for a caller who turns it up: each check writes a line at `DEBUG` naming the first five
+stations it marked -- which neither the CLI nor the REST API prints by default -- and a station
+stopped at -75 °C is named by both of ours. A `null` still means nobody has looked.
