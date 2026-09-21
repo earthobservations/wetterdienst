@@ -14,6 +14,7 @@ import threading
 from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar
@@ -706,6 +707,23 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     return error
 
 
+def _worth_retrying(error: Exception) -> bool:
+    """Whether a failed post is worth a second attempt.
+
+    A response that arrived is an answer, and a 401 will not become a 200 by asking again -- unless
+    the server said the fault was its own. A 502 or a 503 from a token endpoint is a blip, and the
+    request that meets it is the one least able to afford failing: a token is minted once every
+    three days, and a mint that fails empties a whole query rather than one file of it.
+
+    A 429 is deliberately not retried. The endpoints that rate-limit are rate-limiting a free
+    account, and asking again a tenth of a second later is how that gets worse rather than better;
+    it comes back as the answer it is, for the caller to report.
+    """
+    if isinstance(error, (ClientConnectionError, FSTimeoutError, TimeoutError)):
+        return True
+    return isinstance(error, ClientResponseError) and error.status >= HTTPStatus.INTERNAL_SERVER_ERROR
+
+
 # How long a post waits when the caller's ``client_kwargs`` does not say. Settings carries a
 # default of the same length, so this stands in only for a caller that passes none at all.
 _POST_TIMEOUT_SECONDS = 30.0
@@ -773,11 +791,8 @@ def post_file(
         # fsspec keeps one filesystem instance -- and so one aiohttp session and its keep-alive
         # pool -- for the life of the process, where a token is minted days apart. The first attempt
         # can therefore pick a pooled connection the server closed hours ago, which the second gets
-        # to retry on a fresh one. A response that did arrive is never retried: a 401 is an answer.
-        for attempt in stamina.retry_context(
-            on=(ClientConnectionError, FSTimeoutError, TimeoutError),
-            attempts=2,
-        ):
+        # to retry on a fresh one. What else is worth asking twice, `_worth_retrying` says.
+        for attempt in stamina.retry_context(on=_worth_retrying, attempts=2):
             with attempt:
                 try:
                     status, payload = sync(filesystem.loop, _post)
