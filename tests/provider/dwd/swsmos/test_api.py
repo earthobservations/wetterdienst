@@ -4,13 +4,17 @@
 
 import bz2
 import datetime as dt
+import logging
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
-from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
-from wetterdienst.provider.dwd.swsmos.api import DwdForecastDate, _read_run_csv, _run_url
+from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest, api
+from wetterdienst.provider.dwd.swsmos.api import _LATEST_FILE, DwdForecastDate, _read_run_csv, _run_url
+from wetterdienst.util.network import File
 
 UTC = ZoneInfo("UTC")
 
@@ -109,3 +113,148 @@ def test_swsmos_values() -> None:
     assert dew_point.max() < 40.0
     # and it cannot exceed the air temperature it is measured against
     assert dew_point.max() <= air.max()
+
+
+# ---------------------------------------------------------------------------
+# One run per request -- GH-1922
+# ---------------------------------------------------------------------------
+
+
+def _stub_stations(station_ids: tuple[str, ...] = ("A006",)) -> StationsResult:
+    """Stand road stations up rather than look them up.
+
+    Asked of the real catalogue, a test about how often the run is read would depend on which
+    stations DWD still publishes, and would stop exercising anything the day they change.
+    """
+    request = DwdSwsmosRequest(parameters=[("hourly", "data")])
+    df_stations = pl.DataFrame(
+        [
+            {
+                "resolution": "hourly",
+                "dataset": "data",
+                "station_id": station_id,
+                "start_date": None,
+                "end_date": None,
+                "latitude": 54.8892,
+                "longitude": 8.9087,
+                "height": 2.0,
+                "name": f"Station {station_id}",
+            }
+            for station_id in station_ids
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "height": pl.Float64,
+            "name": pl.String,
+        },
+        orient="row",
+    )
+    return StationsResult(
+        stations=request,
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.BY_STATION_ID,
+    )
+
+
+def _run_file(*rows: tuple[str, str, str]) -> bytes:
+    """Build a run file: header, the run-timestamp line, then ``ID;...;date;TL`` rows."""
+    body = "".join(f"{station_id};54.889156;8.908735;{date};{temperature}\n" for station_id, date, temperature in rows)
+    return bz2.compress(b"ID;Lat;Lon;YYYYMMDDHHmm;TL\n202607310700\n" + body.encode("latin-1"))
+
+
+def test_swsmos_parses_the_run_once_for_all_its_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One run file holds every station, so it is read for the run and not for each station.
+
+    The collection above this asks for one station at a time, and a run file holds them all -- so
+    the run was listed, fetched and parsed once per station, with all but one station's rows thrown
+    away each time. Five stations parsed the same 306,612 rows five times, 2.5 s of a 2.7 s
+    request; twenty-five took 14.1 s where they now take 0.8 s.
+    """
+    content = _run_file(
+        ("A006", "202607310800", "17.9"),
+        ("B999", "202607310800", "9.1"),
+        ("C111", "202607310800", "7.4"),
+    )
+    parses = []
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
+    )
+    _read_run_csv_original = api._read_run_csv  # noqa: SLF001
+    monkeypatch.setattr(api, "_read_run_csv", lambda c: parses.append(1) or _read_run_csv_original(c))
+
+    values = _stub_stations(("A006", "B999", "C111")).values
+    dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
+    answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999", "C111")]  # noqa: SLF001
+
+    assert len(parses) == 1, "the run should be parsed once, not once per station"
+    # and each station still gets its own forecast out of it
+    assert [df.get_column("station_id").unique().to_list() for df in answers] == [["A006"], ["B999"], ["C111"]]
+    assert [df.get_column("value").to_list() for df in answers] == [[17.9], [9.1], [7.4]]
+
+
+def test_swsmos_pins_every_station_to_one_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run published while the request is answered does not reach half of its stations.
+
+    Resolving ``LATEST`` per station is not only a remote round trip per station: the stations
+    walked after DWD publishes a new run were answered from it, so the frame quietly mixed two
+    model runs. Resolving once pins them all to the run the first station was answered from.
+    """
+    runs = [
+        _run_file(("A006", "202607310800", "17.9"), ("B999", "202607310800", "9.1")),
+        # the next run, published between the first station and the second
+        _run_file(("A006", "202607310900", "20.0"), ("B999", "202607310900", "11.0")),
+    ]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(runs.pop(0)), status=200),
+    )
+
+    values = _stub_stations(("A006", "B999")).values
+    dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
+    answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999")]  # noqa: SLF001
+
+    assert len(runs) == 1, "the second run should never be fetched"
+    assert [df.get_column("date").to_list() for df in answers] == [
+        [dt.datetime(2026, 7, 31, 8, tzinfo=UTC)],
+        [dt.datetime(2026, 7, 31, 8, tzinfo=UTC)],
+    ]
+    assert [df.get_column("value").to_list() for df in answers] == [[17.9], [9.1]]
+
+
+def test_swsmos_run_that_cannot_be_fetched_is_asked_for_once(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A run DWD does not serve is an empty answer per station, and one attempt for the request."""
+    caplog.set_level(logging.WARNING)
+    downloads = []
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: (
+            downloads.append(kwargs["url"]) or File(url=kwargs["url"], content=FileNotFoundError("404"), status=404)
+        ),
+    )
+
+    values = _stub_stations(("A006", "B999")).values
+    dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
+    answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999")]  # noqa: SLF001
+
+    assert all(df.is_empty() for df in answers)
+    assert set(answers[0].columns) == {"resolution", "dataset", "parameter", "station_id", "date", "value", "quality"}
+    assert len(downloads) == 1, "a run that cannot be fetched is not re-fetched for the next station"
+    # and the outage is reported once for the request rather than once per station
+    assert len([record for record in caplog.records if "Failed to fetch SWSMOS run" in record.message]) == 1

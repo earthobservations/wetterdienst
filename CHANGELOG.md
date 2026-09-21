@@ -300,6 +300,22 @@ Types of changes:
   claimed as fixed. And `File` carries `from_cache`, sampled per attempt, because a caller that
   cannot use what it was given needs to know whether asking again could answer differently.
   GH-1947
+- DWD swsmos: the run is read once for the request rather than once for every station it answers
+  for. One run file holds every road station's whole forecast -- 306 612 rows, 1 836 stations to
+  +167 h -- where the collection above it asks for one station at a time, so the run was listed,
+  fetched and parsed once per station and all but one station's rows thrown away each time. Five
+  stations parsed the same file five times, 2.5 s of a 2.7 s request; twenty-five took 14.1 s, and
+  the whole network would have spent a quarter of an hour decompressing one file it already held.
+  They now take 0.7 s and 0.8 s, the cost being flat in the number of stations asked for. The whole
+  run is kept where `dwd/road` keeps only its last station group, a run being one file of some
+  20 MB however wide the request or long the window, and it needs no key: a group varies from
+  station to station, while the run is a property of the request. For a `LATEST` request this also
+  makes the answer consistent rather than merely quicker -- resolving the alias once pins every
+  station to one model run, where resolving it per station handed the stations walked after DWD
+  published a new run a forecast from that one, and returned a frame quietly mixing two runs. A run
+  that cannot be fetched is likewise asked for once, and reported once, instead of once per
+  station. This is the half of GH-1922 left open when `dwd/road` was fixed, measured rather than
+  assumed to transfer. GH-1922
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --

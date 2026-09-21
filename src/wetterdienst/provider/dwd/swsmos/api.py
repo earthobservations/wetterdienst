@@ -77,6 +77,13 @@ def _read_run_csv(content: bytes) -> pl.DataFrame:
 class DwdSwsmosValues(TimeseriesValues):
     """Values class for DWD SWSMOS road weather forecast data."""
 
+    def __post_init__(self) -> None:
+        """Post-initialization of the DwdSwsmosValues class."""
+        super().__post_init__()
+        # the run this request answers for, resolved and parsed once. `None` is "not looked up
+        # yet"; an empty frame is "looked up, and there is nothing there". See `_run_frame`
+        self._run_frame_cache: pl.DataFrame | None = None
+
     def _run_content(self, settings: Settings) -> bytes | None:
         issue = cast("DwdSwsmosRequest", self.sr.stations).issue
         if issue is DwdForecastDate.LATEST:
@@ -107,6 +114,37 @@ class DwdSwsmosValues(TimeseriesValues):
             return None
         return file.content.read()
 
+    def _run_frame(self, settings: Settings) -> pl.DataFrame:
+        """Resolve and parse the run once, for every station it answers for.
+
+        One run file holds every road station's whole forecast, where the collection above this
+        asks for one station at a time -- so the run was listed, fetched and parsed once per
+        station, and all but one station's rows thrown away each time. Five stations decompressed
+        and parsed the same 306,612 rows five times -- 2.5 s of a 2.7 s request -- and twenty-five
+        took 14.1 s, where the whole network of 1,836 stations would have spent a quarter of an
+        hour on 1,836 parses of one file. They now take 0.7 s and 0.8 s: one parse either way, the
+        cost flat in the number of stations asked for. The file itself comes from the cache; what
+        was repeated is the bz2 decompress and the CSV parse (~0.5 s), and -- for a `LATEST`
+        request -- the uncached directory listing that resolves the alias, which is a remote round
+        trip rather than local work.
+
+        The whole run is kept, where road keeps only its last station group: a run is one file of
+        some 20 MB no matter how wide the request or how long the window, so there is nothing here
+        to bound. Nor is there a key. A group varies from station to station, while the run is a
+        property of the request -- `issue` is resolved when the request is built and cannot change
+        while it is answered -- so the frame parsed for one station is by construction the frame
+        every other station wants.
+
+        For `DwdForecastDate.LATEST` that also makes the answer consistent rather than merely
+        quicker: resolving the alias once pins every station to one model run, where resolving it
+        per station handed the stations walked after a new run was published a forecast from it,
+        and returned a frame quietly mixing two runs.
+        """
+        if self._run_frame_cache is None:
+            content = self._run_content(settings)
+            self._run_frame_cache = _read_run_csv(content) if content is not None else pl.DataFrame()
+        return self._run_frame_cache
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -120,10 +158,7 @@ class DwdSwsmosValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         settings = cast("Settings", self.sr.stations.settings)
-        content = self._run_content(settings)
-        if content is None:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        df = _read_run_csv(content)
+        df = self._run_frame(settings)
         if df.is_empty() or "ID" not in df.columns:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         df = df.filter(pl.col("ID") == station_id)
