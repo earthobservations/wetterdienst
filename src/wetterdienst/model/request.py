@@ -45,6 +45,7 @@ from wetterdienst.model.result import (
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.util.extras import missing_dependency_message
 from wetterdienst.util.python import to_list
 
 try:
@@ -691,7 +692,11 @@ class TimeseriesRequest:
                 it. A few providers report no height for any station.
 
         """
-        from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+        try:
+            from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+        except ImportError as e:
+            msg = missing_dependency_message("Interpolation", e.name, extra="interpolation")
+            raise ImportError(msg) from e
 
         if not self.start_date:
             msg = "start_date and end_date are required for interpolation"

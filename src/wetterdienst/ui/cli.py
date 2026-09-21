@@ -41,6 +41,7 @@ from wetterdienst.ui.core import (
     station_distance_radii,
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
+from wetterdienst.util.extras import missing_dependency_message
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
@@ -776,7 +777,11 @@ def restapi(
     log.info(f"Starting {appname}")
     log.info(f"Starting HTTP web service on http://{listen}")
 
-    from wetterdienst.ui.restapi import start_service  # noqa: PLC0415
+    try:
+        from wetterdienst.ui.restapi import start_service  # noqa: PLC0415
+    except ImportError as e:
+        msg = missing_dependency_message("The REST API", e.name, extra="restapi")
+        raise ImportError(msg) from e
 
     start_service(listen, reload=reload)
 
