@@ -152,16 +152,20 @@ describe('glossary label parity', () => {
   // means guessing at compounds and plurals in eleven languages, which is the thing that went
   // wrong here in the first place (GH-1919).
   //
-  // Italian is given both of its forms rather than the stem they share: `indicator` is a prefix of
-  // the English "indicator" and "indicators", so a catalog regressed to the English wording would
-  // have satisfied the check that exists to catch exactly that. No other stem here appears in an
-  // English label -- indicador, indicateur, příznak, znacznik, vlag, kennung are all absent from
-  // one, and Danish and English share "flag" honestly.
+  // Italian is given both of its forms rather than the stem they share, because its plural changes
+  // the ending rather than appending to it -- indicatore, indicatori -- and the only stem covering
+  // both is `indicator`, which is an ordinary English word. No English label here happens to use
+  // it, so nothing is caught today that would otherwise escape; a guard against borrowed words
+  // just should not itself be one.
+  //
+  // Low German is given `kennen` rather than the shorter `kenn` it shares with Standard German:
+  // the drift this catalog is likeliest to suffer is into Standard German, and `kenn` is where
+  // `Kennung` begins too.
   const flagWords: Record<string, string[]> = {
     'cs': ['příznak'],
     'da': ['flag'],
     'de': ['kennung'],
-    'de-hh': ['kenn'],
+    'de-hh': ['kennen'],
     'en': ['flag'],
     'es': ['indicador'],
     'fr': ['indicateur'],
@@ -195,8 +199,10 @@ describe('glossary label parity', () => {
     expect(labels.precipitation_type_flags, `${locale} has no precipitation_type_flags label`).toBeTruthy()
 
     for (const [key, label] of Object.entries(labels)) {
-      // the bare `quality` key names the quantity, not a flag -- "Quality", "Qualität"
-      if (!key.endsWith('_flags') && !key.startsWith('quality_'))
+      // singular as well as plural: a parameter added upstream as `..._flag` names a flag no less,
+      // and being exempt for its ending is the shape of the miss this exists for. The bare
+      // `quality` key is the quantity rather than a flag -- "Quality", "Qualität"
+      if (!/_flags?$/.test(key) && !key.startsWith('quality_'))
         continue
       expect(
         stems.some(stem => label.toLowerCase().includes(stem)),
