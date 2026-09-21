@@ -1436,3 +1436,77 @@ def test_dwd_road_weather_a_real_file_decodes() -> None:
     assert not df.drop_nulls("value").is_empty(), (
         f"{with_content[0].url} holds {with_content[0].nbytes} bytes and decoded to no readings"
     )
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.parametrize(
+    ("celsius", "expected", "case"),
+    [
+        (-75.0, True, "the value KM's stopped sensors hold, colder than anywhere on earth has been"),
+        (-61.0, True, "below the line"),
+        (-59.0, False, "cold beyond anything Germany has recorded, but not impossible"),
+        (-45.9, False, "Germany's record low, which the network may legitimately report"),
+        (-30.0, False, "reachable on a German road in winter; the run rule judges this one"),
+        (-25.0, False, "likewise"),
+        (79.8, False, "implausible at 23:00 in September, but no line is drawn at the warm end"),
+    ],
+)
+def test_dwd_road_weather_impossible_temperature_is_marked(
+    celsius: float,
+    expected: bool,  # noqa: FBT001
+    case: str,
+) -> None:
+    """A temperature no reading can hold is marked suspect; a merely extreme one is not."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    readings = _series("A006", "roadSurfaceTemperature", [api._MELTING_POINT + celsius] * 3)  # noqa: SLF001
+
+    df = api._flag_impossible_temperatures(readings, "a-group")  # noqa: SLF001
+
+    marked = df.get_column("quality").eq(1.0).fill_null(value=False).all()
+    assert marked == expected, case
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
+    """The mark does not wait for the six hours the run rule needs to see.
+
+    Which is the whole of what it adds: asked for twelve hours, the run rule marks KM's stopped
+    sensors; asked for one, it has five readings to judge from and marks nothing, while the station
+    still reports -75 C.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    # five readings, as an hour of this network holds -- far short of the 24 the run rule wants
+    an_hour = _series("A006", "roadSurfaceTemperature", [api._MELTING_POINT - 75.0] * 5)  # noqa: SLF001
+
+    assert not api._flag_stuck_sensors(an_hour, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
+    marked = api._flag_impossible_temperatures(an_hour, "a-group").get_column("quality")  # noqa: SLF001
+    assert marked.eq(1.0).fill_null(value=False).all()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_impossible_temperature_leaves_other_quantities_alone() -> None:
+    """Only the three temperatures are judged: nothing else here is measured on that scale.
+
+    A water film thickness or a precipitation amount is a different quantity in different units, and
+    a number below -60 in one of those is not the same claim at all.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    other = _series("A006", "waterFilmThickness", [-75.0] * 3)
+
+    assert api._flag_impossible_temperatures(other, "a-group").get_column("quality").is_null().all()  # noqa: SLF001
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_impossible_temperature_keeps_the_reading() -> None:
+    """The reading is left exactly as DWD published it; only the verdict on it is ours."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    published = api._MELTING_POINT - 75.0  # noqa: SLF001
+    readings = _series("A006", "airTemperature", [published] * 3)
+
+    df = api._flag_impossible_temperatures(readings, "a-group")  # noqa: SLF001
+
+    assert df.get_column("value").eq(published).all()

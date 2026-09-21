@@ -154,15 +154,35 @@ surface condition and the water film sit at `0` for the whole of a dry day, as d
 precipitation type, the humidity saturates in fog, and the wind falls calm.
 
 This is also what the exact round values are. `-75.00`, `-30.00` and `-25.00` are not a sentinel to
-be recognised but sensors that have stopped, and matching them by value would have been worse than
-useless -- -25 °C and -30 °C are both reachable in a German winter.
+be recognised but sensors that have stopped, and matching them by value would be worse than useless
+for two of the three -- -25 °C and -30 °C are both reachable in a German winter.
 
-Two things it does not catch, and one it cannot:
+##### temperatures no reading can hold
+
+The third is different, and is marked whatever window was asked for: a temperature below **-60 °C**.
+Germany's record low air temperature is -45.9 °C, at a sinkhole that traps cold, and a road surface
+tracks the air rather than running far beneath it; the line stands 14 K under that record and 29 K
+above the world's, so nothing this network can publish as weather falls below it. The stopped
+sensors of KM do, at `-75.00` °C to the hundredth, for days.
+
+This is what a value-based check is good for and the run rule is not. Measured over one hour of the
+whole network -- 809 stations, 11 505 temperature readings -- the run rule marks nothing at all for
+the two stations sitting at -75 °C, having only five readings where it needs twenty-four; the line
+marks all ten of their readings. Over twelve hours the run rule marks both stations too. The same
+hour leaves `-30.00` and `-25.00` alone, as it should: those are readings until something other
+than their value says otherwise.
+
+No line is drawn at the warm end. A road surface in July sun passes 60 °C, and the 79.8 °C above is
+implausible rather than impossible -- there is no temperature at that end which an honest reading
+cannot reach.
+
+Two things the run rule does not catch, and one it cannot:
 
 - a run shorter than the window. A request covering less than six hours has too few readings for the
   question to be asked at all -- and because the check sees only the files the window selected, the
   same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
-  filtering on `quality` should ask for the window it means.
+  filtering on `quality` should ask for the window it means. The -60 °C line is the exception: it
+  needs no window, a value being impossible on its own.
 - a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
   57.2 °C, both varying hour to hour exactly as a working sensor does.
 - **the difference from air temperature cannot separate the two.** Over a full day of five groups,
