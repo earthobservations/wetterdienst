@@ -5,15 +5,23 @@
 import json
 import logging
 import pickle
+import threading
 import time
 from collections.abc import Iterator, MutableMapping
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 import stamina
-from aiohttp import ClientConnectorError, ClientResponseError, ClientTimeout, ServerDisconnectedError
+from aiohttp import (
+    ClientConnectorError,
+    ClientPayloadError,
+    ClientResponseError,
+    ClientTimeout,
+    ServerDisconnectedError,
+)
 from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
 
@@ -99,13 +107,17 @@ def test_download_file_returns_no_internet_error_on_connector_error() -> None:
     assert isinstance(result.content, NoInternetError)
 
 
-def test_download_file_retries_on_429_and_succeeds() -> None:
-    """download_file() retries on HTTP 429 and returns the file on the second attempt."""
+def test_download_file_does_not_retry_a_rate_limit() -> None:
+    """download_file() takes a 429 for the answer it is, rather than asking again at once.
+
+    The providers that rate-limit are rate-limiting a free account -- AEMET, met.no Frost -- and a
+    second request a tenth of a second later is how that gets worse rather than better. It used to
+    be retried, which is the behaviour this replaces.
+    """
     error_429 = ClientResponseError(request_info=MagicMock(), history=(), status=429)
-    payload = b"data"
 
     mock_fs = MagicMock()
-    mock_fs.cat_file.side_effect = [error_429, payload]
+    mock_fs.cat_file.side_effect = [error_429, b"data"]
 
     default_settings = Settings(cache_disable=True)
 
@@ -121,10 +133,9 @@ def test_download_file_retries_on_429_and_succeeds() -> None:
             cache_disable=default_settings.cache_disable,
         )
 
-    assert mock_fs.cat_file.call_count == 2
-    assert result.status == 200
-    assert isinstance(result.content, BytesIO)
-    assert result.content.read() == payload
+    assert mock_fs.cat_file.call_count == 1
+    assert result.status == 429
+    assert result.content is error_429
 
 
 def test_download_file_retries_on_500_and_succeeds() -> None:
@@ -611,62 +622,87 @@ def _every_carrier_of(error: BaseException) -> str:
     return "".join(rendered)
 
 
-@pytest.fixture
-def http_server() -> Iterator[tuple[str, list]]:
-    """Serve the three answers a token endpoint gives, and record what was asked of it.
+#: what the stand-in token endpoint answers with, and what each of its paths is for
+_TOKEN_BODY = json.dumps({"access_token": "t"}).encode()
+_STATUS_BY_PATH = {"/denied": 401, "/rate-limited": 429, "/boom": 500}
 
-    A real server rather than a mocked ``sync``: what is under test is the request ``post_file``
-    builds -- its Authorization header, and its refusal to follow a redirect -- which a mock at that
-    level stands in front of.
+
+def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str, str]]:
+    """Return the status, body and extra headers a path is served with."""
+    if path == "/login-redirect":
+        return 302, b"", {"Location": "/denied"}
+    if path == "/flaky":
+        # a blip: the first caller gets a 502, everyone after it gets an answer
+        return (200, _TOKEN_BODY, {}) if asked_before else (502, b"", {})
+    if path in _STATUS_BY_PATH:
+        return _STATUS_BY_PATH[path], b"", {}
+    return 200, _TOKEN_BODY, {}
+
+
+class _TokenEndpoint(BaseHTTPRequestHandler):
+    """The answers an authenticated endpoint gives, recording what was asked of it.
+
+    A real server rather than a mocked transport: what is under test is the request that goes out --
+    its credential header, its refusal to follow a redirect -- and the error that comes back, both
+    of which a mock at that level stands in front of.
     """
-    import json as json_module  # noqa: PLC0415
-    import threading  # noqa: PLC0415
-    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: PLC0415
 
-    requests: list[dict] = []
+    def do_POST(self) -> None:
+        self._record("POST")
+        self._answer()
 
-    class Handler(BaseHTTPRequestHandler):
-        def do_POST(self) -> None:
-            requests.append({"method": "POST", "path": self.path, "headers": dict(self.headers)})
-            self._answer()
+    def do_GET(self) -> None:
+        self._record("GET")
+        self._answer()
 
-        def do_GET(self) -> None:
-            requests.append({"method": "GET", "path": self.path, "headers": dict(self.headers)})
-            self._answer()
+    def log_message(self, *_args: object) -> None:
+        """Keep the test output free of the server's own access log."""
 
-        def _answer(self) -> None:
-            if self.path == "/login-redirect":
-                self.send_response(302)
-                self.send_header("Location", "/denied")
-                self.end_headers()
-                return
-            if self.path == "/denied":
-                self.send_response(401)
-                self.end_headers()
-                return
-            if self.path == "/boom":
-                self.send_response(500)
-                self.end_headers()
-                return
-            if self.path == "/drop":
-                # answer nothing and hang up, which aiohttp reports as ServerDisconnectedError
-                self.connection.close()
-                return
-            body = json_module.dumps({"access_token": "t"}).encode()
+    def _record(self, method: str) -> None:
+        self.server.requests.append({"method": method, "path": self.path, "headers": dict(self.headers)})
+
+    def _answer(self) -> None:
+        if self.path == "/drop":
+            # answer nothing and hang up, which aiohttp reports as ServerDisconnectedError
+            self.connection.close()
+            return
+        if self.path == "/truncated":
+            # promise a body and stop halfway through it, which aiohttp reports as ClientPayloadError
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Length", "100")
             self.end_headers()
+            self.wfile.write(b'{"access_')
+            self.connection.close()
+            return
+        asked_before = len([r for r in self.server.requests if r["path"] == self.path]) > 1
+        status, body, headers = _answer_for(self.path, asked_before=asked_before)
+        self.send_response(status)
+        for name, value in headers.items():
+            self.send_header(name, value)
+        if body:
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if body:
             self.wfile.write(body)
 
-        def log_message(self, *_args: object) -> None:
-            """Keep the test output free of the server's own access log."""
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+@pytest.fixture
+def http_server() -> Iterator[tuple[str, list]]:
+    """Run `_TokenEndpoint` on a port of its own, and hand back its URL and what it was asked.
+
+    Paths: `/token` answers with a token, `/denied` 401, `/rate-limited` 429, `/boom` 500,
+    `/login-redirect` 302 to `/denied`, `/flaky` 502 to its first caller and a token after that,
+    `/truncated` stops halfway through a body it promised, and `/drop` hangs up without answering at
+    all.
+    """
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _TokenEndpoint)
+    server.requests = []
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield f"http://127.0.0.1:{server.server_port}", requests
+        yield f"http://127.0.0.1:{server.server_port}", server.requests
     finally:
         server.shutdown()
         server.server_close()
@@ -887,3 +923,46 @@ def test_download_file_returns_a_dropped_connection_as_a_file(
     assert result.status == 500
     assert isinstance(result.content, ServerDisconnectedError)
     assert key not in _every_carrier_of(result.content)
+
+
+def test_post_file_asks_again_when_the_server_says_the_fault_is_its_own(http_server: tuple[str, list]) -> None:
+    """A 5xx is a blip worth a second attempt, where a mint failing empties a whole query."""
+    base_url, requests = http_server
+
+    with stamina.set_testing(True, attempts=2):
+        result = post_file(f"{base_url}/flaky")
+
+    assert [request["path"] for request in requests] == ["/flaky", "/flaky"]
+    assert result.status == 200
+    assert json.loads(result.content.getvalue()) == {"access_token": "t"}
+
+
+@pytest.mark.parametrize("path", ["/denied", "/rate-limited"])
+def test_post_file_takes_an_answer_for_an_answer(path: str, http_server: tuple[str, list]) -> None:
+    """A 401 will not become a 200 by asking again, and a 429 gets worse for being asked.
+
+    The endpoints that rate-limit are rate-limiting a free account, so a second attempt a tenth of a
+    second later is the wrong thing to do with one.
+    """
+    base_url, requests = http_server
+
+    with stamina.set_testing(True, attempts=2):
+        result = post_file(f"{base_url}{path}", auth=("user", "pa:ss"))
+
+    assert len(requests) == 1
+    assert result.status == _STATUS_BY_PATH[path]
+
+
+def test_post_file_asks_again_when_the_body_stops_arriving(http_server: tuple[str, list]) -> None:
+    """A body that stops mid-read is the same kind of blip as a connection that never carried one.
+
+    ``ClientPayloadError`` subclasses ``ClientError`` directly rather than ``ClientConnectionError``,
+    so it is named in its own right or it is taken for an answer.
+    """
+    base_url, requests = http_server
+
+    with stamina.set_testing(True, attempts=2):
+        result = post_file(f"{base_url}/truncated")
+
+    assert [request["path"] for request in requests] == ["/truncated", "/truncated"]
+    assert isinstance(result.content, ClientPayloadError)

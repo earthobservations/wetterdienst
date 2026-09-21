@@ -14,6 +14,7 @@ import threading
 from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar
@@ -512,6 +513,35 @@ class NetworkFilesystemManager:
         return cls._get_filesystems()[key]
 
 
+def _worth_retrying(error: Exception) -> bool:
+    """Whether a failed post is worth a second attempt.
+
+    A response that arrived is an answer, and a 401 will not become a 200 by asking again -- unless
+    the server said the fault was its own. A 502 or a 503 from a token endpoint is a blip, and the
+    request that meets it is the one least able to afford failing: a token is minted once every
+    three days, and a mint that fails empties a whole query rather than one file of it.
+
+    A 429 is deliberately not retried. The endpoints that rate-limit are rate-limiting a free
+    account, and asking again a tenth of a second later is how that gets worse rather than better;
+    it comes back as the answer it is, for the caller to report.
+    """
+    # ClientPayloadError is a body that stopped arriving mid-read, which is the same kind of blip
+    # as a connection that never carried one -- and it is no subclass of ClientConnectionError
+    if isinstance(error, (ClientConnectionError, ClientPayloadError, FSTimeoutError, TimeoutError)):
+        return True
+    return isinstance(error, ClientResponseError) and error.status >= HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def _worth_retrying_download(error: Exception) -> bool:
+    """Whether a failed download is worth a second attempt.
+
+    The same answer as for a post, plus the missing file fsspec raises for a 404 -- a file index is
+    read minutes before the files it names are fetched, and a listing can race a publication either
+    way, so a download asks once more before believing a file is not there.
+    """
+    return isinstance(error, FileNotFoundError) or _worth_retrying(error)
+
+
 @stamina.retry(on=Exception, attempts=3)
 def list_remote_files_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
@@ -605,10 +635,10 @@ def download_file(
     # and aiohttp merges those headers into the request info it hangs on an error
     sent_credentials = _sends_credentials(client_kwargs)
     try:
-        for attempt in stamina.retry_context(
-            on=(FileNotFoundError, FSTimeoutError, ClientConnectorError, ClientResponseError, ClientPayloadError),
-            attempts=2,
-        ):
+        # a 429 is not asked again: the providers that rate-limit are rate-limiting a free
+        # account, and a second request a tenth of a second later is how that gets worse. What is
+        # worth asking twice, `_worth_retrying_download` says, and it says the same as a post does
+        for attempt in stamina.retry_context(on=_worth_retrying_download, attempts=2):
             with attempt:
                 try:
                     payload = filesystem.cat_file(url)
@@ -731,6 +761,12 @@ def post_file(
     having an exception thrown through it. A redirect is not followed and arrives as itself, so a
     caller that expected a body should read ``File.status`` before the content.
 
+    A request that fails the way a server does -- a 5xx, a dropped connection, a body that stops
+    arriving -- is made a second time, which assumes the post is one that may safely be made twice.
+    That holds for asking an endpoint for a token, which is what this exists for; a post that
+    *changes* something at the other end wants a caller that knows a 500 may arrive after the change
+    was applied.
+
     Args:
         url: The URL to post to.
         auth: Username and password for HTTP basic auth, if the endpoint wants them.
@@ -773,18 +809,17 @@ def post_file(
         # fsspec keeps one filesystem instance -- and so one aiohttp session and its keep-alive
         # pool -- for the life of the process, where a token is minted days apart. The first attempt
         # can therefore pick a pooled connection the server closed hours ago, which the second gets
-        # to retry on a fresh one. A response that did arrive is never retried: a 401 is an answer.
-        for attempt in stamina.retry_context(
-            on=(ClientConnectionError, FSTimeoutError, TimeoutError),
-            attempts=2,
-        ):
+        # to retry on a fresh one. What else is worth asking twice, `_worth_retrying` says.
+        for attempt in stamina.retry_context(on=_worth_retrying, attempts=2):
             with attempt:
                 try:
                     status, payload = sync(filesystem.loop, _post)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
-                    # as in download_file: stamina's retry hook logs ``repr(caused_by)``, which
-                    # renders an aiohttp error's request info. None of the errors retried here
-                    # carries one today, which is exactly the kind of thing a later edit changes
+                    # load-bearing, not belt and braces: stamina's retry hook logs
+                    # ``repr(caused_by)``, which renders an aiohttp error's request info -- and a
+                    # 5xx is retried here, so that repr is of an error carrying the Authorization
+                    # header this function just built. This is the only thing keeping it out of the
+                    # retry log
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Posted to {url}")
                 return File(url=url, content=BytesIO(payload), status=status)

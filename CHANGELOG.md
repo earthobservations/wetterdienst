@@ -45,6 +45,20 @@ Types of changes:
 
 ### Fixed
 
+- A token exchange that meets a server error is asked a second time. `post_file` retried a
+  connection that never carried a response, but took every response that did arrive as an answer --
+  and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three
+  days and empties a whole Met Office query when it fails, so it is the request least able to afford
+  a single-shot failure. A body that stops arriving mid-read is asked again too -- it is the same
+  kind of blip, and no subclass of the connection errors that were already named. A 401 is still an
+  answer, and a 429 deliberately so: the endpoints that rate-limit are rate-limiting a free account,
+  and asking again a tenth of a second later makes that worse rather than better. `download_file`
+  is held to the same policy, where it used to retry any failing status -- so a 429 from AEMET or
+  met.no Frost is no longer answered by doubling the request rate against a provider that has just
+  said it is rate-limiting. AEMET's own retry loop, which waits properly between attempts, is what
+  clears that one, and it now sees the 429 after one request rather than two. A missing file is
+  still asked for twice, a file index being read minutes before the files it names. GH-1939
+
 - The three paths that do not go through the provider registry say which extra they want, where
   they used to raise a bare `ModuleNotFoundError`: `wetterdienst restapi` without `[restapi]`,
   `.interpolate()` without `[interpolation]`, and the radar HDF5 dump without `[radar]`. Each names
