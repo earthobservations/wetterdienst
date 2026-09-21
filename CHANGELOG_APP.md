@@ -26,7 +26,9 @@ Types of changes:
   what a reader of that language expects. A unit test holds every catalog to its own word, for the
   entries that name a flag, with the words written down rather than derived -- deriving them means
   guessing at compounds and plurals in eleven languages, which is what went wrong here to begin
-  with. GH-1919
+  with. Italian is written down twice, `indicatore` and `indicatori`: the stem they share is also
+  the start of the English word, so a catalog regressed to English would have satisfied the check
+  meant to catch exactly that. GH-1919
 
 ## [0.16.0] - 2026-09-18
 

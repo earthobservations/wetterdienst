@@ -151,23 +151,29 @@ describe('glossary label parity', () => {
   // indicatore/indicatori, příznak/příznaky. Written down rather than derived, because deriving it
   // means guessing at compounds and plurals in eleven languages, which is the thing that went
   // wrong here in the first place (GH-1919).
-  const flagWord: Record<string, string> = {
-    'cs': 'příznak',
-    'da': 'flag',
-    'de': 'kennung',
-    'de-hh': 'kenn',
-    'en': 'flag',
-    'es': 'indicador',
-    'fr': 'indicateur',
-    'it': 'indicator',
-    'lb': 'kennung',
-    'nl': 'vlag',
-    'pl': 'znacznik',
+  //
+  // Italian is given both of its forms rather than the stem they share: `indicator` is a prefix of
+  // the English "indicator" and "indicators", so a catalog regressed to the English wording would
+  // have satisfied the check that exists to catch exactly that. No other stem here appears in an
+  // English label -- indicador, indicateur, příznak, znacznik, vlag, kennung are all absent from
+  // one, and Danish and English share "flag" honestly.
+  const flagWords: Record<string, string[]> = {
+    'cs': ['příznak'],
+    'da': ['flag'],
+    'de': ['kennung'],
+    'de-hh': ['kenn'],
+    'en': ['flag'],
+    'es': ['indicador'],
+    'fr': ['indicateur'],
+    'it': ['indicatore', 'indicatori'],
+    'lb': ['kennung'],
+    'nl': ['vlag'],
+    'pl': ['znacznik'],
   }
 
   it('has a flag word written down for every locale', () => {
     // a locale added later has to say what its word is, rather than skipping the check below
-    expect(Object.keys(flagWord).sort()).toEqual([...glossaryLocales].sort())
+    expect(Object.keys(flagWords).sort()).toEqual([...glossaryLocales].sort())
   })
 
   it.each(glossaryLocales)('names a flag with its own word in %s', (locale) => {
@@ -175,16 +181,21 @@ describe('glossary label parity', () => {
     // Kennung or Kennen sixteen times over in its quality entries. A borrowed word reads as an
     // untranslated string to someone using the app in that language.
     const labels = glossaryLabels(locale, 'parameters')
-    const stem = flagWord[locale] as string
+    const stems = flagWords[locale] as string[]
+    // the label regex wants single quotes and a trailing comma, so a label rewritten with double
+    // quotes -- natural for one holding an apostrophe -- would drop out of the map and be asserted
+    // on by nobody, while the key-based parity tests, which read keys by another regex, stayed green
+    expect(Object.keys(labels).length, `${locale} parameter labels did not parse`).toBeGreaterThan(0)
+    expect(labels.precipitation_type_flags, `${locale} has no precipitation_type_flags label`).toBeTruthy()
 
     for (const [key, label] of Object.entries(labels)) {
       // the bare `quality` key names the quantity, not a flag -- "Quality", "Qualität"
       if (!key.endsWith('_flags') && !key.startsWith('quality_'))
         continue
       expect(
-        label.toLowerCase(),
-        `${locale} ${key} says "${label}" where this catalog's word for a flag is "${stem}"`,
-      ).toContain(stem)
+        stems.some(stem => label.toLowerCase().includes(stem)),
+        `${locale} ${key} says "${label}" where this catalog's word for a flag is ${stems.map(s => `"${s}"`).join(' or ')}`,
+      ).toBe(true)
     }
   })
 
