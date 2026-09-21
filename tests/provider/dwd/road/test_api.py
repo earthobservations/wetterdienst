@@ -1451,6 +1451,24 @@ def test_dwd_road_weather_impossible_temperature_is_marked(
     assert marked.any() == expected, case
 
 
+def test_dwd_road_weather_impossible_temperature_names_what_it_marked(caplog: pytest.LogCaptureFixture) -> None:
+    """The line written for a caller who turns the log up names the sensors and the threshold.
+
+    Written at `DEBUG`, which neither the CLI nor the REST API prints, and it says the readings are
+    kept -- a caller reading it should not go looking for values that were removed.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    readings = _series("H659", "roadSurfaceTemperature", [api._MELTING_POINT - 75.0] * 3)  # noqa: SLF001
+
+    with caplog.at_level(logging.DEBUG):
+        api._flag_impossible_temperatures(readings, "a-group")  # noqa: SLF001
+
+    assert "a-group: 1 sensors report a temperature below -60 C" in caplog.text
+    assert "H659/roadSurfaceTemperature" in caplog.text
+    assert "kept as published" in caplog.text
+
+
 def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
     """The mark does not wait for the six hours the run rule needs to see.
 
