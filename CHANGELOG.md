@@ -49,9 +49,10 @@ Types of changes:
   connection that never carried a response, but took every response that did arrive as an answer --
   and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three
   days and empties a whole Met Office query when it fails, so it is the request least able to afford
-  a single-shot failure. A 401 is still an answer, and a 429 deliberately so: the endpoints that
-  rate-limit are rate-limiting a free account, and asking again a tenth of a second later makes that
-  worse rather than better. GH-1939
+  a single-shot failure. A body that stops arriving mid-read is asked again too -- it is the same
+  kind of blip, and no subclass of the connection errors that were already named. A 401 is still an
+  answer, and a 429 deliberately so: the endpoints that rate-limit are rate-limiting a free account,
+  and asking again a tenth of a second later makes that worse rather than better. GH-1939
 
 - The three paths that do not go through the provider registry say which extra they want, where
   they used to raise a bare `ModuleNotFoundError`: `wetterdienst restapi` without `[restapi]`,

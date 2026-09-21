@@ -15,7 +15,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import stamina
-from aiohttp import ClientConnectorError, ClientResponseError, ClientTimeout, ServerDisconnectedError
+from aiohttp import (
+    ClientConnectorError,
+    ClientPayloadError,
+    ClientResponseError,
+    ClientTimeout,
+    ServerDisconnectedError,
+)
 from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
 
@@ -657,6 +663,15 @@ class _TokenEndpoint(BaseHTTPRequestHandler):
             # answer nothing and hang up, which aiohttp reports as ServerDisconnectedError
             self.connection.close()
             return
+        if self.path == "/truncated":
+            # promise a body and stop halfway through it, which aiohttp reports as ClientPayloadError
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", "100")
+            self.end_headers()
+            self.wfile.write(b'{"access_')
+            self.connection.close()
+            return
         asked_before = len([r for r in self.server.requests if r["path"] == self.path]) > 1
         status, body, headers = _answer_for(self.path, asked_before=asked_before)
         self.send_response(status)
@@ -675,8 +690,9 @@ def http_server() -> Iterator[tuple[str, list]]:
     """Run `_TokenEndpoint` on a port of its own, and hand back its URL and what it was asked.
 
     Paths: `/token` answers with a token, `/denied` 401, `/rate-limited` 429, `/boom` 500,
-    `/login-redirect` 302 to `/denied`, `/flaky` 502 to its first caller and a token after that, and
-    `/drop` hangs up without answering at all.
+    `/login-redirect` 302 to `/denied`, `/flaky` 502 to its first caller and a token after that,
+    `/truncated` stops halfway through a body it promised, and `/drop` hangs up without answering at
+    all.
     """
     server = ThreadingHTTPServer(("127.0.0.1", 0), _TokenEndpoint)
     server.requests = []
@@ -931,4 +947,19 @@ def test_post_file_takes_an_answer_for_an_answer(path: str, http_server: tuple[s
         result = post_file(f"{base_url}{path}", auth=("user", "pa:ss"))
 
     assert len(requests) == 1
-    assert result.status in {401, 429}
+    assert result.status == _STATUS_BY_PATH[path]
+
+
+def test_post_file_asks_again_when_the_body_stops_arriving(http_server: tuple[str, list]) -> None:
+    """A body that stops mid-read is the same kind of blip as a connection that never carried one.
+
+    ``ClientPayloadError`` subclasses ``ClientError`` directly rather than ``ClientConnectionError``,
+    so it is named in its own right or it is taken for an answer.
+    """
+    base_url, requests = http_server
+
+    with stamina.set_testing(True, attempts=2):
+        result = post_file(f"{base_url}/truncated")
+
+    assert [request["path"] for request in requests] == ["/truncated", "/truncated"]
+    assert isinstance(result.content, ClientPayloadError)

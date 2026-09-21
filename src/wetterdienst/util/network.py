@@ -719,7 +719,9 @@ def _worth_retrying(error: Exception) -> bool:
     account, and asking again a tenth of a second later is how that gets worse rather than better;
     it comes back as the answer it is, for the caller to report.
     """
-    if isinstance(error, (ClientConnectionError, FSTimeoutError, TimeoutError)):
+    # ClientPayloadError is a body that stopped arriving mid-read, which is the same kind of blip
+    # as a connection that never carried one -- and it is no subclass of ClientConnectionError
+    if isinstance(error, (ClientConnectionError, ClientPayloadError, FSTimeoutError, TimeoutError)):
         return True
     return isinstance(error, ClientResponseError) and error.status >= HTTPStatus.INTERNAL_SERVER_ERROR
 
@@ -748,6 +750,12 @@ def post_file(
     ``download_file`` returns them in, so a caller decides what a failed exchange means rather than
     having an exception thrown through it. A redirect is not followed and arrives as itself, so a
     caller that expected a body should read ``File.status`` before the content.
+
+    A request that fails the way a server does -- a 5xx, a dropped connection, a body that stops
+    arriving -- is made a second time, which assumes the post is one that may safely be made twice.
+    That holds for asking an endpoint for a token, which is what this exists for; a post that
+    *changes* something at the other end wants a caller that knows a 500 may arrive after the change
+    was applied.
 
     Args:
         url: The URL to post to.
@@ -797,9 +805,11 @@ def post_file(
                 try:
                     status, payload = sync(filesystem.loop, _post)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
-                    # as in download_file: stamina's retry hook logs ``repr(caused_by)``, which
-                    # renders an aiohttp error's request info. None of the errors retried here
-                    # carries one today, which is exactly the kind of thing a later edit changes
+                    # load-bearing, not belt and braces: stamina's retry hook logs
+                    # ``repr(caused_by)``, which renders an aiohttp error's request info -- and a
+                    # 5xx is retried here, so that repr is of an error carrying the Authorization
+                    # header this function just built. This is the only thing keeping it out of the
+                    # retry log
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Posted to {url}")
                 return File(url=url, content=BytesIO(payload), status=status)
