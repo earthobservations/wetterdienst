@@ -145,6 +145,49 @@ describe('glossary label parity', () => {
     )
   }
 
+  // The word each catalog has settled on for "flag", read off its own sixteen quality entries --
+  // "Qualitätskennung, allgemein", "Kwaliteitsvlag, ...", "Indicatore di qualità, ...". Stems, so
+  // that a plural each language forms differently still matches: Kennung/Kennungen,
+  // indicatore/indicatori, příznak/příznaky. Written down rather than derived, because deriving it
+  // means guessing at compounds and plurals in eleven languages, which is the thing that went
+  // wrong here in the first place (GH-1919).
+  const flagWord: Record<string, string> = {
+    'cs': 'příznak',
+    'da': 'flag',
+    'de': 'kennung',
+    'de-hh': 'kenn',
+    'en': 'flag',
+    'es': 'indicador',
+    'fr': 'indicateur',
+    'it': 'indicator',
+    'lb': 'kennung',
+    'nl': 'vlag',
+    'pl': 'znacznik',
+  }
+
+  it('has a flag word written down for every locale', () => {
+    // a locale added later has to say what its word is, rather than skipping the check below
+    expect(Object.keys(flagWord).sort()).toEqual([...glossaryLocales].sort())
+  })
+
+  it.each(glossaryLocales)('names a flag with its own word in %s', (locale) => {
+    // Three catalogs appended the english "Flags" to a translated compound, where each of them says
+    // Kennung or Kennen sixteen times over in its quality entries. A borrowed word reads as an
+    // untranslated string to someone using the app in that language.
+    const labels = glossaryLabels(locale, 'parameters')
+    const stem = flagWord[locale] as string
+
+    for (const [key, label] of Object.entries(labels)) {
+      // the bare `quality` key names the quantity, not a flag -- "Quality", "Qualität"
+      if (!key.endsWith('_flags') && !key.startsWith('quality_'))
+        continue
+      expect(
+        label.toLowerCase(),
+        `${locale} ${key} says "${label}" where this catalog's word for a flag is "${stem}"`,
+      ).toContain(stem)
+    }
+  })
+
   it.each(glossaryLocales)('is actually translated in %s', (locale) => {
     if (locale === 'en')
       return

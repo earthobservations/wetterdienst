@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- App glossary: the German, Low German and Luxembourgish labels for `precipitation_type_flags` said
+  `Flags`, the English word, where each of those catalogs already renders a flag as `Kennung` or
+  `Kennen` -- sixteen times over, in its quality entries. They now use their own word. The other
+  eight were right as they stood: what looked like six catalogs saying "flag" and five saying
+  "indicator" is eight languages each using the word it uses everywhere else in the file, which is
+  what a reader of that language expects. A test holds every catalog to its own word, for the
+  entries that name a flag. GH-1919
+
 ### Added
 
 - DWD road: a temperature below -60 °C is marked suspect whatever window was asked for. The stopped
