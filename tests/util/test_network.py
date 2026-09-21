@@ -107,13 +107,17 @@ def test_download_file_returns_no_internet_error_on_connector_error() -> None:
     assert isinstance(result.content, NoInternetError)
 
 
-def test_download_file_retries_on_429_and_succeeds() -> None:
-    """download_file() retries on HTTP 429 and returns the file on the second attempt."""
+def test_download_file_does_not_retry_a_rate_limit() -> None:
+    """download_file() takes a 429 for the answer it is, rather than asking again at once.
+
+    The providers that rate-limit are rate-limiting a free account -- AEMET, met.no Frost -- and a
+    second request a tenth of a second later is how that gets worse rather than better. It used to
+    be retried, which is the behaviour this replaces.
+    """
     error_429 = ClientResponseError(request_info=MagicMock(), history=(), status=429)
-    payload = b"data"
 
     mock_fs = MagicMock()
-    mock_fs.cat_file.side_effect = [error_429, payload]
+    mock_fs.cat_file.side_effect = [error_429, b"data"]
 
     default_settings = Settings(cache_disable=True)
 
@@ -129,10 +133,9 @@ def test_download_file_retries_on_429_and_succeeds() -> None:
             cache_disable=default_settings.cache_disable,
         )
 
-    assert mock_fs.cat_file.call_count == 2
-    assert result.status == 200
-    assert isinstance(result.content, BytesIO)
-    assert result.content.read() == payload
+    assert mock_fs.cat_file.call_count == 1
+    assert result.status == 429
+    assert result.content is error_429
 
 
 def test_download_file_retries_on_500_and_succeeds() -> None:

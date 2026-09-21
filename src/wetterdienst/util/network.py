@@ -513,6 +513,35 @@ class NetworkFilesystemManager:
         return cls._get_filesystems()[key]
 
 
+def _worth_retrying(error: Exception) -> bool:
+    """Whether a failed post is worth a second attempt.
+
+    A response that arrived is an answer, and a 401 will not become a 200 by asking again -- unless
+    the server said the fault was its own. A 502 or a 503 from a token endpoint is a blip, and the
+    request that meets it is the one least able to afford failing: a token is minted once every
+    three days, and a mint that fails empties a whole query rather than one file of it.
+
+    A 429 is deliberately not retried. The endpoints that rate-limit are rate-limiting a free
+    account, and asking again a tenth of a second later is how that gets worse rather than better;
+    it comes back as the answer it is, for the caller to report.
+    """
+    # ClientPayloadError is a body that stopped arriving mid-read, which is the same kind of blip
+    # as a connection that never carried one -- and it is no subclass of ClientConnectionError
+    if isinstance(error, (ClientConnectionError, ClientPayloadError, FSTimeoutError, TimeoutError)):
+        return True
+    return isinstance(error, ClientResponseError) and error.status >= HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def _worth_retrying_download(error: Exception) -> bool:
+    """Whether a failed download is worth a second attempt.
+
+    The same answer as for a post, plus the missing file fsspec raises for a 404 -- a file index is
+    read minutes before the files it names are fetched, and a listing can race a publication either
+    way, so a download asks once more before believing a file is not there.
+    """
+    return isinstance(error, FileNotFoundError) or _worth_retrying(error)
+
+
 @stamina.retry(on=Exception, attempts=3)
 def list_remote_files_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
@@ -606,10 +635,10 @@ def download_file(
     # and aiohttp merges those headers into the request info it hangs on an error
     sent_credentials = _sends_credentials(client_kwargs)
     try:
-        for attempt in stamina.retry_context(
-            on=(FileNotFoundError, FSTimeoutError, ClientConnectorError, ClientResponseError, ClientPayloadError),
-            attempts=2,
-        ):
+        # a 429 is not asked again: the providers that rate-limit are rate-limiting a free
+        # account, and a second request a tenth of a second later is how that gets worse. What is
+        # worth asking twice, `_worth_retrying_download` says, and it says the same as a post does
+        for attempt in stamina.retry_context(on=_worth_retrying_download, attempts=2):
             with attempt:
                 try:
                     payload = filesystem.cat_file(url)
@@ -705,25 +734,6 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     if error.args and error.args[0] is request_info:
         error.args = (scrubbed, (), *error.args[2:])
     return error
-
-
-def _worth_retrying(error: Exception) -> bool:
-    """Whether a failed post is worth a second attempt.
-
-    A response that arrived is an answer, and a 401 will not become a 200 by asking again -- unless
-    the server said the fault was its own. A 502 or a 503 from a token endpoint is a blip, and the
-    request that meets it is the one least able to afford failing: a token is minted once every
-    three days, and a mint that fails empties a whole query rather than one file of it.
-
-    A 429 is deliberately not retried. The endpoints that rate-limit are rate-limiting a free
-    account, and asking again a tenth of a second later is how that gets worse rather than better;
-    it comes back as the answer it is, for the caller to report.
-    """
-    # ClientPayloadError is a body that stopped arriving mid-read, which is the same kind of blip
-    # as a connection that never carried one -- and it is no subclass of ClientConnectionError
-    if isinstance(error, (ClientConnectionError, ClientPayloadError, FSTimeoutError, TimeoutError)):
-        return True
-    return isinstance(error, ClientResponseError) and error.status >= HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 # How long a post waits when the caller's ``client_kwargs`` does not say. Settings carries a
