@@ -349,25 +349,38 @@ _MELTING_AIR_MARGIN = 10.0
 #: sensor that has stopped from a cold night by whether it moves.
 _IMPOSSIBLE_BELOW = _MELTING_POINT - 60.0
 
+#: the quantities this dataset reports on the temperature scale, which is what makes a number
+#: comparable to a temperature at all.
+#:
+#: The same three as `_STUCK_PARAMETERS`, and named separately on purpose: that tuple answers a
+#: different question -- which quantities standing still is a fault in -- and its own reasoning
+#: invites a later maintainer to add one. A humidity there (0 to 100 %) or a wind speed (0 to 30
+#: m/s) is below any line drawn in kelvin by construction, so sharing the list would mark a whole
+#: network's humidity suspect from an edit that looks unrelated to this rule
+_TEMPERATURE_PARAMETERS = ("airTemperature", "dewpointTemperature", "roadSurfaceTemperature")
+
 
 def _flag_impossible_temperatures(df: pl.DataFrame, source: str) -> pl.DataFrame:
     """Mark a temperature no reading can hold, whatever window was asked for.
 
     `_flag_stuck_sensors` finds these same sensors by what they do over six hours, which a request
-    for one hour cannot show it: the seven KM stations sitting at -75, -30 and -25 C come back
-    marked from a twelve-hour request and unmarked from a one-hour one, the rule having only five
-    readings to judge from. A value that no reading can hold needs no window to be recognised.
+    for one hour cannot show it: of the seven KM stations sitting at -75, -30 and -25 C, all seven
+    come back marked from a twelve-hour request and none from a one-hour one, the rule having five
+    readings where it needs twenty-four. A value that no reading can hold needs no window to be
+    recognised, so the two at -75 C are marked in any window -- and only those two. The -30 and -25
+    stations stay with the run rule, which can tell a stopped sensor from a cold night, where their
+    value alone cannot.
 
     The reading is left exactly as DWD published it, as everywhere else here. Only `quality` says
     anything about it.
     """
     impossible = (
-        pl.col("parameter").is_in(_STUCK_PARAMETERS)
+        pl.col("parameter").is_in(_TEMPERATURE_PARAMETERS)
         & pl.col("value").is_not_null()
         & pl.col("value").lt(_IMPOSSIBLE_BELOW)
     )
     if log.isEnabledFor(logging.DEBUG):
-        marked = df.filter(impossible).select("station_id", "parameter").unique()
+        marked = df.filter(impossible).select("station_id", "parameter").unique().sort("station_id", "parameter")
         if not marked.is_empty():
             log.debug(
                 f"{source}: {marked.height} sensors report a temperature below "

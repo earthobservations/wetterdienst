@@ -119,9 +119,11 @@ A caller reading this network at face value should expect, at roughly one statio
 
 Wetterdienst removes none of these. It reports what DWD publishes, and a reading's plausibility is
 left to the caller -- a road surface really does reach 60 °C in July sun, so a threshold that took
-out the nonsense above would take genuine extremes with it.
+*out* the nonsense above would take genuine extremes with it. Two of the three it does **mark**, in
+the `quality` column, which is a different thing: the reading stays exactly as published, and a
+caller who wants the extremes keeps them.
 
-One of the three it does **mark**, in the same `quality` column: a sensor that has stopped. Where an
+The first of the two is a sensor that has stopped. Where an
 air temperature, a dew point or a road surface temperature reports the identical value for 24
 readings -- six hours at this resolution -- `quality` becomes `1`. The reading is left exactly as
 published.
@@ -159,7 +161,8 @@ for two of the three -- -25 °C and -30 °C are both reachable in a German winte
 
 ##### temperatures no reading can hold
 
-The third is different, and is marked whatever window was asked for: a temperature below **-60 °C**.
+The second is marked whatever window was asked for: a temperature below **-60 °C**. It is the `-75.00`
+of the exact round values above, and only that one.
 Germany's record low air temperature is -45.9 °C, at a sinkhole that traps cold, and a road surface
 tracks the air rather than running far beneath it; the line stands 14 K under that record and 29 K
 above the world's, so nothing this network can publish as weather falls below it. The stopped

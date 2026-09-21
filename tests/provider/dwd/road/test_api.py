@@ -1486,17 +1486,53 @@ def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_dwd_road_weather_impossible_temperature_leaves_other_quantities_alone() -> None:
-    """Only the three temperatures are judged: nothing else here is measured on that scale.
+@pytest.mark.parametrize(
+    ("parameter", "value"),
+    [
+        ("waterFilmThickness", -75.0),
+        # a humidity and a wind speed are below any line drawn in kelvin by construction, which is
+        # what a list shared with the stuck-sensor rule would have marked a whole network of
+        ("relativeHumidity", 87.0),
+        ("windSpeed", 3.4),
+        ("horizontalVisibility", 12000.0),
+    ],
+)
+def test_dwd_road_weather_impossible_temperature_leaves_other_quantities_alone(
+    parameter: str,
+    value: float,
+) -> None:
+    """Only what is measured on the temperature scale is judged against a temperature.
 
-    A water film thickness or a precipitation amount is a different quantity in different units, and
-    a number below -60 in one of those is not the same claim at all.
+    A humidity of 87 % and a wind of 3.4 m/s are ordinary readings that happen to be small numbers;
+    read as kelvin they are far below anything on earth, so the quantities this line applies to are
+    named for being temperatures rather than borrowed from a rule that happens to name the same
+    three for another reason.
     """
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
-    other = _series("A006", "waterFilmThickness", [-75.0] * 3)
+    other = _series("A006", parameter, [value] * 3)
 
     assert api._flag_impossible_temperatures(other, "a-group").get_column("quality").is_null().all()  # noqa: SLF001
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_quantity_added_to_the_stuck_rule_is_not_judged_as_a_temperature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Deciding a stuck humidity is a fault does not make a humidity a temperature.
+
+    The two lists name the same three quantities today for different reasons, and the stuck rule's
+    own reasoning invites adding one to it. Answered from a single list, that edit would mark every
+    humidity in the network suspect -- 87 % read as kelvin being 186 K below freezing -- from a
+    change that looks unrelated to this rule.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    monkeypatch.setattr(api, "_STUCK_PARAMETERS", (*api._STUCK_PARAMETERS, "relativeHumidity"))  # noqa: SLF001
+    humidity = _series("A006", "relativeHumidity", [87.0] * 3)
+
+    marked = api._flag_impossible_temperatures(humidity, "a-group").get_column("quality")  # noqa: SLF001
+    assert marked.is_null().all()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
