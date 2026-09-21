@@ -1438,7 +1438,6 @@ def test_dwd_road_weather_a_real_file_decodes() -> None:
     )
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
     ("celsius", "expected", "case"),
     [
@@ -1463,11 +1462,13 @@ def test_dwd_road_weather_impossible_temperature_is_marked(
 
     df = api._flag_impossible_temperatures(readings, "a-group")  # noqa: SLF001
 
-    marked = df.get_column("quality").eq(1.0).fill_null(value=False).all()
-    assert marked == expected, case
+    marked = df.get_column("quality").eq(1.0).fill_null(value=False)
+    # every reading or none of them: the three here hold the same value, so a rule that marked some
+    # of them would be answering something other than what the value is
+    assert marked.all() == expected, case
+    assert marked.any() == expected, case
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
     """The mark does not wait for the six hours the run rule needs to see.
 
@@ -1485,7 +1486,6 @@ def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
     assert marked.eq(1.0).fill_null(value=False).all()
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.parametrize(
     ("parameter", "value"),
     [
@@ -1515,7 +1515,6 @@ def test_dwd_road_weather_impossible_temperature_leaves_other_quantities_alone(
     assert api._flag_impossible_temperatures(other, "a-group").get_column("quality").is_null().all()  # noqa: SLF001
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_a_quantity_added_to_the_stuck_rule_is_not_judged_as_a_temperature(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1535,7 +1534,6 @@ def test_dwd_road_weather_a_quantity_added_to_the_stuck_rule_is_not_judged_as_a_
     assert marked.is_null().all()
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_impossible_temperature_keeps_the_reading() -> None:
     """The reading is left exactly as DWD published it; only the verdict on it is ours."""
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415

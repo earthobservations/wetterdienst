@@ -408,8 +408,11 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     This is also the whole of what the flagged "sentinel" readings turn out to be: the exact
     `-75.00`, `-30.00` and `-25.00` degree values repeating across one group's stations are not a
     value to be recognised but sensors that have stopped, each reporting one distinct value for a
-    whole day. Matching them by value would have been worse than useless -- -25 and -30 are both
-    reachable in a German winter.
+    whole day. Matching them by value would be worse than useless for two of the three -- -25 and
+    -30 are both reachable in a German winter, and only whether the reading moves tells a stopped
+    sensor from a cold night. The third, -75, is matched by value in
+    `_flag_impossible_temperatures`, which is a different claim: not that a sensor has stopped, but
+    that no reading can be that cold.
     """
     if df.is_empty():
         return df

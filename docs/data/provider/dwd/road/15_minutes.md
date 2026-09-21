@@ -119,14 +119,18 @@ A caller reading this network at face value should expect, at roughly one statio
 
 Wetterdienst removes none of these. It reports what DWD publishes, and a reading's plausibility is
 left to the caller -- a road surface really does reach 60 °C in July sun, so a threshold that took
-*out* the nonsense above would take genuine extremes with it. Two of the three it does **mark**, in
-the `quality` column, which is a different thing: the reading stays exactly as published, and a
-caller who wants the extremes keeps them.
+*out* the nonsense above would take genuine extremes with it. Two of those shapes it does **mark**,
+in the `quality` column, which is a different thing: the reading stays exactly as published, and a
+caller who wants the extremes keeps them. The two are the stuck sensors, and the part of the exact
+round values that no reading could hold -- the `-75.00`, but not the `-30.00` or the `-25.00`. The
+impossible values of the first bullet are left alone: 79.8 °C on a road in September is implausible,
+and there is no line at that end an honest reading cannot cross.
 
-The first of the two is a sensor that has stopped. Where an
-air temperature, a dew point or a road surface temperature reports the identical value for 24
-readings -- six hours at this resolution -- `quality` becomes `1`. The reading is left exactly as
-published.
+##### sensors that have stopped
+
+The first of the two is a sensor that has stopped. Where an air temperature, a dew point or a road
+surface temperature reports the identical value for 24 readings -- six hours at this resolution --
+`quality` becomes `1`. The reading is left exactly as published.
 
 A run ends where the readings stop for more than four times the station's own usual interval, so
 two three-hour plateaus either side of a three-day outage are not a six-hour one. Against the
@@ -159,10 +163,26 @@ This is also what the exact round values are. `-75.00`, `-30.00` and `-25.00` ar
 be recognised but sensors that have stopped, and matching them by value would be worse than useless
 for two of the three -- -25 °C and -30 °C are both reachable in a German winter.
 
+Two things the run rule does not catch, and one it cannot:
+
+- a run shorter than the window. A request covering less than six hours has too few readings for the
+  question to be asked at all -- and because the check sees only the files the window selected, the
+  same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
+  filtering on `quality` should ask for the window it means. The -60 °C line is the exception: it
+  needs no window, a value being impossible on its own.
+- a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
+  57.2 °C, both varying hour to hour exactly as a working sensor does.
+- **the difference from air temperature cannot separate the two.** Over a full day of five groups,
+  stations with no sign of a fault reached 42.0 K above their own air temperature, while E237 --
+  which is certainly broken -- sat between 31.8 and 38.9 K. The broken station is inside the healthy
+  range. There is no threshold here that catches one without condemning the other, which is why this
+  library does not try.
+
 ##### temperatures no reading can hold
 
-The second is marked whatever window was asked for: a temperature below **-60 °C**. It is the `-75.00`
-of the exact round values above, and only that one.
+The second is marked whatever window was asked for: a temperature below **-60 °C**. It is the
+`-75.00` of the exact round values above, and only that one.
+
 Germany's record low air temperature is -45.9 °C, at a sinkhole that traps cold, and a road surface
 tracks the air rather than running far beneath it; the line stands 14 K under that record and 29 K
 above the world's, so nothing this network can publish as weather falls below it. The stopped
@@ -179,24 +199,11 @@ No line is drawn at the warm end. A road surface in July sun passes 60 °C, and 
 implausible rather than impossible -- there is no temperature at that end which an honest reading
 cannot reach.
 
-Two things the run rule does not catch, and one it cannot:
+##### what `quality` of `1` means
 
-- a run shorter than the window. A request covering less than six hours has too few readings for the
-  question to be asked at all -- and because the check sees only the files the window selected, the
-  same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
-  filtering on `quality` should ask for the window it means. The -60 °C line is the exception: it
-  needs no window, a value being impossible on its own.
-- a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
-  57.2 °C, both varying hour to hour exactly as a working sensor does.
-- **the difference from air temperature cannot separate the two.** Over a full day of five groups,
-  stations with no sign of a fault reached 42.0 K above their own air temperature, while E237 --
-  which is certainly broken -- sat between 31.8 and 38.9 K. The broken station is inside the healthy
-  range. There is no threshold here that catches one without condemning the other, which is why this
-  library does not try.
-
-So `quality` of `1` means suspect, whether DWD said so or this check did. The two do not have the
-same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
-temperature carrying it, where this is a threshold fitted to one day -- and the column does not
-distinguish them. The log distinguishes them, for a caller who turns it up: the line naming the stations this check
+So `quality` of `1` means suspect, whether DWD said so or either of these checks did. They do not
+have the same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
+temperature carrying it, where the run length is a threshold fitted to one day -- and the column
+does not distinguish them. The log distinguishes them, for a caller who turns it up: the line naming the stations this check
 marked is written at `DEBUG`, which neither the CLI nor the REST API prints by default, and it
 names the first five of them. A `null` still means nobody has looked.
