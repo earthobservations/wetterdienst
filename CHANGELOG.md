@@ -309,13 +309,23 @@ Types of changes:
   They now take 0.7 s and 0.8 s, the cost being flat in the number of stations asked for. The whole
   run is kept where `dwd/road` keeps only its last station group, a run being one file of some
   20 MB however wide the request or long the window, and it needs no key: a group varies from
-  station to station, while the run is a property of the request. For a `LATEST` request this also
-  makes the answer consistent rather than merely quicker -- resolving the alias once pins every
-  station to one model run, where resolving it per station handed the stations walked after DWD
-  published a new run a forecast from that one, and returned a frame quietly mixing two runs. A run
-  that cannot be fetched is likewise asked for once, and reported once, instead of once per
-  station. This is the half of GH-1922 left open when `dwd/road` was fixed, measured rather than
-  assumed to transfer. GH-1922
+  station to station, while the run is a property of the query. It is pinned for the length of a
+  query and no longer, so a caller keeping the values object and querying it again on a timer is
+  answered with the run published since rather than the one it first resolved. A run that cannot be
+  fetched is likewise asked for once, and reported once, instead of once per station. This is the
+  half of GH-1922 left open when `dwd/road` was fixed, measured rather than assumed to transfer.
+  GH-1922
+
+- DWD swsmos: `LATEST` no longer answers with a run up to twelve hours old. How long a run may be
+  cached is a property of the URL rather than of the request: a timestamped run is that run for
+  good, while `swsmos_LATEST_opendata.csv.bz2` is a name whose content DWD replaces every hour --
+  and the alias was cached by URL for twelve hours like everything else, so "the latest run" could
+  be one whose first twelve forecast hours had already happened. Measured against the live server
+  at 22:57 UTC: the alias was answered from the 21:00 run while DWD was serving 22:00. The alias
+  now expires after five minutes, which is what `dwd/mosmix` holds its KML for and a bounded lag
+  against an hourly cadence; the timestamped fallback and an explicitly requested `issue` keep the
+  long expiry, naming a run that cannot change. Found while reviewing the fix above, and older than
+  it. GH-1922
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --

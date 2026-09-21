@@ -35,6 +35,9 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from wetterdienst.model.result import ValuesResult
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -86,6 +89,14 @@ class DwdSwsmosValues(TimeseriesValues):
 
     def _run_content(self, settings: Settings) -> bytes | None:
         issue = cast("DwdSwsmosRequest", self.sr.stations).issue
+        # how long a run may be answered from the cache is a property of the URL, not of the
+        # request. A timestamped run is that run for good, while the ``LATEST`` alias is a name
+        # whose content DWD replaces every hour -- so caching the alias by URL for twelve hours,
+        # as this did, answered "the latest run" with one up to twelve hours old, whose first
+        # twelve forecast hours have already happened. Measured: at 22:57 UTC the alias was
+        # answered from the 21:00 run while the server was serving 22:00. Five minutes is what
+        # ``dwd/mosmix`` holds its KML for, and against an hourly cadence it is a bounded lag
+        ttl = CacheExpiry.TWELVE_HOURS
         if issue is DwdForecastDate.LATEST:
             files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
             names = {f.rsplit("/", 1)[-1]: f for f in files}
@@ -93,17 +104,19 @@ class DwdSwsmosValues(TimeseriesValues):
             # fall back to the newest timestamped file if the alias is ever missing
             if _LATEST_FILE in names:
                 url = names[_LATEST_FILE]
+                ttl = CacheExpiry.FIVE_MINUTES
             else:
                 timestamped = sorted(n for n in names if n.startswith("swsmos_") and n != _LATEST_FILE)
                 if not timestamped:
                     return None
+                # the fallback names a run rather than the alias, so it keeps the long TTL
                 url = names[timestamped[-1]]
         else:
             url = _run_url(cast("dt.datetime", issue))
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.TWELVE_HOURS,
+            ttl=ttl,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
@@ -136,14 +149,27 @@ class DwdSwsmosValues(TimeseriesValues):
         every other station wants.
 
         For `DwdForecastDate.LATEST` that also makes the answer consistent rather than merely
-        quicker: resolving the alias once pins every station to one model run, where resolving it
-        per station handed the stations walked after a new run was published a forecast from it,
-        and returned a frame quietly mixing two runs.
+        quicker: resolving the alias once pins every station to one model run. Resolved per
+        station, a walk that outlived the alias's cache entry -- or one made with caching disabled,
+        or falling back to the timestamped listing, which is never cached -- re-fetched the alias
+        part way through, so the stations after that point were answered from whatever run DWD had
+        published by then, and the frame quietly mixed two runs.
         """
         if self._run_frame_cache is None:
             content = self._run_content(settings)
             self._run_frame_cache = _read_run_csv(content) if content is not None else pl.DataFrame()
         return self._run_frame_cache
+
+    def query(self) -> Iterator[ValuesResult]:
+        """Answer each station of the request, from one run resolved for this query.
+
+        The run is pinned for the length of a query and no longer. `StationsResult.values` builds a
+        values object per access, so most callers get a fresh run either way -- but one that keeps
+        the object and queries it again on a timer is asking for the latest run a second time, and
+        would otherwise be answered from the one resolved on its first call for as long as it lived.
+        """
+        self._run_frame_cache = None
+        yield from super().query()
 
     def _collect_station_parameter_or_dataset(
         self,
