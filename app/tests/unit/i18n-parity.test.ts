@@ -182,10 +182,16 @@ describe('glossary label parity', () => {
     // untranslated string to someone using the app in that language.
     const labels = glossaryLabels(locale, 'parameters')
     const stems = flagWords[locale] as string[]
-    // the label regex wants single quotes and a trailing comma, so a label rewritten with double
-    // quotes -- natural for one holding an apostrophe -- would drop out of the map and be asserted
-    // on by nobody, while the key-based parity tests, which read keys by another regex, stayed green
-    expect(Object.keys(labels).length, `${locale} parameter labels did not parse`).toBeGreaterThan(0)
+    // the label regex wants single quotes and a trailing comma, so one entry rewritten with double
+    // quotes -- the natural edit for a label holding an apostrophe, which fr already has -- would
+    // drop out of the map and be asserted on by nobody, while the key-based parity tests, which
+    // read keys by a laxer regex, stayed green. Counted against those keys rather than against
+    // zero: a single entry going missing is the case worth catching, and the wholesale failure is
+    // caught by the same comparison
+    expect(
+      Object.keys(labels).length,
+      `${locale} parameter labels did not all parse`,
+    ).toBe(glossaryKeys(locale, 'parameters').length)
     expect(labels.precipitation_type_flags, `${locale} has no precipitation_type_flags label`).toBeTruthy()
 
     for (const [key, label] of Object.entries(labels)) {
