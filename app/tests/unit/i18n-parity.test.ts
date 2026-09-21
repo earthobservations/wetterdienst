@@ -145,6 +145,76 @@ describe('glossary label parity', () => {
     )
   }
 
+  // The word each catalog has settled on for "flag", read off its own sixteen quality entries --
+  // "Qualitätskennung, allgemein", "Kwaliteitsvlag, ...", "Indicatore di qualità, ...". Stems, so
+  // that a plural each language forms differently still matches: Kennung/Kennungen,
+  // indicatore/indicatori, příznak/příznaky. Written down rather than derived, because deriving it
+  // means guessing at compounds and plurals in eleven languages, which is the thing that went
+  // wrong here in the first place (GH-1919).
+  //
+  // Italian is given both of its forms rather than the stem they share, because its plural changes
+  // the ending rather than appending to it -- indicatore, indicatori -- and the only stem covering
+  // both is `indicator`, which is an ordinary English word. No English label here happens to use
+  // it, so nothing is caught today that would otherwise escape; a guard against borrowed words
+  // just should not itself be one.
+  //
+  // Low German is given `kennen` rather than the shorter `kenn` it shares with Standard German:
+  // the drift this catalog is likeliest to suffer is into Standard German, and `kenn` is where
+  // `Kennung` begins too.
+  const flagWords: Record<string, string[]> = {
+    'cs': ['příznak'],
+    'da': ['flag'],
+    'de': ['kennung'],
+    'de-hh': ['kennen'],
+    'en': ['flag'],
+    'es': ['indicador'],
+    'fr': ['indicateur'],
+    'it': ['indicatore', 'indicatori'],
+    'lb': ['kennung'],
+    'nl': ['vlag'],
+    'pl': ['znacznik'],
+  }
+
+  it('has a flag word written down for every locale', () => {
+    // a locale added later has to say what its word is, rather than skipping the check below
+    expect(Object.keys(flagWords).sort()).toEqual([...glossaryLocales].sort())
+  })
+
+  it.each(glossaryLocales)('names a flag with its own word in %s', (locale) => {
+    // Three catalogs appended the english "Flags" to a translated compound, where each of them says
+    // Kennung or Kennen sixteen times over in its quality entries. A borrowed word reads as an
+    // untranslated string to someone using the app in that language.
+    const labels = glossaryLabels(locale, 'parameters')
+    // `?? []` with an assertion rather than a cast: a locale added without a word of its own fails
+    // the test above with the reason, and this one should say the same thing rather than throwing
+    // a TypeError from the loop and pointing the newcomer at the wrong line
+    const stems = flagWords[locale] ?? []
+    expect(stems.length, `${locale} has no flag word written down`).toBeGreaterThan(0)
+    // the label regex wants single quotes and a trailing comma, so one entry rewritten with double
+    // quotes -- the natural edit for a label holding an apostrophe, which fr already has -- would
+    // drop out of the map and be asserted on by nobody, while the key-based parity tests, which
+    // read keys by a laxer regex, stayed green. Counted against those keys rather than against
+    // zero: a single entry going missing is the case worth catching, and the wholesale failure is
+    // caught by the same comparison
+    expect(
+      Object.keys(labels).length,
+      `${locale} parameter labels did not all parse`,
+    ).toBe(glossaryKeys(locale, 'parameters').length)
+    expect(labels.precipitation_type_flags, `${locale} has no precipitation_type_flags label`).toBeTruthy()
+
+    for (const [key, label] of Object.entries(labels)) {
+      // singular as well as plural: a parameter added upstream as `..._flag` names a flag no less,
+      // and being exempt for its ending is the shape of the miss this exists for. The bare
+      // `quality` key is the quantity rather than a flag -- "Quality", "Qualität"
+      if (!/_flags?$/.test(key) && !key.startsWith('quality_'))
+        continue
+      expect(
+        stems.some(stem => label.toLowerCase().includes(stem)),
+        `${locale} ${key} says "${label}" where this catalog's word for a flag is ${stems.map(s => `"${s}"`).join(' or ')}`,
+      ).toBe(true)
+    }
+  })
+
   it.each(glossaryLocales)('is actually translated in %s', (locale) => {
     if (locale === 'en')
       return

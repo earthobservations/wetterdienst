@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Glossary]` The German, Low German and Luxembourgish labels for `precipitation_type_flags` said
+  `Flags`, the English word, where each of those catalogs already renders a flag as `Kennung` or
+  `Kennen` -- sixteen times over, in its quality entries. They now use their own word. The other
+  eight were right as they stood: what looked like six catalogs saying "flag" and five saying
+  "indicator" is eight languages each using the word it uses everywhere else in the file, which is
+  what a reader of that language expects. A unit test holds every catalog to its own word, for the
+  entries that name a flag, with the words written down rather than derived -- deriving them means
+  guessing at compounds and plurals in eleven languages, which is what went wrong here to begin
+  with. Italian is written down twice, `indicatore` and `indicatori`, its plural changing the ending
+  rather than appending to it: the only stem covering both is `indicator`, which is an ordinary
+  English word, and a guard against borrowed words should not itself be one. GH-1919
+
 ## [0.16.0] - 2026-09-18
 
 ### Added
