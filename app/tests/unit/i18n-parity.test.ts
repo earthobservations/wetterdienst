@@ -185,7 +185,11 @@ describe('glossary label parity', () => {
     // Kennung or Kennen sixteen times over in its quality entries. A borrowed word reads as an
     // untranslated string to someone using the app in that language.
     const labels = glossaryLabels(locale, 'parameters')
-    const stems = flagWords[locale] as string[]
+    // `?? []` with an assertion rather than a cast: a locale added without a word of its own fails
+    // the test above with the reason, and this one should say the same thing rather than throwing
+    // a TypeError from the loop and pointing the newcomer at the wrong line
+    const stems = flagWords[locale] ?? []
+    expect(stems.length, `${locale} has no flag word written down`).toBeGreaterThan(0)
     // the label regex wants single quotes and a trailing comma, so one entry rewritten with double
     // quotes -- the natural edit for a label holding an apostrophe, which fr already has -- would
     // drop out of the map and be asserted on by nobody, while the key-based parity tests, which
