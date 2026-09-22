@@ -349,8 +349,9 @@ Types of changes:
   run before it went untried -- the same window, one byte-count away. And a body that could not be
   read is asked for once more past the cache before falling back, since it is held under its URL
   for twelve hours like a good one, and the run DWD has since finished writing would otherwise be
-  answered from the half of it that was cached for the rest of the hour. Found while reviewing the
-  fix above. GH-1922
+  answered from the half of it that was cached for the rest of the hour -- though not where caching
+  is disabled, the body having come off the wire to begin with. Found while reviewing the fix
+  above. GH-1922
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --

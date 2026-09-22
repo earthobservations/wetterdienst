@@ -215,7 +215,7 @@ class DwdSwsmosValues(TimeseriesValues):
             for url, ttl in self._run_candidates(settings):
                 content = self._run_content(url, ttl, settings)
                 df = _read_run(content, url) if content is not None else None
-                if content is not None and df is None and ttl is not CacheExpiry.NO_CACHE:
+                if content is not None and df is None and not settings.cache_disable:
                     # a body that cannot be read is held under its URL for as long as a good one
                     # would be, so the run DWD has since finished writing would be answered from
                     # the half of it that was cached -- for the rest of the hour, until the next
@@ -224,7 +224,16 @@ class DwdSwsmosValues(TimeseriesValues):
                     # the run before it as before. Only a body that arrived and could not be read
                     # is asked for again: a fetch that failed has already been retried by
                     # `download_file`, and asking a server that just refused to serve the file is
-                    # not a recovery
+                    # not a recovery. Nor is there anything to ask past where the cache is
+                    # disabled, the body having come off the wire to begin with.
+                    #
+                    # What this does not do is replace the bad body: a `NO_CACHE` fetch is served
+                    # by a plain `HTTPFileSystem`, so nothing is written back to the twelve-hour
+                    # entry, and each later request reads the bad body from the cache and then
+                    # downloads the good one -- 1.9 MB twice, until the next run shifts the
+                    # candidates along. Evicting it would mean reaching the filesystem behind
+                    # `download_file`, which is shared plumbing, for a window measured in the
+                    # seconds it takes DWD to write a file
                     content = self._run_content(url, CacheExpiry.NO_CACHE, settings)
                     df = _read_run(content, url) if content is not None else None
                 if df is not None:

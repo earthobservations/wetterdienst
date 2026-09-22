@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest, api
@@ -122,13 +123,13 @@ def test_swsmos_values() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _stub_stations(station_ids: tuple[str, ...] = ("A006",)) -> StationsResult:
+def _stub_stations(station_ids: tuple[str, ...] = ("A006",), settings: Settings | None = None) -> StationsResult:
     """Stand road stations up rather than look them up.
 
     Asked of the real catalogue, a test about how often the run is read would depend on which
     stations DWD still publishes, and would stop exercising anything the day they change.
     """
-    request = DwdSwsmosRequest(parameters=[("hourly", "data")])
+    request = DwdSwsmosRequest(parameters=[("hourly", "data")], settings=settings or Settings())
     df_stations = pl.DataFrame(
         [
             {
@@ -506,3 +507,38 @@ def test_swsmos_unreadable_run_is_asked_for_again_past_the_cache(monkeypatch: py
 
     assert asked == [(newest, CacheExpiry.TWELVE_HOURS), (newest, CacheExpiry.NO_CACHE)]
     assert df.get_column("value").to_list() == [20.0]  # the newest run, once it could be read
+
+
+def test_swsmos_unreadable_run_is_not_re_asked_where_the_cache_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With caching disabled the body came off the wire, so there is nothing to ask past.
+
+    The re-ask exists because a body that cannot be read is held under its URL for twelve hours.
+    `NetworkFilesystemManager.register` hands back a plain `HTTPFileSystem` when `cache_disable` is
+    set, so the first fetch was already live and asking again would download the same bytes twice
+    for nothing.
+    """
+    settings = Settings(cache_disable=True)
+    newest = "swsmos_20260731080000_opendata.csv.bz2"
+    older = "swsmos_20260731070000_opendata.csv.bz2"
+    asked = []
+
+    def download(**kwargs: object) -> File:
+        name = cast("str", kwargs["url"]).rsplit("/", 1)[-1]
+        asked.append(name)
+        body = b"\x42\x5a\x68truncated" if name == newest else _run_file(("A006", "202607310800", "17.9"))
+        return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/{name}" for name in (newest, older)],  # noqa: SLF001
+    )
+    monkeypatch.setattr(api, "download_file", download)
+
+    df = _stub_stations(settings=settings).values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert asked == [newest, older], "the unreadable run is asked for once, then the run before it"
+    assert df.get_column("value").to_list() == [17.9]
