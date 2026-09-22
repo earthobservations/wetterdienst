@@ -146,6 +146,15 @@ class DwdSwsmosValues(TimeseriesValues):
         entry. `dwd/road` likewise indexes the timestamped files and skips the aliases duplicating
         them. The listing itself is never cached, so "newest" is current.
 
+        The newest run keeps the long expiry, though it is the one that can be caught mid-write.
+        Review has twice proposed giving it the alias's five minutes so that a body cached
+        half-written ages out in minutes rather than hours, and the arithmetic is against it: a
+        timestamped run is immutable, so a five-minute entry re-downloads 1.9 MB up to twelve times
+        an hour for a file that cannot have changed, every hour, to shorten a fault that needs DWD
+        to be caught mid-write to happen at all. A long entry pays nothing in the healthy case and
+        the re-ask carries the rare one. Repairing the bad entry itself, rather than aging it out,
+        is `download_file`'s to do (GH-1947).
+
         Which is also why the run before it is offered as a fallback. An uncached listing names a
         run the moment it appears, and a run still being written cannot be read; a body that cannot
         be read is cached for twelve hours, so without somewhere else to go a single bad download

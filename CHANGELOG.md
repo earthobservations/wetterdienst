@@ -358,11 +358,10 @@ Types of changes:
   cache and all (GH-1947). Naming the run rather than the alias also means a distinct URL per model
   run, so the cache grows by one 1.9 MB body an hour where it used to refetch one -- small against
   the 4.2 GB that a cache with no eviction reaches on its own, and tracked in GH-1947. A listing
-  that names no run
-  at all now says so too, where it used to answer every station with an empty frame and no
-  diagnostic: the listing is retried and re-raises, so an empty one means the server named nothing,
-  which is a directory reorganised rather than a day without data. Found while reviewing the fix
-  above. GH-1922
+  that names no run at all now says so too, where it used to answer every station with an empty
+  frame and no diagnostic: the listing is retried and re-raises, so an empty one means the server
+  named nothing, which is a directory reorganised rather than a day without data. Found while
+  reviewing the fix above. GH-1922
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
