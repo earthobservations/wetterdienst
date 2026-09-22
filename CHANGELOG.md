@@ -100,7 +100,8 @@ Types of changes:
   being swallowed the same way, so `--station ZZZZZ` answers as a real station with no runs does.
   Worth knowing what that costs a caller who is not reading a terminal: where
   `/api/issues` answered a blip with the polars error as an HTTP 400 and the CLI exited 1, both now
-  answer `{"issues": []}` and exit 0, with only the log line saying which case it was. Telling the
+  answer `{"issues": []}` and exit 0, with only the log line saying which case it was -- and a log
+  line reaches a terminal, not a caller holding an HTTP response. Telling the
   two apart needs the listing itself to report a failure it currently swallows, which is GH-1947.
   That is the difference from `get_url_for_date` beside it, which must raise because it returns a
   `str` -- the split `dwd/dmo` already makes in *its* `get_url_for_date`,

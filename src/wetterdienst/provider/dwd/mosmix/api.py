@@ -298,17 +298,22 @@ class DwdMosmixRequest(TimeseriesRequest):
         df = df.filter(pl.col("date").is_not_null())
         if df.is_empty():
             # the directory named things and none of them is a dated run, answered with `[]` that
-            # reads as "this station publishes no runs" exactly as the empty listing did. Which of
-            # the two it is worth saying -- an alias is a forecast, just not one this lists, so
-            # calling that a renaming would name the wrong cause -- but both are worth seeing:
-            # a single-station directory holds sixteen dated runs beside its alias today, so one
-            # pruned back to the alias is a retention change rather than a state to pass over.
-            # Said at `info`, it would be silent at the verbosity the CLI and the REST API run at,
-            # which is the silent empty answer the rest of this guards against
-            if all(_LATEST_FILE.search(listed.rsplit("/", 1)[-1]) for listed in urls):
-                log.warning(f"Only the LATEST alias is listed within {url}; no dated run to name")
-            else:
-                log.warning(f"None of the {len(urls)} entries listed within {url} is a dated run")
+            # reads as "this station publishes no runs" exactly as the empty listing did.
+            #
+            # Counted rather than diagnosed. An alias is a forecast and only a dated run is what
+            # this lists, so a directory pruned back to its alias is not the renaming this warning
+            # otherwise means -- but "every entry is an alias" stops being true the moment a
+            # checksum sits beside it, and naming the wrong cause is worse than naming none. The
+            # counts say which shape it is without guessing why
+            #
+            # A warning and not an `info` because a directory holding sixteen dated runs today and
+            # only its alias tomorrow is a retention change worth seeing -- not because `info`
+            # would go unheard, which it would not: `setup_logging` runs `basicConfig(level=INFO)`
+            # for both the CLI and the REST API, so `info` reaches exactly those two
+            aliases = sum(1 for listed in urls if _LATEST_FILE.search(listed.rsplit("/", 1)[-1]))
+            log.warning(
+                f"No dated run among the {len(urls)} entries listed within {url} ({aliases} of them the LATEST alias)",
+            )
             return []
         df = df.with_columns(
             pl.concat_str([pl.col("date"), pl.lit("00")]).str.to_datetime("%Y%m%d%H%M").dt.replace_time_zone("UTC"),

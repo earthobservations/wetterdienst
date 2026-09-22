@@ -532,20 +532,35 @@ def test_mosmix_available_issues_answers_rather_than_raises(
     # and a listing that named things, none of which is a forecast, is the same misreading one
     # step later: that is what a renaming upstream looks like, not a station without runs
     named_nothing_usable = listing != [] and expected == []
-    assert ("is a dated run" in caplog.text) is named_nothing_usable
+    assert ("No dated run among" in caplog.text) is named_nothing_usable
 
 
-def test_mosmix_available_issues_does_not_call_an_alias_only_directory_a_renaming(
+@pytest.mark.parametrize(
+    ("listing", "expected_aliases"),
+    [
+        pytest.param(["MOSMIX_L_LATEST_01001.kmz"], 1, id="alias-only"),
+        pytest.param(
+            # the moment a checksum sits beside the alias, "every entry is an alias" stops being
+            # true, and a rule written that way names a renaming that has not happened
+            ["MOSMIX_L_LATEST_01001.kmz", "MOSMIX_L_LATEST_01001.kmz.sha256"],
+            1,
+            id="alias-and-a-sidecar",
+        ),
+        pytest.param(["README.txt"], 0, id="nothing-that-is-either"),
+    ],
+)
+def test_mosmix_available_issues_counts_rather_than_diagnoses(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
+    listing: list[str],
+    expected_aliases: int,
 ) -> None:
-    """A directory pruned back to its alias holds a forecast, just not one this lists.
+    """A directory with no dated run is reported by what is in it, not by a guess at why.
 
-    The warning for "nothing here is a dated run" is the signal that DWD has renamed something, so
-    firing it here would name the wrong cause: `_run_stamp` returns null for an alias by design,
-    which is why the frame is empty. It is still a warning rather than an `info`, both because a
-    directory holding sixteen dated runs today and only its alias tomorrow is a retention change
-    worth seeing, and because `info` is silent at the verbosity the CLI and REST API run at.
+    An alias is a forecast and only a dated run is what this lists, so a directory pruned back to
+    its alias is not the renaming this warning otherwise means. Saying so required "every entry is
+    an alias", which a checksum beside the alias makes false -- so the counts are reported and the
+    cause is left to the reader.
     """
     from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
 
@@ -553,9 +568,9 @@ def test_mosmix_available_issues_does_not_call_an_alias_only_directory_a_renamin
     monkeypatch.setattr(
         api,
         "list_remote_files_fsspec",
-        lambda *_args, **_kwargs: ["https://example.com/kml/MOSMIX_L_LATEST_01001.kmz"],
+        lambda *_args, **_kwargs: [f"https://example.com/kml/{name}" for name in listing],
     )
 
     assert DwdMosmixRequest.available_issues("01001", Settings()) == []
-    assert "Only the LATEST alias is listed" in caplog.text
-    assert "is a dated run" not in caplog.text
+    assert f"No dated run among the {len(listing)} entries" in caplog.text
+    assert f"({expected_aliases} of them the LATEST alias)" in caplog.text
