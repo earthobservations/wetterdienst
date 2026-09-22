@@ -83,12 +83,12 @@ def _run_stamp(urls: pl.Expr) -> pl.Expr:
     somewhere", so that a companion file *carrying* the run stamp is dropped too -- `.kml` as well
     as `.kmz`, since what is being excluded is a checksum and not an uncompressed forecast. A
     ``MOSMIX_L_2026092203_01001.kmz.sha256`` beside its forecast would otherwise survive, two rows
-    would match one run, and `df.get_column("url").item()` would raise `ValueError: can only call
-    '.item()' if the Series is of length 1` in place of the
+    would match one run. Two forms of the same forecast do that legitimately -- `.kml` beside
+    `.kmz` while DWD migrates -- so the caller sorts and takes the first rather than the
     `IndexError` written for a run with no file. DWD publishes no such sidecar today, which is what
     makes this the kind of thing to settle while the rule is being written rather than after.
     """
-    return urls.str.split("/").list.last().str.extract(r"(?i)_(\d{10})(?:_[^.]*)?\.km[lz]$", 1)
+    return urls.str.split("/").list.last().str.extract(rf"(?i)_(\d{{10}})(?:_[^.]*)?{_FORECAST_FILE}", 1)
 
 
 class DwdMosmixValues(TimeseriesValues):
@@ -212,7 +212,12 @@ class DwdMosmixValues(TimeseriesValues):
             # answer with a checksum published beside the alias -- and would do it on the default
             # path, the one a caller reaches without asking for anything. Today it is the listing's
             # sort order that keeps `.kmz` ahead of `.kmz.sha256`, which is luck rather than a rule
-            url_latest = next((url_ for url_ in urls if _LATEST_FILE.search(url_.rsplit("/", 1)[-1])), None)
+            # sorted rather than first-found: widening what counts as a forecast to `.kml` as
+            # well as `.kmz` means a run can be published in both forms at once, which is what a
+            # migration looks like while it is happening -- and answering with whichever the
+            # listing happened to return first would make the answer depend on the listing's order
+            aliases = sorted(url_ for url_ in urls if _LATEST_FILE.search(url_.rsplit("/", 1)[-1]))
+            url_latest = aliases[0] if aliases else None
             if url_latest is None:
                 msg = f"Unable to find LATEST file within {url}"
                 raise IndexError(msg)
@@ -241,7 +246,11 @@ class DwdMosmixValues(TimeseriesValues):
             msg = f"Unable to find {date} file within {url}"
             raise IndexError(msg)
 
-        return df.get_column("url").item()
+        # `.item()` raises where a run matched twice, which the same widening allows: a forecast
+        # published as `.kml` beside its `.kmz` carries one run stamp on two names. Sorted and
+        # taken first, so two forms of one run answer with one of them, deterministically, rather
+        # than with `can only call '.item()' if the Series is of length 1`
+        return cast("str", df.get_column("url").sort().first())
 
 
 @dataclass

@@ -430,6 +430,14 @@ def test_mosmix_directory_holding_nothing_says_so_whichever_run_was_asked_for(
             "MOSMIX_L_2026092203_01001.kml",
             id="uncompressed",
         ),
+        pytest.param(
+            # both forms of one run, which is what the migration the rule was widened for looks
+            # like while it is happening: one of them, deterministically, rather than a raise
+            ["MOSMIX_L_2026092203_01001.kmz", "MOSMIX_L_2026092203_01001.kml"],
+            dt.datetime(2026, 9, 22, 3, tzinfo=UTC),
+            "MOSMIX_L_2026092203_01001.kml",
+            id="a-run-published-in-both-forms",
+        ),
     ],
 )
 def test_mosmix_reads_the_run_out_of_every_naming_layout(
@@ -475,6 +483,12 @@ def test_mosmix_reads_the_run_out_of_every_naming_layout(
             ["MOSMIX_L_LATEST_01001.kml.sha256", "MOSMIX_L_LATEST_01001.kml"],
             "MOSMIX_L_LATEST_01001.kml",
             id="an-uncompressed-alias-and-its-sidecar",
+        ),
+        pytest.param(
+            # the listing's order decided this before it was sorted
+            ["MOSMIX_L_LATEST_01001.kmz", "MOSMIX_L_LATEST_01001.kml"],
+            "MOSMIX_L_LATEST_01001.kml",
+            id="an-alias-in-both-forms",
         ),
     ],
 )
