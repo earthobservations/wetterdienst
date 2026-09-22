@@ -467,7 +467,13 @@ def test_swsmos_run_that_arrives_empty_falls_back_like_one_that_cannot_be_read(
     )
 
     assert df.get_column("value").to_list() == [17.9]  # the 07:00 run
-    assert "holds no readings (0 bytes)" in caplog.text
+    assert "holds no readings (0 compressed bytes)" in caplog.text
+    # the second line is the re-ask past the cache, and says so rather than reading as the
+    # per-station repetition this provider exists to have stopped doing
+    warnings = [record.message for record in caplog.records if "holds no readings" in record.message]
+    assert len(warnings) == 2
+    assert "(asked again past the cache)" in warnings[1]
+    assert "(asked again past the cache)" not in warnings[0]
 
 
 def test_swsmos_unreadable_run_is_asked_for_again_where_nothing_stands_behind_it(

@@ -84,7 +84,7 @@ def _read_run_csv(content: bytes) -> pl.DataFrame:
     return pl.read_csv(csv, separator=";", infer_schema_length=0)
 
 
-def _read_run(content: bytes, url: str) -> pl.DataFrame | None:
+def _read_run(content: bytes, url: str, *, asked_again: bool = False) -> pl.DataFrame | None:
     """Parse a run file, or say it could not be read.
 
     A body that is not the bz2 a run file should be raises out of `bz2.decompress` -- `ValueError`
@@ -101,13 +101,20 @@ def _read_run(content: bytes, url: str) -> pl.DataFrame | None:
     does catch. A run file holds every station at every forecast hour, so one holding nothing is
     one that was not read.
     """
+    # the same run is read twice where the first body came from the cache and could not be read,
+    # and a second line saying exactly what the first one said reads as the per-station repetition
+    # this provider exists to have stopped doing
+    attempt = " (asked again past the cache)" if asked_again else ""
     try:
         df = _read_run_csv(content)
     except (OSError, ValueError, EOFError, pl.exceptions.PolarsError) as ex:
-        log.warning(f"Failed to read SWSMOS run {url}: {ex!r}")
+        log.warning(f"Failed to read SWSMOS run {url}{attempt}: {ex!r}")
         return None
     if df.is_empty():
-        log.warning(f"SWSMOS run {url} holds no readings ({len(content)} bytes)")
+        # compressed, and said to be: a run that arrives whole and decodes to nothing is a
+        # different fault from one that arrives truncated, and "holds no readings (1900000 bytes)"
+        # points at the second while describing the first
+        log.warning(f"SWSMOS run {url}{attempt} holds no readings ({len(content)} compressed bytes)")
         return None
     return df
 
@@ -240,6 +247,15 @@ class DwdSwsmosValues(TimeseriesValues):
                     # half-written and being asked for again a moment later -- is one request's
                     # worth, against an hour of every request's.
                     #
+                    # Where it is not one request's worth: a body that stays unreadable is read
+                    # from the cache and then fetched whole on every request until its entry
+                    # expires. For `LATEST` that ends within about two hours, as the bad run ages
+                    # out of the two candidates; for a pinned `issue`, which has one candidate and
+                    # a twelve-hour entry, it does not -- a caller polling a run DWD serves corrupt
+                    # pays a full 1.9 MB for every poll until the entry expires. Repairing that
+                    # means evicting the entry, which is `download_file`'s filesystem to evict and
+                    # every provider's to be broken by (GH-1947)
+                    #
                     # Only a body that arrived and could not be read: a fetch that failed has
                     # already been retried by `download_file`, and asking a server that just
                     # refused to serve the file is not a recovery.
@@ -253,7 +269,7 @@ class DwdSwsmosValues(TimeseriesValues):
                     # the re-ask in the one case that needs it. One duplicate fetch where caching
                     # really is off is the cheaper mistake (GH-1947)
                     content = self._run_content(url, CacheExpiry.NO_CACHE, settings)
-                    df = _read_run(content, url) if content is not None else None
+                    df = _read_run(content, url, asked_again=True) if content is not None else None
                 if df is not None:
                     self._run_frame_cache = df
                     break
