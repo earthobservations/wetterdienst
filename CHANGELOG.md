@@ -202,6 +202,28 @@ Types of changes:
   a failure to read. `File` carries `from_cache` for the same reason, since a caller that cannot
   use what it was given needs to know whether asking again could answer differently. GH-1947
 
+- Network: the cache says what it did, where it used to decide on a caller's behalf and keep
+  quiet. `cache_dir`, `cache_disable` and `use_certifi` all decided what
+  `NetworkFilesystemManager.register` built and were then not part of the key it was filed under,
+  and `register` runs only for a key that is new -- so the first caller in a thread decided for
+  every later one. `CacheExpiry.METAINDEX` being an alias of `TWELVE_HOURS`, any earlier metaindex
+  download from any provider was enough to leave a caching filesystem under that key, and a later
+  request made with caching disabled, or against a different `WD_CACHE_DIR`, was then served by it.
+  All three are in the key now -- which names the instance in memory and nothing on disk, the blobs
+  staying where they have always been, since a key that reached the filesystem would strand every
+  blob an affected user already has. A listing that could not be read is also no longer answered as
+  an empty directory: `fs.find` walks with `on_error="omit"`, which catches `OSError` and returns
+  nothing, and aiohttp's `ClientOSError` is one -- so a connection reset was swallowed inside
+  fsspec, never reached the retry wrapping the call, and left every provider to decide what an
+  empty list meant, which none of them could. It raises now, and the two are told apart where the
+  difference is knowable: a directory that is not there is `FileNotFoundError` and stays the `[]`
+  callers have always had. That covers a flat listing, which is what this library asks for almost
+  everywhere; fsspec does not forward `on_error` to the recursive half of a walk, so a failure
+  below the top level of a subtree is still swallowed, which is noted in GH-1947 rather than
+  claimed as fixed. And `File` carries `from_cache`, sampled per attempt, because a caller that
+  cannot use what it was given needs to know whether asking again could answer differently.
+  GH-1947
+
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
   and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three

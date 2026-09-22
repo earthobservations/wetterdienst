@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import base64
-import contextlib
 import hashlib
 import json
 import logging
@@ -416,17 +415,45 @@ class NetworkFilesystemManager:
         return cls._thread_local.filesystems
 
     @staticmethod
-    def _configuration_suffix(*, cache_disable: bool, use_certifi: bool) -> str:
-        """Return what `register` builds from beyond the TTL, so the key says it too.
+    def _registry_key(
+        cache_dir: Path,
+        cache_expiry: CacheExpiry,
+        client_kwargs: dict | None,
+        *,
+        cache_disable: bool,
+        use_certifi: bool,
+    ) -> str:
+        """Name a filesystem by everything `register` builds it from.
 
-        `cache_disable` and `use_certifi` decided what `register` made and then were not part of
-        what it was filed under, while `register` only runs for a key that is new -- so the first
-        caller in a thread decided for every later one. `CacheExpiry.METAINDEX` being an alias of
-        `TWELVE_HOURS`, any earlier metaindex download from any provider was enough to leave a
-        caching filesystem under that key, and a later request made with caching disabled was then
-        served from disk (GH-1947).
+        Everything, because `register` runs only for a key that is new -- so whatever the key
+        leaves out, the first caller in a thread decides for every later one. `cache_dir`,
+        `cache_disable` and `use_certifi` were all left out. `CacheExpiry.METAINDEX` being an alias
+        of `TWELVE_HOURS`, any earlier metaindex download from any provider was enough to leave a
+        caching filesystem under that key, and a later request made with caching disabled, or
+        against a different `WD_CACHE_DIR`, was then served by it (GH-1947).
+
+        This names the instance in memory and nothing on disk: where the blobs live is
+        `_cache_path`, which is deliberately unchanged, since a key that reached the filesystem
+        would stranded every blob a `use_certifi` user already has.
         """
-        return ("-nocache" if cache_disable else "") + ("-certifi" if use_certifi else "")
+        parts = [
+            f"ttl-{cls_ttl}" if (cls_ttl := cache_expiry.name) else "",
+            NetworkFilesystemManager._client_kwargs_suffix(client_kwargs),
+            f"-dir-{hashlib.sha256(str(cache_dir).encode()).hexdigest()[:8]}",
+            "-nocache" if cache_disable else "",
+            "-certifi" if use_certifi else "",
+        ]
+        return "".join(parts)
+
+    @staticmethod
+    def _cache_path(cache_dir: Path, cache_expiry: CacheExpiry, client_kwargs: dict | None) -> Path:
+        """Where the blobs for this TTL live, which is what it has always been."""
+        ttl_name, _ = NetworkFilesystemManager.resolve_ttl(cache_expiry)
+        return (
+            Path(cache_dir)
+            / "fsspec"
+            / f"ttl-{ttl_name}{NetworkFilesystemManager._client_kwargs_suffix(client_kwargs)}"
+        )
 
     @staticmethod
     def _client_kwargs_suffix(client_kwargs: dict | None) -> str:
@@ -475,10 +502,9 @@ class NetworkFilesystemManager:
             None
 
         """
-        ttl_name, ttl_value = cls.resolve_ttl(cache_expiry)
-        key = (
-            f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
-            f"{cls._configuration_suffix(cache_disable=cache_disable, use_certifi=use_certifi)}"
+        _, ttl_value = cls.resolve_ttl(cache_expiry)
+        key = cls._registry_key(
+            cache_dir, cache_expiry, client_kwargs, cache_disable=cache_disable, use_certifi=use_certifi
         )
         fs = HTTPFileSystem(
             use_listings_cache=False,
@@ -493,22 +519,12 @@ class NetworkFilesystemManager:
         if cache_disable or cache_expiry == CacheExpiry.NO_CACHE:
             filesystem_effective = fs
         else:
-            real_cache_dir = Path(cache_dir) / "fsspec" / key
+            real_cache_dir = cls._cache_path(cache_dir, cache_expiry, client_kwargs)
             filesystem_effective = WholeFileCacheFileSystem(
                 fs=fs,
                 cache_storage=str(real_cache_dir),
                 expiry_time=int(ttl_value),
             )
-            # expired blobs are only removed when something asks, and nothing did: every distinct
-            # URL a provider ever fetched left a copy behind for good, which is 4.2 GB on one
-            # developer machine with a single five-minute bucket holding 1.4 GB of it. Swept once
-            # per filesystem per process, which is once per TTL and client configuration -- cheap
-            # against the downloads that follow it, and the only moment this layer knows about.
-            # See GH-1947
-            # a sweep that cannot read its own metadata is not worth failing a download over --
-            # a half-written entry from a killed process, or a cache dir another user owns
-            with contextlib.suppress(OSError, ValueError, KeyError):
-                filesystem_effective.clear_expired_cache()
         cls._get_filesystems()[key] = filesystem_effective
 
     @classmethod
@@ -534,10 +550,8 @@ class NetworkFilesystemManager:
             The filesystem instance.
 
         """
-        ttl_name, _ = cls.resolve_ttl(cache_expiry)
-        key = (
-            f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
-            f"{cls._configuration_suffix(cache_disable=cache_disable, use_certifi=use_certifi)}"
+        key = cls._registry_key(
+            cache_dir, cache_expiry, client_kwargs, cache_disable=cache_disable, use_certifi=use_certifi
         )
         if key not in cls._get_filesystems():
             cls.register(
@@ -679,10 +693,6 @@ def download_file(
         cache_disable=cache_disable,
         use_certifi=use_certifi,
     )
-    # asked before the read, because reading is what populates it. `_check_file` is how
-    # `WholeFileCacheFileSystem` answers whether it holds an unexpired copy; a plain filesystem
-    # has no such question and always answers no
-    served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
     log.info(f"Downloading file {url}")
     # knmi sends its API key, metno frost its basic auth and metoffice its bearer token this way,
     # and aiohttp merges those headers into the request info it hangs on an error
@@ -693,6 +703,12 @@ def download_file(
         # worth asking twice, `_worth_retrying_download` says, and it says the same as a post does
         for attempt in stamina.retry_context(on=_worth_retrying_download, attempts=2):
             with attempt:
+                # asked per attempt and before the read, because reading is what populates the
+                # cache -- and because an attempt that re-downloads after a cached read failed
+                # must not inherit the first attempt's answer. `_check_file` is how
+                # `WholeFileCacheFileSystem` says whether it holds an unexpired copy; a plain
+                # filesystem has no such question and always says no
+                served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
                 try:
                     payload = filesystem.cat_file(url)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed

@@ -988,6 +988,27 @@ def test_filesystem_key_separates_caching_from_not_caching(tmp_path: Path) -> No
         NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.METAINDEX, cache_disable=False)
         is cached
     )
+    # the blobs stay where they have always been: the key names the instance in memory, and letting
+    # it reach the filesystem would strand every blob a `use_certifi` user already has
+    assert cached.storage[-1] == str(tmp_path / "fsspec" / "ttl-TWELVE_HOURS")
+
+
+def test_filesystem_key_separates_one_cache_dir_from_another(tmp_path: Path) -> None:
+    """`cache_dir` decided where blobs went and was not part of the key either.
+
+    So a second `Settings` with a different `WD_CACHE_DIR` in the same process kept writing to the
+    first one -- the same defect as `cache_disable`, and the one that made the tests here pass
+    against whatever an earlier test had registered rather than against their own `tmp_path`.
+    """
+    other = tmp_path / "other"
+    other.mkdir()
+
+    first = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False)
+    second = NetworkFilesystemManager.get(cache_dir=other, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False)
+
+    assert first is not second
+    assert first.storage[-1].startswith(str(tmp_path))
+    assert second.storage[-1].startswith(str(other))
 
 
 def test_a_directory_that_is_not_there_is_an_answer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
