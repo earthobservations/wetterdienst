@@ -422,20 +422,13 @@ def test_mosmix_directory_holding_nothing_says_so_whichever_run_was_asked_for(
             id="all-stations-s",
         ),
         pytest.param(
-            # the directory is named `kml/` and holds `.kmz`, so binding the rule to the
-            # compression would fail on the plainer thing to publish in it. A checksum is what is
-            # being excluded, and a checksum is not a KML
-            ["MOSMIX_L_2026092203_01001.kml", "MOSMIX_L_2026092203_01001.kml.sha256"],
-            dt.datetime(2026, 9, 22, 3, tzinfo=UTC),
-            "MOSMIX_L_2026092203_01001.kml",
-            id="uncompressed",
-        ),
-        pytest.param(
-            # both forms of one run, which is what the migration the rule was widened for looks
-            # like while it is happening: one of them, deterministically, rather than a raise
+            # were DWD ever to publish both forms, the readable one is the answer:
+            # `KMLReader.fetch` hands every download to `ZipFileSystem`, which raises `BadZipFile`
+            # on a plain KML, so a rule that accepted `.kml` would resolve to a file that cannot
+            # be opened
             ["MOSMIX_L_2026092203_01001.kmz", "MOSMIX_L_2026092203_01001.kml"],
             dt.datetime(2026, 9, 22, 3, tzinfo=UTC),
-            "MOSMIX_L_2026092203_01001.kml",
+            "MOSMIX_L_2026092203_01001.kmz",
             id="a-run-published-in-both-forms",
         ),
     ],
@@ -480,14 +473,9 @@ def test_mosmix_reads_the_run_out_of_every_naming_layout(
             id="a-sidecar-beside-the-alias",
         ),
         pytest.param(
-            ["MOSMIX_L_LATEST_01001.kml.sha256", "MOSMIX_L_LATEST_01001.kml"],
-            "MOSMIX_L_LATEST_01001.kml",
-            id="an-uncompressed-alias-and-its-sidecar",
-        ),
-        pytest.param(
-            # the listing's order decided this before it was sorted
+            # and the default path likewise answers with the form the reader can open
             ["MOSMIX_L_LATEST_01001.kmz", "MOSMIX_L_LATEST_01001.kml"],
-            "MOSMIX_L_LATEST_01001.kml",
+            "MOSMIX_L_LATEST_01001.kmz",
             id="an-alias-in-both-forms",
         ),
     ],

@@ -70,11 +70,11 @@ Types of changes:
   whose `url` column was all-null and meeting `invalid series dtype: expected String, got null` in
   the split below it, so an empty listing is now answered before either branch reads it, being one
   thing whichever branch asked. What a run is called is read once, as the ten digits DWD stamps it
-  with in a name ending `.kml` or `.kmz`, rather than as the third `_`-separated part of one --
-  both extensions, since what that rule excludes is a checksum published beside a forecast and a
-  checksum is not a KML, and a run published in both forms at once (which is what a migration looks
-  like while it happens) is answered with one of them deterministically rather than by whichever
-  the listing returned first. MOSMIX-L
+  with in a name ending `.kmz`, rather than as the third `_`-separated part of one. Not `.km[lz]`,
+  though the directory is named `kml/`: `KMLReader.fetch` hands every download to `ZipFileSystem`,
+  which raises `BadZipFile` on a plain KML, so accepting an uncompressed forecast here would
+  resolve to a file the reader cannot open -- and would prefer it where DWD published both. That
+  wants the reader taught first. MOSMIX-L
   all-stations is the layout that broke on: `MOSMIX_L_2026092203.kmz` carries no station id, so the
   third part was `2026092203.kmz` with the extension still on it, and the alias was `LATEST.kmz`,
   which the filter dropping `LATEST` does not match -- every row then met `conversion from str to

@@ -56,11 +56,13 @@ class DwdForecastDate(Enum):
     LATEST = "latest"
 
 
-# a forecast, compressed or not. The directory is named `kml/` while what DWD publishes in it is
-# `.kmz`, so binding this to the compression would make an uncompressed alias -- the plainer thing
-# to publish, in a directory already named for it -- raise on the default path. `.sha256` and `.md5`
-# are what this is here to exclude, and neither is a KML
-_FORECAST_FILE = r"\.km[lz]$"
+# what a forecast is called. `.kmz` and not `.km[lz]`, though the directory is named `kml/` and an
+# uncompressed forecast would be the plainer thing to publish in it: `KMLReader.fetch` hands every
+# download to `ZipFileSystem`, which raises `BadZipFile: File is not a zip file` on a plain KML. So
+# accepting `.kml` here would resolve to a file the reader cannot open -- and where DWD published
+# both forms during a migration, prefer the one that fails. Widening this means teaching the reader
+# first; until then the rule matches what can actually be read
+_FORECAST_FILE = r"\.kmz$"
 _LATEST_FILE = re.compile(r"LATEST.*" + _FORECAST_FILE, re.IGNORECASE)
 
 
@@ -80,8 +82,7 @@ def _run_stamp(urls: pl.Expr) -> pl.Expr:
     rule should not differ in a dimension neither of them cares about.
 
     The forecast's own extension is part of the rule rather than "a name with ten digits in it
-    somewhere", so that a companion file *carrying* the run stamp is dropped too -- `.kml` as well
-    as `.kmz`, since what is being excluded is a checksum and not an uncompressed forecast. A
+    somewhere", so that a companion file *carrying* the run stamp is dropped too. A
     ``MOSMIX_L_2026092203_01001.kmz.sha256`` beside its forecast would otherwise survive, two rows
     would match one run. Two forms of the same forecast do that legitimately -- `.kml` beside
     `.kmz` while DWD migrates -- so the caller sorts and takes the first rather than the
