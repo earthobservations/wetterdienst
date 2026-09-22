@@ -27,7 +27,10 @@ if TYPE_CHECKING:
     from typing import BinaryIO
     from xml.etree.ElementTree import Element
 
+    from fsspec.implementations.cached import WholeFileCacheFileSystem
+
     from wetterdienst.settings import Settings
+    from wetterdienst.util.network import HTTPFileSystem
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -61,21 +64,36 @@ class KMLReader:
         self._current_url = None
         self._zip_refs = None
 
-        self.dwdfs = NetworkFilesystemManager.get(
-            cache_dir=settings.cache_dir,
-            cache_expiry=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
+        # how long a forecast may be held is a property of the URL, not of the reader. A run named
+        # by its timestamp is that run for good and may be kept; a `LATEST` alias is a name whose
+        # content DWD replaces, so it may only be held briefly. Holding everything briefly is what
+        # this did, and for `MOSMIX_S` -- 36 MB, published hourly -- that meant re-downloading it
+        # up to twelve times an hour for a file that had not changed (GH-1945)
+        self._filesystems = {
+            ttl: NetworkFilesystemManager.get(
+                cache_dir=settings.cache_dir,
+                cache_expiry=ttl,
+                client_kwargs=settings.fsspec_client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
+            )
+            for ttl in (CacheExpiry.FIVE_MINUTES, CacheExpiry.TWELVE_HOURS)
+        }
+        self.dwdfs = self._filesystems[CacheExpiry.FIVE_MINUTES]
+
+    def _filesystem_for(self, url: str) -> HTTPFileSystem | WholeFileCacheFileSystem:
+        """Pick how long this URL may be held: briefly for a mutable alias, long for a named run."""
+        mutable = "LATEST" in url.rsplit("/", 1)[-1].upper()
+        return self._filesystems[CacheExpiry.FIVE_MINUTES if mutable else CacheExpiry.TWELVE_HOURS]
 
     def download(self, url: str) -> BytesIO:
         """Download kml file as bytes.
 
         https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests
         """
-        response = self.dwdfs.open(url, block_size=0)
-        total = self.dwdfs.size(url)
+        dwdfs = self._filesystem_for(url)
+        response = dwdfs.open(url, block_size=0)
+        total = dwdfs.size(url)
 
         buffer = BytesIO()
 

@@ -155,6 +155,24 @@ Types of changes:
   11:00 UTC asked for was answered with 12:00 -- one release too late, and at 11:00 a run not yet
   published, so an `IndexError` where the 00:00 run was sitting there. GH-1948
 
+- DWD mosmix: `LATEST` reads the newest run the listing names, rather than the `LATEST` alias
+  beside it, and a forecast is held for as long as its URL allows. The two are the same bytes --
+  the server answers one ETag, one content-length and one Last-Modified for both, the alias being a
+  link rather than a copy -- but a run named by its timestamp is that run for good, where the alias
+  is a name whose content DWD replaces every hour. Holding everything for five minutes meant
+  re-downloading `MOSMIX_S`, 36 MB published hourly, up to twelve times an hour for a file that had
+  not changed; a named run is held for twelve hours and only the alias, still the fallback for a
+  listing that names no run, keeps the short expiry. `dwd/road` and `dwd/dmo` already index the
+  named files and skip the alias. GH-1945
+
+- DWD mosmix: a station whose directory DWD has emptied or retired costs that station and no more.
+  `get_url_for_date` raised on a listing that named nothing, and nothing between it and
+  `values.all()` catches, so one such station ended a request for fifty and took the forty-nine
+  that do publish with it. It answers `None` now and the readers give that station an empty frame,
+  which is the split `dwd/dmo` has always made; mosmix raised because its return type said it must.
+  A directory that names files but no forecast still raises, being a statement about the product
+  rather than about one station. GH-1949
+
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
   and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three
