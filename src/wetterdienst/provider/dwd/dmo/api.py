@@ -238,6 +238,11 @@ class DwdDmoValues(TimeseriesValues):
         lead_time = cast("DwdDmoLeadTime", stations.lead_time)
         urls = list_remote_files_fsspec(url, cast("Settings", stations.settings), CacheExpiry.NO_CACHE)
         if not urls:
+            # said here as well as in `available_issues`, and it matters more here: `read_icon` and
+            # `read_icon_eu` turn this `None` into an empty frame, which merges into the result as
+            # "this station has no forecast" with no warning, no error and no exit code. The same
+            # swallowed walk and the same 404 reach both
+            log.warning(f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty")
             return None
         df = pl.DataFrame({"url": urls}, orient="col")
         df = df.with_columns(_run_stamp(pl.col("url"), lead_time).alias("date_str"))
@@ -304,11 +309,16 @@ class DwdDmoRequest(TimeseriesRequest):
         Datetime is floored to closest release time e.g. if hour is 14, it will be rounded to 12
 
         """
+        # floored, as the line above says and as this did not do: `hour % 12` is non-zero for 1
+        # through 11 as well as for 13 through 23, and sending both to 12 rounds the morning *up*.
+        # Asking for the 03:00 run returned the 12:00 one, issued nine hours later, or raised where
+        # 12:00 was not published yet while 00:00 sat there unasked for.
+        #
+        # Unreachable until now, which is why it stood: every non-`LATEST` issue is stamped
+        # tz-aware and was compared against a naive column, so it raised `SchemaError` before any
+        # of this decided anything. Fixing that comparison is what made this live
         adjusted_date = datetime_.replace(minute=0, second=0, microsecond=0)
-        delta_hours = adjusted_date.hour % 12
-        if delta_hours > 0:
-            return adjusted_date.replace(hour=12)
-        return adjusted_date
+        return adjusted_date.replace(hour=adjusted_date.hour // 12 * 12)
 
     @classmethod
     def available_issues(cls, station_id: str, settings: Settings) -> list[dt.datetime]:

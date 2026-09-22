@@ -283,3 +283,29 @@ def test_dmo_accepts_the_issues_it_advertises(monkeypatch: pytest.MonkeyPatch) -
     assert advertised[0].tzinfo is not None
     resolved = _stub_dmo_values().get_url_for_date("https://example.com/kmz/", advertised[0])
     assert resolved == listing[0]
+
+
+@pytest.mark.parametrize(
+    ("hour", "expected"),
+    [
+        pytest.param(0, 0, id="a-release-hour"),
+        pytest.param(3, 0, id="the-morning-floors-down"),
+        pytest.param(11, 0, id="just-before-the-second-release"),
+        pytest.param(12, 12, id="the-second-release-hour"),
+        pytest.param(14, 12, id="the-afternoon-floors-down"),
+        pytest.param(23, 12, id="the-end-of-the-day"),
+    ],
+)
+def test_dmo_issue_is_floored_to_a_release_hour(hour: int, expected: int) -> None:
+    """DMO releases at 00 and 12, and an issue between them belongs to the one before it.
+
+    `hour % 12` is non-zero for 1 through 11 as well as 13 through 23, and sending both to 12
+    rounded the morning *up*: asking for the 03:00 run returned the 12:00 one, issued nine hours
+    later, or raised where 12:00 was not yet published while 00:00 sat there unasked for.
+
+    Unreachable until the tz comparison in this branch was fixed -- every non-`LATEST` issue raised
+    `SchemaError` before reaching here -- which is what made a latent rounding bug into a live one.
+    """
+    adjusted = DwdDmoRequest.adjust_datetime(dt.datetime(2026, 9, 22, hour, tzinfo=ZoneInfo("UTC")))
+
+    assert adjusted.hour == expected

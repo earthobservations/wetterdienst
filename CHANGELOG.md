@@ -146,7 +146,11 @@ Types of changes:
   (`_<lead>_<n>_<DDHHMM>.kmz`), the lead time is a field rather than a substring and a name that is
   not a forecast carries no stamp; the issue is converted when it carries a zone, and a filter that
   empties the frame says so rather than reporting `Unable to find None file within`. `available_issues`
-  reads by the same rule. GH-1948
+  reads by the same rule. An issue between two releases is also floored to the one before it, where
+  `hour % 12` sent 1 through 11 *up* to 12: asking for the 03:00 run returned the 12:00 one, issued
+  nine hours later, or raised where 12:00 was not yet published while 00:00 sat there unasked for.
+  That was unreachable until the comparison above was fixed, every non-`LATEST` issue having raised
+  before it decided anything. GH-1948
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
