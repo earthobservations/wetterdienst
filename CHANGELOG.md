@@ -129,6 +129,25 @@ Types of changes:
   a rule. The positional read itself stays, along with the lead-time substring match and the
   tz-aware issues this method advertises that `get_url_for_date` rejects, which are GH-1948.
 
+- DWD dmo: a run is read by its whole name, where every part of it was read by position or by
+  substring and each wrongly. The lead time was matched as a bare `"78"` or `"168"` anywhere in the
+  URL, which the station id also satisfies -- 187 of 5811 ids contain `78`, so a request for the
+  short lead time kept the long one's files too, two rows carried one run start, and
+  `df.get_column("url").item()` raised `can only call '.item()' if the Series is of length 1`; that
+  is roughly 3% of DMO stations unable to be read at all, and the rest matched by luck. The run
+  stamp was the last `_`-separated part with four characters taken off the end, so a README reached
+  the parse and raised `conversion from str to i64 failed ... ["AD"]`, and a `..._210000.txt`
+  sidecar strips to a valid `210000` and could be answered with -- handing the reader a file that is
+  not a forecast, where a crash would at least have named the listing. And `available_issues`
+  returned tz-aware UTC datetimes while this compared against a naive column, so an issue that
+  command advertised was rejected by the next one with `could not evaluate comparison between
+  series 'date' of dtype: Datetime('us') and ... Datetime('us', 'UTC')`: `wetterdienst issues`
+  printed issues in a form `wetterdienst values` could not accept. Named as a whole
+  (`_<lead>_<n>_<DDHHMM>.kmz`), the lead time is a field rather than a substring and a name that is
+  not a forecast carries no stamp; the issue is converted when it carries a zone, and a filter that
+  empties the frame says so rather than reporting `Unable to find None file within`. `available_issues`
+  reads by the same rule. GH-1948
+
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
   and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three
