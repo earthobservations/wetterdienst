@@ -110,6 +110,24 @@ Types of changes:
   reported by what is in it -- how many entries, how many of them the `LATEST` alias -- rather than
   by a guess at why, an alias being a forecast and only a dated run being what this lists. GH-1946
 
+- DWD dmo: `available_issues` answers a `kmz/` directory that holds no run with no issues, rather
+  than raising out of `wetterdienst issues` and the `/issues` endpoint, which are what reach it. An
+  empty listing built a `url` column of dtype Null and raised `invalid series dtype: expected
+  String, got null`; an entry that is not a forecast reached `add_date_from_filename` and raised
+  `conversion from str to i64 failed ... ["AD"]`. Which runs exist has an answer in both cases:
+  none. Said with a warning naming the directory, because `fs.find` walks with `on_error="omit"`
+  and aiohttp's `ClientOSError` is an `OSError`, so a connection reset mid-listing -- and the 404 of
+  a station id that does not exist -- arrive looking exactly like an empty directory, and a silent
+  `[]` would make either a fact about the station. What that costs a caller who is not reading a
+  terminal: `/api/issues` answered a blip with the polars error as an HTTP 400 and the CLI exited 1,
+  where both now answer `{"issues": []}` and exit 0; telling them apart needs the listing to report
+  what it swallows, which is GH-1947. What counts as a forecast is the six digits a run is stamped
+  with *and* the `.kmz` the name ends in: the slice that reads the stamp takes four characters off
+  whatever it is given, so `..._210000.txt` strips to `210000` and would have been reported as a run
+  that exists, while `.kmz.md5` failed only by stripping to `210000.kmz`, which is luck rather than
+  a rule. The positional read itself stays, along with the lead-time substring match and the
+  tz-aware issues this method advertises that `get_url_for_date` rejects, which are GH-1948.
+
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
   and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three
