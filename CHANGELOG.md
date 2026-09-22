@@ -317,14 +317,18 @@ Types of changes:
   GH-1922
 
 - DWD swsmos: `LATEST` no longer answers with a run up to twelve hours old. How long a run may be
-  cached is a property of the URL rather than of the request: a timestamped run is that run for
-  good, while `swsmos_LATEST_opendata.csv.bz2` is a name whose content DWD replaces every hour --
-  and the alias was cached by URL for twelve hours like everything else, so "the latest run" could
-  be one whose first twelve forecast hours had already happened. Measured against the live server
-  at 22:57 UTC: the alias was answered from the 21:00 run while DWD was serving 22:00. The alias
-  now expires after five minutes, which is what `dwd/mosmix` holds its KML for and a bounded lag
-  against an hourly cadence; the timestamped fallback and an explicitly requested `issue` keep the
-  long expiry, naming a run that cannot change. Found while reviewing the fix above, and older than
+  cached is a property of the URL rather than of the request: a run named by its timestamp is that
+  run for good, while `swsmos_LATEST_opendata.csv.bz2` is a name whose content DWD replaces every
+  hour -- and the alias was cached by URL for twelve hours like everything else, so "the latest
+  run" could be one whose first twelve forecast hours had already happened. Measured against the
+  live server at 22:57 UTC: the alias was answered from the 21:00 run while DWD was serving 22:00.
+  `LATEST` now resolves to the newest run the directory listing names, which is the same bytes --
+  the server returns one ETag for the alias and that file, one content-length and one
+  Last-Modified, the alias being a link rather than a copy -- from a URL that cannot change under
+  its cache entry, so the answer is the newest run with nothing to expire. The listing is never
+  cached, and `dwd/road` likewise indexes the timestamped files and skips the aliases duplicating
+  them. The alias remains the fallback for a listing that names no run, held for five minutes,
+  which is what `dwd/mosmix` holds its KML for. Found while reviewing the fix above, and older than
   it. GH-1922
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a

@@ -261,40 +261,51 @@ def test_swsmos_run_that_cannot_be_fetched_is_asked_for_once(
     assert len([record for record in caplog.records if "Failed to fetch SWSMOS run" in record.message]) == 1
 
 
-def test_swsmos_latest_alias_is_not_cached_for_twelve_hours(monkeypatch: pytest.MonkeyPatch) -> None:
-    """How long a run may be cached is a property of the URL, not of the request.
+def test_swsmos_latest_asks_for_the_newest_run_by_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``LATEST`` resolves to the newest run the listing names, not to the mutable alias.
 
-    A timestamped run is that run for good, while the ``LATEST`` alias is a name whose content DWD
-    replaces every hour -- so caching the alias by URL for twelve hours answered "the latest run"
-    with one up to twelve hours old, whose first twelve forecast hours have already happened.
-    Measured against the live server at 22:57 UTC: the alias was answered from the 21:00 run while
-    DWD was serving 22:00.
+    How long a run may be cached is a property of the URL rather than of the request, and the two
+    URLs are the same bytes -- the server returns one ETag for the alias and the newest timestamped
+    file. Asking by name is that answer from a URL that cannot change under its cache entry, where
+    caching the alias for twelve hours answered "the latest run" with one up to twelve hours old:
+    measured against the live server at 22:57 UTC, the 21:00 run while DWD was serving 22:00.
     """
     content = _run_file(("A006", "202607310800", "17.9"))
-    ttls = []
+    asked = []
     monkeypatch.setattr(
         api,
         "download_file",
-        lambda **kwargs: ttls.append(kwargs["ttl"]) or File(url=kwargs["url"], content=BytesIO(content), status=200),
+        lambda **kwargs: (
+            asked.append((kwargs["url"].rsplit("/", 1)[-1], kwargs["ttl"]))
+            or File(url=kwargs["url"], content=BytesIO(content), status=200)
+        ),
     )
     dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
 
-    # the alias, whose content changes under a fixed URL
-    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
-    _stub_stations().values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
-    # the timestamped fallback, which names one run and keeps the long TTL
+    # the alias is published beside the runs, and is not what is asked for
     monkeypatch.setattr(
         api,
         "list_remote_files_fsspec",
-        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+        lambda *_args, **_kwargs: [
+            f"{api._BASE_URL}/{_LATEST_FILE}",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731060000_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2",  # noqa: SLF001
+        ],
     )
     _stub_stations().values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
-    # and an explicitly requested run, which is immutable for the same reason
+    # with nothing but the alias to go on it is used, and held only briefly
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    _stub_stations().values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
+    # and an explicitly requested run names itself
     stations = _stub_stations()
     stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
     stations.values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
 
-    assert ttls == [CacheExpiry.FIVE_MINUTES, CacheExpiry.TWELVE_HOURS, CacheExpiry.TWELVE_HOURS]
+    assert asked == [
+        ("swsmos_20260731070000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS),
+        (_LATEST_FILE, CacheExpiry.FIVE_MINUTES),
+        ("swsmos_20260731070000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS),
+    ]
 
 
 def test_swsmos_query_asks_for_the_latest_run_again(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -322,3 +333,26 @@ def test_swsmos_query_asks_for_the_latest_run_again(monkeypatch: pytest.MonkeyPa
 
     assert first.get_column("value").to_list() == [17.9]
     assert second.get_column("value").to_list() == [20.0], "a second query should see the run published since"
+
+
+def test_swsmos_run_does_not_outlive_the_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The parsed run is released when the walk ends, rather than held by the result it produced.
+
+    `ValuesResult` holds the values object that produced it, so a result kept by the caller keeps
+    whatever that object holds -- and a request for one station's forecast would otherwise pin the
+    whole network's parsed run, some 20 MB, for as long as the result lived.
+    """
+    content = _run_file(("A006", "202607310800", "17.9"))
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
+    )
+
+    values = _stub_stations().values
+    result = values.all()
+
+    assert not result.df.is_empty()
+    assert result.values is values  # the result does hold the object, which is why this matters
+    assert values._run_frame_cache is None, "the run should be released with the walk that parsed it"  # noqa: SLF001

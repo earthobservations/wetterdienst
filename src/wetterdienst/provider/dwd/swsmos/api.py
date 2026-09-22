@@ -90,27 +90,35 @@ class DwdSwsmosValues(TimeseriesValues):
     def _run_content(self, settings: Settings) -> bytes | None:
         issue = cast("DwdSwsmosRequest", self.sr.stations).issue
         # how long a run may be answered from the cache is a property of the URL, not of the
-        # request. A timestamped run is that run for good, while the ``LATEST`` alias is a name
-        # whose content DWD replaces every hour -- so caching the alias by URL for twelve hours,
-        # as this did, answered "the latest run" with one up to twelve hours old, whose first
-        # twelve forecast hours have already happened. Measured: at 22:57 UTC the alias was
-        # answered from the 21:00 run while the server was serving 22:00. Five minutes is what
-        # ``dwd/mosmix`` holds its KML for, and against an hourly cadence it is a bounded lag
+        # request. A run named by its timestamp is that run for good; ``swsmos_LATEST...`` is a
+        # name whose content DWD replaces every hour, so caching it by URL for twelve hours -- as
+        # this did -- answered "the latest run" with one up to twelve hours old, whose first twelve
+        # forecast hours had already happened. Measured: at 22:57 UTC the alias was answered from
+        # the 21:00 run while the server served 22:00.
+        #
+        # So ``LATEST`` resolves to the newest run the listing names rather than to the alias. The
+        # two are the same bytes -- the server returns one ETag for both (``6ab20a9e-1da802``, with
+        # one content-length and one Last-Modified), the alias being a link rather than a copy --
+        # and asking for the run by name is the same answer from a URL that cannot change under
+        # its cache entry. ``dwd/road`` likewise indexes the timestamped files and skips the
+        # aliases duplicating them. The listing itself is never cached, so "newest" is current.
         ttl = CacheExpiry.TWELVE_HOURS
         if issue is DwdForecastDate.LATEST:
             files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
             names = {f.rsplit("/", 1)[-1]: f for f in files}
-            # DWD maintains a ``swsmos_LATEST_opendata.csv.bz2`` alias pointing at the newest run;
-            # fall back to the newest timestamped file if the alias is ever missing
-            if _LATEST_FILE in names:
+            # fixed-width digits, so lexical order is chronological order. The alias is excluded
+            # from the sort rather than sorted with the digits, where it lands last by accident
+            timestamped = sorted(n for n in names if n.startswith("swsmos_") and n != _LATEST_FILE)
+            if timestamped:
+                url = names[timestamped[-1]]
+            elif _LATEST_FILE in names:
+                # nothing but the alias to go on. It is mutable, so it may only be held briefly:
+                # five minutes is what ``dwd/mosmix`` holds its KML for, a bounded lag against an
+                # hourly cadence
                 url = names[_LATEST_FILE]
                 ttl = CacheExpiry.FIVE_MINUTES
             else:
-                timestamped = sorted(n for n in names if n.startswith("swsmos_") and n != _LATEST_FILE)
-                if not timestamped:
-                    return None
-                # the fallback names a run rather than the alias, so it keeps the long TTL
-                url = names[timestamped[-1]]
+                return None
         else:
             url = _run_url(cast("dt.datetime", issue))
         file = download_file(
@@ -149,11 +157,17 @@ class DwdSwsmosValues(TimeseriesValues):
         every other station wants.
 
         For `DwdForecastDate.LATEST` that also makes the answer consistent rather than merely
-        quicker: resolving the alias once pins every station to one model run. Resolved per
-        station, a walk that outlived the alias's cache entry -- or one made with caching disabled,
-        or falling back to the timestamped listing, which is never cached -- re-fetched the alias
-        part way through, so the stations after that point were answered from whatever run DWD had
-        published by then, and the frame quietly mixed two runs.
+        quicker: resolving the run once pins every station to it. The listing that says which run
+        is newest is never cached, so resolved per station a walk that DWD publishes a run into
+        answers the stations after that point from the new one -- a frame quietly mixing two model
+        runs, with no cache entry in the way to make it rare.
+
+        A run that cannot be fetched is kept as an empty frame, where `ipma` deliberately leaves a
+        failed fetch uncached to be retried: there, a feed that fails costs that feed's stations,
+        while here one file is the whole request, so asking again per station cannot answer a
+        different question. `download_file` has already asked twice by then -- `_worth_retrying_download`
+        governs what a blip is -- and 1,836 stations asking 3,672 times is a herd against a server
+        that has just failed, not a recovery. The warning naming the run says what happened.
         """
         if self._run_frame_cache is None:
             content = self._run_content(settings)
@@ -163,13 +177,20 @@ class DwdSwsmosValues(TimeseriesValues):
     def query(self) -> Iterator[ValuesResult]:
         """Answer each station of the request, from one run resolved for this query.
 
-        The run is pinned for the length of a query and no longer. `StationsResult.values` builds a
-        values object per access, so most callers get a fresh run either way -- but one that keeps
-        the object and queries it again on a timer is asking for the latest run a second time, and
-        would otherwise be answered from the one resolved on its first call for as long as it lived.
+        The run is pinned for the length of a query and no longer -- cleared on the way in, so a
+        caller keeping the values object and querying it again on a timer is answered with the run
+        published since rather than the one it first resolved, and cleared on the way out, so the
+        20 MB frame does not outlive the walk it was parsed for. `ValuesResult` holds the values
+        object that produced it, so without that second clear a request for one station's forecast
+        handed back a result pinning the whole network's parsed run for as long as the caller kept
+        it. Neither clear makes this re-entrant: two interleaved walks over one values object would
+        tread on each other's run, as they already do on `stations_counter`.
         """
         self._run_frame_cache = None
-        yield from super().query()
+        try:
+            yield from super().query()
+        finally:
+            self._run_frame_cache = None
 
     def _collect_station_parameter_or_dataset(
         self,
