@@ -68,7 +68,13 @@ class KMLReader:
         # by its timestamp is that run for good and may be kept; a `LATEST` alias is a name whose
         # content DWD replaces, so it may only be held briefly. Holding everything briefly is what
         # this did, and for `MOSMIX_S` -- 36 MB, published hourly -- that meant re-downloading it
-        # up to twelve times an hour for a file that had not changed (GH-1945)
+        # up to twelve times an hour for a file that had not changed (GH-1945).
+        #
+        # What it costs instead: a distinct URL per run, so the cache gains a blob an hour where it
+        # reused one. DWD keeps around 48 dated runs, and nothing evicts a blob once its expiry has
+        # passed (GH-1955), so a process polling hourly leaves roughly 430 MB a day behind for
+        # MOSMIX-S. Traded knowingly -- that is a twelfth of the bytes over the wire, and disk that
+        # GH-1955 is about reclaiming
         self._filesystems = {
             ttl: NetworkFilesystemManager.get(
                 cache_dir=settings.cache_dir,
@@ -79,7 +85,8 @@ class KMLReader:
             )
             for ttl in (CacheExpiry.FIVE_MINUTES, CacheExpiry.TWELVE_HOURS)
         }
-        self.dwdfs = self._filesystems[CacheExpiry.FIVE_MINUTES]
+        # no `self.dwdfs`: which filesystem answers is per-URL now, and an attribute pinned to one
+        # of them is a trap for whatever reaches for it next
 
     def _filesystem_for(self, url: str) -> HTTPFileSystem | WholeFileCacheFileSystem:
         """Pick how long this URL may be held: briefly for a mutable alias, long for a named run."""

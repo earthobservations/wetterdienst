@@ -230,14 +230,20 @@ class DwdMosmixValues(TimeseriesValues):
         if date == DwdForecastDate.LATEST:
             # the newest run the listing names, rather than the `LATEST` alias beside it. The two
             # are the same bytes -- the server answers one ETag, one content-length and one
-            # Last-Modified for both, the alias being a link rather than a copy -- but a run named
+            # Last-Modified for both, which is also what says the newest name is safe to read: one
+            # inode under two names is a link made when the upload finished, not a name that
+            # appears while 36 MB is still arriving. `dwd/road` and `dwd/dmo` have indexed the
+            # named files on that basis for as long as they have existed -- but a run named
             # by its timestamp is that run for good, where the alias is a name whose content DWD
             # replaces every hour. Only the named one can be held, and `MOSMIX_S` is 36 MB
             # (GH-1945). `dwd/road` and `dwd/dmo` both index the named files and skip the alias.
             #
-            # Sorted on the stamp rather than on the name, so a run published in two forms does not
-            # decide the order by its extension; the alias remains the fallback for a listing that
-            # names no run, where a mutable URL is all there is to go on
+            # Newest by stamp, and by name after it -- `sorted` falls through to the URL where two
+            # names carry one stamp, and `[-1]` takes the last of them. The dated branch below
+            # sorts the other way and takes the first, so say plainly which is which rather than
+            # claim a rule both follow: only one file per run exists today, `_run_stamp` matching
+            # `.kmz` alone, and either end of a one-element sort is that file. The alias remains
+            # the fallback for a listing that names no run, where a mutable URL is all there is
             runs = sorted((stamp, url_) for url_, stamp in ((u, _run_stamp_of(u)) for u in urls) if stamp is not None)
             if runs:
                 return runs[-1][1]
