@@ -331,6 +331,20 @@ Types of changes:
   which is what `dwd/mosmix` holds its KML for. Found while reviewing the fix above, and older than
   it. GH-1922
 
+- DWD swsmos: a run that cannot be read is reported and skipped, where it used to end the request
+  in a traceback. A body that is not the bz2 a run file should be raises out of `bz2.decompress` --
+  `ValueError` where it stops early, `OSError` where it was never bz2 -- and nothing between there
+  and the caller catches, so a truncated download ended `values.all()` in a traceback where a
+  failed download ends it in an empty frame. It is cached for twelve hours as well, so the same
+  traceback would have repeated for half a day. It is now warned about and answered the way a
+  failed fetch is, and `LATEST` falls back to the run before the newest: the listing is
+  deliberately uncached, so it names a run the moment it appears, and a run still being written
+  cannot be read -- an hour-old forecast is what `LATEST` should mean in that window rather than
+  nothing. What counts as a run is matched exactly (`swsmos_<14 digits>_opendata.csv.bz2`) rather
+  than by a `swsmos_` prefix, which also matches a checksum sidecar or a second product published
+  beside the runs -- and one of those sorts *after* the run it belongs to, so the newest name would
+  have been a file that is not a run. Found while reviewing the fix above. GH-1922
+
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
   and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three

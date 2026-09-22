@@ -356,3 +356,76 @@ def test_swsmos_run_does_not_outlive_the_query(monkeypatch: pytest.MonkeyPatch) 
     assert not result.df.is_empty()
     assert result.values is values  # the result does hold the object, which is why this matters
     assert values._run_frame_cache is None, "the run should be released with the walk that parsed it"  # noqa: SLF001
+
+
+def test_swsmos_listing_entry_that_is_not_a_run_is_not_mistaken_for_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run file names itself exactly, and a sidebar published beside the runs is not one.
+
+    Matching a bare ``swsmos_`` prefix also matches a checksum sidecar or a second product, and one
+    of those sorts *after* the run it belongs to -- so the newest name would be a file that is not
+    a run, handed straight to `bz2.decompress`.
+    """
+    content = _run_file(("A006", "202607310800", "17.9"))
+    asked = []
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2.sha256",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_stationskatalog.csv.bz2",  # noqa: SLF001
+        ],
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: (
+            asked.append(kwargs["url"].rsplit("/", 1)[-1])
+            or File(url=kwargs["url"], content=BytesIO(content), status=200)
+        ),
+    )
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert asked == ["swsmos_20260731070000_opendata.csv.bz2"]
+    assert df.get_column("value").to_list() == [17.9]
+
+
+def test_swsmos_run_that_cannot_be_read_falls_back_to_the_one_before_it(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A run still being written is answered with the hour before it, not with a traceback.
+
+    The listing is deliberately uncached, so it names a run the moment it appears -- and a body
+    that is not the bz2 a run file should be raises out of `bz2.decompress`, where nothing between
+    there and the caller catches. It is cached for twelve hours too, so a single bad download would
+    have ended every request in the same traceback for half a day.
+    """
+    caplog.set_level(logging.WARNING)
+    bodies = {
+        "swsmos_20260731080000_opendata.csv.bz2": b"\x42\x5a\x68truncated",  # still being written
+        "swsmos_20260731070000_opendata.csv.bz2": _run_file(("A006", "202607310800", "17.9")),
+    }
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/{name}" for name in bodies],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(bodies[kwargs["url"].rsplit("/", 1)[-1]]), status=200),
+    )
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.get_column("value").to_list() == [17.9]  # the 07:00 run, the 08:00 one being unreadable
+    assert "Failed to read SWSMOS run" in caplog.text
+    assert "swsmos_20260731080000_opendata.csv.bz2" in caplog.text

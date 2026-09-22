@@ -18,6 +18,7 @@ import bz2
 import contextlib
 import datetime as dt
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, cast
@@ -64,6 +65,12 @@ class DwdForecastDate(Enum):
     LATEST = "latest"
 
 
+# what a run file is called, and nothing else. A bare ``swsmos_`` prefix also matches a checksum
+# sidecar or a second product published beside the runs, and one of those sorts after the run it
+# belongs to -- so the newest name would be a file that is not a run, handed straight to bz2
+_RUN_FILE = re.compile(r"^swsmos_\d{14}_opendata\.csv\.bz2$")
+
+
 def _run_url(issue: dt.datetime) -> str:
     return f"{_BASE_URL}/swsmos_{issue:%Y%m%d%H}0000_opendata.csv.bz2"
 
@@ -77,6 +84,22 @@ def _read_run_csv(content: bytes) -> pl.DataFrame:
     return pl.read_csv(csv, separator=";", infer_schema_length=0)
 
 
+def _read_run(content: bytes, url: str) -> pl.DataFrame | None:
+    """Parse a run file, or say it could not be read.
+
+    A body that is not the bz2 a run file should be raises out of `bz2.decompress` -- `ValueError`
+    where it stops early, `OSError` where it was never bz2 -- and nothing between here and the
+    caller catches, so a truncated download used to end the request in a traceback where a failed
+    download ends it in an empty frame. It also lands in the cache, so the traceback would have
+    repeated for twelve hours. Reported and answered the way a failed fetch is instead.
+    """
+    try:
+        return _read_run_csv(content)
+    except (OSError, ValueError, EOFError, pl.exceptions.PolarsError) as ex:
+        log.warning(f"Failed to read SWSMOS run {url}: {ex!r}")
+        return None
+
+
 class DwdSwsmosValues(TimeseriesValues):
     """Values class for DWD SWSMOS road weather forecast data."""
 
@@ -87,40 +110,46 @@ class DwdSwsmosValues(TimeseriesValues):
         # yet"; an empty frame is "looked up, and there is nothing there". See `_run_frame`
         self._run_frame_cache: pl.DataFrame | None = None
 
-    def _run_content(self, settings: Settings) -> bytes | None:
+    def _run_candidates(self, settings: Settings) -> list[tuple[str, CacheExpiry]]:
+        """List the runs to try, newest first, with how long each may be answered from the cache.
+
+        How long a run may be cached is a property of the URL, not of the request. A run named by
+        its timestamp is that run for good; ``swsmos_LATEST...`` is a name whose content DWD
+        replaces every hour, so caching it by URL for twelve hours -- as this did -- answered "the
+        latest run" with one up to twelve hours old, whose first twelve forecast hours had already
+        happened. Measured: at 22:57 UTC the alias was answered from the 21:00 run while the server
+        served 22:00.
+
+        So `LATEST` resolves to the newest run the listing names rather than to the alias. The two
+        are the same bytes -- the server returns one ETag for both (``6ab20a9e-1da802``, with one
+        content-length and one Last-Modified), the alias being a link rather than a copy -- and
+        asking for the run by name is the same answer from a URL that cannot change under its cache
+        entry. `dwd/road` likewise indexes the timestamped files and skips the aliases duplicating
+        them. The listing itself is never cached, so "newest" is current.
+
+        Which is also why the run before it is offered as a fallback. An uncached listing names a
+        run the moment it appears, and a run still being written cannot be read; a body that cannot
+        be read is cached for twelve hours, so without somewhere else to go a single bad download
+        would empty every request for half a day. An hour-old forecast is what `LATEST` should mean
+        in that window, rather than nothing.
+        """
         issue = cast("DwdSwsmosRequest", self.sr.stations).issue
-        # how long a run may be answered from the cache is a property of the URL, not of the
-        # request. A run named by its timestamp is that run for good; ``swsmos_LATEST...`` is a
-        # name whose content DWD replaces every hour, so caching it by URL for twelve hours -- as
-        # this did -- answered "the latest run" with one up to twelve hours old, whose first twelve
-        # forecast hours had already happened. Measured: at 22:57 UTC the alias was answered from
-        # the 21:00 run while the server served 22:00.
-        #
-        # So ``LATEST`` resolves to the newest run the listing names rather than to the alias. The
-        # two are the same bytes -- the server returns one ETag for both (``6ab20a9e-1da802``, with
-        # one content-length and one Last-Modified), the alias being a link rather than a copy --
-        # and asking for the run by name is the same answer from a URL that cannot change under
-        # its cache entry. ``dwd/road`` likewise indexes the timestamped files and skips the
-        # aliases duplicating them. The listing itself is never cached, so "newest" is current.
-        ttl = CacheExpiry.TWELVE_HOURS
-        if issue is DwdForecastDate.LATEST:
-            files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
-            names = {f.rsplit("/", 1)[-1]: f for f in files}
-            # fixed-width digits, so lexical order is chronological order. The alias is excluded
-            # from the sort rather than sorted with the digits, where it lands last by accident
-            timestamped = sorted(n for n in names if n.startswith("swsmos_") and n != _LATEST_FILE)
-            if timestamped:
-                url = names[timestamped[-1]]
-            elif _LATEST_FILE in names:
-                # nothing but the alias to go on. It is mutable, so it may only be held briefly:
-                # five minutes is what ``dwd/mosmix`` holds its KML for, a bounded lag against an
-                # hourly cadence
-                url = names[_LATEST_FILE]
-                ttl = CacheExpiry.FIVE_MINUTES
-            else:
-                return None
-        else:
-            url = _run_url(cast("dt.datetime", issue))
+        if issue is not DwdForecastDate.LATEST:
+            return [(_run_url(cast("dt.datetime", issue)), CacheExpiry.TWELVE_HOURS)]
+        files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
+        names = {f.rsplit("/", 1)[-1]: f for f in files}
+        # fixed-width digits, so lexical order is chronological order
+        runs = sorted(n for n in names if _RUN_FILE.match(n))
+        if runs:
+            return [(names[n], CacheExpiry.TWELVE_HOURS) for n in reversed(runs[-2:])]
+        if _LATEST_FILE in names:
+            # nothing but the alias to go on. It is mutable, so it may only be held briefly: five
+            # minutes is what `dwd/mosmix` holds its KML for, a bounded lag against an hourly cadence
+            return [(names[_LATEST_FILE], CacheExpiry.FIVE_MINUTES)]
+        return []
+
+    def _run_content(self, url: str, ttl: CacheExpiry, settings: Settings) -> bytes | None:
+        """Fetch one run, or say it could not be fetched."""
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -170,8 +199,13 @@ class DwdSwsmosValues(TimeseriesValues):
         that has just failed, not a recovery. The warning naming the run says what happened.
         """
         if self._run_frame_cache is None:
-            content = self._run_content(settings)
-            self._run_frame_cache = _read_run_csv(content) if content is not None else pl.DataFrame()
+            self._run_frame_cache = pl.DataFrame()
+            for url, ttl in self._run_candidates(settings):
+                content = self._run_content(url, ttl, settings)
+                df = _read_run(content, url) if content is not None else None
+                if df is not None:
+                    self._run_frame_cache = df
+                    break
         return self._run_frame_cache
 
     def query(self) -> Iterator[ValuesResult]:
