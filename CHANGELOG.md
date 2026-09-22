@@ -59,6 +59,53 @@ Types of changes:
 
 ### Fixed
 
+- DWD mosmix: a `kml/` directory that exists and holds nothing says so, rather than raising past
+  the line written for it -- whichever run was asked for. `next` raises `StopIteration` where its
+  filter matches nothing, and the `except IndexError` guarding the `LATEST` lookup never caught
+  that, so what a caller saw was `RuntimeError: generator raised StopIteration` from inside the
+  collection walk (PEP 479 converts it at the generator boundary), naming neither the directory nor
+  what was looked for -- or a bare `StopIteration` carrying no message where `get_url_for_date` was
+  called directly. Asked for a default instead of guarded by an exception it cannot raise, there is
+  nothing to miss. An explicit `issue` failed differently and just as opaquely, building a frame
+  whose `url` column was all-null and meeting `invalid series dtype: expected String, got null` in
+  the split below it, so an empty listing is now answered before either branch reads it, being one
+  thing whichever branch asked. What a run is called is read once, as the ten digits DWD stamps it
+  with in a name ending `.kmz`, rather than as the third `_`-separated part of one. MOSMIX-L
+  all-stations is the layout that broke on: `MOSMIX_L_2026092203.kmz` carries no station id, so the
+  third part was `2026092203.kmz` with the extension still on it, and the alias was `LATEST.kmz`,
+  which the filter dropping `LATEST` does not match -- every row then met `conversion from str to
+  datetime failed`, and that layout could not be asked for a run at all. MOSMIX-S all-stations was
+  never affected: its lead time keeps the run in the third part (`MOSMIX_S_2026092205_240.kmz`) and
+  its alias reads as plain `LATEST`. It is on one rule with the others now, rather than on a naming
+  that happened to survive. Anything else in the directory is dropped by the same rule, a README as
+  much as a checksum published beside a forecast and carrying its run stamp, which would otherwise
+  leave two rows matching one run and raise `ValueError: can only call '.item()' if the Series is
+  of length 1` in place of that `IndexError`. A station
+  whose directory DWD has emptied or retired is how one reaches the empty-directory half, a path
+  that no longer exists being answered with no entries rather than an error; the draft adding
+  MOSMIX-SNOW is what first met it, that product being published only from November to April. The
+  `LATEST` alias is held to the same rule as a dated run, so the default path cannot answer with a
+  checksum published beside it either -- today only the listing's sort order keeps it from doing so.
+  What none of this changes is who the error takes down with it: nothing between `get_url_for_date`
+  and `values.all()` catches, so an emptied directory costs the whole request rather than the one
+  station, where `dwd/dmo` returns `None` and keeps the others. That difference is GH-1949. GH-1946
+
+- DWD mosmix: `available_issues` answers a `kml/` directory that holds no run with no issues,
+  rather than raising out of `wetterdienst issues` and the `/issues` endpoint, which are what reach
+  it. An empty listing built a `url` column of dtype Null and raised `invalid series dtype:
+  expected String, got null`; an entry that is not a forecast reached the positional read and
+  raised `get index is out of bounds`. Which runs exist has an answer in both cases: none. It reads
+  the run by the rule above rather than positionally, so it no longer carries the all-stations
+  fault either. Said with a warning naming the directory, because `fs.find` walks with
+  `on_error="omit"` and aiohttp's `ClientOSError` is an `OSError`, so a connection reset mid-listing
+  -- and the 404 of a station id that does not exist -- arrive looking exactly like an empty
+  directory, and a silent `[]` would make either a fact about the station. What that costs a caller
+  who is not reading a terminal: `/api/issues` answered a blip with the polars error as an HTTP 400
+  and the CLI exited 1, where both now answer `{"issues": []}` and exit 0. Telling them apart needs
+  the listing to report what it swallows, which is GH-1947. A directory holding no dated run is
+  reported by what is in it -- how many entries, how many of them the `LATEST` alias -- rather than
+  by a guess at why, an alias being a forecast and only a dated run being what this lists. GH-1946
+
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
   and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three
