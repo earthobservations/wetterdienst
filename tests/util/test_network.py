@@ -17,6 +17,7 @@ import pytest
 import stamina
 from aiohttp import (
     ClientConnectorError,
+    ClientOSError,
     ClientPayloadError,
     ClientResponseError,
     ClientTimeout,
@@ -24,6 +25,7 @@ from aiohttp import (
 )
 from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
+from fsspec.implementations.cached import WholeFileCacheFileSystem
 
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -966,3 +968,81 @@ def test_post_file_asks_again_when_the_body_stops_arriving(http_server: tuple[st
 
     assert [request["path"] for request in requests] == ["/truncated", "/truncated"]
     assert isinstance(result.content, ClientPayloadError)
+
+
+def test_filesystem_key_separates_caching_from_not_caching(tmp_path: Path) -> None:
+    """`cache_disable` decided what `register` built, and was not part of what it was filed under.
+
+    `register` runs only for a key that is new, so the first caller in a thread decided for every
+    later one -- and `CacheExpiry.METAINDEX` being an alias of `TWELVE_HOURS`, any earlier
+    metaindex download from any provider was enough to leave a caching filesystem under that key.
+    A later request made with caching disabled was then served from disk (GH-1947).
+    """
+    cached = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.METAINDEX, cache_disable=False)
+    uncached = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.METAINDEX, cache_disable=True)
+
+    assert isinstance(cached, WholeFileCacheFileSystem)
+    assert not isinstance(uncached, WholeFileCacheFileSystem)
+    # and asking again gives the same instance for each, which is what the registry is for
+    assert (
+        NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.METAINDEX, cache_disable=False)
+        is cached
+    )
+
+
+def test_a_directory_that_is_not_there_is_an_answer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A 404 stays `[]`, which is what every caller has always had it as."""
+
+    def find(_self: object, _url: str, **_kwargs: object) -> list[str]:
+        msg = "404"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr(HTTPFileSystem, "find", find)
+
+    assert list_remote_files_fsspec("https://example.com/none/", Settings(cache_dir=tmp_path)) == []
+
+
+def test_a_directory_that_could_not_be_read_is_not_an_answer(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A failed walk used to arrive as an empty directory would, and be believed.
+
+    `find` walks with `on_error="omit"`, which catches `(FileNotFoundError, OSError)` and returns
+    nothing -- and aiohttp's `ClientOSError` is an `OSError`. So a connection reset was swallowed
+    inside fsspec, never reached the retry wrapping this call, and every provider that lists had to
+    decide what an empty list meant, which none of them could.
+    """
+    attempts = []
+
+    def find(_self: object, _url: str, **kwargs: object) -> list[str]:
+        attempts.append(kwargs)
+        raise ClientOSError(104, "Connection reset by peer")
+
+    monkeypatch.setattr(HTTPFileSystem, "find", find)
+
+    with pytest.raises(ClientOSError):
+        list_remote_files_fsspec("https://example.com/blip/", Settings(cache_dir=tmp_path))
+
+    # the kwarg is the whole of it: with the default `on_error="omit"` the walk inside fsspec
+    # catches this and returns nothing, so neither the retry nor the caller ever learns of it
+    assert all(attempt["on_error"] == "raise" for attempt in attempts)
+    # and the retry that always wrapped this call finally sees one
+    assert len(attempts) > 1
+
+
+def test_a_file_says_whether_it_came_off_the_wire(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A caller that cannot use what it was given needs to know whether asking again could differ.
+
+    A cached body says nothing about what the server has now; one that has just been fetched cannot
+    have changed in the meantime.
+    """
+    monkeypatch.setattr(HTTPFileSystem, "cat_file", lambda _self, _url, **_kw: b"payload")
+
+    fresh = download_file(url="https://example.com/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE)
+    assert fresh.from_cache is False
+
+    monkeypatch.setattr(WholeFileCacheFileSystem, "cat_file", lambda _self, _url, **_kw: b"payload")
+    monkeypatch.setattr(WholeFileCacheFileSystem, "_check_file", lambda _self, _url: {"fn": "x"})
+    cached = download_file(url="https://example.com/b.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+    assert cached.from_cache is True

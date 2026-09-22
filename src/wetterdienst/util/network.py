@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import logging
@@ -79,6 +80,13 @@ class File:
     """The content of the file as a BytesIO object."""
     status: int
     """The status code of the file download, if available."""
+    from_cache: bool = False
+    """Whether the body was served from the on-disk cache rather than fetched.
+
+    A caller that cannot use what it was given needs this to know whether asking again could
+    answer differently: a cached body says nothing about what the server has now, while one that
+    has just come off the wire cannot have changed in the meantime (GH-1947).
+    """
 
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object.
@@ -408,6 +416,19 @@ class NetworkFilesystemManager:
         return cls._thread_local.filesystems
 
     @staticmethod
+    def _configuration_suffix(*, cache_disable: bool, use_certifi: bool) -> str:
+        """Return what `register` builds from beyond the TTL, so the key says it too.
+
+        `cache_disable` and `use_certifi` decided what `register` made and then were not part of
+        what it was filed under, while `register` only runs for a key that is new -- so the first
+        caller in a thread decided for every later one. `CacheExpiry.METAINDEX` being an alias of
+        `TWELVE_HOURS`, any earlier metaindex download from any provider was enough to leave a
+        caching filesystem under that key, and a later request made with caching disabled was then
+        served from disk (GH-1947).
+        """
+        return ("-nocache" if cache_disable else "") + ("-certifi" if use_certifi else "")
+
+    @staticmethod
     def _client_kwargs_suffix(client_kwargs: dict | None) -> str:
         """Return a short stable hash suffix that distinguishes different client_kwargs (e.g. auth headers)."""
         if not client_kwargs:
@@ -455,7 +476,10 @@ class NetworkFilesystemManager:
 
         """
         ttl_name, ttl_value = cls.resolve_ttl(cache_expiry)
-        key = f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
+        key = (
+            f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
+            f"{cls._configuration_suffix(cache_disable=cache_disable, use_certifi=use_certifi)}"
+        )
         fs = HTTPFileSystem(
             use_listings_cache=False,
             client_kwargs=client_kwargs,
@@ -475,6 +499,16 @@ class NetworkFilesystemManager:
                 cache_storage=str(real_cache_dir),
                 expiry_time=int(ttl_value),
             )
+            # expired blobs are only removed when something asks, and nothing did: every distinct
+            # URL a provider ever fetched left a copy behind for good, which is 4.2 GB on one
+            # developer machine with a single five-minute bucket holding 1.4 GB of it. Swept once
+            # per filesystem per process, which is once per TTL and client configuration -- cheap
+            # against the downloads that follow it, and the only moment this layer knows about.
+            # See GH-1947
+            # a sweep that cannot read its own metadata is not worth failing a download over --
+            # a half-written entry from a killed process, or a cache dir another user owns
+            with contextlib.suppress(OSError, ValueError, KeyError):
+                filesystem_effective.clear_expired_cache()
         cls._get_filesystems()[key] = filesystem_effective
 
     @classmethod
@@ -501,7 +535,10 @@ class NetworkFilesystemManager:
 
         """
         ttl_name, _ = cls.resolve_ttl(cache_expiry)
-        key = f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
+        key = (
+            f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
+            f"{cls._configuration_suffix(cache_disable=cache_disable, use_certifi=use_certifi)}"
+        )
         if key not in cls._get_filesystems():
             cls.register(
                 cache_dir=cache_dir,
@@ -567,7 +604,19 @@ def list_remote_files_fsspec(
         client_kwargs=settings.fsspec_client_kwargs,
         use_certifi=settings.use_certifi,
     )
-    return fs.find(url)
+    try:
+        # `find` walks with `on_error="omit"` by default, which catches `(FileNotFoundError,
+        # OSError)` and returns nothing -- and aiohttp's `ClientOSError` is an `OSError`. So a
+        # connection reset mid-walk was swallowed inside fsspec, never reached the retry wrapping
+        # this call, and arrived at the caller as an empty directory would. Every provider that
+        # lists then had to decide what an empty list meant, and none of them could (GH-1947).
+        #
+        # Raised instead, and the two told apart here: a directory that is not there is an answer,
+        # and callers have always had it as `[]`; anything else is a failure to read, which the
+        # retry above is for and which a caller should hear about rather than infer
+        return fs.find(url, on_error="raise")
+    except FileNotFoundError:
+        return []
 
 
 @stamina.retry(on=Exception, attempts=3)
@@ -630,6 +679,10 @@ def download_file(
         cache_disable=cache_disable,
         use_certifi=use_certifi,
     )
+    # asked before the read, because reading is what populates it. `_check_file` is how
+    # `WholeFileCacheFileSystem` answers whether it holds an unexpired copy; a plain filesystem
+    # has no such question and always answers no
+    served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
     log.info(f"Downloading file {url}")
     # knmi sends its API key, metno frost its basic auth and metoffice its bearer token this way,
     # and aiohttp merges those headers into the request info it hangs on an error
@@ -648,7 +701,7 @@ def download_file(
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Downloaded file {url}")
-                return File(url=url, content=BytesIO(payload), status=200)
+                return File(url=url, content=BytesIO(payload), status=200, from_cache=served_from_cache)
         msg = "unreachable"
         raise AssertionError(msg)
     except FileNotFoundError as e:

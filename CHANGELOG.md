@@ -184,6 +184,24 @@ Types of changes:
   mid-copy leaves a truncated blob that is accepted for the life of the entry -- which held five
   minutes righted itself and held twelve hours would not. GH-1949
 
+- Network: the cache says what it did, where it used to decide on a caller's behalf and keep quiet.
+  `cache_disable` and `use_certifi` decided what `NetworkFilesystemManager.register` built and were
+  then not part of the key it was filed under, and `register` runs only for a key that is new -- so
+  the first caller in a thread decided for every later one. `CacheExpiry.METAINDEX` being an alias
+  of `TWELVE_HOURS`, any earlier metaindex download from any provider was enough to leave a caching
+  filesystem under that key, and a later request made with caching disabled was then served from
+  disk. Both are part of the key now. Expired blobs are also swept once per filesystem: nothing
+  ever called `clear_expired_cache`, so every distinct URL a provider fetched left a copy behind
+  for good -- 4.2 GB on one developer machine, 1.4 GB of it in a single five-minute bucket. And a
+  listing that could not be read is no longer answered as an empty directory: `fs.find` walks with
+  `on_error="omit"`, which catches `OSError` and returns nothing, and aiohttp's `ClientOSError` is
+  one -- so a connection reset mid-walk was swallowed inside fsspec, never reached the retry
+  wrapping the call, and left every provider to decide what an empty list meant, which none of them
+  could. It raises now, and the two cases are told apart where they are known: a directory that is
+  not there is `FileNotFoundError` and stays the `[]` callers have always had, and anything else is
+  a failure to read. `File` carries `from_cache` for the same reason, since a caller that cannot
+  use what it was given needs to know whether asking again could answer differently. GH-1947
+
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
   and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three
