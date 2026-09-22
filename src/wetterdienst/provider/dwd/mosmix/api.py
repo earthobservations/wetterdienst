@@ -273,11 +273,43 @@ class DwdMosmixRequest(TimeseriesRequest):
         """
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH.format(station_id=station_id))
         urls = list_remote_files_fsspec(url, settings, CacheExpiry.NO_CACHE)
+        if not urls:
+            # a directory that exists and holds nothing has no issues to name, which is an answer
+            # rather than the `invalid series dtype: expected String, got null` an empty frame used
+            # to raise here. Reached by a station whose directory DWD has emptied or retired, and
+            # by a path that no longer exists, which `fs.find` answers with no entries.
+            #
+            # Warned about rather than simply answered, because a listing that *failed* looks the
+            # same from here: `fs.find` walks with `on_error="omit"`, which swallows `OSError`, and
+            # aiohttp's `ClientOSError` is one -- so a connection reset mid-listing is swallowed
+            # inside fsspec, never reaches the retry around this call, and arrives as an empty
+            # directory would -- as does the 404 of a station id that does not exist. An
+            # unremarked `[]` would make either a fact about the station.
+            #
+            # Telling them apart here, with an `fs.exists` probe before answering, has been
+            # proposed three times in review and is written up against `on_error="raise"` on
+            # GH-1947: the probe narrows the window rather than closing it, and can fail the same
+            # way the listing did, while the listing reporting what it swallowed fixes every
+            # provider at once
+            log.warning(f"No MOSMIX run listed within {url}; a listing that failed looks the same as one that is empty")
+            return []
         df = pl.DataFrame({"url": urls}, orient="col")
-        df = df.with_columns(
-            pl.col("url").str.split("/").list.last().str.split("_").list.get(2).alias("date"),
-        )
-        df = df.filter(pl.col("date").ne("LATEST"))
+        df = df.with_columns(_run_stamp(pl.col("url")).alias("date"))
+        df = df.filter(pl.col("date").is_not_null())
+        if df.is_empty():
+            # the directory named things and none of them is a dated run, answered with `[]` that
+            # reads as "this station publishes no runs" exactly as the empty listing did. Which of
+            # the two it is worth saying -- an alias is a forecast, just not one this lists, so
+            # calling that a renaming would name the wrong cause -- but both are worth seeing:
+            # a single-station directory holds sixteen dated runs beside its alias today, so one
+            # pruned back to the alias is a retention change rather than a state to pass over.
+            # Said at `info`, it would be silent at the verbosity the CLI and the REST API run at,
+            # which is the silent empty answer the rest of this guards against
+            if all(_LATEST_FILE.search(listed.rsplit("/", 1)[-1]) for listed in urls):
+                log.warning(f"Only the LATEST alias is listed within {url}; no dated run to name")
+            else:
+                log.warning(f"None of the {len(urls)} entries listed within {url} is a dated run")
+            return []
         df = df.with_columns(
             pl.concat_str([pl.col("date"), pl.lit("00")]).str.to_datetime("%Y%m%d%H%M").dt.replace_time_zone("UTC"),
         )

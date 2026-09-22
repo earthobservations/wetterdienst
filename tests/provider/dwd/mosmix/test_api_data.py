@@ -3,6 +3,7 @@
 """Tests for DWD MOSMIX."""
 
 import datetime as dt
+import logging
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -480,3 +481,81 @@ def test_mosmix_latest_answers_with_a_forecast_and_not_with_what_sits_beside_it(
     resolved = _stub_mosmix_stations().values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST)
 
     assert resolved.rsplit("/", 1)[-1] == expected
+
+
+@pytest.mark.parametrize(
+    ("listing", "expected"),
+    [
+        pytest.param([], [], id="directory-holding-nothing"),
+        pytest.param(["https://example.com/kml/README.txt"], [], id="nothing-that-is-a-forecast"),
+        pytest.param(
+            # a companion carrying the run stamp is not the forecast, and two rows matching one run
+            # would raise `ValueError: can only call '.item()' if the Series is of length 1` out of
+            # the `.item()` that answers with the URL
+            ["https://example.com/kml/MOSMIX_L_2026092203_01001.kmz.sha256"],
+            [],
+            id="a-sidecar-carrying-the-run-stamp",
+        ),
+        pytest.param(
+            [
+                "https://example.com/kml/MOSMIX_L_2026092203_01001.kmz",
+                "https://example.com/kml/MOSMIX_L_LATEST_01001.kmz",
+            ],
+            [dt.datetime(2026, 9, 22, 3, tzinfo=UTC)],
+            id="one-run-and-its-alias",
+        ),
+    ],
+)
+def test_mosmix_available_issues_answers_rather_than_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    listing: list[str],
+    expected: list[dt.datetime],
+) -> None:
+    """`available_issues` carried the same faults one method down, where `history` reaches them.
+
+    An empty directory raised `invalid series dtype: expected String, got null` and a non-forecast
+    entry `get index is out of bounds`, where "which runs exist?" has an answer in both cases: none.
+    Reached by a station whose directory DWD has emptied or retired, a missing path being answered
+    with no entries rather than an error.
+    """
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listing)
+
+    assert DwdMosmixRequest.available_issues("01001", Settings()) == expected
+    # a listing that came back empty is also what a listing that failed looks like: `fs.find`
+    # walks with `on_error="omit"` and aiohttp's `ClientOSError` is an `OSError`, so answering
+    # "no runs" without saying so turns a blip into a fact about the station
+    assert ("a listing that failed looks the same" in caplog.text) is (listing == [])
+    # and a listing that named things, none of which is a forecast, is the same misreading one
+    # step later: that is what a renaming upstream looks like, not a station without runs
+    named_nothing_usable = listing != [] and expected == []
+    assert ("is a dated run" in caplog.text) is named_nothing_usable
+
+
+def test_mosmix_available_issues_does_not_call_an_alias_only_directory_a_renaming(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A directory pruned back to its alias holds a forecast, just not one this lists.
+
+    The warning for "nothing here is a dated run" is the signal that DWD has renamed something, so
+    firing it here would name the wrong cause: `_run_stamp` returns null for an alias by design,
+    which is why the frame is empty. It is still a warning rather than an `info`, both because a
+    directory holding sixteen dated runs today and only its alias tomorrow is a retention change
+    worth seeing, and because `info` is silent at the verbosity the CLI and REST API run at.
+    """
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: ["https://example.com/kml/MOSMIX_L_LATEST_01001.kmz"],
+    )
+
+    assert DwdMosmixRequest.available_issues("01001", Settings()) == []
+    assert "Only the LATEST alias is listed" in caplog.text
+    assert "is a dated run" not in caplog.text

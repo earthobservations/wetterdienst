@@ -90,6 +90,32 @@ Types of changes:
   and `values.all()` catches, so an emptied directory costs the whole request rather than the one
   station, where `dwd/dmo` returns `None` and keeps the others. That difference is GH-1949. GH-1946
 
+- DWD mosmix and dmo: `available_issues` answers a `kml/` or `kmz/` directory that holds nothing
+  with no issues, rather than raising `invalid series dtype: expected String, got null` out of
+  `wetterdienst issues` and the `/issues` endpoint, which are what reach it. Which runs exist has
+  an answer when none do -- said with a warning naming the directory, because `fs.find` walks with
+  `on_error="omit"` and aiohttp's `ClientOSError` is an `OSError`, so a connection reset mid-listing
+  arrives looking exactly like an empty directory and a silent `[]` would turn a blip into a fact
+  about the station -- as would a station id that does not exist, the 404's `FileNotFoundError`
+  being swallowed the same way, so `--station ZZZZZ` answers as a real station with no runs does.
+  Worth knowing what that costs a caller who is not reading a terminal: where
+  `/api/issues` answered a blip with the polars error as an HTTP 400 and the CLI exited 1, both now
+  answer `{"issues": []}` and exit 0, with only the log line saying which case it was. Telling the
+  two apart needs the listing itself to report a failure it currently swallows, which is GH-1947.
+  That is the difference from `get_url_for_date` beside it, which must raise because it returns a
+  `str` -- the split `dwd/dmo` already makes in *its* `get_url_for_date`,
+  returning `None` for `read_dmo_*` to turn into an empty frame. Only that guard is carried to dmo:
+  it still reads a run positionally and still matches a lead time as a bare substring, which is
+  GH-1948 -- but in `available_issues`, and only there, a name that positional read cannot make
+  sense of is dropped rather than raising `conversion from str to i64 failed ... ["AD"]` from the
+  middle of the frame. `dwd/dmo`'s own `get_url_for_date`, which is the path `wetterdienst values`
+  takes, is untouched: it still matches a lead time as a bare substring -- 187 of 5811 station ids
+  contain `78`, and those select both lead times and raise from `.item()` -- and it still rejects
+  the tz-aware issues `available_issues` advertises, so the command that says which issues exist
+  prints them in a form the next command cannot accept. Both are GH-1948. The
+  mosmix one read the run positionally too, and so carried the all-stations fault
+  above; it uses the same rule as its neighbour now. GH-1946
+
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
   and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three
