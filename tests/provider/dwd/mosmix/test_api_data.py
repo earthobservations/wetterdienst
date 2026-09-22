@@ -5,10 +5,14 @@
 import datetime as dt
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 
 from wetterdienst import Settings
+from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+
+UTC = ZoneInfo("UTC")
 
 
 @pytest.mark.remote
@@ -281,3 +285,198 @@ def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false: Settings)
         "quality",
     ]
     assert set(response.df["parameter"]).issuperset(["dd", "ww"])
+
+
+def test_mosmix_listing_without_a_latest_file_says_which_directory(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A directory holding forecasts but no ``LATEST`` among them names itself.
+
+    This is the case the fix is for, and the one the empty-directory tests below cannot reach --
+    they are answered by the empty-listing guard before this branch runs. `next` raises
+    `StopIteration` where its filter matches nothing, which the `except IndexError` guarding it
+    never caught: raised inside `query()`'s generator that surfaced as `RuntimeError: generator
+    raised StopIteration` (PEP 479), and called directly as a bare `StopIteration` carrying no
+    message.
+    """
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        # the directory publishes forecasts, just not the alias
+        lambda *_args, **_kwargs: ["https://example.com/kml/MOSMIX_L_2026090109_01001.kmz"],
+    )
+    values = _stub_mosmix_stations().values
+
+    with pytest.raises(IndexError, match="Unable to find LATEST file within"):
+        values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST)
+
+
+def test_mosmix_listing_entry_that_is_not_a_forecast_is_not_read_as_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A README beside the forecasts is a file this does not want, not `get index is out of bounds`.
+
+    The date is read out of the third `_`-separated part of the name, and an entry carrying fewer
+    than three raised `polars.exceptions.ComputeError` from the middle of the frame rather than the
+    `IndexError` written for a date with no file.
+    """
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api, "list_remote_files_fsspec", lambda *_args, **_kwargs: ["https://example.com/kml/README.txt"]
+    )
+    values = _stub_mosmix_stations().values
+
+    with pytest.raises(IndexError, match=r"Unable to find 2026-09-01 09:00:00 file within"):
+        values.get_url_for_date("https://example.com/kml/", dt.datetime(2026, 9, 1, 9, tzinfo=UTC))
+
+
+def _stub_mosmix_stations() -> StationsResult:
+    """Stand a MOSMIX station up rather than look one up, so the test needs no network."""
+    request = DwdMosmixRequest(parameters=[("hourly", "large")])
+    df_stations = pl.DataFrame(
+        [
+            {
+                "resolution": "hourly",
+                "dataset": "large",
+                "station_id": "01001",
+                "start_date": None,
+                "end_date": None,
+                "latitude": 70.93,
+                "longitude": -8.67,
+                "height": 10.0,
+                "name": "JAN MAYEN",
+                "state": None,
+            },
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "height": pl.Float64,
+            "name": pl.String,
+            "state": pl.String,
+        },
+        orient="row",
+    )
+    return StationsResult(
+        stations=request,
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.BY_STATION_ID,
+    )
+
+
+@pytest.mark.parametrize(
+    "date",
+    [
+        pytest.param(dt.datetime(2026, 7, 31, 9, tzinfo=UTC), id="explicit-issue"),
+        pytest.param("LATEST", id="latest"),
+    ],
+)
+def test_mosmix_directory_holding_nothing_says_so_whichever_run_was_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+    date: dt.datetime | str,
+) -> None:
+    """An empty directory is one thing whichever branch asked, and the two used to differ.
+
+    `LATEST` found nothing to match and raised past the message written for it; an explicit issue
+    built a frame whose ``url`` column was all-null and met `invalid series dtype: expected String,
+    got null` in the split below, never reaching its own `IndexError`. Same directory, two opaque
+    failures.
+    """
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+    values = _stub_mosmix_stations().values
+    asked = api.DwdForecastDate.LATEST if date == "LATEST" else date
+
+    with pytest.raises(IndexError, match="Unable to find any file within"):
+        values.get_url_for_date("https://example.com/kml/", asked)
+
+
+@pytest.mark.parametrize(
+    ("listing", "asked", "expected"),
+    [
+        pytest.param(
+            ["MOSMIX_L_2026092203_01001.kmz", "MOSMIX_L_LATEST_01001.kmz"],
+            dt.datetime(2026, 9, 22, 3, tzinfo=UTC),
+            "MOSMIX_L_2026092203_01001.kmz",
+            id="one-station",
+        ),
+        pytest.param(
+            # no station id in the name, so the third `_`-part carried the extension and the alias
+            # read as `LATEST.kmz`, which the filter written to drop `LATEST` did not match
+            ["MOSMIX_L_2026092203.kmz", "MOSMIX_L_LATEST.kmz"],
+            dt.datetime(2026, 9, 22, 3, tzinfo=UTC),
+            "MOSMIX_L_2026092203.kmz",
+            id="all-stations",
+        ),
+        pytest.param(
+            ["MOSMIX_S_2026092205_240.kmz", "MOSMIX_S_LATEST_240.kmz"],
+            dt.datetime(2026, 9, 22, 5, tzinfo=UTC),
+            "MOSMIX_S_2026092205_240.kmz",
+            id="all-stations-s",
+        ),
+    ],
+)
+def test_mosmix_reads_the_run_out_of_every_naming_layout(
+    monkeypatch: pytest.MonkeyPatch,
+    listing: list[str],
+    asked: dt.datetime,
+    expected: str,
+) -> None:
+    """DWD names a run three ways, and only one of them was read.
+
+    Taking the third `_`-separated part of the name read the all-stations layouts as
+    ``2026092203.kmz``, extension and all, and their alias as ``LATEST.kmz`` -- which the filter
+    dropping ``LATEST`` does not match, so every row met `conversion from str to datetime failed`
+    and the layout could not be asked for a run at all. The ten digits DWD stamps a run with are
+    the one thing all three share.
+    """
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"https://example.com/kml/{name}" for name in listing],
+    )
+
+    resolved = _stub_mosmix_stations().values.get_url_for_date("https://example.com/kml/", asked)
+
+    assert resolved.rsplit("/", 1)[-1] == expected
+
+
+@pytest.mark.parametrize(
+    ("listing", "expected"),
+    [
+        pytest.param(["MOSMIX_L_LATEST_01001.kmz"], "MOSMIX_L_LATEST_01001.kmz", id="one-station"),
+        pytest.param(["MOSMIX_L_LATEST.kmz"], "MOSMIX_L_LATEST.kmz", id="all-stations"),
+        pytest.param(
+            # the checksum sorts after the forecast today, so what kept it from being answered
+            # with was the listing's order rather than any rule
+            ["MOSMIX_L_LATEST_01001.kmz.sha256", "MOSMIX_L_LATEST_01001.kmz"],
+            "MOSMIX_L_LATEST_01001.kmz",
+            id="a-sidecar-beside-the-alias",
+        ),
+    ],
+)
+def test_mosmix_latest_answers_with_a_forecast_and_not_with_what_sits_beside_it(
+    monkeypatch: pytest.MonkeyPatch,
+    listing: list[str],
+    expected: str,
+) -> None:
+    """The alias is held to the rule a dated run is held to, on the path a caller reaches by default."""
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"https://example.com/kml/{name}" for name in listing],
+    )
+
+    resolved = _stub_mosmix_stations().values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST)
+
+    assert resolved.rsplit("/", 1)[-1] == expected
