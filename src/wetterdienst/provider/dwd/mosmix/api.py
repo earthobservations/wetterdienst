@@ -56,7 +56,12 @@ class DwdForecastDate(Enum):
     LATEST = "latest"
 
 
-_LATEST_FILE = re.compile(r"LATEST.*\.kmz$", re.IGNORECASE)
+# a forecast, compressed or not. The directory is named `kml/` while what DWD publishes in it is
+# `.kmz`, so binding this to the compression would make an uncompressed alias -- the plainer thing
+# to publish, in a directory already named for it -- raise on the default path. `.sha256` and `.md5`
+# are what this is here to exclude, and neither is a KML
+_FORECAST_FILE = r"\.km[lz]$"
+_LATEST_FILE = re.compile(r"LATEST.*" + _FORECAST_FILE, re.IGNORECASE)
 
 
 def _run_stamp(urls: pl.Expr) -> pl.Expr:
@@ -75,14 +80,15 @@ def _run_stamp(urls: pl.Expr) -> pl.Expr:
     rule should not differ in a dimension neither of them cares about.
 
     The forecast's own extension is part of the rule rather than "a name with ten digits in it
-    somewhere", so that a companion file *carrying* the run stamp is dropped too. A
+    somewhere", so that a companion file *carrying* the run stamp is dropped too -- `.kml` as well
+    as `.kmz`, since what is being excluded is a checksum and not an uncompressed forecast. A
     ``MOSMIX_L_2026092203_01001.kmz.sha256`` beside its forecast would otherwise survive, two rows
     would match one run, and `df.get_column("url").item()` would raise `ValueError: can only call
     '.item()' if the Series is of length 1` in place of the
     `IndexError` written for a run with no file. DWD publishes no such sidecar today, which is what
     makes this the kind of thing to settle while the rule is being written rather than after.
     """
-    return urls.str.split("/").list.last().str.extract(r"(?i)_(\d{10})(?:_[^.]*)?\.kmz$", 1)
+    return urls.str.split("/").list.last().str.extract(r"(?i)_(\d{10})(?:_[^.]*)?\.km[lz]$", 1)
 
 
 class DwdMosmixValues(TimeseriesValues):
@@ -312,7 +318,7 @@ class DwdMosmixRequest(TimeseriesRequest):
             # for both the CLI and the REST API, so `info` reaches exactly those two
             aliases = sum(1 for listed in urls if _LATEST_FILE.search(listed.rsplit("/", 1)[-1]))
             log.warning(
-                f"No dated run among the {len(urls)} entries listed within {url} ({aliases} of them the LATEST alias)",
+                f"No dated run listed within {url} ({len(urls)} entries, {aliases} of them the LATEST alias)",
             )
             return []
         df = df.with_columns(

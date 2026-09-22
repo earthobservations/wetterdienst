@@ -70,7 +70,7 @@ Types of changes:
   whose `url` column was all-null and meeting `invalid series dtype: expected String, got null` in
   the split below it, so an empty listing is now answered before either branch reads it, being one
   thing whichever branch asked. What a run is called is read once, as the ten digits DWD stamps it
-  with in a name ending `.kmz`, rather than as the third `_`-separated part of one. MOSMIX-L
+  with in a name ending `.kml` or `.kmz`, rather than as the third `_`-separated part of one. MOSMIX-L
   all-stations is the layout that broke on: `MOSMIX_L_2026092203.kmz` carries no station id, so the
   third part was `2026092203.kmz` with the extension still on it, and the alias was `LATEST.kmz`,
   which the filter dropping `LATEST` does not match -- every row then met `conversion from str to

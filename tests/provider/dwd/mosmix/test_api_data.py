@@ -421,6 +421,15 @@ def test_mosmix_directory_holding_nothing_says_so_whichever_run_was_asked_for(
             "MOSMIX_S_2026092205_240.kmz",
             id="all-stations-s",
         ),
+        pytest.param(
+            # the directory is named `kml/` and holds `.kmz`, so binding the rule to the
+            # compression would fail on the plainer thing to publish in it. A checksum is what is
+            # being excluded, and a checksum is not a KML
+            ["MOSMIX_L_2026092203_01001.kml", "MOSMIX_L_2026092203_01001.kml.sha256"],
+            dt.datetime(2026, 9, 22, 3, tzinfo=UTC),
+            "MOSMIX_L_2026092203_01001.kml",
+            id="uncompressed",
+        ),
     ],
 )
 def test_mosmix_reads_the_run_out_of_every_naming_layout(
@@ -461,6 +470,11 @@ def test_mosmix_reads_the_run_out_of_every_naming_layout(
             ["MOSMIX_L_LATEST_01001.kmz.sha256", "MOSMIX_L_LATEST_01001.kmz"],
             "MOSMIX_L_LATEST_01001.kmz",
             id="a-sidecar-beside-the-alias",
+        ),
+        pytest.param(
+            ["MOSMIX_L_LATEST_01001.kml.sha256", "MOSMIX_L_LATEST_01001.kml"],
+            "MOSMIX_L_LATEST_01001.kml",
+            id="an-uncompressed-alias-and-its-sidecar",
         ),
     ],
 )
@@ -532,7 +546,7 @@ def test_mosmix_available_issues_answers_rather_than_raises(
     # and a listing that named things, none of which is a forecast, is the same misreading one
     # step later: that is what a renaming upstream looks like, not a station without runs
     named_nothing_usable = listing != [] and expected == []
-    assert ("No dated run among" in caplog.text) is named_nothing_usable
+    assert ("No dated run listed within" in caplog.text) is named_nothing_usable
 
 
 @pytest.mark.parametrize(
@@ -572,5 +586,5 @@ def test_mosmix_available_issues_counts_rather_than_diagnoses(
     )
 
     assert DwdMosmixRequest.available_issues("01001", Settings()) == []
-    assert f"No dated run among the {len(listing)} entries" in caplog.text
-    assert f"({expected_aliases} of them the LATEST alias)" in caplog.text
+    assert f"({len(listing)} entries, {expected_aliases} of them the LATEST alias)" in caplog.text
+    assert "No dated run listed within" in caplog.text
