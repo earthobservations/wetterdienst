@@ -158,6 +158,11 @@ class DwdSwsmosValues(TimeseriesValues):
             # nothing but the alias to go on. It is mutable, so it may only be held briefly: five
             # minutes is what `dwd/mosmix` holds its KML for, a bounded lag against an hourly cadence
             return [(names[_LATEST_FILE], CacheExpiry.FIVE_MINUTES)]
+        # every other way a run can fail says so; this one used to answer every station with an
+        # empty frame and no diagnostic at all. The listing is retried and re-raises, so an empty
+        # one means the server genuinely named nothing -- a directory reorganised or the products
+        # renamed, which is a provider restructure rather than a day with no data
+        log.warning(f"No SWSMOS run listed within {_BASE_URL}/; the file names may have changed")
         return []
 
     def _run_content(self, url: str, ttl: CacheExpiry, settings: Settings) -> bytes | None:
@@ -212,29 +217,30 @@ class DwdSwsmosValues(TimeseriesValues):
         """
         if self._run_frame_cache is None:
             self._run_frame_cache = pl.DataFrame()
-            candidates = self._run_candidates(settings)
-            for position, (url, ttl) in enumerate(candidates):
+            for url, ttl in self._run_candidates(settings):
                 content = self._run_content(url, ttl, settings)
                 df = _read_run(content, url) if content is not None else None
-                last = position == len(candidates) - 1
-                if content is not None and df is None and last and not settings.cache_disable:
+                if content is not None and df is None and not settings.cache_disable:
                     # a body that cannot be read is held under its URL for as long as a good one
-                    # would be, so the run DWD has since finished writing would be answered from
-                    # the half of it that was cached. Asked once more past the cache, a run that is
-                    # complete now is read now.
+                    # would be, so what the cache hands back says nothing about what the server has
+                    # now. Asked once more past it, a run DWD has since finished writing is read
+                    # now.
                     #
-                    # Only where there is nothing behind this candidate to fall back to: a
+                    # Whether to do this when a fallback exists was argued both ways in review, so
+                    # the trade is written down rather than left to the next reader. Against: a
                     # `NO_CACHE` fetch is served by a plain `HTTPFileSystem`, so the good body is
-                    # never written back over the bad one, and the re-ask therefore buys a fresher
-                    # run at the price of the file again on every request rather than repairing
-                    # anything. Where the run before this one is right there, it is the better
-                    # answer -- an hour older, free, and already correct. Where there is none, an
-                    # explicitly pinned `issue` or a listing naming a single run, the re-ask is the
-                    # only path to any data at all, and then it is worth its price: for a pinned
-                    # `issue` the candidates never shift, so a file DWD serves corrupt is fetched
-                    # twice per request for as long as the request is made.
+                    # never written back over the bad one -- every later request pays for the file
+                    # again, where falling back to the run before this one costs nothing and is
+                    # already correct. For: that fallback is not free either, it is an hour of
+                    # answering with yesterday's hour while the run the caller asked for sits
+                    # complete on the server, and it is invisible where the re-ask's cost is not.
+                    # `LATEST` means the newest run there is, not the newest one a stale cache
+                    # entry will admit to, so the re-ask is made either way. The duplicate fetch
+                    # this costs on a cache miss -- DWD listing a run mid-write, the body arriving
+                    # half-written and being asked for again a moment later -- is one request's
+                    # worth, against an hour of every request's.
                     #
-                    # Only a body that arrived and could not be read, too: a fetch that failed has
+                    # Only a body that arrived and could not be read: a fetch that failed has
                     # already been retried by `download_file`, and asking a server that just
                     # refused to serve the file is not a recovery. Nor is there anything to ask
                     # past where the cache is disabled, the body having come off the wire to begin

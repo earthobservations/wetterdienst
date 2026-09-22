@@ -505,15 +505,16 @@ def test_swsmos_unreadable_run_is_asked_for_again_where_nothing_stands_behind_it
     assert df.get_column("value").to_list() == [20.0]
 
 
-def test_swsmos_unreadable_run_with_a_fallback_takes_the_fallback_rather_than_the_file_again(
+def test_swsmos_unreadable_run_with_a_fallback_is_still_asked_for_past_the_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Where the run before it is right there, it is the better answer than the file twice.
+    """A fallback does not settle whether the newest run is readable; only the server does.
 
-    A `NO_CACHE` fetch is served by a plain filesystem, so the good body is never written back over
-    the bad one: the re-ask buys a fresher run at the price of the file again on every request
-    rather than repairing anything. The run before this one is an hour older, free, and already
-    correct -- and on a cache miss the re-ask would download the same half-written file twice.
+    A body that cannot be read is held under its URL for twelve hours, so what the cache hands back
+    says nothing about what the server has now. Answering from the run before it without asking
+    would mean an hour of yesterday's hour while the run the caller asked for sits complete on the
+    server -- so the newest is asked for past the cache first, and the fallback answers only while
+    it really is unreadable.
     """
     newest = "swsmos_20260731080000_opendata.csv.bz2"
     older = "swsmos_20260731070000_opendata.csv.bz2"
@@ -537,8 +538,34 @@ def test_swsmos_unreadable_run_with_a_fallback_takes_the_fallback_rather_than_th
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
 
-    assert asked == [(newest, CacheExpiry.TWELVE_HOURS), (older, CacheExpiry.TWELVE_HOURS)]
+    assert asked == [
+        (newest, CacheExpiry.TWELVE_HOURS),
+        (newest, CacheExpiry.NO_CACHE),  # the server is asked before the fallback answers
+        (older, CacheExpiry.TWELVE_HOURS),
+    ]
     assert df.get_column("value").to_list() == [17.9]
+
+
+def test_swsmos_listing_naming_no_run_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A listing that names nothing is a provider restructure, not a day without data.
+
+    Every other way a run can fail says so; this one answered every station with an empty frame and
+    no diagnostic at all. The listing is retried and re-raises, so an empty one means the server
+    genuinely named nothing.
+    """
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "No SWSMOS run listed within" in caplog.text
 
 
 def test_swsmos_unreadable_run_is_not_re_asked_where_the_cache_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
