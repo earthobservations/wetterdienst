@@ -205,8 +205,15 @@ class DwdSwsmosValues(TimeseriesValues):
         station, and all but one station's rows thrown away each time. Five stations decompressed
         and parsed the same 306,612 rows five times -- 2.5 s of a 2.7 s request -- and twenty-five
         took 14.1 s, where the whole network of 1,836 stations would have spent a quarter of an
-        hour on 1,836 parses of one file. They now take 0.7 s and 0.8 s: one parse either way, the
-        cost flat in the number of stations asked for. The file itself comes from the cache; what
+        hour on 1,836 parses of one file. They now take 0.7 s and 0.8 s: one parse either way,
+        whatever the request asks for, and a filter over the parsed run per station after it.
+
+        That filter is 1.08 ms against the 306,612 rows, so it is near-flat rather than flat --
+        1.98 s for the whole network. `partition_by("ID", as_dict=True)` would make it literally
+        flat and costs 0.065 s once, which is the better trade above about sixty stations and the
+        worse one below it: a request for one station, or for the stretch of road this network
+        invites, would pay 65 ms to save 1 ms. Measured rather than assumed, and left as the filter
+        because the small request is the common one. The file itself comes from the cache; what
         was repeated is the bz2 decompress and the CSV parse (~0.5 s), and -- for a `LATEST`
         request -- the uncached directory listing that resolves the alias, which is a remote round
         trip rather than local work.

@@ -306,7 +306,10 @@ Types of changes:
   fetched and parsed once per station and all but one station's rows thrown away each time. Five
   stations parsed the same file five times, 2.5 s of a 2.7 s request; twenty-five took 14.1 s, and
   the whole network would have spent a quarter of an hour decompressing one file it already held.
-  They now take 0.7 s and 0.8 s, the cost being flat in the number of stations asked for. The whole
+  They now take 0.7 s and 0.8 s: one parse whatever the request asks for, and a 1.08 ms filter over
+  the parsed run per station after it -- near-flat rather than flat, 1.98 s of filtering for the
+  whole network, where partitioning the run by station would cost 0.065 s once and is the better
+  trade only above about sixty stations. The whole
   run is kept where `dwd/road` keeps only its last station group, a run being one file of some
   20 MB however wide the request or long the window, and it needs no key: a group varies from
   station to station, while the run is a property of the query. It is pinned for the length of a
@@ -356,8 +359,10 @@ Types of changes:
   its filesystems by TTL and client kwargs alone and registers one only where that key is new, so a
   request made with caching disabled is served by whatever was registered first in that thread,
   cache and all (GH-1947). Naming the run rather than the alias also means a distinct URL per model
-  run, so the cache grows by one 1.9 MB body an hour where it used to refetch one -- small against
-  the 4.2 GB that a cache with no eviction reaches on its own, and tracked in GH-1947. A listing
+  run, so the cache grows by one 1.9 MB body an hour where it used to refetch one: 45.6 MB a day,
+  1.34 GB a month and 16.3 GB a year for a process that keeps asking, against a cache that has no
+  eviction at all and already reaches 4.2 GB on its own. Small next to that figure for a quarter,
+  and past it thereafter; tracked in GH-1947. A listing
   that names no run at all now says so too, where it used to answer every station with an empty
   frame and no diagnostic: the listing is retried and re-raises, so an empty one means the server
   named nothing, which is a directory reorganised rather than a day without data. Found while
