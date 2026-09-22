@@ -212,28 +212,33 @@ class DwdSwsmosValues(TimeseriesValues):
         """
         if self._run_frame_cache is None:
             self._run_frame_cache = pl.DataFrame()
-            for url, ttl in self._run_candidates(settings):
+            candidates = self._run_candidates(settings)
+            for position, (url, ttl) in enumerate(candidates):
                 content = self._run_content(url, ttl, settings)
                 df = _read_run(content, url) if content is not None else None
-                if content is not None and df is None and not settings.cache_disable:
+                last = position == len(candidates) - 1
+                if content is not None and df is None and last and not settings.cache_disable:
                     # a body that cannot be read is held under its URL for as long as a good one
                     # would be, so the run DWD has since finished writing would be answered from
-                    # the half of it that was cached -- for the rest of the hour, until the next
-                    # run shifts the candidates along. Asked once more past the cache, a run that
-                    # is complete now is read now; one that is still not there falls through to
-                    # the run before it as before. Only a body that arrived and could not be read
-                    # is asked for again: a fetch that failed has already been retried by
-                    # `download_file`, and asking a server that just refused to serve the file is
-                    # not a recovery. Nor is there anything to ask past where the cache is
-                    # disabled, the body having come off the wire to begin with.
+                    # the half of it that was cached. Asked once more past the cache, a run that is
+                    # complete now is read now.
                     #
-                    # What this does not do is replace the bad body: a `NO_CACHE` fetch is served
-                    # by a plain `HTTPFileSystem`, so nothing is written back to the twelve-hour
-                    # entry, and each later request reads the bad body from the cache and then
-                    # downloads the good one -- 1.9 MB twice, until the next run shifts the
-                    # candidates along. Evicting it would mean reaching the filesystem behind
-                    # `download_file`, which is shared plumbing, for a window measured in the
-                    # seconds it takes DWD to write a file
+                    # Only where there is nothing behind this candidate to fall back to: a
+                    # `NO_CACHE` fetch is served by a plain `HTTPFileSystem`, so the good body is
+                    # never written back over the bad one, and the re-ask therefore buys a fresher
+                    # run at the price of the file again on every request rather than repairing
+                    # anything. Where the run before this one is right there, it is the better
+                    # answer -- an hour older, free, and already correct. Where there is none, an
+                    # explicitly pinned `issue` or a listing naming a single run, the re-ask is the
+                    # only path to any data at all, and then it is worth its price: for a pinned
+                    # `issue` the candidates never shift, so a file DWD serves corrupt is fetched
+                    # twice per request for as long as the request is made.
+                    #
+                    # Only a body that arrived and could not be read, too: a fetch that failed has
+                    # already been retried by `download_file`, and asking a server that just
+                    # refused to serve the file is not a recovery. Nor is there anything to ask
+                    # past where the cache is disabled, the body having come off the wire to begin
+                    # with -- `register` hands back a plain filesystem for any TTL there
                     content = self._run_content(url, CacheExpiry.NO_CACHE, settings)
                     df = _read_run(content, url) if content is not None else None
                 if df is not None:

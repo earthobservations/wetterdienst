@@ -349,9 +349,13 @@ Types of changes:
   run before it went untried -- the same window, one byte-count away. And a body that could not be
   read is asked for once more past the cache before falling back, since it is held under its URL
   for twelve hours like a good one, and the run DWD has since finished writing would otherwise be
-  answered from the half of it that was cached for the rest of the hour -- though not where caching
-  is disabled, the body having come off the wire to begin with. Found while reviewing the fix
-  above. GH-1922
+  answered from the half of it that was cached. That re-ask is made only where nothing stands
+  behind the candidate -- an explicitly pinned `issue`, or a listing naming one run -- because a
+  `NO_CACHE` fetch is served by a plain filesystem and so never writes the good body back over the
+  bad one: it buys a fresher run at the price of the file again on every request rather than
+  repairing anything, and where the run before this one is right there, that one is an hour older,
+  free and already correct. It is also not made where caching is disabled, the body having come off
+  the wire to begin with. Found while reviewing the fix above. GH-1922
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --

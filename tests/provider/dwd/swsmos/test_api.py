@@ -470,27 +470,59 @@ def test_swsmos_run_that_arrives_empty_falls_back_like_one_that_cannot_be_read(
     assert "holds no readings (0 bytes)" in caplog.text
 
 
-def test_swsmos_unreadable_run_is_asked_for_again_past_the_cache(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A run DWD has finished writing is read now, not after the cache entry it poisoned expires.
+def test_swsmos_unreadable_run_is_asked_for_again_where_nothing_stands_behind_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A pinned run that cannot be read is asked for once more past the cache.
 
-    A body that cannot be read is held under its URL for twelve hours like a good one, so the rest
-    of the hour was answered from the run before it even once the newest was complete. Asked once
-    more past the cache, the complete file is picked up -- and only where a body that arrived could
-    not be read, a failed fetch having been retried by `download_file` already.
+    A body that cannot be read is held under its URL for twelve hours like a good one, so a run DWD
+    has since finished writing would be answered from the half of it that was cached. Where there
+    is nothing behind the candidate -- an explicitly pinned `issue` names one run and no fallback
+    -- the re-ask is the only path to any data at all.
+    """
+    good = _run_file(("A006", "202607310900", "20.0"))
+    asked = []
+
+    def download(**kwargs: object) -> File:
+        asked.append((cast("str", kwargs["url"]).rsplit("/", 1)[-1], kwargs["ttl"]))
+        # the cached body is half-written; asked past the cache the run is complete
+        body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
+        return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
+
+    monkeypatch.setattr(api, "download_file", download)
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert asked == [
+        ("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS),
+        ("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.NO_CACHE),
+    ]
+    assert df.get_column("value").to_list() == [20.0]
+
+
+def test_swsmos_unreadable_run_with_a_fallback_takes_the_fallback_rather_than_the_file_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Where the run before it is right there, it is the better answer than the file twice.
+
+    A `NO_CACHE` fetch is served by a plain filesystem, so the good body is never written back over
+    the bad one: the re-ask buys a fresher run at the price of the file again on every request
+    rather than repairing anything. The run before this one is an hour older, free, and already
+    correct -- and on a cache miss the re-ask would download the same half-written file twice.
     """
     newest = "swsmos_20260731080000_opendata.csv.bz2"
     older = "swsmos_20260731070000_opendata.csv.bz2"
-    good = _run_file(("A006", "202607310900", "20.0"))
     asked = []
 
     def download(**kwargs: object) -> File:
         name = cast("str", kwargs["url"]).rsplit("/", 1)[-1]
         asked.append((name, kwargs["ttl"]))
-        # the cached body of the newest run is half-written; asked past the cache it is complete
-        if name == newest:
-            body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
-        else:
-            body = _run_file(("A006", "202607310800", "17.9"))
+        body = b"\x42\x5a\x68truncated" if name == newest else _run_file(("A006", "202607310800", "17.9"))
         return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
 
     monkeypatch.setattr(
@@ -505,8 +537,8 @@ def test_swsmos_unreadable_run_is_asked_for_again_past_the_cache(monkeypatch: py
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
 
-    assert asked == [(newest, CacheExpiry.TWELVE_HOURS), (newest, CacheExpiry.NO_CACHE)]
-    assert df.get_column("value").to_list() == [20.0]  # the newest run, once it could be read
+    assert asked == [(newest, CacheExpiry.TWELVE_HOURS), (older, CacheExpiry.TWELVE_HOURS)]
+    assert df.get_column("value").to_list() == [17.9]
 
 
 def test_swsmos_unreadable_run_is_not_re_asked_where_the_cache_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -517,28 +549,22 @@ def test_swsmos_unreadable_run_is_not_re_asked_where_the_cache_is_disabled(monke
     set, so the first fetch was already live and asking again would download the same bytes twice
     for nothing.
     """
-    settings = Settings(cache_disable=True)
-    newest = "swsmos_20260731080000_opendata.csv.bz2"
-    older = "swsmos_20260731070000_opendata.csv.bz2"
     asked = []
 
     def download(**kwargs: object) -> File:
-        name = cast("str", kwargs["url"]).rsplit("/", 1)[-1]
-        asked.append(name)
-        body = b"\x42\x5a\x68truncated" if name == newest else _run_file(("A006", "202607310800", "17.9"))
-        return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
+        asked.append((cast("str", kwargs["url"]).rsplit("/", 1)[-1], kwargs["ttl"]))
+        return File(url=cast("str", kwargs["url"]), content=BytesIO(b"\x42\x5a\x68truncated"), status=200)
 
-    monkeypatch.setattr(
-        api,
-        "list_remote_files_fsspec",
-        lambda *_args, **_kwargs: [f"{api._BASE_URL}/{name}" for name in (newest, older)],  # noqa: SLF001
-    )
     monkeypatch.setattr(api, "download_file", download)
+    # a pinned issue, so nothing stands behind the candidate and only `cache_disable` holds the
+    # re-ask back
+    stations = _stub_stations(settings=Settings(cache_disable=True))
+    stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
 
-    df = _stub_stations(settings=settings).values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
 
-    assert asked == [newest, older], "the unreadable run is asked for once, then the run before it"
-    assert df.get_column("value").to_list() == [17.9]
+    assert asked == [("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS)]
+    assert df.is_empty()
