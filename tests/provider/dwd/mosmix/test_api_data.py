@@ -10,6 +10,7 @@ import polars as pl
 import pytest
 
 from wetterdienst import Settings
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
@@ -288,23 +289,60 @@ def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false: Settings)
     assert set(response.df["parameter"]).issuperset(["dd", "ww"])
 
 
-def test_mosmix_listing_without_a_latest_file_says_which_directory(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A directory holding forecasts but no ``LATEST`` among them names itself.
+def test_mosmix_latest_answers_with_the_newest_run_the_listing_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`LATEST` reads the newest named run, not the alias beside it.
 
-    This is the case the fix is for, and the one the empty-directory tests below cannot reach --
-    they are answered by the empty-listing guard before this branch runs. `next` raises
-    `StopIteration` where its filter matches nothing, which the `except IndexError` guarding it
-    never caught: raised inside `query()`'s generator that surfaced as `RuntimeError: generator
-    raised StopIteration` (PEP 479), and called directly as a bare `StopIteration` carrying no
-    message.
+    The two are the same bytes -- one ETag, one content-length, one Last-Modified for both -- but a
+    run named by its timestamp is that run for good, where the alias is a name whose content DWD
+    replaces every hour. Only the named one can be held, and `MOSMIX_S` is 36 MB.
     """
     from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
 
     monkeypatch.setattr(
         api,
         "list_remote_files_fsspec",
-        # the directory publishes forecasts, just not the alias
-        lambda *_args, **_kwargs: ["https://example.com/kml/MOSMIX_L_2026090109_01001.kmz"],
+        lambda *_args, **_kwargs: [
+            "https://example.com/kml/MOSMIX_L_2026092203_01001.kmz",
+            "https://example.com/kml/MOSMIX_L_2026092209_01001.kmz",
+            "https://example.com/kml/MOSMIX_L_LATEST_01001.kmz",
+        ],
+    )
+    values = _stub_mosmix_stations().values
+
+    resolved = values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST)
+
+    assert resolved.rsplit("/", 1)[-1] == "MOSMIX_L_2026092209_01001.kmz"
+
+
+def test_mosmix_latest_falls_back_to_the_alias_where_no_run_is_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A listing naming no run has only the alias to go on, and it is held briefly for that reason."""
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: ["https://example.com/kml/MOSMIX_L_LATEST_01001.kmz"],
+    )
+    values = _stub_mosmix_stations().values
+
+    resolved = values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST)
+
+    assert resolved.rsplit("/", 1)[-1] == "MOSMIX_L_LATEST_01001.kmz"
+
+
+def test_mosmix_latest_with_neither_a_run_nor_an_alias_says_which_directory(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A directory holding files, none of them a forecast, names itself.
+
+    `next` raises `StopIteration` where its filter matches nothing, which the `except IndexError`
+    guarding it never caught: raised inside `query()`'s generator that surfaced as `RuntimeError:
+    generator raised StopIteration` (PEP 479), and called directly as a bare `StopIteration`.
+    """
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: ["https://example.com/kml/README.txt"],
     )
     values = _stub_mosmix_stations().values
 
@@ -377,25 +415,30 @@ def _stub_mosmix_stations() -> StationsResult:
         pytest.param("LATEST", id="latest"),
     ],
 )
-def test_mosmix_directory_holding_nothing_says_so_whichever_run_was_asked_for(
+def test_mosmix_directory_holding_nothing_costs_that_station_and_no_more(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
     date: dt.datetime | str,
 ) -> None:
-    """An empty directory is one thing whichever branch asked, and the two used to differ.
+    """A station whose directory DWD emptied answers with nothing, rather than ending the request.
 
-    `LATEST` found nothing to match and raised past the message written for it; an explicit issue
-    built a frame whose ``url`` column was all-null and met `invalid series dtype: expected String,
-    got null` in the split below, never reaching its own `IndexError`. Same directory, two opaque
-    failures.
+    Nothing between `get_url_for_date` and `values.all()` catches, so one such station used to take
+    the other forty-nine of a fifty-station request with it. `dwd/dmo` has always made this split;
+    mosmix raised because its return type said it must.
+
+    The listing is not proof either way -- `fs.find` walks with `on_error="omit"`, so a failed walk
+    and a 404 both arrive looking like an empty directory -- which is why this is warned about
+    rather than passed over.
     """
     from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
 
+    caplog.set_level(logging.WARNING)
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
     values = _stub_mosmix_stations().values
     asked = api.DwdForecastDate.LATEST if date == "LATEST" else date
 
-    with pytest.raises(IndexError, match="Unable to find any file within"):
-        values.get_url_for_date("https://example.com/kml/", asked)
+    assert values.get_url_for_date("https://example.com/kml/", asked) is None
+    assert "a listing that failed looks the same" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -590,3 +633,48 @@ def test_mosmix_available_issues_counts_rather_than_diagnoses(
     assert DwdMosmixRequest.available_issues("01001", Settings()) == []
     assert f"({len(listing)} entries, {expected_aliases} of them the LATEST alias)" in caplog.text
     assert "No dated run listed within" in caplog.text
+
+
+def test_mosmix_one_emptied_directory_does_not_cost_the_other_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The point of returning None: a request for several stations survives one of them going quiet."""
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    def listing(url: str, *_args: object, **_kwargs: object) -> list[str]:
+        # 01001's directory has been emptied; 01002's still publishes
+        return [] if "01001" in url else [f"{url}MOSMIX_L_2026092209_01002.kmz"]
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", listing)
+    read: list[str] = []
+    monkeypatch.setattr(api.KMLReader, "read", lambda _self, url: read.append(url))
+    monkeypatch.setattr(api.KMLReader, "get_station_forecast", lambda _self, _station_id: pl.DataFrame({"x": [1]}))
+
+    values = _stub_mosmix_stations().values
+    quiet = values.read_mosmix_large("01001", api.DwdForecastDate.LATEST)
+    publishing = values.read_mosmix_large("01002", api.DwdForecastDate.LATEST)
+
+    assert quiet.is_empty()
+    assert not publishing.is_empty()
+    assert read == [
+        "https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/single_stations/01002/kml/MOSMIX_L_2026092209_01002.kmz"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_ttl"),
+    [
+        pytest.param("https://x/kml/MOSMIX_L_2026092209_01001.kmz", CacheExpiry.TWELVE_HOURS, id="a-named-run"),
+        pytest.param("https://x/kml/MOSMIX_L_LATEST_01001.kmz", CacheExpiry.FIVE_MINUTES, id="the-alias"),
+    ],
+)
+def test_mosmix_holds_a_named_run_longer_than_a_mutable_alias(url: str, expected_ttl: CacheExpiry) -> None:
+    """How long a forecast may be held is a property of the URL, not of the reader.
+
+    A run named by its timestamp is that run for good; a `LATEST` alias is a name whose content DWD
+    replaces every hour. Holding everything briefly meant re-downloading `MOSMIX_S` -- 36 MB,
+    published hourly -- up to twelve times an hour for a file that had not changed.
+    """
+    from wetterdienst.provider.dwd.mosmix.access import KMLReader  # noqa: PLC0415
+
+    reader = KMLReader(station_ids=["01001"], settings=Settings())
+
+    assert reader._filesystem_for(url) is reader._filesystems[expected_ttl]  # noqa: SLF001
