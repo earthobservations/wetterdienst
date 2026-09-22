@@ -163,7 +163,9 @@ Types of changes:
   re-downloading `MOSMIX_S`, 36 MB published hourly, up to twelve times an hour for a file that had
   not changed; a named run is held for twelve hours and only the alias, still the fallback for a
   listing that names no run, keeps the short expiry. `dwd/road` and `dwd/dmo` already index the
-  named files and skip the alias. GH-1945
+  named files and skip the alias. What that costs is a distinct URL per run, so the cache gains a
+  blob an hour where it reused one -- roughly 430 MB a day for MOSMIX-S against a twelfth of the
+  bytes over the wire, and disk that nothing evicts until GH-1955 is answered. GH-1945
 
 - DWD mosmix: a station whose directory DWD has emptied or retired costs that station and no more.
   `get_url_for_date` raised on a listing that named nothing, and nothing between it and
