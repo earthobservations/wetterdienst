@@ -92,12 +92,24 @@ def _read_run(content: bytes, url: str) -> pl.DataFrame | None:
     caller catches, so a truncated download used to end the request in a traceback where a failed
     download ends it in an empty frame. It also lands in the cache, so the traceback would have
     repeated for twelve hours. Reported and answered the way a failed fetch is instead.
+
+    A body holding no readings is the same answer. `bz2.decompress(b"")` returns `b""` rather than
+    raising, so a zero-byte 200 -- the first instant of the file the uncached listing has just
+    named, or a mirror answering with nothing -- parses to a frame of no rows and no columns. Read
+    as a run that simply holds nothing, that frame was the request's answer and the run before it
+    was never tried: the window the fallback exists for, one byte-count away from the truncation it
+    does catch. A run file holds every station at every forecast hour, so one holding nothing is
+    one that was not read.
     """
     try:
-        return _read_run_csv(content)
+        df = _read_run_csv(content)
     except (OSError, ValueError, EOFError, pl.exceptions.PolarsError) as ex:
         log.warning(f"Failed to read SWSMOS run {url}: {ex!r}")
         return None
+    if df.is_empty():
+        log.warning(f"SWSMOS run {url} holds no readings ({len(content)} bytes)")
+        return None
+    return df
 
 
 class DwdSwsmosValues(TimeseriesValues):
@@ -203,6 +215,18 @@ class DwdSwsmosValues(TimeseriesValues):
             for url, ttl in self._run_candidates(settings):
                 content = self._run_content(url, ttl, settings)
                 df = _read_run(content, url) if content is not None else None
+                if content is not None and df is None and ttl is not CacheExpiry.NO_CACHE:
+                    # a body that cannot be read is held under its URL for as long as a good one
+                    # would be, so the run DWD has since finished writing would be answered from
+                    # the half of it that was cached -- for the rest of the hour, until the next
+                    # run shifts the candidates along. Asked once more past the cache, a run that
+                    # is complete now is read now; one that is still not there falls through to
+                    # the run before it as before. Only a body that arrived and could not be read
+                    # is asked for again: a fetch that failed has already been retried by
+                    # `download_file`, and asking a server that just refused to serve the file is
+                    # not a recovery
+                    content = self._run_content(url, CacheExpiry.NO_CACHE, settings)
+                    df = _read_run(content, url) if content is not None else None
                 if df is not None:
                     self._run_frame_cache = df
                     break

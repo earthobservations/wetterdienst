@@ -6,6 +6,7 @@ import bz2
 import datetime as dt
 import logging
 from io import BytesIO
+from typing import cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -429,3 +430,79 @@ def test_swsmos_run_that_cannot_be_read_falls_back_to_the_one_before_it(
     assert df.get_column("value").to_list() == [17.9]  # the 07:00 run, the 08:00 one being unreadable
     assert "Failed to read SWSMOS run" in caplog.text
     assert "swsmos_20260731080000_opendata.csv.bz2" in caplog.text
+
+
+def test_swsmos_run_that_arrives_empty_falls_back_like_one_that_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A zero-byte run is the same window as a truncated one, and takes the same way out.
+
+    `bz2.decompress(b"")` returns `b""` rather than raising, so a zero-byte 200 -- the first
+    instant of the file the uncached listing has just named -- parses to a frame of no rows and no
+    columns. Read as a run that simply holds nothing, that frame was the request's answer and the
+    run before it was never tried: the window the fallback exists for, one byte-count away from the
+    truncation it does catch.
+    """
+    caplog.set_level(logging.WARNING)
+    bodies = {
+        "swsmos_20260731080000_opendata.csv.bz2": b"",  # published, not yet written
+        "swsmos_20260731070000_opendata.csv.bz2": _run_file(("A006", "202607310800", "17.9")),
+    }
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/{name}" for name in bodies],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(bodies[kwargs["url"].rsplit("/", 1)[-1]]), status=200),
+    )
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.get_column("value").to_list() == [17.9]  # the 07:00 run
+    assert "holds no readings (0 bytes)" in caplog.text
+
+
+def test_swsmos_unreadable_run_is_asked_for_again_past_the_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run DWD has finished writing is read now, not after the cache entry it poisoned expires.
+
+    A body that cannot be read is held under its URL for twelve hours like a good one, so the rest
+    of the hour was answered from the run before it even once the newest was complete. Asked once
+    more past the cache, the complete file is picked up -- and only where a body that arrived could
+    not be read, a failed fetch having been retried by `download_file` already.
+    """
+    newest = "swsmos_20260731080000_opendata.csv.bz2"
+    older = "swsmos_20260731070000_opendata.csv.bz2"
+    good = _run_file(("A006", "202607310900", "20.0"))
+    asked = []
+
+    def download(**kwargs: object) -> File:
+        name = cast("str", kwargs["url"]).rsplit("/", 1)[-1]
+        asked.append((name, kwargs["ttl"]))
+        # the cached body of the newest run is half-written; asked past the cache it is complete
+        if name == newest:
+            body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
+        else:
+            body = _run_file(("A006", "202607310800", "17.9"))
+        return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/{name}" for name in (newest, older)],  # noqa: SLF001
+    )
+    monkeypatch.setattr(api, "download_file", download)
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert asked == [(newest, CacheExpiry.TWELVE_HOURS), (newest, CacheExpiry.NO_CACHE)]
+    assert df.get_column("value").to_list() == [20.0]  # the newest run, once it could be read

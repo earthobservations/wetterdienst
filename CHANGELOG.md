@@ -343,7 +343,14 @@ Types of changes:
   nothing. What counts as a run is matched exactly (`swsmos_<14 digits>_opendata.csv.bz2`) rather
   than by a `swsmos_` prefix, which also matches a checksum sidecar or a second product published
   beside the runs -- and one of those sorts *after* the run it belongs to, so the newest name would
-  have been a file that is not a run. Found while reviewing the fix above. GH-1922
+  have been a file that is not a run. A run that arrives holding nothing takes the same way out:
+  `bz2.decompress(b"")` returns `b""` rather than raising, so a zero-byte 200 parsed to a frame of
+  no rows and read as a run that simply holds nothing, which became the request's answer while the
+  run before it went untried -- the same window, one byte-count away. And a body that could not be
+  read is asked for once more past the cache before falling back, since it is held under its URL
+  for twelve hours like a good one, and the run DWD has since finished writing would otherwise be
+  answered from the half of it that was cached for the rest of the hour. Found while reviewing the
+  fix above. GH-1922
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
