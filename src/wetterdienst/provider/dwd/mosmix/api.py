@@ -190,10 +190,12 @@ class DwdMosmixValues(TimeseriesValues):
         urls = list_remote_files_fsspec(url, cast("Settings", self.sr.stations.settings), CacheExpiry.NO_CACHE)
         if not urls:
             # answered before either branch reads the listing: an empty one fails differently in
-            # each, and both in a way that names neither the directory nor what was looked for
-            # the same ambiguity `available_issues` warns about below, and worth the same words:
-            # `fs.find` swallows a failed walk, so "holds nothing" is also what "could not be read"
-            # looks like from here
+            # each, and both in a way that names neither the directory nor what was looked for.
+            #
+            # And said with the doubt it deserves: `fs.find` walks with `on_error="omit"`, which
+            # swallows `OSError` -- aiohttp's `ClientOSError` is one -- so a listing that could not
+            # be read arrives looking exactly like a directory that holds nothing, as does the 404
+            # of a station id that does not exist
             msg = f"Unable to find any file within {url}; a listing that failed looks the same as one that is empty"
             raise IndexError(msg)
 
