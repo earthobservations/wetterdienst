@@ -286,8 +286,9 @@ class DwdDmoRequest(TimeseriesRequest):
             # a directory that exists and holds nothing has no issues to name. Built into a frame
             # it is a `url` column of dtype Null, and the split below raises `invalid series dtype:
             # expected String, got null` out of `wetterdienst issues` -- the same fault fixed for
-            # `dwd/mosmix` alongside this -- though there `get_url_for_date` raises where the one
-            # above returns `None`, which is that provider's contract rather than a disagreement.
+            # `dwd/mosmix`, which GH-1946 fixes there -- though in that provider
+            # `get_url_for_date` raises where the one above returns `None`, which is its contract
+            # rather than a disagreement.
             #
             # Warned about rather than simply answered, because a listing that *failed* looks the
             # same from here: `fs.find` walks with `on_error="omit"`, which swallows `OSError`, and
@@ -303,12 +304,18 @@ class DwdDmoRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.col("date_str").str.slice(offset=0, length=pl.col("date_str").str.len_chars() - 4),
         )
-        # a DMO run file ends in the `DDHHMM` the run started at. An entry that does not -- a
-        # README, a checksum -- used to reach `add_date_from_filename` and raise `conversion from
-        # str to i64 failed ... ["AD"]`, which is the fault the mosmix half of this fixes by
-        # reading the run by pattern rather than by position. The positional read stays, being
-        # GH-1948's to replace; what changes is that a name it cannot read is dropped rather than
-        # taking the request with it
+        # a DMO run file ends in the `DDHHMM` the run started at, in a name ending `.kmz`. An
+        # entry that does neither -- a README, a checksum -- used to reach `add_date_from_filename`
+        # and raise `conversion from str to i64 failed ... ["AD"]`; GH-1946 removes the same fault
+        # from `dwd/mosmix`, there by reading the run by pattern rather than by position.
+        #
+        # The positional read stays here, and so does the one in `get_url_for_date` above, which
+        # reads this same directory for the data path and has no filter at all: a `.md5` beside a
+        # forecast makes its lead-time match keep both and `.item()` raise, and a `.txt` parses to
+        # a run it will then hand to the reader. Both are GH-1948's, with the lead-time substring
+        # match and the tz-aware issues this method advertises that that one rejects. What changes
+        # here is only that a name this filter cannot read is dropped rather than taking the
+        # request with it
         df = df.filter(
             pl.col("date_str").str.contains(r"^\d{6}$")
             # the extension as well as the stamp, as the mosmix rule in this change checks: the

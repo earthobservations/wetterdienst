@@ -164,12 +164,13 @@ def test_dmo_available_issues_answers_rather_than_raises(
     listing: list[str],
     expected_warning: str,
 ) -> None:
-    """The sibling of the mosmix fix, reached the same way: `wetterdienst issues`.
+    """The same fault `dwd/mosmix` has, reached the same way: `wetterdienst issues`.
 
     An empty listing builds a `url` column of dtype Null and the split below it raised `invalid
     series dtype: expected String, got null`; an entry that is not a forecast reached
     `add_date_from_filename` and raised `conversion from str to i64 failed ... ["AD"]`. "Which runs
-    exist?" has an answer in both cases: none, said out loud.
+    exist?" has an answer in both cases: none, said out loud. GH-1946 does the same for the other
+    provider; neither depends on the other.
     """
     import logging  # noqa: PLC0415
 

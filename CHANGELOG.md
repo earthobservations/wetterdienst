@@ -115,7 +115,8 @@ Types of changes:
   empty listing built a `url` column of dtype Null and raised `invalid series dtype: expected
   String, got null`; an entry that is not a forecast reached `add_date_from_filename` and raised
   `conversion from str to i64 failed ... ["AD"]`. Which runs exist has an answer in both cases:
-  none. Said with a warning naming the directory, because `fs.find` walks with `on_error="omit"`
+  none -- as `dwd/mosmix` now does for its own directory, in GH-1946, which this does not depend
+  on. Said with a warning naming the directory, because `fs.find` walks with `on_error="omit"`
   and aiohttp's `ClientOSError` is an `OSError`, so a connection reset mid-listing -- and the 404 of
   a station id that does not exist -- arrive looking exactly like an empty directory, and a silent
   `[]` would make either a fact about the station. What that costs a caller who is not reading a
