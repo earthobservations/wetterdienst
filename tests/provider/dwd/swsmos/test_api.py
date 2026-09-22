@@ -568,23 +568,26 @@ def test_swsmos_listing_naming_no_run_says_so(
     assert "No SWSMOS run listed within" in caplog.text
 
 
-def test_swsmos_unreadable_run_is_not_re_asked_where_the_cache_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With caching disabled the body came off the wire, so there is nothing to ask past.
+def test_swsmos_unreadable_run_is_asked_for_again_even_where_the_cache_is_said_to_be_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`cache_disable` does not say whether a cache stood in the way, so it does not hold the re-ask back.
 
-    The re-ask exists because a body that cannot be read is held under its URL for twelve hours.
-    `NetworkFilesystemManager.register` hands back a plain `HTTPFileSystem` when `cache_disable` is
-    set, so the first fetch was already live and asking again would download the same bytes twice
-    for nothing.
+    `NetworkFilesystemManager` keys its filesystems by TTL and client kwargs alone and registers
+    one only where that key is new, so a request made with caching disabled is served by whatever
+    was registered first in that thread, cache and all (GH-1947). Reading the flag as though it
+    meant "this body came off the wire" would skip the re-ask in the one case that needs it; one
+    duplicate fetch where caching really is off is the cheaper mistake.
     """
+    good = _run_file(("A006", "202607310900", "20.0"))
     asked = []
 
     def download(**kwargs: object) -> File:
         asked.append((cast("str", kwargs["url"]).rsplit("/", 1)[-1], kwargs["ttl"]))
-        return File(url=cast("str", kwargs["url"]), content=BytesIO(b"\x42\x5a\x68truncated"), status=200)
+        body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
+        return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
 
     monkeypatch.setattr(api, "download_file", download)
-    # a pinned issue, so nothing stands behind the candidate and only `cache_disable` holds the
-    # re-ask back
     stations = _stub_stations(settings=Settings(cache_disable=True))
     stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
 
@@ -593,5 +596,8 @@ def test_swsmos_unreadable_run_is_not_re_asked_where_the_cache_is_disabled(monke
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
 
-    assert asked == [("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS)]
-    assert df.is_empty()
+    assert asked == [
+        ("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS),
+        ("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.NO_CACHE),
+    ]
+    assert df.get_column("value").to_list() == [20.0]

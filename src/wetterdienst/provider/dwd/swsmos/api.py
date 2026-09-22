@@ -220,7 +220,7 @@ class DwdSwsmosValues(TimeseriesValues):
             for url, ttl in self._run_candidates(settings):
                 content = self._run_content(url, ttl, settings)
                 df = _read_run(content, url) if content is not None else None
-                if content is not None and df is None and not settings.cache_disable:
+                if content is not None and df is None:
                     # a body that cannot be read is held under its URL for as long as a good one
                     # would be, so what the cache hands back says nothing about what the server has
                     # now. Asked once more past it, a run DWD has since finished writing is read
@@ -242,9 +242,16 @@ class DwdSwsmosValues(TimeseriesValues):
                     #
                     # Only a body that arrived and could not be read: a fetch that failed has
                     # already been retried by `download_file`, and asking a server that just
-                    # refused to serve the file is not a recovery. Nor is there anything to ask
-                    # past where the cache is disabled, the body having come off the wire to begin
-                    # with -- `register` hands back a plain filesystem for any TTL there
+                    # refused to serve the file is not a recovery.
+                    #
+                    # Not guarded on `cache_disable`, though a body fetched without a cache has
+                    # nothing to ask past: `NetworkFilesystemManager` keys its filesystems by TTL
+                    # and client kwargs alone, and registers one only where that key is new -- so
+                    # a request made with caching disabled is served by whatever was registered
+                    # first in that thread, cache and all. The flag therefore does not say whether
+                    # a cache stood in the way, and a guard reading it as though it did would skip
+                    # the re-ask in the one case that needs it. One duplicate fetch where caching
+                    # really is off is the cheaper mistake (GH-1947)
                     content = self._run_content(url, CacheExpiry.NO_CACHE, settings)
                     df = _read_run(content, url) if content is not None else None
                 if df is not None:

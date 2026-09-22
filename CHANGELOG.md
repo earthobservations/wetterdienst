@@ -351,8 +351,14 @@ Types of changes:
   for twelve hours like a good one, so what the cache hands back says nothing about what the server
   has now -- and answering from the run before it without asking would mean an hour of yesterday's
   hour while the run the caller asked for sits complete on the server. `LATEST` means the newest
-  run there is, not the newest one a stale cache entry will admit to. The re-ask is not made where
-  caching is disabled, the body having come off the wire to begin with. A listing that names no run
+  run there is, not the newest one a stale cache entry will admit to. The re-ask is not held back by
+  `cache_disable`, which does not say what it looks like it says: `NetworkFilesystemManager` keys
+  its filesystems by TTL and client kwargs alone and registers one only where that key is new, so a
+  request made with caching disabled is served by whatever was registered first in that thread,
+  cache and all (GH-1947). Naming the run rather than the alias also means a distinct URL per model
+  run, so the cache grows by one 1.9 MB body an hour where it used to refetch one -- small against
+  the 4.2 GB that a cache with no eviction reaches on its own, and tracked in GH-1947. A listing
+  that names no run
   at all now says so too, where it used to answer every station with an empty frame and no
   diagnostic: the listing is retried and re-raises, so an empty one means the server named nothing,
   which is a directory reorganised rather than a day without data. Found while reviewing the fix
