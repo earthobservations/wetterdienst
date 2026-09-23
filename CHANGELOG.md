@@ -59,6 +59,13 @@ Types of changes:
 
 ### Fixed
 
+- DWD swsmos: a body that could not be read is not fetched a second time when the caller has
+  disabled the cache. The re-ask exists to get past a cached bad body, and `cache_disable` now says
+  whether there is one: it named nothing in `NetworkFilesystemManager`'s registry key when this was
+  written -- a request that disabled the cache was served by whatever had been registered first in
+  that thread, cache and all -- and GH-1947 put it in that key, so the flag decides what is built
+  and asking again would fetch the same bytes down the same wire
+
 - Examples: the DuckDB dump addresses its database file with three slashes rather than four, so
   it opens on Windows. `ConnectionString` takes the database as the URL path with one leading
   slash removed, so exactly one slash belongs between the scheme and the path -- which a POSIX

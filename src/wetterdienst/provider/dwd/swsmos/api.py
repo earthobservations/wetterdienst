@@ -243,7 +243,7 @@ class DwdSwsmosValues(TimeseriesValues):
             for url, ttl in self._run_candidates(settings):
                 content = self._run_content(url, ttl, settings)
                 df = _read_run(content, url) if content is not None else None
-                if content is not None and df is None:
+                if content is not None and df is None and not settings.cache_disable:
                     # a body that cannot be read is held under its URL for as long as a good one
                     # would be, so what the cache hands back says nothing about what the server has
                     # now. Asked once more past it, a run DWD has since finished writing is read
@@ -276,14 +276,15 @@ class DwdSwsmosValues(TimeseriesValues):
                     # already been retried by `download_file`, and asking a server that just
                     # refused to serve the file is not a recovery.
                     #
-                    # Not guarded on `cache_disable`, though a body fetched without a cache has
-                    # nothing to ask past: `NetworkFilesystemManager` keys its filesystems by TTL
-                    # and client kwargs alone, and registers one only where that key is new -- so
-                    # a request made with caching disabled is served by whatever was registered
-                    # first in that thread, cache and all. The flag therefore does not say whether
-                    # a cache stood in the way, and a guard reading it as though it did would skip
-                    # the re-ask in the one case that needs it. One duplicate fetch where caching
-                    # really is off is the cheaper mistake (GH-1947)
+                    # Guarded on `cache_disable`, which now means what it says. It did not when
+                    # this was written: `NetworkFilesystemManager` keyed its filesystems by TTL and
+                    # client kwargs alone and registered one only where that key was new, so a
+                    # request made with caching disabled was served by whatever had been registered
+                    # first in that thread, cache and all -- and reading the flag as "this body came
+                    # off the wire" would have skipped the re-ask in the one case that needed it.
+                    # GH-1947 put `cache_disable` in that key (GH-1954), so a request that disables
+                    # the cache is now built a filesystem that has none, and there is provably
+                    # nothing to ask past: the re-ask would fetch the same bytes down the same wire.
                     content = self._run_content(url, CacheExpiry.NO_CACHE, settings)
                     df = _read_run(content, url, asked_again=True) if content is not None else None
                 if df is not None:
@@ -294,10 +295,12 @@ class DwdSwsmosValues(TimeseriesValues):
     def query(self) -> Iterator[ValuesResult]:
         """Answer each station of the request, from one run resolved for this query.
 
-        The run is pinned for the length of a query and no longer -- cleared on the way in, so a
-        caller keeping the values object and querying it again on a timer is answered with the run
-        published since rather than the one it first resolved, and cleared on the way out, so the
-        20 MB frame does not outlive the walk it was parsed for. `ValuesResult` holds the values
+        The run is pinned for the length of a query and no longer. The `finally` is what delivers
+        that, on both counts: the frame does not outlive the walk it was parsed for, and a caller
+        keeping the values object and querying it again on a timer therefore meets a cleared cache
+        and is answered with the run published since. Clearing on the way in as well guards a path
+        that would leave the cache populated without that `finally` having run; there is none
+        today, which is why no test fails when it is taken out. `ValuesResult` holds the values
         object that produced it, so without that second clear a request for one station's forecast
         handed back a result pinning the whole network's parsed run for as long as the caller kept
         it. Neither clear makes this re-entrant: two interleaved walks over one values object would

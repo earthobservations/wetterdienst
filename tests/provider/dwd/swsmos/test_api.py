@@ -574,16 +574,17 @@ def test_swsmos_listing_naming_no_run_says_so(
     assert "No SWSMOS run listed within" in caplog.text
 
 
-def test_swsmos_unreadable_run_is_asked_for_again_even_where_the_cache_is_said_to_be_disabled(
+def test_swsmos_unreadable_run_is_not_asked_for_again_where_there_is_no_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`cache_disable` does not say whether a cache stood in the way, so it does not hold the re-ask back.
+    """The re-ask exists to get past a cached bad body, and with caching off there is none.
 
-    `NetworkFilesystemManager` keys its filesystems by TTL and client kwargs alone and registers
-    one only where that key is new, so a request made with caching disabled is served by whatever
-    was registered first in that thread, cache and all (GH-1947). Reading the flag as though it
-    meant "this body came off the wire" would skip the re-ask in the one case that needs it; one
-    duplicate fetch where caching really is off is the cheaper mistake.
+    `cache_disable` did not always say that. It named nothing in `NetworkFilesystemManager`'s
+    registry key, which went by TTL and client kwargs alone and registered a filesystem only
+    where that key was new -- so a request made with caching disabled was served by whatever had
+    been registered first in that thread, cache and all, and the re-ask had to be made anyway.
+    GH-1947 put the flag in that key, so it now decides what is built, and asking again would
+    fetch the same bytes down the same wire.
     """
     good = _run_file(("A006", "202607310900", "20.0"))
     asked = []
@@ -602,8 +603,6 @@ def test_swsmos_unreadable_run_is_asked_for_again_even_where_the_cache_is_said_t
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
 
-    assert asked == [
-        ("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS),
-        ("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.NO_CACHE),
-    ]
-    assert df.get_column("value").to_list() == [20.0]
+    assert asked == [("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS)]
+    # and the unreadable body is what the caller is left with, rather than a second fetch of it
+    assert df.is_empty()
