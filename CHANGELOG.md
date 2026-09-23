@@ -108,7 +108,10 @@ Types of changes:
   fail every download for that TTL for the life of the process; and the lock is held across the
   sweep rather than around the bookkeeping, which is what keeps a `download_files` thread pool from
   writing rows that the sweep's own snapshot would then drop and orphan -- the leak this closes.
-  GH-1955
+  One lock covers building a caching filesystem as well as sweeping or reclaiming one, because
+  building reads the metadata file the other two delete: on POSIX an unlink leaves the open handle
+  readable and the race is invisible, where on Windows the builder gets `PermissionError` out of
+  fsspec's `CacheMetadata._load`. GH-1955
 
 - DWD mosmix: a `kml/` directory that exists and holds nothing says so, rather than raising past
   the line written for it -- whichever run was asked for. `next` raises `StopIteration` where its

@@ -1689,3 +1689,60 @@ def test_every_directory_this_writes_is_one_the_reclaim_can_recognise(
     assert not _is_superseded_layout(name), name
     # and a credentialed one is aged out like any other, where a shared one is never aged out
     assert bool(_IDENTITY_CACHE_DIR.match(name)) is (client_kwargs is not None), name
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+def test_no_filesystem_is_built_for_a_directory_while_it_is_being_tidied(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Building one *reads* the metadata file that the sweep and the reclaim delete.
+
+    On POSIX that is harmless -- an unlink leaves an open handle readable -- which is why holding
+    the lock over only the tidying looked sufficient, and why every run on Linux and macOS passed.
+    On Windows it is `PermissionError: [Errno 13]` out of fsspec's `CacheMetadata._load`, raised at
+    the builder rather than at the sweep, and CI is where that showed up.
+
+    So the invariant is asserted here rather than the platform behaviour: while one thread is inside
+    the tidying, no other thread has built a filesystem for that cache root.
+    """
+    tidying = threading.Event()
+    may_finish = threading.Event()
+    built: list[str] = []
+
+    original_init = WholeFileCacheFileSystem.__init__
+
+    def counting_init(self: WholeFileCacheFileSystem, *args: object, **kwargs: object) -> None:
+        built.append(str(kwargs.get("cache_storage", "")))
+        original_init(self, *args, **kwargs)
+
+    def clear_expired_cache(_self: object, expiry_time: float | None = None) -> None:  # noqa: ARG001
+        tidying.set()
+        may_finish.wait(timeout=10)
+
+    monkeypatch.setattr(WholeFileCacheFileSystem, "__init__", counting_init)
+    monkeypatch.setattr(WholeFileCacheFileSystem, "clear_expired_cache", clear_expired_cache)
+
+    # seed a blob so the first registration has something to sweep
+    storage = tmp_path / "fsspec" / "v2-ttl-TWELVE_HOURS"
+    storage.mkdir(parents=True)
+
+    sweeper = threading.Thread(target=lambda: _blob_dir(tmp_path))
+    sweeper.start()
+    assert tidying.wait(timeout=10), "the first caller never started tidying"
+    built_when_tidying_began = len(built)
+
+    other = threading.Thread(target=lambda: _blob_dir(tmp_path, CacheExpiry.FIVE_MINUTES))
+    other.start()
+    try:
+        # it wants a different directory under the same root, and still may not open one: the
+        # reclaim about to run can delete any directory under there
+        time.sleep(0.5)
+        assert len(built) == built_when_tidying_began
+    finally:
+        may_finish.set()
+    sweeper.join(timeout=10)
+    other.join(timeout=10)
+
+    # and once let go it builds its own
+    assert len(built) > built_when_tidying_began

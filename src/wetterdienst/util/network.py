@@ -441,7 +441,16 @@ _CACHE_LAYOUT_VERSION = "v2"
 #: Blob directories already swept of expired entries in this process. Process-wide rather than
 #: thread-local, because the directory is shared by every thread while the registry naming it is not.
 _swept_dirs: set[Path] = set()
-_sweep_lock = threading.Lock()
+
+#: Held across everything that opens or deletes a file under `cache_dir/fsspec`: building a caching
+#: filesystem, sweeping one of expired blobs, and reclaiming the directories nothing can reach.
+#:
+#: One lock over all three rather than one each, because *building* a filesystem reads its
+#: directory's metadata file and the other two can delete it. On POSIX that is harmless -- an unlink
+#: leaves the open handle readable -- which is why separate locks looked sufficient and why this
+#: passed everywhere it was run. On Windows it is `PermissionError: [Errno 13]` out of fsspec's
+#: `CacheMetadata._load`, and CI said so.
+_cache_dir_lock = threading.Lock()
 
 
 def _sweep_expired_blobs(
@@ -464,12 +473,12 @@ def _sweep_expired_blobs(
     * **The directory is marked swept before the attempt, not after.** `clear_expired` raises
       for a half-written entry -- exactly the case worth surviving -- and a sweep retried on
       every `register` would fail every download for this TTL rather than the one that met it.
-    * **The lock is held across the sweep**, which is what keeps siblings out. `clear_expired`
-      works from the snapshot its filesystem loaded and saves that snapshot back, so a sweep
-      running beside a `download_files` thread pool would drop rows its siblings had just
-      written and orphan their blobs -- the leak this exists to close. Every path to a download
-      in this directory passes through here first, so holding the lock until the sweep is done
-      means no thread is writing while it runs.
+    * **The caller holds `_cache_dir_lock` across this**, which is what keeps siblings out.
+      `clear_expired` works from the snapshot its filesystem loaded and saves that snapshot back,
+      so a sweep running beside a `download_files` thread pool would drop rows its siblings had
+      just written and orphan their blobs -- the leak this exists to close. It also deletes the
+      metadata file that *building* a filesystem for this directory reads, which on Windows is a
+      `PermissionError` for the builder rather than the harmless POSIX unlink.
 
     Args:
         filesystem: The caching filesystem that owns this directory.
@@ -480,17 +489,16 @@ def _sweep_expired_blobs(
     # `bool` is a subclass of `int`, and `CacheExpiry.INFINITE` is `False`
     if isinstance(ttl_value, bool) or not isinstance(ttl_value, (int, float)) or ttl_value <= 0:
         return
-    with _sweep_lock:
-        if cache_path in _swept_dirs:
-            return
-        _swept_dirs.add(cache_path)
-        try:
-            # a second line rather than the line: the guard above already means this is positive,
-            # but fsspec substitutes `self.expiry` for a falsy argument and for an `INFINITE` cache
-            # that is the `0` described above, so what reaches it is said rather than left implied
-            filesystem.clear_expired_cache(expiry_time=ttl_value)
-        except Exception:
-            log.debug(f"Failed sweeping expired blobs in {cache_path}", exc_info=True)
+    if cache_path in _swept_dirs:
+        return
+    _swept_dirs.add(cache_path)
+    try:
+        # a second line rather than the line: the guard above already means this is positive, but
+        # fsspec substitutes `self.expiry` for a falsy argument and for an `INFINITE` cache that is
+        # the `0` described above, so what reaches it is said rather than left implied
+        filesystem.clear_expired_cache(expiry_time=ttl_value)
+    except Exception:
+        log.debug(f"Failed sweeping expired blobs in {cache_path}", exc_info=True)
 
 
 #: Any blob directory this module has ever written: `ttl-<NAME>` with an optional hash suffix,
@@ -522,7 +530,6 @@ _UNUSED_CACHE_SECONDS = 30 * 24 * 3600
 #: that it is aged out like any other directory a credential names.
 _UNREADABLE_IDENTITY = hashlib.sha256(b"unreadable credential headers").hexdigest()[:8]
 
-_reclaim_lock = threading.Lock()
 _reclaim_done: set[Path] = set()
 
 
@@ -576,11 +583,14 @@ def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
         fsspec_root: The `fsspec` directory under the cache dir that blob directories live in.
         keep: The directory the caller is about to use, never removed however it looks.
 
+    Note:
+        The caller holds `_cache_dir_lock`: this deletes directories whose metadata another thread
+        may be in the middle of opening.
+
     """
-    with _reclaim_lock:
-        if fsspec_root in _reclaim_done:
-            return
-        _reclaim_done.add(fsspec_root)
+    if fsspec_root in _reclaim_done:
+        return
+    _reclaim_done.add(fsspec_root)
 
     try:
         entries = [d for d in fsspec_root.iterdir() if d.is_dir() and d != keep]
@@ -771,20 +781,25 @@ class NetworkFilesystemManager:
             filesystem_effective = fs
         else:
             real_cache_dir = cls._cache_path(cache_dir, cache_expiry, client_kwargs)
-            filesystem_effective = WholeFileCacheFileSystem(
-                fs=fs,
-                cache_storage=str(real_cache_dir),
-                expiry_time=int(ttl_value),
-            )
-            # all three before the registry assignment below, and none of them able to raise: a
-            # cache that cannot be tidied must still be a cache that can be read.
-            #
-            # The mark goes after the sweep, not before: a sweep that leaves the cache empty has
-            # fsspec `rmtree` the whole directory and rebuild it, which takes the marker with it --
-            # and a directory whose marker is missing reads as one nothing has asked for in a month
-            _sweep_expired_blobs(filesystem_effective, real_cache_dir, ttl_value)
-            _mark_cache_dir_used(real_cache_dir)
-            _reclaim_unreachable_cache_dirs(real_cache_dir.parent, keep=real_cache_dir)
+            # built inside the lock, not merely tidied inside it: building reads this directory's
+            # metadata file, and the sweep and the reclaim below delete metadata files. On POSIX an
+            # unlink leaves an open handle readable and this was invisible; on Windows the builder
+            # gets `PermissionError` from fsspec's `CacheMetadata._load`
+            with _cache_dir_lock:
+                filesystem_effective = WholeFileCacheFileSystem(
+                    fs=fs,
+                    cache_storage=str(real_cache_dir),
+                    expiry_time=int(ttl_value),
+                )
+                # the tidying is before the registry assignment below, and none of it able to raise: a
+                # cache that cannot be tidied must still be a cache that can be read.
+                #
+                # The mark goes after the sweep, not before: a sweep that leaves the cache empty has
+                # fsspec `rmtree` the whole directory and rebuild it, which takes the marker with it --
+                # and a directory whose marker is missing reads as one nothing has asked for in a month
+                _sweep_expired_blobs(filesystem_effective, real_cache_dir, ttl_value)
+                _mark_cache_dir_used(real_cache_dir)
+                _reclaim_unreachable_cache_dirs(real_cache_dir.parent, keep=real_cache_dir)
         cls._get_filesystems()[key] = filesystem_effective
 
     @classmethod
