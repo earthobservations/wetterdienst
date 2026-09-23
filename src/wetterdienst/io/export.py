@@ -262,7 +262,7 @@ class ExportMixin:
         The target is identified by a connection string.
 
         Examples:
-        - duckdb://dwd.duckdb?table=weather
+        - duckdb:///dwd.duckdb?table=weather
         - influxdb://localhost/?database=dwd&table=weather
         - crate://localhost/?database=dwd&table=weather
 
