@@ -71,10 +71,16 @@ class KMLReader:
         # up to twelve times an hour for a file that had not changed (GH-1945).
         #
         # What it costs instead: a distinct URL per run, so the cache gains a blob an hour where it
-        # reused one. DWD keeps around 48 dated runs, and nothing evicts a blob once its expiry has
-        # passed (GH-1955), so a process polling hourly leaves roughly 430 MB a day behind for
-        # MOSMIX-S. Traded knowingly -- that is a twelfth of the bytes over the wire, and disk that
-        # GH-1955 is about reclaiming
+        # reused one -- 36 MB an hour, 871 MB a day for MOSMIX-S, against 10.4 GB a day over the
+        # wire before. Nothing evicts a blob once its expiry has passed, which is GH-1955 and is
+        # true of every provider here: the observation zips, the radar files and the rest all
+        # accumulate per URL already. Reusing one blob was mosmix's anomaly, and it came from
+        # resolving to a name whose content changed under it.
+        #
+        # `dwd/dmo` reads through this class too, so its downloads move with mosmix's. Its names
+        # carry the same kind of immutable run stamp (`ptp_gdmog_01001_078_1_230000.kmz`) and none
+        # of them says `LATEST`, so every DMO file takes the long hold -- correct, and worth saying
+        # because DMO keeps only a handful of runs, so a blob can outlive the file upstream
         self._filesystems = {
             ttl: NetworkFilesystemManager.get(
                 cache_dir=settings.cache_dir,
@@ -134,11 +140,13 @@ class KMLReader:
             #
             # So the entry is dropped and the run asked for once more. A body that is still not a
             # zip after that is upstream's, and raises
-            log.warning(f"Cached MOSMIX run {url} is not a zip; dropping it from the cache and asking again")
             filesystem = self._filesystem_for(url)
-            # a plain `HTTPFileSystem` holds nothing to drop, which is the `cache_disable` case
-            if isinstance(filesystem, WholeFileCacheFileSystem):
-                filesystem.pop_from_cache(url)
+            if not isinstance(filesystem, WholeFileCacheFileSystem):
+                # nothing held, so nothing to drop and nothing a second request would answer
+                # differently -- and for MOSMIX-S that second request is another 36 MB
+                raise
+            log.warning(f"Cached MOSMIX run {url} is not a zip; dropping it from the cache and asking again")
+            filesystem.pop_from_cache(url)
             return self._fetch(url)
 
     def _fetch(self, url: str) -> BinaryIO:

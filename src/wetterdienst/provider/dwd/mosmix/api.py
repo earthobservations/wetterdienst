@@ -90,8 +90,8 @@ def _run_stamp(urls: pl.Expr) -> pl.Expr:
     The forecast's own extension is part of the rule rather than "a name with ten digits in it
     somewhere", so that a companion file *carrying* the run stamp is dropped too. A
     ``MOSMIX_L_2026092203_01001.kmz.sha256`` beside its forecast would otherwise survive, two rows
-    would match one run. Two forms of the same forecast do that legitimately -- `.kml` beside
-    `.kmz` while DWD migrates -- so the caller sorts and takes the first rather than the
+    would match one run: a second lead time in one directory, `..._120.kmz` beside `..._240.kmz`.
+    The callers sort and take the last, all of them, rather than the
     `IndexError` written for a run with no file. DWD publishes no such sidecar today, which is what
     makes this the kind of thing to settle while the rule is being written rather than after.
     """
@@ -175,11 +175,13 @@ class DwdMosmixValues(TimeseriesValues):
 
     def read_mosmix_small(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Read single MOSMIX-S file for all stations or multiple files for single stations."""
+        from typing import cast  # noqa: PLC0415
+
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_S_PATH)
         # MOSMIX-S publishes every station in one file, so an empty listing is never one station's
-        file_url = self.get_url_for_date(url, date, one_station_only=False)
-        if not file_url:
-            return pl.DataFrame()
+        # -- and `one_station_only=False` raises rather than answering `None`, which is why there
+        # is no empty-frame branch here where `read_mosmix_large` has one
+        file_url = cast("str", self.get_url_for_date(url, date, one_station_only=False))
         self.kml.read(file_url)
         return self.kml.get_station_forecast(station_id)
 
@@ -257,17 +259,19 @@ class DwdMosmixValues(TimeseriesValues):
             # (GH-1945). `dwd/road` and `dwd/dmo` both index the named files and skip the alias.
             #
             # Newest by stamp, and by name after it -- `sorted` falls through to the URL where two
-            # names carry one stamp, and `[-1]` takes the last of them. The dated branch below
-            # sorts the other way and takes the first, so say plainly which is which rather than
-            # claim a rule both follow: only one file per run exists today, `_run_stamp` matching
-            # `.kmz` alone, and either end of a one-element sort is that file. The alias remains
-            # the fallback for a listing that names no run, where a mutable URL is all there is
+            # names carry one stamp, and `[-1]` takes the last of them. Every path here takes that
+            # same end: the dated branch below, and the alias fallback, so asking for a run by name
+            # and asking for the newest run cannot answer with different files. Only one file per
+            # run exists today, `_run_stamp` matching `.kmz` alone, so either end is that file --
+            # but a second lead time in one directory would make it matter
             runs = sorted((stamp, url_) for url_, stamp in ((u, _run_stamp_of(u)) for u in urls) if stamp is not None)
             if runs:
                 return runs[-1][1]
             aliases = sorted(url_ for url_ in urls if _LATEST_FILE.search(url_.rsplit("/", 1)[-1]))
             if aliases:
-                return aliases[0]
+                # the same end as every other path, so two alias forms -- a second lead time, which
+                # `dwd/dmo` already publishes -- cannot answer differently from the run paths
+                return aliases[-1]
             msg = f"Unable to find LATEST file within {url}"
             raise IndexError(msg)
 
