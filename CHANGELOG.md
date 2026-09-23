@@ -184,6 +184,13 @@ Types of changes:
   mid-copy leaves a truncated blob that is accepted for the life of the entry -- which held five
   minutes righted itself and held twelve hours would not. GH-1949
 
+- Examples: the DuckDB dump writes outside the repository when it runs under pytest. It is a smoke
+  test there rather than an artifact -- one station's values, thrown away -- but it wrote to the
+  tracked `examples/provider/dwd/dwd_obs_daily_climate_summary.duckdb`, so every test run left a
+  1.3 MB binary modified in the working tree. That has twice been committed by accident alongside
+  unrelated work, which is how it was noticed; a test now asserts the file is untouched after the
+  example runs.
+
 - Network: the cache says what it did, where it used to decide on a caller's behalf and keep
   quiet. `cache_dir`, `cache_disable` and `use_certifi` all decided what
   `NetworkFilesystemManager.register` built and were then not part of the key it was filed under,
