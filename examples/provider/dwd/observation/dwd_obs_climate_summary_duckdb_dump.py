@@ -21,7 +21,13 @@ def create_dwd_climate_summary_duckdb_dump(path: Path, *, test: bool) -> None:
         parameters=("daily", "climate_summary"),
         periods="historical",
     ).filter_by_rank(latlon=(47.5, 7.5), rank=10)
-    connection = f"duckdb:////{path}"
+    # three slashes, not four: `ConnectionString` takes the database as the URL path with one
+    # leading slash removed, so the path has to arrive with exactly one slash of its own in front
+    # of it. A POSIX path brings that itself (`duckdb:///` + `/tmp/x` reads back as `/tmp/x`),
+    # where a Windows one does not (`duckdb:///` + `C:\x` reads back as `C:\x`). A fourth slash
+    # left the POSIX form with a harmless doubled `//`, and the Windows form with a leading `/`
+    # that DuckDB reads as a UNC network path: `Cannot open file "//C:\..."`
+    connection = f"duckdb:///{path}"
     request.to_target(f"{connection}?table=stations")
     for result in tqdm(request.values.query(), total=request.df.shape[0]):
         result.to_target(f"{connection}?table=values")

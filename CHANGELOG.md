@@ -59,6 +59,14 @@ Types of changes:
 
 ### Fixed
 
+- Examples: the DuckDB dump addresses its database file with three slashes rather than four, so
+  it opens on Windows. `ConnectionString` takes the database as the URL path with one leading
+  slash removed, so exactly one slash belongs between the scheme and the path -- which a POSIX
+  path supplies itself and a Windows path does not. The fourth slash was silent on POSIX, where
+  the doubled `//` still resolves, and on Windows left DuckDB with `Cannot open file "//C:\..."`,
+  reading the leftover slash as a UNC share. The string was always wrong there; the test added in
+  GH-1958 is what ran the example on Windows and said so
+
 - DWD mosmix: a `kml/` directory that exists and holds nothing says so, rather than raising past
   the line written for it -- whichever run was asked for. `next` raises `StopIteration` where its
   filter matches nothing, and the `except IndexError` guarding the `LATEST` lookup never caught

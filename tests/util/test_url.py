@@ -4,6 +4,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from wetterdienst.util.url import ConnectionString
 
 
@@ -47,3 +49,23 @@ def test_connectionstring_temporary_file(tmp_path: Path) -> None:
     url = f"file://{filepath}"
     cs = ConnectionString(url)
     assert cs.path == str(filepath)
+
+
+@pytest.mark.parametrize(
+    "database",
+    [
+        "/var/folders/rk/dwd_obs_daily_climate_summary.duckdb",
+        r"C:\Users\RUNNER~1\AppData\Local\Temp\dwd_obs_daily_climate_summary.duckdb",
+        "dwd.duckdb",
+    ],
+    ids=["posix-absolute", "windows-absolute", "relative"],
+)
+def test_connectionstring_gives_back_the_file_path_it_was_given(database: str) -> None:
+    r"""A file sink is addressed by a path, and has to read back as the same path on every platform.
+
+    The database is the URL path with one leading slash removed, so exactly one slash belongs
+    between the scheme and the path -- which a POSIX path then supplies itself and a Windows path
+    does not. One slash too many is silent on POSIX, where a doubled `//` still resolves, and is
+    `Cannot open file "//C:\..."` on Windows, DuckDB reading the leftover slash as a UNC share.
+    """
+    assert ConnectionString(f"duckdb:///{database}?table=stations").database == database
