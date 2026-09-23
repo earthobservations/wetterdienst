@@ -71,6 +71,38 @@ Types of changes:
   through to the `dwd` default -- data written to an extensionless file named `dwd` in the working
   directory, with no error, and in the notebook's case to a file it then reads back under a
   different name
+- Network cache: the on-disk blob directory is separated by the TTL and by who is asking, and by
+  nothing else. It used to be named for a hash of the whole of `client_kwargs`, which mixes the two
+  kinds of thing that go in there: an `Authorization` header decides what a server sends back,
+  where a timeout, a proxy and a User-Agent decide nothing about it. The default User-Agent carries
+  the version number, so every release renamed the directory and began again from an empty cache --
+  and nothing read the old name afterwards or removed it. One developer machine held 129
+  directories under 98 distinct hashes and 4.3 GB, of which 115 MB was reachable by the installed
+  version; 1.4 GB sat under `ttl-INFINITE-*`, which is a provider saying those bytes never change.
+  A credential that rotates does the same on a faster clock, Met Office minting a three-day JWT.
+  Directories of the older layout are reclaimed on the first cached download of a process, which is
+  safe precisely because no key this version can produce names them. So is a directory a credential
+  named that has since rotated, aged out at a month by a marker touched whenever something asks for
+  the directory -- the blobs cannot answer that question, an archive read on every run and written
+  on none having file times as old as the day it was fetched. Only a directory a credential names
+  is ever aged out: the shared ones are named on every run, and reclaiming one for looking idle
+  would throw away the main cache rather than a leftover. The in-memory registry key is
+  deliberately unchanged and still separates on everything a filesystem is built from, transport
+  settings included: `register` runs only for a key that is new, so whatever that key omits, the
+  first caller in a thread decides for every later one. GH-1959
+- Network cache: a blob its own TTL has already made useless is dropped, once per directory per
+  process. The obvious version of this is destructive, which is why it was taken back out of
+  GH-1954: `CacheExpiry.INFINITE` is `False`, `int(False)` is `0`, and fsspec reads an expiry of
+  zero as "every entry is expired" -- it removes them all and then `rmtree`s the directory, so the
+  first such download in a fresh process would have thrown away the immutable archives `lhmt` and
+  both `meteofrance` providers keep there and fetched them again. So a TTL that is not a positive
+  number is not swept at all; the expiry is passed explicitly rather than left to fsspec's fallback
+  to `self.expiry`; the directory is marked swept before the attempt rather than after, since
+  `clear_expired` raises for a half-written entry and a sweep retried on every registration would
+  fail every download for that TTL for the life of the process; and the lock is held across the
+  sweep rather than around the bookkeeping, which is what keeps a `download_files` thread pool from
+  writing rows that the sweep's own snapshot would then drop and orphan -- the leak this closes.
+  GH-1955
 
 - DWD mosmix: a `kml/` directory that exists and holds nothing says so, rather than raising past
   the line written for it -- whichever run was asked for. `next` raises `StopIteration` where its

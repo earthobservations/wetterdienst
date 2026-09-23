@@ -8,9 +8,11 @@ import base64
 import hashlib
 import json
 import logging
+import re
 import shutil
 import ssl
 import threading
+import time
 from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -398,6 +400,170 @@ class HTTPFileSystem(_HTTPFileSystem):
     ls = sync_wrapper(_ls)
 
 
+#: header names a credential is sent under. `Authorization` is the standard one -- KNMI's API key,
+#: met.no Frost's basic auth and Met Office's bearer token all go there -- but AEMET wants `api_key`,
+#: and a header named anything else is a header this cannot know to redact: a provider that invents
+#: one has to name it here for its failures to be scrubbed along with the rest.
+#:
+#: These names carry a second job now: they are the part of `client_kwargs` that says *who is
+#: asking*, and so the only part that may separate one caller's cached bodies from another's. See
+#: `NetworkFilesystemManager._identity_suffix`.
+_CREDENTIAL_HEADERS = frozenset({"authorization", "proxy-authorization", "api_key", "api-key", "x-api-key"})
+
+#: Names the layout of `cache_dir/fsspec`, so that a directory written under an older one can be
+#: told apart from a live one by its name alone rather than by guessing from its age or contents.
+#: Bump it whenever `_cache_path` changes shape, and every directory left by the previous shape is
+#: reclaimed on the next run.
+_CACHE_LAYOUT_VERSION = "v2"
+
+#: Blob directories already swept of expired entries in this process. Process-wide rather than
+#: thread-local, because the directory is shared by every thread while the registry naming it is not.
+_swept_dirs: set[Path] = set()
+_sweep_lock = threading.Lock()
+
+
+def _sweep_expired_blobs(
+    filesystem: WholeFileCacheFileSystem,
+    cache_path: Path,
+    ttl_value: float | Literal[False],
+) -> None:
+    """Drop blobs this directory's own TTL has already made useless.
+
+    Once per directory per process, and never able to raise: every one of the three ways the
+    obvious version of this went wrong is a way of failing a download that would otherwise have
+    worked (GH-1955).
+
+    * **A TTL that is not a positive number is not swept at all.** `CacheExpiry.INFINITE` is
+      `False`, `int(False)` is `0`, and fsspec reads an expiry of zero as "everything is
+      expired" -- it removes every entry and then `rmtree`s the directory. `lhmt` and both
+      `meteofrance` providers use `INFINITE` for immutable archives, so the first such download
+      in a fresh process would have destroyed the archive cache and re-fetched it. The read path
+      gets this right (`_check_file` reads `if cfs.expiry and ...`); only the sweep did not.
+    * **The directory is marked swept before the attempt, not after.** `clear_expired` raises
+      for a half-written entry -- exactly the case worth surviving -- and a sweep retried on
+      every `register` would fail every download for this TTL rather than the one that met it.
+    * **The lock is held across the sweep**, which is what keeps siblings out. `clear_expired`
+      works from the snapshot its filesystem loaded and saves that snapshot back, so a sweep
+      running beside a `download_files` thread pool would drop rows its siblings had just
+      written and orphan their blobs -- the leak this exists to close. Every path to a download
+      in this directory passes through here first, so holding the lock until the sweep is done
+      means no thread is writing while it runs.
+
+    Args:
+        filesystem: The caching filesystem that owns this directory.
+        cache_path: The directory the blobs live in, which names the sweep.
+        ttl_value: The TTL behind it, as `resolve_ttl` returns it.
+
+    """
+    # `bool` is a subclass of `int`, and `CacheExpiry.INFINITE` is `False`
+    if isinstance(ttl_value, bool) or not isinstance(ttl_value, (int, float)) or ttl_value <= 0:
+        return
+    with _sweep_lock:
+        if cache_path in _swept_dirs:
+            return
+        _swept_dirs.add(cache_path)
+        try:
+            # a second line rather than the line: the guard above already means this is positive,
+            # but fsspec substitutes `self.expiry` for a falsy argument and for an `INFINITE` cache
+            # that is the `0` described above, so what reaches it is said rather than left implied
+            filesystem.clear_expired_cache(expiry_time=ttl_value)
+        except Exception:
+            log.debug(f"Failed sweeping expired blobs in {cache_path}", exc_info=True)
+
+
+#: A blob directory of the pre-`v2` layout: `ttl-<NAME>` optionally followed by a hash of the whole
+#: of `client_kwargs`. Nothing writes these any more, and no key names them, so they are reclaimed.
+_LEGACY_CACHE_DIR = re.compile(r"^ttl-[A-Z_]+(?:-[0-9a-f]{8})?$")
+
+#: A blob directory of the current layout that a *credential* names. The unsuffixed ones are named
+#: by every run and their liveness is never in question; these are the only ones that can stop being
+#: named while the library goes on working, because the credential they are named for has rotated.
+_IDENTITY_CACHE_DIR = re.compile(rf"^{_CACHE_LAYOUT_VERSION}-ttl-[A-Z_]+-[0-9a-f]{{8}}$")
+
+#: Touched whenever a directory is named, so that "nothing has asked for this in a month" can be
+#: read off it. The blobs cannot answer that themselves: an archive that is read on every run and
+#: written on none has file times as old as the day it was fetched.
+_CACHE_USE_MARKER = ".last-used"
+_UNUSED_CACHE_SECONDS = 30 * 24 * 3600
+
+_reclaim_lock = threading.Lock()
+_reclaim_done: set[Path] = set()
+
+
+def _mark_cache_dir_used(cache_path: Path) -> None:
+    """Record that something asked for this directory, which is what keeps it from being reclaimed."""
+    try:
+        (cache_path / _CACHE_USE_MARKER).touch()
+    except OSError:
+        log.debug(f"Failed marking {cache_path} as used", exc_info=True)
+
+
+def _last_used(directory: Path) -> float:
+    """When this directory was last named, falling back to the directory's own time."""
+    marker = directory / _CACHE_USE_MARKER
+    try:
+        return marker.stat().st_mtime if marker.exists() else directory.stat().st_mtime
+    except OSError:
+        # unreadable is not "long unused": leave it to the next run rather than remove it blind
+        return time.time()
+
+
+def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
+    """Remove blob directories nothing can reach any more.
+
+    Runs once per cache root per process, and is best-effort throughout: a directory that cannot be
+    removed is not a reason to fail the download that happened to trigger the sweep. Two kinds go,
+    and neither holds anything that is not re-downloadable:
+
+    * **An earlier `_cache_path` layout.** Nothing can expire these, because the key that named them
+      cannot be produced by this version at all. Until `_cache_path` stopped hashing transport
+      settings the User-Agent carried the version number, so every release left a full set behind:
+      one developer machine held 129 directories under 98 distinct hashes and 4.3 GB in all, of
+      which 115 MB was reachable (GH-1959).
+    * **A credential that has rotated.** `_identity_suffix` names a directory for the credential it
+      was fetched with, and Met Office mints a three-day JWT -- so that provider renames its
+      directory twice a week and would otherwise leave the previous one behind for good. Aged out
+      by the marker rather than by the blobs' own file times, and only ever for a directory a
+      credential names: the shared ones are named on every run, and reclaiming one for looking idle
+      would throw away the main cache.
+
+    Args:
+        fsspec_root: The `fsspec` directory under the cache dir that blob directories live in.
+        keep: The directory the caller is about to use, never removed however it looks.
+
+    """
+    with _reclaim_lock:
+        if fsspec_root in _reclaim_done:
+            return
+        _reclaim_done.add(fsspec_root)
+
+    try:
+        entries = [d for d in fsspec_root.iterdir() if d.is_dir() and d != keep]
+    except OSError:
+        log.debug(f"Failed listing {fsspec_root} for unreachable cache directories", exc_info=True)
+        return
+
+    cutoff = time.time() - _UNUSED_CACHE_SECONDS
+    stale = [
+        directory
+        for directory in entries
+        if _LEGACY_CACHE_DIR.match(directory.name)
+        or (_IDENTITY_CACHE_DIR.match(directory.name) and _last_used(directory) < cutoff)
+    ]
+
+    reclaimed = 0
+    for directory in stale:
+        try:
+            size = sum(f.stat().st_size for f in directory.rglob("*") if f.is_file())
+            shutil.rmtree(directory)
+        except OSError:
+            log.debug(f"Failed removing unreachable cache directory {directory}", exc_info=True)
+            continue
+        reclaimed += size
+    if stale:
+        log.info(f"Reclaimed {reclaimed / 1e6:.1f} MB from {len(stale)} unreachable cache directories in {fsspec_root}")
+
+
 class NetworkFilesystemManager:
     """Manage multiple FSSPEC instances keyed by cache expiration time.
 
@@ -432,9 +598,11 @@ class NetworkFilesystemManager:
         caching filesystem under that key, and a later request made with caching disabled, or
         against a different `WD_CACHE_DIR`, was then served by it (GH-1947).
 
-        This names the instance in memory and nothing on disk: where the blobs live is
-        `_cache_path`, which is deliberately unchanged, since a key that reached the filesystem
-        would stranded every blob a `use_certifi` user already has.
+        This names the instance in memory and nothing on disk. Where the blobs live is
+        `_cache_path`, and the two answer different questions: an instance is separated by
+        everything it is *built* from, a blob only by what changes the bytes a server sends back.
+        `use_certifi` and a timeout are the clearest case -- they decide how the request is made and
+        nothing about what comes back, so they name an instance and must not name a directory.
         """
         ttl_name, _ = NetworkFilesystemManager.resolve_ttl(cache_expiry)
         parts = [
@@ -451,13 +619,18 @@ class NetworkFilesystemManager:
 
     @staticmethod
     def _cache_path(cache_dir: Path, cache_expiry: CacheExpiry, client_kwargs: dict | None) -> Path:
-        """Where the blobs for this TTL live, which is what it has always been."""
+        """Where the blobs for this TTL live.
+
+        Separated by the TTL, and by *who is asking* -- never by how the asking is done. This used
+        to hash the whole of `client_kwargs`, which mixes the two: an `Authorization` header decides
+        what a server sends back, where a timeout, a proxy and a User-Agent decide nothing about it.
+        The default User-Agent carries the version number, so the directory was renamed by every
+        release and the cache re-downloaded from empty; nothing reads the old name again and, until
+        `_reclaim_legacy_cache_dirs`, nothing removed it either (GH-1959).
+        """
         ttl_name, _ = NetworkFilesystemManager.resolve_ttl(cache_expiry)
-        return (
-            Path(cache_dir)
-            / "fsspec"
-            / f"ttl-{ttl_name}{NetworkFilesystemManager._client_kwargs_suffix(client_kwargs)}"
-        )
+        suffix = NetworkFilesystemManager._identity_suffix(client_kwargs)
+        return Path(cache_dir) / "fsspec" / f"{_CACHE_LAYOUT_VERSION}-ttl-{ttl_name}{suffix}"
 
     @staticmethod
     def _client_kwargs_suffix(client_kwargs: dict | None) -> str:
@@ -469,6 +642,37 @@ class NetworkFilesystemManager:
             return "-" + hashlib.sha256(serialized.encode()).hexdigest()[:8]
         except Exception:  # noqa: BLE001
             return ""
+
+    @staticmethod
+    def _identity_suffix(client_kwargs: dict | None) -> str:
+        """Name the credential these kwargs carry, and nothing else about them.
+
+        Empty for an unauthenticated request, which is most of them: the DWD and every other open
+        provider then share one directory per TTL whose name never moves. Two different API keys
+        still get two directories, because a body fetched with one is not a body the other may be
+        handed back.
+
+        A credential that rotates -- Met Office mints a three-day JWT -- renames the directory with
+        it, and the previous one is left holding blobs nothing will ask for again. Keying on the
+        long-lived credential instead would spare that, but `Settings.auth` is not visible from
+        here; so the cost is paid and then collected, by `_reclaim_unreachable_cache_dirs`, rather
+        than left to accumulate. Sharing one directory between two keys is the one thing not on
+        offer: every provider here authenticates rather than selects with its credential, but a
+        cache is a bad place to bet on that staying true.
+        """
+        headers = (client_kwargs or {}).get("headers") or {}
+        try:
+            carried = {
+                str(name).lower(): str(value)
+                for name, value in headers.items()
+                if str(name).lower() in _CREDENTIAL_HEADERS
+            }
+            if not carried:
+                return ""
+            serialized = json.dumps(carried, sort_keys=True)
+        except Exception:  # noqa: BLE001 -- a cache directory is never worth failing a download for
+            return ""
+        return "-" + hashlib.sha256(serialized.encode()).hexdigest()[:8]
 
     @staticmethod
     def resolve_ttl(cache_expiry: CacheExpiry) -> tuple[str, float | int | Literal[False]]:
@@ -529,6 +733,15 @@ class NetworkFilesystemManager:
                 cache_storage=str(real_cache_dir),
                 expiry_time=int(ttl_value),
             )
+            # all three before the registry assignment below, and none of them able to raise: a
+            # cache that cannot be tidied must still be a cache that can be read.
+            #
+            # The mark goes after the sweep, not before: a sweep that leaves the cache empty has
+            # fsspec `rmtree` the whole directory and rebuild it, which takes the marker with it --
+            # and a directory whose marker is missing reads as one nothing has asked for in a month
+            _sweep_expired_blobs(filesystem_effective, real_cache_dir, ttl_value)
+            _mark_cache_dir_used(real_cache_dir)
+            _reclaim_unreachable_cache_dirs(real_cache_dir.parent, keep=real_cache_dir)
         cls._get_filesystems()[key] = filesystem_effective
 
     @classmethod
@@ -761,13 +974,6 @@ def download_file(
         # the caller's client kwargs, credentials included, are a local
         log.info(f"Failed to download file {url}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
-
-
-#: header names a credential is sent under. `Authorization` is the standard one -- KNMI's API key,
-#: met.no Frost's basic auth and Met Office's bearer token all go there -- but AEMET wants `api_key`,
-#: and a header named anything else is a header this cannot know to redact: a provider that invents
-#: one has to name it here for its failures to be scrubbed along with the rest.
-_CREDENTIAL_HEADERS = frozenset({"authorization", "proxy-authorization", "api_key", "api-key", "x-api-key"})
 
 
 def _sends_credentials(client_kwargs: dict | None) -> bool:
