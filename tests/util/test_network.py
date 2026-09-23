@@ -34,6 +34,8 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
 from wetterdienst.util import network
 from wetterdienst.util.network import (
+    _BLOB_CACHE_DIR,
+    _IDENTITY_CACHE_DIR,
     File,
     FileDirCache,
     HTTPFileSystem,
@@ -1653,3 +1655,37 @@ def test_headers_that_cannot_be_read_never_share_the_unauthenticated_directory(t
     assert _blob_dir(tmp_path, client_kwargs=unreadable) != _blob_dir(tmp_path)
     # and the same directory every time, rather than a new one per process
     assert _blob_dir(tmp_path, client_kwargs=unreadable) == _blob_dir(tmp_path, client_kwargs={"headers": object()})
+
+
+@pytest.mark.parametrize("cache_expiry", list(CacheExpiry))
+@pytest.mark.parametrize(
+    "client_kwargs", [None, {"headers": {"Authorization": "Bearer aaa"}}], ids=["shared", "credentialed"]
+)
+def test_every_directory_this_writes_is_one_the_reclaim_can_recognise(
+    tmp_path: Path,
+    cache_expiry: CacheExpiry,
+    client_kwargs: dict | None,
+) -> None:
+    """The matcher has to cover what `_cache_path` actually produces, for every TTL there is.
+
+    Asserted against the enum rather than against a pattern written beside it, because the two
+    drifting apart is silent: a directory the matcher does not recognise is simply never reclaimed,
+    which is the defect this whole change is about. A TTL name carrying a digit was the case that
+    did not match when this was first written.
+    """
+    filesystem = NetworkFilesystemManager.get(
+        cache_dir=tmp_path,
+        cache_expiry=cache_expiry,
+        client_kwargs=client_kwargs,
+        cache_disable=False,
+    )
+    if cache_expiry is CacheExpiry.NO_CACHE:
+        # answered with a plain filesystem, which writes no blobs and so names no directory
+        assert not isinstance(filesystem, WholeFileCacheFileSystem)
+        return
+    name = Path(filesystem.storage[-1]).name
+
+    assert _BLOB_CACHE_DIR.match(name), name
+    assert not _is_superseded_layout(name), name
+    # and a credentialed one is aged out like any other, where a shared one is never aged out
+    assert bool(_IDENTITY_CACHE_DIR.match(name)) is (client_kwargs is not None), name

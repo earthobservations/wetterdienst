@@ -498,7 +498,13 @@ def _sweep_expired_blobs(
 #: only the one before this is what makes `_CACHE_LAYOUT_VERSION` self-cleaning: a build reclaims
 #: what any other layout wrote, in both directions, so alternating between two versions costs a
 #: re-download rather than a directory that neither of them will ever collect.
-_BLOB_CACHE_DIR = re.compile(r"^(?:v\d+-)?ttl-[A-Z_]+(?:-[0-9a-f]{8})?$")
+#:
+#: `<NAME>` is a character class rather than the `CacheExpiry` members, deliberately: the directories
+#: worth reclaiming are the ones *older* builds wrote, and a TTL one of them had may since have been
+#: renamed or removed. So it is written to match any enum member name a build could have produced,
+#: which is wider than today's enum and cannot be pinned by a test against it. What a test does pin
+#: is the other direction -- that every directory this build writes is one this recognises.
+_BLOB_CACHE_DIR = re.compile(r"^(?:v\d+-)?ttl-[A-Z0-9_]+(?:-[0-9a-f]{8})?$")
 
 #: A blob directory of the current layout that a *credential* names. The unsuffixed ones are named
 #: by every run and their liveness is never in question; these are the only ones that can stop being
@@ -593,6 +599,8 @@ def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
     reclaimed = 0
     for directory in stale:
         try:
+            # walked for the log line alone, and cheap enough to be worth it: blobs are few and
+            # large, so the 4.3 GB measured above is under 5000 files and a quarter of a second
             size = sum(f.stat().st_size for f in directory.rglob("*") if f.is_file())
             shutil.rmtree(directory)
         except OSError:
