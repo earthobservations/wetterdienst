@@ -138,3 +138,46 @@ def test_dwd_dmo_available_issues(default_settings: Settings) -> None:
     assert all(isinstance(i, dt.datetime) for i in issues)
     assert all(i.tzinfo is not None for i in issues)
     assert issues == sorted(issues)
+
+
+@pytest.mark.parametrize(
+    ("listing", "expected_warning"),
+    [
+        pytest.param([], "a listing that failed looks the same", id="directory-holding-nothing"),
+        pytest.param(
+            ["https://example.com/kmz/README.txt"],
+            "is a forecast file",
+            id="nothing-that-is-a-forecast",
+        ),
+        pytest.param(
+            # six digits and a strip of four is not a forecast file: the extension says so, and
+            # `.kmz.md5` failing the stamp test is luck rather than a rule
+            ["https://example.com/kmz/ptp_gdmog_10147_078_1_210000.txt"],
+            "is a forecast file",
+            id="a-sidecar-that-survives-the-strip",
+        ),
+    ],
+)
+def test_dmo_available_issues_answers_rather_than_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    listing: list[str],
+    expected_warning: str,
+) -> None:
+    """The same fault `dwd/mosmix` has, reached the same way: `wetterdienst issues`.
+
+    An empty listing builds a `url` column of dtype Null and the split below it raised `invalid
+    series dtype: expected String, got null`; an entry that is not a forecast reached
+    `add_date_from_filename` and raised `conversion from str to i64 failed ... ["AD"]`. "Which runs
+    exist?" has an answer in both cases: none, said out loud. GH-1946 does the same for the other
+    provider; neither depends on the other.
+    """
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listing)
+
+    assert DwdDmoRequest.available_issues("01001", Settings()) == []
+    assert expected_warning in caplog.text

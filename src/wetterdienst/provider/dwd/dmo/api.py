@@ -282,6 +282,21 @@ class DwdDmoRequest(TimeseriesRequest):
         """
         url = urljoin("https://opendata.dwd.de", f"weather/local_forecasts/dmo/icon/single_stations/{station_id}/kmz/")
         urls = list_remote_files_fsspec(url, settings, CacheExpiry.NO_CACHE)
+        if not urls:
+            # a directory that exists and holds nothing has no issues to name. Built into a frame
+            # it is a `url` column of dtype Null, and the split below raises `invalid series dtype:
+            # expected String, got null` out of `wetterdienst issues` -- the same fault fixed for
+            # `dwd/mosmix`, which GH-1946 fixes there -- though in that provider
+            # `get_url_for_date` raises where the one above returns `None`, which is its contract
+            # rather than a disagreement.
+            #
+            # Warned about rather than simply answered, because a listing that *failed* looks the
+            # same from here: `fs.find` walks with `on_error="omit"`, which swallows `OSError`, and
+            # aiohttp's `ClientOSError` is one -- so a connection reset mid-listing arrives as an
+            # empty directory would, and an unremarked `[]` would make that blip a fact about the
+            # station
+            log.warning(f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty")
+            return []
         df = pl.DataFrame({"url": urls}, orient="col")
         df = df.with_columns(
             pl.col("url").str.split("/").list.last().str.split("_").list.last().alias("date_str"),
@@ -289,6 +304,29 @@ class DwdDmoRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.col("date_str").str.slice(offset=0, length=pl.col("date_str").str.len_chars() - 4),
         )
+        # a DMO run file ends in the `DDHHMM` the run started at, in a name ending `.kmz`. An
+        # entry that does neither -- a README, a checksum -- used to reach `add_date_from_filename`
+        # and raise `conversion from str to i64 failed ... ["AD"]`; GH-1946 removes the same fault
+        # from `dwd/mosmix`, there by reading the run by pattern rather than by position.
+        #
+        # The positional read stays here, and so does the one in `get_url_for_date` above, which
+        # reads this same directory for the data path and has no filter at all: a `.md5` beside a
+        # forecast makes its lead-time match keep both and `.item()` raise, and a `.txt` parses to
+        # a run it will then hand to the reader. Both are GH-1948's, with the lead-time substring
+        # match and the tz-aware issues this method advertises that that one rejects. What changes
+        # here is only that a name this filter cannot read is dropped rather than taking the
+        # request with it
+        df = df.filter(
+            pl.col("date_str").str.contains(r"^\d{6}$")
+            # the extension as well as the stamp, as the mosmix rule in this change checks: the
+            # slice above takes four characters off whatever it is given, so `..._210000.txt`
+            # strips to `210000` and would be reported as a run that exists. `.kmz.md5` fails the
+            # stamp test by luck -- it strips to `210000.kmz` -- which is not a rule either
+            & pl.col("url").str.split("/").list.last().str.contains(r"\.kmz$"),
+        )
+        if df.is_empty():
+            log.warning(f"None of the {len(urls)} entries listed within {url} is a forecast file")
+            return []
         now_utc = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
         df = add_date_from_filename(df, now_utc)
         return df.get_column("date").dt.replace_time_zone("UTC").unique().sort().to_list()
