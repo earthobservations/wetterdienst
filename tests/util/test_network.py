@@ -38,8 +38,11 @@ from wetterdienst.util.network import (
     FileDirCache,
     HTTPFileSystem,
     NetworkFilesystemManager,
+    _credential_headers,
+    _is_superseded_layout,
     _legacy_cleanup_done,
     _reclaim_done,
+    _sends_credentials,
     _swept_dirs,
     download_file,
     list_remote_directory_fsspec,
@@ -1315,6 +1318,8 @@ def test_directories_of_an_earlier_layout_are_reclaimed(tmp_path: Path) -> None:
         fsspec_root / "ttl-TWELVE_HOURS-6a88018f",
         fsspec_root / "ttl-FIVE_MINUTES",
         fsspec_root / "ttl-INFINITE-cf205963",
+        # and a layout that does not exist yet, which a build of this one still cannot read
+        fsspec_root / "v9-ttl-TWELVE_HOURS",
     ]
     for directory in legacy:
         directory.mkdir()
@@ -1592,3 +1597,59 @@ def test_a_directory_that_has_just_been_used_says_so(tmp_path: Path) -> None:
     storage = _blob_dir(tmp_path, client_kwargs={"headers": {"Authorization": "Bearer mine"}})
 
     assert (storage / ".last-used").is_file()
+
+
+@pytest.mark.parametrize(
+    ("name", "superseded"),
+    [
+        ("ttl-TWELVE_HOURS", True),
+        ("ttl-TWELVE_HOURS-6a88018f", True),
+        ("v1-ttl-TWELVE_HOURS", True),
+        ("v9-ttl-TWELVE_HOURS-6a88018f", True),
+        ("v2-ttl-TWELVE_HOURS", False),
+        ("v2-ttl-TWELVE_HOURS-6a88018f", False),
+        ("notes.txt", False),
+        ("v2-ttl-lowercase", False),
+    ],
+)
+def test_every_layout_but_the_current_one_is_superseded(name: str, *, superseded: bool) -> None:
+    """What makes the layout version self-cleaning, rather than one more thing left behind.
+
+    Matching only the layout immediately before this one would mean the next bump strands every
+    directory this one wrote -- the same unbounded leak as GH-1959, just deferred. A build reclaims
+    what any other layout wrote, in both directions, so alternating between two versions costs a
+    re-download rather than directories neither of them will ever collect.
+    """
+    assert _is_superseded_layout(name) is superseded
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+def test_a_credential_sent_as_a_pair_list_is_still_a_credential(tmp_path: Path) -> None:
+    """Aiohttp takes headers as a mapping or as an iterable of pairs, and both carry credentials.
+
+    Read as a mapping only, a pair list yields no credential at all -- so two API keys shared one
+    blob directory, and a failure carrying one of them went unscrubbed into the retry log.
+    """
+    first = {"headers": [("Authorization", "Bearer aaa")]}
+    second = {"headers": [("Authorization", "Bearer bbb")]}
+
+    assert _blob_dir(tmp_path, client_kwargs=first) != _blob_dir(tmp_path, client_kwargs=second)
+    assert _blob_dir(tmp_path, client_kwargs=first) != _blob_dir(tmp_path)
+    assert _sends_credentials(first) is True
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+def test_headers_that_cannot_be_read_never_share_the_unauthenticated_directory(tmp_path: Path) -> None:
+    """Both readers of this question fail dangerously on a false negative.
+
+    Answering "no credentials" for a shape that cannot be read files an authenticated body exactly
+    where an unauthenticated request looks for one, and lets a failure carrying the header through
+    the scrubber unchanged. So an unreadable shape counts as carrying one.
+    """
+    unreadable = {"headers": object()}
+
+    assert _credential_headers(unreadable) is None
+    assert _sends_credentials(unreadable) is True
+    assert _blob_dir(tmp_path, client_kwargs=unreadable) != _blob_dir(tmp_path)
+    # and the same directory every time, rather than a new one per process
+    assert _blob_dir(tmp_path, client_kwargs=unreadable) == _blob_dir(tmp_path, client_kwargs={"headers": object()})

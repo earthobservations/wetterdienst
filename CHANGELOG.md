@@ -90,6 +90,12 @@ Types of changes:
   deliberately unchanged and still separates on everything a filesystem is built from, transport
   settings included: `register` runs only for a key that is new, so whatever that key omits, the
   first caller in a thread decides for every later one. GH-1959
+- Network: headers given as an iterable of pairs carry a credential like any other. aiohttp takes
+  `client_kwargs["headers"]` either way, but both readers of "is there a credential here" assumed a
+  mapping, so a pair list answered no -- and both fail dangerously on that answer: two API keys
+  shared one blob directory, and a failure carrying the header went unscrubbed into the retry log
+  `stamina` writes. One reader now, shared by the two that have to agree, and a shape it cannot read
+  counts as carrying a credential rather than as carrying none
 - Network cache: a blob its own TTL has already made useless is dropped, once per directory per
   process. The obvious version of this is destructive, which is why it was taken back out of
   GH-1954: `CacheExpiry.INFINITE` is `False`, `int(False)` is `0`, and fsspec reads an expiry of

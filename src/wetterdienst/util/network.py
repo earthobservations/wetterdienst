@@ -410,6 +410,28 @@ class HTTPFileSystem(_HTTPFileSystem):
 #: `NetworkFilesystemManager._identity_suffix`.
 _CREDENTIAL_HEADERS = frozenset({"authorization", "proxy-authorization", "api_key", "api-key", "x-api-key"})
 
+
+def _credential_headers(client_kwargs: dict | None) -> dict[str, str] | None:
+    """Read the credential-bearing headers these kwargs carry, or `None` where that cannot be read.
+
+    aiohttp takes headers as a mapping or as an iterable of pairs, so both are read here. One
+    reader, because two callers have to agree about the answer -- the scrubber that keeps a
+    credential out of an error it hands back, and the cache path that keeps one caller's bodies away
+    from another's -- and both fail dangerously on a false negative: one logs the header, the other
+    files an authenticated body where an unauthenticated request will be given it.
+
+    So a shape neither can read is `None`, "there may be a credential here", rather than `{}`.
+    """
+    headers = (client_kwargs or {}).get("headers")
+    if not headers:
+        return {}
+    try:
+        items = headers.items() if hasattr(headers, "items") else headers
+        return {str(name).lower(): str(value) for name, value in items if str(name).lower() in _CREDENTIAL_HEADERS}
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
 #: Names the layout of `cache_dir/fsspec`, so that a directory written under an older one can be
 #: told apart from a live one by its name alone rather than by guessing from its age or contents.
 #: Bump it whenever `_cache_path` changes shape, and every directory left by the previous shape is
@@ -471,9 +493,12 @@ def _sweep_expired_blobs(
             log.debug(f"Failed sweeping expired blobs in {cache_path}", exc_info=True)
 
 
-#: A blob directory of the pre-`v2` layout: `ttl-<NAME>` optionally followed by a hash of the whole
-#: of `client_kwargs`. Nothing writes these any more, and no key names them, so they are reclaimed.
-_LEGACY_CACHE_DIR = re.compile(r"^ttl-[A-Z_]+(?:-[0-9a-f]{8})?$")
+#: Any blob directory this module has ever written: `ttl-<NAME>` with an optional hash suffix,
+#: under an optional layout prefix (the first layout had none). Matching every layout rather than
+#: only the one before this is what makes `_CACHE_LAYOUT_VERSION` self-cleaning: a build reclaims
+#: what any other layout wrote, in both directions, so alternating between two versions costs a
+#: re-download rather than a directory that neither of them will ever collect.
+_BLOB_CACHE_DIR = re.compile(r"^(?:v\d+-)?ttl-[A-Z_]+(?:-[0-9a-f]{8})?$")
 
 #: A blob directory of the current layout that a *credential* names. The unsuffixed ones are named
 #: by every run and their liveness is never in question; these are the only ones that can stop being
@@ -486,8 +511,22 @@ _IDENTITY_CACHE_DIR = re.compile(rf"^{_CACHE_LAYOUT_VERSION}-ttl-[A-Z_]+-[0-9a-f
 _CACHE_USE_MARKER = ".last-used"
 _UNUSED_CACHE_SECONDS = 30 * 24 * 3600
 
+#: Stands in for a credential in headers that `_credential_headers` could not read. A constant, so
+#: that such a caller gets one directory rather than a new one per process, and eight hex digits so
+#: that it is aged out like any other directory a credential names.
+_UNREADABLE_IDENTITY = hashlib.sha256(b"unreadable credential headers").hexdigest()[:8]
+
 _reclaim_lock = threading.Lock()
 _reclaim_done: set[Path] = set()
+
+
+def _is_superseded_layout(name: str) -> bool:
+    """Whether this is a blob directory of some layout other than the one in use.
+
+    No key this build can produce names one, so nothing can reach it to expire it -- which is the
+    whole of why it is removed rather than left to a TTL.
+    """
+    return bool(_BLOB_CACHE_DIR.match(name)) and not name.startswith(f"{_CACHE_LAYOUT_VERSION}-")
 
 
 def _mark_cache_dir_used(cache_path: Path) -> None:
@@ -547,7 +586,7 @@ def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
     stale = [
         directory
         for directory in entries
-        if _LEGACY_CACHE_DIR.match(directory.name)
+        if _is_superseded_layout(directory.name)
         or (_IDENTITY_CACHE_DIR.match(directory.name) and _last_used(directory) < cutoff)
     ]
 
@@ -660,19 +699,15 @@ class NetworkFilesystemManager:
         offer: every provider here authenticates rather than selects with its credential, but a
         cache is a bad place to bet on that staying true.
         """
-        headers = (client_kwargs or {}).get("headers") or {}
-        try:
-            carried = {
-                str(name).lower(): str(value)
-                for name, value in headers.items()
-                if str(name).lower() in _CREDENTIAL_HEADERS
-            }
-            if not carried:
-                return ""
-            serialized = json.dumps(carried, sort_keys=True)
-        except Exception:  # noqa: BLE001 -- a cache directory is never worth failing a download for
+        carried = _credential_headers(client_kwargs)
+        if carried is None:
+            # headers in a shape this cannot read. Never the shared directory: returning "" here
+            # would file an authenticated body exactly where an unauthenticated request looks for
+            # one. A directory of its own, the same one every time, is the safe answer
+            return f"-{_UNREADABLE_IDENTITY}"
+        if not carried:
             return ""
-        return "-" + hashlib.sha256(serialized.encode()).hexdigest()[:8]
+        return "-" + hashlib.sha256(json.dumps(carried, sort_keys=True).encode()).hexdigest()[:8]
 
     @staticmethod
     def resolve_ttl(cache_expiry: CacheExpiry) -> tuple[str, float | int | Literal[False]]:
@@ -977,9 +1012,13 @@ def download_file(
 
 
 def _sends_credentials(client_kwargs: dict | None) -> bool:
-    """Whether these client kwargs carry a credential in a header."""
-    headers = (client_kwargs or {}).get("headers") or {}
-    return any(str(name).lower() in _CREDENTIAL_HEADERS for name in headers)
+    """Whether these client kwargs carry a credential in a header.
+
+    Headers this cannot read count as carrying one: scrubbing a failure that held no credential
+    costs a traceback, where not scrubbing one that did puts the header in a log.
+    """
+    carried = _credential_headers(client_kwargs)
+    return carried is None or bool(carried)
 
 
 def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
