@@ -436,8 +436,12 @@ class NetworkFilesystemManager:
         `_cache_path`, which is deliberately unchanged, since a key that reached the filesystem
         would stranded every blob a `use_certifi` user already has.
         """
+        ttl_name, _ = NetworkFilesystemManager.resolve_ttl(cache_expiry)
         parts = [
-            f"ttl-{cls_ttl}" if (cls_ttl := cache_expiry.name) else "",
+            # through `resolve_ttl`, as `_cache_path` reads it: the two agree today only because
+            # that function returns the name verbatim, and a key that reads an input its own way is
+            # how this drifted in the first place
+            f"ttl-{ttl_name}",
             NetworkFilesystemManager._client_kwargs_suffix(client_kwargs),
             f"-dir-{hashlib.sha256(str(cache_dir).encode()).hexdigest()[:8]}",
             "-nocache" if cache_disable else "",

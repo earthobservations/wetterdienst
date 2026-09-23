@@ -26,6 +26,7 @@ from aiohttp import (
 from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
+from fsspec.implementations.memory import MemoryFileSystem
 
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -1057,13 +1058,34 @@ def test_a_file_says_whether_it_came_off_the_wire(monkeypatch: pytest.MonkeyPatc
 
     A cached body says nothing about what the server has now; one that has just been fetched cannot
     have changed in the meantime.
+
+    Exercised against a real `WholeFileCacheFileSystem` rather than a stubbed `_check_file`, so the
+    flag is decided by the predicate as it is actually called, over the URL as it is actually
+    hashed -- a mocked answer would pass even if the question were the wrong one.
     """
+    source = MemoryFileSystem()
+    source.pipe_file("/a.txt", b"payload")
+    caching = WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600)
+    monkeypatch.setattr(NetworkFilesystemManager, "get", lambda **_kwargs: caching)
+
+    first = download_file(url="/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+    second = download_file(url="/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+
+    assert first.from_cache is False
+    assert second.from_cache is True
+    assert first.content.read() == second.content.read() == b"payload"
+
+
+def test_a_file_fetched_without_a_cache_never_claims_otherwise(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A plain filesystem holds nothing to have served, so the flag is false however often it is asked."""
     monkeypatch.setattr(HTTPFileSystem, "cat_file", lambda _self, _url, **_kw: b"payload")
 
-    fresh = download_file(url="https://example.com/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE)
-    assert fresh.from_cache is False
+    url = "https://example.com/b.txt"
+    first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE)
+    second = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE)
 
-    monkeypatch.setattr(WholeFileCacheFileSystem, "cat_file", lambda _self, _url, **_kw: b"payload")
-    monkeypatch.setattr(WholeFileCacheFileSystem, "_check_file", lambda _self, _url: {"fn": "x"})
-    cached = download_file(url="https://example.com/b.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
-    assert cached.from_cache is True
+    assert first.from_cache is False
+    assert second.from_cache is False
