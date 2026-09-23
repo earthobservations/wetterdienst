@@ -309,3 +309,26 @@ def test_dmo_issue_is_floored_to_a_release_hour(hour: int, expected: int) -> Non
     adjusted = DwdDmoRequest.adjust_datetime(dt.datetime(2026, 9, 22, hour, tzinfo=ZoneInfo("UTC")))
 
     assert adjusted.hour == expected
+
+
+@pytest.mark.parametrize(
+    ("given", "expected_hour"),
+    [
+        pytest.param("2026-09-22T13:00+02:00", 0, id="an-offset-is-converted-not-relabelled"),
+        pytest.param("2026-09-22T11:00+00:00", 0, id="the-same-instant-in-utc"),
+        pytest.param("2026-09-22T03:00", 0, id="a-naive-issue-is-utc"),
+        pytest.param("2026-09-22T23:00+02:00", 12, id="an-offset-that-floors-to-the-later-release"),
+    ],
+)
+def test_dmo_issue_given_in_another_zone_means_the_same_instant(given: str, expected_hour: int) -> None:
+    """An issue was relabelled UTC rather than converted, so another zone floored to another run.
+
+    `13:00+02:00` is 11:00 UTC and belongs to the 00:00 release; read as 13:00 UTC it floored to
+    12:00 -- one release too late, and at 11:00 UTC a run not yet published, so the caller got an
+    `IndexError` where the 00:00 run was sitting there. A naive issue is taken as UTC, which is
+    what it has always meant here.
+    """
+    request = DwdDmoRequest(parameters=[("hourly", "icon")], issue=given)
+
+    assert request.issue.hour == expected_hour
+    assert request.issue.tzinfo == ZoneInfo("UTC")

@@ -150,7 +150,10 @@ Types of changes:
   `hour % 12` sent 1 through 11 *up* to 12: asking for the 03:00 run returned the 12:00 one, issued
   nine hours later, or raised where 12:00 was not yet published while 00:00 sat there unasked for.
   That was unreachable until the comparison above was fixed, every non-`LATEST` issue having raised
-  before it decided anything. GH-1948
+  before it decided anything. An issue given in another zone is converted rather than relabelled,
+  too: taking its wall-clock hour and stamping UTC on it read `13:00+02:00` as 13:00 UTC, so
+  11:00 UTC asked for was answered with 12:00 -- one release too late, and at 11:00 a run not yet
+  published, so an `IndexError` where the 00:00 run was sitting there. GH-1948
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --

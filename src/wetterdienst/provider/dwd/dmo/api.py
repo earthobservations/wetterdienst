@@ -148,6 +148,9 @@ class DwdDmoValues(TimeseriesValues):
             station_ids=self.sr.station_id.to_list(),
             settings=cast("Settings", self.sr.stations.settings),
         )
+        # directories already reported as naming nothing, so one empty listing is one line rather
+        # than one per station of an `all_stations` request
+        self._listings_warned_about: set[str] = set()
 
     def get_dwd_dmo_path(self, dataset: DatasetModel, station_id: str | None = None) -> str:
         """Get DWD DMO path."""
@@ -242,7 +245,14 @@ class DwdDmoValues(TimeseriesValues):
             # `read_icon_eu` turn this `None` into an empty frame, which merges into the result as
             # "this station has no forecast" with no warning, no error and no exit code. The same
             # swallowed walk and the same 404 reach both
-            log.warning(f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty")
+            # once per directory, not once per station: `all_stations` asks this for every
+            # station in the request, so one empty listing would otherwise print thousands of
+            # identical lines for one root cause
+            if url not in self._listings_warned_about:
+                self._listings_warned_about.add(url)
+                log.warning(
+                    f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty",
+                )
             return None
         df = pl.DataFrame({"url": urls}, orient="col")
         df = df.with_columns(_run_stamp(pl.col("url"), lead_time).alias("date_str"))
@@ -268,8 +278,11 @@ class DwdDmoValues(TimeseriesValues):
         if df.is_empty():
             msg = f"Unable to find {date} file within {url}"
             raise IndexError(msg)
-        # sorted rather than `.item()`, which raises where a run is published more than once under
-        # the same stamp
+        # sorted rather than `.item()`, which raises on two rows instead of answering. Under the
+        # lead-anchored rule above, the only field left varying is `n` -- fixed per lead time,
+        # `078` with `1` and `168` with `3` -- so two names cannot carry one stamp today and this
+        # is a deterministic tiebreak for a case that cannot currently arise, not a policy about
+        # which of two files to prefer
         return cast("str", df.get_column("url").sort().first())
 
 
@@ -304,7 +317,7 @@ class DwdDmoRequest(TimeseriesRequest):
 
     @staticmethod
     def adjust_datetime(datetime_: dt.datetime) -> dt.datetime:
-        """Adjust datetime to DMO release frequency (9/12 hours).
+        """Adjust datetime to DMO's release hours, which are 00 and 12 UTC.
 
         Datetime is floored to closest release time e.g. if hour is 14, it will be rounded to 12
 
@@ -369,6 +382,12 @@ class DwdDmoRequest(TimeseriesRequest):
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 issue = dt.datetime.fromisoformat(issue)
+            # converted, not relabelled: taking the wall-clock hour and stamping UTC on it read
+            # `13:00+02:00` as 13:00 UTC, so an issue given in any other zone floored to the wrong
+            # release -- 11:00 UTC asked for, 12:00 UTC answered, which at 11:00 is a run not yet
+            # published and so an `IndexError` where the 00:00 run was sitting there. A naive issue
+            # is taken as UTC, which is what it has always meant here
+            issue = issue.astimezone(ZoneInfo("UTC")) if issue.tzinfo else issue.replace(tzinfo=ZoneInfo("UTC"))
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=ZoneInfo("UTC"))
             # Shift issue date to 0, 12 hour format
             issue = self.adjust_datetime(issue)
