@@ -49,6 +49,7 @@ from wetterdienst.util.network import (
     _sends_credentials,
     _swept_dirs,
     download_file,
+    download_files,
     list_remote_directory_fsspec,
     list_remote_files_fsspec,
     post_file,
@@ -1943,3 +1944,87 @@ def test_two_secrets_that_print_alike_do_not_share_a_filesystem(tmp_path: Path) 
     )
 
     assert first is not second
+
+
+def test_the_log_says_whether_the_cache_answered(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A log that says "Downloading" for a cache hit describes the one thing that did not happen.
+
+    `File.from_cache` already knows which it was (GH-1947), and it is known before the read rather
+    than after, so both lines can say it rather than guess. Exercised against a real
+    `WholeFileCacheFileSystem` so the answer comes from the probe as it is actually called.
+    """
+    source = MemoryFileSystem()
+    source.pipe_file("/a.txt", b"payload")
+    caching = WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600)
+    monkeypatch.setattr(NetworkFilesystemManager, "get", lambda **_kwargs: caching)
+
+    def said() -> list[str]:
+        # this module's own lines only; fsspec is a chatty neighbour on the same handler
+        return [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        first = download_file(url="/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+        off_the_wire = said()
+        caplog.clear()
+        second = download_file(url="/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+        from_cache = said()
+
+    assert first.from_cache is False
+    assert off_the_wire == ["Downloading file /a.txt", "Downloaded file /a.txt"]
+    assert second.from_cache is True
+    assert from_cache == ["Reading file /a.txt from cache", "Read file /a.txt from cache"]
+
+
+def test_a_fan_out_says_how_many_of_its_files_the_cache_answered(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A count announced up front is a claim made before any of the files has been asked for.
+
+    Which of them the cache answers is not known until each has been, so the count is reported once
+    they all have -- and a caller reading its own log can then tell a run that reached the network
+    from one that did not.
+    """
+    source = MemoryFileSystem()
+    urls = ["/a.txt", "/b.txt", "/c.txt"]
+    for url in urls:
+        source.pipe_file(url, b"payload")
+    caching = WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600)
+    monkeypatch.setattr(NetworkFilesystemManager, "get", lambda **_kwargs: caching)
+
+    def said() -> list[str]:
+        return [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        download_files(urls=urls[:1], cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+        caplog.clear()
+        download_files(urls=urls, cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+        mixed = said()
+
+    # one of the three was already held, the other two were not
+    assert mixed[0] == "Fetching 3 files."
+    assert mixed[-1] == "Fetched 3 files, 1 from cache."
+
+
+def test_a_fan_out_of_one_file_says_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A count of one reads as one, rather than as "1 files"."""
+    source = MemoryFileSystem()
+    source.pipe_file("/only.txt", b"payload")
+    caching = WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600)
+    monkeypatch.setattr(NetworkFilesystemManager, "get", lambda **_kwargs: caching)
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        download_files(urls=["/only.txt"], cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+    said = [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
+
+    assert said[0] == "Fetching 1 file."
+    assert said[-1] == "Fetched 1 file, 0 from cache."

@@ -1053,7 +1053,6 @@ def download_file(
         cache_disable=cache_disable,
         use_certifi=use_certifi,
     )
-    log.info(f"Downloading file {url}")
     # knmi sends its API key, metno frost its basic auth and metoffice its bearer token this way,
     # and aiohttp merges those headers into the request info it hangs on an error
     sent_credentials = _sends_credentials(client_kwargs)
@@ -1075,13 +1074,21 @@ def download_file(
                     # exception escaping here carries a traceback whose frame holds `client_kwargs`
                     # -- the Authorization header -- which is exactly what the handler below drops
                     served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
+                    # said after the probe rather than before it, because before it this could only
+                    # guess -- and it guessed "Downloading" for every cache hit, which is the one
+                    # thing a reader of the log could already tell was not happening. Said per
+                    # attempt, so a retry that goes to the network after a cached read failed reads
+                    # as the two different things it is
+                    log.info(
+                        f"Reading file {url} from cache" if served_from_cache else f"Downloading file {url}",
+                    )
                     payload = filesystem.cat_file(url)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
                     # ``repr(caused_by)`` on the first failure -- and that repr renders the request
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
-                log.info(f"Downloaded file {url}")
+                log.info(f"Read file {url} from cache" if served_from_cache else f"Downloaded file {url}")
                 return File(url=url, content=BytesIO(payload), status=200, from_cache=served_from_cache)
         msg = "unreachable"
         raise AssertionError(msg)
@@ -1308,9 +1315,12 @@ def download_files(
     use_certifi: bool = False,
 ) -> list[File]:
     """Download multiple files from the server concurrently."""
-    log.info(f"Downloading {len(urls)} files.")
+    noun = "file" if len(urls) == 1 else "files"
+    # what is wanted, not what will happen: which of these the cache answers is not known until each
+    # one has been asked, and the line below says it once they all have
+    log.info(f"Fetching {len(urls)} {noun}.")
     with ThreadPoolExecutor() as p:
-        return list(
+        files = list(
             p.map(
                 lambda file: download_file(
                     url=file,
@@ -1323,3 +1333,6 @@ def download_files(
                 urls,
             ),
         )
+    cached = sum(1 for file in files if file.from_cache)
+    log.info(f"Fetched {len(files)} {noun}, {cached} from cache.")
+    return files
