@@ -309,7 +309,7 @@ def test_mosmix_latest_answers_with_the_newest_run_the_listing_names(monkeypatch
     )
     values = _stub_mosmix_stations().values
 
-    resolved = values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST)
+    resolved = values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True)
 
     assert resolved.rsplit("/", 1)[-1] == "MOSMIX_L_2026092209_01001.kmz"
 
@@ -325,7 +325,7 @@ def test_mosmix_latest_falls_back_to_the_alias_where_no_run_is_named(monkeypatch
     )
     values = _stub_mosmix_stations().values
 
-    resolved = values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST)
+    resolved = values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True)
 
     assert resolved.rsplit("/", 1)[-1] == "MOSMIX_L_LATEST_01001.kmz"
 
@@ -347,7 +347,7 @@ def test_mosmix_latest_with_neither_a_run_nor_an_alias_says_which_directory(monk
     values = _stub_mosmix_stations().values
 
     with pytest.raises(IndexError, match="Unable to find LATEST file within"):
-        values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST)
+        values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True)
 
 
 def test_mosmix_listing_entry_that_is_not_a_forecast_is_not_read_as_one(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -365,7 +365,11 @@ def test_mosmix_listing_entry_that_is_not_a_forecast_is_not_read_as_one(monkeypa
     values = _stub_mosmix_stations().values
 
     with pytest.raises(IndexError, match=r"Unable to find 2026-09-01 09:00:00 file within"):
-        values.get_url_for_date("https://example.com/kml/", dt.datetime(2026, 9, 1, 9, tzinfo=UTC))
+        values.get_url_for_date(
+            "https://example.com/kml/",
+            dt.datetime(2026, 9, 1, 9, tzinfo=UTC),
+            one_station_only=True,
+        )
 
 
 def _stub_mosmix_stations() -> StationsResult:
@@ -437,7 +441,7 @@ def test_mosmix_directory_holding_nothing_costs_that_station_and_no_more(
     values = _stub_mosmix_stations().values
     asked = api.DwdForecastDate.LATEST if date == "LATEST" else date
 
-    assert values.get_url_for_date("https://example.com/kml/", asked) is None
+    assert values.get_url_for_date("https://example.com/kml/", asked, one_station_only=True) is None
     assert "a listing that failed looks the same" in caplog.text
 
 
@@ -498,7 +502,7 @@ def test_mosmix_reads_the_run_out_of_every_naming_layout(
         lambda *_args, **_kwargs: [f"https://example.com/kml/{name}" for name in listing],
     )
 
-    resolved = _stub_mosmix_stations().values.get_url_for_date("https://example.com/kml/", asked)
+    resolved = _stub_mosmix_stations().values.get_url_for_date("https://example.com/kml/", asked, one_station_only=True)
 
     assert resolved.rsplit("/", 1)[-1] == expected
 
@@ -537,7 +541,9 @@ def test_mosmix_latest_answers_with_a_forecast_and_not_with_what_sits_beside_it(
         lambda *_args, **_kwargs: [f"https://example.com/kml/{name}" for name in listing],
     )
 
-    resolved = _stub_mosmix_stations().values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST)
+    resolved = _stub_mosmix_stations().values.get_url_for_date(
+        "https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True
+    )
 
     assert resolved.rsplit("/", 1)[-1] == expected
 
@@ -678,3 +684,64 @@ def test_mosmix_holds_a_named_run_longer_than_a_mutable_alias(url: str, expected
     reader = KMLReader(station_ids=["01001"], settings=Settings())
 
     assert reader._filesystem_for(url) is reader._filesystems[expected_ttl]  # noqa: SLF001
+
+
+def test_mosmix_a_cached_run_that_is_not_a_zip_is_dropped_and_asked_for_again(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A truncated blob under an immutable URL would otherwise fail for twelve hours.
+
+    fsspec writes its cache metadata before the copy finishes -- `_make_local_details` records the
+    entry and `get_file` fills it afterwards -- so a download interrupted mid-copy leaves a
+    truncated blob that `_check_file` accepts for the life of the entry. Held five minutes that
+    righted itself; held twelve hours, with `LATEST` resolving to that same immutable URL rather
+    than to an alias, it would not.
+    """
+    import zipfile  # noqa: PLC0415
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.mosmix.access import KMLReader  # noqa: PLC0415
+
+    good = BytesIO()
+    with zipfile.ZipFile(good, "w") as archive:
+        archive.writestr("forecast.kml", "<kml/>")
+
+    caplog.set_level(logging.WARNING)
+    reader = KMLReader(station_ids=["01001"], settings=Settings())
+    bodies = [BytesIO(b"not a zip at all"), BytesIO(good.getvalue())]
+    dropped: list[str] = []
+    monkeypatch.setattr(KMLReader, "download", lambda _self, _url: bodies.pop(0))
+    monkeypatch.setattr(
+        type(reader._filesystem_for("https://x/kml/MOSMIX_L_2026092209_01001.kmz")),  # noqa: SLF001
+        "pop_from_cache",
+        lambda _self, url: dropped.append(url),
+    )
+
+    handle = reader.fetch("https://x/kml/MOSMIX_L_2026092209_01001.kmz")
+
+    assert handle.read() == b"<kml/>"
+    assert dropped == ["https://x/kml/MOSMIX_L_2026092209_01001.kmz"]
+    assert "is not a zip" in caplog.text
+
+
+def test_mosmix_an_empty_all_stations_listing_is_not_a_quiet_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty listing means "this station retired" only where the directory is one station's.
+
+    The all-stations products publish every station in one directory, so one empty listing there is
+    every station at once: it means the listing failed or DWD moved the product, and `fs.find`
+    swallowing an `OSError` makes those look identical to an empty directory. Answering `None`
+    would turn a connection reset into an empty result for the whole request, exit 0 and HTTP 200.
+    """
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+    values = _stub_mosmix_stations().values
+
+    # one station's directory: an answer
+    assert (
+        values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True) is None
+    )
+    # the product's directory: not an answer
+    with pytest.raises(IndexError, match="a listing that failed looks the same"):
+        values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=False)

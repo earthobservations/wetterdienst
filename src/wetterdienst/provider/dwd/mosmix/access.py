@@ -11,8 +11,10 @@ import logging
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
+from zipfile import BadZipFile
 
 import polars as pl
+from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import iterparse
 from tqdm import tqdm
@@ -26,8 +28,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from typing import BinaryIO
     from xml.etree.ElementTree import Element
-
-    from fsspec.implementations.cached import WholeFileCacheFileSystem
 
     from wetterdienst.settings import Settings
     from wetterdienst.util.network import HTTPFileSystem
@@ -122,6 +122,27 @@ class KMLReader:
 
     def fetch(self, url: str) -> BinaryIO:
         """Open the zipped mosmix KML as a streaming handle (decompressed lazily, not all at once)."""
+        try:
+            return self._fetch(url)
+        except BadZipFile:
+            # a run held under an immutable URL for twelve hours, and the body is not a zip. fsspec
+            # writes its cache metadata before the copy finishes -- `_make_local_details` records
+            # the entry, `get_file` fills it afterwards -- so a download interrupted mid-copy
+            # leaves a truncated blob that `_check_file` then accepts for the life of the entry.
+            # Held five minutes that righted itself; held twelve hours, and with `LATEST` now
+            # resolving to the same immutable URL rather than to an alias, it would not.
+            #
+            # So the entry is dropped and the run asked for once more. A body that is still not a
+            # zip after that is upstream's, and raises
+            log.warning(f"Cached MOSMIX run {url} is not a zip; dropping it from the cache and asking again")
+            filesystem = self._filesystem_for(url)
+            # a plain `HTTPFileSystem` holds nothing to drop, which is the `cache_disable` case
+            if isinstance(filesystem, WholeFileCacheFileSystem):
+                filesystem.pop_from_cache(url)
+            return self._fetch(url)
+
+    def _fetch(self, url: str) -> BinaryIO:
+        """Download and open one run, whatever the cache currently holds for it."""
         buffer = self.download(url)
         zfs = ZipFileSystem(buffer, "r")
         handle = zfs.open(zfs.glob("*")[0])

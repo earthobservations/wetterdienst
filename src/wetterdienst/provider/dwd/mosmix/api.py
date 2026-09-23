@@ -176,7 +176,8 @@ class DwdMosmixValues(TimeseriesValues):
     def read_mosmix_small(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Read single MOSMIX-S file for all stations or multiple files for single stations."""
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_S_PATH)
-        file_url = self.get_url_for_date(url, date)
+        # MOSMIX-S publishes every station in one file, so an empty listing is never one station's
+        file_url = self.get_url_for_date(url, date, one_station_only=False)
         if not file_url:
             return pl.DataFrame()
         self.kml.read(file_url)
@@ -190,24 +191,38 @@ class DwdMosmixValues(TimeseriesValues):
         """Read single MOSMIX-L file for all stations or multiple files for single stations."""
         from typing import cast  # noqa: PLC0415
 
-        if cast("DwdMosmixRequest", self.sr.stations).station_group == DwdMosmixStationGroup.ALL_STATIONS:
+        all_stations = cast("DwdMosmixRequest", self.sr.stations).station_group == DwdMosmixStationGroup.ALL_STATIONS
+        if all_stations:
             url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_PATH)
         else:
             url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH).format(station_id=station_id)
-        file_url = self.get_url_for_date(url, date)
+        file_url = self.get_url_for_date(url, date, one_station_only=not all_stations)
         if not file_url:
             return pl.DataFrame()
         self.kml.read(file_url)
         return self.kml.get_station_forecast(station_id)
 
-    def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str | None:
-        """Get the URL for a given date, or None where the directory names nothing at all.
+    def get_url_for_date(
+        self,
+        url: str,
+        date: dt.datetime | DwdForecastDate,
+        *,
+        one_station_only: bool,
+    ) -> str | None:
+        """Get the URL for a given date, or None where one station's directory names nothing.
 
-        `None` rather than a raise, and only for a directory that names nothing: DWD empties or
-        retires a station's directory without warning, and a single one of those used to end a
-        request for fifty stations, since nothing between here and `values.all()` catches. The
-        other forty-nine have forecasts and are the answer the caller asked for. `dwd/dmo` has
-        always made this split; mosmix raised because its return type said it must (GH-1949).
+        `None` rather than a raise, and only for a directory that names nothing, and only where
+        that directory belongs to one station: DWD empties or retires a station's directory without
+        warning, and a single one of those used to end a request for fifty stations, since nothing
+        between here and `values.all()` catches. The other forty-nine have forecasts and are the
+        answer the caller asked for. `dwd/dmo` has always made this split; mosmix raised because its
+        return type said it must (GH-1949).
+
+        The all-stations products have no such reading. One empty listing there is every station at
+        once, so it cannot mean a station retired -- it means the listing failed or DWD moved the
+        product, and `fs.find` swallowing an `OSError` makes those look identical to an empty
+        directory. Answering `None` would turn a connection reset into an empty result for the
+        whole request, exit 0 and HTTP 200. Those still raise.
 
         A directory that names files but no forecast still raises, being a statement about the
         product rather than about one station: it means what is published there is not what this
@@ -224,7 +239,10 @@ class DwdMosmixValues(TimeseriesValues):
             # swallows `OSError` -- aiohttp's `ClientOSError` is one -- so a listing that could not
             # be read arrives looking exactly like a directory that holds nothing, as does the 404
             # of a station id that does not exist
-            log.warning(f"No file listed within {url}; a listing that failed looks the same as one that is empty")
+            message = f"No file listed within {url}; a listing that failed looks the same as one that is empty"
+            if not one_station_only:
+                raise IndexError(message)
+            log.warning(message)
             return None
 
         if date == DwdForecastDate.LATEST:
@@ -276,11 +294,14 @@ class DwdMosmixValues(TimeseriesValues):
             msg = f"Unable to find {date} file within {url}"
             raise IndexError(msg)
 
-        # `.item()` raises where a run matched twice, which the same widening allows: a forecast
-        # published as `.kml` beside its `.kmz` carries one run stamp on two names. Sorted and
-        # taken first, so two forms of one run answer with one of them, deterministically, rather
-        # than with `can only call '.item()' if the Series is of length 1`
-        return cast("str", df.get_column("url").sort().first())
+        # `.item()` raises on two rows rather than answering, and two rows are possible: a second
+        # lead time in one directory (`..._120.kmz` beside `..._240.kmz`) carries one run stamp on
+        # two names. Not `.kml` beside `.kmz`, which `_FORECAST_FILE` excludes a line above -- the
+        # comment used to say that, and it was wrong.
+        #
+        # Last of the sort, which is what the `LATEST` branch takes, so asking for a run by name
+        # and asking for the newest run answer with the same file rather than with different ones
+        return cast("str", df.get_column("url").sort().last())
 
 
 @dataclass
