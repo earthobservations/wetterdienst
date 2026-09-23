@@ -31,6 +31,7 @@ from fsspec.implementations.memory import MemoryFileSystem
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
+from wetterdienst.util import network
 from wetterdienst.util.network import (
     File,
     FileDirCache,
@@ -1089,3 +1090,61 @@ def test_a_file_fetched_without_a_cache_never_claims_otherwise(
 
     assert first.from_cache is False
     assert second.from_cache is False
+
+
+def test_a_listing_made_offline_degrades_as_the_rest_of_the_library_does(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Being offline is not this listing failing to read; it is every path being offline.
+
+    A download comes back carrying `NoInternetError` for `raise_if_exception` to log at debug, and
+    providers answer with empty frames -- `dmi`, `rmi`, `smhi`, `nws` and `fmi` all rely on it. A
+    listing has no `File` to carry that in, so raising here would make the one path that lists abort
+    with an aiohttp traceback where every other path degrades quietly.
+    """
+    from unittest.mock import Mock  # noqa: PLC0415
+
+    def find(_self: object, _url: str, **_kwargs: object) -> list[str]:
+        raise ClientConnectorError(Mock(ssl=None, host="opendata.dwd.de", port=443), OSError("offline"))
+
+    monkeypatch.setattr(HTTPFileSystem, "find", find)
+
+    assert list_remote_files_fsspec("https://example.com/offline/", Settings(cache_dir=tmp_path)) == []
+
+
+def test_a_cache_that_cannot_be_read_is_scrubbed_like_a_failed_download(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The cache probe reaches the disk, so it belongs inside the handler that scrubs credentials.
+
+    `_mkcache` can raise on a read-only or full cache dir and the metadata load on a truncated
+    file. Outside the `try`, such an exception skipped `_without_credentials` entirely -- and that
+    scrubbing is load-bearing rather than belt and braces, because stamina's retry hook logs
+    `repr(caused_by)` on the first failure, before any handler below is reached.
+    """
+    scrubbed: list[str] = []
+
+    def check_file(_self: object, _url: str) -> bool:
+        msg = "cache dir is read-only"
+        raise PermissionError(msg)
+
+    def without_credentials(error: Exception, *, sent_credentials: bool) -> Exception:
+        scrubbed.append(type(error).__name__)
+        assert sent_credentials is True
+        return error
+
+    monkeypatch.setattr(WholeFileCacheFileSystem, "_check_file", check_file)
+    monkeypatch.setattr(network, "_without_credentials", without_credentials)
+
+    with pytest.raises(PermissionError):
+        download_file(
+            url="https://example.com/secret.txt",
+            cache_dir=tmp_path,
+            ttl=CacheExpiry.TWELVE_HOURS,
+            client_kwargs={"headers": {"Authorization": "Bearer hunter2"}},
+        )
+
+    # the probe's failure went through the scrubber, as a failed read always has
+    assert scrubbed == ["PermissionError"]

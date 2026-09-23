@@ -217,7 +217,10 @@ Types of changes:
   fsspec, never reached the retry wrapping the call, and left every provider to decide what an
   empty list meant, which none of them could. It raises now, and the two are told apart where the
   difference is knowable: a directory that is not there is `FileNotFoundError` and stays the `[]`
-  callers have always had. That covers a flat listing, which is what this library asks for almost
+  callers have always had, and being offline stays `[]` too -- that is the whole library being
+  offline rather than this listing failing to read, and every other path here degrades on it
+  quietly, a download coming back carrying `NoInternetError` for providers to answer with empty
+  frames. That covers a flat listing, which is what this library asks for almost
   everywhere; fsspec does not forward `on_error` to the recursive half of a walk, so a failure
   below the top level of a subtree is still swallowed, which is noted in GH-1947 rather than
   claimed as fixed. And `File` carries `from_cache`, sampled per attempt, because a caller that

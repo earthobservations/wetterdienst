@@ -635,6 +635,15 @@ def list_remote_files_fsspec(
         return fs.find(url, on_error="raise")
     except FileNotFoundError:
         return []
+    except ClientConnectorError:
+        # the one `OSError` that is not a failure to read this listing: it is the whole library
+        # being offline, which every other path here degrades on rather than reports -- a download
+        # comes back carrying `NoInternetError` for `raise_if_exception` to log at debug, and
+        # providers answer with empty frames. A listing has no `File` to carry that in, so it
+        # degrades the way it always did, and the offline user keeps getting empty frames instead
+        # of an aiohttp traceback from the one path that lists
+        log.debug(f"No internet connection available for {url}, returning no files.")
+        return []
 
 
 @stamina.retry(on=Exception, attempts=3)
@@ -707,13 +716,18 @@ def download_file(
         # worth asking twice, `_worth_retrying_download` says, and it says the same as a post does
         for attempt in stamina.retry_context(on=_worth_retrying_download, attempts=2):
             with attempt:
-                # asked per attempt and before the read, because reading is what populates the
-                # cache -- and because an attempt that re-downloads after a cached read failed
-                # must not inherit the first attempt's answer. `_check_file` is how
-                # `WholeFileCacheFileSystem` says whether it holds an unexpired copy; a plain
-                # filesystem has no such question and always says no
-                served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
                 try:
+                    # asked per attempt and before the read, because reading is what populates the
+                    # cache -- and because an attempt that re-downloads after a cached read failed
+                    # must not inherit the first attempt's answer. `_check_file` is how
+                    # `WholeFileCacheFileSystem` says whether it holds an unexpired copy; a plain
+                    # filesystem has no such question and always says no.
+                    #
+                    # Inside the `try`, because it reaches the disk: `_mkcache` can raise on a
+                    # read-only or full cache dir and the metadata load on a truncated file, and an
+                    # exception escaping here carries a traceback whose frame holds `client_kwargs`
+                    # -- the Authorization header -- which is exactly what the handler below drops
+                    served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
                     payload = filesystem.cat_file(url)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
