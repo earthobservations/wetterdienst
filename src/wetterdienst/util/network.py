@@ -405,29 +405,45 @@ class HTTPFileSystem(_HTTPFileSystem):
 #: and a header named anything else is a header this cannot know to redact: a provider that invents
 #: one has to name it here for its failures to be scrubbed along with the rest.
 #:
-#: These names carry a second job now: they are the part of `client_kwargs` that says *who is
-#: asking*, and so the only part that may separate one caller's cached bodies from another's. See
-#: `NetworkFilesystemManager._identity_suffix`.
 _CREDENTIAL_HEADERS = frozenset({"authorization", "proxy-authorization", "api_key", "api-key", "x-api-key"})
+
+#: Headers that cannot change the body a server sends back, and so may be shared by every caller's
+#: cached blobs. Everything else separates them.
+#:
+#: Named the other way round from `_CREDENTIAL_HEADERS` on purpose, because the two lists answer
+#: questions whose wrong answers cost different things. Missing a credential there costs a log line;
+#: missing one *here* serves one caller's body to another. A list of what matters fails open on
+#: every header nobody thought of -- `Cookie`, `X-Auth-Token`, and the content-negotiation headers a
+#: user can set for themselves through `WD_FSSPEC_CLIENT_KWARGS`, where `Accept-Language: de` and
+#: `en` would otherwise share one directory. A list of what does *not* matter fails closed: an
+#: unknown header costs a cache miss, which is a slow answer rather than a wrong one.
+_CACHE_NEUTRAL_HEADERS = frozenset({"user-agent"})
 
 
 def _credential_headers(client_kwargs: dict | None) -> dict[str, str] | None:
     """Read the credential-bearing headers these kwargs carry, or `None` where that cannot be read.
 
-    aiohttp takes headers as a mapping or as an iterable of pairs, so both are read here. One
+    aiohttp takes headers as a mapping or as a sequence of pairs, so both are read here. One
     reader, because two callers have to agree about the answer -- the scrubber that keeps a
     credential out of an error it hands back, and the cache path that keeps one caller's bodies away
     from another's -- and both fail dangerously on a false negative: one logs the header, the other
     files an authenticated body where an unauthenticated request will be given it.
 
-    So a shape neither can read is `None`, "there may be a credential here", rather than `{}`.
+    So a shape neither can read is `None`, "there may be a credential here", rather than `{}`. An
+    iterator is such a shape and is deliberately not read: reading it would empty it, and what the
+    caller's own request needs is still in there.
     """
     headers = (client_kwargs or {}).get("headers")
     if not headers:
         return {}
+    if hasattr(headers, "items"):
+        items = headers.items()
+    elif isinstance(headers, (list, tuple)):
+        items = headers
+    else:
+        return None
     try:
-        items = headers.items() if hasattr(headers, "items") else headers
-        return {str(name).lower(): str(value) for name, value in items if str(name).lower() in _CREDENTIAL_HEADERS}
+        return {str(name).lower(): _header_value(value) for name, value in items}
     except (AttributeError, TypeError, ValueError):
         return None
 
@@ -473,12 +489,18 @@ def _sweep_expired_blobs(
     * **The directory is marked swept before the attempt, not after.** `clear_expired` raises
       for a half-written entry -- exactly the case worth surviving -- and a sweep retried on
       every `register` would fail every download for this TTL rather than the one that met it.
-    * **The caller holds `_cache_dir_lock` across this**, which is what keeps siblings out.
-      `clear_expired` works from the snapshot its filesystem loaded and saves that snapshot back,
-      so a sweep running beside a `download_files` thread pool would drop rows its siblings had
-      just written and orphan their blobs -- the leak this exists to close. It also deletes the
-      metadata file that *building* a filesystem for this directory reads, which on Windows is a
-      `PermissionError` for the builder rather than the harmless POSIX unlink.
+    * **Nothing is downloading into this directory while it runs**, which is what `clear_expired`
+      needs: it works from the snapshot its filesystem loaded and saves that snapshot back, so a
+      sweep beside a `download_files` thread pool would drop rows its siblings had just written and
+      orphan their blobs -- the leak this exists to close.
+
+      What guarantees that is `_swept_dirs`, not the lock: this runs on the first `register` for a
+      path, and until that returns no filesystem for the directory exists for anything to download
+      through. The lock the caller holds is for a narrower thing -- another thread *building* a
+      filesystem for this directory reads the metadata file a sweep can delete, which on Windows is
+      a `PermissionError` for the builder rather than the harmless POSIX unlink. So a sweep that is
+      ever re-armed after the first one needs a new answer to the first question; the lock alone
+      will not give it one, because a download through an already-built filesystem never takes it.
 
     Args:
         filesystem: The caching filesystem that owns this directory.
@@ -501,6 +523,12 @@ def _sweep_expired_blobs(
         log.debug(f"Failed sweeping expired blobs in {cache_path}", exc_info=True)
 
 
+#: The `<NAME>` part of a blob directory: a `CacheExpiry` member name, as `resolve_ttl` returns it.
+#: Written once and shared by both patterns below, which have to agree about it -- widening one and
+#: not the other left a directory that `_BLOB_CACHE_DIR` recognised and `_IDENTITY_CACHE_DIR` did
+#: not, so a rotated credential under a TTL whose name carries a digit was never aged out.
+_TTL_NAME = r"[A-Z0-9_]+"
+
 #: Any blob directory this module has ever written: `ttl-<NAME>` with an optional hash suffix,
 #: under an optional layout prefix (the first layout had none). Matching every layout rather than
 #: only the one before this is what makes `_CACHE_LAYOUT_VERSION` self-cleaning: a build reclaims
@@ -512,18 +540,26 @@ def _sweep_expired_blobs(
 #: renamed or removed. So it is written to match any enum member name a build could have produced,
 #: which is wider than today's enum and cannot be pinned by a test against it. What a test does pin
 #: is the other direction -- that every directory this build writes is one this recognises.
-_BLOB_CACHE_DIR = re.compile(r"^(?:v\d+-)?ttl-[A-Z0-9_]+(?:-[0-9a-f]{8})?$")
+_BLOB_CACHE_DIR = re.compile(rf"^(?:v\d+-)?ttl-{_TTL_NAME}(?:-[0-9a-f]{{8}})?$")
 
 #: A blob directory of the current layout that a *credential* names. The unsuffixed ones are named
 #: by every run and their liveness is never in question; these are the only ones that can stop being
 #: named while the library goes on working, because the credential they are named for has rotated.
-_IDENTITY_CACHE_DIR = re.compile(rf"^{_CACHE_LAYOUT_VERSION}-ttl-[A-Z_]+-[0-9a-f]{{8}}$")
+_IDENTITY_CACHE_DIR = re.compile(rf"^{_CACHE_LAYOUT_VERSION}-ttl-{_TTL_NAME}-[0-9a-f]{{8}}$")
 
 #: Touched whenever a directory is named, so that "nothing has asked for this in a month" can be
 #: read off it. The blobs cannot answer that themselves: an archive that is read on every run and
 #: written on none has file times as old as the day it was fetched.
 _CACHE_USE_MARKER = ".last-used"
 _UNUSED_CACHE_SECONDS = 30 * 24 * 3600
+
+#: How recently a directory of a superseded layout must have been written to be spared. The default
+#: cache dir is shared by every install for a user, so an older version may be running beside this
+#: one -- a `restapi` container, another venv -- with a download in flight into the directory this
+#: is about to remove. One that is genuinely in use has blobs written into it within the hour;
+#: anything older is not being written to by anyone, and waiting a month to reclaim it would defeat
+#: the point of reclaiming it at all.
+_SUPERSEDED_GRACE_SECONDS = 3600
 
 #: Stands in for a credential in headers that `_credential_headers` could not read. A constant, so
 #: that such a caller gets one directory rather than a new one per process, and eight hex digits so
@@ -551,13 +587,31 @@ def _mark_cache_dir_used(cache_path: Path) -> None:
 
 
 def _last_used(directory: Path) -> float:
-    """When this directory was last named, falling back to the directory's own time."""
+    """When this directory was last named.
+
+    A directory with no marker counts as just used, not as never used. `_mark_cache_dir_used` is
+    best-effort -- a read-only or full cache dir logs and carries on -- and the directory's own
+    mtime is exactly the lie the marker exists to correct: a fully cached archive read on every run
+    and written on none is a month old the day after it is fetched. So a missing marker is answered
+    the same way an unreadable one is, and the directory is kept.
+    """
     marker = directory / _CACHE_USE_MARKER
     try:
-        return marker.stat().st_mtime if marker.exists() else directory.stat().st_mtime
+        return marker.stat().st_mtime
     except OSError:
-        # unreadable is not "long unused": leave it to the next run rather than remove it blind
         return time.time()
+
+
+def _written_before(directory: Path, cutoff: float) -> bool:
+    """Whether nothing has been written into this directory since `cutoff`.
+
+    Read off the directory's own mtime, which is the right question for a layout no build of this
+    version writes: what matters is whether some *other* build is writing into it right now.
+    """
+    try:
+        return directory.stat().st_mtime < cutoff
+    except OSError:
+        return False
 
 
 def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
@@ -598,27 +652,38 @@ def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
         log.debug(f"Failed listing {fsspec_root} for unreachable cache directories", exc_info=True)
         return
 
-    cutoff = time.time() - _UNUSED_CACHE_SECONDS
+    now = time.time()
+    idle_cutoff = now - _UNUSED_CACHE_SECONDS
+    superseded_cutoff = now - _SUPERSEDED_GRACE_SECONDS
     stale = [
         directory
         for directory in entries
-        if _is_superseded_layout(directory.name)
-        or (_IDENTITY_CACHE_DIR.match(directory.name) and _last_used(directory) < cutoff)
+        if (_is_superseded_layout(directory.name) and _written_before(directory, superseded_cutoff))
+        or (_IDENTITY_CACHE_DIR.match(directory.name) and _last_used(directory) < idle_cutoff)
     ]
 
     reclaimed = 0
+    removed = 0
     for directory in stale:
+        # in its own `try`, and before nothing: it is walked for a log line, and a file vanishing
+        # mid-walk -- a concurrent process, fsspec writing -- used to take the `rmtree` with it and
+        # leave the one directory that is actually being churned as the one never reclaimed. Cheap
+        # enough to keep: blobs are few and large, so 4.3 GB is under 5000 files and a quarter of a
+        # second
         try:
-            # walked for the log line alone, and cheap enough to be worth it: blobs are few and
-            # large, so the 4.3 GB measured above is under 5000 files and a quarter of a second
-            size = sum(f.stat().st_size for f in directory.rglob("*") if f.is_file())
+            reclaimed += sum(f.stat().st_size for f in directory.rglob("*") if f.is_file())
+        except OSError:
+            log.debug(f"Failed sizing unreachable cache directory {directory}", exc_info=True)
+        try:
             shutil.rmtree(directory)
         except OSError:
             log.debug(f"Failed removing unreachable cache directory {directory}", exc_info=True)
             continue
-        reclaimed += size
-    if stale:
-        log.info(f"Reclaimed {reclaimed / 1e6:.1f} MB from {len(stale)} unreachable cache directories in {fsspec_root}")
+        removed += 1
+    if removed:
+        # what went, not what was considered: the sweep that removes nothing because every `rmtree`
+        # failed used to report the whole list as reclaimed
+        log.info(f"Reclaimed {reclaimed / 1e6:.1f} MB from {removed} unreachable cache directories in {fsspec_root}")
 
 
 class NetworkFilesystemManager:
@@ -683,7 +748,7 @@ class NetworkFilesystemManager:
         what a server sends back, where a timeout, a proxy and a User-Agent decide nothing about it.
         The default User-Agent carries the version number, so the directory was renamed by every
         release and the cache re-downloaded from empty; nothing reads the old name again and, until
-        `_reclaim_legacy_cache_dirs`, nothing removed it either (GH-1959).
+        `_reclaim_unreachable_cache_dirs`, nothing removed it either (GH-1959).
         """
         ttl_name, _ = NetworkFilesystemManager.resolve_ttl(cache_expiry)
         suffix = NetworkFilesystemManager._identity_suffix(client_kwargs)
@@ -691,11 +756,21 @@ class NetworkFilesystemManager:
 
     @staticmethod
     def _client_kwargs_suffix(client_kwargs: dict | None) -> str:
-        """Return a short stable hash suffix that distinguishes different client_kwargs (e.g. auth headers)."""
+        """Return a short stable hash suffix that distinguishes different client_kwargs.
+
+        Through `_header_value`, one level in, so that two secrets do not hash alike: `str()` of a
+        dict of `SecretStr` renders every one of them as `**********`. This key names the filesystem
+        *instance*, and `register` runs only for a key that is new -- so a collision here hands the
+        second caller the first caller's filesystem, built with the first caller's `Authorization`
+        header (GH-1947). That is worse than the cache directory collision it also caused.
+        """
         if not client_kwargs:
             return ""
         try:
-            serialized = json.dumps({k: str(v) for k, v in sorted(client_kwargs.items())}, sort_keys=True)
+            serialized = json.dumps(
+                {key: _stable_repr(value) for key, value in sorted(client_kwargs.items())},
+                sort_keys=True,
+            )
             return "-" + hashlib.sha256(serialized.encode()).hexdigest()[:8]
         except Exception:  # noqa: BLE001
             return ""
@@ -723,9 +798,10 @@ class NetworkFilesystemManager:
             # would file an authenticated body exactly where an unauthenticated request looks for
             # one. A directory of its own, the same one every time, is the safe answer
             return f"-{_UNREADABLE_IDENTITY}"
-        if not carried:
+        varying = {name: value for name, value in carried.items() if name not in _CACHE_NEUTRAL_HEADERS}
+        if not varying:
             return ""
-        return "-" + hashlib.sha256(json.dumps(carried, sort_keys=True).encode()).hexdigest()[:8]
+        return "-" + hashlib.sha256(json.dumps(varying, sort_keys=True).encode()).hexdigest()[:8]
 
     @staticmethod
     def resolve_ttl(cache_expiry: CacheExpiry) -> tuple[str, float | int | Literal[False]]:
@@ -1034,6 +1110,29 @@ def download_file(
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
 
 
+def _header_value(value: object) -> str:
+    """Read a header value as the string it stands for, not as the string it prints as.
+
+    `SecretStr` prints as `**********`, and `Settings.auth` has held credentials as `SecretStr`
+    since GH-1937. So `str()` alone maps every secret to one value: two API keys would hash alike
+    and share a blob directory, which is the one thing separating on a credential exists to stop.
+    """
+    reveal = getattr(value, "get_secret_value", None)
+    return str(reveal() if callable(reveal) else value)
+
+
+def _stable_repr(value: object) -> object:
+    """Render one client-kwargs value for hashing, reading a mapping's own values properly.
+
+    `headers` is the mapping that matters: rendered with `str()` as a whole, a dict of `SecretStr`
+    is a string of masks and two different credentials are one value.
+    """
+    items = getattr(value, "items", None)
+    if callable(items):
+        return {str(name): _header_value(item) for name, item in items()}
+    return _header_value(value)
+
+
 def _sends_credentials(client_kwargs: dict | None) -> bool:
     """Whether these client kwargs carry a credential in a header.
 
@@ -1041,7 +1140,9 @@ def _sends_credentials(client_kwargs: dict | None) -> bool:
     costs a traceback, where not scrubbing one that did puts the header in a log.
     """
     carried = _credential_headers(client_kwargs)
-    return carried is None or bool(carried)
+    if carried is None:
+        return True
+    return any(name in _CREDENTIAL_HEADERS for name in carried)
 
 
 def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:

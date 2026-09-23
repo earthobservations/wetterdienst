@@ -715,12 +715,19 @@ def _probe_frost_credentials(settings: Settings) -> bool:
     """Probe the Frost API; result is cached on disk for ONE_HOUR via download_file."""
     if not settings.auth.metno_frost:
         return False
-    client_kwargs = {**settings.fsspec_client_kwargs}
     client_id, secret = settings.auth.metno_frost
-    client_kwargs.setdefault("headers", {})["Authorization"] = encode_basic_auth(
-        client_id.get_secret_value(),
-        secret.get_secret_value(),
-    )
+    # a fresh headers dict, as every other authenticated provider builds: `{**settings...}` copies
+    # one level, so `setdefault("headers", {})[...] = ...` wrote the Authorization header into the
+    # dict `Settings` holds. Every later request from that `Settings` -- any provider, not only
+    # this one -- then carried met.no's basic auth, which since GH-1959 also moves its blobs off
+    # the shared cache directory onto a credential-named one
+    client_kwargs = {
+        **settings.fsspec_client_kwargs,
+        "headers": {
+            **settings.fsspec_client_kwargs.get("headers", {}),
+            "Authorization": encode_basic_auth(client_id.get_secret_value(), secret.get_secret_value()),
+        },
+    }
     file = download_file(
         url="https://frost.met.no/sources/v0.jsonld?ids=SN18700&fields=id",
         cache_dir=settings.cache_dir,

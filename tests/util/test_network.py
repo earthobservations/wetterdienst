@@ -28,6 +28,7 @@ from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
+from pydantic import SecretStr
 
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -36,6 +37,7 @@ from wetterdienst.util import network
 from wetterdienst.util.network import (
     _BLOB_CACHE_DIR,
     _IDENTITY_CACHE_DIR,
+    _SUPERSEDED_GRACE_SECONDS,
     File,
     FileDirCache,
     HTTPFileSystem,
@@ -1326,6 +1328,8 @@ def test_directories_of_an_earlier_layout_are_reclaimed(tmp_path: Path) -> None:
     for directory in legacy:
         directory.mkdir()
         (directory / "blob").write_bytes(b"x" * 16)
+        # older than the grace that spares a directory an older build may still be writing into
+        _age(directory, days=1)
 
     _blob_dir(tmp_path)
 
@@ -1746,3 +1750,196 @@ def test_no_filesystem_is_built_for_a_directory_while_it_is_being_tidied(
 
     # and once let go it builds its own
     assert len(built) > built_when_tidying_began
+
+
+@pytest.mark.parametrize("name", ["v2-ttl-ONE_DAY_24H-6a88018f", "v2-ttl-TWELVE_HOURS-6a88018f"])
+def test_the_two_directory_patterns_never_disagree(name: str) -> None:
+    """One widened and the other not is a directory that is recognised but never aged out.
+
+    `_BLOB_CACHE_DIR` was widened for a TTL name carrying a digit and `_IDENTITY_CACHE_DIR` was
+    not, so a rotated credential under such a TTL would have been kept for ever -- the leak this
+    whole change closes, reintroduced quietly. They are built from one fragment now.
+    """
+    assert _BLOB_CACHE_DIR.match(name)
+    assert _IDENTITY_CACHE_DIR.match(name)
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+def test_two_secrets_that_print_alike_do_not_share_a_directory(tmp_path: Path) -> None:
+    """`SecretStr` prints as `**********`, so `str()` maps every secret to one value.
+
+    `Settings.auth` has held credentials as `SecretStr` since GH-1937, and a provider that passes
+    one through without revealing it would get two API keys sharing one blob directory -- the one
+    thing separating on a credential exists to stop.
+    """
+    first = _blob_dir(tmp_path, client_kwargs={"headers": {"Authorization": SecretStr("key-A")}})
+    second = _blob_dir(tmp_path, client_kwargs={"headers": {"Authorization": SecretStr("key-B")}})
+
+    assert first != second
+    assert _blob_dir(tmp_path) not in {first, second}
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+@pytest.mark.parametrize(
+    ("headers", "separates"),
+    [
+        ({"User-Agent": "wetterdienst/9.9.9"}, False),
+        ({"Cookie": "session=abc"}, True),
+        ({"Accept-Language": "de"}, True),
+        ({"X-Auth-Token": "t"}, True),
+        ({"Range": "bytes=0-99"}, True),
+    ],
+    ids=["user-agent", "cookie", "accept-language", "x-auth-token", "range"],
+)
+def test_only_a_header_that_cannot_change_the_body_shares_a_directory(
+    tmp_path: Path,
+    headers: dict,
+    *,
+    separates: bool,
+) -> None:
+    """A list of what matters fails open on every header nobody thought of.
+
+    `WD_FSSPEC_CLIENT_KWARGS` is a public setting, so `Accept-Language: de` and `en` in one process
+    would otherwise be served each other's bodies. Listing what is *neutral* fails closed instead:
+    an unknown header costs a cache miss, which is a slow answer rather than a wrong one.
+    """
+    assert (_blob_dir(tmp_path, client_kwargs={"headers": headers}) != _blob_dir(tmp_path)) is separates
+
+
+def test_a_header_that_is_not_a_credential_does_not_cost_a_traceback() -> None:
+    """Separating the cache on a header is not a reason to scrub the errors of the request.
+
+    The scrubber drops the traceback, which is worth more than it costs for a request that carried
+    nothing secret.
+    """
+    assert _sends_credentials({"headers": {"Accept-Language": "de"}}) is False
+    assert _sends_credentials({"headers": {"Authorization": "Bearer x"}}) is True
+
+
+def test_headers_given_as_an_iterator_are_left_for_the_request_that_needs_them() -> None:
+    """Reading one to name the directory would empty it before aiohttp ever saw it.
+
+    And the second reader -- the scrubber -- would then be told there is no credential, on a
+    request that carried one. So an iterator counts as unreadable rather than being consumed.
+    """
+    client_kwargs = {"headers": (header for header in [("Authorization", "Bearer secret")])}
+
+    assert _credential_headers(client_kwargs) is None
+    assert _sends_credentials(client_kwargs) is True
+    # and what the request itself needs is still in there
+    assert list(client_kwargs["headers"]) == [("Authorization", "Bearer secret")]
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+def test_a_superseded_directory_still_being_written_is_left_alone(tmp_path: Path) -> None:
+    """The default cache dir is shared by every install for a user.
+
+    So an older version may be running beside this one -- a `restapi` container, another venv --
+    with a download in flight into the directory this is about to remove. One being written to
+    within the hour is spared; one that is not is nobody's.
+    """
+    fsspec_root = tmp_path / "fsspec"
+    fsspec_root.mkdir()
+    busy = fsspec_root / "ttl-TWELVE_HOURS"
+    busy.mkdir()
+    (busy / "blob").write_bytes(b"x" * 16)
+    idle = fsspec_root / "ttl-FIVE_MINUTES"
+    idle.mkdir()
+    _age(idle, days=_SUPERSEDED_GRACE_SECONDS / 86400 + 1)
+
+    _blob_dir(tmp_path)
+
+    assert busy.is_dir()
+    assert not idle.exists()
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+def test_a_file_vanishing_mid_walk_does_not_save_the_directory(tmp_path: Path) -> None:
+    """The walk is for a log line, so it must not decide whether the removal happens.
+
+    A file disappearing under it -- a concurrent process, fsspec writing -- used to take the
+    `rmtree` with it, leaving the one directory actually being churned as the one never reclaimed.
+    And the reclaim runs once per process, so there is no second chance.
+    """
+    fsspec_root = tmp_path / "fsspec"
+    fsspec_root.mkdir()
+    superseded = fsspec_root / "ttl-TWELVE_HOURS"
+    superseded.mkdir()
+    (superseded / "blob").write_bytes(b"x" * 16)
+    _age(superseded, days=1)
+
+    real_stat = Path.stat
+
+    def flaky_stat(self: Path, *args: object, **kwargs: object) -> os.stat_result:
+        if self.name == "blob":
+            raise FileNotFoundError(self)
+        return real_stat(self, *args, **kwargs)
+
+    with patch.object(Path, "stat", flaky_stat):
+        _blob_dir(tmp_path)
+
+    assert not superseded.exists()
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+def test_the_reclaim_reports_what_went_rather_than_what_it_considered(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A sweep where every removal failed used to report the whole list as reclaimed."""
+    fsspec_root = tmp_path / "fsspec"
+    fsspec_root.mkdir()
+    (fsspec_root / "ttl-TWELVE_HOURS").mkdir()
+    _age(fsspec_root / "ttl-TWELVE_HOURS", days=1)
+
+    with (
+        caplog.at_level(logging.INFO, logger="wetterdienst.util.network"),
+        patch("wetterdienst.util.network.shutil.rmtree", side_effect=OSError("denied")),
+    ):
+        _blob_dir(tmp_path)
+
+    assert not [record for record in caplog.records if "Reclaimed" in record.message]
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+def test_a_directory_whose_marker_could_not_be_written_is_kept(tmp_path: Path) -> None:
+    """Marking is best-effort, and the blobs cannot answer the question the marker answers.
+
+    A read-only or full cache dir logs and carries on, and the directory's own mtime is exactly the
+    lie the marker exists to correct -- so a missing marker keeps the directory rather than
+    condemning it.
+    """
+    client_kwargs = {"headers": {"Authorization": "Bearer long-lived"}}
+    with patch.object(network, "_mark_cache_dir_used", lambda _path: None):
+        live = _blob_dir(tmp_path, client_kwargs=client_kwargs)
+    (live / "blob").write_bytes(b"x" * 16)
+    _age(live, days=400)
+    assert not (live / ".last-used").exists()
+
+    _reclaim_done.clear()
+    _blob_dir(tmp_path, client_kwargs={"headers": {"Authorization": "Bearer someone-else"}})
+
+    assert live.is_dir()
+
+
+@pytest.mark.usefixtures("_fresh_cache_sweeps")
+def test_two_secrets_that_print_alike_do_not_share_a_filesystem(tmp_path: Path) -> None:
+    """The registry key masked them too, which is worse than the directory it also merged.
+
+    `register` runs only for a key that is new, so a collision hands the second caller the first
+    caller's filesystem -- built with the first caller's `Authorization` header (GH-1947).
+    """
+    first = NetworkFilesystemManager.get(
+        cache_dir=tmp_path,
+        cache_expiry=CacheExpiry.TWELVE_HOURS,
+        client_kwargs={"headers": {"Authorization": SecretStr("key-A")}},
+        cache_disable=False,
+    )
+    second = NetworkFilesystemManager.get(
+        cache_dir=tmp_path,
+        cache_expiry=CacheExpiry.TWELVE_HOURS,
+        client_kwargs={"headers": {"Authorization": SecretStr("key-B")}},
+        cache_disable=False,
+    )
+
+    assert first is not second

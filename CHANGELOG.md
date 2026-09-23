@@ -112,6 +112,24 @@ Types of changes:
   building reads the metadata file the other two delete: on POSIX an unlink leaves the open handle
   readable and the race is invisible, where on Windows the builder gets `PermissionError` out of
   fsspec's `CacheMetadata._load`. GH-1955
+- Network: a credential is read for what it stands for rather than for what it prints as, so two of
+  them never share a filesystem or a cache directory. `Settings.auth` has held credentials as
+  `SecretStr` since GH-1937 and those print as `**********`, so `str()` mapped every secret to one
+  value: two API keys hashed alike, and because that hash also names the in-memory filesystem, the
+  second caller was handed the first caller's filesystem -- built with the first caller's
+  `Authorization` header, which is GH-1947 again. Headers given as an iterator are no longer read
+  at all, since reading one to name a directory emptied it before the request that needed it, and
+  told the error scrubber there was no credential on a request that carried one
+- Network: the cache separates on every header but the ones that cannot change a body, rather than
+  on a list of the ones known to carry credentials. That list is written for redaction, where
+  missing a name costs a log line; here it costs one caller's body being handed to another, and
+  `WD_FSSPEC_CLIENT_KWARGS` is a public setting -- `Accept-Language: de` and `en` shared a
+  directory, as would `Cookie` or any header nobody had thought of. An unknown header now costs a
+  cache miss, which is a slow answer rather than a wrong one
+- met.no Frost: the credential probe builds its own headers rather than writing into the dict
+  `Settings` holds. `{**settings.fsspec_client_kwargs}` copies one level, so `setdefault("headers",
+  {})[...] = ...` mutated the shared mapping and every later request from that `Settings` -- any
+  provider, not only this one -- carried met.no's basic auth
 
 - DWD mosmix: a `kml/` directory that exists and holds nothing says so, rather than raising past
   the line written for it -- whichever run was asked for. `next` raises `StopIteration` where its
