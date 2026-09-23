@@ -17,6 +17,7 @@ import pytest
 import stamina
 from aiohttp import (
     ClientConnectorError,
+    ClientOSError,
     ClientPayloadError,
     ClientResponseError,
     ClientTimeout,
@@ -24,10 +25,13 @@ from aiohttp import (
 )
 from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
+from fsspec.implementations.cached import WholeFileCacheFileSystem
+from fsspec.implementations.memory import MemoryFileSystem
 
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
+from wetterdienst.util import network
 from wetterdienst.util.network import (
     File,
     FileDirCache,
@@ -966,3 +970,181 @@ def test_post_file_asks_again_when_the_body_stops_arriving(http_server: tuple[st
 
     assert [request["path"] for request in requests] == ["/truncated", "/truncated"]
     assert isinstance(result.content, ClientPayloadError)
+
+
+def test_filesystem_key_separates_caching_from_not_caching(tmp_path: Path) -> None:
+    """`cache_disable` decided what `register` built, and was not part of what it was filed under.
+
+    `register` runs only for a key that is new, so the first caller in a thread decided for every
+    later one -- and `CacheExpiry.METAINDEX` being an alias of `TWELVE_HOURS`, any earlier
+    metaindex download from any provider was enough to leave a caching filesystem under that key.
+    A later request made with caching disabled was then served from disk (GH-1947).
+    """
+    cached = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.METAINDEX, cache_disable=False)
+    uncached = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.METAINDEX, cache_disable=True)
+
+    assert isinstance(cached, WholeFileCacheFileSystem)
+    assert not isinstance(uncached, WholeFileCacheFileSystem)
+    # and asking again gives the same instance for each, which is what the registry is for
+    assert (
+        NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.METAINDEX, cache_disable=False)
+        is cached
+    )
+    # the blobs stay where they have always been: the key names the instance in memory, and letting
+    # it reach the filesystem would strand every blob a `use_certifi` user already has
+    assert cached.storage[-1] == str(tmp_path / "fsspec" / "ttl-TWELVE_HOURS")
+
+
+def test_filesystem_key_separates_one_cache_dir_from_another(tmp_path: Path) -> None:
+    """`cache_dir` decided where blobs went and was not part of the key either.
+
+    So a second `Settings` with a different `WD_CACHE_DIR` in the same process kept writing to the
+    first one -- the same defect as `cache_disable`, and the one that made the tests here pass
+    against whatever an earlier test had registered rather than against their own `tmp_path`.
+    """
+    other = tmp_path / "other"
+    other.mkdir()
+
+    first = NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False)
+    second = NetworkFilesystemManager.get(cache_dir=other, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False)
+
+    assert first is not second
+    assert first.storage[-1].startswith(str(tmp_path))
+    assert second.storage[-1].startswith(str(other))
+
+
+def test_a_directory_that_is_not_there_is_an_answer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A 404 stays `[]`, which is what every caller has always had it as."""
+
+    def find(_self: object, _url: str, **_kwargs: object) -> list[str]:
+        msg = "404"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr(HTTPFileSystem, "find", find)
+
+    assert list_remote_files_fsspec("https://example.com/none/", Settings(cache_dir=tmp_path)) == []
+
+
+def test_a_directory_that_could_not_be_read_is_not_an_answer(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A failed walk used to arrive as an empty directory would, and be believed.
+
+    `find` walks with `on_error="omit"`, which catches `(FileNotFoundError, OSError)` and returns
+    nothing -- and aiohttp's `ClientOSError` is an `OSError`. So a connection reset was swallowed
+    inside fsspec, never reached the retry wrapping this call, and every provider that lists had to
+    decide what an empty list meant, which none of them could.
+    """
+    attempts = []
+
+    def find(_self: object, _url: str, **kwargs: object) -> list[str]:
+        attempts.append(kwargs)
+        raise ClientOSError(104, "Connection reset by peer")
+
+    monkeypatch.setattr(HTTPFileSystem, "find", find)
+
+    with pytest.raises(ClientOSError):
+        list_remote_files_fsspec("https://example.com/blip/", Settings(cache_dir=tmp_path))
+
+    # the kwarg is the whole of it: with the default `on_error="omit"` the walk inside fsspec
+    # catches this and returns nothing, so neither the retry nor the caller ever learns of it
+    assert all(attempt["on_error"] == "raise" for attempt in attempts)
+    # and the retry that always wrapped this call finally sees one
+    assert len(attempts) > 1
+
+
+def test_a_file_says_whether_it_came_off_the_wire(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A caller that cannot use what it was given needs to know whether asking again could differ.
+
+    A cached body says nothing about what the server has now; one that has just been fetched cannot
+    have changed in the meantime.
+
+    Exercised against a real `WholeFileCacheFileSystem` rather than a stubbed `_check_file`, so the
+    flag is decided by the predicate as it is actually called, over the URL as it is actually
+    hashed -- a mocked answer would pass even if the question were the wrong one.
+    """
+    source = MemoryFileSystem()
+    source.pipe_file("/a.txt", b"payload")
+    caching = WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600)
+    monkeypatch.setattr(NetworkFilesystemManager, "get", lambda **_kwargs: caching)
+
+    first = download_file(url="/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+    second = download_file(url="/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+
+    assert first.from_cache is False
+    assert second.from_cache is True
+    assert first.content.read() == second.content.read() == b"payload"
+
+
+def test_a_file_fetched_without_a_cache_never_claims_otherwise(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A plain filesystem holds nothing to have served, so the flag is false however often it is asked."""
+    monkeypatch.setattr(HTTPFileSystem, "cat_file", lambda _self, _url, **_kw: b"payload")
+
+    url = "https://example.com/b.txt"
+    first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE)
+    second = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE)
+
+    assert first.from_cache is False
+    assert second.from_cache is False
+
+
+def test_a_listing_made_offline_degrades_as_the_rest_of_the_library_does(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Being offline is not this listing failing to read; it is every path being offline.
+
+    A download comes back carrying `NoInternetError` for `raise_if_exception` to log at debug, and
+    providers answer with empty frames -- `dmi`, `rmi`, `smhi`, `nws` and `fmi` all rely on it. A
+    listing has no `File` to carry that in, so raising here would make the one path that lists abort
+    with an aiohttp traceback where every other path degrades quietly.
+    """
+    from unittest.mock import Mock  # noqa: PLC0415
+
+    def find(_self: object, _url: str, **_kwargs: object) -> list[str]:
+        raise ClientConnectorError(Mock(ssl=None, host="opendata.dwd.de", port=443), OSError("offline"))
+
+    monkeypatch.setattr(HTTPFileSystem, "find", find)
+
+    assert list_remote_files_fsspec("https://example.com/offline/", Settings(cache_dir=tmp_path)) == []
+
+
+def test_a_cache_that_cannot_be_read_is_scrubbed_like_a_failed_download(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The cache probe reaches the disk, so it belongs inside the handler that scrubs credentials.
+
+    `_mkcache` can raise on a read-only or full cache dir and the metadata load on a truncated
+    file. Outside the `try`, such an exception skipped `_without_credentials` entirely -- and that
+    scrubbing is load-bearing rather than belt and braces, because stamina's retry hook logs
+    `repr(caused_by)` on the first failure, before any handler below is reached.
+    """
+    scrubbed: list[str] = []
+
+    def check_file(_self: object, _url: str) -> bool:
+        msg = "cache dir is read-only"
+        raise PermissionError(msg)
+
+    def without_credentials(error: Exception, *, sent_credentials: bool) -> Exception:
+        scrubbed.append(type(error).__name__)
+        assert sent_credentials is True
+        return error
+
+    monkeypatch.setattr(WholeFileCacheFileSystem, "_check_file", check_file)
+    monkeypatch.setattr(network, "_without_credentials", without_credentials)
+
+    with pytest.raises(PermissionError):
+        download_file(
+            url="https://example.com/secret.txt",
+            cache_dir=tmp_path,
+            ttl=CacheExpiry.TWELVE_HOURS,
+            client_kwargs={"headers": {"Authorization": "Bearer hunter2"}},
+        )
+
+    # the probe's failure went through the scrubber, as a failed read always has
+    assert scrubbed == ["PermissionError"]

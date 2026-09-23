@@ -79,6 +79,13 @@ class File:
     """The content of the file as a BytesIO object."""
     status: int
     """The status code of the file download, if available."""
+    from_cache: bool = False
+    """Whether the body was served from the on-disk cache rather than fetched.
+
+    A caller that cannot use what it was given needs this to know whether asking again could
+    answer differently: a cached body says nothing about what the server has now, while one that
+    has just come off the wire cannot have changed in the meantime (GH-1947).
+    """
 
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object.
@@ -408,6 +415,51 @@ class NetworkFilesystemManager:
         return cls._thread_local.filesystems
 
     @staticmethod
+    def _registry_key(
+        cache_dir: Path,
+        cache_expiry: CacheExpiry,
+        client_kwargs: dict | None,
+        *,
+        cache_disable: bool,
+        use_certifi: bool,
+    ) -> str:
+        """Name a filesystem by everything `register` builds it from.
+
+        Everything, because `register` runs only for a key that is new -- so whatever the key
+        leaves out, the first caller in a thread decides for every later one. `cache_dir`,
+        `cache_disable` and `use_certifi` were all left out. `CacheExpiry.METAINDEX` being an alias
+        of `TWELVE_HOURS`, any earlier metaindex download from any provider was enough to leave a
+        caching filesystem under that key, and a later request made with caching disabled, or
+        against a different `WD_CACHE_DIR`, was then served by it (GH-1947).
+
+        This names the instance in memory and nothing on disk: where the blobs live is
+        `_cache_path`, which is deliberately unchanged, since a key that reached the filesystem
+        would stranded every blob a `use_certifi` user already has.
+        """
+        ttl_name, _ = NetworkFilesystemManager.resolve_ttl(cache_expiry)
+        parts = [
+            # through `resolve_ttl`, as `_cache_path` reads it: the two agree today only because
+            # that function returns the name verbatim, and a key that reads an input its own way is
+            # how this drifted in the first place
+            f"ttl-{ttl_name}",
+            NetworkFilesystemManager._client_kwargs_suffix(client_kwargs),
+            f"-dir-{hashlib.sha256(str(cache_dir).encode()).hexdigest()[:8]}",
+            "-nocache" if cache_disable else "",
+            "-certifi" if use_certifi else "",
+        ]
+        return "".join(parts)
+
+    @staticmethod
+    def _cache_path(cache_dir: Path, cache_expiry: CacheExpiry, client_kwargs: dict | None) -> Path:
+        """Where the blobs for this TTL live, which is what it has always been."""
+        ttl_name, _ = NetworkFilesystemManager.resolve_ttl(cache_expiry)
+        return (
+            Path(cache_dir)
+            / "fsspec"
+            / f"ttl-{ttl_name}{NetworkFilesystemManager._client_kwargs_suffix(client_kwargs)}"
+        )
+
+    @staticmethod
     def _client_kwargs_suffix(client_kwargs: dict | None) -> str:
         """Return a short stable hash suffix that distinguishes different client_kwargs (e.g. auth headers)."""
         if not client_kwargs:
@@ -454,8 +506,10 @@ class NetworkFilesystemManager:
             None
 
         """
-        ttl_name, ttl_value = cls.resolve_ttl(cache_expiry)
-        key = f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
+        _, ttl_value = cls.resolve_ttl(cache_expiry)
+        key = cls._registry_key(
+            cache_dir, cache_expiry, client_kwargs, cache_disable=cache_disable, use_certifi=use_certifi
+        )
         fs = HTTPFileSystem(
             use_listings_cache=False,
             client_kwargs=client_kwargs,
@@ -469,7 +523,7 @@ class NetworkFilesystemManager:
         if cache_disable or cache_expiry == CacheExpiry.NO_CACHE:
             filesystem_effective = fs
         else:
-            real_cache_dir = Path(cache_dir) / "fsspec" / key
+            real_cache_dir = cls._cache_path(cache_dir, cache_expiry, client_kwargs)
             filesystem_effective = WholeFileCacheFileSystem(
                 fs=fs,
                 cache_storage=str(real_cache_dir),
@@ -500,8 +554,9 @@ class NetworkFilesystemManager:
             The filesystem instance.
 
         """
-        ttl_name, _ = cls.resolve_ttl(cache_expiry)
-        key = f"ttl-{ttl_name}{cls._client_kwargs_suffix(client_kwargs)}"
+        key = cls._registry_key(
+            cache_dir, cache_expiry, client_kwargs, cache_disable=cache_disable, use_certifi=use_certifi
+        )
         if key not in cls._get_filesystems():
             cls.register(
                 cache_dir=cache_dir,
@@ -567,7 +622,28 @@ def list_remote_files_fsspec(
         client_kwargs=settings.fsspec_client_kwargs,
         use_certifi=settings.use_certifi,
     )
-    return fs.find(url)
+    try:
+        # `find` walks with `on_error="omit"` by default, which catches `(FileNotFoundError,
+        # OSError)` and returns nothing -- and aiohttp's `ClientOSError` is an `OSError`. So a
+        # connection reset mid-walk was swallowed inside fsspec, never reached the retry wrapping
+        # this call, and arrived at the caller as an empty directory would. Every provider that
+        # lists then had to decide what an empty list meant, and none of them could (GH-1947).
+        #
+        # Raised instead, and the two told apart here: a directory that is not there is an answer,
+        # and callers have always had it as `[]`; anything else is a failure to read, which the
+        # retry above is for and which a caller should hear about rather than infer
+        return fs.find(url, on_error="raise")
+    except FileNotFoundError:
+        return []
+    except ClientConnectorError:
+        # the one `OSError` that is not a failure to read this listing: it is the whole library
+        # being offline, which every other path here degrades on rather than reports -- a download
+        # comes back carrying `NoInternetError` for `raise_if_exception` to log at debug, and
+        # providers answer with empty frames. A listing has no `File` to carry that in, so it
+        # degrades the way it always did, and the offline user keeps getting empty frames instead
+        # of an aiohttp traceback from the one path that lists
+        log.debug(f"No internet connection available for {url}, returning no files.")
+        return []
 
 
 @stamina.retry(on=Exception, attempts=3)
@@ -641,6 +717,17 @@ def download_file(
         for attempt in stamina.retry_context(on=_worth_retrying_download, attempts=2):
             with attempt:
                 try:
+                    # asked per attempt and before the read, because reading is what populates the
+                    # cache -- and because an attempt that re-downloads after a cached read failed
+                    # must not inherit the first attempt's answer. `_check_file` is how
+                    # `WholeFileCacheFileSystem` says whether it holds an unexpired copy; a plain
+                    # filesystem has no such question and always says no.
+                    #
+                    # Inside the `try`, because it reaches the disk: `_mkcache` can raise on a
+                    # read-only or full cache dir and the metadata load on a truncated file, and an
+                    # exception escaping here carries a traceback whose frame holds `client_kwargs`
+                    # -- the Authorization header -- which is exactly what the handler below drops
+                    served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
                     payload = filesystem.cat_file(url)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
@@ -648,7 +735,7 @@ def download_file(
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Downloaded file {url}")
-                return File(url=url, content=BytesIO(payload), status=200)
+                return File(url=url, content=BytesIO(payload), status=200, from_cache=served_from_cache)
         msg = "unreachable"
         raise AssertionError(msg)
     except FileNotFoundError as e:

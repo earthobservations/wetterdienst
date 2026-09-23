@@ -58,4 +58,7 @@ def _unpack_climate_observations_data(file: File) -> File:
         url=file.url,
         content=BytesIO(product_bytes),
         status=file.status,
+        # carried, not dropped: unpacking does not change where the bytes came from, and a caller
+        # that finds the member corrupt is exactly who the flag is for
+        from_cache=file.from_cache,
     )
