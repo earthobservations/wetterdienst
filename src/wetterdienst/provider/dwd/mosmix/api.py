@@ -66,6 +66,12 @@ _FORECAST_FILE = r"\.kmz$"
 _LATEST_FILE = re.compile(r"LATEST.*" + _FORECAST_FILE, re.IGNORECASE)
 
 
+def _run_stamp_of(url: str) -> str | None:
+    """Read the run a single URL is named for, or None -- `_run_stamp`'s rule, one name at a time."""
+    match = re.search(rf"(?i)_(\d{{10}})(?:_[^.]*)?{_FORECAST_FILE}", url.rsplit("/", 1)[-1])
+    return match.group(1) if match else None
+
+
 def _run_stamp(urls: pl.Expr) -> pl.Expr:
     """Read the run a forecast file is named for, or null where the name does not carry one.
 
@@ -84,8 +90,8 @@ def _run_stamp(urls: pl.Expr) -> pl.Expr:
     The forecast's own extension is part of the rule rather than "a name with ten digits in it
     somewhere", so that a companion file *carrying* the run stamp is dropped too. A
     ``MOSMIX_L_2026092203_01001.kmz.sha256`` beside its forecast would otherwise survive, two rows
-    would match one run. Two forms of the same forecast do that legitimately -- `.kml` beside
-    `.kmz` while DWD migrates -- so the caller sorts and takes the first rather than the
+    would match one run: a second lead time in one directory, `..._120.kmz` beside `..._240.kmz`.
+    The callers sort and take the last, all of them, rather than the
     `IndexError` written for a run with no file. DWD publishes no such sidecar today, which is what
     makes this the kind of thing to settle while the rule is being written rather than after.
     """
@@ -169,8 +175,13 @@ class DwdMosmixValues(TimeseriesValues):
 
     def read_mosmix_small(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Read single MOSMIX-S file for all stations or multiple files for single stations."""
+        from typing import cast  # noqa: PLC0415
+
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_S_PATH)
-        file_url = self.get_url_for_date(url, date)
+        # MOSMIX-S publishes every station in one file, so an empty listing is never one station's
+        # -- and `one_station_only=False` raises rather than answering `None`, which is why there
+        # is no empty-frame branch here where `read_mosmix_large` has one
+        file_url = cast("str", self.get_url_for_date(url, date, one_station_only=False))
         self.kml.read(file_url)
         return self.kml.get_station_forecast(station_id)
 
@@ -182,16 +193,43 @@ class DwdMosmixValues(TimeseriesValues):
         """Read single MOSMIX-L file for all stations or multiple files for single stations."""
         from typing import cast  # noqa: PLC0415
 
-        if cast("DwdMosmixRequest", self.sr.stations).station_group == DwdMosmixStationGroup.ALL_STATIONS:
+        all_stations = cast("DwdMosmixRequest", self.sr.stations).station_group == DwdMosmixStationGroup.ALL_STATIONS
+        if all_stations:
             url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_PATH)
         else:
             url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH).format(station_id=station_id)
-        file_url = self.get_url_for_date(url, date)
+        file_url = self.get_url_for_date(url, date, one_station_only=not all_stations)
+        if not file_url:
+            return pl.DataFrame()
         self.kml.read(file_url)
         return self.kml.get_station_forecast(station_id)
 
-    def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str:
-        """Get the URL for a given date."""
+    def get_url_for_date(
+        self,
+        url: str,
+        date: dt.datetime | DwdForecastDate,
+        *,
+        one_station_only: bool,
+    ) -> str | None:
+        """Get the URL for a given date, or None where one station's directory names nothing.
+
+        `None` rather than a raise, and only for a directory that names nothing, and only where
+        that directory belongs to one station: DWD empties or retires a station's directory without
+        warning, and a single one of those used to end a request for fifty stations, since nothing
+        between here and `values.all()` catches. The other forty-nine have forecasts and are the
+        answer the caller asked for. `dwd/dmo` has always made this split; mosmix raised because its
+        return type said it must (GH-1949).
+
+        The all-stations products have no such reading. One empty listing there is every station at
+        once, so it cannot mean a station retired -- it means the listing failed or DWD moved the
+        product, and `fs.find` swallowing an `OSError` makes those look identical to an empty
+        directory. Answering `None` would turn a connection reset into an empty result for the
+        whole request, exit 0 and HTTP 200. Those still raise.
+
+        A directory that names files but no forecast still raises, being a statement about the
+        product rather than about one station: it means what is published there is not what this
+        knows how to read, which is worth a request ending over.
+        """
         from typing import cast  # noqa: PLC0415
 
         urls = list_remote_files_fsspec(url, cast("Settings", self.sr.stations.settings), CacheExpiry.NO_CACHE)
@@ -203,26 +241,39 @@ class DwdMosmixValues(TimeseriesValues):
             # swallows `OSError` -- aiohttp's `ClientOSError` is one -- so a listing that could not
             # be read arrives looking exactly like a directory that holds nothing, as does the 404
             # of a station id that does not exist
-            msg = f"Unable to find any file within {url}; a listing that failed looks the same as one that is empty"
-            raise IndexError(msg)
+            message = f"No file listed within {url}; a listing that failed looks the same as one that is empty"
+            if not one_station_only:
+                raise IndexError(message)
+            log.warning(message)
+            return None
 
         if date == DwdForecastDate.LATEST:
-            # asked for a default rather than guarded against the exception `next` does not raise:
-            # a `kml/` directory holding files but no `LATEST` among them is an ordinary outcome
-            # held to the same rule as a dated run below, where a bare `"LATEST" in url` would
-            # answer with a checksum published beside the alias -- and would do it on the default
-            # path, the one a caller reaches without asking for anything. Today it is the listing's
-            # sort order that keeps `.kmz` ahead of `.kmz.sha256`, which is luck rather than a rule
-            # sorted rather than first-found: widening what counts as a forecast to `.kml` as
-            # well as `.kmz` means a run can be published in both forms at once, which is what a
-            # migration looks like while it is happening -- and answering with whichever the
-            # listing happened to return first would make the answer depend on the listing's order
+            # the newest run the listing names, rather than the `LATEST` alias beside it. The two
+            # are the same bytes -- the server answers one ETag, one content-length and one
+            # Last-Modified for both, which is also what says the newest name is safe to read: one
+            # inode under two names is a link made when the upload finished, not a name that
+            # appears while 36 MB is still arriving. `dwd/road` and `dwd/dmo` have indexed the
+            # named files on that basis for as long as they have existed -- but a run named
+            # by its timestamp is that run for good, where the alias is a name whose content DWD
+            # replaces every hour. Only the named one can be held, and `MOSMIX_S` is 36 MB
+            # (GH-1945). `dwd/road` and `dwd/dmo` both index the named files and skip the alias.
+            #
+            # Newest by stamp, and by name after it -- `sorted` falls through to the URL where two
+            # names carry one stamp, and `[-1]` takes the last of them. Every path here takes that
+            # same end: the dated branch below, and the alias fallback, so asking for a run by name
+            # and asking for the newest run cannot answer with different files. Only one file per
+            # run exists today, `_run_stamp` matching `.kmz` alone, so either end is that file --
+            # but a second lead time in one directory would make it matter
+            runs = sorted((stamp, url_) for url_, stamp in ((u, _run_stamp_of(u)) for u in urls) if stamp is not None)
+            if runs:
+                return runs[-1][1]
             aliases = sorted(url_ for url_ in urls if _LATEST_FILE.search(url_.rsplit("/", 1)[-1]))
-            url_latest = aliases[0] if aliases else None
-            if url_latest is None:
-                msg = f"Unable to find LATEST file within {url}"
-                raise IndexError(msg)
-            return url_latest
+            if aliases:
+                # the same end as every other path, so two alias forms -- a second lead time, which
+                # `dwd/dmo` already publishes -- cannot answer differently from the run paths
+                return aliases[-1]
+            msg = f"Unable to find LATEST file within {url}"
+            raise IndexError(msg)
 
         date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
 
@@ -247,11 +298,14 @@ class DwdMosmixValues(TimeseriesValues):
             msg = f"Unable to find {date} file within {url}"
             raise IndexError(msg)
 
-        # `.item()` raises where a run matched twice, which the same widening allows: a forecast
-        # published as `.kml` beside its `.kmz` carries one run stamp on two names. Sorted and
-        # taken first, so two forms of one run answer with one of them, deterministically, rather
-        # than with `can only call '.item()' if the Series is of length 1`
-        return cast("str", df.get_column("url").sort().first())
+        # `.item()` raises on two rows rather than answering, and two rows are possible: a second
+        # lead time in one directory (`..._120.kmz` beside `..._240.kmz`) carries one run stamp on
+        # two names. Not `.kml` beside `.kmz`, which `_FORECAST_FILE` excludes a line above -- the
+        # comment used to say that, and it was wrong.
+        #
+        # Last of the sort, which is what the `LATEST` branch takes, so asking for a run by name
+        # and asking for the newest run answer with the same file rather than with different ones
+        return cast("str", df.get_column("url").sort().last())
 
 
 @dataclass

@@ -11,8 +11,10 @@ import logging
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
+from zipfile import BadZipFile
 
 import polars as pl
+from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import iterparse
 from tqdm import tqdm
@@ -28,6 +30,7 @@ if TYPE_CHECKING:
     from xml.etree.ElementTree import Element
 
     from wetterdienst.settings import Settings
+    from wetterdienst.util.network import HTTPFileSystem
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -61,21 +64,49 @@ class KMLReader:
         self._current_url = None
         self._zip_refs = None
 
-        self.dwdfs = NetworkFilesystemManager.get(
-            cache_dir=settings.cache_dir,
-            cache_expiry=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
+        # how long a forecast may be held is a property of the URL, not of the reader. A run named
+        # by its timestamp is that run for good and may be kept; a `LATEST` alias is a name whose
+        # content DWD replaces, so it may only be held briefly. Holding everything briefly is what
+        # this did, and for `MOSMIX_S` -- 36 MB, published hourly -- that meant re-downloading it
+        # up to twelve times an hour for a file that had not changed (GH-1945).
+        #
+        # What it costs instead: a distinct URL per run, so the cache gains a blob an hour where it
+        # reused one -- 36 MB an hour, 871 MB a day for MOSMIX-S, against 10.4 GB a day over the
+        # wire before. Nothing evicts a blob once its expiry has passed, which is GH-1955 and is
+        # true of every provider here: the observation zips, the radar files and the rest all
+        # accumulate per URL already. Reusing one blob was mosmix's anomaly, and it came from
+        # resolving to a name whose content changed under it.
+        #
+        # `dwd/dmo` reads through this class too, so its downloads move with mosmix's. Its names
+        # carry the same kind of immutable run stamp (`ptp_gdmog_01001_078_1_230000.kmz`) and none
+        # of them says `LATEST`, so every DMO file takes the long hold -- correct, and worth saying
+        # because DMO keeps only a handful of runs, so a blob can outlive the file upstream
+        self._filesystems = {
+            ttl: NetworkFilesystemManager.get(
+                cache_dir=settings.cache_dir,
+                cache_expiry=ttl,
+                client_kwargs=settings.fsspec_client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
+            )
+            for ttl in (CacheExpiry.FIVE_MINUTES, CacheExpiry.TWELVE_HOURS)
+        }
+        # no `self.dwdfs`: which filesystem answers is per-URL now, and an attribute pinned to one
+        # of them is a trap for whatever reaches for it next
+
+    def _filesystem_for(self, url: str) -> HTTPFileSystem | WholeFileCacheFileSystem:
+        """Pick how long this URL may be held: briefly for a mutable alias, long for a named run."""
+        mutable = "LATEST" in url.rsplit("/", 1)[-1].upper()
+        return self._filesystems[CacheExpiry.FIVE_MINUTES if mutable else CacheExpiry.TWELVE_HOURS]
 
     def download(self, url: str) -> BytesIO:
         """Download kml file as bytes.
 
         https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests
         """
-        response = self.dwdfs.open(url, block_size=0)
-        total = self.dwdfs.size(url)
+        dwdfs = self._filesystem_for(url)
+        response = dwdfs.open(url, block_size=0)
+        total = dwdfs.size(url)
 
         buffer = BytesIO()
 
@@ -97,6 +128,29 @@ class KMLReader:
 
     def fetch(self, url: str) -> BinaryIO:
         """Open the zipped mosmix KML as a streaming handle (decompressed lazily, not all at once)."""
+        try:
+            return self._fetch(url)
+        except BadZipFile:
+            # a run held under an immutable URL for twelve hours, and the body is not a zip. fsspec
+            # writes its cache metadata before the copy finishes -- `_make_local_details` records
+            # the entry, `get_file` fills it afterwards -- so a download interrupted mid-copy
+            # leaves a truncated blob that `_check_file` then accepts for the life of the entry.
+            # Held five minutes that righted itself; held twelve hours, and with `LATEST` now
+            # resolving to the same immutable URL rather than to an alias, it would not.
+            #
+            # So the entry is dropped and the run asked for once more. A body that is still not a
+            # zip after that is upstream's, and raises
+            filesystem = self._filesystem_for(url)
+            if not isinstance(filesystem, WholeFileCacheFileSystem):
+                # nothing held, so nothing to drop and nothing a second request would answer
+                # differently -- and for MOSMIX-S that second request is another 36 MB
+                raise
+            log.warning(f"Cached MOSMIX run {url} is not a zip; dropping it from the cache and asking again")
+            filesystem.pop_from_cache(url)
+            return self._fetch(url)
+
+    def _fetch(self, url: str) -> BinaryIO:
+        """Download and open one run, whatever the cache currently holds for it."""
         buffer = self.download(url)
         zfs = ZipFileSystem(buffer, "r")
         handle = zfs.open(zfs.glob("*")[0])
