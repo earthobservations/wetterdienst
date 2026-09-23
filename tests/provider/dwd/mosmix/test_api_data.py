@@ -4,6 +4,7 @@
 
 import datetime as dt
 import logging
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -525,6 +526,14 @@ def test_mosmix_reads_the_run_out_of_every_naming_layout(
             "MOSMIX_L_LATEST_01001.kmz",
             id="an-alias-in-both-forms",
         ),
+        pytest.param(
+            # two alias forms, which a second lead time would give -- `dwd/dmo` already publishes
+            # two. Every path takes the last of the sort, so asking for the newest run and asking
+            # for a run by name cannot answer with different files
+            ["MOSMIX_S_LATEST_120.kmz", "MOSMIX_S_LATEST_240.kmz"],
+            "MOSMIX_S_LATEST_240.kmz",
+            id="two-alias-lead-times",
+        ),
     ],
 )
 def test_mosmix_latest_answers_with_a_forecast_and_not_with_what_sits_beside_it(
@@ -745,3 +754,54 @@ def test_mosmix_an_empty_all_stations_listing_is_not_a_quiet_station(monkeypatch
     # the product's directory: not an answer
     with pytest.raises(IndexError, match="a listing that failed looks the same"):
         values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=False)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_ttl"),
+    [
+        pytest.param("https://x/kmz/ptp_gdmog_01001_078_1_230000.kmz", CacheExpiry.TWELVE_HOURS, id="a-dmo-run"),
+        pytest.param("https://x/kml/MOSMIX_L_2026092209_01001.kmz", CacheExpiry.TWELVE_HOURS, id="a-mosmix-run"),
+        pytest.param("https://x/kml/MOSMIX_L_LATEST_01001.kmz", CacheExpiry.FIVE_MINUTES, id="the-mosmix-alias"),
+    ],
+)
+def test_the_kml_reader_holds_dmo_by_the_same_rule_as_mosmix(url: str, expected_ttl: CacheExpiry) -> None:
+    """`dwd/dmo` reads through this class too, so its downloads move with mosmix's.
+
+    DMO names carry the same kind of immutable run stamp and none of them says `LATEST`, so every
+    DMO file takes the long hold. Worth pinning rather than inferring, since the change was made
+    for mosmix and DMO keeps only a handful of runs -- a blob there can outlive the file upstream.
+    """
+    from wetterdienst.provider.dwd.mosmix.access import KMLReader  # noqa: PLC0415
+
+    reader = KMLReader(station_ids=["01001"], settings=Settings())
+
+    assert reader._filesystem_for(url) is reader._filesystems[expected_ttl]  # noqa: SLF001
+
+
+def test_a_run_that_is_not_a_zip_without_a_cache_is_not_asked_for_twice(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With nothing held there is nothing to drop, and nothing a second request would answer.
+
+    For MOSMIX-S that second request is another 36 MB spent to meet the same `BadZipFile`.
+    """
+    from zipfile import BadZipFile  # noqa: PLC0415
+
+    from fsspec.implementations.http import HTTPFileSystem  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.mosmix.access import KMLReader  # noqa: PLC0415
+
+    reader = KMLReader(station_ids=["01001"], settings=Settings())
+    downloads: list[str] = []
+    monkeypatch.setattr(
+        KMLReader,
+        "download",
+        lambda _self, url: downloads.append(url) or BytesIO(b"an upstream error page, not a zip"),
+    )
+    # a plain filesystem, which is what `cache_disable` produces -- named directly here because
+    # `cache_disable` is not part of the registry key on this branch (GH-1947), so asking for one
+    # by settings can hand back a caching filesystem an earlier test registered
+    monkeypatch.setattr(KMLReader, "_filesystem_for", lambda _self, _url: HTTPFileSystem())
+
+    with pytest.raises(BadZipFile):
+        reader.fetch("https://x/kml/MOSMIX_L_2026092209_01001.kmz")
+
+    assert len(downloads) == 1

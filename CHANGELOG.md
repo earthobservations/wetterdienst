@@ -164,8 +164,12 @@ Types of changes:
   not changed; a named run is held for twelve hours and only the alias, still the fallback for a
   listing that names no run, keeps the short expiry. `dwd/road` and `dwd/dmo` already index the
   named files and skip the alias. What that costs is a distinct URL per run, so the cache gains a
-  blob an hour where it reused one -- roughly 430 MB a day for MOSMIX-S against a twelfth of the
-  bytes over the wire, and disk that nothing evicts until GH-1955 is answered. GH-1945
+  blob an hour where it reused one: 36 MB an hour and 871 MB a day for MOSMIX-S, against 10.4 GB a
+  day over the wire before. Nothing evicts a blob once its expiry has passed, which is GH-1955 and
+  is true of every provider here -- the observation zips and the radar files accumulate per URL
+  already, and reusing one blob was mosmix's anomaly, from resolving to a name whose content
+  changed under it. `dwd/dmo` reads through the same class, so its downloads take the long hold
+  too; its names carry the same immutable run stamp. GH-1945
 
 - DWD mosmix: a station whose directory DWD has emptied or retired costs that station and no more.
   `get_url_for_date` raised on a listing that named nothing, and nothing between it and
