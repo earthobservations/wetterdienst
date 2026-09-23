@@ -59,6 +59,13 @@ Types of changes:
 
 ### Fixed
 
+- DWD swsmos: a body that could not be read is not fetched a second time when the caller has
+  disabled the cache. The re-ask exists to get past a cached bad body, and `cache_disable` now says
+  whether there is one: it named nothing in `NetworkFilesystemManager`'s registry key when this was
+  written -- a request that disabled the cache was served by whatever had been registered first in
+  that thread, cache and all -- and GH-1947 put it in that key, so the flag decides what is built
+  and asking again would fetch the same bytes down the same wire
+
 - Examples: the DuckDB dump addresses its database file with three slashes rather than four, so
   it opens on Windows. `ConnectionString` takes the database as the URL path with one leading
   slash removed, so exactly one slash belongs between the scheme and the path -- which a POSIX
@@ -300,6 +307,73 @@ Types of changes:
   claimed as fixed. And `File` carries `from_cache`, sampled per attempt, because a caller that
   cannot use what it was given needs to know whether asking again could answer differently.
   GH-1947
+- DWD swsmos: the run is read once for the request rather than once for every station it answers
+  for. One run file holds every road station's whole forecast -- 306 612 rows, 1 836 stations to
+  +167 h -- where the collection above it asks for one station at a time, so the run was listed,
+  fetched and parsed once per station and all but one station's rows thrown away each time. Five
+  stations parsed the same file five times, 2.5 s of a 2.7 s request; twenty-five took 14.1 s, and
+  the whole network would have spent a quarter of an hour decompressing one file it already held.
+  They now take 0.7 s and 0.8 s: one parse whatever the request asks for, and a 1.08 ms filter over
+  the parsed run per station after it -- near-flat rather than flat, 1.98 s of filtering for the
+  whole network, where partitioning the run by station would cost 0.065 s once and is the better
+  trade only above about sixty stations. The whole
+  run is kept where `dwd/road` keeps only its last station group, a run being one file of some
+  20 MB however wide the request or long the window, and it needs no key: a group varies from
+  station to station, while the run is a property of the query. It is pinned for the length of a
+  query and no longer, so a caller keeping the values object and querying it again on a timer is
+  answered with the run published since rather than the one it first resolved. A run that cannot be
+  fetched is likewise asked for once, and reported once, instead of once per station. This is the
+  half of GH-1922 left open when `dwd/road` was fixed, measured rather than assumed to transfer.
+  GH-1922
+
+- DWD swsmos: `LATEST` no longer answers with a run up to twelve hours old. How long a run may be
+  cached is a property of the URL rather than of the request: a run named by its timestamp is that
+  run for good, while `swsmos_LATEST_opendata.csv.bz2` is a name whose content DWD replaces every
+  hour -- and the alias was cached by URL for twelve hours like everything else, so "the latest
+  run" could be one whose first twelve forecast hours had already happened. Measured against the
+  live server at 22:57 UTC: the alias was answered from the 21:00 run while DWD was serving 22:00.
+  `LATEST` now resolves to the newest run the directory listing names, which is the same bytes --
+  the server returns one ETag for the alias and that file, one content-length and one
+  Last-Modified, the alias being a link rather than a copy -- from a URL that cannot change under
+  its cache entry, so the answer is the newest run with nothing to expire. The listing is never
+  cached, and `dwd/road` likewise indexes the timestamped files and skips the aliases duplicating
+  them. The alias remains the fallback for a listing that names no run, held for five minutes,
+  which is what `dwd/mosmix` holds its KML for. Found while reviewing the fix above, and older than
+  it. GH-1922
+
+- DWD swsmos: a run that cannot be read is reported and skipped, where it used to end the request
+  in a traceback. A body that is not the bz2 a run file should be raises out of `bz2.decompress` --
+  `ValueError` where it stops early, `OSError` where it was never bz2 -- and nothing between there
+  and the caller catches, so a truncated download ended `values.all()` in a traceback where a
+  failed download ends it in an empty frame. It is cached for twelve hours as well, so the same
+  traceback would have repeated for half a day. It is now warned about and answered the way a
+  failed fetch is, and `LATEST` falls back to the run before the newest: the listing is
+  deliberately uncached, so it names a run the moment it appears, and a run still being written
+  cannot be read -- an hour-old forecast is what `LATEST` should mean in that window rather than
+  nothing. What counts as a run is matched exactly (`swsmos_<14 digits>_opendata.csv.bz2`) rather
+  than by a `swsmos_` prefix, which also matches a checksum sidecar or a second product published
+  beside the runs -- and one of those sorts *after* the run it belongs to, so the newest name would
+  have been a file that is not a run. A run that arrives holding nothing takes the same way out:
+  `bz2.decompress(b"")` returns `b""` rather than raising, so a zero-byte 200 parsed to a frame of
+  no rows and read as a run that simply holds nothing, which became the request's answer while the
+  run before it went untried -- the same window, one byte-count away. And a body that could not be
+  read is asked for once more past the cache before falling back, since it is held under its URL
+  for twelve hours like a good one, so what the cache hands back says nothing about what the server
+  has now -- and answering from the run before it without asking would mean an hour of yesterday's
+  hour while the run the caller asked for sits complete on the server. `LATEST` means the newest
+  run there is, not the newest one a stale cache entry will admit to. The re-ask is not held back by
+  `cache_disable`, which does not say what it looks like it says: `NetworkFilesystemManager` keys
+  its filesystems by TTL and client kwargs alone and registers one only where that key is new, so a
+  request made with caching disabled is served by whatever was registered first in that thread,
+  cache and all (GH-1947). Naming the run rather than the alias also means a distinct URL per model
+  run, so the cache grows by one 1.9 MB body an hour where it used to refetch one: 45.6 MB a day,
+  1.34 GB a month and 16.3 GB a year for a process that keeps asking, against a cache that has no
+  eviction at all and already reaches 4.2 GB on its own. Small next to that figure for a quarter,
+  and past it thereafter; tracked in GH-1947. A listing
+  that names no run at all now says so too, where it used to answer every station with an empty
+  frame and no diagnostic: the listing is retried and re-raises, so an empty one means the server
+  named nothing, which is a directory reorganised rather than a day without data. Found while
+  reviewing the fix above. GH-1922
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --

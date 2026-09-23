@@ -18,6 +18,7 @@ import bz2
 import contextlib
 import datetime as dt
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, cast
@@ -35,6 +36,9 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from wetterdienst.model.result import ValuesResult
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -61,6 +65,12 @@ class DwdForecastDate(Enum):
     LATEST = "latest"
 
 
+# what a run file is called, and nothing else. A bare ``swsmos_`` prefix also matches a checksum
+# sidecar or a second product published beside the runs, and one of those sorts after the run it
+# belongs to -- so the newest name would be a file that is not a run, handed straight to bz2
+_RUN_FILE = re.compile(r"^swsmos_\d{14}_opendata\.csv\.bz2$")
+
+
 def _run_url(issue: dt.datetime) -> str:
     return f"{_BASE_URL}/swsmos_{issue:%Y%m%d%H}0000_opendata.csv.bz2"
 
@@ -74,29 +84,109 @@ def _read_run_csv(content: bytes) -> pl.DataFrame:
     return pl.read_csv(csv, separator=";", infer_schema_length=0)
 
 
+def _read_run(content: bytes, url: str, *, asked_again: bool = False) -> pl.DataFrame | None:
+    """Parse a run file, or say it could not be read.
+
+    A body that is not the bz2 a run file should be raises out of `bz2.decompress` -- `ValueError`
+    where it stops early, `OSError` where it was never bz2 -- and nothing between here and the
+    caller catches, so a truncated download used to end the request in a traceback where a failed
+    download ends it in an empty frame. It also lands in the cache, so the traceback would have
+    repeated for twelve hours. Reported and answered the way a failed fetch is instead.
+
+    A body holding no readings is the same answer. `bz2.decompress(b"")` returns `b""` rather than
+    raising, so a zero-byte 200 -- the first instant of the file the uncached listing has just
+    named, or a mirror answering with nothing -- parses to a frame of no rows and no columns. Read
+    as a run that simply holds nothing, that frame was the request's answer and the run before it
+    was never tried: the window the fallback exists for, one byte-count away from the truncation it
+    does catch. A run file holds every station at every forecast hour, so one holding nothing is
+    one that was not read.
+    """
+    # the same run is read twice where the first body came from the cache and could not be read,
+    # and a second line saying exactly what the first one said reads as the per-station repetition
+    # this provider exists to have stopped doing
+    attempt = " (asked again past the cache)" if asked_again else ""
+    try:
+        df = _read_run_csv(content)
+    except (OSError, ValueError, EOFError, pl.exceptions.PolarsError) as ex:
+        log.warning(f"Failed to read SWSMOS run {url}{attempt}: {ex!r}")
+        return None
+    if df.is_empty():
+        # compressed, and said to be: a run that arrives whole and decodes to nothing is a
+        # different fault from one that arrives truncated, and "holds no readings (1900000 bytes)"
+        # points at the second while describing the first
+        log.warning(f"SWSMOS run {url}{attempt} holds no readings ({len(content)} compressed bytes)")
+        return None
+    return df
+
+
 class DwdSwsmosValues(TimeseriesValues):
     """Values class for DWD SWSMOS road weather forecast data."""
 
-    def _run_content(self, settings: Settings) -> bytes | None:
+    def __post_init__(self) -> None:
+        """Post-initialization of the DwdSwsmosValues class."""
+        super().__post_init__()
+        # the run this request answers for, resolved and parsed once. `None` is "not looked up
+        # yet"; an empty frame is "looked up, and there is nothing there". See `_run_frame`
+        self._run_frame_cache: pl.DataFrame | None = None
+
+    def _run_candidates(self, settings: Settings) -> list[tuple[str, CacheExpiry]]:
+        """List the runs to try, newest first, with how long each may be answered from the cache.
+
+        How long a run may be cached is a property of the URL, not of the request. A run named by
+        its timestamp is that run for good; ``swsmos_LATEST...`` is a name whose content DWD
+        replaces every hour, so caching it by URL for twelve hours -- as this did -- answered "the
+        latest run" with one up to twelve hours old, whose first twelve forecast hours had already
+        happened. Measured: at 22:57 UTC the alias was answered from the 21:00 run while the server
+        served 22:00.
+
+        So `LATEST` resolves to the newest run the listing names rather than to the alias. The two
+        are the same bytes -- the server returns one ETag for both (``6ab20a9e-1da802``, with one
+        content-length and one Last-Modified), the alias being a link rather than a copy -- and
+        asking for the run by name is the same answer from a URL that cannot change under its cache
+        entry. `dwd/road` likewise indexes the timestamped files and skips the aliases duplicating
+        them. The listing itself is never cached, so "newest" is current.
+
+        The newest run keeps the long expiry, though it is the one that can be caught mid-write.
+        Review has twice proposed giving it the alias's five minutes so that a body cached
+        half-written ages out in minutes rather than hours, and the arithmetic is against it: a
+        timestamped run is immutable, so a five-minute entry re-downloads 1.9 MB up to twelve times
+        an hour for a file that cannot have changed, every hour, to shorten a fault that needs DWD
+        to be caught mid-write to happen at all. A long entry pays nothing in the healthy case and
+        the re-ask carries the rare one. Repairing the bad entry itself, rather than aging it out,
+        is `download_file`'s to do (GH-1947).
+
+        Which is also why the run before it is offered as a fallback. An uncached listing names a
+        run the moment it appears, and a run still being written cannot be read; a body that cannot
+        be read is cached for twelve hours, so without somewhere else to go a single bad download
+        would empty every request for half a day. An hour-old forecast is what `LATEST` should mean
+        in that window, rather than nothing.
+        """
         issue = cast("DwdSwsmosRequest", self.sr.stations).issue
-        if issue is DwdForecastDate.LATEST:
-            files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
-            names = {f.rsplit("/", 1)[-1]: f for f in files}
-            # DWD maintains a ``swsmos_LATEST_opendata.csv.bz2`` alias pointing at the newest run;
-            # fall back to the newest timestamped file if the alias is ever missing
-            if _LATEST_FILE in names:
-                url = names[_LATEST_FILE]
-            else:
-                timestamped = sorted(n for n in names if n.startswith("swsmos_") and n != _LATEST_FILE)
-                if not timestamped:
-                    return None
-                url = names[timestamped[-1]]
-        else:
-            url = _run_url(cast("dt.datetime", issue))
+        if issue is not DwdForecastDate.LATEST:
+            return [(_run_url(cast("dt.datetime", issue)), CacheExpiry.TWELVE_HOURS)]
+        files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
+        names = {f.rsplit("/", 1)[-1]: f for f in files}
+        # fixed-width digits, so lexical order is chronological order
+        runs = sorted(n for n in names if _RUN_FILE.match(n))
+        if runs:
+            return [(names[n], CacheExpiry.TWELVE_HOURS) for n in reversed(runs[-2:])]
+        if _LATEST_FILE in names:
+            # nothing but the alias to go on. It is mutable, so it may only be held briefly: five
+            # minutes is what `dwd/mosmix` holds its KML for, a bounded lag against an hourly cadence
+            return [(names[_LATEST_FILE], CacheExpiry.FIVE_MINUTES)]
+        # every other way a run can fail says so; this one used to answer every station with an
+        # empty frame and no diagnostic at all. The listing is retried and re-raises, so an empty
+        # one means the server genuinely named nothing -- a directory reorganised or the products
+        # renamed, which is a provider restructure rather than a day with no data
+        log.warning(f"No SWSMOS run listed within {_BASE_URL}/; the file names may have changed")
+        return []
+
+    def _run_content(self, url: str, ttl: CacheExpiry, settings: Settings) -> bytes | None:
+        """Fetch one run, or say it could not be fetched."""
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.TWELVE_HOURS,
+            ttl=ttl,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
@@ -106,6 +196,121 @@ class DwdSwsmosValues(TimeseriesValues):
                 log.warning(f"Failed to fetch SWSMOS run {url}: {file.content}")
             return None
         return file.content.read()
+
+    def _run_frame(self, settings: Settings) -> pl.DataFrame:
+        """Resolve and parse the run once, for every station it answers for.
+
+        One run file holds every road station's whole forecast, where the collection above this
+        asks for one station at a time -- so the run was listed, fetched and parsed once per
+        station, and all but one station's rows thrown away each time. Five stations decompressed
+        and parsed the same 306,612 rows five times -- 2.5 s of a 2.7 s request -- and twenty-five
+        took 14.1 s, where the whole network of 1,836 stations would have spent a quarter of an
+        hour on 1,836 parses of one file. They now take 0.7 s and 0.8 s: one parse either way,
+        whatever the request asks for, and a filter over the parsed run per station after it.
+
+        That filter is 1.08 ms against the 306,612 rows, so it is near-flat rather than flat --
+        1.98 s for the whole network. `partition_by("ID", as_dict=True)` would make it literally
+        flat and costs 0.065 s once, which is the better trade above about sixty stations and the
+        worse one below it: a request for one station, or for the stretch of road this network
+        invites, would pay 65 ms to save 1 ms. Measured rather than assumed, and left as the filter
+        because the small request is the common one. The file itself comes from the cache; what
+        was repeated is the bz2 decompress and the CSV parse (~0.5 s), and -- for a `LATEST`
+        request -- the uncached directory listing that resolves the alias, which is a remote round
+        trip rather than local work.
+
+        The whole run is kept, where road keeps only its last station group: a run is one file of
+        some 20 MB no matter how wide the request or how long the window, so there is nothing here
+        to bound. Nor is there a key. A group varies from station to station, while the run is a
+        property of the request -- `issue` is resolved when the request is built and cannot change
+        while it is answered -- so the frame parsed for one station is by construction the frame
+        every other station wants.
+
+        For `DwdForecastDate.LATEST` that also makes the answer consistent rather than merely
+        quicker: resolving the run once pins every station to it. The listing that says which run
+        is newest is never cached, so resolved per station a walk that DWD publishes a run into
+        answers the stations after that point from the new one -- a frame quietly mixing two model
+        runs, with no cache entry in the way to make it rare.
+
+        A run that cannot be fetched is kept as an empty frame, where `ipma` deliberately leaves a
+        failed fetch uncached to be retried: there, a feed that fails costs that feed's stations,
+        while here one file is the whole request, so asking again per station cannot answer a
+        different question. `download_file` has already asked twice by then -- `_worth_retrying_download`
+        governs what a blip is -- and 1,836 stations asking 3,672 times is a herd against a server
+        that has just failed, not a recovery. The warning naming the run says what happened.
+        """
+        if self._run_frame_cache is None:
+            self._run_frame_cache = pl.DataFrame()
+            for url, ttl in self._run_candidates(settings):
+                content = self._run_content(url, ttl, settings)
+                df = _read_run(content, url) if content is not None else None
+                if content is not None and df is None and not settings.cache_disable:
+                    # a body that cannot be read is held under its URL for as long as a good one
+                    # would be, so what the cache hands back says nothing about what the server has
+                    # now. Asked once more past it, a run DWD has since finished writing is read
+                    # now.
+                    #
+                    # Whether to do this when a fallback exists was argued both ways in review, so
+                    # the trade is written down rather than left to the next reader. Against: a
+                    # `NO_CACHE` fetch is served by a plain `HTTPFileSystem`, so the good body is
+                    # never written back over the bad one -- every later request pays for the file
+                    # again, where falling back to the run before this one costs nothing and is
+                    # already correct. For: that fallback is not free either, it is an hour of
+                    # answering with yesterday's hour while the run the caller asked for sits
+                    # complete on the server, and it is invisible where the re-ask's cost is not.
+                    # `LATEST` means the newest run there is, not the newest one a stale cache
+                    # entry will admit to, so the re-ask is made either way. The duplicate fetch
+                    # this costs on a cache miss -- DWD listing a run mid-write, the body arriving
+                    # half-written and being asked for again a moment later -- is one request's
+                    # worth, against an hour of every request's.
+                    #
+                    # Where it is not one request's worth: a body that stays unreadable is read
+                    # from the cache and then fetched whole on every request until its entry
+                    # expires. For `LATEST` that ends within about two hours, as the bad run ages
+                    # out of the two candidates; for a pinned `issue`, which has one candidate and
+                    # a twelve-hour entry, it does not -- a caller polling a run DWD serves corrupt
+                    # pays a full 1.9 MB for every poll until the entry expires. Repairing that
+                    # means evicting the entry, which is `download_file`'s filesystem to evict and
+                    # every provider's to be broken by (GH-1947)
+                    #
+                    # Only a body that arrived and could not be read: a fetch that failed has
+                    # already been retried by `download_file`, and asking a server that just
+                    # refused to serve the file is not a recovery.
+                    #
+                    # Guarded on `cache_disable`, which now means what it says. It did not when
+                    # this was written: `NetworkFilesystemManager` keyed its filesystems by TTL and
+                    # client kwargs alone and registered one only where that key was new, so a
+                    # request made with caching disabled was served by whatever had been registered
+                    # first in that thread, cache and all -- and reading the flag as "this body came
+                    # off the wire" would have skipped the re-ask in the one case that needed it.
+                    # GH-1947 put `cache_disable` in that key (GH-1954), so a request that disables
+                    # the cache is now built a filesystem that has none, and there is provably
+                    # nothing to ask past: the re-ask would fetch the same bytes down the same wire.
+                    content = self._run_content(url, CacheExpiry.NO_CACHE, settings)
+                    df = _read_run(content, url, asked_again=True) if content is not None else None
+                if df is not None:
+                    self._run_frame_cache = df
+                    break
+        return self._run_frame_cache
+
+    def query(self) -> Iterator[ValuesResult]:
+        """Answer each station of the request, from one run resolved for this query.
+
+        The run is pinned for the length of a query and no longer. The `finally` is what delivers
+        that, on both counts: the frame does not outlive the walk it was parsed for, and a caller
+        keeping the values object and querying it again on a timer therefore meets a cleared cache
+        and is answered with the run published since. Clearing on the way in as well guards a path
+        that would leave the cache populated without that `finally` having run; there is none
+        today, which is why no test fails when it is taken out. `ValuesResult` holds the values
+        object that produced it, so without that second clear a request for one station's forecast
+        handed back a result pinning the whole network's parsed run for as long as the caller kept
+        it. Neither clear makes this re-entrant: two interleaved walks over one values object would
+        tread on each other's run, as they already do on `stations_counter`.
+        """
+        self._run_frame_cache = None
+        try:
+            yield from super().query()
+        finally:
+            self._run_frame_cache = None
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -120,10 +325,7 @@ class DwdSwsmosValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         settings = cast("Settings", self.sr.stations.settings)
-        content = self._run_content(settings)
-        if content is None:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        df = _read_run_csv(content)
+        df = self._run_frame(settings)
         if df.is_empty() or "ID" not in df.columns:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         df = df.filter(pl.col("ID") == station_id)

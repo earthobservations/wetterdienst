@@ -4,13 +4,20 @@
 
 import bz2
 import datetime as dt
+import logging
+from io import BytesIO
+from typing import cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
-from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
-from wetterdienst.provider.dwd.swsmos.api import DwdForecastDate, _read_run_csv, _run_url
+from wetterdienst import Settings
+from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest, api
+from wetterdienst.provider.dwd.swsmos.api import _LATEST_FILE, DwdForecastDate, _read_run_csv, _run_url
+from wetterdienst.util.network import File
 
 UTC = ZoneInfo("UTC")
 
@@ -109,3 +116,493 @@ def test_swsmos_values() -> None:
     assert dew_point.max() < 40.0
     # and it cannot exceed the air temperature it is measured against
     assert dew_point.max() <= air.max()
+
+
+# ---------------------------------------------------------------------------
+# One run per request -- GH-1922
+# ---------------------------------------------------------------------------
+
+
+def _stub_stations(station_ids: tuple[str, ...] = ("A006",), settings: Settings | None = None) -> StationsResult:
+    """Stand road stations up rather than look them up.
+
+    Asked of the real catalogue, a test about how often the run is read would depend on which
+    stations DWD still publishes, and would stop exercising anything the day they change.
+    """
+    request = DwdSwsmosRequest(parameters=[("hourly", "data")], settings=settings or Settings())
+    df_stations = pl.DataFrame(
+        [
+            {
+                "resolution": "hourly",
+                "dataset": "data",
+                "station_id": station_id,
+                "start_date": None,
+                "end_date": None,
+                "latitude": 54.8892,
+                "longitude": 8.9087,
+                "height": 2.0,
+                "name": f"Station {station_id}",
+            }
+            for station_id in station_ids
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "height": pl.Float64,
+            "name": pl.String,
+        },
+        orient="row",
+    )
+    return StationsResult(
+        stations=request,
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.BY_STATION_ID,
+    )
+
+
+def _run_file(*rows: tuple[str, str, str]) -> bytes:
+    """Build a run file: header, the run-timestamp line, then ``ID;...;date;TL`` rows."""
+    body = "".join(f"{station_id};54.889156;8.908735;{date};{temperature}\n" for station_id, date, temperature in rows)
+    return bz2.compress(b"ID;Lat;Lon;YYYYMMDDHHmm;TL\n202607310700\n" + body.encode("latin-1"))
+
+
+def test_swsmos_parses_the_run_once_for_all_its_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One run file holds every station, so it is read for the run and not for each station.
+
+    The collection above this asks for one station at a time, and a run file holds them all -- so
+    the run was listed, fetched and parsed once per station, with all but one station's rows thrown
+    away each time. Five stations parsed the same 306,612 rows five times, 2.5 s of a 2.7 s
+    request; twenty-five took 14.1 s where they now take 0.8 s.
+    """
+    content = _run_file(
+        ("A006", "202607310800", "17.9"),
+        ("B999", "202607310800", "9.1"),
+        ("C111", "202607310800", "7.4"),
+    )
+    parses = []
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
+    )
+    _read_run_csv_original = api._read_run_csv  # noqa: SLF001
+    monkeypatch.setattr(api, "_read_run_csv", lambda c: parses.append(1) or _read_run_csv_original(c))
+
+    values = _stub_stations(("A006", "B999", "C111")).values
+    dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
+    answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999", "C111")]  # noqa: SLF001
+
+    assert len(parses) == 1, "the run should be parsed once, not once per station"
+    # and each station still gets its own forecast out of it
+    assert [df.get_column("station_id").unique().to_list() for df in answers] == [["A006"], ["B999"], ["C111"]]
+    assert [df.get_column("value").to_list() for df in answers] == [[17.9], [9.1], [7.4]]
+
+
+def test_swsmos_pins_every_station_to_one_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run published while the request is answered does not reach half of its stations.
+
+    Resolving ``LATEST`` per station is not only a remote round trip per station: the stations
+    walked after DWD publishes a new run were answered from it, so the frame quietly mixed two
+    model runs. Resolving once pins them all to the run the first station was answered from.
+    """
+    runs = [
+        _run_file(("A006", "202607310800", "17.9"), ("B999", "202607310800", "9.1")),
+        # the next run, published between the first station and the second
+        _run_file(("A006", "202607310900", "20.0"), ("B999", "202607310900", "11.0")),
+    ]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(runs.pop(0)), status=200),
+    )
+
+    values = _stub_stations(("A006", "B999")).values
+    dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
+    answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999")]  # noqa: SLF001
+
+    assert len(runs) == 1, "the second run should never be fetched"
+    assert [df.get_column("date").to_list() for df in answers] == [
+        [dt.datetime(2026, 7, 31, 8, tzinfo=UTC)],
+        [dt.datetime(2026, 7, 31, 8, tzinfo=UTC)],
+    ]
+    assert [df.get_column("value").to_list() for df in answers] == [[17.9], [9.1]]
+
+
+def test_swsmos_run_that_cannot_be_fetched_is_asked_for_once(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A run DWD does not serve is an empty answer per station, and one attempt for the request."""
+    caplog.set_level(logging.WARNING)
+    downloads = []
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: (
+            downloads.append(kwargs["url"]) or File(url=kwargs["url"], content=FileNotFoundError("404"), status=404)
+        ),
+    )
+
+    values = _stub_stations(("A006", "B999")).values
+    dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
+    answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999")]  # noqa: SLF001
+
+    assert all(df.is_empty() for df in answers)
+    assert set(answers[0].columns) == {"resolution", "dataset", "parameter", "station_id", "date", "value", "quality"}
+    assert len(downloads) == 1, "a run that cannot be fetched is not re-fetched for the next station"
+    # and the outage is reported once for the request rather than once per station
+    assert len([record for record in caplog.records if "Failed to fetch SWSMOS run" in record.message]) == 1
+
+
+def test_swsmos_latest_asks_for_the_newest_run_by_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``LATEST`` resolves to the newest run the listing names, not to the mutable alias.
+
+    How long a run may be cached is a property of the URL rather than of the request, and the two
+    URLs are the same bytes -- the server returns one ETag for the alias and the newest timestamped
+    file. Asking by name is that answer from a URL that cannot change under its cache entry, where
+    caching the alias for twelve hours answered "the latest run" with one up to twelve hours old:
+    measured against the live server at 22:57 UTC, the 21:00 run while DWD was serving 22:00.
+    """
+    content = _run_file(("A006", "202607310800", "17.9"))
+    asked = []
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: (
+            asked.append((kwargs["url"].rsplit("/", 1)[-1], kwargs["ttl"]))
+            or File(url=kwargs["url"], content=BytesIO(content), status=200)
+        ),
+    )
+    dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
+
+    # the alias is published beside the runs, and is not what is asked for
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [
+            f"{api._BASE_URL}/{_LATEST_FILE}",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731060000_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2",  # noqa: SLF001
+        ],
+    )
+    _stub_stations().values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
+    # with nothing but the alias to go on it is used, and held only briefly
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    _stub_stations().values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
+    # and an explicitly requested run names itself
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+    stations.values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
+
+    assert asked == [
+        ("swsmos_20260731070000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS),
+        (_LATEST_FILE, CacheExpiry.FIVE_MINUTES),
+        ("swsmos_20260731070000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS),
+    ]
+
+
+def test_swsmos_query_asks_for_the_latest_run_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The run is pinned for the length of a query and no longer.
+
+    `StationsResult.values` builds a values object per access, so most callers get a fresh run
+    either way -- but one that keeps the object and queries it again on a timer is asking for the
+    latest run a second time, and would otherwise be answered from the one resolved on its first
+    call for as long as it lived.
+    """
+    runs = [
+        _run_file(("A006", "202607310800", "17.9")),
+        _run_file(("A006", "202607310900", "20.0")),
+    ]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(runs.pop(0)), status=200),
+    )
+
+    values = _stub_stations().values
+    first = values.all().df
+    second = values.all().df
+
+    assert first.get_column("value").to_list() == [17.9]
+    assert second.get_column("value").to_list() == [20.0], "a second query should see the run published since"
+
+
+def test_swsmos_run_does_not_outlive_the_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The parsed run is released when the walk ends, rather than held by the result it produced.
+
+    `ValuesResult` holds the values object that produced it, so a result kept by the caller keeps
+    whatever that object holds -- and a request for one station's forecast would otherwise pin the
+    whole network's parsed run, some 20 MB, for as long as the result lived.
+    """
+    content = _run_file(("A006", "202607310800", "17.9"))
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
+    )
+
+    values = _stub_stations().values
+    result = values.all()
+
+    assert not result.df.is_empty()
+    assert result.values is values  # the result does hold the object, which is why this matters
+    assert values._run_frame_cache is None, "the run should be released with the walk that parsed it"  # noqa: SLF001
+
+
+def test_swsmos_listing_entry_that_is_not_a_run_is_not_mistaken_for_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run file names itself exactly, and a sidebar published beside the runs is not one.
+
+    Matching a bare ``swsmos_`` prefix also matches a checksum sidecar or a second product, and one
+    of those sorts *after* the run it belongs to -- so the newest name would be a file that is not
+    a run, handed straight to `bz2.decompress`.
+    """
+    content = _run_file(("A006", "202607310800", "17.9"))
+    asked = []
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2.sha256",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_stationskatalog.csv.bz2",  # noqa: SLF001
+        ],
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: (
+            asked.append(kwargs["url"].rsplit("/", 1)[-1])
+            or File(url=kwargs["url"], content=BytesIO(content), status=200)
+        ),
+    )
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert asked == ["swsmos_20260731070000_opendata.csv.bz2"]
+    assert df.get_column("value").to_list() == [17.9]
+
+
+def test_swsmos_run_that_cannot_be_read_falls_back_to_the_one_before_it(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A run still being written is answered with the hour before it, not with a traceback.
+
+    The listing is deliberately uncached, so it names a run the moment it appears -- and a body
+    that is not the bz2 a run file should be raises out of `bz2.decompress`, where nothing between
+    there and the caller catches. It is cached for twelve hours too, so a single bad download would
+    have ended every request in the same traceback for half a day.
+    """
+    caplog.set_level(logging.WARNING)
+    bodies = {
+        "swsmos_20260731080000_opendata.csv.bz2": b"\x42\x5a\x68truncated",  # still being written
+        "swsmos_20260731070000_opendata.csv.bz2": _run_file(("A006", "202607310800", "17.9")),
+    }
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/{name}" for name in bodies],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(bodies[kwargs["url"].rsplit("/", 1)[-1]]), status=200),
+    )
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.get_column("value").to_list() == [17.9]  # the 07:00 run, the 08:00 one being unreadable
+    assert "Failed to read SWSMOS run" in caplog.text
+    assert "swsmos_20260731080000_opendata.csv.bz2" in caplog.text
+
+
+def test_swsmos_run_that_arrives_empty_falls_back_like_one_that_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A zero-byte run is the same window as a truncated one, and takes the same way out.
+
+    `bz2.decompress(b"")` returns `b""` rather than raising, so a zero-byte 200 -- the first
+    instant of the file the uncached listing has just named -- parses to a frame of no rows and no
+    columns. Read as a run that simply holds nothing, that frame was the request's answer and the
+    run before it was never tried: the window the fallback exists for, one byte-count away from the
+    truncation it does catch.
+    """
+    caplog.set_level(logging.WARNING)
+    bodies = {
+        "swsmos_20260731080000_opendata.csv.bz2": b"",  # published, not yet written
+        "swsmos_20260731070000_opendata.csv.bz2": _run_file(("A006", "202607310800", "17.9")),
+    }
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/{name}" for name in bodies],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(bodies[kwargs["url"].rsplit("/", 1)[-1]]), status=200),
+    )
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.get_column("value").to_list() == [17.9]  # the 07:00 run
+    assert "holds no readings (0 compressed bytes)" in caplog.text
+    # the second line is the re-ask past the cache, and says so rather than reading as the
+    # per-station repetition this provider exists to have stopped doing
+    warnings = [record.message for record in caplog.records if "holds no readings" in record.message]
+    assert len(warnings) == 2
+    assert "(asked again past the cache)" in warnings[1]
+    assert "(asked again past the cache)" not in warnings[0]
+
+
+def test_swsmos_unreadable_run_is_asked_for_again_where_nothing_stands_behind_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A pinned run that cannot be read is asked for once more past the cache.
+
+    A body that cannot be read is held under its URL for twelve hours like a good one, so a run DWD
+    has since finished writing would be answered from the half of it that was cached. Where there
+    is nothing behind the candidate -- an explicitly pinned `issue` names one run and no fallback
+    -- the re-ask is the only path to any data at all.
+    """
+    good = _run_file(("A006", "202607310900", "20.0"))
+    asked = []
+
+    def download(**kwargs: object) -> File:
+        asked.append((cast("str", kwargs["url"]).rsplit("/", 1)[-1], kwargs["ttl"]))
+        # the cached body is half-written; asked past the cache the run is complete
+        body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
+        return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
+
+    monkeypatch.setattr(api, "download_file", download)
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert asked == [
+        ("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS),
+        ("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.NO_CACHE),
+    ]
+    assert df.get_column("value").to_list() == [20.0]
+
+
+def test_swsmos_unreadable_run_with_a_fallback_is_still_asked_for_past_the_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fallback does not settle whether the newest run is readable; only the server does.
+
+    A body that cannot be read is held under its URL for twelve hours, so what the cache hands back
+    says nothing about what the server has now. Answering from the run before it without asking
+    would mean an hour of yesterday's hour while the run the caller asked for sits complete on the
+    server -- so the newest is asked for past the cache first, and the fallback answers only while
+    it really is unreadable.
+    """
+    newest = "swsmos_20260731080000_opendata.csv.bz2"
+    older = "swsmos_20260731070000_opendata.csv.bz2"
+    asked = []
+
+    def download(**kwargs: object) -> File:
+        name = cast("str", kwargs["url"]).rsplit("/", 1)[-1]
+        asked.append((name, kwargs["ttl"]))
+        body = b"\x42\x5a\x68truncated" if name == newest else _run_file(("A006", "202607310800", "17.9"))
+        return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/{name}" for name in (newest, older)],  # noqa: SLF001
+    )
+    monkeypatch.setattr(api, "download_file", download)
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert asked == [
+        (newest, CacheExpiry.TWELVE_HOURS),
+        (newest, CacheExpiry.NO_CACHE),  # the server is asked before the fallback answers
+        (older, CacheExpiry.TWELVE_HOURS),
+    ]
+    assert df.get_column("value").to_list() == [17.9]
+
+
+def test_swsmos_listing_naming_no_run_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A listing that names nothing is a provider restructure, not a day without data.
+
+    Every other way a run can fail says so; this one answered every station with an empty frame and
+    no diagnostic at all. The listing is retried and re-raises, so an empty one means the server
+    genuinely named nothing.
+    """
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "No SWSMOS run listed within" in caplog.text
+
+
+def test_swsmos_unreadable_run_is_not_asked_for_again_where_there_is_no_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The re-ask exists to get past a cached bad body, and with caching off there is none.
+
+    `cache_disable` did not always say that. It named nothing in `NetworkFilesystemManager`'s
+    registry key, which went by TTL and client kwargs alone and registered a filesystem only
+    where that key was new -- so a request made with caching disabled was served by whatever had
+    been registered first in that thread, cache and all, and the re-ask had to be made anyway.
+    GH-1947 put the flag in that key, so it now decides what is built, and asking again would
+    fetch the same bytes down the same wire.
+    """
+    good = _run_file(("A006", "202607310900", "20.0"))
+    asked = []
+
+    def download(**kwargs: object) -> File:
+        asked.append((cast("str", kwargs["url"]).rsplit("/", 1)[-1], kwargs["ttl"]))
+        body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
+        return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
+
+    monkeypatch.setattr(api, "download_file", download)
+    stations = _stub_stations(settings=Settings(cache_disable=True))
+    stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert asked == [("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS)]
+    # and the unreadable body is what the caller is left with, rather than a second fetch of it
+    assert df.is_empty()
