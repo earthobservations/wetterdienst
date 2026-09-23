@@ -173,7 +173,12 @@ Types of changes:
   that do publish with it. It answers `None` now and the readers give that station an empty frame,
   which is the split `dwd/dmo` has always made; mosmix raised because its return type said it must.
   A directory that names files but no forecast still raises, being a statement about the product
-  rather than about one station. GH-1949
+  rather than about one station -- and so does an empty listing for the all-stations products,
+  where one empty directory is every station at once and therefore cannot mean a station retired.
+  A run whose cached body is not a zip is dropped from the cache and asked for once more, too:
+  fsspec records a cache entry before the copy that fills it finishes, so a download interrupted
+  mid-copy leaves a truncated blob that is accepted for the life of the entry -- which held five
+  minutes righted itself and held twelve hours would not. GH-1949
 
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
   connection that never carried a response, but took every response that did arrive as an answer --
