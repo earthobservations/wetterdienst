@@ -15,16 +15,31 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 ROOT = Path(__file__).parent.parent
 
 
+def duckdb_target(path: Path, table: str) -> str:
+    r"""Address a table in a DuckDB file, as ``to_target`` wants it.
+
+    Three slashes, not four: ``ConnectionString`` takes the database as the URL path with one
+    leading slash removed, so the path has to arrive with exactly one slash of its own in front of
+    it. A POSIX path brings that itself (``duckdb:///`` + ``/tmp/x`` reads back as ``/tmp/x``),
+    where a Windows one does not (``duckdb:///`` + ``C:\x`` reads back as ``C:\x``). A fourth
+    slash left the POSIX form with a harmless doubled ``//``, and the Windows form with a leading
+    slash that DuckDB reads as a UNC network path: ``Cannot open file "//C:\..."``.
+
+    Named rather than written inline so that a test can hold it: the wrong slash count is silent on
+    POSIX, so nothing that runs the example here would catch it coming back.
+    """
+    return f"duckdb:///{path}?table={table}"
+
+
 def create_dwd_climate_summary_duckdb_dump(path: Path, *, test: bool) -> None:
     """Create a DuckDB dump of DWD climate summary data."""
     request = DwdObservationRequest(
         parameters=("daily", "climate_summary"),
         periods="historical",
     ).filter_by_rank(latlon=(47.5, 7.5), rank=10)
-    connection = f"duckdb:////{path}"
-    request.to_target(f"{connection}?table=stations")
+    request.to_target(duckdb_target(path, "stations"))
     for result in tqdm(request.values.query(), total=request.df.shape[0]):
-        result.to_target(f"{connection}?table=values")
+        result.to_target(duckdb_target(path, "values"))
         if test:
             break
 

@@ -2,11 +2,12 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD observation examples."""
 
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
 from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_LINUX, IS_PYTHON_3_10, IS_WINDOWS
+from wetterdienst.util.url import ConnectionString
 
 
 @pytest.mark.xfail(IS_CI and IS_WINDOWS, reason="fails on Windows in CI")
@@ -129,3 +130,27 @@ def test_the_duckdb_example_writes_outside_the_repository_under_pytest() -> None
         check=True,
     ).stdout
     assert after == before, f"the example modified {tracked}"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        Path("/var/folders/rk/dwd_obs_daily_climate_summary.duckdb"),
+        PureWindowsPath(r"C:\Users\RUNNER~1\AppData\Local\Temp\dwd_obs_daily_climate_summary.duckdb"),
+    ],
+    ids=["posix-absolute", "windows-absolute"],
+)
+def test_the_duckdb_example_addresses_the_file_it_was_given(path: Path) -> None:
+    r"""Read the example's own target back the way ``to_target`` reads it.
+
+    The wrong slash count is silent on POSIX -- a doubled ``//`` still resolves -- so running the
+    example here would not catch it coming back. On Windows it is ``Cannot open file "//C:\..."``,
+    DuckDB reading the leftover slash as a UNC share, and the matrix is where that shows up.
+    """
+    from examples.provider.dwd.observation import dwd_obs_climate_summary_duckdb_dump  # noqa: PLC0415
+
+    target = dwd_obs_climate_summary_duckdb_dump.duckdb_target(path, "stations")
+
+    connspec = ConnectionString(target)
+    assert connspec.database == str(path)
+    assert connspec.table == "stations"

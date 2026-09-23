@@ -63,14 +63,14 @@ def _(mo):
 
         # export station metadata
         request.to_target(
-            "duckdb://wetterdienst_pyconde_pydata_2026_demo.duckdb?table=stations",
+            "duckdb:///wetterdienst_pyconde_pydata_2026_demo.duckdb?table=stations",
             if_exists="replace",
         )
 
         # export all daily values station by station
         for result in request.values.query():
             result.to_target(
-                "duckdb://wetterdienst_pyconde_pydata_2026_demo.duckdb?table=values",
+                "duckdb:///wetterdienst_pyconde_pydata_2026_demo.duckdb?table=values",
                 if_exists="append",
             )
         ```
