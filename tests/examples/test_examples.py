@@ -97,3 +97,35 @@ def test_radar_examples() -> None:
     assert dwd_radar_scan_volume.main() is None
     assert dwd_radar_site_dx.main() is None
     assert dwd_radar_sweep_hdf5.main() is None
+
+
+@pytest.mark.cflake
+def test_the_duckdb_example_writes_outside_the_repository_under_pytest() -> None:
+    """Running the examples must not leave the working tree dirty.
+
+    The dump is a smoke test here rather than an artifact -- it writes one station's values and
+    throws them away -- but it used to write to the tracked file, so every test run modified a 1.3
+    MB binary in the repository. That has twice been committed by accident along with unrelated
+    work, which is how it was noticed.
+    """
+    import subprocess  # noqa: PLC0415
+
+    from examples.provider.dwd.observation import dwd_obs_climate_summary_duckdb_dump  # noqa: PLC0415
+
+    tracked = Path("examples/provider/dwd/dwd_obs_daily_climate_summary.duckdb")
+    before = subprocess.run(  # noqa: S603
+        ["git", "status", "--porcelain", "--", str(tracked)],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+    assert dwd_obs_climate_summary_duckdb_dump.main() is None
+
+    after = subprocess.run(  # noqa: S603
+        ["git", "status", "--porcelain", "--", str(tracked)],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert after == before, f"the example modified {tracked}"

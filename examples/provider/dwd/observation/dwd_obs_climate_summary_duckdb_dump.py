@@ -3,7 +3,9 @@
 """Create a DuckDB dump of DWD climate summary data."""
 
 import os
+from contextlib import ExitStack
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import duckdb
 from tqdm import tqdm
@@ -29,15 +31,24 @@ def create_dwd_climate_summary_duckdb_dump(path: Path, *, test: bool) -> None:
 
 def main() -> None:
     """Create a DuckDB dump of DWD climate summary data."""
-    filepath = ROOT / "dwd_obs_daily_climate_summary.duckdb"
     test = "PYTEST_CURRENT_TEST" in os.environ
-    # this takes something like 15 min and will require roughly 1 gb on disk
-    create_dwd_climate_summary_duckdb_dump(filepath, test=test)
-    con = duckdb.connect(str(filepath))
-    df_stations = con.execute("SELECT * FROM stations;").pl()
-    print(df_stations)
-    df_values = con.execute("SELECT * FROM values").pl()
-    print(df_values)
+    with ExitStack() as stack:
+        if test:
+            # somewhere that is not the repository. Under pytest this is a smoke test rather than
+            # an artifact -- it writes one station's values and throws them away -- and writing to
+            # the tracked dump left every test run with a dirty working tree, which has twice been
+            # committed by accident along with unrelated work
+            filepath = Path(stack.enter_context(TemporaryDirectory())) / "dwd_obs_daily_climate_summary.duckdb"
+        else:
+            filepath = ROOT / "dwd_obs_daily_climate_summary.duckdb"
+        # this takes something like 15 min and will require roughly 1 gb on disk
+        create_dwd_climate_summary_duckdb_dump(filepath, test=test)
+        con = duckdb.connect(str(filepath))
+        df_stations = con.execute("SELECT * FROM stations;").pl()
+        print(df_stations)
+        df_values = con.execute("SELECT * FROM values").pl()
+        print(df_values)
+        con.close()
 
 
 if __name__ == "__main__":
