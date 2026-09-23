@@ -71,6 +71,64 @@ Types of changes:
   through to the `dwd` default -- data written to an extensionless file named `dwd` in the working
   directory, with no error, and in the notebook's case to a file it then reads back under a
   different name
+- Network cache: the on-disk blob directory is separated by the TTL and by the headers that can
+  change what a server sends back, and by nothing else. It used to be named for a hash of the whole of `client_kwargs`, which mixes the two
+  kinds of thing that go in there: an `Authorization` header decides what a server sends back,
+  where a timeout, a proxy and a User-Agent decide nothing about it. The default User-Agent carries
+  the version number, so every release renamed the directory and began again from an empty cache --
+  and nothing read the old name afterwards or removed it. One developer machine held 129
+  directories under 98 distinct hashes and 4.3 GB, of which 115 MB was reachable by the installed
+  version; 1.4 GB sat under `ttl-INFINITE-*`, which is a provider saying those bytes never change.
+  A credential that rotates does the same on a faster clock, Met Office minting a three-day JWT.
+  Directories of the older layout are reclaimed on the first cached download of a process, which is
+  safe precisely because no key this version can produce names them. So is a directory a credential
+  named that has since rotated, aged out at a month by a marker touched whenever something asks for
+  the directory -- the blobs cannot answer that question, an archive read on every run and written
+  on none having file times as old as the day it was fetched. Only a directory that carries such a
+  suffix is ever aged out: the shared one is named on every run, and reclaiming it for looking idle
+  would throw away the main cache rather than a leftover. The in-memory registry key goes on
+  separating filesystems by everything one is built from, transport settings included -- `register`
+  runs only for a key that is new, so whatever that key omits, the first caller in a thread decides
+  for every later one. What it is given to hash changed with the entry below, for the same reason.
+  GH-1959
+- Network cache: a blob its own TTL has already made useless is dropped, once per directory per
+  process. The obvious version of this is destructive, which is why it was taken back out of
+  GH-1954: `CacheExpiry.INFINITE` is `False`, `int(False)` is `0`, and fsspec reads an expiry of
+  zero as "every entry is expired" -- it removes them all and then `rmtree`s the directory, so the
+  first such download in a fresh process would have thrown away the immutable archives `lhmt` and
+  both `meteofrance` providers keep there and fetched them again. So a TTL that is not a positive
+  number is not swept at all; the expiry is passed explicitly rather than left to fsspec's fallback
+  to `self.expiry`; the directory is marked swept before the attempt rather than after, since
+  `clear_expired` raises for a half-written entry and a sweep retried on every registration would
+  fail every download for that TTL for the life of the process; and the lock is held across the
+  sweep rather than around the bookkeeping, which is what keeps a `download_files` thread pool from
+  writing rows that the sweep's own snapshot would then drop and orphan -- the leak this closes.
+  One lock covers building a caching filesystem as well as sweeping or reclaiming one, because
+  building reads the metadata file the other two delete: on POSIX an unlink leaves the open handle
+  readable and the race is invisible, where on Windows the builder gets `PermissionError` out of
+  fsspec's `CacheMetadata._load`. GH-1955
+- Network: two credentials never share a cache directory or a filesystem, whatever shape their
+  headers arrive in. Three ways they could, each of which also told the error scrubber there was no
+  credential on a request that carried one -- so a failure holding the header went into the retry
+  log `stamina` writes. `str()` of a `SecretStr` is `**********`, and `Settings.auth` has held
+  credentials as `SecretStr` since GH-1937, so every secret hashed to one value; because that hash
+  also names the in-memory filesystem, the second caller was handed the first caller's filesystem,
+  built with the first caller's `Authorization` header, which is GH-1947 again. A value is read for
+  what it stands for now. `client_kwargs["headers"]` reaches aiohttp as a mapping or as a sequence
+  of pairs, and only the mapping was read, so a pair list answered "no credential"; both are read
+  now. An iterator is deliberately not read at all -- reading it to name a directory would empty it
+  before the request that needs it -- and counts as carrying a credential rather than as carrying
+  none
+- Network: the cache separates on every header but the ones that cannot change a body, rather than
+  on a list of the ones known to carry credentials. That list is written for redaction, where
+  missing a name costs a log line; here it costs one caller's body being handed to another, and
+  `WD_FSSPEC_CLIENT_KWARGS` is a public setting -- `Accept-Language: de` and `en` shared a
+  directory, as would `Cookie` or any header nobody had thought of. An unknown header now costs a
+  cache miss, which is a slow answer rather than a wrong one
+- met.no Frost: the credential probe builds its own headers rather than writing into the dict
+  `Settings` holds. `{**settings.fsspec_client_kwargs}` copies one level, so `setdefault("headers",
+  {})[...] = ...` mutated the shared mapping and every later request from that `Settings` -- any
+  provider, not only this one -- carried met.no's basic auth
 
 - DWD mosmix: a `kml/` directory that exists and holds nothing says so, rather than raising past
   the line written for it -- whichever run was asked for. `next` raises `StopIteration` where its
