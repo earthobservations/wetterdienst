@@ -281,7 +281,6 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
         msg = "Expected a DataFrame after collect()"
         raise TypeError(msg)
     urls_and_station_ids = df_urls_and_station_ids.rows()
-    log.info(f"Downloading {len(urls_and_station_ids)} files for 1minute precipitation historical metadata.")
     remote_files = [url for url, _ in urls_and_station_ids]
     files = download_files(
         urls=remote_files,

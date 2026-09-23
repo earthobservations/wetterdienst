@@ -49,6 +49,7 @@ from wetterdienst.util.network import (
     _sends_credentials,
     _swept_dirs,
     download_file,
+    download_files,
     list_remote_directory_fsspec,
     list_remote_files_fsspec,
     post_file,
@@ -1943,3 +1944,168 @@ def test_two_secrets_that_print_alike_do_not_share_a_filesystem(tmp_path: Path) 
     )
 
     assert first is not second
+
+
+def test_the_log_says_whether_the_cache_answered(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A log that says "Downloading" for a cache hit describes the one thing that did not happen.
+
+    `File.from_cache` already knows which it was (GH-1947), and it is known before the read rather
+    than after, so both lines can say it rather than guess. Exercised against a real
+    `WholeFileCacheFileSystem` so the answer comes from the probe as it is actually called.
+    """
+    source = MemoryFileSystem()
+    source.pipe_file("/a.txt", b"payload")
+    caching = WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600)
+    monkeypatch.setattr(NetworkFilesystemManager, "get", lambda **_kwargs: caching)
+
+    def said() -> list[str]:
+        # this module's own lines only; fsspec is a chatty neighbour on the same handler
+        return [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        first = download_file(url="/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+        off_the_wire = said()
+        caplog.clear()
+        second = download_file(url="/a.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+        from_cache = said()
+
+    assert first.from_cache is False
+    assert off_the_wire == ["Downloading file /a.txt", "Downloaded file /a.txt"]
+    assert second.from_cache is True
+    assert from_cache == ["Reading file /a.txt from cache", "Read file /a.txt from cache"]
+
+
+@pytest.mark.cflake
+def test_a_fan_out_says_how_many_of_its_files_the_cache_answered(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A count announced up front is a claim made before any of the files has been asked for.
+
+    Which of them the cache answers is not known until each has been, so the count is reported once
+    they all have -- and a caller reading its own log can then tell a run that reached the network
+    from one that did not.
+    """
+    source = MemoryFileSystem()
+    urls = ["/a.txt", "/b.txt", "/c.txt"]
+    for url in urls:
+        source.pipe_file(url, b"payload")
+    # one instance per call, as the thread-local registry gives each thread its own: sharing one
+    # across the pool is the thread-safety issue that registry exists to avoid
+    monkeypatch.setattr(
+        NetworkFilesystemManager,
+        "get",
+        lambda **_kwargs: WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600),
+    )
+
+    def said() -> list[str]:
+        return [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        download_files(urls=urls[:1], cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+        caplog.clear()
+        download_files(urls=urls, cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+        mixed = said()
+
+    # one of the three was already held, the other two were not
+    assert mixed[0] == "Fetching 3 files."
+    assert mixed[-1] == "Fetched 3 files, 1 from cache."
+
+
+def test_a_fan_out_of_one_file_says_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A count of one reads as one, rather than as "1 files"."""
+    source = MemoryFileSystem()
+    source.pipe_file("/only.txt", b"payload")
+    caching = WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600)
+    monkeypatch.setattr(NetworkFilesystemManager, "get", lambda **_kwargs: caching)
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        download_files(urls=["/only.txt"], cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+    said = [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
+
+    assert said[0] == "Fetching 1 file."
+    assert said[-1] == "Fetched 1 file, 0 from cache."
+
+
+@pytest.mark.cflake
+def test_a_fan_out_does_not_count_a_failure_as_a_file_it_fetched(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failure comes back as a `File` carrying the exception rather than raising.
+
+    So counting the returned list as fetched says three files arrived where three 404s did -- the
+    same untrue thing this line exists to stop saying one level down.
+    """
+    source = MemoryFileSystem()
+    source.pipe_file("/here.txt", b"payload")
+    monkeypatch.setattr(
+        NetworkFilesystemManager,
+        "get",
+        lambda **_kwargs: WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600),
+    )
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        files = download_files(
+            urls=["/here.txt", "/gone.txt", "/also-gone.txt"],
+            cache_dir=tmp_path,
+            ttl=CacheExpiry.TWELVE_HOURS,
+        )
+    said = [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
+
+    assert [file.status for file in files] == [200, 404, 404]
+    assert said[-1] == "Fetched 1 of 3 files, 0 from cache."
+
+
+def test_a_fan_out_with_no_cache_does_not_report_an_empty_one(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A count of nothing cached reads as "the cache held none", not as "there was no cache".
+
+    The 1-minute precipitation metaindex is the one caller that asks for it, over a hundred files at
+    a time, and nothing was ever going to be cached for any of them.
+    """
+    monkeypatch.setattr(HTTPFileSystem, "cat_file", lambda _self, _url, **_kw: b"payload")
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
+        download_files(urls=["https://example.com/a", "https://example.com/b"], cache_dir=tmp_path)
+    said = [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
+
+    assert said[-1] == "Fetched 2 files, uncached."
+
+
+def test_a_file_is_named_before_the_cache_probe_that_may_fail_on_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The info line now waits until it knows which it is, so something else has to say "about to".
+
+    `_mkcache` can raise on a read-only or full cache dir, no handler below catches that, and for a
+    credentialed request `_without_credentials` drops the traceback -- so with nothing said first,
+    the caller gets a `PermissionError` naming neither the file nor the request.
+    """
+
+    def check_file(_self: object, _url: str) -> bool:
+        msg = "cache dir is read-only"
+        raise PermissionError(msg)
+
+    monkeypatch.setattr(WholeFileCacheFileSystem, "_check_file", check_file)
+
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.util.network"), pytest.raises(PermissionError):
+        download_file(url="https://example.com/unreachable.txt", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+    said = [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
+
+    assert "Fetching file https://example.com/unreachable.txt" in said

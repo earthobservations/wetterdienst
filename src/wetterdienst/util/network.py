@@ -1053,7 +1053,12 @@ def download_file(
         cache_disable=cache_disable,
         use_certifi=use_certifi,
     )
-    log.info(f"Downloading file {url}")
+    # the "about to" marker the info line below used to be, kept at debug because the info line now
+    # waits until it knows which it is. Something has to name the url before the cache probe runs:
+    # `_mkcache` can raise on a read-only cache dir, no handler below catches that, and for a
+    # credentialed request `_without_credentials` drops the traceback -- so without this the caller
+    # gets a `PermissionError` naming neither the file nor the request
+    log.debug(f"Fetching file {url}")
     # knmi sends its API key, metno frost its basic auth and metoffice its bearer token this way,
     # and aiohttp merges those headers into the request info it hangs on an error
     sent_credentials = _sends_credentials(client_kwargs)
@@ -1075,13 +1080,21 @@ def download_file(
                     # exception escaping here carries a traceback whose frame holds `client_kwargs`
                     # -- the Authorization header -- which is exactly what the handler below drops
                     served_from_cache = bool(getattr(filesystem, "_check_file", lambda _url: False)(url))
+                    # said after the probe rather than before it, because before it this could only
+                    # guess -- and it guessed "Downloading" for every cache hit, which is the one
+                    # thing a reader of the log could already tell was not happening. Said per
+                    # attempt, so a retry that goes to the network after a cached read failed reads
+                    # as the two different things it is
+                    log.info(
+                        f"Reading file {url} from cache" if served_from_cache else f"Downloading file {url}",
+                    )
                     payload = filesystem.cat_file(url)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
                     # ``repr(caused_by)`` on the first failure -- and that repr renders the request
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
-                log.info(f"Downloaded file {url}")
+                log.info(f"Read file {url} from cache" if served_from_cache else f"Downloaded file {url}")
                 return File(url=url, content=BytesIO(payload), status=200, from_cache=served_from_cache)
         msg = "unreachable"
         raise AssertionError(msg)
@@ -1308,9 +1321,12 @@ def download_files(
     use_certifi: bool = False,
 ) -> list[File]:
     """Download multiple files from the server concurrently."""
-    log.info(f"Downloading {len(urls)} files.")
+    noun = "file" if len(urls) == 1 else "files"
+    # what is wanted, not what will happen: which of these the cache answers is not known until each
+    # one has been asked, and the line below says it once they all have
+    log.info(f"Fetching {len(urls)} {noun}.")
     with ThreadPoolExecutor() as p:
-        return list(
+        files = list(
             p.map(
                 lambda file: download_file(
                     url=file,
@@ -1323,3 +1339,18 @@ def download_files(
                 urls,
             ),
         )
+    # a failure comes back as a `File` carrying the exception rather than raising, so counting the
+    # list as fetched would say three files arrived where three 404s did -- the same untrue thing
+    # this line exists to stop saying one level down
+    failed = sum(1 for file in files if isinstance(file.content, Exception))
+    arrived = len(files) - failed
+    counted = f"{arrived} of {len(files)} {noun}" if failed else f"{len(files)} {noun}"
+    # and the cache is only worth a count where there was one: this is the only caller that passes
+    # `NO_CACHE`, and "0 from cache" there reads as "the cache held none of them" rather than as
+    # "nothing was going to be cached"
+    if cache_disable or ttl is CacheExpiry.NO_CACHE:
+        log.info(f"Fetched {counted}, uncached.")
+    else:
+        cached = sum(1 for file in files if file.from_cache)
+        log.info(f"Fetched {counted}, {cached} from cache.")
+    return files

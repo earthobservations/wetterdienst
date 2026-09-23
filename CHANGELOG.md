@@ -129,6 +129,20 @@ Types of changes:
   `Settings` holds. `{**settings.fsspec_client_kwargs}` copies one level, so `setdefault("headers",
   {})[...] = ...` mutated the shared mapping and every later request from that `Settings` -- any
   provider, not only this one -- carried met.no's basic auth
+- Network: the log says whether a file was downloaded or read from the cache, rather than saying
+  "Downloading file" for both. `File.from_cache` has known which since GH-1947, and it is known
+  before the read rather than after, so both the opening and the closing line can say it instead of
+  guessing -- and the guess was wrong for every cache hit, which is the one thing a reader of the
+  log could already tell was not happening. Said per attempt, so a retry that goes to the network
+  after a cached read failed reads as the two different things it is. `download_files` likewise
+  announced `Downloading 3 files` before any of the three had been asked for; it now says what it
+  is fetching up front and, once they have all been answered, how many of them arrived and how many
+  of those the cache answered -- a failure comes back as a `File` carrying the exception rather than
+  raising, so counting the list would have said three files arrived where three 404s did. Where
+  there is no cache to report on -- `cache_disable`, or the `NO_CACHE` the 1-minute precipitation
+  metaindex asks for over a hundred files at a time -- it says `uncached` rather than `0 from
+  cache`, which reads as the cache having held none of them. A single file reads as `1 file` rather
+  than `1 files`, and the metaindex no longer prints its own count immediately above this one
 
 - DWD mosmix: a `kml/` directory that exists and holds nothing says so, rather than raising past
   the line written for it -- whichever run was asked for. `next` raises `StopIteration` where its
