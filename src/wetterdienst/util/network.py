@@ -1053,6 +1053,12 @@ def download_file(
         cache_disable=cache_disable,
         use_certifi=use_certifi,
     )
+    # the "about to" marker the info line below used to be, kept at debug because the info line now
+    # waits until it knows which it is. Something has to name the url before the cache probe runs:
+    # `_mkcache` can raise on a read-only cache dir, no handler below catches that, and for a
+    # credentialed request `_without_credentials` drops the traceback -- so without this the caller
+    # gets a `PermissionError` naming neither the file nor the request
+    log.debug(f"Fetching file {url}")
     # knmi sends its API key, metno frost its basic auth and metoffice its bearer token this way,
     # and aiohttp merges those headers into the request info it hangs on an error
     sent_credentials = _sends_credentials(client_kwargs)
@@ -1333,6 +1339,18 @@ def download_files(
                 urls,
             ),
         )
-    cached = sum(1 for file in files if file.from_cache)
-    log.info(f"Fetched {len(files)} {noun}, {cached} from cache.")
+    # a failure comes back as a `File` carrying the exception rather than raising, so counting the
+    # list as fetched would say three files arrived where three 404s did -- the same untrue thing
+    # this line exists to stop saying one level down
+    failed = sum(1 for file in files if isinstance(file.content, Exception))
+    arrived = len(files) - failed
+    counted = f"{arrived} of {len(files)} {noun}" if failed else f"{len(files)} {noun}"
+    # and the cache is only worth a count where there was one: this is the only caller that passes
+    # `NO_CACHE`, and "0 from cache" there reads as "the cache held none of them" rather than as
+    # "nothing was going to be cached"
+    if cache_disable or ttl is CacheExpiry.NO_CACHE:
+        log.info(f"Fetched {counted}, uncached.")
+    else:
+        cached = sum(1 for file in files if file.from_cache)
+        log.info(f"Fetched {counted}, {cached} from cache.")
     return files
