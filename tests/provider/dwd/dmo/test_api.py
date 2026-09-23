@@ -332,3 +332,29 @@ def test_dmo_issue_given_in_another_zone_means_the_same_instant(given: str, expe
 
     assert request.issue.hour == expected_hour
     assert request.issue.tzinfo == ZoneInfo("UTC")
+
+
+def test_dmo_an_empty_listing_is_reported_once_per_product_not_once_per_station(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`single_stations` is the default, and its URL carries the station id.
+
+    Keying the dedup on the URL itself deduplicated only the `all_stations` half. `icon_eu` has no
+    single-station directory upstream at all (404), so a request for it would have printed one
+    warning per station of the catalogue for one root cause.
+    """
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+    values = _stub_dmo_values()
+
+    for station_id in ("01001", "01002", "01003"):
+        url = f"https://opendata.dwd.de/weather/local_forecasts/dmo/icon/single_stations/{station_id}/kmz/"
+        assert values.get_url_for_date(url, api.DwdForecastDate.LATEST) is None
+
+    warnings = [record for record in caplog.records if "No DMO run listed within" in record.message]
+    assert len(warnings) == 1

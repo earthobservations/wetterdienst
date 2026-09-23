@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import datetime as dt
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
@@ -136,6 +137,11 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
     )
 
 
+# the station id in a single-station path, so one product's empty directory is reported once
+# however many stations were asked for
+_SINGLE_STATION_PATH = re.compile(r"/single_stations/[^/]+/")
+
+
 class DwdDmoValues(TimeseriesValues):
     """Fetch DWD DMO data."""
 
@@ -245,11 +251,14 @@ class DwdDmoValues(TimeseriesValues):
             # `read_icon_eu` turn this `None` into an empty frame, which merges into the result as
             # "this station has no forecast" with no warning, no error and no exit code. The same
             # swallowed walk and the same 404 reach both
-            # once per directory, not once per station: `all_stations` asks this for every
-            # station in the request, so one empty listing would otherwise print thousands of
-            # identical lines for one root cause
-            if url not in self._listings_warned_about:
-                self._listings_warned_about.add(url)
+            # once per product, not once per station. `all_stations` asks this for every station
+            # in the request against one URL, and `single_stations` -- the default -- asks against
+            # a URL carrying the station id, so keying on the URL itself deduplicated only half of
+            # it. `icon_eu` has no single-station directory upstream at all (404), so a request for
+            # it would have printed one line per station of the catalogue for one root cause
+            key = _SINGLE_STATION_PATH.sub("/single_stations/<station>/", url)
+            if key not in self._listings_warned_about:
+                self._listings_warned_about.add(key)
                 log.warning(
                     f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty",
                 )
