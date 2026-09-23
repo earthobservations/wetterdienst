@@ -181,3 +181,180 @@ def test_dmo_available_issues_answers_rather_than_raises(
 
     assert DwdDmoRequest.available_issues("01001", Settings()) == []
     assert expected_warning in caplog.text
+
+
+def _stub_dmo_values(lead_time: str = "short") -> object:
+    """Stand a DMO station up rather than look one up, so these need no network."""
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+
+    request = DwdDmoRequest(parameters=[("hourly", "icon")], lead_time=lead_time)
+    df_stations = pl.DataFrame(
+        [
+            {
+                "resolution": "hourly",
+                "dataset": "icon",
+                "station_id": "02378",  # an id containing "78", which is the point
+                "start_date": None,
+                "end_date": None,
+                "latitude": 52.5,
+                "longitude": 13.4,
+                "height": 40.0,
+                "name": "Berlin",
+                "state": None,
+            },
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "height": pl.Float64,
+            "name": pl.String,
+            "state": pl.String,
+        },
+        orient="row",
+    )
+    return StationsResult(
+        stations=request,
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.BY_STATION_ID,
+    ).values
+
+
+@pytest.mark.parametrize(
+    ("listing", "expected"),
+    [
+        pytest.param(
+            # the station id carries "78", which the bare substring match read as the lead time,
+            # so both files were kept, both carried one run, and `.item()` raised
+            ["ptp_gdmog_02378_078_1_210000.kmz", "ptp_gdmog_02378_168_3_210000.kmz"],
+            "ptp_gdmog_02378_078_1_210000.kmz",
+            id="a-station-id-containing-the-lead-time",
+        ),
+        pytest.param(
+            # a checksum beside the forecast: kept by the substring match, mapped to the same run
+            ["ptp_gdmog_02378_078_1_210000.kmz", "ptp_gdmog_02378_078_1_210000.kmz.md5"],
+            "ptp_gdmog_02378_078_1_210000.kmz",
+            id="a-checksum-beside-the-forecast",
+        ),
+        pytest.param(
+            # worse than a crash: this one parses to a valid run and was answered with, so the
+            # failure moved into the reader with nothing pointing back at the listing
+            ["ptp_gdmog_02378_078_1_210000.kmz", "ptp_gdmog_02378_078_1_210000.txt"],
+            "ptp_gdmog_02378_078_1_210000.kmz",
+            id="a-sidecar-that-parses-to-a-run",
+        ),
+    ],
+)
+def test_dmo_reads_a_run_by_its_whole_name(monkeypatch: pytest.MonkeyPatch, listing: list[str], expected: str) -> None:
+    """Every part of a DMO name was read by position or by substring, and each wrongly."""
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"https://example.com/kmz/{name}" for name in listing],
+    )
+
+    resolved = _stub_dmo_values().get_url_for_date("https://example.com/kmz/", api.DwdForecastDate.LATEST)
+
+    assert resolved.rsplit("/", 1)[-1] == expected
+
+
+def test_dmo_accepts_the_issues_it_advertises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The command that says which issues exist printed them in a form the next one rejected.
+
+    `available_issues` returns tz-aware UTC datetimes, `get_url_for_date` compared against a naive
+    column, and `get_issues` renders with `isoformat()` -- so the documented path raised
+    `could not evaluate comparison between series 'date' of dtype: Datetime('us') and ... 'UTC'`.
+    """
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    listing = ["https://example.com/kmz/ptp_gdmog_02378_078_1_210000.kmz"]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listing)
+
+    advertised = DwdDmoRequest.available_issues("02378", Settings())
+
+    assert advertised
+    assert advertised[0].tzinfo is not None
+    resolved = _stub_dmo_values().get_url_for_date("https://example.com/kmz/", advertised[0])
+    assert resolved == listing[0]
+
+
+@pytest.mark.parametrize(
+    ("hour", "expected"),
+    [
+        pytest.param(0, 0, id="a-release-hour"),
+        pytest.param(3, 0, id="the-morning-floors-down"),
+        pytest.param(11, 0, id="just-before-the-second-release"),
+        pytest.param(12, 12, id="the-second-release-hour"),
+        pytest.param(14, 12, id="the-afternoon-floors-down"),
+        pytest.param(23, 12, id="the-end-of-the-day"),
+    ],
+)
+def test_dmo_issue_is_floored_to_a_release_hour(hour: int, expected: int) -> None:
+    """DMO releases at 00 and 12, and an issue between them belongs to the one before it.
+
+    `hour % 12` is non-zero for 1 through 11 as well as 13 through 23, and sending both to 12
+    rounded the morning *up*: asking for the 03:00 run returned the 12:00 one, issued nine hours
+    later, or raised where 12:00 was not yet published while 00:00 sat there unasked for.
+
+    Unreachable until the tz comparison in this branch was fixed -- every non-`LATEST` issue raised
+    `SchemaError` before reaching here -- which is what made a latent rounding bug into a live one.
+    """
+    adjusted = DwdDmoRequest.adjust_datetime(dt.datetime(2026, 9, 22, hour, tzinfo=ZoneInfo("UTC")))
+
+    assert adjusted.hour == expected
+
+
+@pytest.mark.parametrize(
+    ("given", "expected_hour"),
+    [
+        pytest.param("2026-09-22T13:00+02:00", 0, id="an-offset-is-converted-not-relabelled"),
+        pytest.param("2026-09-22T11:00+00:00", 0, id="the-same-instant-in-utc"),
+        pytest.param("2026-09-22T03:00", 0, id="a-naive-issue-is-utc"),
+        pytest.param("2026-09-22T23:00+02:00", 12, id="an-offset-that-floors-to-the-later-release"),
+    ],
+)
+def test_dmo_issue_given_in_another_zone_means_the_same_instant(given: str, expected_hour: int) -> None:
+    """An issue was relabelled UTC rather than converted, so another zone floored to another run.
+
+    `13:00+02:00` is 11:00 UTC and belongs to the 00:00 release; read as 13:00 UTC it floored to
+    12:00 -- one release too late, and at 11:00 UTC a run not yet published, so the caller got an
+    `IndexError` where the 00:00 run was sitting there. A naive issue is taken as UTC, which is
+    what it has always meant here.
+    """
+    request = DwdDmoRequest(parameters=[("hourly", "icon")], issue=given)
+
+    assert request.issue.hour == expected_hour
+    assert request.issue.tzinfo == ZoneInfo("UTC")
+
+
+def test_dmo_an_empty_listing_is_reported_once_per_product_not_once_per_station(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`single_stations` is the default, and its URL carries the station id.
+
+    Keying the dedup on the URL itself deduplicated only the `all_stations` half. `icon_eu` has no
+    single-station directory upstream at all (404), so a request for it would have printed one
+    warning per station of the catalogue for one root cause.
+    """
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+    values = _stub_dmo_values()
+
+    for station_id in ("01001", "01002", "01003"):
+        url = f"https://opendata.dwd.de/weather/local_forecasts/dmo/icon/single_stations/{station_id}/kmz/"
+        assert values.get_url_for_date(url, api.DwdForecastDate.LATEST) is None
+
+    warnings = [record for record in caplog.records if "No DMO run listed within" in record.message]
+    assert len(warnings) == 1

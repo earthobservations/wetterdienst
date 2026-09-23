@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import datetime as dt
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
@@ -59,6 +60,28 @@ class DwdDmoLeadTime(Enum):
 
     SHORT = 78
     LONG = 168
+
+
+def _run_stamp(urls: pl.Expr, lead_time: DwdDmoLeadTime | None = None) -> pl.Expr:
+    """Read the ``DDHHMM`` a DMO run is stamped with, or null where the name carries none.
+
+    A run is published as ``ptp_gdmog_<station>_<lead>_<n>_<DDHHMM>.kmz``, and every part of that
+    was read by position or by substring before, each wrongly:
+
+    - the lead time was matched as a bare ``"78"`` or ``"168"`` anywhere in the URL, which the
+      station id also satisfies. 187 of 5811 ids contain ``78``, so a request for the short lead
+      time kept the long one's files too, two rows carried one run, and `.item()` raised.
+    - the stamp was the last ``_``-separated part with four characters taken off the end, so a
+      ``README`` reached the parse and raised `conversion from str to i64 failed`, and a
+      ``..._210000.txt`` sidecar strips to a valid ``210000`` and could be answered with -- handing
+      the reader a file that is not a forecast.
+
+    Named as a whole, both stop being possible: the lead time is a field rather than a substring,
+    and a name that is not a forecast carries no stamp. Asked without a lead time, as the listing
+    of issues is, it reads either.
+    """
+    leads = f"{lead_time.value:03d}" if lead_time else "|".join(f"{lt.value:03d}" for lt in DwdDmoLeadTime)
+    return urls.str.split("/").list.last().str.extract(rf"_(?:{leads})_\d+_(\d{{6}})\.kmz$", 1)
 
 
 def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.DataFrame:
@@ -114,6 +137,11 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
     )
 
 
+# the station id in a single-station path, so one product's empty directory is reported once
+# however many stations were asked for
+_SINGLE_STATION_PATH = re.compile(r"/single_stations/[^/]+/")
+
+
 class DwdDmoValues(TimeseriesValues):
     """Fetch DWD DMO data."""
 
@@ -126,6 +154,9 @@ class DwdDmoValues(TimeseriesValues):
             station_ids=self.sr.station_id.to_list(),
             settings=cast("Settings", self.sr.stations.settings),
         )
+        # directories already reported as naming nothing, so one empty listing is one line rather
+        # than one per station of an `all_stations` request
+        self._listings_warned_about: set[str] = set()
 
     def get_dwd_dmo_path(self, dataset: DatasetModel, station_id: str | None = None) -> str:
         """Get DWD DMO path."""
@@ -213,23 +244,55 @@ class DwdDmoValues(TimeseriesValues):
         from typing import cast  # noqa: PLC0415
 
         stations = cast("DwdDmoRequest", self.sr.stations)
+        lead_time = cast("DwdDmoLeadTime", stations.lead_time)
         urls = list_remote_files_fsspec(url, cast("Settings", stations.settings), CacheExpiry.NO_CACHE)
         if not urls:
+            # said here as well as in `available_issues`, and it matters more here: `read_icon` and
+            # `read_icon_eu` turn this `None` into an empty frame, which merges into the result as
+            # "this station has no forecast" with no warning, no error and no exit code. The same
+            # swallowed walk and the same 404 reach both
+            # once per product, not once per station. `all_stations` asks this for every station
+            # in the request against one URL, and `single_stations` -- the default -- asks against
+            # a URL carrying the station id, so keying on the URL itself deduplicated only half of
+            # it. `icon_eu` has no single-station directory upstream at all (404), so a request for
+            # it would have printed one line per station of the catalogue for one root cause
+            key = _SINGLE_STATION_PATH.sub("/single_stations/<station>/", url)
+            if key not in self._listings_warned_about:
+                self._listings_warned_about.add(key)
+                log.warning(
+                    f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty",
+                )
             return None
         df = pl.DataFrame({"url": urls}, orient="col")
-        df = df.filter(pl.col("url").str.contains(str(cast("DwdDmoLeadTime", stations.lead_time).value)))
-        df = df.with_columns(
-            pl.col("url").str.split("/").list.last().str.split("_").list.last().alias("date_str"),
-        )
-        df = df.with_columns(pl.col("date_str").str.slice(offset=0, length=pl.col("date_str").str.len_chars() - 4))
+        df = df.with_columns(_run_stamp(pl.col("url"), lead_time).alias("date_str"))
+        df = df.filter(pl.col("date_str").is_not_null())
+        if df.is_empty():
+            # the directory named things, none of them a forecast for this lead time. Reported as
+            # itself rather than as `Unable to find None file within ...`, which is what the
+            # `LATEST` branch below produced once its filter had emptied the frame
+            msg = f"Unable to find a {lead_time.value} h forecast within {url}"
+            raise IndexError(msg)
         df = add_date_from_filename(df, dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None))
         if date == DwdForecastDate.LATEST:
             date = cast("dt.datetime", df.get_column("date").max())
+        elif date.tzinfo is not None:
+            # `available_issues` hands these out tz-aware, and the column built above is naive, so
+            # comparing them raised `could not evaluate comparison between series 'date' of dtype:
+            # Datetime('us') and ... Datetime('us', 'UTC')` -- the command that says which issues
+            # exist printing them in a form the next command could not accept. Converted only when
+            # it carries a zone: a naive datetime is already what this compares in, and
+            # `astimezone` would read it as local time
+            date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
         df = df.filter(pl.col("date").eq(date))
         if df.is_empty():
             msg = f"Unable to find {date} file within {url}"
             raise IndexError(msg)
-        return df.get_column("url").item()
+        # sorted rather than `.item()`, which raises on two rows instead of answering. Under the
+        # lead-anchored rule above, the only field left varying is `n` -- fixed per lead time,
+        # `078` with `1` and `168` with `3` -- so two names cannot carry one stamp today and this
+        # is a deterministic tiebreak for a case that cannot currently arise, not a policy about
+        # which of two files to prefer
+        return cast("str", df.get_column("url").sort().first())
 
 
 @dataclass
@@ -263,16 +326,21 @@ class DwdDmoRequest(TimeseriesRequest):
 
     @staticmethod
     def adjust_datetime(datetime_: dt.datetime) -> dt.datetime:
-        """Adjust datetime to DMO release frequency (9/12 hours).
+        """Adjust datetime to DMO's release hours, which are 00 and 12 UTC.
 
         Datetime is floored to closest release time e.g. if hour is 14, it will be rounded to 12
 
         """
+        # floored, as the line above says and as this did not do: `hour % 12` is non-zero for 1
+        # through 11 as well as for 13 through 23, and sending both to 12 rounds the morning *up*.
+        # Asking for the 03:00 run returned the 12:00 one, issued nine hours later, or raised where
+        # 12:00 was not published yet while 00:00 sat there unasked for.
+        #
+        # Unreachable until now, which is why it stood: every non-`LATEST` issue is stamped
+        # tz-aware and was compared against a naive column, so it raised `SchemaError` before any
+        # of this decided anything. Fixing that comparison is what made this live
         adjusted_date = datetime_.replace(minute=0, second=0, microsecond=0)
-        delta_hours = adjusted_date.hour % 12
-        if delta_hours > 0:
-            return adjusted_date.replace(hour=12)
-        return adjusted_date
+        return adjusted_date.replace(hour=adjusted_date.hour // 12 * 12)
 
     @classmethod
     def available_issues(cls, station_id: str, settings: Settings) -> list[dt.datetime]:
@@ -298,32 +366,10 @@ class DwdDmoRequest(TimeseriesRequest):
             log.warning(f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty")
             return []
         df = pl.DataFrame({"url": urls}, orient="col")
-        df = df.with_columns(
-            pl.col("url").str.split("/").list.last().str.split("_").list.last().alias("date_str"),
-        )
-        df = df.with_columns(
-            pl.col("date_str").str.slice(offset=0, length=pl.col("date_str").str.len_chars() - 4),
-        )
-        # a DMO run file ends in the `DDHHMM` the run started at, in a name ending `.kmz`. An
-        # entry that does neither -- a README, a checksum -- used to reach `add_date_from_filename`
-        # and raise `conversion from str to i64 failed ... ["AD"]`; GH-1946 removes the same fault
-        # from `dwd/mosmix`, there by reading the run by pattern rather than by position.
-        #
-        # The positional read stays here, and so does the one in `get_url_for_date` above, which
-        # reads this same directory for the data path and has no filter at all: a `.md5` beside a
-        # forecast makes its lead-time match keep both and `.item()` raise, and a `.txt` parses to
-        # a run it will then hand to the reader. Both are GH-1948's, with the lead-time substring
-        # match and the tz-aware issues this method advertises that that one rejects. What changes
-        # here is only that a name this filter cannot read is dropped rather than taking the
-        # request with it
-        df = df.filter(
-            pl.col("date_str").str.contains(r"^\d{6}$")
-            # the extension as well as the stamp, as the mosmix rule in this change checks: the
-            # slice above takes four characters off whatever it is given, so `..._210000.txt`
-            # strips to `210000` and would be reported as a run that exists. `.kmz.md5` fails the
-            # stamp test by luck -- it strips to `210000.kmz` -- which is not a rule either
-            & pl.col("url").str.split("/").list.last().str.contains(r"\.kmz$"),
-        )
+        # the same rule `get_url_for_date` reads by, asked without a lead time because this lists
+        # the runs of both. A name that is not a forecast carries no stamp and is dropped
+        df = df.with_columns(_run_stamp(pl.col("url")).alias("date_str"))
+        df = df.filter(pl.col("date_str").is_not_null())
         if df.is_empty():
             log.warning(f"None of the {len(urls)} entries listed within {url} is a forecast file")
             return []
@@ -345,6 +391,12 @@ class DwdDmoRequest(TimeseriesRequest):
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 issue = dt.datetime.fromisoformat(issue)
+            # converted, not relabelled: taking the wall-clock hour and stamping UTC on it read
+            # `13:00+02:00` as 13:00 UTC, so an issue given in any other zone floored to the wrong
+            # release -- 11:00 UTC asked for, 12:00 UTC answered, which at 11:00 is a run not yet
+            # published and so an `IndexError` where the 00:00 run was sitting there. A naive issue
+            # is taken as UTC, which is what it has always meant here
+            issue = issue.astimezone(ZoneInfo("UTC")) if issue.tzinfo else issue.replace(tzinfo=ZoneInfo("UTC"))
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=ZoneInfo("UTC"))
             # Shift issue date to 0, 12 hour format
             issue = self.adjust_datetime(issue)
