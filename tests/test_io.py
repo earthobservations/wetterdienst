@@ -2073,3 +2073,52 @@ def test_export_file_fail_exception(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError) as exec_info:
         values.to_target(f"file:///{filename}", if_exists="fail")
     assert exec_info.match("File '.*testfile' already exists, aborting write due to if_exists='fail'.")
+
+
+class _OneRow(ExportMixin):
+    """The smallest thing `to_target` will write, so the sink is reached without a request."""
+
+    def __init__(self) -> None:
+        self.df = pl.DataFrame(
+            {
+                "station_id": ["01048"],
+                "resolution": ["daily"],
+                "dataset": ["climate_summary"],
+                "parameter": ["temperature_air_mean_2m"],
+                "date": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "value": [1.0],
+                "quality": [1.0],
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    ("if_exists", "refused"),
+    [
+        pytest.param("replace", False, id="replace"),
+        pytest.param("append", False, id="append"),
+        pytest.param("fail", True, id="fail"),
+        pytest.param("skip", True, id="skip"),
+    ],
+)
+def test_influxdb_takes_the_modes_that_describe_what_it_does(if_exists: str, refused: bool) -> None:  # noqa: FBT001
+    """InfluxDB refused `append`, which is the one word for what it actually does.
+
+    That refusal made the batch export impossible rather than merely awkward:
+    `TimeseriesValues.to_target` writes its first station with the `if_exists` it was given and
+    every station after it with `append`, so no argument let a multi-station request reach InfluxDB
+    -- and the export docs shipped three examples doing exactly that, broken from the day the
+    argument was added. `fail` and `skip` stay refused because both turn on whether the measurement
+    already exists, which this sink never asks.
+    """
+    pytest.importorskip("influxdb")
+    client = mock.MagicMock()
+
+    with mock.patch("influxdb.InfluxDBClient", side_effect=[client], create=True):
+        if refused:
+            with pytest.raises(NotImplementedError, match=f"if_exists='{if_exists}' is not supported for InfluxDB"):
+                _OneRow().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)
+            return
+        _OneRow().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)
+
+    assert client.write_points.call_count == 1

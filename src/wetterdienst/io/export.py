@@ -508,8 +508,22 @@ class ExportMixin:
 
                 influx query 'from(bucket:"dwd") |> range(start:-2d) |> limit(n: 10)'
             """  # noqa:E501
-            if if_exists in ("append", "fail", "skip"):
-                msg = f"if_exists='{if_exists}' is not supported for InfluxDB exports."
+            # every write here is points, and a point carrying the timestamp and tags another
+            # already has replaces that one, so what this sink does is exactly `append`. Refusing
+            # that spelling made the batch export impossible: `TimeseriesValues.to_target` writes
+            # its first station with the `if_exists` it was given and every station after it with
+            # `append`, so no argument let a multi-station request reach InfluxDB at all.
+            #
+            # `replace` is accepted for the same reason it always was -- it is the default, and a
+            # caller who has not thought about the question should not be stopped -- but it does
+            # not delete what is already in the measurement, because nothing here issues a delete.
+            # `fail` and `skip` are refused rather than quietly meaning `append`: both turn on
+            # whether the measurement already exists, and this sink never asks
+            if if_exists in ("fail", "skip"):
+                msg = (
+                    f"if_exists='{if_exists}' is not supported for InfluxDB exports, which would "
+                    f"have to ask whether the measurement exists; use 'append' or 'replace'."
+                )
                 raise NotImplementedError(msg)
 
             if protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:

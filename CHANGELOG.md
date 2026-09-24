@@ -107,11 +107,18 @@ Types of changes:
 
 ### Fixed
 
-- The export docs' batch example wrote to InfluxDB through `TimeseriesValues.to_target`, which
-  passes `fail` for the first station and `append` for every one after it, while the InfluxDB sink
-  raises `NotImplementedError` for both -- so the example could not run as written. It writes to
-  DuckDB now, and the modes list says which default belongs to which class: `replace` on a result,
-  `fail` on `TimeseriesValues`, which then appends station by station
+- The InfluxDB sink takes `if_exists="append"`, which is the one word for what it actually does:
+  every write is points, and a point carrying the timestamp and tags another already has replaces
+  that one. Refusing that spelling made the batch export impossible rather than merely awkward --
+  `TimeseriesValues.to_target` writes its first station with the `if_exists` it was given and every
+  station after it with `append`, so no argument let a multi-station request reach InfluxDB at all.
+  The three export examples in the docs did exactly that and had been broken since the day
+  `if_exists` was added (02c3b15b, 2025-10-29), which added the guard and the examples together.
+  `fail` and `skip` stay refused, because both turn on whether the measurement already exists and
+  this sink never asks; the message says so rather than naming the mode alone. `replace` is
+  accepted as before and does not clear the measurement, because nothing here issues a delete --
+  the modes list says that now instead of implying otherwise, and says which default belongs to
+  which class: `replace` on a result, `fail` on `TimeseriesValues`
 - WSV pegel: the wave tests ask each station whether its own values are in the declared unit, rather
   than asking whether two stations agree with each other. Comparing them assumed the same sea at
   both, and they do not carry the same window -- MELLUMPLATE had 98 readings over 1.6 days against LT
