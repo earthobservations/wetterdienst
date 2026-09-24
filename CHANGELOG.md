@@ -23,14 +23,19 @@ Types of changes:
   proposed generating them with `hickory`; that package last released in August 2020, declares
   `requires_python >=3.6` and schedules a Python *script*, so a CLI invocation would need a wrapper
   around it anyway -- a dead dependency to write two unit files. What the page carries beyond the
-  units is what a scheduled run gets wrong: a `DynamicUser=yes` service has no `$HOME`, and the
-  cache directory comes from platformdirs, i.e. from `$HOME`, so without `CacheDirectory=` and
-  `WD_CACHE_DIR` the timer re-downloads everything on every fire; `No data available for given
-  constraints` exits 1, indistinguishable from a real failure, so a schedule over a quiet station
-  looks like a broken job; and a `file://` target is replaced rather than appended to, append being
-  unimplemented for files, so a schedule meant to accumulate needs a database or a date-stamped
-  name. Plus `RandomizedDelaySec` and an off-the-hour cron minute, so that not every installation
-  asks the provider at `:00` sharp
+  units is what a scheduled run gets wrong. A `DynamicUser=yes` service has no `$HOME` it may write
+  to, and the cache directory comes from platformdirs, i.e. from `$HOME`, so without
+  `CacheDirectory=` and `WD_CACHE_DIR` the run does not degrade to an uncached one, it fails:
+  `PermissionError: [Errno 13] Cache directory ... does not exist and could not be created`. `No
+  data available for given constraints` exits 1, indistinguishable from a real failure, so a
+  schedule over a quiet station looks like a broken job. Every run replaces what the last one
+  wrote, databases included -- the CLI exports with `if_exists="replace"` and exposes no way to
+  change it, so a `duckdb://` or `postgresql://` table is dropped and recreated exactly as a
+  `file://` target is rewritten -- so a schedule meant to accumulate needs a date-stamped name or
+  an `influxdb://` target. And a `duckdb:///x.duckdb` path is relative to the working directory,
+  because the first `/` after the `//` separates host from path; an absolute one takes four
+  slashes. Plus `RandomizedDelaySec`, an off-the-hour cron minute and schedules that match the
+  publication cadence, so that not every installation asks the provider at `:00` sharp
 - DWD road: a temperature below -60 °C is marked suspect whatever window was asked for. The stopped
   sensors that report `-75.00` °C to the hundredth were already found by the rule that marks a
   sensor holding one value for six hours, but only where the request covered six hours to find them

@@ -20,18 +20,29 @@ wetterdienst values \
 ```
 
 `--target` takes the same connection strings as the Python `to_target()` method, so
-`duckdb:///var/lib/wetterdienst/obs.duckdb?table=weather`, `influxdb://…` or `crate://…` work
-equally well — see [Export](python-api.md#export).
+`duckdb:///obs.duckdb?table=weather`, `influxdb://…` or `crate://…` work equally well — see
+[Export](python-api.md#export). Each database sink is an optional extra (`duckdb`, `influxdb`,
+`cratedb`, `postgresql`), imported only when its target is used, so install the one you schedule
+or the run fails at the very end, after the download.
 
-Two properties of the CLI matter for a scheduler:
+Three properties of the CLI matter for a scheduler:
 
 - **The exit code is meaningful.** A run that finds nothing exits `1` with
   `No data available for given constraints`. That is the same exit code as a real failure, so a
   schedule over a station that is merely quiet will look like a broken job. Either pick a query
   that always returns something, or let the wrapper decide what an empty result means.
-- **File writes replace, never append.** A `file://` target is rewritten in full on every run;
-  append mode is not implemented for files at all. Point consecutive runs at a database, or at a
-  date-stamped filename, if you want the schedule to accumulate history.
+- **Every run replaces what the last one wrote.** The CLI always exports with `if_exists="replace"`
+  and offers no option to change it, so this is not only true of files: a `file://` target is
+  rewritten in full (append is not implemented for files at all), and a `duckdb://`, `sqlite://`,
+  `postgresql://` or `crate://` target has its table dropped and recreated. A schedule that is
+  meant to accumulate needs a date-stamped filename, an `influxdb://` target — points written to
+  InfluxDB accumulate rather than replacing the measurement — or a wrapper calling `to_target(...,
+  if_exists="append")` from Python, which the CLI does not expose.
+- **A database path is relative unless you give it four slashes.** `duckdb:///obs.duckdb` names a
+  file in the working directory, because the connection string's leading `/` separates the host
+  from the path. For an absolute one, write `duckdb:////var/lib/wetterdienst/obs.duckdb`, or set
+  `WorkingDirectory=` in the unit. `file://` targets are not affected — those are read as the
+  absolute path they look like.
 
 ## systemd timer (Linux)
 
@@ -63,23 +74,25 @@ Environment=WD_CACHE_DIR=%C/wetterdienst
 
 # A request that hangs should not sit in the timer's slot until the next reboot.
 TimeoutStartSec=15min
-
-[Install]
-WantedBy=multi-user.target
 ```
+
+There is deliberately no `[Install]` section on the service: the timer is what pulls it in. Giving
+it one invites `systemctl enable wetterdienst.service`, one word from the command below, which
+would acquire on every boot as well as on every timer tick.
 
 `/etc/systemd/system/wetterdienst.timer`:
 
 ```ini
 [Unit]
-Description=Acquire weather data with wetterdienst, hourly
+Description=Acquire weather data with wetterdienst, daily
 
 [Timer]
-OnCalendar=hourly
+# daily, because that is how often `--periods=recent` is republished; see "Choosing an interval"
+OnCalendar=daily
 # Catch up after a reboot or a suspended laptop instead of silently skipping the run.
 Persistent=true
-# Spread load so that every installation does not hit the provider at :00 sharp.
-RandomizedDelaySec=10min
+# Spread load so that every installation does not hit the provider at midnight sharp.
+RandomizedDelaySec=30min
 
 [Install]
 WantedBy=timers.target
@@ -96,13 +109,27 @@ systemctl start wetterdienst.service       # run once, now, without waiting
 journalctl -u wetterdienst.service -f      # the output of the runs
 ```
 
-`DynamicUser=yes` means the service has no home directory, which is worth understanding: the
-default cache location comes from
-[platformdirs](https://platformdirs.readthedocs.io/) and resolves under `$HOME`. The
-`CacheDirectory=` and `Environment=WD_CACHE_DIR=%C/wetterdienst` pair above replaces it with
-`/var/cache/wetterdienst`, owned by the service. Without them the run still works but re-downloads
-everything each time. `StateDirectory=wetterdienst` does the same for output, giving `%S` =
-`/var/lib`.
+`DynamicUser=yes` gives the service a transient account with no home directory of its own, and
+that is the part worth understanding. The default cache location comes from
+[platformdirs](https://platformdirs.readthedocs.io/) and resolves under `$HOME`, which here is not
+a directory the service may write to — and a cache directory that cannot be created is not a
+degraded run but a failed one:
+
+```
+PermissionError: [Errno 13] Cache directory "/.cache/wetterdienst/43200.0" does not exist
+and could not be created
+```
+
+The `CacheDirectory=wetterdienst` and `Environment=WD_CACHE_DIR=%C/wetterdienst` pair replaces it
+with `/var/cache/wetterdienst`, created and owned by the service. `StateDirectory=wetterdienst`
+does the same for output, giving `%S` = `/var/lib`.
+
+One consequence to plan for: with `DynamicUser=yes`, systemd puts a state directory in
+`/var/lib/private/wetterdienst` and leaves `/var/lib/wetterdienst` as a symlink into it. Only the
+service sees through it, because `/var/lib/private` is `0700` and root-owned. The unit above writes
+its CSV there, so if something else has to read that file — a dashboard, a backup, your own shell
+— either drop `DynamicUser=yes` for a `User=` with a real account, or point `--target` at a
+directory you create yourself and grant with `ReadWritePaths=`.
 
 To be told when a run fails, add `OnFailure=` to the `[Unit]` section of the service and write a
 matching notification unit:
@@ -170,11 +197,15 @@ launchd:
 
 ```text
 # m h dom mon dow  command
-17 * * * *  /usr/local/bin/wetterdienst values --provider=dwd --network=observation --parameters=daily/kl/temperature_air_mean_2m --periods=recent --station=01048 --target=file:///var/lib/wetterdienst/kl.csv >> /var/log/wetterdienst.log 2>&1
+17 3 * * *  /usr/local/bin/wetterdienst values --provider=dwd --network=observation --parameters=daily/kl/temperature_air_mean_2m --periods=recent --station=01048 --target=file://$HOME/weather/kl.csv >> $HOME/weather/wetterdienst.log 2>&1
 ```
 
 Note the `17`: an off-the-hour minute is deliberate, for the same reason as `RandomizedDelaySec`
-above. cron passes almost no environment either, so use absolute paths, and set `WD_CACHE_DIR`
+above. Note the paths too — cron has no `StateDirectory=` to create anything for it, and nothing in
+wetterdienst creates a missing directory either, so a target whose parent does not exist fails with
+`FileNotFoundError` on the first run. Create `$HOME/weather` once, or write the target under a
+directory that already exists; `/var/lib` and `/var/log` are not writable by the account a user
+crontab runs as. cron passes almost no environment, so use absolute paths, and set `WD_CACHE_DIR`
 explicitly if the crontab belongs to a user without a stable `$HOME`.
 
 One footgun if you take the date-stamped-filename advice from above: in a crontab, `%` is a command
@@ -198,9 +229,10 @@ docker run --rm \
 
 ## Choosing an interval
 
-Polling faster than the product is published only refills the cache. Each provider's page under
-[Data](../data/index.md) states how often its products are refreshed; for the most-scheduled DWD
-products that is:
+Polling faster than the product is published only refills the cache. The figures below are the
+ones DWD publishes for its most-scheduled products; for anything else, the provider pages under
+[Data](../data/index.md) give each dataset's resolution, which is the floor rather than the
+publication cadence:
 
 | Product                             | Published        | Useful interval  |
 | ----------------------------------- | ---------------- | ---------------- |
