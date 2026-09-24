@@ -4,6 +4,7 @@
 
 import json
 
+import polars as pl
 import pytest
 
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
@@ -59,24 +60,36 @@ def test_wsv_source_unit_factors_convert_the_other_units_correctly() -> None:
 
 
 @pytest.mark.remote
-def test_wsv_wave_height_is_comparable_across_stations() -> None:
+def test_wsv_wave_height_comes_back_in_centimetres() -> None:
     """Test that wave height is returned in one unit regardless of what the station publishes.
 
     Pegelonline publishes significant wave height in m at MELLUMPLATE and cm at LT ALTE WESER. The
     metadata declares centimetre, so the metre station used to come back around 100x too small --
     0.07-1.32 next to 12.66-280.6 for the same quantity, both labelled cm.
+
+    Asked of each station's own values rather than by comparing the two. Comparing them assumed the
+    same sea at both, and they do not carry the same window: MELLUMPLATE had 98 readings over 1.6
+    days against LT ALTE WESER's 14 347 over ten, so their means were taken over different weather
+    and differed by 10.5x -- against an assertion of less than 10 -- while over the window they
+    share the ratio was 4.6x. That failed on every CI job for days without a unit being wrong
+    (GH-1968).
+
+    The bounds separate the two readings of the same number rather than describe the sea. A median
+    of 9.5 cm at MELLUMPLATE is 0.095 in metres, so the threshold sits at 1, near the geometric
+    middle of the hundredfold this exists to catch; the ceiling catches the same mistake inverted,
+    centimetres read as metres, which would put that station's median in the thousands. No sea state
+    moves a median across either.
     """
-    values = {}
-    for station_id in ("9420010", "9460041"):
-        request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_sign")])
-        df = request.filter_by_station_id(station_id).values.all().df
-        series = df.get_column("value").drop_nulls()
-        assert not series.is_empty(), f"no data for {station_id}"
-        values[station_id] = series.mean()
-    # both are wave heights in cm at neighbouring North Sea stations, so they belong to the same
-    # order of magnitude; before the fix they differed by roughly 100x
-    ratio = max(values.values()) / min(values.values())
-    assert ratio < 10, f"wave heights still differ by {ratio:.0f}x: {values}"
+    request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_sign")])
+    df = request.all().values.all().df.drop_nulls("value")
+    assert not df.is_empty(), "no wave height data at any station"
+    # every station offering the parameter, so a station added or dropped upstream is covered
+    # without naming ids here; one that stops publishing drops out rather than failing this
+    medians = df.group_by("station_id").agg(pl.col("value").median().alias("median"))
+    for row in medians.iter_rows(named=True):
+        assert 1 <= row["median"] <= 2000, (
+            f"{row['station_id']}: median wave height {row['median']} is not a figure in centimetres"
+        )
 
 
 @pytest.mark.remote
@@ -86,14 +99,16 @@ def test_wsv_wave_period_is_seconds() -> None:
     It was declared with a `wave_period` unit whose symbol was `1/s`, a frequency, and the source
     publishes seconds at one station and hundredths of a second at another.
     """
-    for station_id in ("9420010", "9460041"):
-        request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_period")])
-        df = request.filter_by_station_id(station_id).values.all().df
-        series = df.get_column("value").drop_nulls()
-        assert not series.is_empty(), f"no data for {station_id}"
+    df = WsvPegelRequest(parameters=[("1_minute", "data", "wave_period")]).all().values.all().df.drop_nulls("value")
+    assert not df.is_empty(), "no wave period data at any station"
+    # asked of every station offering the parameter rather than of two named ones, so that a station
+    # upstream stops publishing -- MELLUMPLATE's wave height has been stale for days -- without
+    # failing a test about units
+    medians = df.group_by("station_id").agg(pl.col("value").median().alias("median"))
+    for row in medians.iter_rows(named=True):
         # wind waves on the German North Sea coast run a few seconds; hundredths would read in
         # the hundreds and a frequency would be far below one
-        assert 1 < series.mean() < 20, f"{station_id}: implausible wave period {series.mean()}"
+        assert 1 < row["median"] < 20, f"{row['station_id']}: implausible wave period {row['median']}"
 
 
 @pytest.mark.remote

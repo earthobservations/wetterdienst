@@ -74,6 +74,18 @@ Types of changes:
 
 ### Fixed
 
+- WSV pegel: the wave tests ask each station whether its own values are in the declared unit, rather
+  than asking whether two stations agree with each other. Comparing them assumed the same sea at
+  both, and they do not carry the same window -- MELLUMPLATE had 98 readings over 1.6 days against LT
+  ALTE WESER's 14 347 over ten, so their means were taken over different weather and differed by
+  10.5x against an assertion of less than 10, while over the window they share the ratio was 4.6x.
+  That failed on every one of the ten CI matrix jobs for days with no unit being wrong, and a
+  permanently red matrix is where a real failure goes unnoticed. The bounds now separate the two
+  readings of the same number instead: a median of 9.5 cm is 0.095 in metres, so the threshold sits
+  near the geometric middle of the hundredfold being guarded against, and no sea state moves a median
+  across it. Both wave tests read every station offering the parameter rather than two named ones, so
+  a station that stops publishing drops out instead of failing a test about units
+
 - DWD DMO: a station the shared catalogue omits is described from the product's newest run, so it can
   be asked for. 135 of the stations `icon` forecasts for and 132 of `icon_eu`'s are absent from
   `dmo_stationsliste_txt.asc` -- 72 of them with ids it never carries, such as `Y0330`, `G431` and
