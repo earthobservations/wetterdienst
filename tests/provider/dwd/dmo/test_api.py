@@ -74,8 +74,10 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
         "end_date": None,
         "latitude": 79.98,
         "longitude": 179.33,
-        "height": 4670.0,
-        "name": "ZWOENITZ",
+        # Y0353 MONT BLANC, and Y0342 "ÄGYPT. WÜSTE" whose leading Ä sorts past Z -- both stations
+        # the shared catalogue omits, described from the run instead (GH-1966)
+        "height": 4806.0,
+        "name": "ÄGYPT. WÜSTE",
         "state": None,
     }
     assert given_df.select(pl.all().min()).to_dicts()[0] == {
@@ -97,9 +99,9 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
     station_names_sorted = given_df.sort(pl.col("name").str.len_chars(), pl.col("name")).get_column("name").to_list()
     assert station_names_sorted[:5] == ["ARE", "AUE", "AUE", "AUE", "BAM"]
     assert station_names_sorted[-5:] == [
-        "WUNSIEDEL-SCHOENBRUN",
         "WUTOESCHINGEN-OFTER.",
         "ZELL I.WIES.-PFAFFB.",
+        "ZERBST/SACHS.-ANHALT",  # one of the stations the catalogue omits (GH-1966)
         "ZINNWALD-GEORGENFELD",
         "ZUERICH (TOWN/VILLE)",
     ]
@@ -805,3 +807,168 @@ def test_dmo_the_coverage_listing_is_read_once_per_product_per_request(monkeypat
     # and a second request does its own reading, rather than inheriting the first one's answer
     DwdDmoRequest(parameters=[("hourly", "icon")]).all()
     assert len(listed) == 2
+
+
+def _kml_of(placemarks: dict[str, tuple[str, str]]) -> bytes:
+    """Build the document `KMLReader.fetch` hands back, carrying just these placemarks.
+
+    The document rather than the archive, because `fetch` is what these tests stand in for and
+    unzipping is its job.
+    """
+    body = "".join(
+        f"""<kml:Placemark>
+            <kml:name>{station_id}</kml:name>
+            <kml:description>{name}</kml:description>
+            <kml:Point><kml:coordinates>{coordinates}</kml:coordinates></kml:Point>
+        </kml:Placemark>"""
+        for station_id, (name, coordinates) in placemarks.items()
+    )
+    document = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<kml:kml xmlns:kml="http://www.opengis.net/kml/2.2">'
+        f"<kml:Document>{body}</kml:Document></kml:kml>"
+    )
+    return document.encode()
+
+
+def _stub_runs(monkeypatch: pytest.MonkeyPatch, placemarks: dict[str, tuple[str, str]]) -> list[str]:
+    """Answer the `all_stations` listing with one run, carrying these placemarks."""
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    listed = []
+
+    def listing(url: str, *_args: object, **_kwargs: object) -> list[str]:
+        listed.append(url)
+        return [f"{url}/ptp_gdmog_078_1_240000.kmz"]
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", listing)
+    monkeypatch.setattr(api.KMLReader, "fetch", lambda _self, _url: BytesIO(_kml_of(placemarks)))
+    return listed
+
+
+def test_dmo_a_station_the_catalogue_omits_is_described_from_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GH-1966: 135 stations `icon` forecasts for are absent from the shared catalogue.
+
+    Absent from it they were filtered out of every request, so they could not be asked for at all --
+    although their forecasts are published and fetch with HTTP 200. The run describes them.
+    """
+    _stub_catalogue(monkeypatch, ["01001"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "Y0330"], "icon_eu": []})
+    _stub_runs(monkeypatch, {"Y0330": ("KEHYTSCHIWKA", "35.75,49.28,152.0")})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert _advertised(df, "icon") == ["01001", "Y0330"]
+    added = df.filter(station_id="Y0330").row(0, named=True)
+    assert added["name"] == "KEHYTSCHIWKA"
+    assert (added["latitude"], added["longitude"]) == pytest.approx((49.28, 35.75))
+    assert added["height"] == pytest.approx(152.0)
+    # the run carries no ICAO id, which is why this fills the catalogue rather than replacing it
+    assert added["icao_id"] is None
+
+
+def test_dmo_the_catalogue_is_left_alone_where_it_describes_a_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The catalogue is the only source of an ICAO id, so it keeps the stations it does list."""
+    _stub_catalogue(monkeypatch, ["01001"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "Y0330"], "icon_eu": []})
+    # the run describes 01001 too, differently; the catalogue's description is the one that stands
+    _stub_runs(
+        monkeypatch,
+        {"01001": ("SOMEWHERE ELSE", "1.0,2.0,3.0"), "Y0330": ("KEHYTSCHIWKA", "35.75,49.28,152.0")},
+    )
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    catalogued = df.filter(station_id="01001").row(0, named=True)
+    assert catalogued["name"] == "Station 01001"
+    assert catalogued["latitude"] == pytest.approx(54.38, abs=5e-3)
+    assert len(df.filter(station_id="01001")) == 1
+
+
+def test_dmo_a_complete_catalogue_costs_no_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing is fetched when the catalogue already lists every station the product covers.
+
+    So a catalogue DWD completes stops costing the ~8 MB run download by itself.
+    """
+    _stub_catalogue(monkeypatch, ["01001", "01023"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "01023"], "icon_eu": []})
+    listed = _stub_runs(monkeypatch, {"Y0330": ("KEHYTSCHIWKA", "35.75,49.28,152.0")})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert _advertised(df, "icon") == ["01001", "01023"]
+    assert listed == []
+
+
+def test_dmo_a_run_that_cannot_be_read_leaves_the_catalogue_as_it_was(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The stations it would have described stay unreachable; the rest of the request still works."""
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    _stub_catalogue(monkeypatch, ["01001"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "Y0330"], "icon_eu": []})
+
+    def raising(*_args: object, **_kwargs: object) -> list[str]:
+        msg = "connection reset"
+        raise OSError(msg)
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", raising)
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert _advertised(df, "icon") == ["01001"]
+    assert [record for record in caplog.records if "stay unreachable" in record.message]
+
+
+def test_dmo_the_run_is_read_once_per_product_per_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`all()` is not memoized, and this fetch is the expensive one of the two."""
+    _stub_catalogue(monkeypatch, ["01001"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "Y0330"], "icon_eu": []})
+    listed = _stub_runs(monkeypatch, {"Y0330": ("KEHYTSCHIWKA", "35.75,49.28,152.0")})
+
+    request = DwdDmoRequest(parameters=[("hourly", "icon")])
+    for _ in range(4):
+        request.all()
+
+    assert len(listed) == 1
+
+
+def test_dmo_the_newest_run_describes_the_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station list read from a run should be the current one, not whichever the directory names first.
+
+    The directory holds several runs at once -- eight for `icon` -- and a station added or moved
+    upstream appears in the newest, so reading an older one would describe the catalogue's gaps as
+    they were up to twelve hours ago.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    runs = {
+        "ptp_gdmog_078_1_230000.kmz": {"Y0330": ("AS IT WAS YESTERDAY", "1.0,2.0,3.0")},
+        "ptp_gdmog_078_1_241200.kmz": {"Y0330": ("KEHYTSCHIWKA", "35.75,49.28,152.0")},
+        "ptp_gdmog_078_1_240000.kmz": {"Y0330": ("AS IT WAS THIS MORNING", "4.0,5.0,6.0")},
+    }
+
+    def listing(url: str, *_args: object, **_kwargs: object) -> list[str]:
+        return [f"{url}/{name}" for name in runs]
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", listing)
+    monkeypatch.setattr(
+        api.KMLReader,
+        "fetch",
+        lambda _self, url: BytesIO(_kml_of(runs[url.rsplit("/", 1)[-1]])),
+    )
+    _stub_catalogue(monkeypatch, ["01001"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "Y0330"], "icon_eu": []})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert df.filter(station_id="Y0330").get_column("name").item() == "KEHYTSCHIWKA"

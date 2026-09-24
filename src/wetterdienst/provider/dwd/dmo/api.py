@@ -17,6 +17,7 @@ from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
 import polars as pl
+from lxml.etree import iterparse
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -31,6 +32,8 @@ from wetterdienst.util.network import download_file, list_remote_directory_fsspe
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
+    from typing import BinaryIO
+
     from wetterdienst.settings import Settings
 
 try:
@@ -152,6 +155,56 @@ _DMO_PRODUCT_DIRS = {"icon": "icon", "icon_eu": "icon-eu"}
 
 # distinguishes "not looked up yet" from a lookup that answered None
 _UNREAD = object()
+
+
+_PLACEMARK_COLUMNS = {
+    "station_id": pl.String,
+    "icao_id": pl.String,
+    "name": pl.String,
+    "latitude": pl.Float64,
+    "longitude": pl.Float64,
+    "height": pl.String,
+}
+
+
+def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
+    """Read station id, name and position from the placemarks of one DMO run.
+
+    The run is the only place some stations are described at all: 135 of the stations `icon`
+    forecasts for are absent from `dmo_stationsliste_txt.asc`, 72 of them with ids the catalogue
+    never carries (`Y0330`, `G431`, `O015`). A placemark gives an id, a name and a position in
+    decimal degrees -- better formed than the catalogue, which needs `_dm_degrees` -- but no ICAO id,
+    which is why this fills the catalogue's gaps rather than replacing it (GH-1966).
+    """
+    rows = []
+    for _, element in iterparse(handle, events=("end",), resolve_entities=False):
+        if not element.tag.endswith("}Placemark"):
+            continue
+        station_id = name = coordinates = None
+        for child in element:
+            if child.tag.endswith("}name"):
+                station_id = child.text
+            elif child.tag.endswith("}description"):
+                name = child.text
+            elif child.tag.endswith("}Point"):
+                point = next((c for c in child if c.tag.endswith("}coordinates")), None)
+                coordinates = point.text if point is not None else None
+        element.clear()
+        if not station_id or not coordinates:
+            continue
+        longitude, latitude, height = ([*coordinates.strip().split(","), "", ""])[:3]
+        rows.append(
+            {
+                "station_id": station_id,
+                "icao_id": None,
+                "name": (name or "").strip() or None,
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+                # left a string, as the catalogue's is: the base request casts it
+                "height": height or None,
+            },
+        )
+    return pl.DataFrame(rows, schema=_PLACEMARK_COLUMNS, orient="row")
 
 
 def _dm_degrees(column: str) -> pl.Expr:
@@ -409,6 +462,7 @@ class DwdDmoRequest(TimeseriesRequest):
     lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None
     # per request, not per class: a listing read once should not outlive the settings it was read with
     _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, repr=False)
+    _placemark_cache: dict[str, pl.DataFrame | None] = dataclasses.field(default_factory=dict, repr=False)
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
@@ -543,6 +597,41 @@ class DwdDmoRequest(TimeseriesRequest):
             issue = self.adjust_datetime(issue)
         self.issue = issue
 
+    def _with_stations_the_catalogue_omits(
+        self,
+        df_dataset: pl.DataFrame,
+        covered: set[str],
+        dataset_name_original: str,
+    ) -> pl.DataFrame:
+        """Add the stations a product forecasts for that `dmo_stationsliste_txt.asc` does not list.
+
+        135 of them for `icon`, 132 for `icon_eu` (measured 2026-09-24), and they could not be asked
+        for at all: absent from the catalogue, they were filtered out of every request even though
+        their forecasts are published and fetch with HTTP 200. The catalogue is the only source of an
+        ICAO id, so it stays the source for the stations it does list, and these are described from
+        the run instead -- with no ICAO id, which is already a value the catalogue produces for the
+        stations it writes as `----` (GH-1966).
+        """
+        missing = covered - set(df_dataset.get_column("station_id"))
+        if not missing:
+            return df_dataset
+        described = self._station_metadata_from_placemarks(dataset_name_original)
+        if described is None:
+            return df_dataset
+        extra = described.filter(pl.col("station_id").is_in(missing))
+        if extra.is_empty():
+            return df_dataset
+        log.debug(
+            f"{len(extra)} stations {dataset_name_original} forecasts for are not in the shared DMO catalogue; "
+            f"describing them from its newest run instead",
+        )
+        extra = extra.with_columns(
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
+            pl.lit(None, pl.String).alias("state"),
+        )
+        return pl.concat([df_dataset, extra.select(df_dataset.columns)])
+
     @staticmethod
     def _narrows_rather_than_empties(covered: set[str], df_raw: pl.DataFrame, dataset_name_original: str) -> bool:
         """Say whether a coverage listing names stations this catalogue has, so filtering by it narrows.
@@ -564,6 +653,53 @@ class DwdDmoRequest(TimeseriesRequest):
             f"catalogue, so they are not a station listing; keeping the catalogue shared by both DMO products",
         )
         return False
+
+    def _station_metadata_from_placemarks(self, dataset_name_original: str) -> pl.DataFrame | None:
+        """Describe the stations a product forecasts for, from its newest `all_stations` run.
+
+        Read only when the catalogue is missing a station the product covers, so that a catalogue
+        DWD completes stops costing anything, and cached per request for the same reason
+        `_covered_station_ids` is.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        cached = self._placemark_cache.get(dataset_name_original, _UNREAD)
+        if cached is not _UNREAD:
+            return cast("pl.DataFrame | None", cached)
+        frame = self._read_station_metadata_from_placemarks(dataset_name_original)
+        self._placemark_cache[dataset_name_original] = frame
+        return frame
+
+    def _read_station_metadata_from_placemarks(self, dataset_name_original: str) -> pl.DataFrame | None:
+        """Do the fetch `_station_metadata_from_placemarks` caches, or None if it could not be done."""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
+        url = urljoin(
+            "https://opendata.dwd.de",
+            _dmo_kmz_path(dataset_name_original, DwdDmoStationGroup.ALL_STATIONS, station_id=None),
+        )
+        try:
+            urls = list_remote_files_fsspec(url, settings, CacheExpiry.FILEINDEX)
+            runs = pl.DataFrame({"url": urls}, orient="col").with_columns(
+                # the same rule the values path reads runs by, asked without a lead time: for
+                # station metadata either lead time will do, both carrying the same placemarks
+                _run_stamp(pl.col("url")).alias("stamp"),
+            )
+            runs = runs.filter(pl.col("stamp").is_not_null()).sort("stamp")
+            if runs.is_empty():
+                log.warning(f"No DMO run listed within {url}, so the stations it describes cannot be read")
+                return None
+            newest = cast("str", runs.get_column("url").last())
+            reader = KMLReader(station_ids=[], settings=settings)
+            # the reader owns the open archive; parsing finishes before it goes out of scope
+            return _placemark_metadata(reader.fetch(newest))
+        except Exception as ex:  # noqa: BLE001
+            log.warning(
+                f"Unable to read the stations {dataset_name_original} describes within {url} ({ex!r}); "
+                f"the ones its catalogue omits stay unreachable",
+            )
+            return None
 
     def _covered_station_ids(self, dataset_name_original: str) -> set[str] | None:
         """Read which stations one DMO product forecasts for, or None if that could not be read.
@@ -672,6 +808,7 @@ class DwdDmoRequest(TimeseriesRequest):
             covered = self._covered_station_ids(dataset_original)
             if covered is not None and self._narrows_rather_than_empties(covered, df_dataset, dataset_original):
                 df_dataset = df_dataset.filter(pl.col("station_id").is_in(covered))
+                df_dataset = self._with_stations_the_catalogue_omits(df_dataset, covered, dataset_original)
             data.append(
                 df_dataset.with_columns(
                     pl.lit(resolution, pl.String).alias("resolution"),
