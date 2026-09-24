@@ -85,7 +85,15 @@ Types of changes:
   for the stations it writes as `----`. Both products now advertise exactly what they publish, 5757
   and 3688. The run is read only where the catalogue is missing something, so a catalogue DWD
   completes costs nothing, and once per product per request; a run that cannot be read leaves the
-  catalogue as it was and says so
+  catalogue as it was and says so, as does one placemark that cannot be, the rest of them still
+  describing their stations
+
+- DWD DMO: a run stamp becomes the hour it names whatever that hour is. `DDHHMM` had its day, month
+  and minute padded back to two digits before the datetime was parsed, but not its hour, so `3` made
+  `...01300`, where `%H` takes the `30` it can see and rejects it as an hour. `00` survived only
+  because `%H` could take both its digits and leave `%M` the one it needed. DMO publishes at `00` and
+  `12` so no run has ever hit this, and it is fixed because the rule is about the stamp rather than
+  about which hours DWD happens to use
 
 - DWD DMO: a station position is read as the degrees and minutes the catalogue writes it in, and the
   seven hardcoded station patches are gone. `dmo_stationsliste_txt.asc` is one format throughout,

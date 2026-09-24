@@ -129,6 +129,11 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
     df = df.with_columns(
         pl.col("day").cast(pl.String).str.pad_start(2, "0"),
         pl.col("month").cast(pl.String).str.pad_start(2, "0"),
+        # padded like the rest: an hour of `3` made `...01300`, where `%H` takes the `30` it can see
+        # and rejects it as an hour. `00` survived only because `%H` could take both its digits and
+        # leave `%M` the one it needed. DMO publishes at `00` and `12` so no run has ever hit this,
+        # but nothing here says the hour is one of two values
+        pl.col("hour").cast(pl.String).str.pad_start(2, "0"),
         pl.col("minute").cast(pl.String).str.pad_start(2, "0"),
     )
     return df.select(
@@ -177,34 +182,61 @@ def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
     which is why this fills the catalogue's gaps rather than replacing it (GH-1966).
     """
     rows = []
+    unreadable = 0
     for _, element in iterparse(handle, events=("end",), resolve_entities=False):
-        if not element.tag.endswith("}Placemark"):
+        # a comment or processing instruction carries a callable as its tag rather than a name, so
+        # `endswith` on it raises -- and one anywhere in the document would otherwise discard every
+        # station the run describes
+        if not _is_tag(element, "Placemark"):
             continue
         station_id = name = coordinates = None
         for child in element:
-            if child.tag.endswith("}name"):
+            if _is_tag(child, "name"):
                 station_id = child.text
-            elif child.tag.endswith("}description"):
+            elif _is_tag(child, "description"):
                 name = child.text
-            elif child.tag.endswith("}Point"):
-                point = next((c for c in child if c.tag.endswith("}coordinates")), None)
+            elif _is_tag(child, "Point"):
+                point = next((c for c in child if _is_tag(c, "coordinates")), None)
                 coordinates = point.text if point is not None else None
         element.clear()
-        if not station_id or not coordinates:
+        row = _placemark_row(station_id, name, coordinates)
+        if row is None:
+            # skipped rather than raised, for the same reason: the stations this run describes are
+            # only reachable through it, and one malformed placemark should not cost the rest
+            unreadable += 1
             continue
-        longitude, latitude, height = ([*coordinates.strip().split(","), "", ""])[:3]
-        rows.append(
-            {
-                "station_id": station_id,
-                "icao_id": None,
-                "name": (name or "").strip() or None,
-                "latitude": float(latitude),
-                "longitude": float(longitude),
-                # left a string, as the catalogue's is: the base request casts it
-                "height": height or None,
-            },
+        rows.append(row)
+    if unreadable:
+        log.warning(
+            f"{unreadable} placemarks of this DMO run describe no station that could be read; "
+            f"any station only they name stays unreachable",
         )
     return pl.DataFrame(rows, schema=_PLACEMARK_COLUMNS, orient="row")
+
+
+def _is_tag(element: object, name: str) -> bool:
+    """Say whether an element is the named KML tag, whatever namespace it carries."""
+    tag = getattr(element, "tag", None)
+    return isinstance(tag, str) and tag.endswith(f"}}{name}")
+
+
+def _placemark_row(station_id: str | None, name: str | None, coordinates: str | None) -> dict | None:
+    """Turn one placemark's parts into a catalogue row, or None where they do not describe a station."""
+    if not station_id or not coordinates:
+        return None
+    longitude, latitude, height = ([*coordinates.strip().split(","), "", ""])[:3]
+    try:
+        position = {"latitude": float(latitude), "longitude": float(longitude)}
+    except ValueError:
+        return None
+    return {
+        "station_id": station_id,
+        "icao_id": None,
+        "name": (name or "").strip() or None,
+        **position,
+        # left a string, as the catalogue's is: the base request casts it
+        "height": height or None,
+    }
 
 
 def _dm_degrees(column: str) -> pl.Expr:
@@ -681,16 +713,27 @@ class DwdDmoRequest(TimeseriesRequest):
         )
         try:
             urls = list_remote_files_fsspec(url, settings, CacheExpiry.FILEINDEX)
+            if not urls:
+                # said before the frame is built, because an empty list gives a null-dtype column and
+                # `_run_stamp`'s `str.split` raises `SchemaError` on it -- which the handler below
+                # would report as a failure to read the directory rather than as an empty one
+                log.warning(f"No DMO run listed within {url}, so the stations it describes cannot be read")
+                return None
             runs = pl.DataFrame({"url": urls}, orient="col").with_columns(
                 # the same rule the values path reads runs by, asked without a lead time: for
                 # station metadata either lead time will do, both carrying the same placemarks
-                _run_stamp(pl.col("url")).alias("stamp"),
+                _run_stamp(pl.col("url")).alias("date_str"),
             )
-            runs = runs.filter(pl.col("stamp").is_not_null()).sort("stamp")
+            runs = runs.filter(pl.col("date_str").is_not_null())
             if runs.is_empty():
-                log.warning(f"No DMO run listed within {url}, so the stations it describes cannot be read")
+                log.warning(f"Nothing within {url} is a DMO run, so the stations it describes cannot be read")
                 return None
-            newest = cast("str", runs.get_column("url").last())
+            # by the date the stamp stands for, not by the stamp: `DDHHMM` is a day of the month, so
+            # sorting it as text puts the 31st after the 1st and would answer with the oldest run in
+            # the directory for the first hours of every month. `add_date_from_filename` is what the
+            # values path reconstructs the month and year with, rollover included
+            runs = add_date_from_filename(runs, dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None))
+            newest = cast("str", runs.sort("date").get_column("url").last())
             reader = KMLReader(station_ids=[], settings=settings)
             # the reader owns the open archive; parsing finishes before it goes out of scope
             return _placemark_metadata(reader.fetch(newest))

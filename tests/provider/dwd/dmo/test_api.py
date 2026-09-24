@@ -951,10 +951,13 @@ def test_dmo_the_newest_run_describes_the_stations(monkeypatch: pytest.MonkeyPat
 
     from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
 
+    # across a month boundary, because the stamp is a day of the month: sorted as text the 31st
+    # follows the 1st, so sorting by the stamp itself answers with the oldest run in the directory
+    # for the first hours of every month
     runs = {
-        "ptp_gdmog_078_1_230000.kmz": {"Y0330": ("AS IT WAS YESTERDAY", "1.0,2.0,3.0")},
-        "ptp_gdmog_078_1_241200.kmz": {"Y0330": ("KEHYTSCHIWKA", "35.75,49.28,152.0")},
-        "ptp_gdmog_078_1_240000.kmz": {"Y0330": ("AS IT WAS THIS MORNING", "4.0,5.0,6.0")},
+        "ptp_gdmog_078_1_311200.kmz": {"Y0330": ("AS IT WAS LAST MONTH", "1.0,2.0,3.0")},
+        "ptp_gdmog_078_1_011200.kmz": {"Y0330": ("KEHYTSCHIWKA", "35.75,49.28,152.0")},
+        "ptp_gdmog_078_1_010000.kmz": {"Y0330": ("AS IT WAS AT MIDNIGHT", "4.0,5.0,6.0")},
     }
 
     def listing(url: str, *_args: object, **_kwargs: object) -> list[str]:
@@ -972,3 +975,105 @@ def test_dmo_the_newest_run_describes_the_stations(monkeypatch: pytest.MonkeyPat
     df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
 
     assert df.filter(station_id="Y0330").get_column("name").item() == "KEHYTSCHIWKA"
+
+
+def test_dmo_an_empty_run_listing_is_reported_as_one(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An empty listing and a directory that could not be read are different things.
+
+    An empty list gives polars a null-dtype column, and `_run_stamp`'s `str.split` raises
+    `SchemaError` on it -- which the handler around the fetch would report as a failure to read the
+    directory, diagnosing a swallowed walk as a network fault.
+    """
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    _stub_catalogue(monkeypatch, ["01001"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "Y0330"], "icon_eu": []})
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert _advertised(df, "icon") == ["01001"]
+    messages = [record.message for record in caplog.records]
+    assert [m for m in messages if "No DMO run listed within" in m]
+    assert not [m for m in messages if "SchemaError" in m]
+
+
+def test_dmo_a_comment_in_a_run_does_not_cost_the_stations_it_describes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Lxml gives a comment a callable tag, so `endswith` on it raises.
+
+    Raised inside the parse, it discarded every station the run described -- all 135 of them for one
+    comment anywhere in the document.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    document = _kml_of({"Y0330": ("KEHYTSCHIWKA", "35.75,49.28,152.0")}).replace(
+        b"<kml:Placemark>",
+        b"<kml:Placemark><!-- a comment -->",
+    )
+    _stub_catalogue(monkeypatch, ["01001"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "Y0330"], "icon_eu": []})
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda url, *_a, **_k: [f"{url}/ptp_gdmog_078_1_240000.kmz"])
+    monkeypatch.setattr(api.KMLReader, "fetch", lambda _self, _url: BytesIO(document))
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert _advertised(df, "icon") == ["01001", "Y0330"]
+
+
+def test_dmo_one_unreadable_placemark_does_not_cost_the_others(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The run is the only description these stations have, so it is read for what it does carry."""
+    import logging  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    _stub_catalogue(monkeypatch, ["01001"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "Y0330", "G431"], "icon_eu": []})
+    _stub_runs(
+        monkeypatch,
+        {
+            "Y0330": ("KEHYTSCHIWKA", "35.75,49.28,152.0"),
+            "G431": ("NOWHERE", "not,a,number"),
+        },
+    )
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert _advertised(df, "icon") == ["01001", "Y0330"]
+    assert [record for record in caplog.records if "could be read" in record.message]
+
+
+@pytest.mark.parametrize(
+    ("stamp", "expected"),
+    [
+        pytest.param("240000", dt.datetime(2026, 9, 24, 0, 0, tzinfo=ZoneInfo("UTC")), id="midnight"),
+        pytest.param("241200", dt.datetime(2026, 9, 24, 12, 0, tzinfo=ZoneInfo("UTC")), id="noon"),
+        pytest.param("010300", dt.datetime(2026, 9, 1, 3, 0, tzinfo=ZoneInfo("UTC")), id="single-digit-hour"),
+        pytest.param("010900", dt.datetime(2026, 9, 1, 9, 0, tzinfo=ZoneInfo("UTC")), id="another-hour"),
+    ],
+)
+def test_dmo_a_run_stamp_becomes_the_hour_it_names(stamp: str, expected: dt.datetime) -> None:
+    """Every part of `DDHHMM` is padded back to two digits before the datetime is parsed.
+
+    The hour was not, so `3` made `...01300`, where `%H` takes the `30` it can see and rejects it as
+    an hour. `00` survived only because `%H` could take both its digits and leave `%M` the one it
+    needed. DMO publishes at `00` and `12` so no run has ever hit this, but the rule is about the
+    stamp rather than about which hours DWD happens to use.
+    """
+    from wetterdienst.provider.dwd.dmo.api import add_date_from_filename  # noqa: PLC0415
+
+    df = add_date_from_filename(
+        pl.DataFrame({"date_str": [stamp]}),
+        dt.datetime(2026, 9, 24, 12, 0, tzinfo=ZoneInfo("UTC")),
+    )
+
+    assert df.get_column("date").item() == expected
