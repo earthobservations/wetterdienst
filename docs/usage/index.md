@@ -12,6 +12,7 @@ stripes.md
 cli.md
 restapi.md
 docker.md
+scheduling.md
 settings.md
 units.md
 ```
