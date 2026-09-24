@@ -719,11 +719,12 @@ request = DwdObservationRequest(
     end_date="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
-stations.values.to_target("influxdb://localhost/?database=dwd&table=weather")
+stations.values.to_target("duckdb:///dwd.duckdb?table=weather", if_exists="replace")
 ```
 
-The previous example uses a batch approach meaning each station is written one by one. Also, it will automatically
-append data after the first batch.
+The previous example uses a batch approach meaning each station is written one by one. The first station is written
+with the `if_exists` given, and every station after it with `append`, so the sink has to accept `append` for this to
+work — which rules InfluxDB out here, though the two forms below work with it.
 
 You could also first collect all data and then write it at once:
 
@@ -737,7 +738,7 @@ request = DwdObservationRequest(
     end_date="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
-stations.values.all().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
+stations.values.all().to_target("influxdb://localhost/?database=dwd&table=weather")
 ```
 
 You could also iterate over the stations and write them one by one:
@@ -753,15 +754,33 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
 for station in stations.values.query():
-    station.to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
+    station.to_target("influxdb://localhost/?database=dwd&table=weather")
 ```
 
 The argument `if_exists` supports the following modes:
 
 - `fail`: Raise an error if the table/file already exists.
 - `replace`: Drop the table/file before inserting new values.
-- `append`: Insert new values to the existing table (not supported by files).
+- `append`: Insert new values to the existing table (not supported by files, nor by InfluxDB).
 - `skip`: Do nothing if the table/file already exists.
+
+`replace` is the default on a result — `StationsResult`, `ValuesResult`, anything carrying a frame.
+`TimeseriesValues.to_target`, the batch form above, defaults to `fail` instead and then writes
+every station after the first with `append`, because there it is one table being filled station by
+station rather than one frame being written.
+
+InfluxDB takes `replace` alone: its points accumulate on their own, so writing a second run adds to
+the measurement rather than replacing it, and asking for `append`, `fail` or `skip` raises
+`NotImplementedError` rather than pretending to mean something.
+
+The CLI takes the same argument as `--if_exists`, which is what a scheduled acquisition needs —
+see [Scheduling](scheduling.md):
+
+```bash
+wetterdienst values --provider=dwd --network=observation \
+    --parameters=daily/kl/temperature_air_mean_2m --periods=recent --station=01048 \
+    --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if_exists=append
+```
 
 ## Caching
 

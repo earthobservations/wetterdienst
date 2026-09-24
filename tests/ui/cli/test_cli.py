@@ -298,3 +298,46 @@ def test_issues_mosmix_says_the_dmo_options_do_not_apply(caplog: pytest.LogCaptu
 
     assert result.exit_code == 1
     assert "lead_time applies to DWD DMO only" in caplog.text
+
+
+def test_every_export_command_can_say_what_to_do_with_an_existing_target() -> None:
+    """A command that writes to a target offers `--if_exists`, or its schedule can only replace.
+
+    `to_target` has taken `if_exists` since it was written and the export docs advertise it, but no
+    command passed it, so every CLI export replaced -- a nightly timer pointed at a database held
+    one run's rows. This walks the command tree rather than naming the four commands, because the
+    gap was a command gaining `--target` without the option that says what a second run does.
+
+    Three commands are excluded because their `--target` never reaches a sink: `alerts` and
+    `history` write text with `Path.write_text`, and `stripes values` writes an image with
+    `fig.write_image`. There is nothing for them to ask what to do with an existing target.
+    """
+    import click  # noqa: PLC0415
+
+    writes_directly = {"alerts", "history", "stripes values"}
+
+    def walk(command: click.Command, path: tuple[str, ...] = ()) -> list[tuple[str, click.Command]]:
+        here = (*path, command.name)
+        if isinstance(command, click.Group):
+            return [entry for sub in command.commands.values() for entry in walk(sub, here)]
+        return [(" ".join(here[1:]), command)]
+
+    missing = []
+    for name, command in walk(cli):
+        options = {option.name for option in command.params}
+        if "target" in options and name not in writes_directly and "if_exists" not in options:
+            missing.append(name)
+
+    assert not missing, f"commands exporting through to_target without --if_exists: {missing}"
+
+
+@pytest.mark.parametrize("command", ["stations", "values", "interpolate", "summarize"])
+def test_if_exists_defaults_to_replace(command: str) -> None:
+    """The default is what the CLI did before the option existed, so no schedule changes under it."""
+    from wetterdienst.ui.cli import cli as root  # noqa: PLC0415
+
+    subcommand = root.commands[command]
+    option = next(param for param in subcommand.params if param.name == "if_exists")
+
+    assert option.default == "replace"
+    assert set(option.type.choices) == {"replace", "append", "fail", "skip"}

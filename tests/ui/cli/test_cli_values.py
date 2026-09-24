@@ -823,3 +823,114 @@ def test_cli_values_reports_an_empty_window_once(
     assert result.exit_code == 1
     messages = [record.message for record in caplog.records]
     assert messages.count("No data available for given constraints") == 1
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        pytest.param([], "replace", id="default"),
+        pytest.param(["--if_exists=append"], "append", id="append"),
+        pytest.param(["--if_exists=skip"], "skip", id="skip"),
+    ],
+)
+@mock.patch("wetterdienst.io.export.ExportMixin.to_target")
+def test_cli_values_target_passes_if_exists_to_the_sink(
+    to_target: MagicMock,
+    given: list[str],
+    expected: str,
+) -> None:
+    """What the option says has to arrive at the sink, which is the whole of what was missing.
+
+    `to_target` has taken `if_exists` since it was written, but the CLI called it with the target
+    alone, so every scheduled export replaced what the last run wrote -- a nightly timer pointed at
+    `duckdb:///obs.duckdb?table=weather` held one run's rows rather than a history.
+    """
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--periods=recent",
+            "--station=01048",
+            "--target=duckdb:///obs.duckdb?table=weather",
+            *given,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert to_target.call_args.kwargs["if_exists"] == expected
+
+
+@pytest.mark.remote
+def test_cli_values_target_reports_a_pairing_the_sink_refuses(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Appending to a file is not implemented, and a schedule needs to be told so in one line.
+
+    The option offers all four values because which ones a sink takes is the sink's business, so
+    the refusal arrives as an exception from `to_target`. Unhandled it would be a traceback, which
+    for an unattended run is the failure buried in the noise rather than reported.
+    """
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--periods=recent",
+            "--station=01048",
+            f"--target=file://{tmp_path / 'kl.csv'}",
+            "--if_exists=append",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Append mode is not supported for file exports." in caplog.text
+    assert not isinstance(result.exception, NotImplementedError)
+    assert not (tmp_path / "kl.csv").exists()
+
+
+@pytest.mark.remote
+def test_cli_values_target_reports_a_sink_failure_that_is_not_about_if_exists(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Appending onto a table whose columns have changed is the likeliest way this option fails.
+
+    `--shape=wide` puts one column per parameter, so a second run asking for a different set of
+    parameters no longer matches the table the first one created, and DuckDB answers
+    `BinderException: table weather has 6 columns but 8 values were supplied`. That derives from
+    `Exception` alone, so the handler that turns a refused `if_exists` into a sentence does not see
+    it -- and an unattended run would end in a traceback out of click rather than a logged failure.
+    """
+    target = f"duckdb:///{tmp_path / 'obs.duckdb'}?table=weather"
+    runner = CliRunner()
+    common = [
+        "values",
+        "--provider=dwd",
+        "--network=observation",
+        "--periods=recent",
+        "--station=01048",
+        "--shape=wide",
+        f"--target={target}",
+    ]
+
+    first = runner.invoke(cli, [*common, "--parameters=daily/kl/temperature_air_mean_2m"])
+    assert first.exit_code == 0, first.output
+
+    second = runner.invoke(
+        cli,
+        [*common, "--parameters=daily/kl/temperature_air_mean_2m,daily/kl/precipitation_height", "--if_exists=append"],
+    )
+
+    assert second.exit_code == 1
+    assert f"Failed to export to {target}" in caplog.text

@@ -18,6 +18,21 @@ Types of changes:
 
 ### Added
 
+- `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
+  default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
+  argument since it was written and the export docs advertise it, but no command passed it, so
+  every CLI export replaced: a nightly timer pointed at `duckdb:///obs.duckdb?table=weather` held
+  one run's rows rather than a history, and nothing on the command line could change that.
+  Appending now accumulates -- two runs of the same query put 550 rows then 1100 into the table.
+  Which values a sink takes is the sink's business, so the option offers all four and a refused
+  pairing is reported as a line and exit 1 rather than a traceback: `Append mode is not supported
+  for file exports.` A test walks the command tree rather than naming the four commands, because
+  the gap was a command gaining `--target` without it; `alerts`, `history` and `stripes values`
+  are excluded there, their `--target` never reaching a sink. A sink failure that is not about
+  `if_exists` at all keeps its traceback but arrives as a logged failure naming the target: the
+  likeliest one is appending `--shape=wide` output onto a table an earlier run created with a
+  different set of parameters, which DuckDB answers with `BinderException: table weather has 6
+  columns but 8 values were supplied`, a class deriving from `Exception` alone
 - Documentation for running wetterdienst on a schedule, with ready-made units for systemd timers,
   launchd, cron and `docker run` (GH-255, open since 2020). The issue asked for the units and
   proposed generating them with `hickory`; that package last released in August 2020, declares
@@ -92,6 +107,11 @@ Types of changes:
 
 ### Fixed
 
+- The export docs' batch example wrote to InfluxDB through `TimeseriesValues.to_target`, which
+  passes `fail` for the first station and `append` for every one after it, while the InfluxDB sink
+  raises `NotImplementedError` for both -- so the example could not run as written. It writes to
+  DuckDB now, and the modes list says which default belongs to which class: `replace` on a result,
+  `fail` on `TimeseriesValues`, which then appends station by station
 - WSV pegel: the wave tests ask each station whether its own values are in the declared unit, rather
   than asking whether two stations agree with each other. Comparing them assumed the same sea at
   both, and they do not carry the same window -- MELLUMPLATE had 98 readings over 1.6 days against LT

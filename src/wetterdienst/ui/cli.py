@@ -93,6 +93,20 @@ network_opt = cloup.option_group(
 
 debug_opt = click.option("--debug", is_flag=True)
 
+# what a target that already holds data does with the next write. `to_target` has taken this since
+# it was written, and the docs advertise it, but no command passed it, so every CLI export replaced
+# -- which is only the wrong default for a schedule, where the point is usually to accumulate
+if_exists_opt = cloup.option(
+    "--if_exists",
+    type=click.Choice(["replace", "append", "fail", "skip"]),
+    default="replace",
+    help=(
+        "What to do when --target already holds data: 'replace' (drop and rewrite, default), "
+        "'append' (add to it), 'fail' or 'skip'. Files support only 'replace', 'fail' and 'skip'; "
+        "InfluxDB takes only 'replace', its points accumulating on their own. Default: replace"
+    ),
+)
+
 # Sections for click help
 basic_section = Section("Basic")
 data_section = Section("Data")
@@ -317,7 +331,7 @@ Data acquisition:
         [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
 
         # Export options
-        [--target=<target>]
+        [--target=<target>] [--if_exists=<if_exists>]
 
 Available model-run datetimes:
 
@@ -346,7 +360,7 @@ Data computation:
         [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
 
         # Export options
-        [--target=<target>]
+        [--target=<target>] [--if_exists=<if_exists>]
 
 Options
 =======
@@ -421,6 +435,8 @@ Output options:
 
 Export options:
     --target                    Output target for storing data into different data sinks.
+    --if_exists                 What to do when the target already holds data:
+                                replace, append, fail or skip. [Default: replace]
 
 Other options:
     -h --help                   Show this screen
@@ -734,6 +750,33 @@ def _collect_or_exit(
     return values_
 
 
+def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: ANN401
+    """Write to the target, reporting a pairing the sink refuses as a line rather than a traceback.
+
+    Not every sink takes every `if_exists`: appending to a file is not implemented, and InfluxDB
+    takes only the default. Which pairings those are belongs to the sink rather than to the option,
+    so the option accepts all four and the refusal is reported here -- as a message and exit 1,
+    which is what an unattended run can act on.
+    """
+    try:
+        result.to_target(target, if_exists=if_exists)
+    except (NotImplementedError, FileExistsError, KeyError, ValueError) as e:
+        # the sink refusing the pairing, which is a sentence and nothing else. `str(KeyError(msg))`
+        # is the repr of its argument, quotes and all, so strip the pair a KeyError adds rather
+        # than printing a message wearing them
+        log.error(str(e).strip("'\""))  # noqa: TRY400
+        sys.exit(1)
+    except Exception:
+        # everything else a sink raises, and the one worth naming is what `append` runs into: a
+        # table an earlier run created with different columns. DuckDB answers that with
+        # `BinderException: table weather has 6 columns but 8 values were supplied`, which derives
+        # from `Exception` alone, and the SQLAlchemy sinks with a DBAPI error. None of those is a
+        # sentence the caller can act on without the detail, so they keep their traceback -- but
+        # they arrive as a logged failure naming the target, rather than as a crash out of click
+        log.exception(f"Failed to export to {target}")
+        sys.exit(1)
+
+
 @cloup.group(
     "wetterdienst",
     help=docstring_format_verbatim(wetterdienst_help),
@@ -973,6 +1016,7 @@ def fields(
         type=click.STRING,
         help="Export target URI (instead of stdout). Examples: file://data.csv, duckdb:///obs.duckdb?table=weather",
     ),
+    if_exists_opt,
 )
 @cloup.option(
     "--with_metadata",
@@ -1007,6 +1051,7 @@ def stations(
     sql: str,
     fmt: str,
     target: str,
+    if_exists: Literal["replace", "append", "fail", "skip"],
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
@@ -1057,7 +1102,7 @@ def stations(
     stations_ = limit_stations_to_rank(stations_)
 
     if target:
-        stations_.to_target(target)
+        _export_or_exit(stations_, target, if_exists)
         return
 
     # build kwargs dynamically
@@ -1289,6 +1334,7 @@ def history(
         type=click.STRING,
         help="Export target URI (instead of stdout). Examples: file://data.csv, duckdb:///obs.duckdb?table=weather",
     ),
+    if_exists_opt,
     help="Provide either --format or --target.",
 )
 @cloup.option("--issue", type=click.STRING, help="MOSMIX/DMO issue time. Defaults to the latest available run.")
@@ -1385,6 +1431,7 @@ def values(
     sql_values: str,
     fmt: str,
     target: str,
+    if_exists: Literal["replace", "append", "fail", "skip"],
     shape: Literal["long", "wide"],
     convert_units: bool,  # noqa: FBT001
     unit_targets: str,
@@ -1456,7 +1503,7 @@ def values(
     values_ = _collect_or_exit(get_values, api=api, request=request, settings=settings, what="data acquisition")
 
     if target:
-        values_.to_target(target)
+        _export_or_exit(values_, target, if_exists)
         return
 
     # build kwargs dynamically
@@ -1512,6 +1559,7 @@ def values(
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
+    if_exists_opt,
     help="Provide either --format or --target.",
 )
 @cloup.option("--issue", type=click.STRING)
@@ -1543,6 +1591,7 @@ def interpolate(
     sql_values: str,
     fmt: str,
     target: str,
+    if_exists: Literal["replace", "append", "fail", "skip"],
     convert_units: bool,  # noqa: FBT001
     unit_targets: str,
     humanize: bool,  # noqa: FBT001
@@ -1611,7 +1660,7 @@ def interpolate(
     values_ = _collect_or_exit(get_interpolate, api=api, request=request, settings=settings, what="interpolation")
 
     if target:
-        values_.to_target(target)
+        _export_or_exit(values_, target, if_exists)
         return
     # build kwargs dynamically
     kwargs: dict[str, Any] = {
@@ -1666,6 +1715,7 @@ def interpolate(
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
+    if_exists_opt,
     help="Provide either --format or --target.",
 )
 @cloup.option("--issue", type=click.STRING)
@@ -1697,6 +1747,7 @@ def summarize(
     sql_values: str,
     fmt: str,
     target: str,
+    if_exists: Literal["replace", "append", "fail", "skip"],
     convert_units: bool,  # noqa: FBT001
     unit_targets: str,
     humanize: bool,  # noqa: FBT001
@@ -1764,7 +1815,7 @@ def summarize(
     values_ = _collect_or_exit(get_summarize, api=api, request=request, settings=settings, what="summarize")
 
     if target:
-        values_.to_target(target)
+        _export_or_exit(values_, target, if_exists)
         return
 
     # build kwargs dynamically
