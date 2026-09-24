@@ -18,6 +18,19 @@ Types of changes:
 
 ### Added
 
+- Documentation for running wetterdienst on a schedule, with ready-made units for systemd timers,
+  launchd, cron and `docker run` (GH-255, open since 2020). The issue asked for the units and
+  proposed generating them with `hickory`; that package last released in August 2020, declares
+  `requires_python >=3.6` and schedules a Python *script*, so a CLI invocation would need a wrapper
+  around it anyway -- a dead dependency to write two unit files. What the page carries beyond the
+  units is what a scheduled run gets wrong: a `DynamicUser=yes` service has no `$HOME`, and the
+  cache directory comes from platformdirs, i.e. from `$HOME`, so without `CacheDirectory=` and
+  `WD_CACHE_DIR` the timer re-downloads everything on every fire; `No data available for given
+  constraints` exits 1, indistinguishable from a real failure, so a schedule over a quiet station
+  looks like a broken job; and a `file://` target is replaced rather than appended to, append being
+  unimplemented for files, so a schedule meant to accumulate needs a database or a date-stamped
+  name. Plus `RandomizedDelaySec` and an off-the-hour cron minute, so that not every installation
+  asks the provider at `:00` sharp
 - DWD road: a temperature below -60 °C is marked suspect whatever window was asked for. The stopped
   sensors that report `-75.00` °C to the hundredth were already found by the rule that marks a
   sensor holding one value for six hours, but only where the request covered six hours to find them
