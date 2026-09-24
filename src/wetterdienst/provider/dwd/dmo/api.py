@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import datetime as dt
 import logging
 import re
@@ -26,7 +27,7 @@ from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
-from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.network import download_file, list_remote_directory_fsspec, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
@@ -142,6 +143,92 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
 _SINGLE_STATION_PATH = re.compile(r"/single_stations/[^/]+/")
 
 
+# the spelling upstream publishes each product under, which is not the spelling the metadata names
+# it by: `icon_eu` is served from `icon-eu`. Total rather than a pass-through with one special case,
+# so a third product cannot inherit the metadata spelling by default and 404 far from the cause --
+# `test_every_dmo_product_has_a_directory_upstream` fails the moment one is added without a decision
+_DMO_PRODUCT_DIRS = {"icon": "icon", "icon_eu": "icon-eu"}
+
+
+# distinguishes "not looked up yet" from a lookup that answered None
+_UNREAD = object()
+
+
+def _dm_degrees(column: str) -> pl.Expr:
+    """Read one `dmo_stationsliste_txt.asc` position column, which is degrees and minutes.
+
+    `70.56` is 70 degrees 56 minutes. The whole file is one format, `{degrees}.{minutes:2d}`, and it
+    is the degrees rendering empty at zero that makes the rest look irregular -- the minutes are
+    right-aligned in two columns, so a lone digit arrives behind a space and a negative one arrives
+    behind its own minus sign:
+
+    ===============  ==============  ====================
+    as written       means           DWD's own KMZ says
+    ===============  ==============  ====================
+    ``70.56``        70 deg 56'      70.9333
+    ``. 5`` (sic)    0 deg 05'       0.0800
+    ``.19``          0 deg 19'       0.3167
+    ``.-6``          -0 deg 06'      -0.1000
+    ===============  ==============  ====================
+
+    The space is why the spaces come out before the rules below are applied, and it is real: all 14
+    one-digit rows are written `. 5` rather than `.5`.
+
+    Read as plain decimals these go wrong two ways. `.5` is 0 deg 50' -- 0.83 rather than 0.08, a
+    station put 84 km from where DWD says it is, with nothing raised. `.-6` does raise, with
+    `conversion from str to f64 failed` naming neither the column nor the station. Of the file's
+    11 622 position fields, 77 carry no degrees and 21 of those need repairing: 14 written with one
+    minute digit, 11 of which land 50 to 150 km out while 3 are a harmless zero, and 7 carrying the
+    sign on the minutes, which is what the hardcoded station patches were for.
+
+    Normalised to `[-]0.MM` first, so both shapes reach the cast as the decimal the file meant. The
+    MOSMIX catalogue is the same format read by the same conversion and has no such row -- every one
+    of its 11 298 fields carries its degrees -- so this belongs here rather than in the shared reader.
+
+    What this cannot reach: a degreeless field whose sign is missing rather than misplaced. The file
+    writes one, `P0563` (London Luton), as `.22` where DWD's own placemark says -0.37, and nothing in
+    the field distinguishes that from the 39 degreeless fields that really are positive. It is read
+    as written, 82 km east of Luton, exactly as it was before this function existed.
+    """
+    return (
+        pl.col(column)
+        .str.replace_all(" ", "")
+        # the sign belongs to the value, not to its minutes: `.-6` -> `-.6`
+        .str.replace(r"^\.-(\d{1,2})$", "-.${1}")
+        # and the minutes are two digits, so a lone one is a leading zero away from being read as ten
+        # times itself: `-.6` -> `-0.06`, while `.19` -> `0.19` is the same number written out
+        .str.replace(r"^(-?)\.(\d)$", "${1}0.0${2}")
+        .str.replace(r"^(-?)\.(\d\d)$", "${1}0.${2}")
+        .cast(float)
+        .map_batches(convert_dm_to_dd, return_dtype=pl.Float64)
+    )
+
+
+def _dmo_product_dir(dataset_name_original: str) -> str:
+    """Name the directory one DMO product publishes under, in the spelling upstream uses for it."""
+    try:
+        dataset_name = _DMO_PRODUCT_DIRS[dataset_name_original]
+    except KeyError:
+        msg = (
+            f"No DMO product directory is known for {dataset_name_original!r}; "
+            f"known products are {sorted(_DMO_PRODUCT_DIRS)}"
+        )
+        raise ValueError(msg) from None
+    return f"weather/local_forecasts/dmo/{dataset_name}"
+
+
+def _dmo_station_dir(dataset_name_original: str) -> str:
+    """Name the directory holding one subdirectory per station a DMO product forecasts for.
+
+    Upstream publishes no station list per product -- `dmo_stationsliste_txt.asc` is one list for
+    both -- but it publishes this, and for both products the names in here are exactly the
+    placemarks that product's `all_stations` run carries (measured 2026-09-24: 5757 for `icon`,
+    3688 for `icon_eu`, both sets identical to the placemarks). So it answers which stations a
+    product covers for the cost of one directory listing rather than a 20 MB parse.
+    """
+    return f"{_dmo_product_dir(dataset_name_original)}/{DwdDmoStationGroup.SINGLE_STATIONS.value}"
+
+
 def _dmo_kmz_path(dataset_name_original: str, station_group: DwdDmoStationGroup, station_id: str | None) -> str:
     """Name the directory one product publishes its runs in.
 
@@ -150,8 +237,7 @@ def _dmo_kmz_path(dataset_name_original: str, station_group: DwdDmoStationGroup,
     `icon/single_stations/<id>/kmz/` whatever the request would go on to read, and named issues the
     values path then rejected (GH-1956).
     """
-    dataset_name = "icon-eu" if dataset_name_original == "icon_eu" else dataset_name_original
-    path = f"weather/local_forecasts/dmo/{dataset_name}/{station_group.value}"
+    path = f"{_dmo_product_dir(dataset_name_original)}/{station_group.value}"
     if station_group is DwdDmoStationGroup.ALL_STATIONS:
         return f"{path}/kmz"
     return f"{path}/{station_id}/kmz/"
@@ -268,8 +354,10 @@ class DwdDmoValues(TimeseriesValues):
             # once per product, not once per station. `all_stations` asks this for every station
             # in the request against one URL, and `single_stations` -- the default -- asks against
             # a URL carrying the station id, so keying on the URL itself deduplicated only half of
-            # it. `icon_eu` has no single-station directory upstream at all (404), so a request for
-            # it would have printed one line per station of the catalogue for one root cause
+            # it. A request for `icon_eu` used to print one line per station of the catalogue,
+            # because the catalogue was the one shared by both products and 2255 of its stations
+            # have no `icon_eu` directory to list; narrowing it to the product (GH-1964) leaves
+            # this for the stations a product drops between two listings
             key = _SINGLE_STATION_PATH.sub("/single_stations/<station>/", url)
             if key not in self._listings_warned_about:
                 self._listings_warned_about.add(key)
@@ -319,6 +407,8 @@ class DwdDmoRequest(TimeseriesRequest):
     issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST
     station_group: Literal["single_stations", "all_stations"] | DwdDmoStationGroup | None = None
     lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None
+    # per request, not per class: a listing read once should not outlive the settings it was read with
+    _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, repr=False)
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
@@ -371,10 +461,12 @@ class DwdDmoRequest(TimeseriesRequest):
         Answers for a particular product, because the values path reads a particular product: this
         listed `icon/single_stations/<id>/kmz/` whatever the request was for, and named issues that
         the request would then reject (GH-1956). Two ways, both measured against the live server:
-        `all_stations` publishes only the `078` lead time, so an issue advertised from a `168` file
-        met `IndexError: Unable to find a 168 h forecast within ...`; and `icon-eu` has no
-        single-station directory at all, so every issue this advertised for it resolved to an empty
-        frame. The directory comes from `_dmo_kmz_path` now, which is the one the values path reads.
+        `icon_eu`'s `all_stations` publishes only the `078` lead time, so an issue advertised from a
+        `168` file met `IndexError: Unable to find a 168 h forecast within ...`; and a station the
+        shared catalogue listed for `icon_eu` without `icon_eu` covering it has no single-station
+        directory, so every issue this advertised for it resolved to an empty frame -- GH-1964, which
+        narrowed the catalogue to the product. The directory comes from `_dmo_kmz_path` now, which is
+        the one the values path reads.
 
         The defaults are `DwdDmoRequest`'s own, so what this answers with no arguments is what a
         request built with no arguments accepts. Pass `lead_time=None` for the old behaviour of
@@ -451,67 +543,79 @@ class DwdDmoRequest(TimeseriesRequest):
             issue = self.adjust_datetime(issue)
         self.issue = issue
 
-    # required patches for stations as data is corrupted for these at least atm
-    _station_patches = pl.DataFrame(
-        [
-            {
-                "station_id": "03779",
-                "icao_id": "EGRB",
-                "name": "LONDON WEATHER CENT.",
-                "latitude": "51.31",
-                "longitude": "-0.12",
-                "height": "5",
-            },
-            {
-                "station_id": "03781",
-                "icao_id": "----",
-                "name": "KENLEY",
-                "latitude": "51.18",
-                "longitude": "-0.08",
-                "height": "170",
-            },
-            {
-                "station_id": "61226",
-                "icao_id": "GAGO",
-                "name": "GAO",
-                "latitude": "16.16",
-                "longitude": "-0.05",
-                "height": "265",
-            },
-            {
-                "station_id": "82106",
-                "icao_id": "SBUA",
-                "name": "SAO GABRIEL CACHOEI",
-                "latitude": "-0.13",
-                "longitude": "-67.04",
-                "height": "90",
-            },
-            {
-                "station_id": "84071",
-                "icao_id": "SEQU",
-                "name": "QUITO",
-                "latitude": "-0.15",
-                "longitude": "-78.29",
-                "height": "2794",
-            },
-            {
-                "station_id": "F9766",
-                "icao_id": "SEQM",
-                "name": "QUITO/MARISCAL SUCRE",
-                "latitude": "-0.1",
-                "longitude": "-78.21",
-                "height": "2400",
-            },
-            {
-                "station_id": "P0478",
-                "icao_id": "EGLC",
-                "name": "LONDON/CITY INTL",
-                "latitude": "51.29",
-                "longitude": "0.12",
-                "height": "5",
-            },
-        ],
-    )
+    @staticmethod
+    def _narrows_rather_than_empties(covered: set[str], df_raw: pl.DataFrame, dataset_name_original: str) -> bool:
+        """Say whether a coverage listing names stations this catalogue has, so filtering by it narrows.
+
+        `_covered_station_ids` reads directory names, and a directory tree that stops being one
+        directory per station still yields names: were `single_stations/` reorganised into a
+        subdirectory per lead time, the listing would come back as `{"078", "168"}`, pass the
+        emptiness check, and filter every station in the catalogue out. The result is an empty
+        stations frame with nothing raised and nothing logged -- the same indistinguishable silence
+        GH-1964 and GH-1947 are about, arriving through the very change that was meant to end it.
+
+        One station in common is enough: the products genuinely cover different subsets, so anything
+        stricter would fire on the real disagreement this exists to represent.
+        """
+        if not covered.isdisjoint(df_raw.get_column("station_id")):
+            return True
+        log.warning(
+            f"None of the {len(covered)} entries listed for {dataset_name_original} names a station in the "
+            f"catalogue, so they are not a station listing; keeping the catalogue shared by both DMO products",
+        )
+        return False
+
+    def _covered_station_ids(self, dataset_name_original: str) -> set[str] | None:
+        """Read which stations one DMO product forecasts for, or None if that could not be read.
+
+        The catalogue at `_url` is one list for both products and matches neither. Of its 5811
+        stations `icon` covers 5622 and `icon_eu` 3556 (measured 2026-09-24), so a request for
+        `icon_eu` advertised 2255 stations that can only ever answer with an empty frame -- which
+        from the caller's side is indistinguishable from a station whose forecast is merely missing
+        right now, and from the swallowed listing GH-1947 was about (GH-1964).
+
+        None rather than an empty set when the listing cannot be read, because the two mean opposite
+        things: the caller keeps the whole catalogue for a listing it could not read, rather than
+        answering that a product has no stations at all.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        # once per product per request, not once per `all()`. `TimeseriesRequest.all()` is not
+        # memoized and the filters call it repeatedly -- `filter_by_rank` twice, `filter_by_distance`
+        # four times -- so with `cache_disable` set, which turns fsspec's listings cache off too,
+        # a single `filter_by_distance` would fetch this 640 KB index four times per product
+        cached = self._coverage_cache.get(dataset_name_original, _UNREAD)
+        if cached is not _UNREAD:
+            return cast("set[str] | None", cached)
+        covered = self._read_covered_station_ids(dataset_name_original)
+        self._coverage_cache[dataset_name_original] = covered
+        return covered
+
+    def _read_covered_station_ids(self, dataset_name_original: str) -> set[str] | None:
+        """Do the listing `_covered_station_ids` caches."""
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
+        url = urljoin("https://opendata.dwd.de", _dmo_station_dir(dataset_name_original))
+        try:
+            entries = list_remote_directory_fsspec(url, settings, CacheExpiry.METAINDEX)
+        except Exception as ex:  # noqa: BLE001
+            # degraded audibly rather than silently: falling back to the shared catalogue is the
+            # behaviour this method exists to correct, so a caller getting it back has to hear why
+            log.warning(
+                f"Unable to list the stations {dataset_name_original} covers within {url} ({ex!r}); "
+                f"falling back to the catalogue shared by both DMO products, which is wider than "
+                f"either of them",
+            )
+            return None
+        station_ids = {entry["name"].rstrip("/").rsplit("/", 1)[-1] for entry in entries}
+        station_ids.discard("")
+        if not station_ids:
+            log.warning(
+                f"No station listed within {url}; falling back to the catalogue shared by both DMO products",
+            )
+            return None
+        return station_ids
 
     def _all(self) -> pl.LazyFrame:
         """Get all stations from DMO."""
@@ -544,12 +648,10 @@ class DwdDmoRequest(TimeseriesRequest):
             "longitude",
             "height",
         ]
-        df_raw = df_raw.join(self._station_patches.select("station_id"), how="anti", on="station_id")
-        df_raw = pl.concat([df_raw, self._station_patches])
         df_raw = df_raw.with_columns(
             pl.col("icao_id").replace("----", None),
-            pl.col("latitude").str.replace(" ", "").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
-            pl.col("longitude").str.replace(" ", "").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
+            _dm_degrees("latitude").alias("latitude"),
+            _dm_degrees("longitude").alias("longitude"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
             pl.lit(None, pl.String).alias("state"),
@@ -558,15 +660,20 @@ class DwdDmoRequest(TimeseriesRequest):
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
 
         resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name)
+            (parameter.dataset.resolution.name, parameter.dataset.name, parameter.dataset.name_original)
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
         }
         data = []
-        # for each combination of resolution and dataset create a new DataFrame with the columns
-        for resolution, dataset in resolutions_and_datasets:
+        # for each combination of resolution and dataset create a new DataFrame with the columns,
+        # narrowed to the stations that combination's product actually forecasts for
+        for resolution, dataset, dataset_original in resolutions_and_datasets:
+            df_dataset = df_raw
+            covered = self._covered_station_ids(dataset_original)
+            if covered is not None and self._narrows_rather_than_empties(covered, df_dataset, dataset_original):
+                df_dataset = df_dataset.filter(pl.col("station_id").is_in(covered))
             data.append(
-                df_raw.with_columns(
+                df_dataset.with_columns(
                     pl.lit(resolution, pl.String).alias("resolution"),
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),

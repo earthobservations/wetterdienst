@@ -38,10 +38,11 @@ Types of changes:
   with no arguments accepts. It used to list `icon/single_stations/<id>/kmz/` whatever the request
   would go on to read, and name issues that request then rejected: `all_stations` publishes only the
   `078` lead time, so an issue advertised from a `168` file met `IndexError: Unable to find a 168 h
-  forecast within ...`, and `icon-eu` has no single-station directory upstream at all, so every
-  issue advertised for it resolved to an empty frame with nothing said. Both measured against the
-  live server. The directory is named by one function that the values path uses too, so the two
-  cannot drift apart again. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time`
+  forecast within ...`, and a station the shared catalogue listed for `icon_eu` without `icon_eu`
+  covering it has no single-station directory, so every issue advertised for it resolved to an empty
+  frame with nothing said. Both measured against the live server. The directory is named by one
+  function that the values path uses too, so the two cannot drift apart again. `wetterdienst
+  issues` and `/api/issues` take `--dataset`/`--lead_time`
   to match, and say so rather than ignoring them where the network is not DMO. Passing
   `lead_time=None` restores the old listing of every lead time together, which is a question about
   the directory rather than about anything that can be requested. GH-1956
@@ -72,6 +73,42 @@ Types of changes:
   guards in the radar API read as dead code to the type checker
 
 ### Fixed
+
+- DWD DMO: a station position is read as the degrees and minutes the catalogue writes it in, and the
+  seven hardcoded station patches are gone. `dmo_stationsliste_txt.asc` is one format throughout,
+  `{degrees}.{minutes:2d}`, and it is the degrees rendering empty at zero that makes the rest look
+  irregular: the minutes are right-aligned in two columns, so a lone digit arrives behind a space and
+  a negative one behind its own minus sign. `. 5` is 0°05' and `.-6` is -0°06'. Read as plain
+  decimals, `.5` became 0°50' -- a station 84 km from where DWD says it is, and nothing raised --
+  while `.-6` raised `conversion from str to f64 failed` naming neither column nor station, which is
+  what the patches existed to avoid. Of the file's 11 622 position fields, 77 carry no degrees and 21
+  of those needed repairing: 14 written with one minute digit, 11 of which landed 50 to 150 km out
+  while 3 were a harmless zero, and 7 carrying the sign on the minutes. All 21 now land on the
+  coordinate DWD's own KMZ placemarks carry, to 0.000 km for all seven formerly patched stations --
+  where the patches were 4 to 28 km out, put London City on the wrong side of Greenwich, and gave
+  London Weather Centre a height of 5 m against the 43 m both DWD sources agree on. One field is
+  beyond reach: `P0563` (London Luton) is written `.22` where DWD's placemark says -0.37, the sign
+  missing rather than misplaced, and nothing distinguishes that from the 39 degreeless fields that
+  really are positive -- it is read as written, exactly as before. The MOSMIX catalogue shares the
+  format and the conversion but has no such row, so this stays with DMO
+
+- DWD DMO: a station is advertised only for the product that forecasts for it. `dmo_stationsliste_txt.asc`
+  is one list for both DMO products and matches neither: of its 5811 stations `icon` covers 5622 and
+  `icon_eu` 3556, so a request for `icon_eu` listed 2255 stations that could only ever answer with an
+  empty frame -- indistinguishable, from the caller's side, from a forecast that is merely missing
+  right now, and from the swallowed listing GH-1947 was about. Which stations a product covers is now
+  read from its `single_stations/` directory, whose entries are exactly the placemarks that product's
+  `all_stations` run carries, so the correction costs one directory listing rather than a 20 MB parse.
+  A listing that cannot be read keeps the shared catalogue rather than answering that a product has no
+  stations, and says which it handed back; so does a listing that shares no station with the
+  catalogue, which is not a station listing however many names it carries. Four of the seven
+  hardcoded station patches are genuinely
+  outside `icon_eu` -- Gao, São Gabriel da Cachoeira, Quito and Quito/Mariscal Sucre lie outside a
+  European domain -- and are now dropped for it too
+
+- DWD DMO: the directory a product is served from is named by a total mapping rather than one special
+  case with a pass-through, so a product added without deciding its upstream spelling is refused where
+  the decision is missing instead of 404ing at request time
 
 - DWD swsmos: a body that could not be read is not fetched a second time when the caller has
   disabled the cache. The re-ask exists to get past a cached bad body, and `cache_disable` now says

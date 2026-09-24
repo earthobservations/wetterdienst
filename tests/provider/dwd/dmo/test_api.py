@@ -91,14 +91,17 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
         "name": "16N55W",
         "state": None,
     }
-    station_names_sorted = given_df.sort(pl.col("name").str.len_chars()).get_column("name").to_list()
-    assert station_names_sorted[:5] == ["ELM", "PAU", "SAL", "AUE", "HOF"]
+    # by length and then by name: 248 stations share the longest name length, so sorting by length
+    # alone leaves the ends of this list to whatever order the frame happened to be built in --
+    # which is how appending the station patches used to decide it
+    station_names_sorted = given_df.sort(pl.col("name").str.len_chars(), pl.col("name")).get_column("name").to_list()
+    assert station_names_sorted[:5] == ["ARE", "AUE", "AUE", "AUE", "BAM"]
     assert station_names_sorted[-5:] == [
-        "MÜNSINGEN-APFELSTETT",
-        "VILLINGEN-SCHWENNING",
-        "WEINGARTEN BEI RAVEN",
-        "LONDON WEATHER CENT.",
-        "QUITO/MARISCAL SUCRE",
+        "WUNSIEDEL-SCHOENBRUN",
+        "WUTOESCHINGEN-OFTER.",
+        "ZELL I.WIES.-PFAFFB.",
+        "ZINNWALD-GEORGENFELD",
+        "ZUERICH (TOWN/VILLE)",
     ]
 
 
@@ -349,9 +352,10 @@ def test_dmo_an_empty_listing_is_reported_once_per_product_not_once_per_station(
 ) -> None:
     """`single_stations` is the default, and its URL carries the station id.
 
-    Keying the dedup on the URL itself deduplicated only the `all_stations` half. `icon_eu` has no
-    single-station directory upstream at all (404), so a request for it would have printed one
-    warning per station of the catalogue for one root cause.
+    Keying the dedup on the URL itself deduplicated only the `all_stations` half. A request for
+    `icon_eu` would have printed one warning per station of the catalogue for one root cause,
+    because the catalogue was the one shared by both products and 2255 of its stations have no
+    `icon_eu` directory to list (GH-1964).
     """
     import logging  # noqa: PLC0415
 
@@ -388,9 +392,10 @@ def test_dmo_available_issues_reads_the_directory_the_values_path_reads(
 
     `available_issues` always listed `icon/single_stations/<id>/kmz/`, so it advertised the runs of
     one product for a request that would go on to read another -- and both mismatches were live.
-    `all_stations` publishes only the `078` lead time, so an issue advertised from a `168` file met
-    `IndexError: Unable to find a 168 h forecast within ...`; and `icon-eu` has no single-station
-    directory upstream at all, so every issue advertised for it resolved to an empty frame.
+    `icon_eu`'s `all_stations` publishes only the `078` lead time, so an issue advertised from a
+    `168` file met `IndexError: Unable to find a 168 h forecast within ...`; and a station the
+    shared catalogue listed for `icon_eu` without `icon_eu` covering it has no single-station
+    directory upstream, so every issue advertised for it resolved to an empty frame (GH-1964).
     """
     from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
 
@@ -441,3 +446,362 @@ def test_dmo_available_issues_answers_for_the_lead_time_it_is_asked_for(
 
     assert sorted(issue.hour for issue in issues) == expected_hours
     assert all(issue.tzinfo is not None for issue in issues)
+
+
+def _catalogue_line(station_id: str, name: str, latitude: str = "54.23", longitude: str = "10.30") -> str:
+    """Lay one station out at the fixed-width offsets `_all` reads the DWD catalogue at.
+
+    Positions are written the way the catalogue writes them -- degrees and minutes, the minutes right
+    aligned in two columns -- so a caller can hand in `. 5` or `.-6` and have it arrive as the reader
+    really meets it, padding and all.
+    """
+    return f"{station_id:<5}{'----':<5}{name:<21}{latitude:>8}{longitude:>8} {'40':>9}"
+
+
+def _stub_catalogue(
+    monkeypatch: pytest.MonkeyPatch,
+    station_ids: list[str],
+    positions: dict[str, tuple[str, str]] | None = None,
+) -> None:
+    """Answer the shared `dmo_stationsliste_txt.asc` with a catalogue of exactly these stations."""
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    positions = positions or {}
+    lines = ["ID   ICAO NAME                      LAT      LON    ELEV", "-" * 57]
+    lines += [
+        _catalogue_line(station_id, f"Station {station_id}", *positions.get(station_id, ("54.23", "10.30")))
+        for station_id in station_ids
+    ]
+    # `_all` pops the header and then skips one more line, so both of those have to be here
+    content = ("\n".join(lines) + "\n").encode("latin-1")
+
+    class _StubFile:
+        def __init__(self) -> None:
+            self.content = BytesIO(content)
+
+        def raise_if_exception(self) -> None:
+            pass
+
+    monkeypatch.setattr(api, "download_file", lambda **_kwargs: _StubFile())
+
+
+def _stub_coverage(monkeypatch: pytest.MonkeyPatch, coverage: dict[str, list[str]]) -> None:
+    """Answer each product's `single_stations/` listing with the stations it is said to cover."""
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    def listing(url: str, *_args: object, **_kwargs: object) -> list[dict]:
+        product = "icon_eu" if "icon-eu" in url else "icon"
+        return [{"name": f"{url.rstrip('/')}/{station_id}/", "type": "directory"} for station_id in coverage[product]]
+
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", listing)
+
+
+def _advertised(df: pl.DataFrame, dataset: str) -> list[str]:
+    """Give back the catalogue stations one dataset advertises."""
+    return sorted(set(df.filter(dataset=dataset).get_column("station_id").to_list()))
+
+
+def test_dmo_a_station_is_advertised_only_for_the_product_that_covers_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The whole of GH-1964: one catalogue was served for two products covering different stations.
+
+    `dmo_stationsliste_txt.asc` is one list for both, and matches neither -- of its 5811 stations
+    `icon` covers 5622 and `icon_eu` 3556 (measured 2026-09-24). So `icon_eu` advertised 2255
+    stations that could only ever answer with an empty frame, which from the caller's side is
+    indistinguishable from a forecast that is merely missing right now, and from the swallowed
+    listing GH-1947 was about.
+    """
+    _stub_catalogue(monkeypatch, ["01001", "01023", "01047"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "01023", "01047"], "icon_eu": ["01023"]})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon"), ("hourly", "icon_eu")]).all().df
+
+    assert _advertised(df, "icon") == ["01001", "01023", "01047"]
+    assert _advertised(df, "icon_eu") == ["01023"]
+
+
+@pytest.mark.parametrize(
+    ("dataset", "expected"),
+    [
+        ("icon", "https://opendata.dwd.de/weather/local_forecasts/dmo/icon/single_stations"),
+        ("icon_eu", "https://opendata.dwd.de/weather/local_forecasts/dmo/icon-eu/single_stations"),
+    ],
+)
+def test_dmo_coverage_is_read_from_the_directory_that_holds_one_entry_per_station(
+    monkeypatch: pytest.MonkeyPatch,
+    dataset: Literal["icon", "icon_eu"],
+    expected: str,
+) -> None:
+    """`single_stations/` holds a directory per station; `all_stations/kmz` holds the runs.
+
+    Listing the latter would hand back run filenames as if they were station ids, and every station
+    in the catalogue would then be filtered out of it -- an empty stations result for a product that
+    covers thousands.
+    """
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    listed = []
+
+    def listing(url: str, *_args: object, **_kwargs: object) -> list[dict]:
+        listed.append(url)
+        return [{"name": f"{url}/01001/", "type": "directory"}]
+
+    _stub_catalogue(monkeypatch, ["01001"])
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", listing)
+    DwdDmoRequest(parameters=[("hourly", dataset)]).all()
+
+    assert listed == [expected]
+
+
+def test_dmo_a_station_listing_that_cannot_be_read_keeps_the_catalogue_and_says_why(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A listing that failed and a product that covers nothing mean opposite things.
+
+    Answering the second for the first would empty the stations result over a transient network
+    fault, so the shared catalogue stays -- but the caller has to hear that it is the wider one.
+    """
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    _stub_catalogue(monkeypatch, ["01001", "01023"])
+
+    def raising(*_args: object, **_kwargs: object) -> list[dict]:
+        msg = "connection reset"
+        raise OSError(msg)
+
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", raising)
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon_eu")]).all().df
+
+    assert _advertised(df, "icon_eu") == ["01001", "01023"]
+    assert [record for record in caplog.records if "falling back to the catalogue" in record.message]
+
+
+def test_dmo_an_empty_station_listing_keeps_the_catalogue_too(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An empty listing is the swallowed-walk shape of GH-1947, not a product without stations."""
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    _stub_catalogue(monkeypatch, ["01001", "01023"])
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", lambda *_args, **_kwargs: [])
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert _advertised(df, "icon") == ["01001", "01023"]
+    assert [record for record in caplog.records if "No station listed within" in record.message]
+
+
+def test_every_dmo_product_has_a_directory_upstream() -> None:
+    """The metadata names a product; only this mapping knows what upstream serves it from.
+
+    A third DMO product would otherwise inherit the metadata spelling by default and 404 at request
+    time, far from the decision that was never made -- the way `icon_eu` would have, being served
+    from `icon-eu`.
+    """
+    from wetterdienst.provider.dwd.dmo.api import _DMO_PRODUCT_DIRS  # noqa: PLC0415
+
+    products = {dataset.name_original for resolution in DwdDmoRequest.metadata for dataset in resolution}
+
+    assert products <= set(_DMO_PRODUCT_DIRS), f"no upstream directory for {products - set(_DMO_PRODUCT_DIRS)}"
+
+
+def test_dmo_refuses_a_product_it_knows_no_directory_for() -> None:
+    """Named as itself, rather than passed through to a 404 the caller works backwards from."""
+    from wetterdienst.provider.dwd.dmo.api import _dmo_product_dir  # noqa: PLC0415
+
+    with pytest.raises(ValueError, match="No DMO product directory is known for 'icon_d2'"):
+        _dmo_product_dir("icon_d2")
+
+
+@pytest.mark.remote
+def test_dmo_the_two_products_really_do_cover_different_stations(default_settings: Settings) -> None:
+    """Upstream rather than a stub, because the premise of the fix is a fact about upstream."""
+    covered = {
+        dataset: set(
+            DwdDmoRequest(parameters=[("hourly", dataset)], settings=default_settings)
+            .all()
+            .df.get_column("station_id")
+            .to_list()
+        )
+        for dataset in ("icon", "icon_eu")
+    }
+
+    assert covered["icon"], "icon covers no station at all"
+    assert covered["icon_eu"], "icon_eu covers no station at all"
+    assert len(covered["icon_eu"]) < len(covered["icon"]), "icon_eu covers at least as many stations as icon"
+
+
+@pytest.mark.parametrize(
+    ("written", "expected_dd"),
+    [
+        # what the catalogue writes for most stations: degrees, then zero-padded minutes
+        pytest.param("70.56", 70.93, id="degrees-and-minutes"),
+        pytest.param("-8.40", -8.67, id="negative-degrees-and-minutes"),
+        pytest.param("51.05", 51.08, id="minutes-under-ten-keep-their-zero"),
+        # and what it writes where the degrees are zero: no degrees, minutes unpadded
+        pytest.param(".19", 0.32, id="no-degrees-two-minute-digits"),
+        pytest.param(".5", 0.08, id="no-degrees-one-minute-digit"),
+        pytest.param("-.31", -0.52, id="negative-with-no-degrees"),
+        pytest.param(".0", 0.0, id="no-degrees-no-minutes"),
+        # and where such a value is negative, the sign lands on the minutes
+        pytest.param(".-6", -0.1, id="sign-written-onto-the-minutes"),
+        pytest.param(".-12", -0.2, id="sign-onto-two-minute-digits"),
+        # minutes rounded up to a full sixty carry into the degrees by arithmetic
+        pytest.param("-4.60", -5.0, id="sixty-minutes"),
+        # the repair is for degreeless fields only: a field that carries its degrees is left alone,
+        # so an unanchored rule that rewrote `51.5` into `510.05` would be caught here. No row in the
+        # catalogue is written this way today -- every one of its 11 545 fields that carries degrees
+        # pads its minutes -- which is exactly why nothing but a test pins it
+        pytest.param("51.5", 51.83, id="degrees-present-are-left-alone"),
+        # the columns arrive padded out of the fixed-width read, and every rule above is anchored
+        pytest.param("    .-6 ", -0.1, id="padded-sign-onto-minutes"),
+        pytest.param("  51.31 ", 51.52, id="padded-degrees-and-minutes"),
+    ],
+)
+def test_dmo_a_position_is_read_as_the_degrees_and_minutes_it_is_written_in(
+    written: str,
+    expected_dd: float,
+) -> None:
+    """`.5` is five minutes, not fifty; `.-6` is minus six minutes, not a parse error.
+
+    Both were live. Read as a plain decimal `.5` puts a station 84 km from where DWD says it is and
+    raises nothing, and `.-6` raised `conversion from str to f64 failed` -- which is what the seven
+    hardcoded station patches existed to avoid, less accurately than this.
+    """
+    from wetterdienst.provider.dwd.dmo.api import _dm_degrees  # noqa: PLC0415
+
+    got = pl.DataFrame({"latitude": [written]}).select(_dm_degrees("latitude")).item()
+
+    # `convert_dm_to_dd` rounds the converted minutes to two decimals, which is what makes these
+    # land exactly on the values DWD's own KMZ placemarks carry
+    assert got == pytest.approx(expected_dd, abs=5e-3)
+
+
+def test_dmo_a_catalogue_of_awkward_positions_still_reaches_the_caller(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A position that would not cast took the whole stations result down with it.
+
+    The seven that did were listed by hand; nothing said so when an eighth appeared, and the error
+    named neither the column nor the station. Every degreeless shape the file actually writes is in
+    this catalogue, read end to end rather than through `_dm_degrees` alone.
+    """
+    positions = {
+        "01001": ("54.23", ". 5"),  # one minute digit, behind the space the format leaves
+        "01023": (". 3", "10.30"),  # the same in the latitude column
+        "01047": ("51.31", ".-6"),  # the sign written onto the minutes
+        "01052": (".19", "-.31"),  # degreeless and readable as written, both signs
+    }
+    stations = list(positions)
+    _stub_catalogue(monkeypatch, stations, positions)
+    _stub_coverage(monkeypatch, {"icon": stations, "icon_eu": []})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert sorted(df.get_column("station_id").to_list()) == stations
+    assert df.get_column("latitude").null_count() == 0
+    assert df.get_column("longitude").null_count() == 0
+    positions_read = {row["station_id"]: (row["latitude"], row["longitude"]) for row in df.iter_rows(named=True)}
+    assert positions_read["01001"] == pytest.approx((54.38, 0.08), abs=5e-3)
+    assert positions_read["01023"] == pytest.approx((0.05, 10.5), abs=5e-3)
+    assert positions_read["01047"] == pytest.approx((51.52, -0.1), abs=5e-3)
+    assert positions_read["01052"] == pytest.approx((0.32, -0.52), abs=5e-3)
+
+
+@pytest.mark.remote
+def test_dmo_the_catalogue_upstream_needs_no_hardcoded_positions(default_settings: Settings) -> None:
+    """Upstream, because the claim being made is about the file DWD publishes today.
+
+    Every position in it parses, and the stations that used to be patched are among them -- so the
+    hardcoded rows are not merely unused, they are unnecessary.
+    """
+    formerly_patched = ["03779", "03781", "61226", "82106", "84071", "F9766", "P0478"]
+
+    df = (
+        DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings)
+        .all()
+        .df.filter(pl.col("station_id").is_in(formerly_patched))
+    )
+
+    assert sorted(df.get_column("station_id").to_list()) == sorted(formerly_patched)
+    assert df.get_column("latitude").null_count() == 0
+    assert df.get_column("longitude").null_count() == 0
+    # the value DWD's own KMZ placemarks carry for this station, which the patch missed by 11 km
+    london = df.filter(station_id="03779")
+    assert london.get_column("longitude").item() == pytest.approx(-0.1, abs=5e-3)
+    assert london.get_column("height").item() == pytest.approx(43, abs=1)
+
+
+def test_dmo_a_listing_that_names_no_station_is_not_believed(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A directory tree that stops being one directory per station still yields names.
+
+    Were `single_stations/` reorganised into a subdirectory per lead time, the listing would come
+    back as `{"078", "168"}` -- not empty, so the emptiness check passes, and sharing no station with
+    the catalogue, so filtering by it removes every station there is. That is an empty stations frame
+    with nothing raised and nothing logged: the silence GH-1964 exists to end, arriving through the
+    change that ends it.
+    """
+    import logging  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    _stub_catalogue(monkeypatch, ["01001", "01023"])
+    _stub_coverage(monkeypatch, {"icon": ["078", "168"], "icon_eu": []})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert _advertised(df, "icon") == ["01001", "01023"]
+    assert [record for record in caplog.records if "names a station in the catalogue" in record.message]
+
+
+def test_dmo_one_station_in_common_is_enough_to_narrow_by(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The products really do cover different subsets, so the guard has to allow a near-total drop.
+
+    Anything stricter than "names at least one of ours" would refuse the disagreement this reads the
+    listing to represent.
+    """
+    _stub_catalogue(monkeypatch, ["01001", "01023", "01047"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", "01023", "01047"], "icon_eu": ["01023"]})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon_eu")]).all().df
+
+    assert _advertised(df, "icon_eu") == ["01023"]
+
+
+def test_dmo_the_coverage_listing_is_read_once_per_product_per_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`all()` is not memoized and the filters call it repeatedly.
+
+    `filter_by_rank` calls it twice and `filter_by_distance` four times, so without this the 640 KB
+    index is fetched once per call -- and `cache_disable`, which a caller sets to get fresh data,
+    turns fsspec's listings cache off too, so nothing else deduplicates it.
+    """
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    listed = []
+
+    def listing(url: str, *_args: object, **_kwargs: object) -> list[dict]:
+        listed.append(url)
+        return [{"name": f"{url}/{station_id}/", "type": "directory"} for station_id in ("01001", "01023")]
+
+    _stub_catalogue(monkeypatch, ["01001", "01023"])
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", listing)
+
+    request = DwdDmoRequest(parameters=[("hourly", "icon")])
+    for _ in range(4):
+        request.all()
+
+    assert len(listed) == 1
+
+    # and a second request does its own reading, rather than inheriting the first one's answer
+    DwdDmoRequest(parameters=[("hourly", "icon")]).all()
+    assert len(listed) == 2
