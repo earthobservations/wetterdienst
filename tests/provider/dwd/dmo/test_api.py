@@ -3,6 +3,7 @@
 """Tests for DWD DMO API."""
 
 import datetime as dt
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -183,11 +184,19 @@ def test_dmo_available_issues_answers_rather_than_raises(
     assert expected_warning in caplog.text
 
 
-def _stub_dmo_values(lead_time: str = "short") -> object:
+def _stub_dmo_values(
+    lead_time: Literal["short", "long"] = "short",
+    dataset: str = "icon",
+    station_group: Literal["single_stations", "all_stations"] = "single_stations",
+) -> object:
     """Stand a DMO station up rather than look one up, so these need no network."""
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
 
-    request = DwdDmoRequest(parameters=[("hourly", "icon")], lead_time=lead_time)
+    request = DwdDmoRequest(
+        parameters=[("hourly", dataset)],
+        lead_time=lead_time,
+        station_group=station_group,
+    )
     df_stations = pl.DataFrame(
         [
             {
@@ -358,3 +367,77 @@ def test_dmo_an_empty_listing_is_reported_once_per_product_not_once_per_station(
 
     warnings = [record for record in caplog.records if "No DMO run listed within" in record.message]
     assert len(warnings) == 1
+
+
+@pytest.mark.parametrize(
+    ("dataset", "station_group", "expected"),
+    [
+        ("icon", "single_stations", "dmo/icon/single_stations/01001/kmz/"),
+        ("icon", "all_stations", "dmo/icon/all_stations/kmz"),
+        ("icon_eu", "single_stations", "dmo/icon-eu/single_stations/01001/kmz/"),
+        ("icon_eu", "all_stations", "dmo/icon-eu/all_stations/kmz"),
+    ],
+)
+def test_dmo_available_issues_reads_the_directory_the_values_path_reads(
+    monkeypatch: pytest.MonkeyPatch,
+    dataset: Literal["icon", "icon_eu"],
+    station_group: Literal["single_stations", "all_stations"],
+    expected: str,
+) -> None:
+    """The whole of GH-1956: the two were hardcoded separately and named different directories.
+
+    `available_issues` always listed `icon/single_stations/<id>/kmz/`, so it advertised the runs of
+    one product for a request that would go on to read another -- and both mismatches were live.
+    `all_stations` publishes only the `078` lead time, so an issue advertised from a `168` file met
+    `IndexError: Unable to find a 168 h forecast within ...`; and `icon-eu` has no single-station
+    directory upstream at all, so every issue advertised for it resolved to an empty frame.
+    """
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    listed = []
+
+    def listing(url: str, *_args: object, **_kwargs: object) -> list[str]:
+        listed.append(url)
+        return []
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", listing)
+    DwdDmoRequest.available_issues("01001", Settings(), dataset=dataset, station_group=station_group)
+
+    assert listed == [f"https://opendata.dwd.de/weather/local_forecasts/{expected}"]
+    # and the values path, asked for the same thing, reads exactly that
+    values = _stub_dmo_values(dataset=dataset, station_group=station_group)
+    assert (
+        values.get_dwd_dmo_path(DwdDmoRequest.metadata["hourly"][dataset], "01001")
+        == f"weather/local_forecasts/{expected}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("lead_time", "expected_hours"),
+    [("short", [0]), ("long", [12]), (None, [0, 12])],
+    ids=["short", "long", "every-lead-time"],
+)
+def test_dmo_available_issues_answers_for_the_lead_time_it_is_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+    lead_time: str | None,
+    expected_hours: list[int],
+) -> None:
+    """A run belongs to a lead time, and the values path filters to one.
+
+    Listing both together advertised an issue carried only by a `168` file to a `short` request,
+    which then raised. `None` keeps the old behaviour for a caller asking about the directory rather
+    than about a request.
+    """
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    # one run per lead time, an hour apart, so which was kept is visible in the answer
+    listing = [
+        "https://example.com/kmz/ptp_gdmog_01001_078_1_010000.kmz",
+        "https://example.com/kmz/ptp_gdmog_01001_168_3_011200.kmz",
+    ]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listing)
+
+    issues = DwdDmoRequest.available_issues("01001", Settings(), lead_time=lead_time)
+
+    assert sorted(issue.hour for issue in issues) == expected_hours
+    assert all(issue.tzinfo is not None for issue in issues)

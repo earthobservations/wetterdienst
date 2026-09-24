@@ -1083,16 +1083,37 @@ def stations(
 @provider_opt
 @network_opt
 @cloup.option("--station", type=click.STRING, required=True, help="Station ID to list available issue datetimes for.")
+@cloup.option("--dataset", type=click.Choice(["icon", "icon_eu"]), default=None, help="used only for DWD DMO")
+@cloup.option("--lead_time", type=click.Choice(["short", "long"]), default=None, help="used only for DWD DMO")
 @debug_opt
-def issues_cmd(provider: str, network: str, station: str, debug: bool) -> None:  # noqa: FBT001
+def issues_cmd(
+    provider: str,
+    network: str,
+    station: str,
+    dataset: str | None,
+    lead_time: str | None,
+    debug: bool,  # noqa: FBT001
+) -> None:
     """List available issue (model-run) datetimes for a station.
 
     Currently supported: --provider dwd --network mosmix|dmo
+
+    A DMO run exists for a product, so --dataset and --lead_time decide which runs are listed. They
+    default to what a `values` request defaults to, which is what makes the answer one that request
+    accepts.
     """
     set_logging_level(debug=debug)
 
     api = get_api(provider=provider, network=network)
-    request = IssuesRequest.model_validate({"provider": provider, "network": network, "station": station})
+    request = IssuesRequest.model_validate(
+        {
+            "provider": provider,
+            "network": network,
+            "station": station,
+            "dataset": dataset,
+            "lead_time": lead_time,
+        },
+    )
 
     try:
         issue_list = get_issues(api=api, request=request, settings=Settings())

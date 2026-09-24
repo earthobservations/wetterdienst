@@ -257,3 +257,44 @@ def test_cli_glossary_limit() -> None:
     result = runner.invoke(cli, ["about", "glossary", "--limit=3"])
     assert result.exit_code == 0
     assert len(json.loads(result.stdout)) == 3
+
+
+def test_issues_dmo_passes_the_product_and_lead_time_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The command that says which issues exist has to answer for the request it is about.
+
+    A DMO run belongs to a product and a lead time, and this listed one product's directory
+    whatever the caller went on to ask for -- so it named issues the values path then rejected
+    (GH-1956).
+    """
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+
+    asked = {}
+
+    def available_issues(station_id: str, _settings: object, **kwargs: object) -> list:
+        asked.update({"station_id": station_id, **kwargs})
+        return []
+
+    monkeypatch.setattr(DwdDmoRequest, "available_issues", available_issues)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["issues", "--provider=dwd", "--network=dmo", "--station=01001", "--dataset=icon_eu", "--lead_time=long"],
+    )
+
+    assert result.exit_code == 0
+    assert asked == {"station_id": "01001", "dataset": "icon_eu", "lead_time": "long"}
+
+
+def test_issues_mosmix_says_the_dmo_options_do_not_apply(caplog: pytest.LogCaptureFixture) -> None:
+    """Named rather than ignored: answering a different question than the one asked is the fault here."""
+    import logging  # noqa: PLC0415
+
+    runner = CliRunner()
+    with caplog.at_level(logging.ERROR):
+        result = runner.invoke(
+            cli,
+            ["issues", "--provider=dwd", "--network=mosmix", "--station=10147", "--lead_time=long"],
+        )
+
+    assert result.exit_code == 1
+    assert "lead_time applies to DWD DMO only" in caplog.text
