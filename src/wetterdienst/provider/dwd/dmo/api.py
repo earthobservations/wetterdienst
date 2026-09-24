@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import datetime as dt
 import logging
 import re
@@ -149,26 +150,36 @@ _SINGLE_STATION_PATH = re.compile(r"/single_stations/[^/]+/")
 _DMO_PRODUCT_DIRS = {"icon": "icon", "icon_eu": "icon-eu"}
 
 
+# distinguishes "not looked up yet" from a lookup that answered None
+_UNREAD = object()
+
+
 def _dm_degrees(column: str) -> pl.Expr:
     """Read one `dmo_stationsliste_txt.asc` position column, which is degrees and minutes.
 
-    `70.56` is 70 degrees 56 minutes, and the minutes are zero-padded -- except in the rows where the
-    degrees are zero. Those it writes without the degrees and with the minutes unpadded, and where
-    such a value is also negative it puts the sign on the minutes:
+    `70.56` is 70 degrees 56 minutes. The whole file is one format, `{degrees}.{minutes:2d}`, and it
+    is the degrees rendering empty at zero that makes the rest look irregular -- the minutes are
+    right-aligned in two columns, so a lone digit arrives behind a space and a negative one arrives
+    behind its own minus sign:
 
-    ===========  =============  ========
-    as written   means          DWD's own KMZ says
-    ===========  =============  ========
-    ``.5``       0 deg 05'      0.0800
-    ``.19``      0 deg 19'      0.3167
-    ``.-6``      -0 deg 06'     -0.1000
-    ===========  =============  ========
+    ===============  ==============  ====================
+    as written       means           DWD's own KMZ says
+    ===============  ==============  ====================
+    ``70.56``        70 deg 56'      70.9333
+    ``. 5`` (sic)    0 deg 05'       0.0800
+    ``.19``          0 deg 19'       0.3167
+    ``.-6``          -0 deg 06'      -0.1000
+    ===============  ==============  ====================
 
-    Read as a plain decimal, `.5` is 0 deg 50' -- 0.83 rather than 0.08, a station put 84 km from
-    where DWD says it is, and nothing raises. `.-6` does raise, with `conversion from str to f64
-    failed` naming neither the column nor the station. Of 11 545 position fields 21 are written this
-    way: 14 unpadded, 11 of which land 50 to 150 km out, and 7 signed, which is what the hardcoded
-    station patches were for.
+    The space is why the spaces come out before the rules below are applied, and it is real: all 14
+    one-digit rows are written `. 5` rather than `.5`.
+
+    Read as plain decimals these go wrong two ways. `.5` is 0 deg 50' -- 0.83 rather than 0.08, a
+    station put 84 km from where DWD says it is, with nothing raised. `.-6` does raise, with
+    `conversion from str to f64 failed` naming neither the column nor the station. Of the file's
+    11 622 position fields, 77 carry no degrees and 21 of those need repairing: 14 written with one
+    minute digit, 11 of which land 50 to 150 km out while 3 are a harmless zero, and 7 carrying the
+    sign on the minutes, which is what the hardcoded station patches were for.
 
     Normalised to `[-]0.MM` first, so both shapes reach the cast as the decimal the file meant. The
     MOSMIX catalogue is the same format read by the same conversion and has no such row -- every one
@@ -176,7 +187,7 @@ def _dm_degrees(column: str) -> pl.Expr:
 
     What this cannot reach: a degreeless field whose sign is missing rather than misplaced. The file
     writes one, `P0563` (London Luton), as `.22` where DWD's own placemark says -0.37, and nothing in
-    the field distinguishes that from the 55 degreeless fields that really are positive. It is read
+    the field distinguishes that from the 39 degreeless fields that really are positive. It is read
     as written, 82 km east of Luton, exactly as it was before this function existed.
     """
     return (
@@ -396,6 +407,8 @@ class DwdDmoRequest(TimeseriesRequest):
     issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST
     station_group: Literal["single_stations", "all_stations"] | DwdDmoStationGroup | None = None
     lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None
+    # per request, not per class: a listing read once should not outlive the settings it was read with
+    _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, repr=False)
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
@@ -530,7 +543,28 @@ class DwdDmoRequest(TimeseriesRequest):
             issue = self.adjust_datetime(issue)
         self.issue = issue
 
-    # required patches for stations as data is corrupted for these at least atm
+    @staticmethod
+    def _narrows_rather_than_empties(covered: set[str], df_raw: pl.DataFrame, dataset_name_original: str) -> bool:
+        """Say whether a coverage listing names stations this catalogue has, so filtering by it narrows.
+
+        `_covered_station_ids` reads directory names, and a directory tree that stops being one
+        directory per station still yields names: were `single_stations/` reorganised into a
+        subdirectory per lead time, the listing would come back as `{"078", "168"}`, pass the
+        emptiness check, and filter every station in the catalogue out. The result is an empty
+        stations frame with nothing raised and nothing logged -- the same indistinguishable silence
+        GH-1964 and GH-1947 are about, arriving through the very change that was meant to end it.
+
+        One station in common is enough: the products genuinely cover different subsets, so anything
+        stricter would fire on the real disagreement this exists to represent.
+        """
+        if not covered.isdisjoint(df_raw.get_column("station_id")):
+            return True
+        log.warning(
+            f"None of the {len(covered)} entries listed for {dataset_name_original} names a station in the "
+            f"catalogue, so they are not a station listing; keeping the catalogue shared by both DMO products",
+        )
+        return False
+
     def _covered_station_ids(self, dataset_name_original: str) -> set[str] | None:
         """Read which stations one DMO product forecasts for, or None if that could not be read.
 
@@ -544,6 +578,21 @@ class DwdDmoRequest(TimeseriesRequest):
         things: the caller keeps the whole catalogue for a listing it could not read, rather than
         answering that a product has no stations at all.
         """
+        from typing import cast  # noqa: PLC0415
+
+        # once per product per request, not once per `all()`. `TimeseriesRequest.all()` is not
+        # memoized and the filters call it repeatedly -- `filter_by_rank` twice, `filter_by_distance`
+        # four times -- so with `cache_disable` set, which turns fsspec's listings cache off too,
+        # a single `filter_by_distance` would fetch this 640 KB index four times per product
+        cached = self._coverage_cache.get(dataset_name_original, _UNREAD)
+        if cached is not _UNREAD:
+            return cast("set[str] | None", cached)
+        covered = self._read_covered_station_ids(dataset_name_original)
+        self._coverage_cache[dataset_name_original] = covered
+        return covered
+
+    def _read_covered_station_ids(self, dataset_name_original: str) -> set[str] | None:
+        """Do the listing `_covered_station_ids` caches."""
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
@@ -621,7 +670,7 @@ class DwdDmoRequest(TimeseriesRequest):
         for resolution, dataset, dataset_original in resolutions_and_datasets:
             df_dataset = df_raw
             covered = self._covered_station_ids(dataset_original)
-            if covered is not None:
+            if covered is not None and self._narrows_rather_than_empties(covered, df_dataset, dataset_original):
                 df_dataset = df_dataset.filter(pl.col("station_id").is_in(covered))
             data.append(
                 df_dataset.with_columns(
