@@ -731,6 +731,11 @@ class IssuesRequest(BaseModel):
     provider: _ProviderField
     network: _NetworkField
     station: _StationIdField
+    dataset: Annotated[
+        Literal["icon", "icon_eu"] | None,
+        Field(description="DWD DMO product to list issues for ('icon' or 'icon_eu'); ignored for other networks."),
+    ] = None
+    lead_time: _LeadTimeField = None
     debug: _DebugField = False
 
 
@@ -802,14 +807,29 @@ def get_issues(
     """Return available issue datetimes as UTC ISO strings for provider/network/station.
 
     Supported: DWD MOSMIX (MOSMIX_L single-station) and DWD DMO (ICON single-station).
+
+    The DMO product and lead time are passed through rather than left to chance: a run exists for a
+    product, and this listed one product's directory whatever the caller went on to ask for, so it
+    named issues the values path then rejected (GH-1956). `station_group` is not passed because no
+    path here can build anything but a single-station request.
     """
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
 
+    dmo_only = {"dataset": request.dataset, "lead_time": request.lead_time}
     if issubclass(api, DwdMosmixRequest):
+        # named rather than ignored: silently answering a different question than the one asked is
+        # the fault this whole path is being fixed for
+        if given := sorted(name for name, value in dmo_only.items() if value is not None):
+            msg = f"{', '.join(given)} applies to DWD DMO only (got {api.__name__})"
+            raise ValueError(msg)
         issues = DwdMosmixRequest.available_issues(request.station, settings)
     elif issubclass(api, DwdDmoRequest):
-        issues = DwdDmoRequest.available_issues(request.station, settings)
+        issues = DwdDmoRequest.available_issues(
+            request.station,
+            settings,
+            **{name: value for name, value in dmo_only.items() if value is not None},
+        )
     else:
         msg = f"Issue listing is only supported for DWD MOSMIX and DMO (got {api.__name__})"
         raise NotImplementedError(msg)

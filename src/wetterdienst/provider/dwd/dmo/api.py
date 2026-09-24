@@ -19,6 +19,7 @@ import polars as pl
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
@@ -29,7 +30,6 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
-    from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
 try:
@@ -142,6 +142,21 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
 _SINGLE_STATION_PATH = re.compile(r"/single_stations/[^/]+/")
 
 
+def _dmo_kmz_path(dataset_name_original: str, station_group: DwdDmoStationGroup, station_id: str | None) -> str:
+    """Name the directory one product publishes its runs in.
+
+    One function, because `available_issues` and `get_url_for_date` have to read the *same*
+    directory: they were built separately, so the command that says which issues exist listed
+    `icon/single_stations/<id>/kmz/` whatever the request would go on to read, and named issues the
+    values path then rejected (GH-1956).
+    """
+    dataset_name = "icon-eu" if dataset_name_original == "icon_eu" else dataset_name_original
+    path = f"weather/local_forecasts/dmo/{dataset_name}/{station_group.value}"
+    if station_group is DwdDmoStationGroup.ALL_STATIONS:
+        return f"{path}/kmz"
+    return f"{path}/{station_id}/kmz/"
+
+
 class DwdDmoValues(TimeseriesValues):
     """Fetch DWD DMO data."""
 
@@ -163,12 +178,11 @@ class DwdDmoValues(TimeseriesValues):
         from typing import cast  # noqa: PLC0415
 
         stations = cast("DwdDmoRequest", self.sr.stations)
-        dataset_name = "icon-eu" if dataset.name_original == "icon_eu" else dataset.name_original
-        station_group = cast("DwdDmoStationGroup", stations.station_group)
-        path = f"weather/local_forecasts/dmo/{dataset_name}/{station_group.value}"
-        if station_group == DwdDmoStationGroup.ALL_STATIONS:
-            return f"{path}/kmz"
-        return f"{path}/{station_id}/kmz/"
+        return _dmo_kmz_path(
+            dataset.name_original,
+            cast("DwdDmoStationGroup", stations.station_group),
+            station_id,
+        )
 
     @property
     def metadata(self) -> pl.DataFrame:
@@ -343,12 +357,45 @@ class DwdDmoRequest(TimeseriesRequest):
         return adjusted_date.replace(hour=adjusted_date.hour // 12 * 12)
 
     @classmethod
-    def available_issues(cls, station_id: str, settings: Settings) -> list[dt.datetime]:
-        """Return datetimes for which DMO ICON single-station files exist on DWD's server.
+    def available_issues(
+        cls,
+        station_id: str,
+        settings: Settings,
+        *,
+        dataset: DatasetModel | str = "icon",
+        station_group: DwdDmoStationGroup | str | None = None,
+        lead_time: DwdDmoLeadTime | str | None = None,
+    ) -> list[dt.datetime]:
+        """Return the run start times DWD publishes for one product, in ascending UTC order.
 
-        Run start times are deduplicated across lead times (078/168) and sorted in ascending UTC order.
+        Answers for a particular product, because the values path reads a particular product: this
+        listed `icon/single_stations/<id>/kmz/` whatever the request was for, and named issues that
+        the request would then reject (GH-1956). Two ways, both measured against the live server:
+        `all_stations` publishes only the `078` lead time, so an issue advertised from a `168` file
+        met `IndexError: Unable to find a 168 h forecast within ...`; and `icon-eu` has no
+        single-station directory at all, so every issue this advertised for it resolved to an empty
+        frame. The directory comes from `_dmo_kmz_path` now, which is the one the values path reads.
+
+        The defaults are `DwdDmoRequest`'s own, so what this answers with no arguments is what a
+        request built with no arguments accepts. Pass `lead_time=None` for the old behaviour of
+        listing the runs of every lead time together, which is a question about the directory rather
+        than about anything that can be asked for.
+
+        Args:
+            station_id: The station to answer for, where the product is published per station.
+            settings: The settings to list with.
+            dataset: The DMO product -- `icon` or `icon_eu`, or the `DatasetModel` itself.
+            station_group: `single_stations` (the default) or `all_stations`.
+            lead_time: `short` (078, the default) or `long` (168); `None` lists every lead time.
+
+        Returns:
+            The run start times, tz-aware UTC, deduplicated and ascending.
+
         """
-        url = urljoin("https://opendata.dwd.de", f"weather/local_forecasts/dmo/icon/single_stations/{station_id}/kmz/")
+        group = parse_enumeration_from_template(station_group, DwdDmoStationGroup) or DwdDmoStationGroup.SINGLE_STATIONS
+        lead = parse_enumeration_from_template(lead_time, DwdDmoLeadTime) if lead_time is not None else None
+        name_original = dataset.name_original if isinstance(dataset, DatasetModel) else str(dataset)
+        url = urljoin("https://opendata.dwd.de", _dmo_kmz_path(name_original, group, station_id))
         urls = list_remote_files_fsspec(url, settings, CacheExpiry.NO_CACHE)
         if not urls:
             # a directory that exists and holds nothing has no issues to name. Built into a frame
@@ -366,12 +413,14 @@ class DwdDmoRequest(TimeseriesRequest):
             log.warning(f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty")
             return []
         df = pl.DataFrame({"url": urls}, orient="col")
-        # the same rule `get_url_for_date` reads by, asked without a lead time because this lists
-        # the runs of both. A name that is not a forecast carries no stamp and is dropped
-        df = df.with_columns(_run_stamp(pl.col("url")).alias("date_str"))
+        # the same rule `get_url_for_date` reads by, and for the same lead time, so what is
+        # advertised is what it will accept. A name that is not a forecast carries no stamp and is
+        # dropped
+        df = df.with_columns(_run_stamp(pl.col("url"), lead).alias("date_str"))
         df = df.filter(pl.col("date_str").is_not_null())
         if df.is_empty():
-            log.warning(f"None of the {len(urls)} entries listed within {url} is a forecast file")
+            what = "a forecast file" if lead is None else f"a {lead.value} h forecast"
+            log.warning(f"None of the {len(urls)} entries listed within {url} is {what}")
             return []
         now_utc = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
         df = add_date_from_filename(df, now_utc)

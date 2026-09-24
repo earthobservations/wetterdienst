@@ -32,6 +32,20 @@ Types of changes:
 
 ### Changed
 
+- `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset` (`icon` or
+  `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
+  `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request built
+  with no arguments accepts. It used to list `icon/single_stations/<id>/kmz/` whatever the request
+  would go on to read, and name issues that request then rejected: `all_stations` publishes only the
+  `078` lead time, so an issue advertised from a `168` file met `IndexError: Unable to find a 168 h
+  forecast within ...`, and `icon-eu` has no single-station directory upstream at all, so every
+  issue advertised for it resolved to an empty frame with nothing said. Both measured against the
+  live server. The directory is named by one function that the values path uses too, so the two
+  cannot drift apart again. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time`
+  to match, and say so rather than ignoring them where the network is not DMO. Passing
+  `lead_time=None` restores the old listing of every lead time together, which is a question about
+  the directory rather than about anything that can be requested. GH-1956
+
 - `Settings.auth` holds `SecretStr` rather than `str`, so code that reads a credential off the
   settings has to ask for it: `reveal(settings.auth.aemet)`, or `.get_secret_value()`. Setting them
   is unchanged -- the env vars, the strings and the pairs all read as they did -- and so is every
