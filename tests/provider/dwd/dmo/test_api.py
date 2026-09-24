@@ -1077,3 +1077,81 @@ def test_dmo_a_run_stamp_becomes_the_hour_it_names(stamp: str, expected: dt.date
     )
 
     assert df.get_column("date").item() == expected
+
+
+# upstream serves these and no canonical parameter names them, so the metadata cannot declare them
+# yet. Named here rather than skipped, so that adding one of them makes this test say so. `rad3h`
+# is only in the 3-hourly run, which is why `icon_eu`, publishing 078 alone, does not see it
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("dataset", "lead_times", "without_a_canonical_name"),
+    [
+        pytest.param("icon", ("078", "168"), {"rad3h", "radl1", "rads1"}, id="icon"),
+        pytest.param("icon_eu", ("078",), {"radl1", "rads1"}, id="icon_eu"),
+    ],
+)
+def test_dmo_declares_the_elements_its_runs_carry(
+    dataset: str,
+    lead_times: tuple[str, ...],
+    without_a_canonical_name: set[str],
+    default_settings: Settings,
+) -> None:
+    """A DMO run carries 21 elements; the metadata declared 122 for `icon` and 40 for `icon_eu`.
+
+    Those lists were MOSMIX's, copied in when the provider was written -- which is also why `icon`
+    held MOSMIX-L's 115 and `icon_eu` MOSMIX-S's 40, a split DMO does not have: both products carry
+    the same elements, and differ in the domain and the lead times they carry them for. A request
+    for one of the other 99 and 22 came back empty with nothing saying the product never forecasts
+    it, which reads exactly like a station with no data.
+
+    Upstream rather than a stub, because what is asserted is a fact about upstream. It reads a
+    single-station run through `KMLReader`, the same handle the values path parses.
+    """
+    import re  # noqa: PLC0415
+    from urllib.parse import urljoin  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo.api import DwdDmoStationGroup, _dmo_kmz_path  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix.access import KMLReader  # noqa: PLC0415
+    from wetterdienst.util.network import list_remote_directory_fsspec  # noqa: PLC0415
+
+    name_original = DwdDmoRequest.metadata["hourly"][dataset].name_original
+    stations = (
+        DwdDmoRequest(parameters=[("hourly", dataset)], settings=default_settings)
+        .all()
+        .df.get_column("station_id")
+        .to_list()
+    )
+    assert stations, f"{dataset} covers no station at all"
+
+    # a station the catalogue lists may still have no directory of its own, so take the first that
+    # does rather than pinning one id that upstream is free to drop
+    files: list[str] = []
+    for station_id in stations[:5]:
+        url = urljoin(
+            "https://opendata.dwd.de",
+            _dmo_kmz_path(name_original, DwdDmoStationGroup.SINGLE_STATIONS, station_id),
+        )
+        try:
+            entries = list_remote_directory_fsspec(url, settings=default_settings)
+        except Exception:  # noqa: BLE001, S112
+            continue
+        files = [entry["name"] for entry in entries if entry["name"].endswith(".kmz")]
+        if files:
+            break
+    assert files, f"none of the first five {dataset} stations publishes a run"
+
+    reader = KMLReader(station_ids=[station_id], settings=default_settings)
+    served = set()
+    for lead_time in lead_times:
+        # which run does not matter -- the element set is a property of the product, not of the run
+        runs = [file for file in files if f"_{lead_time}_" in file.rsplit("/", 1)[-1]]
+        assert runs, f"{dataset} publishes no {lead_time} h run for station {station_id}"
+        raw = reader.fetch(runs[0]).read()
+        served |= {element.decode().lower() for element in re.findall(rb'elementName="([^"]+)"', raw)}
+
+    declared = {parameter.name_original.lower() for parameter in DwdDmoRequest.metadata["hourly"][dataset]}
+
+    assert not declared - served, f"{dataset} declares parameters no run carries: {sorted(declared - served)}"
+    assert served - declared == without_a_canonical_name, (
+        f"{dataset} serves elements it does not declare: {sorted(served - declared)}"
+    )

@@ -344,6 +344,20 @@ Types of changes:
   and `Unknown export file type` reported a traceback or a sentence depending on which `--if_exists`
   the run happened to pass. The handler is two arms with nothing to decide now, and
   `Unknown export file type` names the target it could not write
+- DWD DMO declares the elements its runs carry, which is 23 parameters for `icon` and 19 for
+  `icon_eu` rather than 122 and 40. The old lists were MOSMIX's, copied in when the provider was
+  written -- which is also why `icon` held MOSMIX-L's count and `icon_eu` MOSMIX-S's, a split DMO
+  does not have: both products carry the same elements, and differ in the domain and the lead times
+  they carry them for. Measured over 22 runs across 12 stations, both products, both lead times and
+  both station groups: every run carries 21 elements, `dd ff fx3 n neff nh nl nm pppp rad1h radl1
+  rads1 rr1 rrs1c t5cm td tn ttt tx w1w2 ww`, with the 3-hourly run substituting `rad3h radl3 rads3
+  rr3 rrs3c` for their 1-hourly counterparts. Asking for one of the other 99 and 22 returned an
+  empty frame with nothing saying the product never forecasts it -- indistinguishable from a station
+  that happens to have no data. `precipitation_height_last_1h` is *added* to `icon_eu`, which serves
+  it and did not declare it. Three served elements stay undeclared because no canonical parameter
+  names them yet: `rad3h`, `radl1` and `rads1`. `test_dmo_declares_the_elements_its_runs_carry`
+  reads a run through the same `KMLReader` handle the values path parses and holds both directions,
+  so a declaration that stops matching upstream is a failing test rather than an empty frame
 - `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset` (`icon` or
   `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
   `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request built
