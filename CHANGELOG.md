@@ -74,6 +74,27 @@ Types of changes:
 
 ### Fixed
 
+- DWD DMO: a station the shared catalogue omits is described from the product's newest run, so it can
+  be asked for. 135 of the stations `icon` forecasts for and 132 of `icon_eu`'s are absent from
+  `dmo_stationsliste_txt.asc` -- 72 of them with ids it never carries, such as `Y0330`, `G431` and
+  `O015` -- and being absent from it they were filtered out of every request, although their
+  forecasts are published and fetch with HTTP 200. `Y0353` is Mont Blanc. The run's placemarks carry
+  an id, a name and a position in decimal degrees, which is what these stations are now described
+  with; they carry no ICAO id, so the catalogue stays the source for the stations it does list rather
+  than being replaced, and the added ones report `icao_id` as null, which the catalogue already does
+  for the stations it writes as `----`. Both products now advertise exactly what they publish, 5757
+  and 3688. The run is read only where the catalogue is missing something, so a catalogue DWD
+  completes costs nothing, and once per product per request; a run that cannot be read leaves the
+  catalogue as it was and says so, as does one placemark that cannot be, the rest of them still
+  describing their stations
+
+- DWD DMO: a run stamp becomes the hour it names whatever that hour is. `DDHHMM` had its day, month
+  and minute padded back to two digits before the datetime was parsed, but not its hour, so `3` made
+  `...01300`, where `%H` takes the `30` it can see and rejects it as an hour. `00` survived only
+  because `%H` could take both its digits and leave `%M` the one it needed. DMO publishes at `00` and
+  `12` so no run has ever hit this, and it is fixed because the rule is about the stamp rather than
+  about which hours DWD happens to use
+
 - DWD DMO: a station position is read as the degrees and minutes the catalogue writes it in, and the
   seven hardcoded station patches are gone. `dmo_stationsliste_txt.asc` is one format throughout,
   `{degrees}.{minutes:2d}`, and it is the degrees rendering empty at zero that makes the rest look
