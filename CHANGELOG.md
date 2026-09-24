@@ -73,6 +73,22 @@ Types of changes:
 
 ### Fixed
 
+- DWD DMO: a station is advertised only for the product that forecasts for it. `dmo_stationsliste_txt.asc`
+  is one list for both DMO products and matches neither: of its 5811 stations `icon` covers 5622 and
+  `icon_eu` 3556, so a request for `icon_eu` listed 2255 stations that could only ever answer with an
+  empty frame -- indistinguishable, from the caller's side, from a forecast that is merely missing
+  right now, and from the swallowed listing GH-1947 was about. Which stations a product covers is now
+  read from its `single_stations/` directory, whose entries are exactly the placemarks that product's
+  `all_stations` run carries, so the correction costs one directory listing rather than a 20 MB parse.
+  A listing that cannot be read keeps the shared catalogue rather than answering that a product has no
+  stations, and says which it handed back. Four of the seven hardcoded station patches are genuinely
+  outside `icon_eu` -- Gao, São Gabriel da Cachoeira, Quito and Quito/Mariscal Sucre lie outside a
+  European domain -- and are now dropped for it too
+
+- DWD DMO: the directory a product is served from is named by a total mapping rather than one special
+  case with a pass-through, so a product added without deciding its upstream spelling is refused where
+  the decision is missing instead of 404ing at request time
+
 - DWD swsmos: a body that could not be read is not fetched a second time when the caller has
   disabled the cache. The re-ask exists to get past a cached bad body, and `cache_disable` now says
   whether there is one: it named nothing in `NetworkFilesystemManager`'s registry key when this was

@@ -26,7 +26,7 @@ from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
-from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.network import download_file, list_remote_directory_fsspec, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
@@ -142,6 +142,38 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
 _SINGLE_STATION_PATH = re.compile(r"/single_stations/[^/]+/")
 
 
+# the spelling upstream publishes each product under, which is not the spelling the metadata names
+# it by: `icon_eu` is served from `icon-eu`. Total rather than a pass-through with one special case,
+# so a third product cannot inherit the metadata spelling by default and 404 far from the cause --
+# `test_every_dmo_product_has_a_directory_upstream` fails the moment one is added without a decision
+_DMO_PRODUCT_DIRS = {"icon": "icon", "icon_eu": "icon-eu"}
+
+
+def _dmo_product_dir(dataset_name_original: str) -> str:
+    """Name the directory one DMO product publishes under, in the spelling upstream uses for it."""
+    try:
+        dataset_name = _DMO_PRODUCT_DIRS[dataset_name_original]
+    except KeyError:
+        msg = (
+            f"No DMO product directory is known for {dataset_name_original!r}; "
+            f"known products are {sorted(_DMO_PRODUCT_DIRS)}"
+        )
+        raise ValueError(msg) from None
+    return f"weather/local_forecasts/dmo/{dataset_name}"
+
+
+def _dmo_station_dir(dataset_name_original: str) -> str:
+    """Name the directory holding one subdirectory per station a DMO product forecasts for.
+
+    Upstream publishes no station list per product -- `dmo_stationsliste_txt.asc` is one list for
+    both -- but it publishes this, and for both products the names in here are exactly the
+    placemarks that product's `all_stations` run carries (measured 2026-09-24: 5757 for `icon`,
+    3688 for `icon_eu`, both sets identical to the placemarks). So it answers which stations a
+    product covers for the cost of one directory listing rather than a 20 MB parse.
+    """
+    return f"{_dmo_product_dir(dataset_name_original)}/{DwdDmoStationGroup.SINGLE_STATIONS.value}"
+
+
 def _dmo_kmz_path(dataset_name_original: str, station_group: DwdDmoStationGroup, station_id: str | None) -> str:
     """Name the directory one product publishes its runs in.
 
@@ -150,8 +182,7 @@ def _dmo_kmz_path(dataset_name_original: str, station_group: DwdDmoStationGroup,
     `icon/single_stations/<id>/kmz/` whatever the request would go on to read, and named issues the
     values path then rejected (GH-1956).
     """
-    dataset_name = "icon-eu" if dataset_name_original == "icon_eu" else dataset_name_original
-    path = f"weather/local_forecasts/dmo/{dataset_name}/{station_group.value}"
+    path = f"{_dmo_product_dir(dataset_name_original)}/{station_group.value}"
     if station_group is DwdDmoStationGroup.ALL_STATIONS:
         return f"{path}/kmz"
     return f"{path}/{station_id}/kmz/"
@@ -268,8 +299,10 @@ class DwdDmoValues(TimeseriesValues):
             # once per product, not once per station. `all_stations` asks this for every station
             # in the request against one URL, and `single_stations` -- the default -- asks against
             # a URL carrying the station id, so keying on the URL itself deduplicated only half of
-            # it. `icon_eu` has no single-station directory upstream at all (404), so a request for
-            # it would have printed one line per station of the catalogue for one root cause
+            # it. A request for `icon_eu` used to print one line per station of the catalogue,
+            # because the catalogue was the one shared by both products and 2255 of its stations
+            # have no `icon_eu` directory to list; narrowing it to the product (GH-1964) leaves
+            # this for the stations a product drops between two listings
             key = _SINGLE_STATION_PATH.sub("/single_stations/<station>/", url)
             if key not in self._listings_warned_about:
                 self._listings_warned_about.add(key)
@@ -513,6 +546,43 @@ class DwdDmoRequest(TimeseriesRequest):
         ],
     )
 
+    def _covered_station_ids(self, dataset_name_original: str) -> set[str] | None:
+        """Read which stations one DMO product forecasts for, or None if that could not be read.
+
+        The catalogue at `_url` is one list for both products and matches neither. Of its 5811
+        stations `icon` covers 5622 and `icon_eu` 3556 (measured 2026-09-24), so a request for
+        `icon_eu` advertised 2255 stations that can only ever answer with an empty frame -- which
+        from the caller's side is indistinguishable from a station whose forecast is merely missing
+        right now, and from the swallowed listing GH-1947 was about (GH-1964).
+
+        None rather than an empty set when the listing cannot be read, because the two mean opposite
+        things: the caller keeps the whole catalogue for a listing it could not read, rather than
+        answering that a product has no stations at all.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
+        url = urljoin("https://opendata.dwd.de", _dmo_station_dir(dataset_name_original))
+        try:
+            entries = list_remote_directory_fsspec(url, settings, CacheExpiry.METAINDEX)
+        except Exception as ex:  # noqa: BLE001
+            # degraded audibly rather than silently: falling back to the shared catalogue is the
+            # behaviour this method exists to correct, so a caller getting it back has to hear why
+            log.warning(
+                f"Unable to list the stations {dataset_name_original} covers within {url} ({ex!r}); "
+                f"falling back to the catalogue shared by both DMO products, which is wider than "
+                f"either of them",
+            )
+            return None
+        station_ids = {entry["name"].rstrip("/").rsplit("/", 1)[-1] for entry in entries}
+        station_ids.discard("")
+        if not station_ids:
+            log.warning(
+                f"No station listed within {url}; falling back to the catalogue shared by both DMO products",
+            )
+            return None
+        return station_ids
+
     def _all(self) -> pl.LazyFrame:
         """Get all stations from DMO."""
         from typing import cast  # noqa: PLC0415
@@ -558,15 +628,20 @@ class DwdDmoRequest(TimeseriesRequest):
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
 
         resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name)
+            (parameter.dataset.resolution.name, parameter.dataset.name, parameter.dataset.name_original)
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
         }
         data = []
-        # for each combination of resolution and dataset create a new DataFrame with the columns
-        for resolution, dataset in resolutions_and_datasets:
+        # for each combination of resolution and dataset create a new DataFrame with the columns,
+        # narrowed to the stations that combination's product actually forecasts for
+        for resolution, dataset, dataset_original in resolutions_and_datasets:
+            df_dataset = df_raw
+            covered = self._covered_station_ids(dataset_original)
+            if covered is not None:
+                df_dataset = df_dataset.filter(pl.col("station_id").is_in(covered))
             data.append(
-                df_raw.with_columns(
+                df_dataset.with_columns(
                     pl.lit(resolution, pl.String).alias("resolution"),
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),

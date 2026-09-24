@@ -349,9 +349,10 @@ def test_dmo_an_empty_listing_is_reported_once_per_product_not_once_per_station(
 ) -> None:
     """`single_stations` is the default, and its URL carries the station id.
 
-    Keying the dedup on the URL itself deduplicated only the `all_stations` half. `icon_eu` has no
-    single-station directory upstream at all (404), so a request for it would have printed one
-    warning per station of the catalogue for one root cause.
+    Keying the dedup on the URL itself deduplicated only the `all_stations` half. A request for
+    `icon_eu` would have printed one warning per station of the catalogue for one root cause,
+    because the catalogue was the one shared by both products and 2255 of its stations have no
+    `icon_eu` directory to list (GH-1964).
     """
     import logging  # noqa: PLC0415
 
@@ -388,9 +389,10 @@ def test_dmo_available_issues_reads_the_directory_the_values_path_reads(
 
     `available_issues` always listed `icon/single_stations/<id>/kmz/`, so it advertised the runs of
     one product for a request that would go on to read another -- and both mismatches were live.
-    `all_stations` publishes only the `078` lead time, so an issue advertised from a `168` file met
-    `IndexError: Unable to find a 168 h forecast within ...`; and `icon-eu` has no single-station
-    directory upstream at all, so every issue advertised for it resolved to an empty frame.
+    `icon_eu`'s `all_stations` publishes only the `078` lead time, so an issue advertised from a
+    `168` file met `IndexError: Unable to find a 168 h forecast within ...`; and a station the
+    shared catalogue listed for `icon_eu` without `icon_eu` covering it has no single-station
+    directory upstream, so every issue advertised for it resolved to an empty frame (GH-1964).
     """
     from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
 
@@ -441,3 +443,213 @@ def test_dmo_available_issues_answers_for_the_lead_time_it_is_asked_for(
 
     assert sorted(issue.hour for issue in issues) == expected_hours
     assert all(issue.tzinfo is not None for issue in issues)
+
+
+_PATCHED_STATIONS = set(DwdDmoRequest._station_patches.get_column("station_id").to_list())  # noqa: SLF001
+
+
+def _catalogue_line(station_id: str, name: str) -> str:
+    """Lay one station out at the fixed-width offsets `_all` reads the DWD catalogue at."""
+    return f"{station_id:<5}{'----':<5}{name:<21}{'5423':>8}{'1030':>8} {'40':>9}"
+
+
+def _stub_catalogue(monkeypatch: pytest.MonkeyPatch, station_ids: list[str]) -> None:
+    """Answer the shared `dmo_stationsliste_txt.asc` with a catalogue of exactly these stations."""
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    lines = ["ID   ICAO NAME                      LAT      LON    ELEV", "-" * 57]
+    lines += [_catalogue_line(station_id, f"Station {station_id}") for station_id in station_ids]
+    # `_all` pops the header and then skips one more line, so both of those have to be here
+    content = ("\n".join(lines) + "\n").encode("latin-1")
+
+    class _StubFile:
+        def __init__(self) -> None:
+            self.content = BytesIO(content)
+
+        def raise_if_exception(self) -> None:
+            pass
+
+    monkeypatch.setattr(api, "download_file", lambda **_kwargs: _StubFile())
+
+
+def _stub_coverage(monkeypatch: pytest.MonkeyPatch, coverage: dict[str, list[str]]) -> None:
+    """Answer each product's `single_stations/` listing with the stations it is said to cover."""
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    def listing(url: str, *_args: object, **_kwargs: object) -> list[dict]:
+        product = "icon_eu" if "icon-eu" in url else "icon"
+        return [{"name": f"{url.rstrip('/')}/{station_id}/", "type": "directory"} for station_id in coverage[product]]
+
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", listing)
+
+
+def _advertised(df: pl.DataFrame, dataset: str) -> list[str]:
+    """Give back the catalogue stations one dataset advertises, leaving the hardcoded patches aside."""
+    return sorted(set(df.filter(dataset=dataset).get_column("station_id").to_list()) - _PATCHED_STATIONS)
+
+
+def test_dmo_a_station_is_advertised_only_for_the_product_that_covers_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The whole of GH-1964: one catalogue was served for two products covering different stations.
+
+    `dmo_stationsliste_txt.asc` is one list for both, and matches neither -- of its 5811 stations
+    `icon` covers 5622 and `icon_eu` 3556 (measured 2026-09-24). So `icon_eu` advertised 2255
+    stations that could only ever answer with an empty frame, which from the caller's side is
+    indistinguishable from a forecast that is merely missing right now, and from the swallowed
+    listing GH-1947 was about.
+    """
+    _stub_catalogue(monkeypatch, ["01001", "01023", "01047"])
+    _stub_coverage(
+        monkeypatch,
+        {
+            "icon": ["01001", "01023", "01047", *_PATCHED_STATIONS],
+            "icon_eu": ["01023", *_PATCHED_STATIONS],
+        },
+    )
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon"), ("hourly", "icon_eu")]).all().df
+
+    assert _advertised(df, "icon") == ["01001", "01023", "01047"]
+    assert _advertised(df, "icon_eu") == ["01023"]
+
+
+def test_dmo_a_patched_station_is_dropped_for_a_product_that_does_not_reach_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The patches add stations the shared catalogue omits; they are not exempt from coverage.
+
+    Four of the seven really are absent from `icon_eu` upstream -- `61226`, `82106`, `84071` and
+    `F9766` sit outside a European domain -- so keeping them for `icon_eu` would advertise exactly
+    what GH-1964 is about, in the one place a filter is easiest to forget.
+    """
+    _stub_catalogue(monkeypatch, ["01001"])
+    _stub_coverage(monkeypatch, {"icon": ["01001", *_PATCHED_STATIONS], "icon_eu": ["01001"]})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon"), ("hourly", "icon_eu")]).all().df
+
+    icon = set(df.filter(dataset="icon").get_column("station_id").to_list())
+    icon_eu = set(df.filter(dataset="icon_eu").get_column("station_id").to_list())
+    assert icon >= _PATCHED_STATIONS
+    assert not _PATCHED_STATIONS & icon_eu
+
+
+@pytest.mark.parametrize(
+    ("dataset", "expected"),
+    [
+        ("icon", "https://opendata.dwd.de/weather/local_forecasts/dmo/icon/single_stations"),
+        ("icon_eu", "https://opendata.dwd.de/weather/local_forecasts/dmo/icon-eu/single_stations"),
+    ],
+)
+def test_dmo_coverage_is_read_from_the_directory_that_holds_one_entry_per_station(
+    monkeypatch: pytest.MonkeyPatch,
+    dataset: Literal["icon", "icon_eu"],
+    expected: str,
+) -> None:
+    """`single_stations/` holds a directory per station; `all_stations/kmz` holds the runs.
+
+    Listing the latter would hand back run filenames as if they were station ids, and every station
+    in the catalogue would then be filtered out of it -- an empty stations result for a product that
+    covers thousands.
+    """
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    listed = []
+
+    def listing(url: str, *_args: object, **_kwargs: object) -> list[dict]:
+        listed.append(url)
+        return [{"name": f"{url}/01001/", "type": "directory"}]
+
+    _stub_catalogue(monkeypatch, ["01001"])
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", listing)
+    DwdDmoRequest(parameters=[("hourly", dataset)]).all()
+
+    assert listed == [expected]
+
+
+def test_dmo_a_station_listing_that_cannot_be_read_keeps_the_catalogue_and_says_why(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A listing that failed and a product that covers nothing mean opposite things.
+
+    Answering the second for the first would empty the stations result over a transient network
+    fault, so the shared catalogue stays -- but the caller has to hear that it is the wider one.
+    """
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    _stub_catalogue(monkeypatch, ["01001", "01023"])
+
+    def raising(*_args: object, **_kwargs: object) -> list[dict]:
+        msg = "connection reset"
+        raise OSError(msg)
+
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", raising)
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon_eu")]).all().df
+
+    assert _advertised(df, "icon_eu") == ["01001", "01023"]
+    assert set(df.get_column("station_id").to_list()) >= _PATCHED_STATIONS
+    assert [record for record in caplog.records if "falling back to the catalogue" in record.message]
+
+
+def test_dmo_an_empty_station_listing_keeps_the_catalogue_too(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An empty listing is the swallowed-walk shape of GH-1947, not a product without stations."""
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    _stub_catalogue(monkeypatch, ["01001", "01023"])
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", lambda *_args, **_kwargs: [])
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    assert _advertised(df, "icon") == ["01001", "01023"]
+    assert [record for record in caplog.records if "No station listed within" in record.message]
+
+
+def test_every_dmo_product_has_a_directory_upstream() -> None:
+    """The metadata names a product; only this mapping knows what upstream serves it from.
+
+    A third DMO product would otherwise inherit the metadata spelling by default and 404 at request
+    time, far from the decision that was never made -- the way `icon_eu` would have, being served
+    from `icon-eu`.
+    """
+    from wetterdienst.provider.dwd.dmo.api import _DMO_PRODUCT_DIRS  # noqa: PLC0415
+
+    products = {dataset.name_original for resolution in DwdDmoRequest.metadata for dataset in resolution}
+
+    assert products <= set(_DMO_PRODUCT_DIRS), f"no upstream directory for {products - set(_DMO_PRODUCT_DIRS)}"
+
+
+def test_dmo_refuses_a_product_it_knows_no_directory_for() -> None:
+    """Named as itself, rather than passed through to a 404 the caller works backwards from."""
+    from wetterdienst.provider.dwd.dmo.api import _dmo_product_dir  # noqa: PLC0415
+
+    with pytest.raises(ValueError, match="No DMO product directory is known for 'icon_d2'"):
+        _dmo_product_dir("icon_d2")
+
+
+@pytest.mark.remote
+def test_dmo_the_two_products_really_do_cover_different_stations(default_settings: Settings) -> None:
+    """Upstream rather than a stub, because the premise of the fix is a fact about upstream."""
+    covered = {
+        dataset: set(
+            DwdDmoRequest(parameters=[("hourly", dataset)], settings=default_settings)
+            .all()
+            .df.get_column("station_id")
+            .to_list()
+        )
+        for dataset in ("icon", "icon_eu")
+    }
+
+    assert covered["icon"], "icon covers no station at all"
+    assert covered["icon_eu"], "icon_eu covers no station at all"
+    assert len(covered["icon_eu"]) < len(covered["icon"]), "icon covers more stations than icon_eu"
