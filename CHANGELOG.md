@@ -38,9 +38,9 @@ Types of changes:
   with no arguments accepts. It used to list `icon/single_stations/<id>/kmz/` whatever the request
   would go on to read, and name issues that request then rejected: `all_stations` publishes only the
   `078` lead time, so an issue advertised from a `168` file met `IndexError: Unable to find a 168 h
-  forecast within ...`, and `icon-eu` has no single-station directory upstream at all, so every
-  issue advertised for it resolved to an empty frame with nothing said. Both measured against the
-  live server. The directory is named by one function that the values path uses too, so the two
+  forecast within ...`, and a station the shared catalogue listed for `icon_eu` without `icon_eu`
+  covering it has no single-station directory, so every issue advertised for it resolved to an empty
+  frame with nothing said. Both measured against the live server. The directory is named by one function that the values path uses too, so the two
   cannot drift apart again. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time`
   to match, and say so rather than ignoring them where the network is not DMO. Passing
   `lead_time=None` restores the old listing of every lead time together, which is a question about
@@ -72,6 +72,22 @@ Types of changes:
   guards in the radar API read as dead code to the type checker
 
 ### Fixed
+
+- DWD DMO: a station position is read as the degrees and minutes the catalogue writes it in, and the
+  seven hardcoded station patches are gone. `dmo_stationsliste_txt.asc` pads its minutes to two digits
+  except where the degrees are zero, which it writes without them and with the minutes unpadded, and
+  where such a value is also negative it puts the sign on the minutes. So `.5` is 0°05' and `.-6` is
+  -0°06'. Read as plain decimals, `.5` became 0°50' -- a station 84 km from where DWD says it is, and
+  nothing raised -- while `.-6` raised `conversion from str to f64 failed` naming neither column nor
+  station, which is what the patches existed to avoid. Of 11 545 position fields 21 are written this
+  way: 11 landed 50 to 150 km out silently, 7 could not be cast at all. All 21 now land on the
+  coordinate DWD's own KMZ placemarks carry, to 0.000 km for all seven formerly patched stations --
+  where the patches were 4 to 28 km out, put London City on the wrong side of Greenwich, and gave
+  London Weather Centre a height of 5 m against the 43 m both DWD sources agree on. One field is
+  beyond reach: `P0563` (London Luton) is written `.22` where DWD's placemark says -0.37, the sign
+  missing rather than misplaced, and nothing distinguishes that from the 55 degreeless fields that
+  really are positive -- it is read as written, exactly as before. The MOSMIX catalogue shares the
+  format and the conversion but has no such row, so this stays with DMO
 
 - DWD DMO: a station is advertised only for the product that forecasts for it. `dmo_stationsliste_txt.asc`
   is one list for both DMO products and matches neither: of its 5811 stations `icon` covers 5622 and

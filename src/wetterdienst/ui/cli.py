@@ -526,7 +526,7 @@ Acquire MOSMIX data:
 
 Acquire DMO data:
 
-    wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon_eu/ttt --station=65510
+    wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon_eu/ttt --station=10488
 
     # short lead time
     wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --station=65510 --lead_time=short

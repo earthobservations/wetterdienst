@@ -149,6 +149,50 @@ _SINGLE_STATION_PATH = re.compile(r"/single_stations/[^/]+/")
 _DMO_PRODUCT_DIRS = {"icon": "icon", "icon_eu": "icon-eu"}
 
 
+def _dm_degrees(column: str) -> pl.Expr:
+    """Read one `dmo_stationsliste_txt.asc` position column, which is degrees and minutes.
+
+    `70.56` is 70 degrees 56 minutes, and the minutes are zero-padded -- except in the rows where the
+    degrees are zero. Those it writes without the degrees and with the minutes unpadded, and where
+    such a value is also negative it puts the sign on the minutes:
+
+    ===========  =============  ========
+    as written   means          DWD's own KMZ says
+    ===========  =============  ========
+    ``.5``       0 deg 05'      0.0800
+    ``.19``      0 deg 19'      0.3167
+    ``.-6``      -0 deg 06'     -0.1000
+    ===========  =============  ========
+
+    Read as a plain decimal, `.5` is 0 deg 50' -- 0.83 rather than 0.08, a station put 84 km from
+    where DWD says it is, and nothing raises. `.-6` does raise, with `conversion from str to f64
+    failed` naming neither the column nor the station. Of 11 545 position fields 21 are written this
+    way: 14 unpadded, 11 of which land 50 to 150 km out, and 7 signed, which is what the hardcoded
+    station patches were for.
+
+    Normalised to `[-]0.MM` first, so both shapes reach the cast as the decimal the file meant. The
+    MOSMIX catalogue is the same format read by the same conversion and has no such row -- every one
+    of its 11 298 fields carries its degrees -- so this belongs here rather than in the shared reader.
+
+    What this cannot reach: a degreeless field whose sign is missing rather than misplaced. The file
+    writes one, `P0563` (London Luton), as `.22` where DWD's own placemark says -0.37, and nothing in
+    the field distinguishes that from the 55 degreeless fields that really are positive. It is read
+    as written, 82 km east of Luton, exactly as it was before this function existed.
+    """
+    return (
+        pl.col(column)
+        .str.replace_all(" ", "")
+        # the sign belongs to the value, not to its minutes: `.-6` -> `-.6`
+        .str.replace(r"^\.-(\d{1,2})$", "-.${1}")
+        # and the minutes are two digits, so a lone one is a leading zero away from being read as ten
+        # times itself: `-.6` -> `-0.06`, while `.19` -> `0.19` is the same number written out
+        .str.replace(r"^(-?)\.(\d)$", "${1}0.0${2}")
+        .str.replace(r"^(-?)\.(\d\d)$", "${1}0.${2}")
+        .cast(float)
+        .map_batches(convert_dm_to_dd, return_dtype=pl.Float64)
+    )
+
+
 def _dmo_product_dir(dataset_name_original: str) -> str:
     """Name the directory one DMO product publishes under, in the spelling upstream uses for it."""
     try:
@@ -404,10 +448,12 @@ class DwdDmoRequest(TimeseriesRequest):
         Answers for a particular product, because the values path reads a particular product: this
         listed `icon/single_stations/<id>/kmz/` whatever the request was for, and named issues that
         the request would then reject (GH-1956). Two ways, both measured against the live server:
-        `all_stations` publishes only the `078` lead time, so an issue advertised from a `168` file
-        met `IndexError: Unable to find a 168 h forecast within ...`; and `icon-eu` has no
-        single-station directory at all, so every issue this advertised for it resolved to an empty
-        frame. The directory comes from `_dmo_kmz_path` now, which is the one the values path reads.
+        `icon_eu`'s `all_stations` publishes only the `078` lead time, so an issue advertised from a
+        `168` file met `IndexError: Unable to find a 168 h forecast within ...`; and a station the
+        shared catalogue listed for `icon_eu` without `icon_eu` covering it has no single-station
+        directory, so every issue this advertised for it resolved to an empty frame -- GH-1964, which
+        narrowed the catalogue to the product. The directory comes from `_dmo_kmz_path` now, which is
+        the one the values path reads.
 
         The defaults are `DwdDmoRequest`'s own, so what this answers with no arguments is what a
         request built with no arguments accepts. Pass `lead_time=None` for the old behaviour of
@@ -485,67 +531,6 @@ class DwdDmoRequest(TimeseriesRequest):
         self.issue = issue
 
     # required patches for stations as data is corrupted for these at least atm
-    _station_patches = pl.DataFrame(
-        [
-            {
-                "station_id": "03779",
-                "icao_id": "EGRB",
-                "name": "LONDON WEATHER CENT.",
-                "latitude": "51.31",
-                "longitude": "-0.12",
-                "height": "5",
-            },
-            {
-                "station_id": "03781",
-                "icao_id": "----",
-                "name": "KENLEY",
-                "latitude": "51.18",
-                "longitude": "-0.08",
-                "height": "170",
-            },
-            {
-                "station_id": "61226",
-                "icao_id": "GAGO",
-                "name": "GAO",
-                "latitude": "16.16",
-                "longitude": "-0.05",
-                "height": "265",
-            },
-            {
-                "station_id": "82106",
-                "icao_id": "SBUA",
-                "name": "SAO GABRIEL CACHOEI",
-                "latitude": "-0.13",
-                "longitude": "-67.04",
-                "height": "90",
-            },
-            {
-                "station_id": "84071",
-                "icao_id": "SEQU",
-                "name": "QUITO",
-                "latitude": "-0.15",
-                "longitude": "-78.29",
-                "height": "2794",
-            },
-            {
-                "station_id": "F9766",
-                "icao_id": "SEQM",
-                "name": "QUITO/MARISCAL SUCRE",
-                "latitude": "-0.1",
-                "longitude": "-78.21",
-                "height": "2400",
-            },
-            {
-                "station_id": "P0478",
-                "icao_id": "EGLC",
-                "name": "LONDON/CITY INTL",
-                "latitude": "51.29",
-                "longitude": "0.12",
-                "height": "5",
-            },
-        ],
-    )
-
     def _covered_station_ids(self, dataset_name_original: str) -> set[str] | None:
         """Read which stations one DMO product forecasts for, or None if that could not be read.
 
@@ -614,12 +599,10 @@ class DwdDmoRequest(TimeseriesRequest):
             "longitude",
             "height",
         ]
-        df_raw = df_raw.join(self._station_patches.select("station_id"), how="anti", on="station_id")
-        df_raw = pl.concat([df_raw, self._station_patches])
         df_raw = df_raw.with_columns(
             pl.col("icao_id").replace("----", None),
-            pl.col("latitude").str.replace(" ", "").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
-            pl.col("longitude").str.replace(" ", "").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
+            _dm_degrees("latitude").alias("latitude"),
+            _dm_degrees("longitude").alias("longitude"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
             pl.lit(None, pl.String).alias("state"),
