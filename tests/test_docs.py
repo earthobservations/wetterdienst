@@ -207,22 +207,27 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
     ``Small`` and ``Large`` against datasets ``small`` and ``large``, so keying on the heading
     matched nothing there and left the whole page uncompared.
     """
-    heading = ""
+    heading: str | None = None
     prop: dict[str, str] | None = None
     for line in path.read_text(encoding="utf8").splitlines():
-        if line.startswith("### ") and not line.startswith("#### "):
-            heading = line[4:].strip()
         if not line.startswith("|"):
-            if prop is not None:
+            # flushed before the heading moves on, so a table not separated from the next `###` by a
+            # blank line is still yielded under the dataset it belongs to
+            if prop is not None and heading is not None:
                 yield {"name": heading, **prop}
-                prop = None
+            prop = None
+            if line.startswith("### ") and not line.startswith("#### "):
+                heading = line[4:].strip()
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells[:1] == ["property"]:
-            prop = {}
+            # only inside a dataset section: a page also carries a `## metadata` table for the
+            # resolution itself, and keying that as a dataset would compare a resolution's
+            # description against a dataset of the same name the day a provider declares one
+            prop = {} if heading is not None else None
         elif prop is not None and len(cells) >= 2 and not all(set(cell) <= {"-", ":"} for cell in cells):
             prop[cells[0]] = cells[1]
-    if prop is not None:
+    if prop is not None and heading is not None:
         yield {"name": heading, **prop}
 
 
@@ -290,8 +295,10 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
         tag = f"{provider}/{network}/{resolution.name}"
         if not documented:
             # collected rather than asserted, so one unparseable page does not hide every other
-            # page's findings -- and the two comparisons below name each parameter it lost anyway
+            # page's findings -- and skipped rather than compared, because otherwise it contributes
+            # one error per declared parameter and fills the report the same way an abort emptied it
             errors.append(f"{tag}: {path.name} parses to no parameter row at all")
+            continue
         declared = _substantive(
             (dataset.name, parameter.name, parameter.name_original)
             for dataset in resolution

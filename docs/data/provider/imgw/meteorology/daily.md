@@ -71,10 +71,10 @@
 |---------------------------------|--------------------------------|----------------------|------|-------------|
 | {term}`cloud_cover_total` | średnie dobowe zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
 | {term}`humidity` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
+| {term}`precipitation_height_day` | suma opadu dzień | Depth of precipitation collected during the daytime hours. | mm | >=0 |
+| {term}`precipitation_height_night` | suma opadu noc | Depth of precipitation collected during the night hours. | mm | >=0 |
 | {term}`pressure_air_site` | średnia dobowe ciśnienie na poziomie stacji | Pressure air site. | hPa | >=0 |
+| {term}`pressure_air_sea_level` | średnie dobowe ciśnienie na pozimie morza | Air pressure reduced to mean sea level, so that stations at different heights compare. | hPa | >=0 |
 | {term}`pressure_vapor` | średnia dobowe ciśnienie pary wodnej | Pressure vapor. | hPa | >=0 |
 | {term}`temperature_air_mean_2m` | średnia dobowa temperatura     | temperature air mean | °C   | -           |
 | {term}`wind_speed`              | średnia dobowa prędkość wiatru | wind speed           | m/s  | >=0         |
-| {term}`precipitation_height_day` | suma opadu dzień | Depth of precipitation collected during the daytime hours. | millimeter | - |
-| {term}`precipitation_height_night` | suma opadu noc | Depth of precipitation collected during the night hours. | millimeter | - |
-| {term}`pressure_air_sea_level` | średnie dobowe ciśnienie na pozimie morza | Air pressure reduced to mean sea level, so that stations at different heights compare. | hectopascal | - |

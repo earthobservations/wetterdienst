@@ -141,6 +141,16 @@ Types of changes:
 
 ### Fixed
 
+- `imgw/meteorology` daily writes `mm`/`>=0` for the precipitation and pressure rows its `synop`
+  table had as `millimeter`/`-` and `hectopascal`/`-`, which is what the same page's other datasets
+  and the same table's `pressure_air_site` already wrote. The monthly page was corrected in the
+  same change and the daily twin left alone.
+- Parameter tables keep the order the model declares them in, which 223 of the 271 documented
+  tables carry and which lines a page up one-to-one with its `metadata.py`. Sorting `mosmix` hourly
+  and `imgw` monthly alphabetically had broken the ascending-window grouping that made
+  `precipitation_height_last_1h, _3h, _6h, _12h, _24h` legible, reading it as `_12h, _1h, _24h,
+  _3h, _6h` instead, and the same for the `probability_fog_last_*`, `probability_drizzle_last_*`
+  and `wind_gust_max_last_*` families.
 - Four documented parameters that no request could ask for, and four requestable ones that no page
   documented, found by the presence test above. `dwd/mosmix` hourly documented
   `cloud_base_convective` and `cloud_cover_below_7km` under `small`, which the model declares for
