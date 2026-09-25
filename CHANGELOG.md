@@ -43,6 +43,13 @@ Types of changes:
   exist, so a resolution added without one was compared by nothing -- the same silent skip as a
   page that parses to nothing, which they already report. `test_data_coverage` checks the other
   direction, that every page is linked from its network index, and could not see this one
+- A dataset the model describes has to carry a documented description, not only agree with it where
+  both sides have one. A deleted `description` row, a missing `#### metadata` table or a mistyped
+  `name` row was answered by comparing nothing -- the one direction the parameter presence test
+  does not reach, since it holds parameter rows only. All 211 described datasets document it today,
+  and the 54 that document none describe none in the model either, so nothing is demanded that does
+  not exist. A second metadata table for one dataset is reported rather than overwriting its twin,
+  for the same reason as the parameter rows below
 - A parameter row written twice is reported rather than deduped. The parse keys on (dataset, name,
   original name), so a repeated row used to overwrite its twin and leave only the last of them
   compared -- which is the exact shape of two of the defects below, a stale row left in place
@@ -57,6 +64,10 @@ Types of changes:
   A single mistyped dataset `name` row matches nothing and so reports every parameter on both sides
   -- 33 lines for one page, enough to fill a flat 20-line cap and report a corpus-wide problem as a
   local one. A truncated list that does not say it was truncated reads like a complete one
+- The docs tests apply `EXCLUDE_PROVIDER_NETWORKS`, which `test_data_coverage` has always applied
+  and `test_docs_cover_every_resolution` did not. `dwd/radar` is deliberately undocumented and
+  already has a `metadata/` package, so the day it grows a metadata model the two tests in that
+  module would have contradicted each other and one would have had to fail
 - The docs parsers read only the lines outside a fenced code block, so a `#` comment in a shell or
   Python example is not mistaken for a level-1 heading. One would have closed the dataset section
   it sits in and dropped every row below it out of that dataset, which the descriptions test
@@ -200,11 +211,14 @@ Types of changes:
   only one outside `dwd/dmo` hourly -- which GH-1975 has open -- and the 59 that write
   `dimensionless` against a `-` elsewhere on the page, which is a convention to settle rather
   than a slip (GH-1980)
-- `count_days_cooling_degree` is described as "Number of days with at least one cooling hour",
-  which is what DWD's *Kuehltage* counts, rather than "Number of days on which cooling was
-  required". Both the canonical description and the three `dwd/derived` overrides said the vaguer
-  thing; the precise wording sat in the docs table, where nothing compared it -- that page is one
-  of the two the heading mismatch above had left unchecked
+- The three `dwd/derived` `Kuehltage` overrides are described as "Number of days with at least one
+  cooling hour", which is what DWD's *Kuehltage* counts, rather than the vaguer "Number of days on
+  which cooling was required". The precise wording sat in the docs table, where nothing compared it
+  -- that page is one of the two the heading mismatch above had left unchecked. The canonical
+  `count_days_cooling_degree` keeps the general wording, because cooling degree days elsewhere are
+  defined against a base temperature rather than by counting hours, and because that is exactly how
+  the sibling `count_days_heating_degree` is split: a general canonical, with DWD's "number of days
+  with daily mean air temperature less than 15 degree Celsius" in the override
 - The same parser keys `test_docs_dataset_descriptions_match_the_model` too, which had the
   identical heading bug and so compared nothing on those same two pages. Both now resolve:
   `dwd/mosmix` under `small`/`large` and `dwd/derived` under all three `cooling_degreehours_*`.

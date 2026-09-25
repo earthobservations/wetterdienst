@@ -206,7 +206,10 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
     The page is where it belongs, whether or not it is there -- `test_docs_cover_every_resolution`
     below is what says it is, so that the three tests after it can assume the pages exist and report
     mismatches rather than absences. `dwd/radar` and `dwd/alerts` carry no metadata model at all, so
-    they declare no resolutions and do not appear here.
+    they declare no resolutions and do not appear here. `EXCLUDE_PROVIDER_NETWORKS` is applied for
+    the same reason `test_data_coverage` applies it -- `dwd/radar` is deliberately undocumented, and
+    it already has a `metadata/` package, so the day it grows a metadata model the two tests in this
+    module would otherwise contradict each other and one of them would have to fail.
 
     A network whose request class needs a package this environment does not have is skipped, with a
     warning naming it: `dwd/derived` imports pandas, which arrives with the `export` extra, so a bare
@@ -218,7 +221,12 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
     for provider, networks in Wetterdienst.registry.items():
+        excluded = EXCLUDE_PROVIDER_NETWORKS.get(provider, [])
+        if excluded == "*":
+            continue
         for network in networks:
+            if network in excluded:
+                continue
             try:
                 api = Wetterdienst(provider, network)
             except ModuleNotFoundError as error:
@@ -309,38 +317,53 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
         yield {"name": datasets[0], **prop}
 
 
-def _documented_dataset_descriptions(path: Path) -> dict[str, str]:
-    """Return {dataset: description} from the "#### metadata" tables of one provider docs page."""
-    documented = {}
+def _documented_dataset_descriptions(path: Path) -> dict[str, list[str]]:
+    """Return {dataset: descriptions} from the "#### metadata" tables of one provider docs page.
+
+    A list for the same reason `_documented_descriptions` returns one: a page can carry two sections
+    for one dataset, and overwriting would leave only the last of them compared while the other went
+    on being rendered. The repeat is reported by the test below.
+    """
+    documented: dict[str, list[str]] = {}
     for table in _metadata_tables(path):
         if not table.get("description"):
             continue
         for dataset in table["name"].split(","):
-            documented[dataset.strip()] = table["description"]
+            documented.setdefault(dataset.strip(), []).append(table["description"])
     return documented
 
 
 def test_docs_dataset_descriptions_match_the_model() -> None:
-    """Test that the docs dataset metadata tables agree with the model.
+    """Test that the docs dataset metadata tables agree with the model, and are there at all.
 
     Same reason as the parameter descriptions: the text used to live only in markdown. The docs
     append a "([details](url))" pointer that is page formatting rather than part of the
     description, so it is ignored here.
+
+    A dataset the model describes has to carry a documented description, because comparing only the
+    rows that appear on both sides means a deleted `description` row -- or a whole missing `####
+    metadata` table -- is answered by comparing nothing, which is the one direction the parameter
+    presence test does not reach. All 211 described datasets document it today; the 54 that document
+    none describe none in the model either, so nothing is being demanded that does not exist.
     """
     mismatches = []
     for provider, network, resolution, path in _documented_resolutions():
         documented = _documented_dataset_descriptions(path)
         for dataset in resolution:
-            shown = documented.get(dataset.name)
-            if not shown or not dataset.description:
+            tag = f"{provider}/{network}/{resolution.name}/{dataset.name}"
+            shown = documented.get(dataset.name, [])
+            if not dataset.description:
                 continue
-            shown = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", shown).strip().rstrip(".")
-            if shown != dataset.description.rstrip("."):
-                mismatches.append(
-                    f"{provider}/{network}/{resolution.name}/{dataset.name}: "
-                    f"docs {shown!r} != model {dataset.description!r}",
-                )
-    assert not mismatches, "\n".join(mismatches[:10])
+            if not shown:
+                mismatches.append(f"{tag}: the model describes it, the page does not")
+                continue
+            if len(shown) > 1:
+                mismatches.append(f"{tag}: carries {len(shown)} metadata tables")
+            for text in shown:
+                text = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", text).strip().rstrip(".")
+                if text != dataset.description.rstrip("."):
+                    mismatches.append(f"{tag}: docs {text!r} != model {dataset.description!r}")
+    assert not mismatches, "\n".join(_capped(mismatches, 20, "the report"))
 
 
 # `quality` itself is declared by 58 datasets and documented by 25, so a *declared* `quality` need
