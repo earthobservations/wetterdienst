@@ -52,6 +52,14 @@ Types of changes:
   parameter rows below. The repeat is counted from the sections rather than from the descriptions,
   so it is reported for the 54 datasets no description names as much as for the 217 that do, and a
   second table carrying no `description` row at all is reported too
+- The three `dwd/derived` monthly `cooling_degreehours_*` datasets are each described by the
+  reference temperature they actually use, phrased as their `heating_degreedays` sibling is, rather
+  than sharing the docs page's blurb about "13, 16 and 18 degree Celsius". The page documents all
+  three in one section and says so, which is the right documentation, but `discover`, the REST API
+  and MCP report a dataset at a time and were telling a caller asking for `cooling_degreehours_13`
+  that it covers three base temperatures. One `description` cell cannot equal three descriptions,
+  so the text of a section naming several datasets is no longer compared -- their presence still
+  is, and exactly one section is in that state
 - Six dataset descriptions the docs carried and the model did not: `dwd/mosmix` hourly `small` and
   `large`, the three `dwd/derived` monthly `cooling_degreehours_*`, and `imgw/meteorology` monthly
   `climate`, whose siblings `daily/climate`, `monthly/precipitation` and `monthly/synop` were all
@@ -61,6 +69,14 @@ Types of changes:
   waved through. No row writes either and no parameter lacks a description, so the two escapes this
   replaces could never have caught anything -- they could only have hidden a description being
   dropped from a page, which is the failure this test exists to report
+- A parameter table that no `###` dataset section encloses is reported rather than dropped. Any
+  heading of level 1 or 2 closes the section, and this tree carries `## Notes` and the like, so a
+  table placed after one was filed under no dataset and read by neither comparison -- the last
+  silent skip of the class this change is about. Verified on `metno/frost` 6_hour, whose `## Notes`
+  heading swallowed a made-up row without a word
+- A page for a resolution the model does not declare is reported. The three comparisons walk the
+  model, so a page left behind by a renamed resolution stayed published and stayed linked from its
+  network index -- which is all `test_data_coverage` asks of it -- and was read by nothing
 - A `#### metadata` section naming a dataset the model does not declare is reported even when it
   carries no `#### parameters` table. The orphan check read the parameter rows, and the description
   test walks the model's datasets, so neither reached a section left behind when its dataset was

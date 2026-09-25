@@ -2119,12 +2119,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
 }
 
 
-# the three cooling_degreehours datasets carry identical parameters and one shared description, which
-# is why the docs document all three in a single section naming all three
-_COOLING_DEGREEHOURS = (
-    "Data on cooling degree hours, comparing the hourly temperatures to different reference "
-    "temperatures of 13, 16 and 18 degree Celsius."
-)
+# one sentence per dataset, phrased as the `heating_degreedays` sibling is: each of the three covers a
+# single reference temperature, so the docs page's shared blurb naming all three would over-claim here,
+# where `discover`, the REST API and MCP report it for one dataset at a time
+def _cooling_degreehours(reference: int) -> str:
+    """Describe the cooling_degreehours dataset taken against one reference temperature."""
+    return (
+        "Data on cooling degree hours, comparing the hourly temperatures to the reference "
+        f"temperature of {reference} degree Celsius."
+    )
+
 
 # What a dataset holds, keyed by metadata model name then ``(resolution, dataset)``.
 # The docs tables carry a trailing "([details](url))" pointer; that is page formatting and
@@ -2140,9 +2144,9 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "Data on climate correction factors, comparing the degree days between a postal code and "
             "a reference station."
         ),
-        ("monthly", "cooling_degreehours_13"): _COOLING_DEGREEHOURS,
-        ("monthly", "cooling_degreehours_16"): _COOLING_DEGREEHOURS,
-        ("monthly", "cooling_degreehours_18"): _COOLING_DEGREEHOURS,
+        ("monthly", "cooling_degreehours_13"): _cooling_degreehours(13),
+        ("monthly", "cooling_degreehours_16"): _cooling_degreehours(16),
+        ("monthly", "cooling_degreehours_18"): _cooling_degreehours(18),
         ("monthly", "heating_degreedays"): (
             "Data on degree days, comparing the monthly temperatures to the reference temperature of 20 degree Celsius."
         ),

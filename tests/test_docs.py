@@ -138,6 +138,13 @@ def test_docs_parameters_link_to_glossary() -> None:
     assert not errors, "\n".join(errors)
 
 
+# the dataset a row is filed under when no `###` section is open. `_heading_datasets` closes the
+# section on any heading of level 1 or 2, and this tree has `## Notes` and the like, so a parameter
+# table placed after one used to be dropped on the floor -- the last silent skip of the class this
+# module is about. Filed under a name the model can never declare, so the orphan check reports it.
+_NO_SECTION = "<no dataset section>"
+
+
 def _heading_datasets(line: str, current: list[str]) -> list[str]:
     """Name the datasets a heading opens, for the two parsers below.
 
@@ -198,7 +205,7 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]
         if header is None or all(set(cell) <= {"-", ":"} for cell in cells) or len(cells) < len(header):
             continue
         name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[header.index("name")])
-        for dataset in datasets:
+        for dataset in datasets or [_NO_SECTION]:
             key = (dataset, name, cells[header.index("original name")])
             documented.setdefault(key, []).append(cells[header.index("description")])
     return documented
@@ -267,14 +274,28 @@ def test_docs_cover_every_resolution() -> None:
     The three tests below pair a resolution with its page and can only check the pages that exist, so
     a resolution added without one would be compared by nothing at all -- the same silent skip as a
     page that parses to nothing, which they do report. Asserting the page here keeps that reported
-    once, rather than once per test or not at all.
+    once, rather than once per test or not at all. The reverse holds for the same reason: those tests
+    walk the model, so a page whose resolution the model no longer declares stays published and unread.
     """
-    missing = [
+    pages = list(_resolution_pages())
+    errors = [
         f"{provider}/{network}: {path.relative_to(ROOT)} does not exist"
-        for provider, network, _, path in _resolution_pages()
+        for provider, network, _, path in pages
         if not path.exists()
     ]
-    assert not missing, "\n".join(missing)
+    # and the other way, because the three tests below iterate the model: a page for a resolution the
+    # model no longer declares stays published, stays linked from its network index -- which is all
+    # `test_data_coverage` asks of it -- and is read by nothing at all
+    declared = {path for _, _, _, path in pages}
+    for page in sorted(COVERAGE.glob("*/*/*.md")):
+        if page.name == "index.md" or page in declared:
+            continue
+        provider, network = page.parts[-3], page.parts[-2]
+        excluded = EXCLUDE_PROVIDER_NETWORKS.get(provider, [])
+        if excluded == "*" or network in excluded:
+            continue
+        errors.append(f"{provider}/{network}: {page.relative_to(ROOT)} names a resolution the model does not declare")
+    assert not errors, "\n".join(errors)
 
 
 def test_docs_parameter_descriptions_match_the_model() -> None:
@@ -350,6 +371,24 @@ def _documented_dataset_sections(path: Path) -> dict[str, int]:
     return counts
 
 
+def _shared_dataset_sections(path: Path) -> set[str]:
+    """Return the datasets whose "#### metadata" table names more than one of them.
+
+    `dwd/derived` monthly documents `cooling_degreehours_13`, `_16` and `_18` in one section, saying so
+    in the section itself -- the three carry identical parameters and differ only in the reference
+    temperature. One `description` cell cannot equal three different model descriptions, and the model
+    is right to carry one per dataset, since `discover`, the REST API and MCP report them one at a
+    time. So the text of such a section is not compared, only its presence. Exactly one section is in
+    this state; tripling an identical four-row table to avoid it would be worse documentation.
+    """
+    shared = set()
+    for table in _metadata_tables(path):
+        names = [dataset.strip() for dataset in table["name"].split(",")]
+        if len(names) > 1:
+            shared.update(names)
+    return shared
+
+
 def _documented_dataset_descriptions(path: Path) -> dict[str, list[str]]:
     """Return {dataset: descriptions} from the "#### metadata" tables of one provider docs page.
 
@@ -385,6 +424,7 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
     for provider, network, resolution, path in _documented_resolutions():
         documented = _documented_dataset_descriptions(path)
         sections = _documented_dataset_sections(path)
+        shared = _shared_dataset_sections(path)
         for dataset in resolution:
             tag = f"{provider}/{network}/{resolution.name}/{dataset.name}"
             shown = documented.get(dataset.name, [])
@@ -401,6 +441,8 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
                 continue
             if not dataset.description:
                 mismatches.append(f"{tag}: the page describes it, the model does not")
+                continue
+            if dataset.name in shared:
                 continue
             for text in shown:
                 text = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", text).strip().rstrip(".")
@@ -463,7 +505,10 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
         # walks the model's datasets so it never reaches one
         sections = {key[0] for key in documented} | set(_documented_dataset_sections(path))
         for orphan in sorted(sections - {dataset.name for dataset in resolution}):
-            found.append(f"{tag}: documents a dataset {orphan!r} that the model does not declare")
+            if orphan == _NO_SECTION:
+                found.append(f"{tag}: has a parameter table that no `###` dataset section encloses")
+            else:
+                found.append(f"{tag}: documents a dataset {orphan!r} that the model does not declare")
         for dataset, name, name_original in sorted(set(documented) - declared):
             found.append(f"{tag}/{dataset}: documents {name}/{name_original!r}, which it does not declare")
         for dataset, name, name_original in sorted(_declared_to_document(declared) - set(documented)):
