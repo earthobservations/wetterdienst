@@ -30,9 +30,10 @@ Types of changes:
   documented text" branch. The dataset now comes from the `name` row of the section's own metadata
   table rather than from the heading, which also lets `dwd/derived` keep documenting
   `cooling_degreehours_13`, `_16` and `_18` in one section as it says it does, rather than forcing
-  three copies of an identical table. Quality flags stay out of the presence check: 38 dataset
-  tables carry a `quality` row against 68 declared across six names, and that inconsistency is its
-  own change
+  three copies of an identical table. The plain `quality` flag stays out of the presence check --
+  58 datasets declare it and 25 document it -- and the exclusion stops there rather than covering
+  every `quality*` name, so that it matches what the descriptions test skips: the other five are
+  all documented, and holding them here is what says so
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
   default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
   argument since it was written and the export docs advertise it, but no command passed it, so
@@ -155,6 +156,12 @@ Types of changes:
   required". Both the canonical description and the three `dwd/derived` overrides said the vaguer
   thing; the precise wording sat in the docs table, where nothing compared it -- that page is one
   of the two the heading mismatch above had left unchecked
+- The same parser keys `test_docs_dataset_descriptions_match_the_model` too, which had the
+  identical heading bug and so compared nothing on those same two pages. Both now resolve:
+  `dwd/mosmix` under `small`/`large` and `dwd/derived` under all three `cooling_degreehours_*`.
+  Neither has a model description yet, so nothing is compared there either way -- but now for that
+  reason rather than because the key never matched. `dwd/observation` subdaily `wind_extreme` also
+  gained the `quality_3` and `quality_6` rows it declares but never showed.
 - A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM origin`
   matches by position, so two frames carrying the same number of columns under different names were
   both accepted and the second one's values landed under the first one's headings -- measured on a

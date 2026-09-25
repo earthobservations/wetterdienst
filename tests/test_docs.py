@@ -4,7 +4,7 @@
 
 import doctest
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import pytest
@@ -199,28 +199,41 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
     assert not mismatches, "\n".join(mismatches[:10])
 
 
-def _documented_dataset_descriptions(path: Path) -> dict[str, str]:
-    """Return {dataset: description} from the '#### metadata' tables of one docs page."""
-    documented = {}
-    dataset = None
-    in_table = False
-    prop = {}
+def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
+    """Yield the property/value rows of each "#### metadata" table on one provider docs page.
+
+    ``name`` starts as the enclosing ``###`` heading and is replaced by the table's own ``name``
+    row where it has one, which is the key the model declares. `dwd/mosmix` heads its sections
+    ``Small`` and ``Large`` against datasets ``small`` and ``large``, so keying on the heading
+    matched nothing there and left the whole page uncompared.
+    """
+    heading = ""
+    prop: dict[str, str] | None = None
     for line in path.read_text(encoding="utf8").splitlines():
         if line.startswith("### ") and not line.startswith("#### "):
-            dataset = line[4:].strip()
-        if line.startswith("|"):
-            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-            if cells[:1] == ["property"]:
-                in_table, prop = True, {}
-                continue
-            if in_table and not all(set(cell) <= {"-", ":"} for cell in cells) and len(cells) >= 2:
-                prop[cells[0]] = cells[1]
-        elif in_table:
-            if dataset and prop.get("description"):
-                documented[dataset] = prop["description"]
-            in_table, prop = False, {}
-    if in_table and dataset and prop.get("description"):
-        documented[dataset] = prop["description"]
+            heading = line[4:].strip()
+        if not line.startswith("|"):
+            if prop is not None:
+                yield {"name": heading, **prop}
+                prop = None
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells[:1] == ["property"]:
+            prop = {}
+        elif prop is not None and len(cells) >= 2 and not all(set(cell) <= {"-", ":"} for cell in cells):
+            prop[cells[0]] = cells[1]
+    if prop is not None:
+        yield {"name": heading, **prop}
+
+
+def _documented_dataset_descriptions(path: Path) -> dict[str, str]:
+    """Return {dataset: description} from the "#### metadata" tables of one provider docs page."""
+    documented = {}
+    for table in _metadata_tables(path):
+        if not table.get("description"):
+            continue
+        for dataset in table["name"].split(","):
+            documented[dataset.strip()] = table["description"]
     return documented
 
 
@@ -247,13 +260,14 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
     assert not mismatches, "\n".join(mismatches[:10])
 
 
-# quality flags are declared throughout the model and documented on only some pages -- 38 dataset
-# tables carry a `quality` row against 68 declared across six names -- so presence is not checked
-# for them. The inconsistency is real but it is its own change, and the descriptions test skips
-# them too.
+# `quality` itself is declared by 58 datasets and documented by 25, so presence is not checked for
+# it -- that inconsistency is real and it is its own change. The exclusion stops there rather than
+# covering every `quality*` name, to match what the descriptions test above skips: the other five
+# (`quality_general`, `quality_precipitation`, `quality_wind`, `quality_3`, `quality_6`) are all
+# documented, and holding them here is what says so.
 def _substantive(keys: Iterable[tuple[str, str, str]]) -> set[tuple[str, str, str]]:
-    """Drop the quality-flag rows from a set of (dataset, name, original name) keys."""
-    return {key for key in keys if not key[1].startswith("quality")}
+    """Drop the plain `quality` rows from a set of (dataset, name, original name) keys."""
+    return {key for key in keys if key[1] != "quality"}
 
 
 def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> None:
@@ -273,8 +287,11 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
     errors = []
     for provider, network, resolution, path in _documented_resolutions():
         documented = _documented_descriptions(path)
-        assert documented, f"{path} documents no parameter at all, so nothing below is checked"
         tag = f"{provider}/{network}/{resolution.name}"
+        if not documented:
+            # collected rather than asserted, so one unparseable page does not hide every other
+            # page's findings -- and the two comparisons below name each parameter it lost anyway
+            errors.append(f"{tag}: {path.name} parses to no parameter row at all")
         declared = _substantive(
             (dataset.name, parameter.name, parameter.name_original)
             for dataset in resolution
