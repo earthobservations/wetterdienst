@@ -14,23 +14,21 @@
 
 #### metadata
 
-| property         | value                                                                                                |
-|------------------|------------------------------------------------------------------------------------------------------|
-| name             | icon_eu                                                                                              |
-| original name    | icon-eu                                                                                              |
-| description      | Local forecast of 40 parameters for worldwide stations, 24 times a day with a lead-time of 240 hours |
-| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                 |
-| access           | [here](https://opendata.dwd.de/weather/local_forecasts/dmo/icon-eu/)                                 |
+| property         | value                                                                                                                                                                              |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | icon_eu                                                                                                                                                                            |
+| original name    | icon-eu                                                                                                                                                                            |
+| description      | Direct model output of the regional ICON-EU model, extracted at the stations inside its European domain. Issued twice a day (00 and 12 UTC), hourly out to a lead-time of 78 hours |
+| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                                                                                               |
+| access           | [here](https://opendata.dwd.de/weather/local_forecasts/dmo/icon-eu/)                                                                                                               |
 
 #### parameters
 
 | name                                                       | original name | description                                                                     | unit  | constraints |
 |------------------------------------------------------------|---------------|---------------------------------------------------------------------------------|-------|-------------|
-| {term}`cloud_base_convective`                              | h_bsc         | Cloud base of convective clouds                                                 | m     | >=0         |
 | {term}`cloud_cover_above_7km`                              | nh            | High cloud cover (>7 km)                                                        | %     | >=0,<=100   |
 | {term}`cloud_cover_below_500ft`                            | n05           | Cloud cover below 500 ft.                                                       | %     | >=0,<=100   |
 | {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km). | % | >=0,<=100 |
-| {term}`cloud_cover_below_7km`                              | nlm           | Cloud cover low and mid level clouds below 7000 m                               | %     | >=0,<=100   |
 | {term}`cloud_cover_between_2km_to_7km`                     | nm            | Midlevel cloud cover (2-7 km)                                                   | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                              | neff          | Effective cloud cover                                                           | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                                  | n             | Total cloud cover                                                               | %     | >=0,<=100   |
@@ -73,13 +71,13 @@
 
 #### metadata
 
-| property         | value                                                                                                |
-|------------------|------------------------------------------------------------------------------------------------------|
-| name             | icon                                                                                                 |
-| original name    | icon                                                                                                 |
-| description      | Local forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours |
-| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                 |
-| access           | [here](https://opendata.dwd.de/weather/local_forecasts/dmo/icon/)                                    |
+| property         | value                                                                                                                                                                                                   |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | icon                                                                                                                                                                                                    |
+| original name    | icon                                                                                                                                                                                                    |
+| description      | Direct model output of the global ICON model, extracted at worldwide stations. Issued twice a day (00 and 12 UTC) as two runs: hourly out to a lead-time of 78 hours, and 3-hourly from 78 to 168 hours |
+| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                                                                                                                    |
+| access           | [here](https://opendata.dwd.de/weather/local_forecasts/dmo/icon/)                                                                                                                                       |
 
 #### parameters
 

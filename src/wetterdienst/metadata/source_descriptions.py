@@ -2143,10 +2143,14 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     },
     "DwdDmoMetadata": {
         ("hourly", "icon"): (
-            "Local forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours."
+            "Direct model output of the global ICON model, extracted at worldwide stations. "
+            "Issued twice a day (00 and 12 UTC) as two runs: hourly out to a lead-time of 78 "
+            "hours, and 3-hourly from 78 to 168 hours."
         ),
         ("hourly", "icon_eu"): (
-            "Local forecast of 40 parameters for worldwide stations, 24 times a day with a lead-time of 240 hours."
+            "Direct model output of the regional ICON-EU model, extracted at the stations inside "
+            "its European domain. Issued twice a day (00 and 12 UTC), hourly out to a lead-time "
+            "of 78 hours."
         ),
     },
     "DwdObservationMetadata": {
