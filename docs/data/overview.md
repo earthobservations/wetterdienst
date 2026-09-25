@@ -21,8 +21,8 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - Up to 115 parameters
     - DMO - timeseries extracted from weather models
         - Point forecast
-        - 5400 stations worldwide
-        - Up to 115 parameters
+        - `icon`: 5757 stations worldwide, 23 parameters
+        - `icon_eu`: 3688 stations inside the ICON-EU domain, 19 parameters
     - Road
         - Historical weather observations of German highway stations
     - SWSMOS

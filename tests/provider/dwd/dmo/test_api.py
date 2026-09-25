@@ -1091,10 +1091,12 @@ _DMO_SERVED_BY = {"078": _DMO_SHARED | _DMO_PER_1H, "168": _DMO_SHARED | _DMO_PE
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    # `without_a_canonical_name`: upstream serves these and no canonical parameter names them, so the
-    # metadata cannot declare them yet. Named rather than skipped, so that adding one makes this test
-    # say so. `rad3h` is only in the 3-hourly run, which is why `icon_eu`, publishing 078 alone, does
-    # not see it.
+    # `without_a_canonical_name`: upstream serves these and the metadata does not declare them. Named
+    # rather than skipped, so that declaring one makes this test say so. `radl1` and `rads1` are the
+    # 1-hourly radiation *balances* and no canonical parameter describes a net flux. `rad3h` is the
+    # different case: `radiation_global_last_3h` describes it exactly, but that name is taken by
+    # `rads3`, a balance -- GH-1977. It is also only in the 3-hourly run, which is why `icon_eu`,
+    # publishing 078 alone, does not see it.
     ("dataset", "lead_times", "without_a_canonical_name"),
     [
         pytest.param("icon", ("078", "168"), {"rad3h", "radl1", "rads1"}, id="icon"),
@@ -1144,21 +1146,24 @@ def test_dmo_declares_the_elements_its_runs_carry(
     assert stations, f"{dataset} covers no station at all"
 
     # a station the catalogue lists may still have no directory of its own, so take the first that
-    # does rather than pinning one id that upstream is free to drop
+    # does rather than pinning one id that upstream is free to drop -- and it has to carry a run for
+    # every lead time the product serves, not merely some run, because a family rolled out to a
+    # subset of stations would otherwise fail below as a metadata fault rather than be skipped here
     files: list[str] = []
-    for station_id in stations[:5]:
+    for candidate in stations[:8]:
         url = urljoin(
             "https://opendata.dwd.de",
-            _dmo_kmz_path(name_original, DwdDmoStationGroup.SINGLE_STATIONS, station_id),
+            _dmo_kmz_path(name_original, DwdDmoStationGroup.SINGLE_STATIONS, candidate),
         )
         try:
             entries = list_remote_directory_fsspec(url, settings=default_settings)
         except Exception:  # noqa: BLE001, S112
             continue
-        files = [entry["name"] for entry in entries if entry["name"].endswith(".kmz")]
-        if files:
+        found = [entry["name"] for entry in entries if entry["name"].endswith(".kmz")]
+        if all(any(f"_{lead_time}_" in name.rsplit("/", 1)[-1] for name in found) for lead_time in lead_times):
+            station_id, files = candidate, found
             break
-    assert files, f"none of the first five {dataset} stations publishes a run"
+    assert files, f"none of the first eight {dataset} stations publishes a run for every lead time"
 
     # which lead times the product serves, read off the listing rather than checked against a list of
     # the ones already known: `icon_eu` publishing a 168 run would give it the same split `icon` has

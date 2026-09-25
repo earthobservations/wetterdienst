@@ -355,8 +355,11 @@ Types of changes:
   rr3 rrs3c` for their 1-hourly counterparts. Asking for one of the other 99 and 22 returned an
   empty frame with nothing saying the product never forecasts it -- indistinguishable from a station
   that happens to have no data. `precipitation_height_last_1h` is *added* to `icon_eu`, which serves
-  it and did not declare it. Three served elements stay undeclared because no canonical parameter
-  names them yet: `rad3h`, `radl1` and `rads1`. What this does not fix is which *run* carries what:
+  it and did not declare it. Three served elements stay undeclared, for two different reasons:
+  `radl1` and `rads1` are 1-hourly radiation *balances* and no canonical parameter describes a net
+  flux, while `rad3h` is described exactly by `radiation_global_last_3h` -- except that name is
+  already taken by `rads3`, which is a balance and not global radiation, so declaring `rad3h` means
+  correcting that first (GH-1977). What this does not fix is which *run* carries what:
   the model has no lead-time axis, so `icon` declares both the 1-hourly and the 3-hourly family and
   four of its 23 are carried only by `lead_time="long"` (`precipitation_height_last_3h`,
   `radiation_global_last_3h`, `radiation_sky_long_wave_last_3h`,
