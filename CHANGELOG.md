@@ -29,10 +29,15 @@ Types of changes:
   for file exports.` A test walks the command tree rather than naming the four commands, because
   the gap was a command gaining `--target` without it; `alerts`, `history` and `stripes values`
   are excluded there, their `--target` never reaching a sink. A sink failure that is not about
-  `if_exists` at all keeps its traceback but arrives as a logged failure naming the target: the
-  likeliest one is appending `--shape=wide` output onto a table an earlier run created with a
-  different set of parameters, which DuckDB answers with `BinderException: table weather has 6
-  columns but 8 values were supplied`, a class deriving from `Exception` alone
+  `if_exists` at all keeps its traceback and names the target: the likeliest one is appending
+  `--shape=wide` output onto a table an earlier run created with a different set of parameters,
+  which DuckDB answers with `BinderException: table weather has 6 columns but 8 values were
+  supplied`. Which of the two a failure is cannot be read off its class, because `fail` is reported
+  by DuckDB as a `KeyError` and by the SQLAlchemy sinks as pandas' `ValueError`, and those classes
+  are also how a sink breaks -- `if_exists` settles it, since outside `fail` neither is ever about
+  the target already holding data. Reading them as refusals threw the detail away: exporting a
+  stations frame to InfluxDB pops a `date` column only values carry, and the whole report was
+  `ERROR date`
 - Documentation for running wetterdienst on a schedule, with ready-made units for systemd timers,
   launchd, cron and `docker run` (GH-255, open since 2020). The issue asked for the units and
   proposed generating them with `hickory`; that package last released in August 2020, declares

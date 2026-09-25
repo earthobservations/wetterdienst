@@ -35,9 +35,10 @@ Three properties of the CLI matter for a scheduler:
   `replace`, which for a schedule means the target holds the newest run rather than a history: a
   `file://` target is rewritten in full, and a `duckdb://`, `sqlite://`, `postgresql://` or
   `crate://` table is dropped and recreated. Pass `--if_exists=append` to accumulate instead. Not
-  every sink takes every value — appending to a file is not implemented, and InfluxDB takes only
-  the default because its points accumulate on their own — and a sink that refuses the pairing says
-  so and exits 1 rather than writing something else.
+  every sink takes every value — a file refuses `append`, and InfluxDB refuses `fail` and `skip`,
+  since both would have to ask whether the measurement already exists — and a sink that refuses
+  the pairing says so and exits 1 rather than writing something else. For InfluxDB, `replace` and
+  `append` do the same thing: its points accumulate either way, and nothing clears the measurement.
 - **A database path is relative unless you give it four slashes.** `duckdb:///obs.duckdb` names a
   file in the working directory, because the connection string's leading `/` separates the host
   from the path. For an absolute one, write `duckdb:////var/lib/wetterdienst/obs.duckdb`, or set

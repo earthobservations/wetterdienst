@@ -754,7 +754,7 @@ request = DwdObservationRequest(
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
 for station in stations.values.query():
-    station.to_target("influxdb://localhost/?database=dwd&table=weather")
+    station.to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
 ```
 
 The argument `if_exists` supports the following modes:

@@ -934,3 +934,40 @@ def test_cli_values_target_reports_a_sink_failure_that_is_not_about_if_exists(
 
     assert second.exit_code == 1
     assert f"Failed to export to {target}" in caplog.text
+
+
+@pytest.mark.remote
+def test_cli_values_target_keeps_the_detail_of_a_failure_that_is_not_a_refusal(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A `KeyError` from inside a sink is a defect, not the sink refusing `--if_exists`.
+
+    `fail` is reported by DuckDB as a `KeyError` and by the SQLAlchemy sinks as pandas' `ValueError`,
+    so those classes cannot be read as refusals on their own: outside `fail` they are how a sink
+    breaks. Reporting them as refusals threw the detail away -- exporting a stations frame to
+    InfluxDB pops a `date` column that only values carry, and the whole report was `ERROR date`,
+    with no traceback and no target. An unknown extension raises the same class here without
+    needing a database to be reachable.
+    """
+    target = f"file://{tmp_path / 'out.txt'}"
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--periods=recent",
+            "--station=01048",
+            f"--target={target}",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert f"Failed to export to {target}" in caplog.text
+    assert "Unknown export file type" in caplog.text
+    # the traceback, which a refusal does not carry and this does
+    assert "KeyError" in caplog.text

@@ -102,8 +102,8 @@ if_exists_opt = cloup.option(
     default="replace",
     help=(
         "What to do when --target already holds data: 'replace' (drop and rewrite, default), "
-        "'append' (add to it), 'fail' or 'skip'. Files support only 'replace', 'fail' and 'skip'; "
-        "InfluxDB takes only 'replace', its points accumulating on their own. Default: replace"
+        "'append' (add to it), 'fail' or 'skip'. Not every sink takes every value: files refuse "
+        "'append', and InfluxDB refuses 'fail' and 'skip'. Default: replace"
     ),
 )
 
@@ -751,29 +751,33 @@ def _collect_or_exit(
 
 
 def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: ANN401
-    """Write to the target, reporting a pairing the sink refuses as a line rather than a traceback.
+    """Write to the target, telling a refused `--if_exists` apart from a sink that broke.
 
-    Not every sink takes every `if_exists`: appending to a file is not implemented, and InfluxDB
-    takes only the default. Which pairings those are belongs to the sink rather than to the option,
-    so the option accepts all four and the refusal is reported here -- as a message and exit 1,
-    which is what an unattended run can act on.
+    Which values a sink takes belongs to the sink rather than to the option, so all four are
+    offered and the refusal arrives here as an exception. A refusal is a finished sentence and
+    wants nothing else: `Append mode is not supported for file exports.` Anything else a sink
+    raises is a defect or an environment problem, and the detail is the whole of what is useful, so
+    it keeps its traceback.
+
+    Which is which cannot be read off the exception type alone, because `fail` is reported by
+    DuckDB as a `KeyError` and by the SQLAlchemy sinks as pandas' `ValueError`, and those two
+    classes are also how a sink breaks. `if_exists` settles it: outside `fail`, neither class is
+    ever about the target already holding data. Without that split a `KeyError` from inside a sink
+    printed its own argument and nothing else -- exporting a stations frame to InfluxDB pops a
+    `date` column that only values carry, and the whole report was `ERROR date`.
     """
     try:
         result.to_target(target, if_exists=if_exists)
-    except (NotImplementedError, FileExistsError, KeyError, ValueError) as e:
-        # the sink refusing the pairing, which is a sentence and nothing else. `str(KeyError(msg))`
-        # is the repr of its argument, quotes and all, so strip the pair a KeyError adds rather
-        # than printing a message wearing them
-        log.error(str(e).strip("'\""))  # noqa: TRY400
-        sys.exit(1)
-    except Exception:
-        # everything else a sink raises, and the one worth naming is what `append` runs into: a
-        # table an earlier run created with different columns. DuckDB answers that with
-        # `BinderException: table weather has 6 columns but 8 values were supplied`, which derives
-        # from `Exception` alone, and the SQLAlchemy sinks with a DBAPI error. None of those is a
-        # sentence the caller can act on without the detail, so they keep their traceback -- but
-        # they arrive as a logged failure naming the target, rather than as a crash out of click
-        log.exception(f"Failed to export to {target}")
+    except Exception as e:
+        refused = isinstance(e, NotImplementedError | FileExistsError) or (
+            if_exists == "fail" and isinstance(e, KeyError | ValueError)
+        )
+        if refused:
+            # `str(KeyError(msg))` is the repr of its argument, quotes and all, so strip the pair a
+            # KeyError adds rather than printing a message wearing them
+            log.error(str(e).strip("'\""))  # noqa: TRY400
+        else:
+            log.exception(f"Failed to export to {target}")
         sys.exit(1)
 
 
