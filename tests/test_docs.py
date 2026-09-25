@@ -4,6 +4,7 @@
 
 import doctest
 import re
+import warnings
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
@@ -80,14 +81,16 @@ def _prose_lines(path: Path) -> Iterator[str]:
     descriptions test silently stops comparing them. Which is the skip this module exists to stop,
     and the reason the fence is stripped here rather than in each parser.
     """
-    fence = None
+    fence: tuple[str, int] | None = None
     for line in path.read_text(encoding="utf8").splitlines():
         marker = re.match(r"\s*(`{3,}|~{3,})", line)
         if marker:
-            token = marker.group(1)[0] * 3
+            char, length = marker.group(1)[0], len(marker.group(1))
             if fence is None:
-                fence = token
-            elif token == fence:
+                fence = (char, length)
+            elif char == fence[0] and length >= fence[1]:
+                # a closing fence has to be at least as long as the one it closes, so a ``` line
+                # inside a ````-opened block is content rather than the end of it
                 fence = None
             continue
         if fence is None:
@@ -147,8 +150,13 @@ def _heading_datasets(line: str, current: list[str]) -> list[str]:
     return []
 
 
-def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], str]:
-    """Return {(dataset, canonical name, original name): description} for one provider docs page.
+def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]]:
+    """Return {(dataset, canonical name, original name): descriptions} for one provider docs page.
+
+    A list, not a string: a table can carry the same row twice, which is how `dwd/mosmix` hourly and
+    `imgw/meteorology` daily came to hold a stale row beside its replacement. Overwriting would keep
+    only the last of them and compare nothing against the rest, so the parser keeps all of them and
+    `test_docs_parameter_tables_hold_the_parameters_the_dataset_declares` reports the repeat.
 
     Keyed by dataset as well: one page can document the same parameter in two datasets with
     different wording, e.g. daily ``snow_depth`` in climate_summary and in water_equivalent.
@@ -161,7 +169,7 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], str]:
     the three carry identical parameters -- keying on it registers the rows under all three rather
     than forcing three copies of the table.
     """
-    documented = {}
+    documented: dict[tuple[str, str, str], list[str]] = {}
     datasets: list[str] = []
     header = None
     in_metadata = False
@@ -187,7 +195,8 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], str]:
             continue
         name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[header.index("name")])
         for dataset in datasets:
-            documented[dataset, name, cells[header.index("original name")]] = cells[header.index("description")]
+            key = (dataset, name, cells[header.index("original name")])
+            documented.setdefault(key, []).append(cells[header.index("description")])
     return documented
 
 
@@ -199,10 +208,12 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
     mismatches rather than absences. `dwd/radar` and `dwd/alerts` carry no metadata model at all, so
     they declare no resolutions and do not appear here.
 
-    A network whose request class cannot be imported is skipped rather than reported: CI installs no
-    extras and `dwd/derived` reaches pandas, so the import is the one thing here that legitimately
-    depends on the environment -- and a provider that cannot be instantiated fails its own test
-    module long before it reaches these.
+    A network whose request class needs a package this environment does not have is skipped, with a
+    warning naming it: `dwd/derived` imports pandas, which arrives with the `export` extra, so a bare
+    `uv sync` leaves its three resolutions unverifiable. CI installs the extras
+    (`.github/workflows/install.sh testing`) and skips nothing. Only `ModuleNotFoundError` is excused
+    -- a `metadata.py` that makes `build_metadata_model` raise, or a typo in a provider's `api.py`,
+    has to surface here rather than quietly excusing that provider from all four tests below.
     """
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
@@ -210,7 +221,11 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
         for network in networks:
             try:
                 api = Wetterdienst(provider, network)
-            except Exception:  # noqa: BLE001, S112
+            except ModuleNotFoundError as error:
+                warnings.warn(
+                    f"{provider}/{network} not checked against its docs: {error}",
+                    stacklevel=2,
+                )
                 continue
             metadata = getattr(api, "metadata", None)
             if metadata is None:
@@ -254,14 +269,14 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
             for parameter in dataset.parameters:
                 if parameter.name == "quality" or not parameter.description:
                     continue
-                shown = documented.get((dataset.name, parameter.name, parameter.name_original))
-                if shown in (None, "", "-"):
-                    continue
-                if shown.rstrip(".") != parameter.description.rstrip("."):
-                    mismatches.append(
-                        f"{provider}/{network}/{resolution.name} {parameter.name}: "
-                        f"docs {shown!r} != model {parameter.description!r}",
-                    )
+                for shown in documented.get((dataset.name, parameter.name, parameter.name_original), []):
+                    if shown in ("", "-"):
+                        continue
+                    if shown.rstrip(".") != parameter.description.rstrip("."):
+                        mismatches.append(
+                            f"{provider}/{network}/{resolution.name} {parameter.name}: "
+                            f"docs {shown!r} != model {parameter.description!r}",
+                        )
     assert not mismatches, "\n".join(mismatches[:10])
 
 
@@ -354,10 +369,14 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
     quietly omit one a request can, which is how `imgw/meteorology` monthly `synop` came to
     document none of its four precipitation parameters.
 
+    A row written twice is reported too, because the parse keys on (dataset, name, original name) and
+    would otherwise keep only the last of them -- which is exactly the shape of the two defects above,
+    a stale row left in place beside the one that replaced it.
+
     Both directions are asserted here, so neither survives a parameter rename, a dataset split or
     a copied table again.
     """
-    errors = []
+    errors: list[str] = []
     for provider, network, resolution, path in _documented_resolutions():
         documented = _documented_descriptions(path)
         tag = f"{provider}/{network}/{resolution.name}"
@@ -372,11 +391,30 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
             for dataset in resolution
             for parameter in dataset.parameters
         }
+        found = []
         sections = {key[0] for key in documented}
         for orphan in sorted(sections - {dataset.name for dataset in resolution}):
-            errors.append(f"{tag}: documents a dataset {orphan!r} that the model does not declare")
+            found.append(f"{tag}: documents a dataset {orphan!r} that the model does not declare")
         for dataset, name, name_original in sorted(set(documented) - declared):
-            errors.append(f"{tag}/{dataset}: documents {name}/{name_original!r}, which it does not declare")
+            found.append(f"{tag}/{dataset}: documents {name}/{name_original!r}, which it does not declare")
         for dataset, name, name_original in sorted(_declared_to_document(declared) - set(documented)):
-            errors.append(f"{tag}/{dataset}: declares {name}/{name_original!r}, which it does not document")
-    assert not errors, "\n".join(errors[:20])
+            found.append(f"{tag}/{dataset}: declares {name}/{name_original!r}, which it does not document")
+        for (dataset, name, name_original), shown in sorted(documented.items()):
+            if len(shown) > 1:
+                found.append(f"{tag}/{dataset}: documents {name}/{name_original!r} {len(shown)} times")
+        errors.extend(_capped(found, 10, f"{tag}"))
+    assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def _capped(lines: list[str], limit: int, what: str) -> list[str]:
+    """Return at most `limit` of `lines`, saying how many were left out.
+
+    One page can produce an error per parameter on both sides -- a single mistyped dataset `name` row
+    does, since nothing then matches -- which is enough to push every page after it past a flat cap
+    and report a corpus-wide problem as a local one. So each page is capped before the report is, and
+    the count is stated either way: a truncated list that does not say it was truncated reads exactly
+    like a complete one.
+    """
+    if len(lines) <= limit:
+        return lines
+    return [*lines[:limit], f"{what}: ... and {len(lines) - limit} more"]

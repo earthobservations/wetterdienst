@@ -43,11 +43,27 @@ Types of changes:
   exist, so a resolution added without one was compared by nothing -- the same silent skip as a
   page that parses to nothing, which they already report. `test_data_coverage` checks the other
   direction, that every page is linked from its network index, and could not see this one
+- A parameter row written twice is reported rather than deduped. The parse keys on (dataset, name,
+  original name), so a repeated row used to overwrite its twin and leave only the last of them
+  compared -- which is the exact shape of two of the defects below, a stale row left in place
+  beside the one that replaced it, so with a matching `original name` the next one was invisible
+- Only `ModuleNotFoundError` excuses a network from the docs tests, and it says so with a warning
+  naming the network and the module. `dwd/derived` imports pandas, which arrives with the `export`
+  extra, so a bare `uv sync` cannot verify its three resolutions -- the reason the clause exists.
+  It used to catch every exception, which meant a `metadata.py` that made `build_metadata_model`
+  raise, or a typo in a provider's `api.py`, excused that provider from all four tests silently,
+  including the one above whose whole purpose is to stop that
+- The presence report is capped per page as well as overall, and states how many lines it left out.
+  A single mistyped dataset `name` row matches nothing and so reports every parameter on both sides
+  -- 33 lines for one page, enough to fill a flat 20-line cap and report a corpus-wide problem as a
+  local one. A truncated list that does not say it was truncated reads like a complete one
 - The docs parsers read only the lines outside a fenced code block, so a `#` comment in a shell or
   Python example is not mistaken for a level-1 heading. One would have closed the dataset section
   it sits in and dropped every row below it out of that dataset, which the descriptions test
-  answers by silently comparing nothing -- the failure mode this change set exists to remove. No
-  resolution page carries a fence today; the guard is there so that adding one is not a trap
+  answers by silently comparing nothing -- the failure mode this change set exists to remove. A
+  fence closes only on a marker at least as long as the one that opened it, so a ``` line inside a
+  ````-opened block is content rather than the end of it. No resolution page carries a fence today;
+  the guard is there so that adding one is not a trap
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
   default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
   argument since it was written and the export docs advertise it, but no command passed it, so
@@ -177,7 +193,9 @@ Types of changes:
   instead, so the row named something that raises `NoParametersFoundError` -- while
   `imgw/meteorology` monthly `synop` documented none of its four precipitation parameters at all
 - `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
-  `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote. Of the 63
+  `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote, and puts the
+  two rows in the order the model declares them -- the one table this change touched that was among
+  the 43 of 271 still out of order. Of the 63
   rows corpus-wide that spell a unit out where their own page uses the symbol for it, this is the
   only one outside `dwd/dmo` hourly -- which GH-1975 has open -- and the 59 that write
   `dimensionless` against a `-` elsewhere on the page, which is a convention to settle rather
