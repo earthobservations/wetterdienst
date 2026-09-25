@@ -2144,8 +2144,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     "DwdDmoMetadata": {
         ("hourly", "icon"): (
             "Direct model output of the global ICON model, extracted at worldwide stations. "
-            "Issued twice a day (00 and 12 UTC), hourly out to a lead-time of 78 hours and "
-            "3-hourly out to 168 hours."
+            "Issued twice a day (00 and 12 UTC) as two runs: hourly out to a lead-time of 78 "
+            "hours, and 3-hourly from 78 to 168 hours."
         ),
         ("hourly", "icon_eu"): (
             "Direct model output of the regional ICON-EU model, extracted at the stations inside "

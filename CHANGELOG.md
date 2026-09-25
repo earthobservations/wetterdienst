@@ -153,11 +153,14 @@ Types of changes:
   and `icon_eu` as the 40-parameter, 24-times-a-day one -- that is MOSMIX-L and MOSMIX-S, a
   statistical postprocessing that DMO explicitly is not, and "worldwide" cannot be right for a
   limited-area model covering 3688 of the 5757 catalogue stations. Read off upstream instead: both
-  products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours and 3-hourly out to 168,
-  `icon_eu` hourly out to 78 only. Neither description names a parameter count any more, because
-  the two counts that were there described MOSMIX rather than DMO. The `icon_eu` parameter table
-  also listed `cloud_base_convective` and `cloud_cover_below_7km`, which the model does not define
-  for that dataset, so the docs advertised two parameters no request could ask for
+  products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly
+  from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
+  `icon_eu` hourly out to 78 only. Neither description names a parameter count any more: both
+  counts came from MOSMIX's leaflet, 115 being MOSMIX-L's and 40 MOSMIX-S's, a split DMO does not
+  have. 40 does match what `icon_eu` declares today, but only because that parameter list is
+  MOSMIX-S's verbatim as well. The `icon_eu` parameter table also listed `cloud_base_convective`
+  and `cloud_cover_below_7km`, which the model does not define for that dataset, so the docs
+  advertised two parameters no request could ask for
 - WSV pegel: the wave tests ask each station whether its own values are in the declared unit, rather
   than asking whether two stations agree with each other. Comparing them assumed the same sea at
   both, and they do not carry the same window -- MELLUMPLATE had 98 readings over 1.6 days against LT

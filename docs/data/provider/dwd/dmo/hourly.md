@@ -71,13 +71,13 @@
 
 #### metadata
 
-| property         | value                                                                                                                                                                                  |
-|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | icon                                                                                                                                                                                   |
-| original name    | icon                                                                                                                                                                                   |
-| description      | Direct model output of the global ICON model, extracted at worldwide stations. Issued twice a day (00 and 12 UTC), hourly out to a lead-time of 78 hours and 3-hourly out to 168 hours |
-| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                                                                                                   |
-| access           | [here](https://opendata.dwd.de/weather/local_forecasts/dmo/icon/)                                                                                                                      |
+| property         | value                                                                                                                                                                                                   |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | icon                                                                                                                                                                                                    |
+| original name    | icon                                                                                                                                                                                                    |
+| description      | Direct model output of the global ICON model, extracted at worldwide stations. Issued twice a day (00 and 12 UTC) as two runs: hourly out to a lead-time of 78 hours, and 3-hourly from 78 to 168 hours |
+| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                                                                                                                    |
+| access           | [here](https://opendata.dwd.de/weather/local_forecasts/dmo/icon/)                                                                                                                                       |
 
 #### parameters
 
