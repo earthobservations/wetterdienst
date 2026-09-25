@@ -71,8 +71,8 @@
 | {term}`precipitation_height_last_3h`            | rr3           | Total precipitation during the last 3 hours          | kg/m² | >=0         |
 | {term}`pressure_air_site_reduced`               | pppp          | Surface pressure, reduced                            | Pa    | >=0         |
 | {term}`radiation_global`                        | rad1h         | Global Irradiance                                    | kJ/m² | >=0         |
-| {term}`radiation_global_last_3h`                | rads3         | Short wave radiation balance during the last 3 hours | kJ/m² | -         |
-| {term}`radiation_sky_long_wave_last_3h`         | radl3         | Long wave radiation balance during the last 3 hours  | kJ/m² | -         |
+| {term}`radiation_global_last_3h`                | rads3         | Short wave radiation balance during the last 3 hours | kJ/m² | -           |
+| {term}`radiation_sky_long_wave_last_3h`         | radl3         | Long wave radiation balance during the last 3 hours  | kJ/m² | -           |
 | {term}`temperature_air_max_2m`                  | tx            | Maximum temperature - within the last 12 hours       | K     | -           |
 | {term}`temperature_air_mean_0_05m`              | t5cm          | Temperature 5cm above surface                        | K     | -           |
 | {term}`temperature_air_mean_2m`                 | ttt           | Temperature 2m above surface                         | K     | -           |

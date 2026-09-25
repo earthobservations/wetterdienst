@@ -352,11 +352,6 @@ Types of changes:
   for `large`; DMO 5757 stations and 23 parameters for `icon`, 3688 and 19 for `icon_eu`. The DMO
   bullet also described the long run as "168 h lead time" beside the short one, which reads as one
   grid rather than a second run starting where the first ends
-- The `**Breaking**` marker is on every breaking entry in this release rather than on one of them.
-  Five commits landed with a `!` and an unmarked entry -- the `ExportRefusedError` change,
-  `DwdDmoRequest.available_issues` taking a product, `Settings.auth` holding `SecretStr`, the
-  `fastmcp>=4` requirement, and DMO advertising a station only for the product that forecasts for
-  it -- so marking the DMO parameter prune alone made it read as the only one
 - **Breaking**: DWD DMO declares the elements its runs carry, which is 23 parameters for `icon` and
   19 for `icon_eu` rather than 122 and 40. A request for one of the 99 and 22 that are gone raises
   `NoParametersFoundError` where it used to be built and return an empty frame, so a job pinned to
@@ -520,17 +515,18 @@ Types of changes:
   with the gust rows -- so that table reads differently from the four beside it, which put their
   `quality` row last against a model that declares it first. Declaration order is the convention
   this change adopts, and `quality`'s placement is part of the row-order question GH-1980 carries
-- A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM origin`
-  matches by position, so two frames carrying the same number of columns under different names were
-  both accepted and the second one's values landed under the first one's headings -- measured on a
-  `--shape=wide` schedule that changed one parameter: `2025-03-23` ended up holding both `10.1`,
-  the temperature, and `0.0`, that day's precipitation, in the column named
+- **Breaking**: A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM
+  origin` matches by position, so two frames carrying the same number of columns under different
+  names were both accepted and the second one's values landed under the first one's headings --
+  measured on a `--shape=wide` schedule that changed one parameter: `2025-03-23` ended up holding
+  both `10.1`, the temperature, and `0.0`, that day's precipitation, in the column named
   `temperature_air_mean_2m`, exit 0 and nothing said. Reachable from the command line only since
-  `--if_exists` existed, and reachable by exactly the schedule the docs recommend. `BY NAME` refuses
-  it with `Binder Error: Table "weather" does not have a column with name "precipitation_height"`.
-  It does not catch every parameter drift, and the docs no longer say it does: a frame whose columns
-  are a subset of the table's is accepted, with nulls for the rest, and under `--shape=long` the
-  column set never varies, so nothing about `--parameters` reaches the insert there at all
+  `--if_exists` existed, and reachable by exactly the schedule the docs recommend. `BY NAME`
+  refuses it with `Binder Error: Table "weather" does not have a column with name
+  "precipitation_height"`. It does not catch every parameter drift, and the docs no longer say it
+  does: a frame whose columns are a subset of the table's is accepted, with nulls for the rest, and
+  under `--shape=long` the column set never varies, so nothing about `--parameters` reaches the
+  insert there at all
 - The InfluxDB sink takes `if_exists="append"`, which is the one word for what it actually does:
   every write is points, and a point carrying the timestamp and tags another already has replaces
   that one. Refusing that spelling made the batch export impossible rather than merely awkward --
