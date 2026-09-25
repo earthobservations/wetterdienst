@@ -25,7 +25,7 @@
 
 | name                                 | original name | description                     | unit                        | constraints |
 |--------------------------------------|---------------|---------------------------------|-----------------------------|-------------|
-| {term}`quality`                      | qn_952        | quality flag                    | dimensionless               | -           |
+| {term}`quality`                      | qn_952        | Quality flag.                   | dimensionless               | -           |
 | {term}`radiation_global`             | fg_duett      | global radiation                | joule_per_square_centimeter | >=0         |
 | {term}`radiation_global_uncertainty` | fg_un_duett   | uncertainty of global radiation | joule_per_square_centimeter | >=0         |
 
@@ -44,6 +44,6 @@
 
 | name                                  | original name | description                      | unit          | constraints |
 |---------------------------------------|---------------|----------------------------------|---------------|-------------|
-| {term}`quality`                       | qn_952        | quality flag                     | dimensionless | -           |
+| {term}`quality`                       | qn_952        | Quality flag.                    | dimensionless | -           |
 | {term}`sunshine_duration`             | sd_duett      | sunshine duration                | minute        | >=0         |
 | {term}`sunshine_duration_uncertainty` | fg_un_duett   | uncertainty of sunshine duration | minute        | >=0         |

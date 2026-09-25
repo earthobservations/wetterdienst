@@ -49,12 +49,18 @@ Types of changes:
   never see it. All 217 described datasets now document it and vice versa, and the 54 that document
   none describe none either, so nothing is demanded that does not exist. A second metadata table
   for one dataset is reported rather than overwriting its twin, for the same reason as the
-  parameter rows below
+  parameter rows below. The repeat is counted from the sections rather than from the descriptions,
+  so it is reported for the 54 datasets no description names as much as for the 217 that do, and a
+  second table carrying no `description` row at all is reported too
 - Six dataset descriptions the docs carried and the model did not: `dwd/mosmix` hourly `small` and
   `large`, the three `dwd/derived` monthly `cooling_degreehours_*`, and `imgw/meteorology` monthly
   `climate`, whose siblings `daily/climate`, `monthly/precipitation` and `monthly/synop` were all
   already there. They are what the assertion above was missing, and what let the `mosmix` figure
   below go stale unnoticed
+- `quality` descriptions are compared like any other parameter's. The presence check requires the
+  25 documented `quality` rows to exist and to be keyed by the right `name_original`, so their text
+  was the one thing about them that nothing checked. Removing the skip turned up two `dwd/derived`
+  hourly rows writing "quality flag" against the model's "Quality flag."
 - A parameter row written twice is reported rather than deduped. The parse keys on (dataset, name,
   original name), so a repeated row used to overwrite its twin and leave only the last of them
   compared -- which is the exact shape of two of the defects below, a stale row left in place
@@ -68,7 +74,13 @@ Types of changes:
   including the one above whose whole purpose is to stop that. The test is read off `__cause__`
   rather than off the exception type, because `Wetterdienst.resolve` re-raises the
   `ModuleNotFoundError` as a plain `ImportError`: catching `ModuleNotFoundError` catches nothing,
-  and under a bare `uv sync` the skip would have surfaced as four errors instead
+  and under a bare `uv sync` the skip would have surfaced as four errors instead. A module name
+  inside this package is not excused either, since `resolve` reports any name it cannot import as a
+  missing dependency -- so a mistyped intra-package import in a provider's `api.py` would otherwise
+  have dropped that provider out of all four tests with nothing but a warning
+- All three docs comparisons state how many lines they truncated. The parameter descriptions test
+  still sliced its list bare, and it is the one that gained the most coverage here, since the
+  heading fix unblocked two whole pages
 - The presence report is capped per page as well as overall, and states how many lines it left out.
   A single mistyped dataset `name` row matches nothing and so reports every parameter on both sides
   -- 33 lines for one page, enough to fill a flat 20-line cap and report a corpus-wide problem as a
@@ -237,9 +249,12 @@ Types of changes:
 - The same parser keys `test_docs_dataset_descriptions_match_the_model` too, which had the
   identical heading bug and so compared nothing on those same two pages. Both now resolve:
   `dwd/mosmix` under `small`/`large` and `dwd/derived` under all three `cooling_degreehours_*`.
-  Neither has a model description yet, so nothing is compared there either way -- but now for that
-  reason rather than because the key never matched. `dwd/observation` subdaily `wind_extreme` also
-  gained the `quality_3` and `quality_6` rows it declares but never showed
+  Both are compared now, since this change gives the model the descriptions those pages had been
+  carrying alone. `dwd/observation` subdaily `wind_extreme` also gained the `quality_3` and
+  `quality_6` rows it declares but never showed, placed where the model declares them, interleaved
+  with the gust rows -- so that table reads differently from the four beside it, which put their
+  `quality` row last against a model that declares it first. Declaration order is the convention
+  this change adopts, and `quality`'s placement is part of the row-order question GH-1980 carries
 - A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM origin`
   matches by position, so two frames carrying the same number of columns under different names were
   both accepted and the second one's values landed under the first one's headings -- measured on a

@@ -220,12 +220,14 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
     `uv sync` leaves its three resolutions unverifiable. CI installs the extras
     (`.github/workflows/install.sh testing`) and skips nothing.
 
-    Only a genuinely missing module is excused -- a `metadata.py` that makes `build_metadata_model`
-    raise, or a typo in a provider's `api.py`, has to surface here rather than quietly excusing that
-    provider from all four tests below. `Wetterdienst.resolve` re-raises the `ModuleNotFoundError` as
-    a plain `ImportError`, so the distinction is read off `__cause__` rather than off the type:
-    catching `ModuleNotFoundError` catches nothing at all, and the skip this clause documents would
-    have come out as four errors instead.
+    Only a genuinely missing third-party module is excused -- a `metadata.py` that makes
+    `build_metadata_model` raise, or a mistyped intra-package import in a provider's `api.py`, has to
+    surface here rather than quietly excusing that provider from all four tests below.
+    `Wetterdienst.resolve` re-raises the `ModuleNotFoundError` as a plain `ImportError`, so the
+    distinction is read off `__cause__` rather than off the type: catching `ModuleNotFoundError`
+    catches nothing at all, and the skip this clause documents would have come out as four errors
+    instead. `resolve` reports a name it cannot import as a missing dependency whatever it is, so a
+    name inside this package is excluded here rather than trusted to its message.
     """
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
@@ -239,7 +241,8 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
             try:
                 api = Wetterdienst(provider, network)
             except ImportError as error:
-                if not isinstance(error.__cause__, ModuleNotFoundError):
+                cause = error.__cause__
+                if not isinstance(cause, ModuleNotFoundError) or (cause.name or "").startswith("wetterdienst"):
                     raise
                 warnings.warn(
                     f"{provider}/{network} not checked against its docs: {error}",
@@ -286,7 +289,10 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
         documented = _documented_descriptions(path)
         for dataset in resolution:
             for parameter in dataset.parameters:
-                if parameter.name == "quality" or not parameter.description:
+                # `quality` is compared like anything else: the presence test below requires the 25
+                # rows that exist to be keyed right, so leaving their text alone would have been the
+                # one thing about them nothing checked
+                if not parameter.description:
                     continue
                 for shown in documented.get((dataset.name, parameter.name, parameter.name_original), []):
                     if shown in ("", "-"):
@@ -296,7 +302,7 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
                             f"{provider}/{network}/{resolution.name} {parameter.name}: "
                             f"docs {shown!r} != model {parameter.description!r}",
                         )
-    assert not mismatches, "\n".join(mismatches[:10])
+    assert not mismatches, "\n".join(_capped(mismatches, 20, "the report"))
 
 
 def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
@@ -326,6 +332,20 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
             prop[cells[0]] = cells[1]
     if prop is not None and datasets:
         yield {"name": datasets[0], **prop}
+
+
+def _documented_dataset_sections(path: Path) -> dict[str, int]:
+    """Return {dataset: how many "#### metadata" tables name it} for one provider docs page.
+
+    Separate from the descriptions below because a stale section is worth reporting whether or not it
+    carries a `description` row, and `dwd/derived` monthly legitimately names three datasets in one
+    table, which counts as one section for each of them rather than three for any.
+    """
+    counts: dict[str, int] = {}
+    for table in _metadata_tables(path):
+        for dataset in table["name"].split(","):
+            counts[dataset.strip()] = counts.get(dataset.strip(), 0) + 1
+    return counts
 
 
 def _documented_dataset_descriptions(path: Path) -> dict[str, list[str]]:
@@ -362,9 +382,16 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
     mismatches = []
     for provider, network, resolution, path in _documented_resolutions():
         documented = _documented_dataset_descriptions(path)
+        sections = _documented_dataset_sections(path)
         for dataset in resolution:
             tag = f"{provider}/{network}/{resolution.name}/{dataset.name}"
             shown = documented.get(dataset.name, [])
+            # counted before either presence branch can `continue`, so a repeat is reported for the 54
+            # datasets no description names as much as for the 217 that do -- and counted from the
+            # sections rather than the descriptions, so a second table without a `description` row,
+            # which `_documented_dataset_descriptions` drops, is reported as well
+            if sections.get(dataset.name, 0) > 1:
+                mismatches.append(f"{tag}: carries {sections[dataset.name]} metadata tables")
             if not dataset.description and not shown:
                 continue
             if not shown:
@@ -373,8 +400,6 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
             if not dataset.description:
                 mismatches.append(f"{tag}: the page describes it, the model does not")
                 continue
-            if len(shown) > 1:
-                mismatches.append(f"{tag}: carries {len(shown)} metadata tables")
             for text in shown:
                 text = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", text).strip().rstrip(".")
                 if text != dataset.description.rstrip("."):
