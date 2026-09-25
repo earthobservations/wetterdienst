@@ -112,6 +112,15 @@ Types of changes:
 
 ### Fixed
 
+- A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM origin`
+  matches by position, so two frames carrying the same number of columns under different names were
+  both accepted and the second one's values landed under the first one's headings -- measured on a
+  `--shape=wide` schedule that changed one parameter: `2025-03-23` ended up holding both `10.1`,
+  the temperature, and `0.0`, that day's precipitation, in the column named
+  `temperature_air_mean_2m`, exit 0 and nothing said. Reachable from the command line only since
+  `--if_exists` existed, and reachable by exactly the schedule the docs recommend. `BY NAME` refuses
+  it with `Binder Error: Table "weather" does not have a column with name "precipitation_height"`
+  and still accepts a frame whose columns are a subset, filling the rest with nulls
 - The InfluxDB sink takes `if_exists="append"`, which is the one word for what it actually does:
   every write is points, and a point carrying the timestamp and tags another already has replaces
   that one. Refusing that spelling made the batch export impossible rather than merely awkward --

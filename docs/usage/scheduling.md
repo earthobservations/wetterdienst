@@ -39,6 +39,8 @@ Three properties of the CLI matter for a scheduler:
   since both would have to ask whether the measurement already exists — and a sink that refuses
   the pairing says so and exits 1 rather than writing something else. For InfluxDB, `replace` and
   `append` do the same thing: its points accumulate either way, and nothing clears the measurement.
+  An `append` onto a table is matched by column name, so a schedule that changes its `--parameters`
+  under `--shape=wide` is refused rather than filing the new values under the old headings.
 - **A database path is relative unless you give it four slashes.** `duckdb:///obs.duckdb` names a
   file in the working directory, because the connection string's leading `/` separates the host
   from the path. For an absolute one, write `duckdb:////var/lib/wetterdienst/obs.duckdb`, or set

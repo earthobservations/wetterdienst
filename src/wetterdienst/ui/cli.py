@@ -103,7 +103,8 @@ if_exists_opt = cloup.option(
     help=(
         "What to do when --target already holds data: 'replace' (drop and rewrite, default), "
         "'append' (add to it), 'fail' or 'skip'. Not every sink takes every value: files refuse "
-        "'append', and InfluxDB refuses 'fail' and 'skip'. Default: replace"
+        "'append', and InfluxDB refuses 'fail' and 'skip' and accumulates under both of the "
+        "others, nothing there clearing a measurement. Default: replace"
     ),
 )
 
@@ -769,8 +770,18 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
     try:
         result.to_target(target, if_exists=if_exists)
     except Exception as e:
-        refused = isinstance(e, NotImplementedError | FileExistsError) or (
-            if_exists == "fail" and isinstance(e, KeyError | ValueError)
+        refused = (
+            # a file that is already there under `fail`, and the only thing this class means here
+            isinstance(e, FileExistsError)
+            # a sink saying it does not do this mode. Bare ones reach here too -- scipy raises
+            # `NotImplementedError()` for a NetCDF format it cannot write -- and an empty message
+            # reported as a refusal is an empty `ERROR` line, so those keep their traceback
+            or (isinstance(e, NotImplementedError) and str(e))
+            # `fail` is reported by DuckDB as a `KeyError` and by the SQLAlchemy sinks as pandas'
+            # `ValueError`, and both classes are also how a sink breaks. Only the mode plus what it
+            # says separates them: a `KeyError` under `fail` that is not about the target already
+            # holding data is `Unknown export file type` and wants its traceback like any other
+            or (if_exists == "fail" and isinstance(e, KeyError | ValueError) and "already exists" in str(e))
         )
         if refused:
             # `str(KeyError(msg))` is the repr of its argument, quotes and all, so strip the pair a

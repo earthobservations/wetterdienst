@@ -2075,11 +2075,10 @@ def test_export_file_fail_exception(tmp_path: Path) -> None:
     assert exec_info.match("File '.*testfile' already exists, aborting write due to if_exists='fail'.")
 
 
-class _OneRow(ExportMixin):
-    """The smallest thing `to_target` will write, so the sink is reached without a request."""
-
-    def __init__(self) -> None:
-        self.df = pl.DataFrame(
+def _one_row() -> ExportMixin:
+    """Build the smallest frame a sink will write, so it is reached without a request behind it."""
+    return ExportMixin(
+        df=pl.DataFrame(
             {
                 "station_id": ["01048"],
                 "resolution": ["daily"],
@@ -2089,7 +2088,8 @@ class _OneRow(ExportMixin):
                 "value": [1.0],
                 "quality": [1.0],
             },
-        )
+        ),
+    )
 
 
 @pytest.mark.parametrize(
@@ -2117,8 +2117,32 @@ def test_influxdb_takes_the_modes_that_describe_what_it_does(if_exists: str, ref
     with mock.patch("influxdb.InfluxDBClient", side_effect=[client], create=True):
         if refused:
             with pytest.raises(NotImplementedError, match=f"if_exists='{if_exists}' is not supported for InfluxDB"):
-                _OneRow().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)
+                _one_row().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)
             return
-        _OneRow().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)
+        _one_row().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)
 
     assert client.write_points.call_count == 1
+
+
+def test_duckdb_append_matches_columns_by_name(tmp_path: Path) -> None:
+    """Appending a frame whose columns are named differently is refused, not filed by position.
+
+    `INSERT INTO t SELECT * FROM origin` matches by position, so two runs carrying the same number
+    of columns under different names were both accepted and the second one's values landed under
+    the first one's headings. A `--shape=wide` schedule reaches that by changing one parameter: a
+    day's precipitation was stored as its temperature, exit 0 and nothing said.
+    """
+    duckdb = pytest.importorskip("duckdb")
+    target = f"duckdb:///{tmp_path / 'obs.duckdb'}?table=weather"
+    temperature = pl.DataFrame({"date": ["2020-01-01"], "temperature_air_mean_2m": [10.1]})
+    precipitation = pl.DataFrame({"date": ["2020-01-01"], "precipitation_height": [0.0]})
+
+    ExportMixin(df=temperature).to_target(target)
+    with pytest.raises(duckdb.BinderException, match='does not have a column with name "precipitation_height"'):
+        ExportMixin(df=precipitation).to_target(target, if_exists="append")
+
+    connection = duckdb.connect(str(tmp_path / "obs.duckdb"))
+    assert connection.execute("SELECT COUNT(*) FROM weather").fetchone()[0] == 1, "the refused append still wrote"
+    # the same names still append, which is what a schedule of one query does
+    ExportMixin(df=temperature).to_target(target, if_exists="append")
+    assert connection.execute("SELECT COUNT(*) FROM weather").fetchone()[0] == 2

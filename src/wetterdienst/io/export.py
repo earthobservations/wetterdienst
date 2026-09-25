@@ -414,7 +414,15 @@ class ExportMixin:
                 if not exists:
                     connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
                 else:
-                    connection.execute(f"INSERT INTO {tablename} SELECT * FROM origin;")  # noqa: S608
+                    # `BY NAME`, because a plain `INSERT ... SELECT *` matches by position: two runs
+                    # whose frames carry the same number of columns under different names were
+                    # accepted, and the second one's values landed under the first one's headings.
+                    # A `--shape=wide` schedule does that by changing one parameter -- a day's
+                    # precipitation was filed as its temperature, exit 0 and nothing said. Matching
+                    # by name refuses that with `Binder Error: Table "weather" does not have a
+                    # column with name "precipitation_height"`, and still accepts a frame whose
+                    # columns are a subset, filling the rest with nulls
+                    connection.execute(f"INSERT INTO {tablename} BY NAME SELECT * FROM origin;")  # noqa: S608
             elif if_exists == "fail":
                 # Will fail if table exists
                 try:

@@ -971,3 +971,38 @@ def test_cli_values_target_keeps_the_detail_of_a_failure_that_is_not_a_refusal(
     assert "Unknown export file type" in caplog.text
     # the traceback, which a refusal does not carry and this does
     assert "KeyError" in caplog.text
+
+
+@pytest.mark.remote
+def test_cli_values_target_keeps_the_detail_under_fail_too(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`--if_exists=fail` does not turn every `KeyError` from a sink into a refusal.
+
+    `fail` is the one mode where a `KeyError` may be the sink saying the target already holds data,
+    so it is the mode where the classifier has to look at more than the class. Reading the mode
+    alone put this back where it started: an unknown extension under `--if_exists=fail` reported
+    `Unknown export file type` with no target and no traceback, while the identical command without
+    the flag reported both.
+    """
+    target = f"file://{tmp_path / 'out.txt'}"
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl/temperature_air_mean_2m",
+            "--periods=recent",
+            "--station=01048",
+            f"--target={target}",
+            "--if_exists=fail",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert f"Failed to export to {target}" in caplog.text
+    assert "KeyError" in caplog.text
