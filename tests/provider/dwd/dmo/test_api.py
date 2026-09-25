@@ -1088,8 +1088,9 @@ _DMO_PER_1H = frozenset(["rad1h", "radl1", "rads1", "rr1", "rrs1c"])
 _DMO_PER_3H = frozenset(["rad3h", "radl3", "rads3", "rr3", "rrs3c"])
 _DMO_SERVED_BY = {"078": _DMO_SHARED | _DMO_PER_1H, "168": _DMO_SHARED | _DMO_PER_3H}
 # `ptp_gdmog_01001_168_3_251200.kmz` in a station directory, `ptp_gdmog_168_3_251200.kmz` under
-# `all_stations`, which omits the id -- so `{station_id}` is either `"<id>_"` or `""`. Anchored, not
-# a substring test: `_run_stamp` records a bare `078` having matched inside a station id instead.
+# `all_stations`, which omits the id -- so `{station_id}` is either `"<id>_"` or `""`, and the id is
+# escaped, being a value read out of `dmo_stationsliste_txt.asc` rather than a literal. Anchored,
+# not a substring test: `_run_stamp` records a bare `078` having matched inside a station id.
 _DMO_RUN_NAME = r"ptp_[a-z]+_{station_id}(\d{{3}})_(\d+)_(\d{{6}})\.kmz"
 
 
@@ -1198,7 +1199,9 @@ def test_dmo_declares_the_elements_its_runs_carry(
         for entry in entries:
             # not every `.kmz` here need be a forecast -- `_run_stamp` tolerates a sidecar rather
             # than failing on it, so anything that does not parse is passed over here as well
-            match = re.fullmatch(_DMO_RUN_NAME.format(station_id=f"{candidate}_"), entry["name"].rsplit("/", 1)[-1])
+            match = re.fullmatch(
+                _DMO_RUN_NAME.format(station_id=re.escape(candidate) + "_"), entry["name"].rsplit("/", 1)[-1]
+            )
             if match:
                 found.setdefault(match.group(1), []).append(entry["name"])
         if all(lead_time in found for lead_time in lead_times):

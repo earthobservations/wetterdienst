@@ -330,25 +330,39 @@ Types of changes:
 
 ### Changed
 
-- Every export a sink refuses raises `ExportRefusedError`: a mode it does not do, a target already
-  holding data under `if_exists="fail"`, or a format or protocol nothing here writes. It replaces a
-  `NotImplementedError`, a `FileExistsError`, two `KeyError`s and, in the SQLAlchemy sinks, pandas'
-  own `ValueError` -- five classes for one meaning, none of them exclusive to it. Callers matching on
-  the old classes have to match on this one instead, which is why this is here rather than in Fixed.
-  What it buys is that nothing has to infer what a failure meant. The CLI's export handler tried to,
-  over three rounds of review: `fail` arrives from DuckDB as a `KeyError` and from pandas as a
-  `ValueError`, both classes are also simply how a sink breaks, and every rule over types and
-  messages let something through -- a `KeyError` from inside a sink printed its own argument and
-  nothing else (`ERROR date`, for a stations frame sent to InfluxDB, which pops a `date` column only
-  values carry), a bare `NotImplementedError` from scipy would have printed an empty `ERROR` line,
-  and `Unknown export file type` reported a traceback or a sentence depending on which `--if_exists`
-  the run happened to pass. The handler is two arms with nothing to decide now, and
-  `Unknown export file type` names the target it could not write
+- **Breaking**: Every export a sink refuses raises `ExportRefusedError`: a mode it does not do, a
+  target already holding data under `if_exists="fail"`, or a format or protocol nothing here
+  writes. It replaces a `NotImplementedError`, a `FileExistsError`, two `KeyError`s and, in the
+  SQLAlchemy sinks, pandas' own `ValueError` -- five classes for one meaning, none of them
+  exclusive to it. Callers matching on the old classes have to match on this one instead, which is
+  why this is here rather than in Fixed. What it buys is that nothing has to infer what a failure
+  meant. The CLI's export handler tried to, over three rounds of review: `fail` arrives from DuckDB
+  as a `KeyError` and from pandas as a `ValueError`, both classes are also simply how a sink
+  breaks, and every rule over types and messages let something through -- a `KeyError` from inside
+  a sink printed its own argument and nothing else (`ERROR date`, for a stations frame sent to
+  InfluxDB, which pops a `date` column only values carry), a bare `NotImplementedError` from scipy
+  would have printed an empty `ERROR` line, and `Unknown export file type` reported a traceback or
+  a sentence depending on which `--if_exists` the run happened to pass. The handler is two arms
+  with nothing to decide now, and `Unknown export file type` names the target it could not write
+- The stale MOSMIX and DMO figures the docs carried beside the ones this release measured.
+  `docs/data/provider/dwd/index.md` advertised MOSMIX-L at "~115 parameters" and both products at
+  "over 5000 stations worldwide", and `dwd/mosmix/index.md` the same two, while
+  `docs/data/overview.md` was being corrected to 5649 and 122 in the same change -- the twin one
+  file over. Measured: MOSMIX 5649 stations for both datasets, 40 parameters for `small` and 122
+  for `large`; DMO 5757 stations and 23 parameters for `icon`, 3688 and 19 for `icon_eu`. The DMO
+  bullet also described the long run as "168 h lead time" beside the short one, which reads as one
+  grid rather than a second run starting where the first ends
+- The `**Breaking**` marker is on every breaking entry in this release rather than on one of them.
+  Five commits landed with a `!` and an unmarked entry -- the `ExportRefusedError` change,
+  `DwdDmoRequest.available_issues` taking a product, `Settings.auth` holding `SecretStr`, the
+  `fastmcp>=4` requirement, and DMO advertising a station only for the product that forecasts for
+  it -- so marking the DMO parameter prune alone made it read as the only one
 - **Breaking**: DWD DMO declares the elements its runs carry, which is 23 parameters for `icon` and
   19 for `icon_eu` rather than 122 and 40. A request for one of the 99 and 22 that are gone raises
   `NoParametersFoundError` where it used to be built and return an empty frame, so a job pinned to
-  one of those names stops at construction rather than quietly producing nothing. The old lists were MOSMIX's, copied in when the provider was
-  written -- which is also why `icon` held MOSMIX-L's count and `icon_eu` MOSMIX-S's, a split DMO
+  one of those names stops at construction rather than quietly producing nothing. The old lists
+  were MOSMIX's, copied in when the provider was written -- which is also why `icon` held
+  MOSMIX-L's count and `icon_eu` MOSMIX-S's, a split DMO
   does not have: both products carry the same elements per run, and differ in the domain they cover
   and the lead times they cover it for -- `icon` declares more only because it publishes the second,
   3-hourly run as well. Measured over 22 runs across 12 stations, both products, both lead times and
@@ -377,36 +391,36 @@ Types of changes:
   one station's directory, because `icon_eu` gaining a 168 run -- which would arrive at a subset of
   stations first -- would give it the same split and leave it declaring 1-hourly elements its long
   run does not carry
-- `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset` (`icon` or
-  `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
-  `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request built
-  with no arguments accepts. It used to list `icon/single_stations/<id>/kmz/` whatever the request
-  would go on to read, and name issues that request then rejected: `all_stations` publishes only the
-  `078` lead time, so an issue advertised from a `168` file met `IndexError: Unable to find a 168 h
-  forecast within ...`, and a station the shared catalogue listed for `icon_eu` without `icon_eu`
-  covering it has no single-station directory, so every issue advertised for it resolved to an empty
-  frame with nothing said. Both measured against the live server. The directory is named by one
-  function that the values path uses too, so the two cannot drift apart again. `wetterdienst
-  issues` and `/api/issues` take `--dataset`/`--lead_time`
-  to match, and say so rather than ignoring them where the network is not DMO. Passing
-  `lead_time=None` restores the old listing of every lead time together, which is a question about
-  the directory rather than about anything that can be requested. GH-1956
+- **Breaking**: `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset`
+  (`icon` or `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
+  `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request
+  built with no arguments accepts. It used to list `icon/single_stations/<id>/kmz/` whatever the
+  request would go on to read, and name issues that request then rejected: `all_stations` publishes
+  only the `078` lead time, so an issue advertised from a `168` file met `IndexError: Unable to
+  find a 168 h forecast within ...`, and a station the shared catalogue listed for `icon_eu`
+  without `icon_eu` covering it has no single-station directory, so every issue advertised for it
+  resolved to an empty frame with nothing said. Both measured against the live server. The
+  directory is named by one function that the values path uses too, so the two cannot drift apart
+  again. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time` to match, and say
+  so rather than ignoring them where the network is not DMO. Passing `lead_time=None` restores the
+  old listing of every lead time together, which is a question about the directory rather than
+  about anything that can be requested. GH-1956
 
-- `Settings.auth` holds `SecretStr` rather than `str`, so code that reads a credential off the
-  settings has to ask for it: `reveal(settings.auth.aemet)`, or `.get_secret_value()`. Setting them
-  is unchanged -- the env vars, the strings and the pairs all read as they did -- and so is every
-  `if not settings.auth.x` check, an empty secret being falsy. What changes is reading one back
-  without asking: an f-string or a `str()` of a credential now yields `**********` rather than the
-  value, which is the point of the change but is silent where the old behaviour was not. The mask
-  is refused as a credential on the way in, so a JSON dump read back fails where it is given rather
-  than at the provider later
+- **Breaking**: `Settings.auth` holds `SecretStr` rather than `str`, so code that reads a
+  credential off the settings has to ask for it: `reveal(settings.auth.aemet)`, or
+  `.get_secret_value()`. Setting them is unchanged -- the env vars, the strings and the pairs all
+  read as they did -- and so is every `if not settings.auth.x` check, an empty secret being falsy.
+  What changes is reading one back without asking: an f-string or a `str()` of a credential now
+  yields `**********` rather than the value, which is the point of the change but is silent where
+  the old behaviour was not. The mask is refused as a credential on the way in, so a JSON dump read
+  back fails where it is given rather than at the provider later
 
-- The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py` builds the
-  `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP 4 moved off
-  httpx entirely and types that provider's `client` as `httpx2.AsyncClient`; an httpx client is
-  still taken there by duck typing, but warns and is to be rejected in a later release, so the
-  floor now says which library the code is written against. `httpx2` is declared alongside the
-  extra (`>=2.12,<3`) rather than leaned on as a transitive dependency of `fastmcp`
+- **Breaking**: The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py`
+  builds the `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP
+  4 moved off httpx entirely and types that provider's `client` as `httpx2.AsyncClient`; an httpx
+  client is still taken there by duck typing, but warns and is to be rejected in a later release,
+  so the floor now says which library the code is written against. `httpx2` is declared alongside
+  the extra (`>=2.12,<3`) rather than leaned on as a transitive dependency of `fastmcp`
 - Locked dependencies refreshed to their latest compatible versions -- 74 packages, among them the
   majors cloup 4, fastmcp 4 (mcp 2), plotly 7 and tzfpy 2 -- and the dev toolchain with them (ruff
   0.16.7, ty 0.0.81, zizmor 1.30.1). Three specifiers had to widen to admit them: `cloup<5`,
@@ -596,19 +610,19 @@ Types of changes:
   really are positive -- it is read as written, exactly as before. The MOSMIX catalogue shares the
   format and the conversion but has no such row, so this stays with DMO
 
-- DWD DMO: a station is advertised only for the product that forecasts for it. `dmo_stationsliste_txt.asc`
-  is one list for both DMO products and matches neither: of its 5811 stations `icon` covers 5622 and
-  `icon_eu` 3556, so a request for `icon_eu` listed 2255 stations that could only ever answer with an
-  empty frame -- indistinguishable, from the caller's side, from a forecast that is merely missing
-  right now, and from the swallowed listing GH-1947 was about. Which stations a product covers is now
-  read from its `single_stations/` directory, whose entries are exactly the placemarks that product's
-  `all_stations` run carries, so the correction costs one directory listing rather than a 20 MB parse.
-  A listing that cannot be read keeps the shared catalogue rather than answering that a product has no
-  stations, and says which it handed back; so does a listing that shares no station with the
-  catalogue, which is not a station listing however many names it carries. Four of the seven
-  hardcoded station patches are genuinely
-  outside `icon_eu` -- Gao, São Gabriel da Cachoeira, Quito and Quito/Mariscal Sucre lie outside a
-  European domain -- and are now dropped for it too
+- **Breaking**: DWD DMO: a station is advertised only for the product that forecasts for it.
+  `dmo_stationsliste_txt.asc` is one list for both DMO products and matches neither: of its 5811
+  stations `icon` covers 5622 and `icon_eu` 3556, so a request for `icon_eu` listed 2255 stations
+  that could only ever answer with an empty frame -- indistinguishable, from the caller's side,
+  from a forecast that is merely missing right now, and from the swallowed listing GH-1947 was
+  about. Which stations a product covers is now read from its `single_stations/` directory, whose
+  entries are exactly the placemarks that product's `all_stations` run carries, so the correction
+  costs one directory listing rather than a 20 MB parse. A listing that cannot be read keeps the
+  shared catalogue rather than answering that a product has no stations, and says which it handed
+  back; so does a listing that shares no station with the catalogue, which is not a station listing
+  however many names it carries. Four of the seven hardcoded station patches are genuinely outside
+  `icon_eu` -- Gao, São Gabriel da Cachoeira, Quito and Quito/Mariscal Sucre lie outside a European
+  domain -- and are now dropped for it too
 
 - DWD DMO: the directory a product is served from is named by a total mapping rather than one special
   case with a pass-through, so a product added without deciding its upstream spelling is refused where

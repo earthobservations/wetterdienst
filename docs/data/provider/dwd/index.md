@@ -10,12 +10,12 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - every minute to yearly resolution
     - time series of over 1000 stations in Germany
 - [Mosmix](mosmix/index.md) — statistically optimized point forecasts derived from weather models
-    - MOSMIX-S (~40 parameters, updated hourly) and MOSMIX-L (~115 parameters, updated every 6 hours)
-    - over 5000 stations worldwide, forecast horizon up to 240 hours
+    - MOSMIX-S (40 parameters, updated hourly) and MOSMIX-L (122 parameters, updated every 6 hours)
+    - 5649 stations worldwide, forecast horizon up to 240 hours
 - [DMO](dmo/index.md) — raw point forecasts extracted from weather models (no statistical postprocessing)
     - ICON (global) and ICON-EU (regional) models
-    - hourly resolution (78 h lead time) and, for ICON, additional 3-hourly resolution (168 h lead time)
-    - over 5000 stations worldwide
+    - hourly resolution (78 h lead time) and, for ICON, a second run 3-hourly from 78 to 168 h
+    - ICON: 5757 stations worldwide, 23 parameters; ICON-EU: 3688 stations, 19 parameters
 - [Road](road/index.md) — weather observations from German motorway ("road") stations
     - 15-minute resolution, distributed in BUFR format
 - [POI](poi/index.md) — current weather reports, the observed counterpart to MOSMIX
