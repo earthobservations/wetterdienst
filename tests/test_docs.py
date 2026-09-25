@@ -109,6 +109,22 @@ def test_docs_parameters_link_to_glossary() -> None:
     assert not errors, "\n".join(errors)
 
 
+def _heading_datasets(line: str, current: list[str]) -> list[str]:
+    """Name the datasets a heading opens, for the two parsers below.
+
+    ``### <name>`` opens a dataset section, ``#### parameters`` and the like stay inside the one it
+    is in, and anything shallower closes it -- a page carries its own resolution-level ``##
+    metadata`` table, whose rows belong to no dataset. Shared so that the two parsers cannot answer
+    this differently, which is how one of them came to read that table as a dataset.
+    """
+    level = len(line) - len(line.lstrip("#"))
+    if level == 3:
+        return [line[4:].strip()]
+    if level >= 4:
+        return current
+    return []
+
+
 def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], str]:
     """Return {(dataset, canonical name, original name): description} for one provider docs page.
 
@@ -128,15 +144,15 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], str]:
     header = None
     in_metadata = False
     for line in path.read_text(encoding="utf8").splitlines():
-        if line.startswith("### "):
-            datasets, header, in_metadata = [line[4:].strip()], None, False
+        if line.startswith("#"):
+            datasets, header, in_metadata = _heading_datasets(line, datasets), None, False
             continue
         if not line.startswith("|"):
             header, in_metadata = None, False
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells[:1] == ["property"]:
-            in_metadata = True
+            in_metadata = bool(datasets)
             continue
         if cells and cells[0] == "name" and "original name" in cells:
             header, in_metadata = (cells if "description" in cells else None), False
@@ -207,28 +223,25 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
     ``Small`` and ``Large`` against datasets ``small`` and ``large``, so keying on the heading
     matched nothing there and left the whole page uncompared.
     """
-    heading: str | None = None
+    datasets: list[str] = []
     prop: dict[str, str] | None = None
     for line in path.read_text(encoding="utf8").splitlines():
         if not line.startswith("|"):
             # flushed before the heading moves on, so a table not separated from the next `###` by a
             # blank line is still yielded under the dataset it belongs to
-            if prop is not None and heading is not None:
-                yield {"name": heading, **prop}
+            if prop is not None and datasets:
+                yield {"name": datasets[0], **prop}
             prop = None
-            if line.startswith("### ") and not line.startswith("#### "):
-                heading = line[4:].strip()
+            if line.startswith("#"):
+                datasets = _heading_datasets(line, datasets)
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells[:1] == ["property"]:
-            # only inside a dataset section: a page also carries a `## metadata` table for the
-            # resolution itself, and keying that as a dataset would compare a resolution's
-            # description against a dataset of the same name the day a provider declares one
-            prop = {} if heading is not None else None
+            prop = {} if datasets else None
         elif prop is not None and len(cells) >= 2 and not all(set(cell) <= {"-", ":"} for cell in cells):
             prop[cells[0]] = cells[1]
-    if prop is not None and heading is not None:
-        yield {"name": heading, **prop}
+    if prop is not None and datasets:
+        yield {"name": datasets[0], **prop}
 
 
 def _documented_dataset_descriptions(path: Path) -> dict[str, str]:
