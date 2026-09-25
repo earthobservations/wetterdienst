@@ -2119,6 +2119,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
 }
 
 
+# the three cooling_degreehours datasets carry identical parameters and one shared description, which
+# is why the docs document all three in a single section naming all three
+_COOLING_DEGREEHOURS = (
+    "Data on cooling degree hours, comparing the hourly temperatures to different reference "
+    "temperatures of 13, 16 and 18 degree Celsius."
+)
+
 # What a dataset holds, keyed by metadata model name then ``(resolution, dataset)``.
 # The docs tables carry a trailing "([details](url))" pointer; that is page formatting and
 # is not part of the description here.
@@ -2133,6 +2140,9 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "Data on climate correction factors, comparing the degree days between a postal code and "
             "a reference station."
         ),
+        ("monthly", "cooling_degreehours_13"): _COOLING_DEGREEHOURS,
+        ("monthly", "cooling_degreehours_16"): _COOLING_DEGREEHOURS,
+        ("monthly", "cooling_degreehours_18"): _COOLING_DEGREEHOURS,
         ("monthly", "heating_degreedays"): (
             "Data on degree days, comparing the monthly temperatures to the reference temperature of 20 degree Celsius."
         ),
@@ -2327,6 +2337,14 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
     },
+    "DwdMosmixMetadata": {
+        ("hourly", "small"): (
+            "Local forecast of 40 parameters for worldwide stations, 24 times a day with a lead-time of 240 hours."
+        ),
+        ("hourly", "large"): (
+            "Local forecast of 122 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours."
+        ),
+    },
     "DwdRoadMetadata": {
         ("15_minutes", "data"): "15-minute road weather data of German highway stations.",
     },
@@ -2360,6 +2378,7 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("daily", "climate"): "historical daily climate data.",
         ("daily", "precipitation"): "historical daily precipitation data.",
         ("daily", "synop"): "historical daily synop data.",
+        ("monthly", "climate"): "historical monthly climate data.",
         ("monthly", "precipitation"): "historical monthly precipitation data.",
         ("monthly", "synop"): "historical monthly synop data.",
     },

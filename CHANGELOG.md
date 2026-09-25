@@ -43,23 +43,32 @@ Types of changes:
   exist, so a resolution added without one was compared by nothing -- the same silent skip as a
   page that parses to nothing, which they already report. `test_data_coverage` checks the other
   direction, that every page is linked from its network index, and could not see this one
-- A dataset the model describes has to carry a documented description, not only agree with it where
-  both sides have one. A deleted `description` row, a missing `#### metadata` table or a mistyped
-  `name` row was answered by comparing nothing -- the one direction the parameter presence test
-  does not reach, since it holds parameter rows only. All 211 described datasets document it today,
-  and the 54 that document none describe none in the model either, so nothing is demanded that does
-  not exist. A second metadata table for one dataset is reported rather than overwriting its twin,
-  for the same reason as the parameter rows below
+- Dataset descriptions are held in both directions, the way the parameter rows are. A deleted
+  `description` row, a missing `#### metadata` table or a mistyped `name` row was answered by
+  comparing nothing, and so was text living only in the markdown, where the REST API, MCP and CLI
+  never see it. All 217 described datasets now document it and vice versa, and the 54 that document
+  none describe none either, so nothing is demanded that does not exist. A second metadata table
+  for one dataset is reported rather than overwriting its twin, for the same reason as the
+  parameter rows below
+- Six dataset descriptions the docs carried and the model did not: `dwd/mosmix` hourly `small` and
+  `large`, the three `dwd/derived` monthly `cooling_degreehours_*`, and `imgw/meteorology` monthly
+  `climate`, whose siblings `daily/climate`, `monthly/precipitation` and `monthly/synop` were all
+  already there. They are what the assertion above was missing, and what let the `mosmix` figure
+  below go stale unnoticed
 - A parameter row written twice is reported rather than deduped. The parse keys on (dataset, name,
   original name), so a repeated row used to overwrite its twin and leave only the last of them
   compared -- which is the exact shape of two of the defects below, a stale row left in place
   beside the one that replaced it, so with a matching `original name` the next one was invisible
-- Only `ModuleNotFoundError` excuses a network from the docs tests, and it says so with a warning
+- Only a genuinely missing module excuses a network from the docs tests, and it says so with a
+  warning
   naming the network and the module. `dwd/derived` imports pandas, which arrives with the `export`
   extra, so a bare `uv sync` cannot verify its three resolutions -- the reason the clause exists.
   It used to catch every exception, which meant a `metadata.py` that made `build_metadata_model`
   raise, or a typo in a provider's `api.py`, excused that provider from all four tests silently,
-  including the one above whose whole purpose is to stop that
+  including the one above whose whole purpose is to stop that. The test is read off `__cause__`
+  rather than off the exception type, because `Wetterdienst.resolve` re-raises the
+  `ModuleNotFoundError` as a plain `ImportError`: catching `ModuleNotFoundError` catches nothing,
+  and under a bare `uv sync` the skip would have surfaced as four errors instead
 - The presence report is capped per page as well as overall, and states how many lines it left out.
   A single mistyped dataset `name` row matches nothing and so reports every parameter on both sides
   -- 33 lines for one page, enough to fill a flat 20-line cap and report a corpus-wide problem as a
@@ -73,7 +82,8 @@ Types of changes:
   it sits in and dropped every row below it out of that dataset, which the descriptions test
   answers by silently comparing nothing -- the failure mode this change set exists to remove. A
   fence closes only on a marker at least as long as the one that opened it, so a ``` line inside a
-  ````-opened block is content rather than the end of it. No resolution page carries a fence today;
+  ````-opened block is content rather than the end of it, and `:::` counts as a fence because
+  `docs/conf.py` enables MyST's `colon_fence`. No resolution page carries a fence today;
   the guard is there so that adding one is not a trap
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
   default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
@@ -203,6 +213,11 @@ Types of changes:
   `precipitation_height` under `synop`, which declares `precipitation_height_day` and `_night`
   instead, so the row named something that raises `NoParametersFoundError` -- while
   `imgw/meteorology` monthly `synop` documented none of its four precipitation parameters at all
+- `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
+  declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
+  the markdown, so nothing compared it; GH-1975 corrects the same number in
+  `docs/data/overview.md`, `dwd/index.md` and `mosmix/index.md`, and this is the fourth copy, which
+  it does not reach
 - `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
   `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote, and puts the
   two rows in the order the model declares them -- the one table this change touched that was among

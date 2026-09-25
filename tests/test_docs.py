@@ -80,10 +80,14 @@ def _prose_lines(path: Path) -> Iterator[str]:
     the dataset section it sits in -- dropping every row below it out of its dataset, so that the
     descriptions test silently stops comparing them. Which is the skip this module exists to stop,
     and the reason the fence is stripped here rather than in each parser.
+
+    ``:::`` counts as a fence because `docs/conf.py` enables MyST's ``colon_fence``, so a
+    ``:::{note}`` block is one here as much as a ``````` one. `deflist` is enabled too but
+    its marker is a single colon, which this does not match.
     """
     fence: tuple[str, int] | None = None
     for line in path.read_text(encoding="utf8").splitlines():
-        marker = re.match(r"\s*(`{3,}|~{3,})", line)
+        marker = re.match(r"\s*(`{3,}|~{3,}|:{3,})", line)
         if marker:
             char, length = marker.group(1)[0], len(marker.group(1))
             if fence is None:
@@ -214,9 +218,14 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
     A network whose request class needs a package this environment does not have is skipped, with a
     warning naming it: `dwd/derived` imports pandas, which arrives with the `export` extra, so a bare
     `uv sync` leaves its three resolutions unverifiable. CI installs the extras
-    (`.github/workflows/install.sh testing`) and skips nothing. Only `ModuleNotFoundError` is excused
-    -- a `metadata.py` that makes `build_metadata_model` raise, or a typo in a provider's `api.py`,
-    has to surface here rather than quietly excusing that provider from all four tests below.
+    (`.github/workflows/install.sh testing`) and skips nothing.
+
+    Only a genuinely missing module is excused -- a `metadata.py` that makes `build_metadata_model`
+    raise, or a typo in a provider's `api.py`, has to surface here rather than quietly excusing that
+    provider from all four tests below. `Wetterdienst.resolve` re-raises the `ModuleNotFoundError` as
+    a plain `ImportError`, so the distinction is read off `__cause__` rather than off the type:
+    catching `ModuleNotFoundError` catches nothing at all, and the skip this clause documents would
+    have come out as four errors instead.
     """
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
@@ -229,7 +238,9 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
                 continue
             try:
                 api = Wetterdienst(provider, network)
-            except ModuleNotFoundError as error:
+            except ImportError as error:
+                if not isinstance(error.__cause__, ModuleNotFoundError):
+                    raise
                 warnings.warn(
                     f"{provider}/{network} not checked against its docs: {error}",
                     stacklevel=2,
@@ -340,11 +351,13 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
     append a "([details](url))" pointer that is page formatting rather than part of the
     description, so it is ignored here.
 
-    A dataset the model describes has to carry a documented description, because comparing only the
-    rows that appear on both sides means a deleted `description` row -- or a whole missing `####
-    metadata` table -- is answered by comparing nothing, which is the one direction the parameter
-    presence test does not reach. All 211 described datasets document it today; the 54 that document
-    none describe none in the model either, so nothing is being demanded that does not exist.
+    Presence is asserted in both directions, because comparing only the datasets described on both
+    sides means either side alone going unread. A deleted `description` row -- or a whole missing
+    `#### metadata` table -- was answered by comparing nothing, and so was text living only in the
+    markdown, where the REST API, MCP and CLI never see it: `dwd/mosmix` hourly described `large` as
+    "Local forecast of 115 parameters" on a page nothing compared, while the model declares 122. All
+    217 described datasets now document it and vice versa; the 54 that document none describe none
+    either, so nothing is demanded that does not exist.
     """
     mismatches = []
     for provider, network, resolution, path in _documented_resolutions():
@@ -352,10 +365,13 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
         for dataset in resolution:
             tag = f"{provider}/{network}/{resolution.name}/{dataset.name}"
             shown = documented.get(dataset.name, [])
-            if not dataset.description:
+            if not dataset.description and not shown:
                 continue
             if not shown:
                 mismatches.append(f"{tag}: the model describes it, the page does not")
+                continue
+            if not dataset.description:
+                mismatches.append(f"{tag}: the page describes it, the model does not")
                 continue
             if len(shown) > 1:
                 mismatches.append(f"{tag}: carries {len(shown)} metadata tables")
