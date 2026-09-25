@@ -57,6 +57,14 @@ Types of changes:
   `climate`, whose siblings `daily/climate`, `monthly/precipitation` and `monthly/synop` were all
   already there. They are what the assertion above was missing, and what let the `mosmix` figure
   below go stale unnoticed
+- A description cell that is blank, or holds a `-`, is compared like any other text rather than
+  waved through. No row writes either and no parameter lacks a description, so the two escapes this
+  replaces could never have caught anything -- they could only have hidden a description being
+  dropped from a page, which is the failure this test exists to report
+- A `#### metadata` section naming a dataset the model does not declare is reported even when it
+  carries no `#### parameters` table. The orphan check read the parameter rows, and the description
+  test walks the model's datasets, so neither reached a section left behind when its dataset was
+  dropped
 - `quality` descriptions are compared like any other parameter's. The presence check requires the
   25 documented `quality` rows to exist and to be keyed by the right `name_original`, so their text
   was the one thing about them that nothing checked. Removing the skip turned up two `dwd/derived`
@@ -225,6 +233,14 @@ Types of changes:
   `precipitation_height` under `synop`, which declares `precipitation_height_day` and `_night`
   instead, so the row named something that raises `NoParametersFoundError` -- while
   `imgw/meteorology` monthly `synop` documented none of its four precipitation parameters at all
+- Three unit cells naming a different physical quantity than the model declares: `dwd/road`
+  15_minutes wrote `mm/s` for `precipitation_intensity`, which is `millimeter_per_hour`, a factor
+  of 3600 out; and `dwd/observation` monthly and annual wrote `Bft` for `wind_gust_max`, which is
+  `meter_per_second`, apparently copied from the `wind_force_beaufort` row above it, which really
+  is Beaufort. Found by checking every unit cell against `UnitConverter.get_unit`: 63 of 2213
+  disagree with the model, and the rest are spellings rather than quantities -- `kg/m²` for `mm`
+  (36), `-` for the coded `significant_weather` (16), a Greek mu where the model writes a micro
+  sign (5) and `Bft` for `bft` (3). GH-1980 carries those
 - `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
   declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
   the markdown, so nothing compared it; GH-1975 corrects the same number in
@@ -233,11 +249,11 @@ Types of changes:
 - `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
   `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote, and puts the
   two rows in the order the model declares them -- the one table this change touched that was among
-  the 43 of 271 still out of order. Of the 63
-  rows corpus-wide that spell a unit out where their own page uses the symbol for it, this is the
-  only one outside `dwd/dmo` hourly -- which GH-1975 has open -- and the 59 that write
-  `dimensionless` against a `-` elsewhere on the page, which is a convention to settle rather
-  than a slip (GH-1980)
+  the 43 of 271 still out of order. `main` carries 69 rows that spell a unit out where their own
+  page uses the symbol for it: 57 write `dimensionless` against a `-` elsewhere on the page, which
+  is a convention to settle rather than a slip (GH-1980), and of the other 12 this change fixes
+  9 -- 5 on `dwd/mosmix` hourly and 3 on `imgw/meteorology` daily, both described above, plus this
+  one -- leaving the 3 on `dwd/dmo` hourly to GH-1975, which has that file open
 - The three `dwd/derived` `Kuehltage` overrides are described as "Number of days with at least one
   cooling hour", which is what DWD's *Kuehltage* counts, rather than the vaguer "Number of days on
   which cooling was required". The precise wording sat in the docs table, where nothing compared it

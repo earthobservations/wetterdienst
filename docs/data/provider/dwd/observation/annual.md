@@ -54,7 +54,7 @@
 | {term}`sunshine_duration` | ja_sd_s | Annual sum of sunshine duration. | h | >=0 |
 | {term}`wind_force_beaufort` | ja_fk | Annual mean of daily wind speed. | Bft | >=0 |
 | {term}`temperature_air_max_2m` | ja_mx_tx | Annual maximum of daily temperature maxima in 2m height. | °C | - |
-| {term}`wind_gust_max` | ja_mx_fx | Annual maximum of daily wind speed. | Bft | >=0 |
+| {term}`wind_gust_max` | ja_mx_fx | Annual maximum of daily wind speed. | m/s | >=0 |
 | {term}`temperature_air_min_2m` | ja_mx_tn | Annual minimum of daily temperature minima in 2m height. | °C | - |
 | {term}`precipitation_height` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
 | {term}`precipitation_height_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |

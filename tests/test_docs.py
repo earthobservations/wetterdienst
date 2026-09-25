@@ -292,16 +292,18 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
                 # `quality` is compared like anything else: the presence test below requires the 25
                 # rows that exist to be keyed right, so leaving their text alone would have been the
                 # one thing about them nothing checked
-                if not parameter.description:
-                    continue
                 for shown in documented.get((dataset.name, parameter.name, parameter.name_original), []):
-                    if shown in ("", "-"):
+                    tag = f"{provider}/{network}/{resolution.name} {parameter.name}"
+                    # a blank or "-" cell is compared like any other text rather than waved through.
+                    # No row writes either today, and no parameter lacks a description, so the two
+                    # escapes this replaces could only ever have hidden a description being dropped
+                    if not parameter.description and not shown:
+                        continue
+                    if not parameter.description:
+                        mismatches.append(f"{tag}: the page describes it, the model does not")
                         continue
                     if shown.rstrip(".") != parameter.description.rstrip("."):
-                        mismatches.append(
-                            f"{provider}/{network}/{resolution.name} {parameter.name}: "
-                            f"docs {shown!r} != model {parameter.description!r}",
-                        )
+                        mismatches.append(f"{tag}: docs {shown!r} != model {parameter.description!r}")
     assert not mismatches, "\n".join(_capped(mismatches, 20, "the report"))
 
 
@@ -456,7 +458,10 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
             for parameter in dataset.parameters
         }
         found = []
-        sections = {key[0] for key in documented}
+        # unioned with the metadata tables, because a section left behind when its dataset was dropped
+        # from the model need not still carry a `#### parameters` table, and the description test
+        # walks the model's datasets so it never reaches one
+        sections = {key[0] for key in documented} | set(_documented_dataset_sections(path))
         for orphan in sorted(sections - {dataset.name for dataset in resolution}):
             found.append(f"{tag}: documents a dataset {orphan!r} that the model does not declare")
         for dataset, name, name_original in sorted(set(documented) - declared):
