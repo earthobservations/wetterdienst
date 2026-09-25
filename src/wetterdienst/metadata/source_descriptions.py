@@ -2403,9 +2403,9 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
 # the source itself, and applied only where nothing else supplies one.
 DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "DwdDerivedMetadata": {
-        ("monthly", "cooling_degreehours_13", "Kuehltage"): "Number of days on which cooling was required.",
-        ("monthly", "cooling_degreehours_16", "Kuehltage"): "Number of days on which cooling was required.",
-        ("monthly", "cooling_degreehours_18", "Kuehltage"): "Number of days on which cooling was required.",
+        ("monthly", "cooling_degreehours_13", "Kuehltage"): "Number of days with at least one cooling hour.",
+        ("monthly", "cooling_degreehours_16", "Kuehltage"): "Number of days with at least one cooling hour.",
+        ("monthly", "cooling_degreehours_18", "Kuehltage"): "Number of days with at least one cooling hour.",
     },
     "DwdDmoMetadata": {},
     "DwdMosmixMetadata": {},

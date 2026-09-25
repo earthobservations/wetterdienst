@@ -84,3 +84,7 @@
 | {term}`temperature_air_min_2m`      | absolutna temperatura minimalna                 | temperature air min 2m      | °C   | -           |
 | {term}`temperature_air_min_2m_mean` | średnia temperatura minimalna                   | temperature air min 2m mean | °C   | -           |
 | {term}`wind_speed`                  | średnia miesięczna prędkość wiatru              | wind speed                  | m/s  | >=0         |
+| {term}`precipitation_height` | miesięczna suma opadów | precipitation height | millimeter | - |
+| {term}`precipitation_height_day` | suma opadu dzień | Depth of precipitation collected during the daytime hours. | millimeter | - |
+| {term}`precipitation_height_max` | maksymalna dobowa suma opadów | precipitation height max | millimeter | - |
+| {term}`precipitation_height_night` | suma opadu noc | Depth of precipitation collected during the night hours. | millimeter | - |

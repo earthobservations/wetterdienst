@@ -4,6 +4,7 @@
 
 import doctest
 import re
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
@@ -113,25 +114,42 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], str]:
 
     Keyed by dataset as well: one page can document the same parameter in two datasets with
     different wording, e.g. daily ``snow_depth`` in climate_summary and in water_equivalent.
+
+    The dataset comes from the ``name`` row of the section's own metadata table rather than from
+    its ``###`` heading, for two reasons. `dwd/mosmix` heads its sections ``Small`` and ``Large``
+    while the datasets are ``small`` and ``large``, so a heading-keyed parse matched nothing on
+    that page and every row on it went unchecked. And `dwd/derived` monthly documents
+    ``cooling_degreehours_13``, ``_16`` and ``_18`` in one section, saying so in that row, because
+    the three carry identical parameters -- keying on it registers the rows under all three rather
+    than forcing three copies of the table.
     """
     documented = {}
-    dataset = None
+    datasets: list[str] = []
     header = None
+    in_metadata = False
     for line in path.read_text(encoding="utf8").splitlines():
         if line.startswith("### "):
-            dataset, header = line[4:].strip(), None
+            datasets, header, in_metadata = [line[4:].strip()], None, False
             continue
         if not line.startswith("|"):
-            header = None
+            header, in_metadata = None, False
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells[:1] == ["property"]:
+            in_metadata = True
+            continue
         if cells and cells[0] == "name" and "original name" in cells:
-            header = cells if "description" in cells else None
+            header, in_metadata = (cells if "description" in cells else None), False
+            continue
+        if in_metadata:
+            if cells[:1] == ["name"] and len(cells) >= 2:
+                datasets = [name.strip() for name in cells[1].split(",")]
             continue
         if header is None or all(set(cell) <= {"-", ":"} for cell in cells) or len(cells) < len(header):
             continue
         name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[header.index("name")])
-        documented[dataset, name, cells[header.index("original name")]] = cells[header.index("description")]
+        for dataset in datasets:
+            documented[dataset, name, cells[header.index("original name")]] = cells[header.index("description")]
     return documented
 
 
@@ -227,3 +245,46 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
                     f"docs {shown!r} != model {dataset.description!r}",
                 )
     assert not mismatches, "\n".join(mismatches[:10])
+
+
+# quality flags are declared throughout the model and documented on only some pages -- 38 dataset
+# tables carry a `quality` row against 68 declared across six names -- so presence is not checked
+# for them. The inconsistency is real but it is its own change, and the descriptions test skips
+# them too.
+def _substantive(keys: Iterable[tuple[str, str, str]]) -> set[tuple[str, str, str]]:
+    """Drop the quality-flag rows from a set of (dataset, name, original name) keys."""
+    return {key for key in keys if not key[1].startswith("quality")}
+
+
+def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> None:
+    """Test that a documented parameter exists and a declared parameter is documented.
+
+    The descriptions test compares the *text* of rows that appear on both sides and says nothing
+    about a row appearing on one side alone, in either direction. So a table could advertise a
+    parameter no request can ask for -- `dwd/dmo` hourly documented `cloud_base_convective` and
+    `cloud_cover_below_7km` under `icon_eu`, which the model declares for `icon` alone, and asking
+    for either raised `NoParametersFoundError` while the docs said it was there (GH-1971) -- or
+    quietly omit one a request can, which is how `imgw/meteorology` monthly `synop` came to
+    document none of its four precipitation parameters.
+
+    Both directions are asserted here, so neither survives a parameter rename, a dataset split or
+    a copied table again.
+    """
+    errors = []
+    for provider, network, resolution, path in _documented_resolutions():
+        documented = _documented_descriptions(path)
+        assert documented, f"{path} documents no parameter at all, so nothing below is checked"
+        tag = f"{provider}/{network}/{resolution.name}"
+        declared = _substantive(
+            (dataset.name, parameter.name, parameter.name_original)
+            for dataset in resolution
+            for parameter in dataset.parameters
+        )
+        sections = {key[0] for key in documented}
+        for orphan in sorted(sections - {dataset.name for dataset in resolution}):
+            errors.append(f"{tag}: documents a dataset {orphan!r} that the model does not declare")
+        for dataset, name, name_original in sorted(_substantive(documented) - declared):
+            errors.append(f"{tag}/{dataset}: documents {name}/{name_original!r}, which it does not declare")
+        for dataset, name, name_original in sorted(declared - set(documented)):
+            errors.append(f"{tag}/{dataset}: declares {name}/{name_original!r}, which it does not document")
+    assert not errors, "\n".join(errors[:20])

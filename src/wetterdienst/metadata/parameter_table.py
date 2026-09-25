@@ -236,7 +236,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Cooling degree hours, the temperature excess above a base value summed over each hour.",
         interpolation="homogeneous",
     ),
-    CanonicalParameter("count_days_cooling_degree", "dimensionless", "Number of days on which cooling was required."),
+    CanonicalParameter("count_days_cooling_degree", "dimensionless", "Number of days with at least one cooling hour."),
     CanonicalParameter(
         "count_days_frost",
         "dimensionless",
