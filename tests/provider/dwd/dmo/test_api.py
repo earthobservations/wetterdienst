@@ -1087,7 +1087,6 @@ _DMO_SHARED = frozenset(
 _DMO_PER_1H = frozenset(["rad1h", "radl1", "rads1", "rr1", "rrs1c"])
 _DMO_PER_3H = frozenset(["rad3h", "radl3", "rads3", "rr3", "rrs3c"])
 _DMO_SERVED_BY = {"078": _DMO_SHARED | _DMO_PER_1H, "168": _DMO_SHARED | _DMO_PER_3H}
-_DMO_LEAD_TIMES = frozenset(_DMO_SERVED_BY)
 
 
 @pytest.mark.remote
@@ -1160,15 +1159,22 @@ def test_dmo_declares_the_elements_its_runs_carry(
             break
     assert files, f"none of the first five {dataset} stations publishes a run"
 
-    # which runs exist at all, not only the ones expected: `icon_eu` publishing a 168 run would give
-    # it the same split `icon` has, and leave the metadata declaring 1-hourly elements that its long
-    # run does not carry. Asserting only over `lead_times` would never see it.
-    for candidate in sorted(_DMO_LEAD_TIMES):
-        published = any(f"_{candidate}_" in file.rsplit("/", 1)[-1] for file in files)
-        assert published == (candidate in lead_times), (
-            f"{dataset} {'now publishes' if published else 'no longer publishes'} a {candidate} h "
-            f"run for station {station_id}; the lead times it serves have changed"
-        )
+    # which runs exist at all, read off the listing rather than checked against a list of the ones
+    # already known: `icon_eu` publishing a 168 run would give it the same split `icon` has and leave
+    # the metadata declaring 1-hourly elements its long run does not carry, and a third run family
+    # would carry a third set of elements. Neither is visible to a loop over the expected lead times.
+    # anchored on the station id rather than taken positionally, because an `all_stations` name
+    # (`ptp_ldmog_078_1_241200.kmz`) omits it and would put the step where the lead time is.
+    names = [file.rsplit("/", 1)[-1] for file in files]
+    matched = [re.fullmatch(rf"ptp_[a-z]+_{station_id}_(\d+)_(\d+)_(\d+)\.kmz", name) for name in names]
+    assert all(matched), (
+        f"{dataset} run names no longer parse: {sorted(n for n, m in zip(names, matched, strict=True) if not m)}"
+    )
+    published = {match.group(1) for match in matched}
+    assert published == set(lead_times), (
+        f"{dataset} publishes {sorted(published)} h runs for station {station_id}, "
+        f"not {sorted(lead_times)}; the lead times it serves have changed"
+    )
 
     reader = KMLReader(station_ids=[station_id], settings=default_settings)
     served: dict[str, set[str]] = {}
