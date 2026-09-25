@@ -176,6 +176,12 @@ Types of changes:
   `precipitation_height` under `synop`, which declares `precipitation_height_day` and `_night`
   instead, so the row named something that raises `NoParametersFoundError` -- while
   `imgw/meteorology` monthly `synop` documented none of its four precipitation parameters at all
+- `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
+  `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote. Of the 63
+  rows corpus-wide that spell a unit out where their own page uses the symbol for it, this is the
+  only one outside `dwd/dmo` hourly -- which GH-1975 has open -- and the 59 that write
+  `dimensionless` against a `-` elsewhere on the page, which is a convention to settle rather
+  than a slip (GH-1980)
 - `count_days_cooling_degree` is described as "Number of days with at least one cooling hour",
   which is what DWD's *Kuehltage* counts, rather than "Number of days on which cooling was
   required". Both the canonical description and the three `dwd/derived` overrides said the vaguer

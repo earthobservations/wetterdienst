@@ -295,7 +295,7 @@ Code (precipitation_form):
 | name                      | original name           | description                | unit | constraints |
 |---------------------------|-------------------------|----------------------------|------|-------------|
 | {term}`pressure_air_site` | luftdruck_stationshoehe | Pressure at station height. | hPa | >=0 |
-| {term}`pressure_air_sea_level` | luftdruck_nn | Air pressure reduced to sea level. | hectopascal | - |
+| {term}`pressure_air_sea_level` | luftdruck_nn | Air pressure reduced to sea level. | hPa | >=0 |
 
 ### urban_temperature_air
 
