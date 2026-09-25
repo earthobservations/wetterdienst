@@ -33,7 +33,21 @@ Types of changes:
   three copies of an identical table. The plain `quality` flag stays out of the presence check --
   58 datasets declare it and 25 document it -- and the exclusion stops there rather than covering
   every `quality*` name, so that it matches what the descriptions test skips: the other five are
-  all documented, and holding them here is what says so
+  all documented, and holding them here is what says so. The exemption applies to the *declared*
+  side alone, because the gap runs one way: no page carries a `quality` row for a dataset that has
+  no quality flag, and exempting the documented side too would have let one in -- along with a
+  wrong `name_original` on any of those 25 rows, which the descriptions test skips as well, so
+  nothing at all would have checked them
+- `test_docs_cover_every_resolution`, asserting that each resolution the model declares has a docs
+  page. The three tests above pair a resolution with its page and can only check the pages that
+  exist, so a resolution added without one was compared by nothing -- the same silent skip as a
+  page that parses to nothing, which they already report. `test_data_coverage` checks the other
+  direction, that every page is linked from its network index, and could not see this one
+- The docs parsers read only the lines outside a fenced code block, so a `#` comment in a shell or
+  Python example is not mistaken for a level-1 heading. One would have closed the dataset section
+  it sits in and dropped every row below it out of that dataset, which the descriptions test
+  answers by silently comparing nothing -- the failure mode this change set exists to remove. No
+  resolution page carries a fence today; the guard is there so that adding one is not a trap
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
   default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
   argument since it was written and the export docs advertise it, but no command passed it, so
@@ -145,8 +159,9 @@ Types of changes:
   table had as `millimeter`/`-` and `hectopascal`/`-`, which is what the same page's other datasets
   and the same table's `pressure_air_site` already wrote. The monthly page was corrected in the
   same change and the daily twin left alone
-- Parameter tables keep the order the model declares them in, which 223 of the 271 documented
-  tables carry and which lines a page up one-to-one with its `metadata.py`. Sorting `mosmix` hourly
+- Parameter tables keep the order the model declares them in, which 228 of the 271 documented
+  tables carry once the rows they omit are ignored (196 match the declared list exactly), and which
+  lines a page up one-to-one with its `metadata.py`. Sorting `mosmix` hourly
   and `imgw` monthly alphabetically had broken the ascending-window grouping that made
   `precipitation_height_last_1h, _3h, _6h, _12h, _24h` legible, reading it as `_12h, _1h, _24h,
   _3h, _6h` instead, and the same for the `probability_fog_last_*`, `probability_drizzle_last_*`

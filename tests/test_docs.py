@@ -72,9 +72,31 @@ def test_data_coverage() -> None:
                 assert f"{resolution.stem}{resolution.suffix}" in network_readme_content
 
 
+def _prose_lines(path: Path) -> Iterator[str]:
+    """Yield the lines of a docs page that sit outside a fenced code block.
+
+    A ``#`` comment inside a fence is not a heading, and reading one as a level-1 heading would close
+    the dataset section it sits in -- dropping every row below it out of its dataset, so that the
+    descriptions test silently stops comparing them. Which is the skip this module exists to stop,
+    and the reason the fence is stripped here rather than in each parser.
+    """
+    fence = None
+    for line in path.read_text(encoding="utf8").splitlines():
+        marker = re.match(r"\s*(`{3,}|~{3,})", line)
+        if marker:
+            token = marker.group(1)[0] * 3
+            if fence is None:
+                fence = token
+            elif token == fence:
+                fence = None
+            continue
+        if fence is None:
+            yield line
+
+
 def _parameter_rows(path: Path) -> list[list[str]]:
     """Extract the rows of every parameter table in a provider docs page."""
-    lines = path.read_text(encoding="utf8").splitlines()
+    lines = _prose_lines(path)
     rows = []
     in_table = False
     for line in lines:
@@ -143,7 +165,7 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], str]:
     datasets: list[str] = []
     header = None
     in_metadata = False
-    for line in path.read_text(encoding="utf8").splitlines():
+    for line in _prose_lines(path):
         if line.startswith("#"):
             datasets, header, in_metadata = _heading_datasets(line, datasets), None, False
             continue
@@ -169,11 +191,21 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], str]:
     return documented
 
 
-def _documented_resolutions() -> list[tuple[str, str, object, Path]]:
-    """Yield (provider, network, resolution model, docs page) for every documented resolution."""
+def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
+    """Yield (provider, network, resolution model, docs page) for every resolution the model declares.
+
+    The page is where it belongs, whether or not it is there -- `test_docs_cover_every_resolution`
+    below is what says it is, so that the three tests after it can assume the pages exist and report
+    mismatches rather than absences. `dwd/radar` and `dwd/alerts` carry no metadata model at all, so
+    they declare no resolutions and do not appear here.
+
+    A network whose request class cannot be imported is skipped rather than reported: CI installs no
+    extras and `dwd/derived` reaches pandas, so the import is the one thing here that legitimately
+    depends on the environment -- and a provider that cannot be instantiated fails its own test
+    module long before it reaches these.
+    """
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
-    found = []
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
             try:
@@ -184,10 +216,28 @@ def _documented_resolutions() -> list[tuple[str, str, object, Path]]:
             if metadata is None:
                 continue
             for resolution in metadata:
-                path = Path(COVERAGE / provider / network / f"{resolution.name}.md")
-                if path.exists():
-                    found.append((provider, network, resolution, path))
-    return found
+                yield provider, network, resolution, Path(COVERAGE / provider / network / f"{resolution.name}.md")
+
+
+def _documented_resolutions() -> list[tuple[str, str, object, Path]]:
+    """Return the pairs of `_resolution_pages` whose page exists."""
+    return [entry for entry in _resolution_pages() if entry[3].exists()]
+
+
+def test_docs_cover_every_resolution() -> None:
+    """Test that every resolution the model declares has a docs page.
+
+    The three tests below pair a resolution with its page and can only check the pages that exist, so
+    a resolution added without one would be compared by nothing at all -- the same silent skip as a
+    page that parses to nothing, which they do report. Asserting the page here keeps that reported
+    once, rather than once per test or not at all.
+    """
+    missing = [
+        f"{provider}/{network}: {path.relative_to(ROOT)} does not exist"
+        for provider, network, _, path in _resolution_pages()
+        if not path.exists()
+    ]
+    assert not missing, "\n".join(missing)
 
 
 def test_docs_parameter_descriptions_match_the_model() -> None:
@@ -225,7 +275,7 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
     """
     datasets: list[str] = []
     prop: dict[str, str] | None = None
-    for line in path.read_text(encoding="utf8").splitlines():
+    for line in _prose_lines(path):
         if not line.startswith("|"):
             # flushed before the heading moves on, so a table not separated from the next `###` by a
             # blank line is still yielded under the dataset it belongs to
@@ -278,12 +328,17 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
     assert not mismatches, "\n".join(mismatches[:10])
 
 
-# `quality` itself is declared by 58 datasets and documented by 25, so presence is not checked for
-# it -- that inconsistency is real and it is its own change. The exclusion stops there rather than
-# covering every `quality*` name, to match what the descriptions test above skips: the other five
-# (`quality_general`, `quality_precipitation`, `quality_wind`, `quality_3`, `quality_6`) are all
-# documented, and holding them here is what says so.
-def _substantive(keys: Iterable[tuple[str, str, str]]) -> set[tuple[str, str, str]]:
+# `quality` itself is declared by 58 datasets and documented by 25, so a *declared* `quality` need
+# not be documented -- that inconsistency is real and it is its own change. The exclusion stops
+# there rather than covering every `quality*` name, to match what the descriptions test above skips:
+# the other five (`quality_general`, `quality_precipitation`, `quality_wind`, `quality_3`,
+# `quality_6`) are all documented, and holding them here is what says so.
+#
+# It is applied to the declared side alone, because the gap runs one way: no page carries a `quality`
+# row for a dataset that has no quality flag, and exempting the documented side too would let one in
+# -- along with a wrong `name_original` on any of those 25 rows, which the descriptions test skips as
+# well, so nothing else would check them at all.
+def _declared_to_document(keys: Iterable[tuple[str, str, str]]) -> set[tuple[str, str, str]]:
     """Drop the plain `quality` rows from a set of (dataset, name, original name) keys."""
     return {key for key in keys if key[1] != "quality"}
 
@@ -312,16 +367,16 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
             # one error per declared parameter and fills the report the same way an abort emptied it
             errors.append(f"{tag}: {path.name} parses to no parameter row at all")
             continue
-        declared = _substantive(
+        declared = {
             (dataset.name, parameter.name, parameter.name_original)
             for dataset in resolution
             for parameter in dataset.parameters
-        )
+        }
         sections = {key[0] for key in documented}
         for orphan in sorted(sections - {dataset.name for dataset in resolution}):
             errors.append(f"{tag}: documents a dataset {orphan!r} that the model does not declare")
-        for dataset, name, name_original in sorted(_substantive(documented) - declared):
+        for dataset, name, name_original in sorted(set(documented) - declared):
             errors.append(f"{tag}/{dataset}: documents {name}/{name_original!r}, which it does not declare")
-        for dataset, name, name_original in sorted(declared - set(documented)):
+        for dataset, name, name_original in sorted(_declared_to_document(declared) - set(documented)):
             errors.append(f"{tag}/{dataset}: declares {name}/{name_original!r}, which it does not document")
     assert not errors, "\n".join(errors[:20])
