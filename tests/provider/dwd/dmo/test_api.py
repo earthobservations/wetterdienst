@@ -1082,27 +1082,51 @@ def test_dmo_a_run_stamp_becomes_the_hour_it_names(stamp: str, expected: dt.date
 # upstream serves these and no canonical parameter names them, so the metadata cannot declare them
 # yet. Named here rather than skipped, so that adding one of them makes this test say so. `rad3h`
 # is only in the 3-hourly run, which is why `icon_eu`, publishing 078 alone, does not see it
+# the elements every DMO run carries, and the two sets the runs swap between: the 078 run carries
+# the 1-hourly quantities and the 168 run the 3-hourly ones, so 21 elements per run either way.
+_DMO_EVERY_RUN = frozenset(
+    ["dd", "ff", "fx3", "n", "neff", "nh", "nl", "nm", "pppp", "t5cm", "td", "tn", "ttt", "tx", "w1w2", "ww"]
+)
+_DMO_PER_1H = frozenset(["rad1h", "radl1", "rads1", "rr1", "rrs1c"])
+_DMO_PER_3H = frozenset(["rad3h", "radl3", "rads3", "rr3", "rrs3c"])
+_DMO_SERVED_BY = {"078": _DMO_EVERY_RUN | _DMO_PER_1H, "168": _DMO_EVERY_RUN | _DMO_PER_3H}
+
+
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    ("dataset", "lead_times", "without_a_canonical_name"),
+    ("dataset", "lead_times", "without_a_canonical_name", "not_carried_by"),
     [
-        pytest.param("icon", ("078", "168"), {"rad3h", "radl1", "rads1"}, id="icon"),
-        pytest.param("icon_eu", ("078",), {"radl1", "rads1"}, id="icon_eu"),
+        pytest.param(
+            "icon",
+            ("078", "168"),
+            {"rad3h", "radl1", "rads1"},
+            {"078": {"radl3", "rads3", "rr3", "rrs3c"}, "168": {"rad1h", "rr1", "rrs1c"}},
+            id="icon",
+        ),
+        pytest.param("icon_eu", ("078",), {"radl1", "rads1"}, {"078": set()}, id="icon_eu"),
     ],
 )
 def test_dmo_declares_the_elements_its_runs_carry(
     dataset: str,
     lead_times: tuple[str, ...],
     without_a_canonical_name: set[str],
+    not_carried_by: dict[str, set[str]],
     default_settings: Settings,
 ) -> None:
     """A DMO run carries 21 elements; the metadata declared 122 for `icon` and 40 for `icon_eu`.
 
     Those lists were MOSMIX's, copied in when the provider was written -- which is also why `icon`
-    held MOSMIX-L's 115 and `icon_eu` MOSMIX-S's 40, a split DMO does not have: both products carry
+    held MOSMIX-L's 122 and `icon_eu` MOSMIX-S's 40, a split DMO does not have: both products carry
     the same elements, and differ in the domain and the lead times they carry them for. A request
     for one of the other 99 and 22 came back empty with nothing saying the product never forecasts
     it, which reads exactly like a station with no data.
+
+    Which run it is does matter, so the served set is held per lead time rather than unioned. The
+    078 run carries the 1-hourly quantities and the 168 run the 3-hourly ones, and `icon` declares
+    both families because the model has no lead-time axis to hang them on -- so four of its 23 are
+    carried only by the long run and three only by the short one, and `not_carried_by` names them.
+    Unioning the two hides exactly that, which is why this does not: declaring a 3-hourly element
+    as though the default run served it would then pass.
 
     Upstream rather than a stub, because what is asserted is a fact about upstream. It reads a
     single-station run through `KMLReader`, the same handle the values path parses.
@@ -1141,17 +1165,29 @@ def test_dmo_declares_the_elements_its_runs_carry(
     assert files, f"none of the first five {dataset} stations publishes a run"
 
     reader = KMLReader(station_ids=[station_id], settings=default_settings)
-    served = set()
+    served: dict[str, set[str]] = {}
     for lead_time in lead_times:
-        # which run does not matter -- the element set is a property of the product, not of the run
         runs = [file for file in files if f"_{lead_time}_" in file.rsplit("/", 1)[-1]]
         assert runs, f"{dataset} publishes no {lead_time} h run for station {station_id}"
         raw = reader.fetch(runs[0]).read()
-        served |= {element.decode().lower() for element in re.findall(rb'elementName="([^"]+)"', raw)}
+        served[lead_time] = {element.decode().lower() for element in re.findall(rb'elementName="([^"]+)"', raw)}
+        assert served[lead_time] == _DMO_SERVED_BY[lead_time], (
+            f"the {dataset} {lead_time} h run no longer carries the elements it did: "
+            f"gained {sorted(served[lead_time] - _DMO_SERVED_BY[lead_time])}, "
+            f"lost {sorted(_DMO_SERVED_BY[lead_time] - served[lead_time])}"
+        )
 
     declared = {parameter.name_original.lower() for parameter in DwdDmoRequest.metadata["hourly"][dataset]}
+    every_run = set().union(*served.values())
 
-    assert not declared - served, f"{dataset} declares parameters no run carries: {sorted(declared - served)}"
-    assert served - declared == without_a_canonical_name, (
-        f"{dataset} serves elements it does not declare: {sorted(served - declared)}"
+    assert not declared - every_run, f"{dataset} declares parameters no run carries: {sorted(declared - every_run)}"
+    assert every_run - declared == without_a_canonical_name, (
+        f"{dataset} serves elements it does not declare: {sorted(every_run - declared)}"
     )
+    # and per run, because a parameter the requested lead time does not carry answers with an empty
+    # frame -- the same silence this removed for the other 99 and 22, for the few that remain
+    for lead_time, elements in served.items():
+        assert declared - elements == not_carried_by[lead_time], (
+            f"{dataset} parameters the {lead_time} h run does not carry changed: "
+            f"{sorted(declared - elements)} rather than {sorted(not_carried_by[lead_time])}"
+        )

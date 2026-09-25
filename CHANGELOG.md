@@ -355,9 +355,17 @@ Types of changes:
   empty frame with nothing saying the product never forecasts it -- indistinguishable from a station
   that happens to have no data. `precipitation_height_last_1h` is *added* to `icon_eu`, which serves
   it and did not declare it. Three served elements stay undeclared because no canonical parameter
-  names them yet: `rad3h`, `radl1` and `rads1`. `test_dmo_declares_the_elements_its_runs_carry`
-  reads a run through the same `KMLReader` handle the values path parses and holds both directions,
-  so a declaration that stops matching upstream is a failing test rather than an empty frame
+  names them yet: `rad3h`, `radl1` and `rads1`. What this does not fix is which *run* carries what:
+  the model has no lead-time axis, so `icon` declares both the 1-hourly and the 3-hourly family and
+  four of its 23 are carried only by `lead_time="long"` (`precipitation_height_last_3h`,
+  `radiation_global_last_3h`, `radiation_sky_long_wave_last_3h`,
+  `water_equivalent_snow_depth_new_last_3h`) while three are carried only by the default
+  `lead_time="short"` (`precipitation_height_last_1h`, `radiation_global`,
+  `water_equivalent_snow_depth_new_last_1h`). Those still answer with the empty frame this entry is
+  otherwise about -- 4 of 23 on the default path rather than 99 of 122, and GH-1976 tracks saying so.
+  `test_dmo_declares_the_elements_its_runs_carry` reads a run through the same `KMLReader` handle
+  the values path parses and holds both directions per lead time, so neither a declaration that
+  stops matching upstream nor one that pretends the default run serves a 3-hourly element passes
 - `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset` (`icon` or
   `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
   `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request built
