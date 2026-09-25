@@ -15,6 +15,7 @@ import pytest
 
 from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Settings
+from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.request import TimeseriesRequest
@@ -1038,7 +1039,7 @@ def test_export_unknown(default_settings: Settings) -> None:
         station_id=[1048],
     )
     values = request.values.all()
-    with pytest.raises(KeyError) as exec_info:
+    with pytest.raises(ExportRefusedError) as exec_info:
         values.to_target("file:///test.foobar")
     assert exec_info.match("Unknown export file type")
 
@@ -1833,7 +1834,7 @@ def test_export_duckdb_if_exists_fail(
     filename = tmp_path.joinpath("test.duckdb")
     request.values.to_target(f"duckdb:///{filename}?table=testdrive")
     # Second export with if_exists='fail' should raise an error
-    with pytest.raises(KeyError) as exec_info:
+    with pytest.raises(ExportRefusedError) as exec_info:
         request.values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="fail")
     assert exec_info.match("Table 'testdrive' already exists in the database, aborting write due to if_exists='fail'.")
 
@@ -2052,7 +2053,7 @@ def test_export_file_append_exception() -> None:
     ).filter_by_station_id(station_id=[1048])
 
     values = request.values.all()
-    with pytest.raises(NotImplementedError) as exec_info:
+    with pytest.raises(ExportRefusedError) as exec_info:
         values.to_target("file:///foo", if_exists="append")
     assert exec_info.match("Append mode is not supported for file exports.")
 
@@ -2070,6 +2071,79 @@ def test_export_file_fail_exception(tmp_path: Path) -> None:
     ).filter_by_station_id(station_id=[1048])
 
     values = request.values.all()
-    with pytest.raises(FileExistsError) as exec_info:
+    with pytest.raises(ExportRefusedError) as exec_info:
         values.to_target(f"file:///{filename}", if_exists="fail")
     assert exec_info.match("File '.*testfile' already exists, aborting write due to if_exists='fail'.")
+
+
+def _one_row() -> ExportMixin:
+    """Build the smallest frame a sink will write, so it is reached without a request behind it."""
+    return ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048"],
+                "resolution": ["daily"],
+                "dataset": ["climate_summary"],
+                "parameter": ["temperature_air_mean_2m"],
+                "date": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "value": [1.0],
+                "quality": [1.0],
+            },
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("if_exists", "refused"),
+    [
+        pytest.param("replace", False, id="replace"),
+        pytest.param("append", False, id="append"),
+        pytest.param("fail", True, id="fail"),
+        pytest.param("skip", True, id="skip"),
+    ],
+)
+def test_influxdb_takes_the_modes_that_describe_what_it_does(if_exists: str, refused: bool) -> None:  # noqa: FBT001
+    """InfluxDB refused `append`, which is the one word for what it actually does.
+
+    That refusal made the batch export impossible rather than merely awkward:
+    `TimeseriesValues.to_target` writes its first station with the `if_exists` it was given and
+    every station after it with `append`, so no argument let a multi-station request reach InfluxDB
+    -- and the export docs shipped three examples doing exactly that, broken from the day the
+    argument was added. `fail` and `skip` stay refused because both turn on whether the measurement
+    already exists, which this sink never asks.
+    """
+    pytest.importorskip("influxdb")
+    client = mock.MagicMock()
+
+    with mock.patch("influxdb.InfluxDBClient", side_effect=[client], create=True):
+        if refused:
+            with pytest.raises(ExportRefusedError, match=f"if_exists='{if_exists}' is not supported for InfluxDB"):
+                _one_row().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)
+            return
+        _one_row().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)
+
+    assert client.write_points.call_count == 1
+
+
+def test_duckdb_append_matches_columns_by_name(tmp_path: Path) -> None:
+    """Appending a frame whose columns are named differently is refused, not filed by position.
+
+    `INSERT INTO t SELECT * FROM origin` matches by position, so two runs carrying the same number
+    of columns under different names were both accepted and the second one's values landed under
+    the first one's headings. A `--shape=wide` schedule reaches that by changing one parameter: a
+    day's precipitation was stored as its temperature, exit 0 and nothing said.
+    """
+    duckdb = pytest.importorskip("duckdb")
+    target = f"duckdb:///{tmp_path / 'obs.duckdb'}?table=weather"
+    temperature = pl.DataFrame({"date": ["2020-01-01"], "temperature_air_mean_2m": [10.1]})
+    precipitation = pl.DataFrame({"date": ["2020-01-01"], "precipitation_height": [0.0]})
+
+    ExportMixin(df=temperature).to_target(target)
+    with pytest.raises(duckdb.BinderException, match='does not have a column with name "precipitation_height"'):
+        ExportMixin(df=precipitation).to_target(target, if_exists="append")
+
+    connection = duckdb.connect(str(tmp_path / "obs.duckdb"))
+    assert connection.execute("SELECT COUNT(*) FROM weather").fetchone()[0] == 1, "the refused append still wrote"
+    # the same names still append, which is what a schedule of one query does
+    ExportMixin(df=temperature).to_target(target, if_exists="append")
+    assert connection.execute("SELECT COUNT(*) FROM weather").fetchone()[0] == 2

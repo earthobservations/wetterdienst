@@ -18,6 +18,26 @@ Types of changes:
 
 ### Added
 
+- `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
+  default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
+  argument since it was written and the export docs advertise it, but no command passed it, so
+  every CLI export replaced: a nightly timer pointed at `duckdb:///obs.duckdb?table=weather` held
+  one run's rows rather than a history, and nothing on the command line could change that.
+  Appending now accumulates -- two runs of the same query put 550 rows then 1100 into the table.
+  Which values a sink takes is the sink's business, so the option offers all four and a refused
+  pairing is reported as a line and exit 1 rather than a traceback: `Append mode is not supported
+  for file exports.` A test walks the command tree rather than naming the four commands, because
+  the gap was a command gaining `--target` without it; `alerts`, `history` and `stripes values`
+  are excluded there, their `--target` never reaching a sink. A sink failure that is not about
+  `if_exists` at all keeps its traceback and names the target: the likeliest one is appending
+  `--shape=wide` output onto a table an earlier run created for a different set of parameters,
+  which DuckDB answers with `Binder Error: Table "weather" does not have a column with name
+  "precipitation_height"`. Which of the two a failure is cannot be read off its class, because `fail` is reported
+  by DuckDB as a `KeyError` and by the SQLAlchemy sinks as pandas' `ValueError`, and those classes
+  are also how a sink breaks -- `if_exists` settles it, since outside `fail` neither is ever about
+  the target already holding data. Reading them as refusals threw the detail away: exporting a
+  stations frame to InfluxDB pops a `date` column only values carry, and the whole report was
+  `ERROR date`
 - Documentation for running wetterdienst on a schedule, with ready-made units for systemd timers,
   launchd, cron and `docker run` (GH-255, open since 2020). The issue asked for the units and
   proposed generating them with `hickory`; that package last released in August 2020, declares
@@ -28,11 +48,10 @@ Types of changes:
   `CacheDirectory=` and `WD_CACHE_DIR` the run does not degrade to an uncached one, it fails:
   `PermissionError: [Errno 13] Cache directory ... does not exist and could not be created`. `No
   data available for given constraints` exits 1, indistinguishable from a real failure, so a
-  schedule over a quiet station looks like a broken job. Every run replaces what the last one
-  wrote, databases included -- the CLI exports with `if_exists="replace"` and exposes no way to
-  change it, so a `duckdb://` or `postgresql://` table is dropped and recreated exactly as a
-  `file://` target is rewritten -- so a schedule meant to accumulate needs a date-stamped name or
-  an `influxdb://` target. And a `duckdb:///x.duckdb` path is relative to the working directory,
+  schedule over a quiet station looks like a broken job. A run replaces what the last one wrote
+  unless told otherwise, databases included -- a `duckdb://` table is dropped and recreated exactly
+  as a `file://` target is rewritten -- so a schedule meant to accumulate passes
+  `--if_exists=append`, which this release adds, or writes to a date-stamped name. And a `duckdb:///x.duckdb` path is relative to the working directory,
   because the first `/` after the `//` separates host from path; an absolute one takes four
   slashes. Plus `RandomizedDelaySec`, an off-the-hour cron minute and schedules that match the
   publication cadence, so that not every installation asks the provider at `:00` sharp
@@ -50,6 +69,20 @@ Types of changes:
 
 ### Changed
 
+- Every export a sink refuses raises `ExportRefusedError`: a mode it does not do, a target already
+  holding data under `if_exists="fail"`, or a format or protocol nothing here writes. It replaces a
+  `NotImplementedError`, a `FileExistsError`, two `KeyError`s and, in the SQLAlchemy sinks, pandas'
+  own `ValueError` -- five classes for one meaning, none of them exclusive to it. Callers matching on
+  the old classes have to match on this one instead, which is why this is here rather than in Fixed.
+  What it buys is that nothing has to infer what a failure meant. The CLI's export handler tried to,
+  over three rounds of review: `fail` arrives from DuckDB as a `KeyError` and from pandas as a
+  `ValueError`, both classes are also simply how a sink breaks, and every rule over types and
+  messages let something through -- a `KeyError` from inside a sink printed its own argument and
+  nothing else (`ERROR date`, for a stations frame sent to InfluxDB, which pops a `date` column only
+  values carry), a bare `NotImplementedError` from scipy would have printed an empty `ERROR` line,
+  and `Unknown export file type` reported a traceback or a sentence depending on which `--if_exists`
+  the run happened to pass. The handler is two arms with nothing to decide now, and
+  `Unknown export file type` names the target it could not write
 - `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset` (`icon` or
   `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
   `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request built
@@ -92,6 +125,29 @@ Types of changes:
 
 ### Fixed
 
+- A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM origin`
+  matches by position, so two frames carrying the same number of columns under different names were
+  both accepted and the second one's values landed under the first one's headings -- measured on a
+  `--shape=wide` schedule that changed one parameter: `2025-03-23` ended up holding both `10.1`,
+  the temperature, and `0.0`, that day's precipitation, in the column named
+  `temperature_air_mean_2m`, exit 0 and nothing said. Reachable from the command line only since
+  `--if_exists` existed, and reachable by exactly the schedule the docs recommend. `BY NAME` refuses
+  it with `Binder Error: Table "weather" does not have a column with name "precipitation_height"`.
+  It does not catch every parameter drift, and the docs no longer say it does: a frame whose columns
+  are a subset of the table's is accepted, with nulls for the rest, and under `--shape=long` the
+  column set never varies, so nothing about `--parameters` reaches the insert there at all
+- The InfluxDB sink takes `if_exists="append"`, which is the one word for what it actually does:
+  every write is points, and a point carrying the timestamp and tags another already has replaces
+  that one. Refusing that spelling made the batch export impossible rather than merely awkward --
+  `TimeseriesValues.to_target` writes its first station with the `if_exists` it was given and every
+  station after it with `append`, so no argument let a multi-station request reach InfluxDB at all.
+  The three export examples in the docs did exactly that and had been broken since the day
+  `if_exists` was added (02c3b15b, 2025-10-29), which added the guard and the examples together.
+  `fail` and `skip` stay refused, because both turn on whether the measurement already exists and
+  this sink never asks; the message says so rather than naming the mode alone. `replace` is
+  accepted as before and does not clear the measurement, because nothing here issues a delete --
+  the modes list says that now instead of implying otherwise, and says which default belongs to
+  which class: `replace` on a result, `fail` on `TimeseriesValues`
 - WSV pegel: the wave tests ask each station whether its own values are in the declared unit, rather
   than asking whether two stations agree with each other. Comparing them assumed the same sea at
   both, and they do not carry the same window -- MELLUMPLATE had 98 readings over 1.6 days against LT

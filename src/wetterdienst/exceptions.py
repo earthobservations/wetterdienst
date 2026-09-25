@@ -62,3 +62,19 @@ class BufrReaderMissingError(ImportError):
 
 class NoStationsWithHeightError(ValueError):
     """Raised when a height is asked about and no station in reach reports one of its own."""
+
+
+class ExportRefusedError(Exception):
+    """Raised when a sink will not perform an export, for a reason the caller can act on.
+
+    Three shapes of the same thing: `if_exists` asked for something this sink does not do, the
+    target already holds data and `if_exists` said to stop, or the target names a format or
+    protocol nothing here writes. What they share is that the message is the whole of what is
+    useful -- there is nothing in the traceback a caller would read.
+
+    Its own type, because every caller that reports one as an instruction rather than as a crash
+    would otherwise have to guess from the class. Guessing is what this replaces: `fail` used to
+    arrive as a `KeyError` from DuckDB and as pandas' `ValueError` from the SQLAlchemy sinks, and
+    both classes are also how a sink breaks, so a defect inside one was reported as advice -- a
+    `KeyError` printed its own argument and nothing else.
+    """

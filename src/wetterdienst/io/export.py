@@ -16,6 +16,7 @@ from urllib.parse import urlunparse
 import polars as pl
 import polars.selectors as cs
 
+from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.util.url import ConnectionString
 
 if TYPE_CHECKING:
@@ -282,7 +283,9 @@ class ExportMixin:
                 - 'skip': Do not write if target exists (only for supported backends)
 
         Raises:
-            KeyError: Unknown export
+            ExportRefusedError: The sink will not perform this export -- a mode it does not
+                do, a target already holding data under ``if_exists='fail'``, or a format or
+                protocol nothing here writes.
 
         Returns:
             None (data is emitted to the target)
@@ -298,14 +301,14 @@ class ExportMixin:
         if target.startswith("file://"):
             if if_exists == "append":
                 msg = "Append mode is not supported for file exports."
-                raise NotImplementedError(msg)
+                raise ExportRefusedError(msg)
 
             filepath = connspec.path
 
             if Path(filepath).exists():
                 if if_exists == "fail":
                     msg = f"File '{filepath}' already exists, aborting write due to if_exists='fail'."
-                    raise FileExistsError(msg)
+                    raise ExportRefusedError(msg)
                 if if_exists == "skip":
                     log.info(f"File '{filepath}' exists, skipping write due to if_exists='skip'.")
                     return
@@ -367,8 +370,8 @@ class ExportMixin:
                 self._to_array_store(filepath, netcdf=target.endswith(".nc"))
 
             else:
-                msg = "Unknown export file type"
-                raise KeyError(msg)
+                msg = f"Unknown export file type for target '{target}'"
+                raise ExportRefusedError(msg)
 
             return
 
@@ -401,39 +404,52 @@ class ExportMixin:
             df = df.with_columns(cs.datetime().dt.replace_time_zone(None))
 
             connection = duckdb.connect(database=database, read_only=False)
-            connection.register("origin", df)
-            if if_exists == "replace":
-                connection.execute(f"DROP TABLE IF EXISTS {tablename};")
-                connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
-            elif if_exists == "append":
-                result = connection.execute(
-                    f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';",  # noqa: S608
-                )
-                row = result.fetchone()
-                exists = row is not None and row[0] > 0
-                if not exists:
+            try:
+                connection.register("origin", df)
+                if if_exists == "replace":
+                    connection.execute(f"DROP TABLE IF EXISTS {tablename};")
                     connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
-                else:
-                    connection.execute(f"INSERT INTO {tablename} SELECT * FROM origin;")  # noqa: S608
-            elif if_exists == "fail":
-                # Will fail if table exists
-                try:
-                    connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
-                except CatalogException as e:
-                    msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
-                    raise KeyError(msg) from e
-            elif if_exists == "skip":
-                # Only create if not exists, skip if exists
-                result = connection.execute(
-                    f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';"  # noqa: S608
-                )
-                row = result.fetchone()
-                exists = row is not None and row[0] > 0
-                if not exists:
-                    connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
-                else:
-                    log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
-            connection.close()
+                elif if_exists == "append":
+                    result = connection.execute(
+                        f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';",  # noqa: S608
+                    )
+                    row = result.fetchone()
+                    exists = row is not None and row[0] > 0
+                    if not exists:
+                        connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+                    else:
+                        # `BY NAME`, because a plain `INSERT ... SELECT *` matches by position: two runs
+                        # whose frames carry the same number of columns under different names were
+                        # accepted, and the second one's values landed under the first one's headings.
+                        # A `--shape=wide` schedule does that by changing one parameter -- a day's
+                        # precipitation was filed as its temperature, exit 0 and nothing said. Matching
+                        # by name refuses that with `Binder Error: Table "weather" does not have a
+                        # column with name "precipitation_height"`, and still accepts a frame whose
+                        # columns are a subset, filling the rest with nulls
+                        connection.execute(f"INSERT INTO {tablename} BY NAME SELECT * FROM origin;")  # noqa: S608
+                elif if_exists == "fail":
+                    # Will fail if table exists
+                    try:
+                        connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+                    except CatalogException as e:
+                        msg = (
+                            f"Table '{tablename}' already exists in the database, "
+                            f"aborting write due to if_exists='fail'."
+                        )
+                        raise ExportRefusedError(msg) from e
+                elif if_exists == "skip":
+                    # Only create if not exists, skip if exists
+                    result = connection.execute(
+                        f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';"  # noqa: S608
+                    )
+                    row = result.fetchone()
+                    exists = row is not None and row[0] > 0
+                    if not exists:
+                        connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+                    else:
+                        log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
+            finally:
+                connection.close()
             log.info("Writing to DuckDB finished")
 
         elif protocol.startswith("influxdb"):
@@ -508,9 +524,23 @@ class ExportMixin:
 
                 influx query 'from(bucket:"dwd") |> range(start:-2d) |> limit(n: 10)'
             """  # noqa:E501
-            if if_exists in ("append", "fail", "skip"):
-                msg = f"if_exists='{if_exists}' is not supported for InfluxDB exports."
-                raise NotImplementedError(msg)
+            # every write here is points, and a point carrying the timestamp and tags another
+            # already has replaces that one, so what this sink does is exactly `append`. Refusing
+            # that spelling made the batch export impossible: `TimeseriesValues.to_target` writes
+            # its first station with the `if_exists` it was given and every station after it with
+            # `append`, so no argument let a multi-station request reach InfluxDB at all.
+            #
+            # `replace` is accepted for the same reason it always was -- it is the default, and a
+            # caller who has not thought about the question should not be stopped -- but it does
+            # not delete what is already in the measurement, because nothing here issues a delete.
+            # `fail` and `skip` are refused rather than quietly meaning `append`: both turn on
+            # whether the measurement already exists, and this sink never asks
+            if if_exists in ("fail", "skip"):
+                msg = (
+                    f"if_exists='{if_exists}' is not supported for InfluxDB exports, which would "
+                    f"have to ask whether the measurement exists; use 'append' or 'replace'."
+                )
+                raise ExportRefusedError(msg)
 
             if protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
                 version = 1
@@ -520,7 +550,7 @@ class ExportMixin:
                 version = 3
             else:
                 msg = f"Unknown protocol variant '{protocol}' for InfluxDB"
-                raise KeyError(msg)
+                raise ExportRefusedError(msg)
 
             log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")
 
@@ -681,14 +711,19 @@ class ExportMixin:
                 cs.datetime().dt.replace_time_zone(time_zone=None),
                 pl.col(pl.Enum).cast(pl.String),
             )
-            if if_exists == "skip":
+            if if_exists in ("skip", "fail"):
                 import sqlalchemy  # noqa: PLC0415
 
                 engine = sqlalchemy.create_engine(cratedb_target)
                 insp = sqlalchemy.inspect(engine)
                 if insp.has_table(tablename, schema=database):
-                    log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
-                    return
+                    if if_exists == "skip":
+                        log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
+                        return
+                    # asked ourselves rather than letting pandas raise its own `ValueError`, so that
+                    # a refusal is one class wherever it comes from
+                    msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
+                    raise ExportRefusedError(msg)
             df.to_pandas().to_sql(
                 name=tablename,
                 con=cratedb_target,
@@ -733,14 +768,19 @@ class ExportMixin:
                     chunk_size = int(999 / len(self.df.columns))
 
             log.info("Writing to SQL database")
-            if if_exists == "skip":
+            if if_exists in ("skip", "fail"):
                 import sqlalchemy  # noqa: PLC0415
 
                 engine = sqlalchemy.create_engine(target)
                 insp = sqlalchemy.inspect(engine)
                 if insp.has_table(tablename):
-                    log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
-                    return
+                    if if_exists == "skip":
+                        log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
+                        return
+                    # asked ourselves rather than letting pandas raise its own `ValueError`, so that
+                    # a refusal is one class wherever it comes from
+                    msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
+                    raise ExportRefusedError(msg)
             self.df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas().to_sql(
                 name=tablename,
                 con=target,

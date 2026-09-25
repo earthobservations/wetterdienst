@@ -23,7 +23,9 @@ wetterdienst values \
 `duckdb:///obs.duckdb?table=weather`, `influxdb://…` or `crate://…` work equally well — see
 [Export](python-api.md#export). Each database sink is an optional extra (`duckdb`, `influxdb`,
 `cratedb`, `postgresql`), imported only when its target is used, so install the one you schedule
-or the run fails at the very end, after the download.
+or the run fails at the very end, after the download. `postgresql://` is the one to avoid for now:
+the generic SQL sink hands the whole target to SQLAlchemy, `?table=` and all, and psycopg2 rejects
+`table` as a connection option before any write is attempted.
 
 Three properties of the CLI matter for a scheduler:
 
@@ -31,13 +33,20 @@ Three properties of the CLI matter for a scheduler:
   `No data available for given constraints`. That is the same exit code as a real failure, so a
   schedule over a station that is merely quiet will look like a broken job. Either pick a query
   that always returns something, or let the wrapper decide what an empty result means.
-- **Every run replaces what the last one wrote.** The CLI always exports with `if_exists="replace"`
-  and offers no option to change it, so this is not only true of files: a `file://` target is
-  rewritten in full (append is not implemented for files at all), and a `duckdb://`, `sqlite://`,
-  `postgresql://` or `crate://` target has its table dropped and recreated. A schedule that is
-  meant to accumulate needs a date-stamped filename, an `influxdb://` target — points written to
-  InfluxDB accumulate rather than replacing the measurement — or a wrapper calling `to_target(...,
-  if_exists="append")` from Python, which the CLI does not expose.
+- **A run replaces what the last one wrote, unless you say otherwise.** `--if_exists` defaults to
+  `replace`, which for a schedule means the target holds the newest run rather than a history: a
+  `file://` target is rewritten in full, and a `duckdb://`, `sqlite://` or `crate://` table is
+  dropped and recreated. Pass `--if_exists=append` to accumulate instead. Not
+  every sink takes every value — a file refuses `append`, and InfluxDB refuses `fail` and `skip`,
+  since both would have to ask whether the measurement already exists — and a sink that refuses
+  the pairing says so and exits 1 rather than writing something else. For InfluxDB, `replace` and
+  `append` do the same thing: its points accumulate either way, and nothing clears the measurement.
+  An `append` onto a table is matched by column name, not by position, so a `--shape=wide` schedule
+  that starts asking for a parameter the table has no column for is refused rather than filing it
+  under the old heading. Note what that does *not* catch: a schedule that drops a parameter is
+  accepted, with nulls in the column it stopped filling, and under `--shape=long` the column set
+  never changes at all, so no change of `--parameters` is refused there. The table is yours to keep
+  honest either way.
 - **A database path is relative unless you give it four slashes.** `duckdb:///obs.duckdb` names a
   file in the working directory, because the connection string's leading `/` separates the host
   from the path. For an absolute one, write `duckdb:////var/lib/wetterdienst/obs.duckdb`, or set
@@ -208,8 +217,9 @@ directory that already exists; `/var/lib` and `/var/log` are not writable by the
 crontab runs as. cron passes almost no environment, so use absolute paths, and set `WD_CACHE_DIR`
 explicitly if the crontab belongs to a user without a stable `$HOME`.
 
-One footgun if you take the date-stamped-filename advice from above: in a crontab, `%` is a command
-separator, not a character. `$(date +%F)` has to be written `$(date +\%F)`.
+One footgun if you give the target a date-stamped name, which is how a file schedule accumulates:
+in a crontab, `%` is a command separator, not a character. `$(date +%F)` has to be written
+`$(date +\%F)`.
 
 ## Docker
 
