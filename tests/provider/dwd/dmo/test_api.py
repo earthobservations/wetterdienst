@@ -1087,6 +1087,10 @@ _DMO_SHARED = frozenset(
 _DMO_PER_1H = frozenset(["rad1h", "radl1", "rads1", "rr1", "rrs1c"])
 _DMO_PER_3H = frozenset(["rad3h", "radl3", "rads3", "rr3", "rrs3c"])
 _DMO_SERVED_BY = {"078": _DMO_SHARED | _DMO_PER_1H, "168": _DMO_SHARED | _DMO_PER_3H}
+# `ptp_gdmog_01001_168_3_251200.kmz` in a station directory, `ptp_gdmog_168_3_251200.kmz` under
+# `all_stations`, which omits the id -- so `{station_id}` is either `"<id>_"` or `""`. Anchored, not
+# a substring test: `_run_stamp` records a bare `078` having matched inside a station id instead.
+_DMO_RUN_NAME = r"ptp_[a-z]+_{station_id}(\d{{3}})_(\d+)_(\d{{6}})\.kmz"
 
 
 @pytest.mark.remote
@@ -1145,26 +1149,6 @@ def test_dmo_declares_the_elements_its_runs_carry(
     )
     assert stations, f"{dataset} covers no station at all"
 
-    # a station the catalogue lists may still have no directory of its own, so take the first that
-    # does rather than pinning one id that upstream is free to drop -- and it has to carry a run for
-    # every lead time the product serves, not merely some run, because a family rolled out to a
-    # subset of stations would otherwise fail below as a metadata fault rather than be skipped here
-    files: list[str] = []
-    for candidate in stations[:8]:
-        url = urljoin(
-            "https://opendata.dwd.de",
-            _dmo_kmz_path(name_original, DwdDmoStationGroup.SINGLE_STATIONS, candidate),
-        )
-        try:
-            entries = list_remote_directory_fsspec(url, settings=default_settings)
-        except Exception:  # noqa: BLE001, S112
-            continue
-        found = [entry["name"] for entry in entries if entry["name"].endswith(".kmz")]
-        if all(any(f"_{lead_time}_" in name.rsplit("/", 1)[-1] for name in found) for lead_time in lead_times):
-            station_id, files = candidate, found
-            break
-    assert files, f"none of the first eight {dataset} stations publishes a run for every lead time"
-
     # which lead times the product serves, read off the listing rather than checked against a list of
     # the ones already known: `icon_eu` publishing a 168 run would give it the same split `icon` has
     # and leave the metadata declaring 1-hourly elements its long run does not carry, and a third run
@@ -1182,32 +1166,57 @@ def test_dmo_declares_the_elements_its_runs_carry(
         if entry["name"].endswith(".kmz")
     ]
     # `ptp_gdmog_078_1_241200.kmz` -- no station id in this listing, so the lead time is field three
-    served_leads = [re.fullmatch(r"ptp_[a-z]+_(\d{3})_(\d+)_(\d{6})\.kmz", name) for name in whole_product]
-    assert whole_product, f"{dataset} publishes no all_stations run at all"
-    assert all(served_leads), (
-        f"{dataset} all_stations run names no longer parse: "
-        f"{sorted(n for n, m in zip(whole_product, served_leads, strict=True) if not m)}"
-    )
-    published = {match.group(1) for match in served_leads}
+    served_leads = [re.fullmatch(_DMO_RUN_NAME.format(station_id=""), name) for name in whole_product]
+    published = {match.group(1) for match in served_leads if match}
+    assert published, f"{dataset} publishes no all_stations run whose name parses, out of {sorted(whole_product)}"
     assert published == set(lead_times), (
         f"{dataset} publishes {sorted(published)} h runs, not {sorted(lead_times)}; "
         f"the lead times it serves have changed"
     )
 
-    # and the station's own runs, anchored on its id rather than taken positionally -- an
-    # `all_stations` name omits the id, so field three there is the step and not the lead time
-    names = [file.rsplit("/", 1)[-1] for file in files]
-    matched = [re.fullmatch(rf"ptp_[a-z]+_{station_id}_(\d{{3}})_(\d+)_(\d{{6}})\.kmz", name) for name in names]
-    assert all(matched), (
-        f"{dataset} run names no longer parse: {sorted(n for n, m in zip(names, matched, strict=True) if not m)}"
-    )
+    # a station the catalogue lists may still have no directory of its own, so take the first that
+    # does rather than pinning one id that upstream is free to drop -- and it has to carry a run for
+    # every lead time the product serves, not merely some run, because a family rolled out to a
+    # subset of stations would otherwise fail below as a metadata fault rather than be skipped here.
+    # The lead time is read off the anchored parse rather than as a substring, which `_run_stamp`
+    # records having been a bug of its own: a bare `078` also matches inside a station id.
+    runs_by_lead: dict[str, list[str]] = {}
+    listed = 0
+    transport: Exception | None = None
+    for candidate in stations[:8]:
+        url = urljoin(
+            "https://opendata.dwd.de",
+            _dmo_kmz_path(name_original, DwdDmoStationGroup.SINGLE_STATIONS, candidate),
+        )
+        try:
+            entries = list_remote_directory_fsspec(url, settings=default_settings)
+        except Exception as e:  # noqa: BLE001
+            transport = e
+            continue
+        listed += 1
+        found: dict[str, list[str]] = {}
+        for entry in entries:
+            # not every `.kmz` here need be a forecast -- `_run_stamp` tolerates a sidecar rather
+            # than failing on it, so anything that does not parse is passed over here as well
+            match = re.fullmatch(_DMO_RUN_NAME.format(station_id=f"{candidate}_"), entry["name"].rsplit("/", 1)[-1])
+            if match:
+                found.setdefault(match.group(1), []).append(entry["name"])
+        if all(lead_time in found for lead_time in lead_times):
+            station_id, runs_by_lead = candidate, found
+            break
+    assert listed, f"no {dataset} station directory could be listed at all: {transport!r}"
+    assert runs_by_lead, f"none of the first eight {dataset} stations publishes a run for every lead time"
 
     reader = KMLReader(station_ids=[station_id], settings=default_settings)
     served: dict[str, set[str]] = {}
     for lead_time in lead_times:
-        runs = [file for file, match in zip(files, matched, strict=True) if match.group(1) == lead_time]
-        assert runs, f"{dataset} publishes no {lead_time} h run for station {station_id}"
-        raw = reader.fetch(runs[0]).read()
+        # one issue chosen the same way every time, rather than whatever the listing returned first
+        # -- otherwise which run the element set is pinned against varies with listing order and
+        # cache state. Not necessarily the newest: the stamp is DDHHMM, so across a month boundary
+        # the largest string is the older day. That costs nothing, because the element set is a
+        # property of the run family and the directory holds two days of it either way.
+        run = max(runs_by_lead[lead_time])
+        raw = reader.fetch(run).read()
         served[lead_time] = {element.decode().lower() for element in re.findall(rb'elementName="([^"]+)"', raw)}
         assert served[lead_time] == _DMO_SERVED_BY[lead_time], (
             f"the {dataset} {lead_time} h run no longer carries the elements it did: "

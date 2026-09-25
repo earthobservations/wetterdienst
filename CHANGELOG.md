@@ -344,8 +344,10 @@ Types of changes:
   and `Unknown export file type` reported a traceback or a sentence depending on which `--if_exists`
   the run happened to pass. The handler is two arms with nothing to decide now, and
   `Unknown export file type` names the target it could not write
-- DWD DMO declares the elements its runs carry, which is 23 parameters for `icon` and 19 for
-  `icon_eu` rather than 122 and 40. The old lists were MOSMIX's, copied in when the provider was
+- **Breaking**: DWD DMO declares the elements its runs carry, which is 23 parameters for `icon` and
+  19 for `icon_eu` rather than 122 and 40. A request for one of the 99 and 22 that are gone raises
+  `NoParametersFoundError` where it used to be built and return an empty frame, so a job pinned to
+  one of those names stops at construction rather than quietly producing nothing. The old lists were MOSMIX's, copied in when the provider was
   written -- which is also why `icon` held MOSMIX-L's count and `icon_eu` MOSMIX-S's, a split DMO
   does not have: both products carry the same elements per run, and differ in the domain they cover
   and the lead times they cover it for -- `icon` declares more only because it publishes the second,
@@ -531,9 +533,12 @@ Types of changes:
   forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours"
   and `icon_eu` as the 40-parameter, 24-times-a-day one -- that is MOSMIX-L and MOSMIX-S, a
   statistical postprocessing that DMO explicitly is not, and "worldwide" cannot be right for a
-  limited-area model covering 3688 of the 5757 catalogue stations. Read off upstream instead: both
-  products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly
-  from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
+  limited-area model covering 3688 of the 5757 catalogue stations -- though "European" is not right
+  for it either, since 11 of those 3688 sit between 13.25 and 22.52 degrees north in Yemen, Eritrea,
+  Sudan and Saudi Arabia, so the description names the subset it is published for instead. Read off
+  upstream: both products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second
+  run 3-hourly from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168
+  hour grid),
   `icon_eu` hourly out to 78 only. Neither description names a parameter count any more: both
   counts came from MOSMIX's leaflet, 115 being MOSMIX-L's and 40 MOSMIX-S's, a split DMO does not
   have. 40 does match what `icon_eu` declares today, but only because that parameter list is

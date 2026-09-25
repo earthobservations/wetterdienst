@@ -176,8 +176,8 @@
 | {term}`probability_wind_gust_ge_55kn_last_6h`                    | fx655         | Probability of wind gusts >= 55kn within the last 6 hours                           | %     | >=0,<=100   |
 | {term}`probability_wind_gust_ge_55kn_last_12h`                   | fxh55         | Probability of wind gusts >= 55kn within the last 12 hours                          | %     | >=0,<=100   |
 | {term}`radiation_global`                                         | rad1h         | Global Irradiance                                                                   | kJ/m² | >=0         |
-| {term}`radiation_global_last_3h`                                 | rads3         | Short wave radiation balance during the last 3 hours                                | kJ/m² | >=0         |
-| {term}`radiation_sky_long_wave_last_3h`                          | radl3         | Long wave radiation balance during the last 3 hours                                 | kJ/m² | >=0         |
+| {term}`radiation_global_last_3h`                                 | rads3         | Short wave radiation balance during the last 3 hours                                | kJ/m² | -         |
+| {term}`radiation_sky_long_wave_last_3h`                          | radl3         | Long wave radiation balance during the last 3 hours                                 | kJ/m² | -         |
 | {term}`sunshine_duration`                                        | sund1         | Sunshine duration during the last Hour                                              | s     | >=0         |
 | {term}`sunshine_duration_last_3h`                                | sund3         | Sunshine duration during the last 3 hours                                           | s     | >=0         |
 | {term}`sunshine_duration_relative_last_24h`                      | rsund         | Relative sunshine duration within the last 24 hours                                 | %     | >=0,<=100   |
