@@ -347,8 +347,9 @@ Types of changes:
 - DWD DMO declares the elements its runs carry, which is 23 parameters for `icon` and 19 for
   `icon_eu` rather than 122 and 40. The old lists were MOSMIX's, copied in when the provider was
   written -- which is also why `icon` held MOSMIX-L's count and `icon_eu` MOSMIX-S's, a split DMO
-  does not have: both products carry the same elements, and differ in the domain and the lead times
-  they carry them for. Measured over 22 runs across 12 stations, both products, both lead times and
+  does not have: both products carry the same elements per run, and differ in the domain they cover
+  and the lead times they cover it for -- `icon` declares more only because it publishes the second,
+  3-hourly run as well. Measured over 22 runs across 12 stations, both products, both lead times and
   both station groups: every run carries 21 elements, `dd ff fx3 n neff nh nl nm pppp rad1h radl1
   rads1 rr1 rrs1c t5cm td tn ttt tx w1w2 ww`, with the 3-hourly run substituting `rad3h radl3 rads3
   rr3 rrs3c` for their 1-hourly counterparts. Asking for one of the other 99 and 22 returned an
@@ -362,10 +363,13 @@ Types of changes:
   `water_equivalent_snow_depth_new_last_3h`) while three are carried only by the default
   `lead_time="short"` (`precipitation_height_last_1h`, `radiation_global`,
   `water_equivalent_snow_depth_new_last_1h`). Those still answer with the empty frame this entry is
-  otherwise about -- 4 of 23 on the default path rather than 99 of 122, and GH-1976 tracks saying so.
+  otherwise about -- 4 of 23 on the default path rather than 99 of 122, and GH-1976 tracks saying
+  so.
   `test_dmo_declares_the_elements_its_runs_carry` reads a run through the same `KMLReader` handle
-  the values path parses and holds both directions per lead time, so neither a declaration that
-  stops matching upstream nor one that pretends the default run serves a 3-hourly element passes
+  the values path parses, and pins each run's element set separately rather than unioning them, so
+  an element changing run fails it. It also asserts which lead times a product publishes at all,
+  because `icon_eu` gaining a 168 run would give it the same split and leave it declaring 1-hourly
+  elements its long run does not carry
 - `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset` (`icon` or
   `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
   `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request built
