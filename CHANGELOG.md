@@ -70,6 +70,20 @@ Types of changes:
 
 ### Changed
 
+- Every export a sink refuses raises `ExportRefusedError`: a mode it does not do, a target already
+  holding data under `if_exists="fail"`, or a format or protocol nothing here writes. It replaces a
+  `NotImplementedError`, a `FileExistsError`, two `KeyError`s and, in the SQLAlchemy sinks, pandas'
+  own `ValueError` -- five classes for one meaning, none of them exclusive to it. Callers matching on
+  the old classes have to match on this one instead, which is why this is here rather than in Fixed.
+  What it buys is that nothing has to infer what a failure meant. The CLI's export handler tried to,
+  over three rounds of review: `fail` arrives from DuckDB as a `KeyError` and from pandas as a
+  `ValueError`, both classes are also simply how a sink breaks, and every rule over types and
+  messages let something through -- a `KeyError` from inside a sink printed its own argument and
+  nothing else (`ERROR date`, for a stations frame sent to InfluxDB, which pops a `date` column only
+  values carry), a bare `NotImplementedError` from scipy would have printed an empty `ERROR` line,
+  and `Unknown export file type` reported a traceback or a sentence depending on which `--if_exists`
+  the run happened to pass. The handler is two arms with nothing to decide now, and
+  `Unknown export file type` names the target it could not write
 - `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset` (`icon` or
   `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
   `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request built

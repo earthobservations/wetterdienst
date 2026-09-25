@@ -15,6 +15,7 @@ import pytest
 
 from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Settings
+from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.request import TimeseriesRequest
@@ -1038,7 +1039,7 @@ def test_export_unknown(default_settings: Settings) -> None:
         station_id=[1048],
     )
     values = request.values.all()
-    with pytest.raises(KeyError) as exec_info:
+    with pytest.raises(ExportRefusedError) as exec_info:
         values.to_target("file:///test.foobar")
     assert exec_info.match("Unknown export file type")
 
@@ -1833,7 +1834,7 @@ def test_export_duckdb_if_exists_fail(
     filename = tmp_path.joinpath("test.duckdb")
     request.values.to_target(f"duckdb:///{filename}?table=testdrive")
     # Second export with if_exists='fail' should raise an error
-    with pytest.raises(KeyError) as exec_info:
+    with pytest.raises(ExportRefusedError) as exec_info:
         request.values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="fail")
     assert exec_info.match("Table 'testdrive' already exists in the database, aborting write due to if_exists='fail'.")
 
@@ -2052,7 +2053,7 @@ def test_export_file_append_exception() -> None:
     ).filter_by_station_id(station_id=[1048])
 
     values = request.values.all()
-    with pytest.raises(NotImplementedError) as exec_info:
+    with pytest.raises(ExportRefusedError) as exec_info:
         values.to_target("file:///foo", if_exists="append")
     assert exec_info.match("Append mode is not supported for file exports.")
 
@@ -2070,7 +2071,7 @@ def test_export_file_fail_exception(tmp_path: Path) -> None:
     ).filter_by_station_id(station_id=[1048])
 
     values = request.values.all()
-    with pytest.raises(FileExistsError) as exec_info:
+    with pytest.raises(ExportRefusedError) as exec_info:
         values.to_target(f"file:///{filename}", if_exists="fail")
     assert exec_info.match("File '.*testfile' already exists, aborting write due to if_exists='fail'.")
 
@@ -2116,7 +2117,7 @@ def test_influxdb_takes_the_modes_that_describe_what_it_does(if_exists: str, ref
 
     with mock.patch("influxdb.InfluxDBClient", side_effect=[client], create=True):
         if refused:
-            with pytest.raises(NotImplementedError, match=f"if_exists='{if_exists}' is not supported for InfluxDB"):
+            with pytest.raises(ExportRefusedError, match=f"if_exists='{if_exists}' is not supported for InfluxDB"):
                 _one_row().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)
             return
         _one_row().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists=if_exists)

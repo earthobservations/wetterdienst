@@ -771,8 +771,16 @@ station rather than one frame being written.
 
 InfluxDB takes `replace` and `append`, which do the same thing there: every write is points, and a
 point carrying the timestamp and tags another already has replaces that one, so `replace` does not
-clear what is already in the measurement. `fail` and `skip` raise `NotImplementedError`, because
-both turn on whether the measurement exists and this sink never asks.
+clear what is already in the measurement. `fail` and `skip` are refused, because both turn on
+whether the measurement exists and this sink never asks.
+
+An append into a database matches columns by name, so a write whose frame no longer carries the
+columns the table was created with is refused rather than filed under the old headings.
+
+Every refusal — a mode the sink does not do, a target that already holds data under `fail`, or a
+format or protocol nothing here writes — raises `ExportRefusedError` (from `wetterdienst.exceptions`),
+whose message is the whole of what there is to know. Anything else out of `to_target` is a defect or
+an environment problem and keeps its own class and traceback.
 
 The CLI takes the same argument as `--if_exists`, which is what a scheduled acquisition needs —
 see [Scheduling](scheduling.md):

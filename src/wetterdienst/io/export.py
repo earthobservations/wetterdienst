@@ -16,6 +16,7 @@ from urllib.parse import urlunparse
 import polars as pl
 import polars.selectors as cs
 
+from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.util.url import ConnectionString
 
 if TYPE_CHECKING:
@@ -298,14 +299,14 @@ class ExportMixin:
         if target.startswith("file://"):
             if if_exists == "append":
                 msg = "Append mode is not supported for file exports."
-                raise NotImplementedError(msg)
+                raise ExportRefusedError(msg)
 
             filepath = connspec.path
 
             if Path(filepath).exists():
                 if if_exists == "fail":
                     msg = f"File '{filepath}' already exists, aborting write due to if_exists='fail'."
-                    raise FileExistsError(msg)
+                    raise ExportRefusedError(msg)
                 if if_exists == "skip":
                     log.info(f"File '{filepath}' exists, skipping write due to if_exists='skip'.")
                     return
@@ -367,8 +368,8 @@ class ExportMixin:
                 self._to_array_store(filepath, netcdf=target.endswith(".nc"))
 
             else:
-                msg = "Unknown export file type"
-                raise KeyError(msg)
+                msg = f"Unknown export file type for target '{target}'"
+                raise ExportRefusedError(msg)
 
             return
 
@@ -429,7 +430,7 @@ class ExportMixin:
                     connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
                 except CatalogException as e:
                     msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
-                    raise KeyError(msg) from e
+                    raise ExportRefusedError(msg) from e
             elif if_exists == "skip":
                 # Only create if not exists, skip if exists
                 result = connection.execute(
@@ -532,7 +533,7 @@ class ExportMixin:
                     f"if_exists='{if_exists}' is not supported for InfluxDB exports, which would "
                     f"have to ask whether the measurement exists; use 'append' or 'replace'."
                 )
-                raise NotImplementedError(msg)
+                raise ExportRefusedError(msg)
 
             if protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
                 version = 1
@@ -542,7 +543,7 @@ class ExportMixin:
                 version = 3
             else:
                 msg = f"Unknown protocol variant '{protocol}' for InfluxDB"
-                raise KeyError(msg)
+                raise ExportRefusedError(msg)
 
             log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")
 
@@ -703,14 +704,19 @@ class ExportMixin:
                 cs.datetime().dt.replace_time_zone(time_zone=None),
                 pl.col(pl.Enum).cast(pl.String),
             )
-            if if_exists == "skip":
+            if if_exists in ("skip", "fail"):
                 import sqlalchemy  # noqa: PLC0415
 
                 engine = sqlalchemy.create_engine(cratedb_target)
                 insp = sqlalchemy.inspect(engine)
                 if insp.has_table(tablename, schema=database):
-                    log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
-                    return
+                    if if_exists == "skip":
+                        log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
+                        return
+                    # asked ourselves rather than letting pandas raise its own `ValueError`, so that
+                    # a refusal is one class wherever it comes from
+                    msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
+                    raise ExportRefusedError(msg)
             df.to_pandas().to_sql(
                 name=tablename,
                 con=cratedb_target,
@@ -755,14 +761,19 @@ class ExportMixin:
                     chunk_size = int(999 / len(self.df.columns))
 
             log.info("Writing to SQL database")
-            if if_exists == "skip":
+            if if_exists in ("skip", "fail"):
                 import sqlalchemy  # noqa: PLC0415
 
                 engine = sqlalchemy.create_engine(target)
                 insp = sqlalchemy.inspect(engine)
                 if insp.has_table(tablename):
-                    log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
-                    return
+                    if if_exists == "skip":
+                        log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
+                        return
+                    # asked ourselves rather than letting pandas raise its own `ValueError`, so that
+                    # a refusal is one class wherever it comes from
+                    msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
+                    raise ExportRefusedError(msg)
             self.df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas().to_sql(
                 name=tablename,
                 con=target,

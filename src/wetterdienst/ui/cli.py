@@ -19,7 +19,12 @@ from cloup.constraints import AllSet, If, RequireExactly, accept_none
 from pydantic import BaseModel, ValidationError
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
-from wetterdienst.exceptions import ApiNotFoundError, BufrReaderMissingError, NoStationsWithHeightError
+from wetterdienst.exceptions import (
+    ApiNotFoundError,
+    BufrReaderMissingError,
+    ExportRefusedError,
+    NoStationsWithHeightError,
+)
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.ui.core import (
     HistoryRequest,
@@ -752,43 +757,26 @@ def _collect_or_exit(
 
 
 def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: ANN401
-    """Write to the target, telling a refused `--if_exists` apart from a sink that broke.
+    """Write to the target, telling a sink that refuses apart from a sink that broke.
 
-    Which values a sink takes belongs to the sink rather than to the option, so all four are
-    offered and the refusal arrives here as an exception. A refusal is a finished sentence and
-    wants nothing else: `Append mode is not supported for file exports.` Anything else a sink
-    raises is a defect or an environment problem, and the detail is the whole of what is useful, so
-    it keeps its traceback.
+    A refusal is a finished sentence and wants nothing else -- `Append mode is not supported for
+    file exports.` Anything else a sink raises is a defect or an environment problem, where the
+    detail is the whole of what is useful, so it keeps its traceback and names the target.
 
-    Which is which cannot be read off the exception type alone, because `fail` is reported by
-    DuckDB as a `KeyError` and by the SQLAlchemy sinks as pandas' `ValueError`, and those two
-    classes are also how a sink breaks. `if_exists` settles it: outside `fail`, neither class is
-    ever about the target already holding data. Without that split a `KeyError` from inside a sink
-    printed its own argument and nothing else -- exporting a stations frame to InfluxDB pops a
-    `date` column that only values carry, and the whole report was `ERROR date`.
+    Which is which is `ExportRefusedError`'s job to say, and it is a separate class because this
+    used to be inferred here: `fail` arrives from DuckDB as one exception and from the SQLAlchemy
+    sinks as another, both classes are also how a sink breaks, and no rule over types and messages
+    got that right for long. A `KeyError` from inside a sink was reported as advice and printed its
+    own argument and nothing else -- exporting a stations frame to InfluxDB pops a `date` column
+    that only values carry, and the whole report was `ERROR date`.
     """
     try:
         result.to_target(target, if_exists=if_exists)
-    except Exception as e:
-        refused = (
-            # a file that is already there under `fail`, and the only thing this class means here
-            isinstance(e, FileExistsError)
-            # a sink saying it does not do this mode. Bare ones reach here too -- scipy raises
-            # `NotImplementedError()` for a NetCDF format it cannot write -- and an empty message
-            # reported as a refusal is an empty `ERROR` line, so those keep their traceback
-            or (isinstance(e, NotImplementedError) and str(e))
-            # `fail` is reported by DuckDB as a `KeyError` and by the SQLAlchemy sinks as pandas'
-            # `ValueError`, and both classes are also how a sink breaks. Only the mode plus what it
-            # says separates them: a `KeyError` under `fail` that is not about the target already
-            # holding data is `Unknown export file type` and wants its traceback like any other
-            or (if_exists == "fail" and isinstance(e, KeyError | ValueError) and "already exists" in str(e))
-        )
-        if refused:
-            # `str(KeyError(msg))` is the repr of its argument, quotes and all, so strip the pair a
-            # KeyError adds rather than printing a message wearing them
-            log.error(str(e).strip("'\""))  # noqa: TRY400
-        else:
-            log.exception(f"Failed to export to {target}")
+    except ExportRefusedError as e:
+        log.error(str(e))  # noqa: TRY400
+        sys.exit(1)
+    except Exception:
+        log.exception(f"Failed to export to {target}")
         sys.exit(1)
 
 
