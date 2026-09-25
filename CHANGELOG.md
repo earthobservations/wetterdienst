@@ -367,9 +367,11 @@ Types of changes:
   so.
   `test_dmo_declares_the_elements_its_runs_carry` reads a run through the same `KMLReader` handle
   the values path parses, and pins each run's element set separately rather than unioning them, so
-  an element changing run fails it. It also asserts which lead times a product publishes at all,
-  because `icon_eu` gaining a 168 run would give it the same split and leave it declaring 1-hourly
-  elements its long run does not carry
+  an element changing run fails it. It also asserts which lead times each product publishes, read
+  off the `all_stations` listing that holds one file per run for the whole product rather than off
+  one station's directory, because `icon_eu` gaining a 168 run -- which would arrive at a subset of
+  stations first -- would give it the same split and leave it declaring 1-hourly elements its long
+  run does not carry
 - `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset` (`icon` or
   `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
   `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request built

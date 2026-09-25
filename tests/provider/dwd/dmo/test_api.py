@@ -1111,8 +1111,9 @@ def test_dmo_declares_the_elements_its_runs_carry(
 
     Those lists were MOSMIX's, copied in when the provider was written -- which is also why `icon`
     held MOSMIX-L's 122 and `icon_eu` MOSMIX-S's 40, a split DMO does not have: both products carry
-    the same elements, and differ in the domain and the lead times they carry them for. A request
-    for one of the other 99 and 22 came back empty with nothing saying the product never forecasts
+    the same elements per run, and differ in the domain they cover and the lead times they cover it
+    for -- `icon` declares four more only because it publishes the second, 3-hourly run as well. A
+    request for one of the other 99 and 22 came back empty with nothing saying the product never forecasts
     it, which reads exactly like a station with no data.
 
     Which run it is does matter, so each run's element set is pinned separately: the 078 run carries
@@ -1159,27 +1160,47 @@ def test_dmo_declares_the_elements_its_runs_carry(
             break
     assert files, f"none of the first five {dataset} stations publishes a run"
 
-    # which runs exist at all, read off the listing rather than checked against a list of the ones
-    # already known: `icon_eu` publishing a 168 run would give it the same split `icon` has and leave
-    # the metadata declaring 1-hourly elements its long run does not carry, and a third run family
-    # would carry a third set of elements. Neither is visible to a loop over the expected lead times.
-    # anchored on the station id rather than taken positionally, because an `all_stations` name
-    # (`ptp_ldmog_078_1_241200.kmz`) omits it and would put the step where the lead time is.
+    # which lead times the product serves, read off the listing rather than checked against a list of
+    # the ones already known: `icon_eu` publishing a 168 run would give it the same split `icon` has
+    # and leave the metadata declaring 1-hourly elements its long run does not carry, and a third run
+    # family would carry a third set of elements. Neither is visible to a loop over the expected
+    # lead times. Taken from `all_stations`, which is one file per run for the whole product, because
+    # the single-station directory above answers only for that station -- a run family rolled out to
+    # a subset of stations, which is how a new one would arrive, need not have reached it yet.
+    all_stations = urljoin(
+        "https://opendata.dwd.de",
+        _dmo_kmz_path(name_original, DwdDmoStationGroup.ALL_STATIONS, None),
+    )
+    whole_product = [
+        entry["name"].rsplit("/", 1)[-1]
+        for entry in list_remote_directory_fsspec(all_stations, settings=default_settings)
+        if entry["name"].endswith(".kmz")
+    ]
+    # `ptp_gdmog_078_1_241200.kmz` -- no station id in this listing, so the lead time is field three
+    served_leads = [re.fullmatch(r"ptp_[a-z]+_(\d{3})_(\d+)_(\d{6})\.kmz", name) for name in whole_product]
+    assert whole_product, f"{dataset} publishes no all_stations run at all"
+    assert all(served_leads), (
+        f"{dataset} all_stations run names no longer parse: "
+        f"{sorted(n for n, m in zip(whole_product, served_leads, strict=True) if not m)}"
+    )
+    published = {match.group(1) for match in served_leads}
+    assert published == set(lead_times), (
+        f"{dataset} publishes {sorted(published)} h runs, not {sorted(lead_times)}; "
+        f"the lead times it serves have changed"
+    )
+
+    # and the station's own runs, anchored on its id rather than taken positionally -- an
+    # `all_stations` name omits the id, so field three there is the step and not the lead time
     names = [file.rsplit("/", 1)[-1] for file in files]
-    matched = [re.fullmatch(rf"ptp_[a-z]+_{station_id}_(\d+)_(\d+)_(\d+)\.kmz", name) for name in names]
+    matched = [re.fullmatch(rf"ptp_[a-z]+_{station_id}_(\d{{3}})_(\d+)_(\d{{6}})\.kmz", name) for name in names]
     assert all(matched), (
         f"{dataset} run names no longer parse: {sorted(n for n, m in zip(names, matched, strict=True) if not m)}"
-    )
-    published = {match.group(1) for match in matched}
-    assert published == set(lead_times), (
-        f"{dataset} publishes {sorted(published)} h runs for station {station_id}, "
-        f"not {sorted(lead_times)}; the lead times it serves have changed"
     )
 
     reader = KMLReader(station_ids=[station_id], settings=default_settings)
     served: dict[str, set[str]] = {}
     for lead_time in lead_times:
-        runs = [file for file in files if f"_{lead_time}_" in file.rsplit("/", 1)[-1]]
+        runs = [file for file, match in zip(files, matched, strict=True) if match.group(1) == lead_time]
         assert runs, f"{dataset} publishes no {lead_time} h run for station {station_id}"
         raw = reader.fetch(runs[0]).read()
         served[lead_time] = {element.decode().lower() for element in re.findall(rb'elementName="([^"]+)"', raw)}
