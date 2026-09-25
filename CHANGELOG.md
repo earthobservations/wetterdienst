@@ -30,9 +30,9 @@ Types of changes:
   the gap was a command gaining `--target` without it; `alerts`, `history` and `stripes values`
   are excluded there, their `--target` never reaching a sink. A sink failure that is not about
   `if_exists` at all keeps its traceback and names the target: the likeliest one is appending
-  `--shape=wide` output onto a table an earlier run created with a different set of parameters,
-  which DuckDB answers with `BinderException: table weather has 6 columns but 8 values were
-  supplied`. Which of the two a failure is cannot be read off its class, because `fail` is reported
+  `--shape=wide` output onto a table an earlier run created for a different set of parameters,
+  which DuckDB answers with `Binder Error: Table "weather" does not have a column with name
+  "precipitation_height"`. Which of the two a failure is cannot be read off its class, because `fail` is reported
   by DuckDB as a `KeyError` and by the SQLAlchemy sinks as pandas' `ValueError`, and those classes
   are also how a sink breaks -- `if_exists` settles it, since outside `fail` neither is ever about
   the target already holding data. Reading them as refusals threw the detail away: exporting a
@@ -48,11 +48,10 @@ Types of changes:
   `CacheDirectory=` and `WD_CACHE_DIR` the run does not degrade to an uncached one, it fails:
   `PermissionError: [Errno 13] Cache directory ... does not exist and could not be created`. `No
   data available for given constraints` exits 1, indistinguishable from a real failure, so a
-  schedule over a quiet station looks like a broken job. Every run replaces what the last one
-  wrote, databases included -- the CLI exports with `if_exists="replace"` and exposes no way to
-  change it, so a `duckdb://` or `postgresql://` table is dropped and recreated exactly as a
-  `file://` target is rewritten -- so a schedule meant to accumulate needs a date-stamped name or
-  an `influxdb://` target. And a `duckdb:///x.duckdb` path is relative to the working directory,
+  schedule over a quiet station looks like a broken job. A run replaces what the last one wrote
+  unless told otherwise, databases included -- a `duckdb://` table is dropped and recreated exactly
+  as a `file://` target is rewritten -- so a schedule meant to accumulate passes
+  `--if_exists=append`, which this release adds, or writes to a date-stamped name. And a `duckdb:///x.duckdb` path is relative to the working directory,
   because the first `/` after the `//` separates host from path; an absolute one takes four
   slashes. Plus `RandomizedDelaySec`, an off-the-hour cron minute and schedules that match the
   publication cadence, so that not every installation asks the provider at `:00` sharp
@@ -133,8 +132,10 @@ Types of changes:
   the temperature, and `0.0`, that day's precipitation, in the column named
   `temperature_air_mean_2m`, exit 0 and nothing said. Reachable from the command line only since
   `--if_exists` existed, and reachable by exactly the schedule the docs recommend. `BY NAME` refuses
-  it with `Binder Error: Table "weather" does not have a column with name "precipitation_height"`
-  and still accepts a frame whose columns are a subset, filling the rest with nulls
+  it with `Binder Error: Table "weather" does not have a column with name "precipitation_height"`.
+  It does not catch every parameter drift, and the docs no longer say it does: a frame whose columns
+  are a subset of the table's is accepted, with nulls for the rest, and under `--shape=long` the
+  column set never varies, so nothing about `--parameters` reaches the insert there at all
 - The InfluxDB sink takes `if_exists="append"`, which is the one word for what it actually does:
   every write is points, and a point carrying the timestamp and tags another already has replaces
   that one. Refusing that spelling made the batch export impossible rather than merely awkward --

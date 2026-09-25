@@ -283,7 +283,9 @@ class ExportMixin:
                 - 'skip': Do not write if target exists (only for supported backends)
 
         Raises:
-            KeyError: Unknown export
+            ExportRefusedError: The sink will not perform this export -- a mode it does not
+                do, a target already holding data under ``if_exists='fail'``, or a format or
+                protocol nothing here writes.
 
         Returns:
             None (data is emitted to the target)
@@ -402,47 +404,52 @@ class ExportMixin:
             df = df.with_columns(cs.datetime().dt.replace_time_zone(None))
 
             connection = duckdb.connect(database=database, read_only=False)
-            connection.register("origin", df)
-            if if_exists == "replace":
-                connection.execute(f"DROP TABLE IF EXISTS {tablename};")
-                connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
-            elif if_exists == "append":
-                result = connection.execute(
-                    f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';",  # noqa: S608
-                )
-                row = result.fetchone()
-                exists = row is not None and row[0] > 0
-                if not exists:
+            try:
+                connection.register("origin", df)
+                if if_exists == "replace":
+                    connection.execute(f"DROP TABLE IF EXISTS {tablename};")
                     connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
-                else:
-                    # `BY NAME`, because a plain `INSERT ... SELECT *` matches by position: two runs
-                    # whose frames carry the same number of columns under different names were
-                    # accepted, and the second one's values landed under the first one's headings.
-                    # A `--shape=wide` schedule does that by changing one parameter -- a day's
-                    # precipitation was filed as its temperature, exit 0 and nothing said. Matching
-                    # by name refuses that with `Binder Error: Table "weather" does not have a
-                    # column with name "precipitation_height"`, and still accepts a frame whose
-                    # columns are a subset, filling the rest with nulls
-                    connection.execute(f"INSERT INTO {tablename} BY NAME SELECT * FROM origin;")  # noqa: S608
-            elif if_exists == "fail":
-                # Will fail if table exists
-                try:
-                    connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
-                except CatalogException as e:
-                    msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
-                    raise ExportRefusedError(msg) from e
-            elif if_exists == "skip":
-                # Only create if not exists, skip if exists
-                result = connection.execute(
-                    f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';"  # noqa: S608
-                )
-                row = result.fetchone()
-                exists = row is not None and row[0] > 0
-                if not exists:
-                    connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
-                else:
-                    log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
-            connection.close()
+                elif if_exists == "append":
+                    result = connection.execute(
+                        f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';",  # noqa: S608
+                    )
+                    row = result.fetchone()
+                    exists = row is not None and row[0] > 0
+                    if not exists:
+                        connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+                    else:
+                        # `BY NAME`, because a plain `INSERT ... SELECT *` matches by position: two runs
+                        # whose frames carry the same number of columns under different names were
+                        # accepted, and the second one's values landed under the first one's headings.
+                        # A `--shape=wide` schedule does that by changing one parameter -- a day's
+                        # precipitation was filed as its temperature, exit 0 and nothing said. Matching
+                        # by name refuses that with `Binder Error: Table "weather" does not have a
+                        # column with name "precipitation_height"`, and still accepts a frame whose
+                        # columns are a subset, filling the rest with nulls
+                        connection.execute(f"INSERT INTO {tablename} BY NAME SELECT * FROM origin;")  # noqa: S608
+                elif if_exists == "fail":
+                    # Will fail if table exists
+                    try:
+                        connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+                    except CatalogException as e:
+                        msg = (
+                            f"Table '{tablename}' already exists in the database, "
+                            f"aborting write due to if_exists='fail'."
+                        )
+                        raise ExportRefusedError(msg) from e
+                elif if_exists == "skip":
+                    # Only create if not exists, skip if exists
+                    result = connection.execute(
+                        f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';"  # noqa: S608
+                    )
+                    row = result.fetchone()
+                    exists = row is not None and row[0] > 0
+                    if not exists:
+                        connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
+                    else:
+                        log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
+            finally:
+                connection.close()
             log.info("Writing to DuckDB finished")
 
         elif protocol.startswith("influxdb"):

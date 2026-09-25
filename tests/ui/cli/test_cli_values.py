@@ -907,10 +907,10 @@ def test_cli_values_target_reports_a_sink_failure_that_is_not_about_if_exists(
     """Appending onto a table whose columns have changed is the likeliest way this option fails.
 
     `--shape=wide` puts one column per parameter, so a second run asking for a different set of
-    parameters no longer matches the table the first one created, and DuckDB answers
-    `BinderException: table weather has 6 columns but 8 values were supplied`. That derives from
-    `Exception` alone, so the handler that turns a refused `if_exists` into a sentence does not see
-    it -- and an unattended run would end in a traceback out of click rather than a logged failure.
+    parameters names a column the table does not have, and DuckDB answers `Binder Error: Table
+    "weather" does not have a column with name "precipitation_height"`. That derives from `Exception`
+    alone, so it is not an `ExportRefusedError` and must not be reported as one -- an unattended run
+    would otherwise end in a traceback out of click rather than a logged failure naming the target.
     """
     target = f"duckdb:///{tmp_path / 'obs.duckdb'}?table=weather"
     runner = CliRunner()

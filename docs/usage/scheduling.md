@@ -23,7 +23,9 @@ wetterdienst values \
 `duckdb:///obs.duckdb?table=weather`, `influxdb://…` or `crate://…` work equally well — see
 [Export](python-api.md#export). Each database sink is an optional extra (`duckdb`, `influxdb`,
 `cratedb`, `postgresql`), imported only when its target is used, so install the one you schedule
-or the run fails at the very end, after the download.
+or the run fails at the very end, after the download. `postgresql://` is the one to avoid for now:
+the generic SQL sink hands the whole target to SQLAlchemy, `?table=` and all, and psycopg2 rejects
+`table` as a connection option before any write is attempted.
 
 Three properties of the CLI matter for a scheduler:
 
@@ -33,14 +35,18 @@ Three properties of the CLI matter for a scheduler:
   that always returns something, or let the wrapper decide what an empty result means.
 - **A run replaces what the last one wrote, unless you say otherwise.** `--if_exists` defaults to
   `replace`, which for a schedule means the target holds the newest run rather than a history: a
-  `file://` target is rewritten in full, and a `duckdb://`, `sqlite://`, `postgresql://` or
-  `crate://` table is dropped and recreated. Pass `--if_exists=append` to accumulate instead. Not
+  `file://` target is rewritten in full, and a `duckdb://`, `sqlite://` or `crate://` table is
+  dropped and recreated. Pass `--if_exists=append` to accumulate instead. Not
   every sink takes every value — a file refuses `append`, and InfluxDB refuses `fail` and `skip`,
   since both would have to ask whether the measurement already exists — and a sink that refuses
   the pairing says so and exits 1 rather than writing something else. For InfluxDB, `replace` and
   `append` do the same thing: its points accumulate either way, and nothing clears the measurement.
-  An `append` onto a table is matched by column name, so a schedule that changes its `--parameters`
-  under `--shape=wide` is refused rather than filing the new values under the old headings.
+  An `append` onto a table is matched by column name, not by position, so a `--shape=wide` schedule
+  that starts asking for a parameter the table has no column for is refused rather than filing it
+  under the old heading. Note what that does *not* catch: a schedule that drops a parameter is
+  accepted, with nulls in the column it stopped filling, and under `--shape=long` the column set
+  never changes at all, so no change of `--parameters` is refused there. The table is yours to keep
+  honest either way.
 - **A database path is relative unless you give it four slashes.** `duckdb:///obs.duckdb` names a
   file in the working directory, because the connection string's leading `/` separates the host
   from the path. For an absolute one, write `duckdb:////var/lib/wetterdienst/obs.duckdb`, or set

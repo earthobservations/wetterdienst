@@ -774,8 +774,9 @@ point carrying the timestamp and tags another already has replaces that one, so 
 clear what is already in the measurement. `fail` and `skip` are refused, because both turn on
 whether the measurement exists and this sink never asks.
 
-An append into a database matches columns by name, so a write whose frame no longer carries the
-columns the table was created with is refused rather than filed under the old headings.
+An append into a database matches columns by name rather than by position, so a frame carrying a
+column the table does not have is refused instead of being filed under whatever heading sat in that
+position. A frame that is a *subset* of the table's columns is accepted, with nulls for the rest.
 
 Every refusal — a mode the sink does not do, a target that already holds data under `fail`, or a
 format or protocol nothing here writes — raises `ExportRefusedError` (from `wetterdienst.exceptions`),
