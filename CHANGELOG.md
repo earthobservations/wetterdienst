@@ -543,19 +543,19 @@ Types of changes:
   statistical postprocessing that DMO explicitly is not, and "worldwide" cannot be right for a
   limited-area model covering 3688 stations where the global product covers 5757 -- though
   "European" is not right for it either, since 11 of those 3688 sit between 13.25 and 22.52 degrees
-  north in Yemen, Eritrea, Sudan and Saudi Arabia, so the description names the set it is published
-  for instead. That set sits inside nothing else here: 132 of the 3688 are absent from the
-  5811-row shared catalogue, which is what `_with_stations_the_catalogue_omits` recovers, and 189
-  are absent from `icon`'s 5757, so it is smaller than the global product's set without being a
-  subset of it. Read off upstream: both
-  products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly
-  from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
+  north and 35.6 and 49.12 degrees east, which no sense of the word covers, so the description
+  names the set it is published for instead. That set sits inside nothing else here: 132 of the
+  3688 are absent from the 5811-row shared catalogue, which is what
+  `_with_stations_the_catalogue_omits` recovers, and 189 are absent from `icon`'s 5757, so it is
+  smaller than the global product's set without being a subset of it. Read off upstream: products
+  are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly from 78 to
+  168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
   `icon_eu` hourly out to 78 only. Neither description names a parameter count any more: both
   counts came from MOSMIX's leaflet, 115 being MOSMIX-L's and 40 MOSMIX-S's, a split DMO does not
-  have. 40 does match what `icon_eu` declares today, but only because that parameter list is
-  MOSMIX-S's verbatim as well. The `icon_eu` parameter table also listed `cloud_base_convective`
-  and `cloud_cover_below_7km`, which the model does not define for that dataset, so the docs
-  advertised two parameters no request could ask for
+  have. 40 did match what `icon_eu` declared before this release, but only because that parameter
+  list was MOSMIX-S's verbatim as well. The `icon_eu` parameter table also listed
+  `cloud_base_convective` and `cloud_cover_below_7km`, which the model does not define for that
+  dataset, so the docs advertised two parameters no request could ask for
 - WSV pegel: the wave tests ask each station whether its own values are in the declared unit, rather
   than asking whether two stations agree with each other. Comparing them assumed the same sea at
   both, and they do not carry the same window -- MELLUMPLATE had 98 readings over 1.6 days against LT

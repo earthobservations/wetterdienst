@@ -6,8 +6,9 @@
 the DWD that takes model output and extracts it at known meteorological stations to produce consumable timeseries. In 
 opposition to the Mosmix product, DMO is not a statistical postprocessing but a pure extraction of model output. The DMO 
 product is available for the ICON model in its global (ICON) and regional (ICON-EU) configuration. For ICON-EU, the DMO 
-product is available in hourly resolution with a lead time of 78 hours. For ICON, the DMO product is available in hourly 
-resolution with a lead time of 78 hours and in 3-hourly resolution with a lead time of 168 hours.
+product is available in hourly resolution with a lead time of 78 hours. For ICON, the DMO product is published as two 
+runs: hourly out to a lead time of 78 hours, and 3-hourly from 78 out to 168 hours. The long run starts where the 
+short one ends -- it is not a 3-hourly grid over the whole 168 hours.
 
 Which parameters a run carries depends on that lead time. Each run carries the same 21 elements, except that the
 3-hourly run substitutes the 3-hourly radiation and precipitation fields for their 1-hourly counterparts. `icon`
