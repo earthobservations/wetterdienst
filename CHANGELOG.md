@@ -541,11 +541,13 @@ Types of changes:
   forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours"
   and `icon_eu` as the 40-parameter, 24-times-a-day one -- that is MOSMIX-L and MOSMIX-S, a
   statistical postprocessing that DMO explicitly is not, and "worldwide" cannot be right for a
-  limited-area model covering 3688 of the 5757 catalogue stations -- though "European" is not right
-  for it either, since 11 of those 3688 sit between 13.25 and 22.52 degrees north in Yemen,
-  Eritrea, Sudan and Saudi Arabia, so the description names the set it is published for instead --
-  which is not the shared catalogue's subset either: 132 of those 3688 are absent from the
-  catalogue, which is what `_with_stations_the_catalogue_omits` recovers. Read off upstream: both
+  limited-area model covering 3688 stations where the global product covers 5757 -- though
+  "European" is not right for it either, since 11 of those 3688 sit between 13.25 and 22.52 degrees
+  north in Yemen, Eritrea, Sudan and Saudi Arabia, so the description names the set it is published
+  for instead. That set sits inside nothing else here: 132 of the 3688 are absent from the
+  5811-row shared catalogue, which is what `_with_stations_the_catalogue_omits` recovers, and 189
+  are absent from `icon`'s 5757, so it is smaller than the global product's set without being a
+  subset of it. Read off upstream: both
   products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly
   from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
   `icon_eu` hourly out to 78 only. Neither description names a parameter count any more: both

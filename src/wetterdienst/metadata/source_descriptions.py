@@ -2039,8 +2039,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ),
         ("hourly", "icon_eu"): (
             "Direct model output of the regional ICON-EU model, extracted at the stations it is "
-            "published for, a smaller set than the global product covers. Issued twice a day "
-            "(00 and 12 UTC), hourly out to a lead-time of 78 hours."
+            "published for, a smaller set than the global product's though not a subset of it. "
+            "Issued twice a day (00 and 12 UTC), hourly out to a lead-time of 78 hours."
         ),
     },
     "DwdObservationMetadata": {
