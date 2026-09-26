@@ -86,6 +86,14 @@ Types of changes:
   metadata tables", with its rows compared against the model besides. All 238 such tables in the
   tree are under that heading, so nothing is lost by asking for it, and the resolution-level reader
   was already asking
+- A network exposing no `metadata` attribute is named in `NETWORKS_WITHOUT_A_METADATA_MODEL` rather
+  than merely skipped. The skip was keyed on an attribute, so renaming it would drop that provider
+  out of all four comparisons and, because it lands in `skipped`, exempt its published pages from
+  the page side of `test_docs_cover_every_resolution` too. Renaming `metadata` to `_metadata` on
+  `ipma/observation` left all nine tests passing; it now says which network and why
+- The parameter-count check walks every resolution the model declares rather than only the
+  documented ones, since what it asserts is a model fact. Gated on the page, deleting
+  `dwd/mosmix/hourly.md` stopped the only two count-bearing descriptions being checked at all
 - `test_docs_descriptions_do_not_misstate_a_parameter_count`, tying a count written into a
   description to `len(dataset.parameters)`. `dwd/mosmix` hourly describes `small` and `large` by
   how many parameters they carry, and a count in prose is the very fact whose drift set this change

@@ -18,6 +18,13 @@ COVERAGE = Path(ROOT / "docs" / "data" / "provider")
 
 EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH = ["_", ".", "metadata"]
 
+# Networks that expose no `metadata` attribute, and so declare no resolutions for the docs tests to
+# compare. Named rather than merely skipped: the skip is keyed on an attribute, so a rename would drop
+# a provider out of all four comparisons *and*, because it lands in `skipped`, exempt its published
+# pages from the page side of `test_docs_cover_every_resolution` -- all 88 pages could go to none
+# checked with every test still passing. `dwd/alerts` is a CAP warnings feed with no timeseries model.
+NETWORKS_WITHOUT_A_METADATA_MODEL = {("dwd", "alerts")}
+
 # Providers that are excluded from the docs. "*" is a wildcard.
 EXCLUDE_PROVIDER_NETWORKS = {
     "eumetnet": "*",
@@ -421,6 +428,12 @@ def _resolution_pages() -> tuple[list[tuple[str, str, object, Path]], set[tuple[
                 continue
             metadata = getattr(api, "metadata", None)
             if metadata is None:
+                if (provider, network) not in NETWORKS_WITHOUT_A_METADATA_MODEL:
+                    msg = (
+                        f"{provider}/{network} exposes no `metadata`, so none of the docs tests read it. "
+                        f"Add it to NETWORKS_WITHOUT_A_METADATA_MODEL if that is intended."
+                    )
+                    raise AssertionError(msg)
                 skipped.add((provider, network))
                 continue
             pages.extend(
@@ -518,10 +531,14 @@ def test_docs_parameter_units_name_the_quantity_the_model_declares() -> None:
     """Test that a documented unit is the model's unit, by name or by symbol or by a known spelling.
 
     The `unit` column was hand-written and compared by nothing, which is how three cells came to name a
-    different physical quantity than the value carries: `dwd/road` 15_minutes wrote `mm/s` for a
-    `millimeter_per_hour` parameter, a factor of 3600 out, and `dwd/observation` monthly and annual
-    wrote `Bft` for `wind_gust_max`, which is `meter_per_second` -- copied, it looks like, from the
-    `wind_force_beaufort` row above. Nothing would have stopped them coming back.
+    different quantity than the model declares. `dwd/observation` monthly and annual wrote `Bft` for
+    `wind_gust_max`, which the model declares `meter_per_second` -- copied, it looks like, from the
+    `wind_force_beaufort` row above, and the values are 12 to 28, so the model is right. `dwd/road`
+    15_minutes wrote `mm/s` against a declared `millimeter_per_hour`, and there the *model* is the side
+    under question: that parser labels the BUFR units of what it decodes, BUFR gives
+    `intensityOfPrecipitation` as `kg m-2 s-1`, and the delivered values top out at 0.006, which is
+    absurd as mm/h. GH-1984 carries it. This test follows the model either way, so whoever settles it
+    changes one declaration and the page follows -- it is not a claim that the page was the defect.
 
     Accepting `_UNIT_SPELLINGS` alongside the model's own name and symbol is what lets this run without
     reflowing 60 cells first: those four notations are real editorial choices for GH-1980 to settle,
@@ -560,7 +577,10 @@ def test_docs_descriptions_do_not_misstate_a_parameter_count() -> None:
     every other test green. Two descriptions name a count today.
     """
     wrong = []
-    for provider, network, resolution, _ in _documented_resolutions():
+    # every declared resolution, not only the documented ones: the claim is about the model alone, so
+    # gating it on a page existing would let deleting `dwd/mosmix/hourly.md` stop the only two
+    # count-bearing descriptions being checked at all
+    for provider, network, resolution, _ in _resolution_pages()[0]:
         for dataset in resolution:
             for count in re.findall(r"(\d+) parameters", dataset.description or ""):
                 if int(count) != len(dataset.parameters):
