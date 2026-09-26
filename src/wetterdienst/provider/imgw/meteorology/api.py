@@ -29,6 +29,17 @@ from wetterdienst.util.network import File, download_file, download_files
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
+# The names _file_schema maps that are not measurements, and so have no status column beside them.
+_STRUCTURAL_COLUMNS = frozenset({"station_id", "year", "month", "day"})
+# IMGW writes a status column immediately after every measurement column -- documented per file in
+# the `*_format.txt` beside the data, and generally in `Opis.txt`: a space means the value is a
+# measurement, "8" that there is none, "9" that the phenomenon did not occur. The value column of a
+# missing measurement is not left empty, it holds a literal ".0", so the status has to be read to
+# tell a station that measured nothing from one that measured zero. "9" is a true zero -- no snow
+# cover, no precipitation -- and o_d's "Z", opad zbiorczy, is a real measurement summed over the
+# days around it, so only "8" becomes null.
+_STATUS_NO_MEASUREMENT = "8"
+
 ImgwMeteorologyMetadata = {
     **_METADATA,
     "kind": "observation",
@@ -576,6 +587,21 @@ class ImgwMeteorologyValues(TimeseriesValues):
     def __parse_file(file: bytes, station_id: str, resolution: Resolution, schema: dict) -> pl.DataFrame:
         """Parse a single file from the meteorological zip file."""
         df = pl.read_csv(file, encoding="latin-1", separator=",", has_header=False, infer_schema_length=0)
+        status_columns = {
+            column: status
+            for column, name in schema.items()
+            if name not in _STRUCTURAL_COLUMNS
+            and (status := f"column_{int(column.removeprefix('column_')) + 1}") in df.columns
+            and status not in schema
+        }
+        df = df.select(*schema, *status_columns.values())
+        df = df.with_columns(
+            pl.when(pl.col(status).str.strip_chars().eq(_STATUS_NO_MEASUREMENT))
+            .then(None)
+            .otherwise(pl.col(column))
+            .alias(column)
+            for column, status in status_columns.items()
+        )
         df = df.select(list(schema.keys())).rename(schema)
         df = df.with_columns(pl.col("station_id").str.strip_chars())
         df = df.filter(pl.col("station_id").eq(station_id))

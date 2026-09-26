@@ -69,15 +69,6 @@ def test_imgw_meteorology_api_daily() -> None:
                 "station_id": "253160090",
                 "resolution": "daily",
                 "dataset": "climate",
-                "parameter": "humidity",
-                "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.0,
-                "quality": None,
-            },
-            {
-                "station_id": "253160090",
-                "resolution": "daily",
-                "dataset": "climate",
                 "parameter": "precipitation_height",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
@@ -145,7 +136,6 @@ def test_imgw_meteorology_api_daily() -> None:
             "parameter": pl.Enum(
                 [
                     "cloud_cover_total",
-                    "humidity",
                     "precipitation_height",
                     "snow_depth",
                     "temperature_air_max_2m",
@@ -411,15 +401,6 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "cloud_cover_total",
-                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.0,
-                "quality": None,
-            },
-            {
-                "station_id": "354150100",
-                "resolution": "daily",
-                "dataset": "synop",
                 "parameter": "humidity",
                 "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.905,
@@ -495,7 +476,6 @@ def test_imgw_meteorology_api_daily_synop() -> None:
             "dataset": pl.Enum(["synop"]),
             "parameter": pl.Enum(
                 [
-                    "cloud_cover_total",
                     "humidity",
                     "precipitation_height_day",
                     "precipitation_height_night",
@@ -593,6 +573,27 @@ def test_imgw_meteorology_parameters_agree_with_the_aggregation_their_name_state
     assert mismatched == set()
 
 
+def test_imgw_meteorology_status_columns_do_not_collide_with_value_columns() -> None:
+    """Test that the status column of a measurement is never itself a declared measurement.
+
+    IMGW writes each status immediately after the value it belongs to, verified for all 61 declared
+    columns against the ``*_format.txt`` files, so ``__parse_file`` reads ``column_N+1`` as the
+    status of ``column_N``. Declaring a value at ``column_N+1`` would make it both, and the parse
+    resolves that by leaving ``column_N`` unstatused -- silently, and only for that one column.
+    """
+    colliding = set()
+    for resolution, datasets in ImgwMeteorologyValues._file_schema.items():  # noqa: SLF001
+        for dataset_name, files in datasets.items():
+            for file_pattern, columns in files.items():
+                values = {
+                    int(column.removeprefix("column_"))
+                    for column, name in columns.items()
+                    if name not in {"station_id", "year", "month", "day"}
+                }
+                colliding |= {(resolution.value, dataset_name, file_pattern, n) for n in values if n + 1 in values}
+    assert colliding == set()
+
+
 @pytest.mark.remote
 @pytest.mark.parametrize(
     ("resolution", "dataset", "station_id", "parameter", "expected"),
@@ -632,3 +633,53 @@ def test_imgw_meteorology_values_match_the_upstream_column(
     )
     assert not values.is_empty(), f"{resolution}/{dataset}/{parameter} returned no rows"
     assert values.get_column("value").item(0) == expected
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("resolution", "dataset", "parameter", "station_id", "start_date", "expected"),
+    [
+        # These two read k_d column 17, PKSN, on the same day, and the file holds a literal "0" for
+        # both. Only the status beside it separates them: PSZCZYNA carries "9", brak zjawiska --
+        # there was no snow cover, so zero is the measurement -- and station 252190030 carries "8",
+        # brak pomiaru. Nothing else in the row says which is which.
+        ("daily", "climate", "snow_depth", "249180010", "2010-01-01", 0.0),
+        ("daily", "climate", "snow_depth", "252190030", "2010-01-01", None),
+        # A grass minimum of exactly 0.0 degrees on a January day, from `.0` beside a status of "8".
+        ("daily", "climate", "temperature_air_min_0_05m", "249190090", "2010-01-01", None),
+        # WARSZOWICE is a rain gauge and reports no snow: every row of o_d column 9 is "8" for it,
+        # so the dataset used to answer 0 cm of snow cover for every day of a Polish January.
+        ("daily", "precipitation", "snow_depth", "249180020", "2010-01-01", None),
+        # 0 % relative humidity, from `.0` beside a status of "8" in k_m_t.
+        ("monthly", "climate", "humidity", "249180010", "2010-01-01", None),
+    ],
+)
+def test_imgw_meteorology_values_read_the_status_column(
+    resolution: str,
+    dataset: str,
+    parameter: str,
+    station_id: str,
+    start_date: str,
+    expected: float | None,
+) -> None:
+    """Test that a measurement IMGW marks as absent is not returned as a zero (GH-1994).
+
+    Every value column is followed by a status column, and the value column of a missing
+    measurement is not left empty -- it holds a literal ".0". So a station that measured nothing is
+    indistinguishable from one that measured zero unless the status is read. "8" is brak pomiaru
+    and has to become null; "9" is brak zjawiska, which is a true zero.
+    """
+    values = (
+        ImgwMeteorologyRequest(
+            parameters=[(resolution, dataset, parameter)],
+            start_date=start_date,
+            end_date=start_date,
+        )
+        .filter_by_station_id(station_id)
+        .values.all()
+        .df
+    )
+    if expected is None:
+        assert values.is_empty(), f"{parameter} returned {values.get_column('value').to_list()}"
+    else:
+        assert values.get_column("value").to_list() == [expected]

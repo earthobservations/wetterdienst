@@ -29,6 +29,10 @@ Types of changes:
   update it. What the check cannot see is a declared name sitting on the wrong `column_N`, which is
   how `monthly/precipitation` came to publish a count of snow days as millimetres; positions are
   held by the remote tests that compare a value against the file it is read from (GH-1991)
+- `imgw/meteorology`'s status columns cannot collide with its value columns. The parse reads
+  `column_N+1` as the status of `column_N`, so declaring a measurement there would make one column
+  both, and the parse resolves that by leaving its neighbour unstatused -- silently, and for that
+  one column only (GH-1994)
 - An `imgw/meteorology` column whose Polish name states a minimum or a maximum has to be declared
   under a canonical name that says the same. These declarations are in a language the rest of the
   repository is not written in, so `temperatura minimalna przy gruncie` sat under
@@ -468,6 +472,22 @@ Types of changes:
   two and named `monthly/climate/temperature_air_min_2m_mean` among them, which was never broken --
   `k_m_d` spelt it correctly -- and did not reach `daily` or `monthly/precipitation` at all
   (GH-1981)
+- **Breaking**: `imgw/meteorology` returns no value where IMGW records no measurement, rather than
+  a zero. Every value column in these files is followed by a status column -- documented per file
+  in the `*_format.txt` beside the data and generally in `Opis.txt`: a space means the value is a
+  measurement, `8` brak pomiaru, `9` brak zjawiska -- and none of them was read. The value column
+  of a missing measurement is not left empty, it holds a literal `.0`, so an unmeasured parameter
+  came back as a measured zero: 0 % relative humidity for PSZCZYNA in January 2010, a grass minimum
+  of exactly 0.0 °C on a January day, and 0 cm of snow cover for every day of that month at
+  WARSZOWICE -- a rain gauge that reports no snow at all, whose `o_d` snow columns carry status `8`
+  in all 15479 rows of the file. Nothing in a row distinguishes the two: `daily/climate/snow_depth`
+  reads a literal `0` for both PSZCZYNA and station 252190030 on 2010-01-01, and only the status
+  says that the first measured no snow cover and the second measured nothing. Only `8` becomes
+  null. `9` is a true zero, and `o_d`'s `Z`, opad zbiorczy, is a real measurement summed over the
+  days beside it. Under the default `ts_drop_nulls` the affected rows are absent rather than null,
+  so a frame can come back shorter, or a parameter empty where it used to read zero throughout. The
+  status sits at field N+1 for all 61 declared columns, checked against the `*_format.txt` files
+  rather than assumed (GH-1994)
 - **Breaking**: `imgw/meteorology` declares `daily/climate`'s grass temperature as
   `temperature_air_min_0_05m`, the name `monthly/climate` and `monthly/synop` already use for the
   same measurement, rather than `temperature_air_mean_0_05m`. `k_d_format.txt` names field 12
