@@ -553,7 +553,6 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
     This holds names, not positions -- a declared name sitting on the wrong ``column_N`` passes.
     ``test_imgw_meteorology_values_match_the_upstream_column`` covers that.
     """
-    structural = {"station_id", "year", "month", "day"}
     undeclared = set()
     for resolution, datasets in ImgwMeteorologyValues._file_schema.items():  # noqa: SLF001
         for dataset_name, files in datasets.items():
@@ -561,7 +560,7 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
             declared = {parameter.name_original for parameter in dataset.parameters}
             for file_pattern, columns in files.items():
                 for column, name_original in columns.items():
-                    if name_original in structural or name_original in declared:
+                    if name_original in _STRUCTURAL_COLUMNS or name_original in declared:
                         continue
                     undeclared.add((resolution.value, dataset_name, file_pattern, column, name_original))
     assert undeclared == set()
@@ -617,7 +616,7 @@ def test_imgw_meteorology_status_columns_do_not_collide_with_value_columns() -> 
                 values = {
                     int(column.removeprefix("column_"))
                     for column, name in columns.items()
-                    if name not in {"station_id", "year", "month", "day"}
+                    if name not in _STRUCTURAL_COLUMNS
                 }
                 colliding |= {(resolution.value, dataset_name, file_pattern, n) for n in values if n + 1 in values}
     assert colliding == set()
