@@ -242,13 +242,13 @@ Types of changes:
   table had as `millimeter`/`-` and `hectopascal`/`-`, which is what the same page's other datasets
   and the same table's `pressure_air_site` already wrote. The monthly page was corrected in the
   same change and the daily twin left alone
-- Parameter tables keep the order the model declares them in, which 228 of the 271 documented
-  tables carry once the rows they omit are ignored (196 match the declared list exactly), and which
-  lines a page up one-to-one with its `metadata.py`. Sorting `mosmix` hourly
-  and `imgw` monthly alphabetically had broken the ascending-window grouping that made
-  `precipitation_height_last_1h, _3h, _6h, _12h, _24h` legible, reading it as `_12h, _1h, _24h,
-  _3h, _6h` instead, and the same for the `probability_fog_last_*`, `probability_drizzle_last_*`
-  and `wind_gust_max_last_*` families
+- Parameter tables keep the order the model declares them in, which 229 of the 271 documented
+  tables carry once the rows they omit are ignored and 196 match exactly -- 224 and 191 on `main`,
+  so this change puts five more back -- and which lines a page up one-to-one with its
+  `metadata.py`. Sorting `mosmix` hourly and `imgw` monthly alphabetically had broken the
+  ascending-window grouping that made `precipitation_height_last_1h, _3h, _6h, _12h, _24h` legible,
+  reading it as `_12h, _1h, _24h, _3h, _6h` instead, and the same for the `probability_fog_last_*`,
+  `probability_drizzle_last_*` and `wind_gust_max_last_*` families
 - Four documented parameters that no request could ask for, and four requestable ones that no page
   documented, found by the presence test above. `dwd/mosmix` hourly documented
   `cloud_base_convective` and `cloud_cover_below_7km` under `small`, which the model declares for
@@ -275,11 +275,12 @@ Types of changes:
 - `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
   `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote, and puts the
   two rows in the order the model declares them -- the one table this change touched that was among
-  the 43 of 271 still out of order. `main` carries 69 rows that spell a unit out where their own
-  page uses the symbol for it: 57 write `dimensionless` against a `-` elsewhere on the page, which
-  is a convention to settle rather than a slip (GH-1980), and of the other 12 this change fixes
-  9 -- 5 on `dwd/mosmix` hourly and 3 on `imgw/meteorology` daily, both described above, plus this
-  one -- leaving the 3 on `dwd/dmo` hourly to GH-1975, which has that file open
+  the 47 of 271 `main` leaves out of order, five of which this change fixes. `main` carries 69 rows
+  that spell a unit out where their own page uses the symbol for it: 57 write `dimensionless`
+  against a `-` elsewhere on the page, which is a convention to settle rather than a slip
+  (GH-1980), and of the other 12 this change fixes 9 -- 5 on `dwd/mosmix` hourly and 3 on
+  `imgw/meteorology` daily, both described above, plus this one -- leaving the 3 on `dwd/dmo`
+  hourly to GH-1975, which has that file open
 - The three `dwd/derived` `Kuehltage` overrides are described as "Number of days with at least one
   cooling hour", which is what DWD's *Kuehltage* counts, rather than the vaguer "Number of days on
   which cooling was required". The precise wording sat in the docs table, where nothing compared it

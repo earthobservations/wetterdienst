@@ -81,25 +81,29 @@ def _prose_lines(path: Path) -> Iterator[str]:
     descriptions test silently stops comparing them. Which is the skip this module exists to stop,
     and the reason the fence is stripped here rather than in each parser.
 
-    Only backticks and tildes count. `docs/conf.py` enables MyST's ``colon_fence``, but a
-    ``:::{note}`` block holds rendered *markdown*, not code, so a table inside one is published
-    documentation and has to be parsed -- treating ``:::`` as a fence dropped it from the parse and
-    reported the absence as a missing row somewhere else. A ``#`` comment, which is what this guard is
-    for, belongs to a code example, and code examples are fenced with backticks.
+    Only a *code* fence hides its contents. A MyST directive holds rendered markdown, so a table
+    inside one is published documentation and has to be parsed -- and a directive is written either
+    ``:::{note}`` or `````{note}``, both legal and both used in this repo, which writes
+    `````{toctree}`` on every network index page. Skipping either spelling dropped the
+    table and reported the absence as a missing row somewhere else entirely, which is the authoring
+    trap this guard exists to remove rather than add. A ``#`` comment, which is what it is for, belongs
+    to a code example, and those carry a language or nothing at all.
+
+    The open fences are a stack, so a code block nested in a directive still hides its own contents,
+    and a closing fence is a bare marker at least as long as the one it closes -- a ```````
+    line inside a ````````-opened block is content rather than the end of it.
     """
-    fence: tuple[str, int] | None = None
+    fences: list[tuple[str, int, bool]] = []
     for line in path.read_text(encoding="utf8").splitlines():
-        marker = re.match(r"\s*(`{3,}|~{3,})", line)
+        marker = re.match(r"\s*(`{3,}|~{3,}|:{3,})\s*(\S*)", line)
         if marker:
-            char, length = marker.group(1)[0], len(marker.group(1))
-            if fence is None:
-                fence = (char, length)
-            elif char == fence[0] and length >= fence[1]:
-                # a closing fence has to be at least as long as the one it closes, so a ``` line
-                # inside a ````-opened block is content rather than the end of it
-                fence = None
+            char, length, info = marker.group(1)[0], len(marker.group(1)), marker.group(2)
+            if fences and not info and char == fences[-1][0] and length >= fences[-1][1]:
+                fences.pop()
+            else:
+                fences.append((char, length, info.startswith("{")))
             continue
-        if fence is None:
+        if not any(not directive for _, _, directive in fences):
             yield line
 
 
@@ -154,13 +158,48 @@ def _heading_datasets(line: str, current: list[str]) -> list[str]:
     is in, and anything shallower closes it -- a page carries its own resolution-level ``##
     metadata`` table, whose rows belong to no dataset. Shared so that the two parsers cannot answer
     this differently, which is how one of them came to read that table as a dataset.
+
+    The name is taken by stripping the hashes rather than by slicing past ``### ``, because a closing
+    ATX sequence -- ``### data ###`` -- is valid and renders identically, and ``###data`` is too. The
+    31 sections that carry no ``#### metadata`` table to name their dataset are the ones that would
+    have paid for it.
     """
     level = len(line) - len(line.lstrip("#"))
     if level == 3:
-        return [line[4:].strip()]
+        return [line.lstrip("#").strip().strip("#").strip()]
     if level >= 4:
         return current
     return []
+
+
+def _section_datasets(path: Path) -> dict[str, list[str]]:
+    """Return {``###`` heading: the datasets its own metadata table names} for one provider docs page.
+
+    A first pass, so that the row parser below does not depend on the ``#### metadata`` table coming
+    before the ``#### parameters`` one. A heading whose section names no dataset is absent, and the
+    caller falls back to the heading text -- which is the dataset name on the 31 sections that carry
+    no metadata table at all.
+    """
+    named: dict[str, list[str]] = {}
+    heading: str | None = None
+    in_metadata = False
+    for line in _prose_lines(path):
+        if line.startswith("#"):
+            level = len(line) - len(line.lstrip("#"))
+            if level <= 3:
+                heading = line.lstrip("#").strip().strip("#").strip() if level == 3 else None
+            in_metadata = False
+            continue
+        if not line.startswith("|"):
+            in_metadata = False
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells[:1] == ["property"]:
+            in_metadata = heading is not None
+            continue
+        if in_metadata and cells[:1] == ["name"] and len(cells) >= 2 and heading is not None:
+            named[heading] = [name.strip() for name in cells[1].split(",")]
+    return named
 
 
 def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]]:
@@ -181,28 +220,33 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]
     ``cooling_degreehours_13``, ``_16`` and ``_18`` in one section, saying so in that row, because
     the three carry identical parameters -- keying on it registers the rows under all three rather
     than forcing three copies of the table.
+
+    Resolved in a first pass over the page, by `_section_datasets`, so that a section putting its
+    ``#### parameters`` table before its ``#### metadata`` one -- valid, and equally good
+    documentation -- is read the same way. A single pass could only use a ``name`` row it had already
+    seen, which filed every row of such a section under the raw heading instead: exactly the sort of
+    disagreement between the two parsers that sharing `_heading_datasets` was meant to end.
     """
     documented: dict[tuple[str, str, str], list[str]] = {}
+    sections = _section_datasets(path)
     datasets: list[str] = []
     header = None
-    in_metadata = False
     for line in _prose_lines(path):
         if line.startswith("#"):
-            datasets, header, in_metadata = _heading_datasets(line, datasets), None, False
+            datasets = _heading_datasets(line, datasets)
+            # resolved only where a section opens, never on the `####` headings inside it: those carry
+            # the names forward already, and looking them up again could send a section whose dataset
+            # is named after another section's heading off to that one's datasets
+            if datasets and len(line) - len(line.lstrip("#")) == 3:
+                datasets = sections.get(datasets[0], datasets)
+            header = None
             continue
         if not line.startswith("|"):
-            header, in_metadata = None, False
+            header = None
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if cells[:1] == ["property"]:
-            in_metadata = bool(datasets)
-            continue
         if cells and cells[0] == "name" and "original name" in cells:
-            header, in_metadata = (cells if "description" in cells else None), False
-            continue
-        if in_metadata:
-            if cells[:1] == ["name"] and len(cells) >= 2:
-                datasets = [name.strip() for name in cells[1].split(",")]
+            header = cells if "description" in cells else None
             continue
         if header is None or all(set(cell) <= {"-", ":"} for cell in cells) or len(cells) < len(header):
             continue
