@@ -33,12 +33,21 @@ if TYPE_CHECKING:
 _STRUCTURAL_COLUMNS = frozenset({"station_id", "year", "month", "day"})
 # IMGW writes a status column immediately after every measurement column -- documented per file in
 # the `*_format.txt` beside the data, and generally in `Opis.txt`: a space means the value is a
-# measurement, "8" that there is none, "9" that the phenomenon did not occur. The value column of a
-# missing measurement is not left empty, it holds a literal ".0", so the status has to be read to
-# tell a station that measured nothing from one that measured zero. "9" is a true zero -- no snow
-# cover, no precipitation -- and o_d's "Z", opad zbiorczy, is a real measurement summed over the
-# days around it, so only "8" becomes null.
+# measurement, "8" that there is none, "9" that the phenomenon did not occur, and o_d's "Z" that the
+# value is an `opad zbiorczy`, a sum over the preceding days that were not measured.
+#
+# Neither code can be taken from the value column, because the files do not write it the same way
+# twice. Where "8" appears the value is not left empty but holds a literal ".0" -- which is why the
+# status has to be read at all, to tell a station that measured nothing from one that measured zero.
+# Where "9" appears, `o_d_01_2024` writes ".0" and `o_d_07_2024` leaves the cell empty, for the same
+# parameter three files apart, so "9" is written as the zero it means rather than passed through.
+# "Z" is a real measurement and keeps its value.
+#
+# One reading of "9" is not a zero: `s_m_d_format.txt` says that for a `Liczba dni z` aggregation it
+# means the station does not observe the phenomenon at all. None of those columns is declared -- they
+# are the counts in `_STATUSLESS_COLUMNS` -- and declaring one would need its own branch here.
 _STATUS_NO_MEASUREMENT = "8"
+_STATUS_NO_PHENOMENON = "9"
 # The raw positions IMGW publishes with no status column beside them, by the file pattern that reads
 # them, taken from each `*_format.txt`. They hold the fields that are not measurements: `ROOP`, the
 # kind of precipitation, `SGR`, the state of the ground, the `DN1`/`DN2` days a monthly maximum fell
@@ -653,6 +662,8 @@ class ImgwMeteorologyValues(TimeseriesValues):
         df = df.with_columns(
             pl.when(pl.col(status).str.strip_chars().eq(_STATUS_NO_MEASUREMENT))
             .then(None)
+            .when(pl.col(status).str.strip_chars().eq(_STATUS_NO_PHENOMENON))
+            .then(pl.lit("0"))
             .otherwise(pl.col(column))
             .alias(column)
             for column, status in status_columns.items()

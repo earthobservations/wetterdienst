@@ -470,6 +470,17 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `imgw/meteorology` returns a documented *brak zjawiska* as the zero it means, where
+  it returned no value at all. Status "9" was treated as the true zero it is by passing the value
+  cell through, which only works where the cell holds a zero -- and the files do not agree that it
+  does. `o_d_01_2024` writes ".0" beside all 3,658 of its "9"s on the daily precipitation total;
+  `o_d_07_2024` leaves the cell empty beside all 8,490 of its, the same column six months later.
+  WARSZOWICE on 2024-07-02, a day IMGW records as having had no precipitation, answered null and now
+  answers 0.0 mm. `daily/synop` lost whole parameters rather than single days: station 354150100 on
+  2024-01-01 carries `PKSN` empty beside a "9", so `snow_depth` was missing from the result instead
+  of reporting the 0 cm of snow cover the file states. One reading of "9" is not a zero and would
+  need its own branch -- `s_m_d_format.txt` gives it as "the station does not observe this
+  phenomenon" for a `Liczba dni z` aggregation -- but none of those columns is declared (GH-1997)
 - **Breaking**: `imgw/meteorology` returns three parameters that were permanently empty and one
   that published a different column's numbers, and `monthly/climate/precipitation_height_max`
   answers to a different original name. `monthly/synop/temperature_air_min_2m_mean` renamed its

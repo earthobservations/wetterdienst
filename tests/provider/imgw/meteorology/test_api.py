@@ -467,6 +467,15 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
+                "parameter": "snow_depth",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 0.0,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 5.3,
@@ -522,6 +531,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                     "pressure_air_sea_level",
                     "pressure_air_site",
                     "pressure_vapor",
+                    "snow_depth",
                     "temperature_air_max_2m",
                     "temperature_air_mean_2m",
                     "temperature_air_min_0_05m",
@@ -620,6 +630,84 @@ def test_imgw_meteorology_status_columns_do_not_collide_with_value_columns() -> 
                 }
                 colliding |= {(resolution.value, dataset_name, file_pattern, n) for n in values if n + 1 in values}
     assert colliding == set()
+
+
+# One `o_d` row per status, for the same column: field 6 is `SMDB`, the daily precipitation total,
+# and field 7 its status. The other fields are filled only far enough to be read.
+def _o_d_rows(cases: list[tuple[str, str]]) -> bytes:
+    rows = []
+    for day, (value, status) in enumerate(cases, start=1):
+        fields = [""] * 16
+        fields[0] = "249180020"
+        fields[1] = "WARSZOWICE"
+        fields[2] = "2024"
+        fields[3] = "07"
+        fields[4] = f"{day:02d}"
+        fields[5] = value
+        fields[6] = status
+        rows.append(",".join(fields))
+    return "\n".join(rows).encode("latin-1")
+
+
+_SMDB_SCHEMA = {
+    "column_1": "station_id",
+    "column_3": "year",
+    "column_4": "month",
+    "column_5": "day",
+    "column_6": "suma dobowa opadów",
+}
+
+
+def test_imgw_meteorology_reads_every_status_the_files_document() -> None:
+    """Each status has to reach the value, including the one whose value cell is empty.
+
+    The files do not write a status the same way twice. Where the status is "8" the value cell holds
+    a literal ".0" -- the reason the status has to be read at all -- but where it is "9",
+    ``o_d_01_2024`` writes ".0" and ``o_d_07_2024`` leaves the cell empty, for the same parameter
+    three files apart. Passing the cell through therefore returned no value for a day IMGW documents
+    as having had no precipitation, so "9" is written as the zero it means (GH-1997).
+
+    ``Z``, *opad zbiorczy*, is a sum over the preceding days that were not measured. It keeps its
+    value, because it is a real measurement.
+    """
+    values = ImgwMeteorologyValues._parse_csv(  # noqa: SLF001
+        file=_o_d_rows([("1.2", ""), (".0", "8"), ("", "9"), ("7.4", "Z")]),
+        station_id="249180020",
+        resolution=Resolution.DAILY,
+        schema=_SMDB_SCHEMA,
+    )
+    assert values.get_column("value").to_list() == [1.2, None, 0.0, 7.4]
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("dataset", "parameter", "station_id", "start_date"),
+    [
+        # o_d for July 2024 leaves the value cell empty beside its "9"s: WARSZOWICE reported no rain
+        # on the 2nd, which came back as no value at all rather than 0.0 mm.
+        ("precipitation", "precipitation_height", "249180020", "2024-07-02"),
+        # the same in s_d, for a parameter that is zero all winter: no snow cover on New Year's Day.
+        ("synop", "snow_depth", "354150100", "2024-01-01"),
+    ],
+)
+def test_imgw_meteorology_brak_zjawiska_is_a_zero_even_when_the_cell_is_empty(
+    dataset: str,
+    parameter: str,
+    station_id: str,
+    start_date: str,
+) -> None:
+    """A documented *brak zjawiska* has to be the zero it means, not a missing value (GH-1997)."""
+    values = (
+        ImgwMeteorologyRequest(
+            parameters=[("daily", dataset, parameter)],
+            start_date=start_date,
+            end_date=start_date,
+        )
+        .filter_by_station_id(station_id)
+        .values.all()
+        .df
+    )
+    assert values.get_column("value").to_list() == [0.0]
 
 
 # One `k_m_d` row -- PSZCZYNA, January 2010 -- filled in only where the test reads it. Field 25 is
