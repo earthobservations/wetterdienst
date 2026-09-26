@@ -401,3 +401,42 @@ def test_wsv_station_list_pairs_each_resolution_with_the_parameters_asked_for_th
         ("15_minutes", "matches-stage-only"),
         ("hourly", "matches-both"),
     ]
+
+
+def test_wsv_a_timeseries_between_measurements_returns_no_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that an empty measurements body yields no data rather than raising.
+
+    Pegelonline answers `[]` with HTTP 200 for a timeseries it lists but holds no current
+    measurements for, and `pl.read_json` reads that body as a frame with no columns at all -- so the
+    rename of `timestamp` raised `ColumnNotFoundError` out of an ordinary `values.all()` whenever one
+    station in the set was quiet (GH-1987). MELLUMPLATE answered that way for all three of its wave
+    timeseries for days, which is how it was found.
+
+    Asserted as an empty frame rather than as "does not raise", because the station dropping out is
+    what the neighbouring guards do for no internet, a 404 and a timeseries the station never
+    publishes, and what the wave tests' own comment relies on.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+
+    station = {
+        "number": "quiet",
+        "shortname": "quiet",
+        "km": 1.0,
+        "latitude": 50.0,
+        "longitude": 10.0,
+        "water": {"shortname": "TEST"},
+        "timeseries": [{"shortname": "W", "equidistance": 15, "unit": "cm", "characteristicValues": []}],
+    }
+    listing = json.dumps([station]).encode()
+
+    def _download(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        content = b"[]" if url.endswith("measurements.json") else listing
+        return File(url=url, content=BytesIO(content), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+    assert values.df.is_empty()
