@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- Every column `imgw/meteorology` renames has to be declared by the dataset it is read for.
+  `_parse_file` renames raw `column_N` headers to `name_original` strings and the result is matched
+  against the dataset actually requested, so a name only some *other* dataset declares is dropped
+  exactly as silently as a misspelt one, with nothing raised anywhere. Scoping the comparison per
+  dataset is what makes it bite: pooled over the provider it finds the two misspellings GH-1981
+  reported and nothing further, where per dataset it found eight entries -- those two, one name the
+  model had taken from the wrong upstream file, and five columns `daily/synop` reads and can never
+  return. The five are pinned rather than skipped, so closing that gap fails this test and has to
+  update it (GH-1991)
 - A documented parameter has to exist and a declared parameter has to be documented.
   `test_docs_parameter_descriptions_match_the_model` compares the *text* of rows that appear on
   both sides and says nothing about a row appearing on one side alone, in either direction, so a
@@ -426,6 +435,25 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `imgw/meteorology` returns three parameters that were permanently empty, two
+  monthly and one daily, and `monthly/climate/precipitation_height_max` answers to a different
+  original name. `monthly/synop/temperature_air_min_2m_mean` renamed its column to
+  `średnia temperatura minimalnaj`, `monthly/climate/precipitation_height_max` to
+  `maksymalna dobowa suma opadóww`, and `daily/precipitation/precipitation_height` to
+  `daily/climate`'s mean-temperature name for what upstream's own `o_d_format.txt` calls `SMDB`,
+  the daily precipitation total -- the one measurement that dataset exists to publish, read out of
+  the file and thrown away on every request. Dropping the doubled `w` does not reach the climate
+  row on its own: `monthly/climate` declared `precipitation_height_max` as `opad maksymalny`, which
+  is `o_m`'s name for its `MAXO` column, where `k_m_d` column 19 is `OPMX`,
+  `Maksymalna dobowa suma opadów w miesiącu` -- the name `monthly/synop` already declared for the
+  same column of `s_m_d`. A parameter resolves by `name_original` as well as by `name`, so
+  `monthly/climate/opad maksymalny` no longer resolves and raises `KeyError`; requests written
+  against the canonical `precipitation_height_max` are unaffected, and that is what the docs, the
+  examples and every test use. Every position and name here was read off the `*_format.txt` files
+  IMGW publishes beside the data rather than inferred from the neighbouring rows, which is how the
+  two errors those rows suggested turned out to be four. GH-1981 reported two and named
+  `monthly/climate/temperature_air_min_2m_mean` among them, which was never broken -- `k_m_d` spelt
+  it correctly -- and did not reach `daily` at all (GH-1981)
 - `wsv/pegel` returns no data for a timeseries between measurements rather than raising
   `ColumnNotFoundError`. Pegelonline answers `[]` with HTTP 200 for a series it lists but holds no
   current measurements for, and `pl.read_json` reads that body as a frame with **no columns**, so

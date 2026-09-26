@@ -9,7 +9,11 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst.provider.imgw.meteorology.api import ImgwMeteorologyRequest
+from wetterdienst.provider.imgw.meteorology.api import (
+    ImgwMeteorologyMetadata,
+    ImgwMeteorologyRequest,
+    ImgwMeteorologyValues,
+)
 
 
 @pytest.mark.remote
@@ -339,6 +343,15 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
+                "parameter": "temperature_air_min_2m_mean",
+                "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 14.0,
+                "quality": None,
+            },
+            {
+                "station_id": "349190600",
+                "resolution": "monthly",
+                "dataset": "synop",
                 "parameter": "wind_speed",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.1,
@@ -366,6 +379,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                     "temperature_air_mean_2m",
                     "temperature_air_min_0_05m",
                     "temperature_air_min_2m",
+                    "temperature_air_min_2m_mean",
                     "wind_speed",
                 ]
             ),
@@ -499,3 +513,81 @@ def test_imgw_meteorology_api_daily_synop() -> None:
         orient="row",
     )
     assert_frame_equal(values.df, df_expected_values)
+
+
+# columns the s_d file carries and the parser reads, but that daily/synop does not declare -- so
+# they are renamed and then dropped. Upstream s_d_format.txt puts TMAX/TMIN/TMNG/SMDB/PKSN at
+# exactly these positions, and k_d serves the same five under daily/climate, so the measurements
+# are there and only the declaration is missing (GH-1991). Pinned rather than skipped: this set
+# shrinking is the signal that the gap was closed.
+_UNDECLARED_COLUMNS = frozenset(
+    {
+        ("daily", "synop", "s_d_[^t].*.csv", "column_6", "maksymalna temperatura dobowa"),
+        ("daily", "synop", "s_d_[^t].*.csv", "column_8", "minimalna temperatura dobowa"),
+        ("daily", "synop", "s_d_[^t].*.csv", "column_12", "temperatura minimalna przy gruncie"),
+        ("daily", "synop", "s_d_[^t].*.csv", "column_14", "suma dobowa opadów"),
+        ("daily", "synop", "s_d_[^t].*.csv", "column_17", "wysokość pokrywy śnieżnej"),
+    },
+)
+
+
+def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() -> None:
+    """Every column the rename map produces must be declared by the dataset it is read for.
+
+    ``_parse_file`` renames raw ``column_N`` headers to ``name_original`` strings, and those are
+    then matched against the dataset actually being requested -- so a name that only some *other*
+    dataset declares is dropped exactly as silently as a misspelt one, and nothing upstream or in
+    the suite notices. Comparing per dataset is what makes this bite: pooled over the provider,
+    ``monthly/climate``'s ``maksymalna dobowa suma opadów`` passes because ``monthly/synop``
+    declares it, which is how GH-1981 saw two defects where there were four.
+    """
+    structural = {"station_id", "year", "month", "day"}
+    undeclared = set()
+    for resolution, datasets in ImgwMeteorologyValues._file_schema.items():  # noqa: SLF001
+        for dataset_name, files in datasets.items():
+            dataset = ImgwMeteorologyMetadata[resolution.value][dataset_name]
+            declared = {parameter.name_original for parameter in dataset.parameters}
+            for file_pattern, columns in files.items():
+                for column, name_original in columns.items():
+                    if name_original in structural or name_original in declared:
+                        continue
+                    undeclared.add((resolution.value, dataset_name, file_pattern, column, name_original))
+    assert undeclared == _UNDECLARED_COLUMNS
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("resolution", "dataset", "station_id", "parameter", "expected"),
+    [
+        # k_m_d column 19 is OPMX, "maksymalna dobowa suma opadow w miesiacu"; monthly/climate had
+        # declared it under o_m's name for MAXO ("opad maksymalny"), so even spelling the rename
+        # correctly would not have matched. PSZCZYNA, a klimat station: January 2010, 17.8 mm.
+        ("monthly", "climate", "249180010", "precipitation_height_max", 17.8),
+        # s_m_d column 11 is TMNS; the rename map spelt it "minimalnaj". BIELSKO-BIALA, synop.
+        ("monthly", "synop", "349190600", "temperature_air_min_2m_mean", 14.0),
+        # o_d column 6 is SMDB, the daily precipitation total -- the reason the dataset exists. It
+        # carried daily/climate's mean-temperature name. WARSZOWICE, an opad station.
+        ("daily", "precipitation", "249180020", "precipitation_height", 1.1),
+    ],
+)
+def test_imgw_meteorology_values_restored_by_gh1981(
+    resolution: str,
+    dataset: str,
+    station_id: str,
+    parameter: str,
+    expected: float,
+) -> None:
+    """Test that parameters whose rename never matched a declaration come back with values."""
+    values = (
+        ImgwMeteorologyRequest(
+            parameters=[(resolution, dataset)],
+            start_date="2010-01-01" if dataset != "synop" else "2010-08-01",
+            end_date="2010-01-31" if dataset != "synop" else "2010-08-31",
+        )
+        .filter_by_station_id(station_id)
+        .values.all()
+        .df.filter(pl.col("parameter") == parameter)
+        .sort("date")
+    )
+    assert not values.is_empty(), f"{resolution}/{dataset}/{parameter} returned no rows"
+    assert values.get_column("value").item(0) == expected

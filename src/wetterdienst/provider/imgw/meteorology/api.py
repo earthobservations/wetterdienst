@@ -196,7 +196,7 @@ ImgwMeteorologyMetadata = {
                         },
                         {
                             "name": "precipitation_height_max",
-                            "name_original": "opad maksymalny",
+                            "name_original": "maksymalna dobowa suma opadów",
                             "unit": "millimeter",
                         },
                         {
@@ -395,7 +395,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                     "column_3": "year",
                     "column_4": "month",
                     "column_5": "day",
-                    "column_6": "średnia dobowa temperatura",
+                    "column_6": "suma dobowa opadów",
                     "column_9": "wysokość pokrywy śnieżnej",
                     "column_11": "wysokość świeżospałego śniegu",
                 },
@@ -443,7 +443,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                     "column_13": "średnia miesięczna temperatura",
                     "column_15": "minimalna temperatura przy gruncie",
                     "column_17": "miesieczna suma opadów",
-                    "column_19": "maksymalna dobowa suma opadóww",
+                    "column_19": "maksymalna dobowa suma opadów",
                     "column_23": "maksymalna wysokość pokrywy śnieżnej",
                 },
                 "k_m_t.*.csv": {
@@ -473,7 +473,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                     "column_5": "absolutna temperatura maksymalna",
                     "column_7": "średnia temperatura maksymalna",
                     "column_9": "absolutna temperatura minimalna",
-                    "column_11": "średnia temperatura minimalnaj",
+                    "column_11": "średnia temperatura minimalna",
                     "column_13": "średnia miesięczna temperatura",
                     "column_15": "minimalna temperatura przy gruncie",
                     "column_17": "miesięczna suma opadów",
