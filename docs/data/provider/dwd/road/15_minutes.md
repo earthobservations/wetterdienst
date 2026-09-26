@@ -47,9 +47,11 @@ the value delivered is almost certainly millimetres per **second**: BUFR gives
 of real data tops out at 0.006 -- no observable precipitation at all as mm/h, an ordinary shower as
 mm/s. {term}`water_film_thickness` is labelled `cm` against a BUFR `m` for the same reason, a factor
 of 100. Both are tracked in
-[GH-1984](https://github.com/earthobservations/wetterdienst/issues/1984); until it is settled, divide
-by 3600 and by 100 respectively, and note that `WD_TS_UNIT_TARGETS` converts from the declared unit,
-so it compounds the error rather than correcting it.
+[GH-1984](https://github.com/earthobservations/wetterdienst/issues/1984). Until it is settled, read a
+value as the unit it is really in and convert it yourself: the number is millimetres per second, so
+`0.006` is 21.6 mm/h, and it is metres, so `0.0005` is 0.05 cm -- multiply by 3600 and by 100 to get
+the labelled unit. `WD_TS_UNIT_TARGETS` converts from the declared unit, so it compounds the error
+rather than correcting it.
 :::
 
 #### precipitation type

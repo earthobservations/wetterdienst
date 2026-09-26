@@ -222,15 +222,18 @@ Types of changes:
   fence closes only on a marker at least as long as the one that opened it, so a ```` ``` ```` line
   inside a ````` ```` `````-opened block is content rather than the end of it, and the open fences
   are a stack, so a code block nested in a directive still hides its own body. What is hidden is
-  decided by the
-  directive, not by the marker: a table inside a MyST admonition or layout container -- written
-  `:::{note}` or ```` ```{note} ````, both legal and both used here -- is published documentation
-  and has to be parsed, while `{code-block}`, `{literalinclude}`, `{doctest}`, `{eval-rst}` and the
-  `{code-cell}` this repo writes 59 times all hold code. An unlisted directive is read as code,
-  because the two mistakes do not cost the same: a code body read as markdown puts a `#` comment
-  where a heading goes and makes the descriptions test compare nothing, silently, while a container
-  read as code drops its tables, which the presence tests report. No resolution page carries a
-  fence today; the guard is there so that adding one is not a trap
+  decided by the directive, not by the marker: a table inside a MyST admonition or layout container
+  -- written `:::{note}` or ```` ```{note} ````, both legal -- is published
+  documentation and has to be parsed, while `{code-block}`, `{literalinclude}`, `{doctest}`,
+  `{eval-rst}` and the `{code-cell}` this repo opens 57 times all hold code. An unlisted directive
+  is read as code, because the two mistakes do not cost the same: a code body read as markdown puts
+  a `#` comment where a heading goes and makes the descriptions test compare nothing, silently,
+  while a container read as code drops its tables, which the presence tests report. The backtick
+  spelling is the one this tree writes, four times, in `docs/usage` and on `dwd/phenology`'s index;
+  the colon spelling it writes once, in the `dwd/road` warning below -- which is also the only
+  fence on any of the 88 resolution pages, so the guard is load-bearing rather than hypothetical.
+  A backtick fence's info string may hold no backtick, so a line that merely starts with a long
+  inline code span -- the shape these entries use -- is prose, not a fence that nothing closes
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
   default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
   argument since it was written and the export docs advertise it, but no command passed it, so
@@ -380,7 +383,7 @@ Types of changes:
   disappearing from the visible text entirely. They are code spans now, with the delimiters
   CommonMark wants
 - `dwd/road` 15_minutes carries a warning that its `precipitation_intensity` is labelled `mm/h`
-  while the delivered value is almost certainly millimetres per second, with the factor to divide
+  while the delivered value is almost certainly millimetres per second, with the factor to multiply
   by and a pointer to GH-1984 -- the page has to say what the model says, but not silently. Its
   `water_film_thickness`, labelled `cm` against a BUFR `m`, is named there too
 - `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model

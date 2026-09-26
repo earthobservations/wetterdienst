@@ -120,10 +120,12 @@ def _prose_lines(path: Path) -> Iterator[str]:
     and the reason the fence is stripped here rather than in each parser.
 
     A fence hides its contents unless it opens one of the markdown containers in
-    `_MARKUP_DIRECTIVES`. A table inside a ``:::{note}`` or a `````{note}`` -- both legal, both
-    used in this repo -- is published documentation and has to be parsed; skipping it dropped the
-    table and reported the absence as a missing row somewhere else entirely, which is the authoring
-    trap this guard exists to remove rather than add.
+    `_MARKUP_DIRECTIVES`. A table inside a ``:::{note}`` or a `````{note}`` -- both legal -- is
+    published documentation and has to be parsed; skipping it dropped the table and reported the
+    absence as a missing row somewhere else entirely, which is the authoring trap this guard exists to
+    remove rather than add. The backtick spelling is the one this tree writes, four times, in
+    `docs/usage` and on `dwd/phenology`'s index; the colon spelling it writes once, in the warning on
+    `dwd/road` 15_minutes.
 
     The list decides the default rather than the exception, because the two mistakes do not cost the
     same. A code body read as markdown puts a ``#`` comment where a level-1 heading goes, which
@@ -131,7 +133,7 @@ def _prose_lines(path: Path) -> Iterator[str]:
     module exists to stop that. A markdown container left off the list drops its tables instead,
     which the presence tests report. So an unrecognised directive is read as code: ``{code-block}``,
     ``{literalinclude}``, ``{doctest}``, ``{eval-rst}`` and the ``{code-cell}`` this repo
-    writes 59 times all hold code, and a name nobody here has used yet is likelier to be another of
+    opens 57 times all hold code, and a name nobody here has used yet is likelier to be another of
     those than another admonition.
 
     The open fences are a stack, so a code block nested in a directive still hides its own contents,
@@ -143,6 +145,13 @@ def _prose_lines(path: Path) -> Iterator[str]:
         marker = re.match(r"\s*(`{3,}|~{3,}|:{3,})\s*(\S*)", line)
         if marker:
             char, length, info = marker.group(1)[0], len(marker.group(1)), marker.group(2)
+            if char == "`" and "`" in line[marker.end(1) :]:
+                # a backtick fence's info string may hold no backtick, so a line that merely *starts*
+                # with a long inline code span is prose. Reading it as a fence pushed one that the run
+                # closing that span could not close -- its own info string is not empty -- and swallowed
+                # the rest of the page: loud on a resolution page, silent on a network index, where only
+                # the glossary test runs. This module's own changelog entries are written that way
+                continue
             closes = not info and bool(fences) and char == fences[-1][0] and length >= fences[-1][1]
             if closes:
                 fences.pop()
