@@ -28,7 +28,7 @@
 | {term}`cloud_cover_total` | średnie miesięczne zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
 | {term}`humidity` | średnia miesięczna wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`precipitation_height` | miesieczna suma opadów | precipitation height | mm | >=0 |
-| {term}`precipitation_height_max` | opad maksymalny | precipitation height max | mm | >=0 |
+| {term}`precipitation_height_max` | maksymalna dobowa suma opadów | precipitation height max | mm | >=0 |
 | {term}`snow_depth_max` | maksymalna wysokość pokrywy śnieżnej | snow depth max | cm | >=0 |
 | {term}`temperature_air_max_2m` | absolutna temperatura maksymalna | temperature air max 2m | °C | - |
 | {term}`temperature_air_max_2m_mean` | średnia temperatura maksymalna | temperature air max 2m mean | °C | - |

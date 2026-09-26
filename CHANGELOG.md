@@ -18,6 +18,38 @@ Types of changes:
 
 ### Added
 
+- Every column `imgw/meteorology` renames has to be declared by the dataset it is read for.
+  `_parse_file` renames raw `column_N` headers to `name_original` strings and the result is matched
+  against the dataset actually requested, so a name only some *other* dataset declares is dropped
+  exactly as silently as a misspelt one, with nothing raised anywhere. Scoping the comparison per
+  dataset is what makes it bite: pooled over the provider it finds the two misspellings GH-1981
+  reported and nothing further, where per dataset it found eight entries -- those two, one name the
+  model had taken from the wrong upstream file, and five columns `daily/synop` reads and can never
+  return. Those five are declared now, so the check asserts the set is empty: every column the
+  parser renames is answerable by the dataset it is read for. What the check cannot see is a
+  declared name sitting on the wrong `column_N`, which is
+  how `monthly/precipitation` came to publish a count of snow days as millimetres; positions are
+  held by the remote tests that compare a value against the file it is read from (GH-1991)
+- `imgw/meteorology`'s `daily/synop` declares the five columns it has always read. Upstream `s_d`
+  carries `TMAX`, `TMIN`, `TMNG`, `SMDB` and `PKSN` at columns 6, 8, 12, 14 and 17 -- the positions
+  the rename map already named -- so the parser read all five and then dropped them for want of a
+  declaration, and no synop station could return a daily maximum or minimum temperature at all, nor
+  its daily precipitation total or its snow cover. They are now `temperature_air_max_2m`,
+  `temperature_air_min_2m`, `temperature_air_min_0_05m`, `precipitation_height` and `snow_depth`,
+  the same canonical names `daily/climate` uses for the same five columns of `k_d`. BIELSKO-BIAŁA
+  on 2010-01-15 answers -4.2 °C, -5.4, -5.4, 0.0 mm and 18 cm, every one of them present in the
+  file all along (GH-1991)
+- `imgw/meteorology`'s status columns cannot collide with its value columns. The parse reads
+  `column_N+1` as the status of `column_N`, so declaring a measurement there would make one column
+  both, and the parse resolves that by leaving its neighbour unstatused -- silently, and for that
+  one column only (GH-1994)
+- An `imgw/meteorology` column whose Polish name states a minimum or a maximum has to be declared
+  under a canonical name that says the same. These declarations are in a language the rest of the
+  repository is not written in, so `temperatura minimalna przy gruncie` sat under
+  `temperature_air_mean_0_05m` and read fine to everyone reviewing it. Minimum and maximum are all
+  that is checked: the canonical vocabulary marks a mean for temperature alone, so
+  `średnia dobowa prędkość wiatru` is plain `wind_speed` and a "mean" rule would flag twenty
+  correct rows (GH-1993)
 - A documented parameter has to exist and a declared parameter has to be documented.
   `test_docs_parameter_descriptions_match_the_model` compares the *text* of rows that appear on
   both sides and says nothing about a row appearing on one side alone, in either direction, so a
@@ -426,6 +458,58 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `imgw/meteorology` returns three parameters that were permanently empty and one
+  that published a different column's numbers, and `monthly/climate/precipitation_height_max`
+  answers to a different original name. `monthly/synop/temperature_air_min_2m_mean` renamed its
+  column to `średnia temperatura minimalnaj`, `monthly/climate/precipitation_height_max` to
+  `maksymalna dobowa suma opadóww`, and `daily/precipitation/precipitation_height` to
+  `daily/climate`'s mean-temperature name for what upstream's own `o_d_format.txt` calls `SMDB`,
+  the daily precipitation total -- the one measurement that dataset exists to publish, read out of
+  the file and thrown away on every request. `monthly/precipitation/precipitation_height_max` never
+  looked empty and was worse for it: the schema read `o_m` field 7, `LDS`, the count of days with
+  snowfall, and published that count as millimetres -- 19 for WARSZOWICE in January 2010, where
+  `MAXO` at field 9 is 17.8 mm. Dropping the doubled `w` does not reach the climate row on its own:
+  `monthly/climate` declared `precipitation_height_max` as `opad maksymalny`, which is `o_m`'s name
+  for its `MAXO` column, where `k_m_d` column 19 is `OPMX`,
+  `Maksymalna dobowa suma opadów w miesiącu` -- the name `monthly/synop` already declared for the
+  same column of `s_m_d`. A parameter resolves by `name_original` as well as by `name`, so
+  `monthly/climate/opad maksymalny` no longer resolves: a request for it raises
+  `NoParametersFoundError`, and indexing the dataset object with it raises `KeyError`. Requests
+  written against the canonical `precipitation_height_max` are unaffected, and that is what the
+  docs, the examples and every test use. Every position and name was checked against the
+  `*_format.txt` files IMGW publishes beside the data rather than inferred from the neighbouring
+  rows, which is how the two errors those rows suggested turned out to be five. GH-1981 reported
+  two and named `monthly/climate/temperature_air_min_2m_mean` among them, which was never broken --
+  `k_m_d` spelt it correctly -- and did not reach `daily` or `monthly/precipitation` at all
+  (GH-1981)
+- **Breaking**: `imgw/meteorology` returns no value where IMGW records no measurement, rather than
+  a zero. Every value column in these files is followed by a status column -- documented per file
+  in the `*_format.txt` beside the data and generally in `Opis.txt`: a space means the value is a
+  measurement, `8` brak pomiaru, `9` brak zjawiska -- and none of them was read. The value column
+  of a missing measurement is not left empty, it holds a literal `.0`, so an unmeasured parameter
+  came back as a measured zero: 0 % relative humidity for PSZCZYNA in January 2010, a grass minimum
+  of exactly 0.0 °C on a January day, and 0 cm of snow cover for every day of that month at
+  WARSZOWICE -- a rain gauge that reports no snow at all, whose `o_d` snow columns carry status `8`
+  in all 15479 rows of the file. Nothing in a row distinguishes the two: `daily/climate/snow_depth`
+  reads a literal `0` for both PSZCZYNA and station 252190030 on 2010-01-01, and only the status
+  says that the first measured no snow cover and the second measured nothing. Only `8` becomes
+  null. `9` is a true zero, and `o_d`'s `Z`, opad zbiorczy, is a real measurement summed over the
+  days beside it. Under the default `ts_drop_nulls` the affected rows are absent rather than null,
+  so a frame can come back shorter, or a parameter empty where it used to read zero throughout. The
+  status sits at field N+1 for all 61 declared columns, checked against the `*_format.txt` files
+  rather than assumed (GH-1994)
+- **Breaking**: `imgw/meteorology` declares `daily/climate`'s grass temperature as
+  `temperature_air_min_0_05m`, the name `monthly/climate` and `monthly/synop` already use for the
+  same measurement, rather than `temperature_air_mean_0_05m`. `k_d_format.txt` names field 12
+  `TMNG`, `Minimalna dobowa temperatura powietrza przy gruncie`, and the values say the same:
+  station 253160090 on 2010-08-01 reads 5.6 °C there against a 2 m minimum of 9.2 and a maximum of
+  28.2, so it cannot be a daily mean. The docs table said it outright, carrying the description
+  `temperature air mean 0 05m` beside the original name `temperatura minimalna przy gruncie`. Every
+  other provider declaring `temperature_air_mean_0_05m` -- `dwd`, `meteoswiss`, `rmi`,
+  `geosphere` -- means a genuine 5 cm mean by it, so anything selecting on canonical names across
+  providers was comparing a nocturnal grass minimum against a mean. A request for the old name
+  raises `NoParametersFoundError` and names the new one in its "Did you mean" hint; the
+  `name_original` and the column read are unchanged (GH-1993)
 - `wsv/pegel` returns no data for a timeseries between measurements rather than raising
   `ColumnNotFoundError`. Pegelonline answers `[]` with HTTP 200 for a series it lists but holds no
   current measurements for, and `pl.read_json` reads that body as a frame with **no columns**, so

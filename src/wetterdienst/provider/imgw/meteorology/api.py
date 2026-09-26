@@ -29,6 +29,17 @@ from wetterdienst.util.network import File, download_file, download_files
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
+# The names _file_schema maps that are not measurements, and so have no status column beside them.
+_STRUCTURAL_COLUMNS = frozenset({"station_id", "year", "month", "day"})
+# IMGW writes a status column immediately after every measurement column -- documented per file in
+# the `*_format.txt` beside the data, and generally in `Opis.txt`: a space means the value is a
+# measurement, "8" that there is none, "9" that the phenomenon did not occur. The value column of a
+# missing measurement is not left empty, it holds a literal ".0", so the status has to be read to
+# tell a station that measured nothing from one that measured zero. "9" is a true zero -- no snow
+# cover, no precipitation -- and o_d's "Z", opad zbiorczy, is a real measurement summed over the
+# days around it, so only "8" becomes null.
+_STATUS_NO_MEASUREMENT = "8"
+
 ImgwMeteorologyMetadata = {
     **_METADATA,
     "kind": "observation",
@@ -71,13 +82,13 @@ ImgwMeteorologyMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
-                            "name_original": "temperatura minimalna przy gruncie",
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "średnia dobowa temperatura",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
-                            "name_original": "średnia dobowa temperatura",
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "temperatura minimalna przy gruncie",
                             "unit": "degree_celsius",
                         },
                         {
@@ -130,6 +141,11 @@ ImgwMeteorologyMetadata = {
                             "unit": "percent",
                         },
                         {
+                            "name": "precipitation_height",
+                            "name_original": "suma dobowa opadów",
+                            "unit": "millimeter",
+                        },
+                        {
                             "name": "precipitation_height_day",
                             "name_original": "suma opadu dzień",
                             "unit": "millimeter",
@@ -155,8 +171,28 @@ ImgwMeteorologyMetadata = {
                             "unit": "hectopascal",
                         },
                         {
+                            "name": "snow_depth",
+                            "name_original": "wysokość pokrywy śnieżnej",
+                            "unit": "centimeter",
+                        },
+                        {
+                            "name": "temperature_air_max_2m",
+                            "name_original": "maksymalna temperatura dobowa",
+                            "unit": "degree_celsius",
+                        },
+                        {
                             "name": "temperature_air_mean_2m",
                             "name_original": "średnia dobowa temperatura",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "temperatura minimalna przy gruncie",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m",
+                            "name_original": "minimalna temperatura dobowa",
                             "unit": "degree_celsius",
                         },
                         {
@@ -196,7 +232,7 @@ ImgwMeteorologyMetadata = {
                         },
                         {
                             "name": "precipitation_height_max",
-                            "name_original": "opad maksymalny",
+                            "name_original": "maksymalna dobowa suma opadów",
                             "unit": "millimeter",
                         },
                         {
@@ -395,7 +431,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                     "column_3": "year",
                     "column_4": "month",
                     "column_5": "day",
-                    "column_6": "średnia dobowa temperatura",
+                    "column_6": "suma dobowa opadów",
                     "column_9": "wysokość pokrywy śnieżnej",
                     "column_11": "wysokość świeżospałego śniegu",
                 },
@@ -443,7 +479,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                     "column_13": "średnia miesięczna temperatura",
                     "column_15": "minimalna temperatura przy gruncie",
                     "column_17": "miesieczna suma opadów",
-                    "column_19": "maksymalna dobowa suma opadóww",
+                    "column_19": "maksymalna dobowa suma opadów",
                     "column_23": "maksymalna wysokość pokrywy śnieżnej",
                 },
                 "k_m_t.*.csv": {
@@ -462,7 +498,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                     "column_3": "year",
                     "column_4": "month",
                     "column_5": "miesięczna suma opadów",
-                    "column_7": "opad maksymalny",
+                    "column_9": "opad maksymalny",
                 },
             },
             "synop": {
@@ -473,7 +509,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                     "column_5": "absolutna temperatura maksymalna",
                     "column_7": "średnia temperatura maksymalna",
                     "column_9": "absolutna temperatura minimalna",
-                    "column_11": "średnia temperatura minimalnaj",
+                    "column_11": "średnia temperatura minimalna",
                     "column_13": "średnia miesięczna temperatura",
                     "column_15": "minimalna temperatura przy gruncie",
                     "column_17": "miesięczna suma opadów",
@@ -576,6 +612,21 @@ class ImgwMeteorologyValues(TimeseriesValues):
     def __parse_file(file: bytes, station_id: str, resolution: Resolution, schema: dict) -> pl.DataFrame:
         """Parse a single file from the meteorological zip file."""
         df = pl.read_csv(file, encoding="latin-1", separator=",", has_header=False, infer_schema_length=0)
+        status_columns = {
+            column: status
+            for column, name in schema.items()
+            if name not in _STRUCTURAL_COLUMNS
+            and (status := f"column_{int(column.removeprefix('column_')) + 1}") in df.columns
+            and status not in schema
+        }
+        df = df.select(*schema, *status_columns.values())
+        df = df.with_columns(
+            pl.when(pl.col(status).str.strip_chars().eq(_STATUS_NO_MEASUREMENT))
+            .then(None)
+            .otherwise(pl.col(column))
+            .alias(column)
+            for column, status in status_columns.items()
+        )
         df = df.select(list(schema.keys())).rename(schema)
         df = df.with_columns(pl.col("station_id").str.strip_chars())
         df = df.filter(pl.col("station_id").eq(station_id))
