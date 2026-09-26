@@ -9,7 +9,10 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst.provider.imgw.meteorology.api import ImgwMeteorologyRequest
+from wetterdienst.provider.imgw.meteorology.api import (
+    ImgwMeteorologyMetadata,
+    ImgwMeteorologyRequest,
+)
 
 
 @pytest.mark.remote
@@ -499,3 +502,51 @@ def test_imgw_meteorology_api_daily_synop() -> None:
         orient="row",
     )
     assert_frame_equal(values.df, df_expected_values)
+
+
+def test_imgw_meteorology_file_schema_matches_declared_parameters() -> None:
+    """Every mapped column name must be a declared parameter or a structural field.
+
+    GH-1981: two misspelt column names in the monthly map could never match a
+    declared parameter, so the values were dropped on the floor.
+    """
+    declared = {
+        parameter["name_original"]
+        for resolution in ImgwMeteorologyMetadata["resolutions"]
+        for dataset in resolution["datasets"]
+        for parameter in dataset["parameters"]
+    }
+    structural = {"station_id", "year", "month", "day"}
+    for resolution, datasets in ImgwMeteorologyRequest._file_schema.items():  # noqa: SLF001
+        for dataset, files in datasets.items():
+            for file_pattern, columns in files.items():
+                for column, name_original in columns.items():
+                    assert name_original in declared | structural, (
+                        f"{resolution}/{dataset}/{file_pattern}: "
+                        f"{column} maps to undeclared {name_original!r}"
+                    )
+
+
+@pytest.mark.parametrize(
+    ("dataset", "parameter"),
+    [
+        ("synop", "precipitation_height_max"),
+        ("synop", "temperature_air_min_2m_mean"),
+        ("climate", "temperature_air_min_2m_mean"),
+    ],
+)
+@pytest.mark.remote
+def test_imgw_meteorology_api_monthly_parameters_gh1981(dataset: str, parameter: str) -> None:
+    """Test fetching of the parameters that GH-1981 found empty due to misspelt column names."""
+    values = (
+        ImgwMeteorologyRequest(
+            parameters=[("monthly", dataset)],
+            start_date="2010-08-01",
+        )
+        .filter_by_station_id("349190600")
+        .values.all()
+        .df.filter(pl.col("parameter") == parameter)
+    )
+    assert not values.is_empty(), f"monthly/{dataset}/{parameter} returned no rows"
+    assert values["value"].null_count() == 0, f"monthly/{dataset}/{parameter} returned null values"
+
