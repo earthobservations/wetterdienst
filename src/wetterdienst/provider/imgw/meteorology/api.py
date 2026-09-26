@@ -41,13 +41,20 @@ _STRUCTURAL_COLUMNS = frozenset({"station_id", "year", "month", "day"})
 # status has to be read at all, to tell a station that measured nothing from one that measured zero.
 # Where "9" appears, `o_d_01_2024` writes ".0" and `o_d_07_2024` leaves the cell empty, for the same
 # parameter three files apart, so "9" is written as the zero it means rather than passed through.
-# "Z" is a real measurement and keeps its value.
 #
 # One reading of "9" is not a zero: `s_m_d_format.txt` says that for a `Liczba dni z` aggregation it
 # means the station does not observe the phenomenon at all. None of those columns is declared -- they
 # are the counts in `_STATUSLESS_COLUMNS` -- and declaring one would need its own branch here.
 _STATUS_NO_MEASUREMENT = "8"
 _STATUS_NO_PHENOMENON = "9"
+# The status, carried into `quality` the way `metoffice/observation` carries MIDAS's `MESQL` flag. "8"
+# and "9" are IMGW's own codes; `quality` is a float column and `Z` is a letter, so `Z` is reported as
+# 10 -- the one value here this library assigns itself, documented on the provider's page. A blank
+# status is a plain measurement and stays null, which is what every other value carries.
+_STATUS_QUALITY = {"8": 8.0, "9": 9.0, "Z": 10.0}
+# What a status is called between the rename and the unpivot, to keep it apart from the value of the
+# same name. No IMGW column name can collide with it: they are Polish prose.
+_STATUS_SUFFIX = "__status"
 # The raw positions IMGW publishes with no status column beside them, by the file pattern that reads
 # them, taken from each `*_format.txt`. They hold the fields that are not measurements: `ROOP`, the
 # kind of precipitation, `SGR`, the state of the ground, the `DN1`/`DN2` days a monthly maximum fell
@@ -603,7 +610,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             pl.col("station_id"),
             pl.col("date").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
+            pl.col("quality"),
         )
 
     def _parse_file(
@@ -668,11 +675,29 @@ class ImgwMeteorologyValues(TimeseriesValues):
             .alias(column)
             for column, status in status_columns.items()
         )
-        df = df.select(list(schema.keys())).rename(schema)
+        # A status is named after the value it belongs to, suffixed, so that stripping the suffix
+        # unpivots it to the same parameter and the join below carries it to its own value.
+        statuses = {status: schema[column] + _STATUS_SUFFIX for column, status in status_columns.items()}
+        df = df.rename({**schema, **statuses})
         df = df.with_columns(pl.col("station_id").str.strip_chars())
         df = df.filter(pl.col("station_id").eq(station_id))
         if df.is_empty():
-            return df
+            return pl.DataFrame()
+        values = ImgwMeteorologyValues._unpivot(df.select(list(schema.values())), resolution, "value")
+        values = values.with_columns(pl.col("value").cast(pl.Float64))
+        if not statuses:
+            return values.with_columns(pl.lit(None, dtype=pl.Float64).alias("quality"))
+        structural = [name for name in schema.values() if name in _STRUCTURAL_COLUMNS]
+        quality = ImgwMeteorologyValues._unpivot(df.select(*structural, *statuses.values()), resolution, "quality")
+        quality = quality.with_columns(pl.col("parameter").str.strip_suffix(_STATUS_SUFFIX))
+        quality = quality.with_columns(
+            pl.col("quality").str.strip_chars().replace_strict(_STATUS_QUALITY, default=None, return_dtype=pl.Float64),
+        )
+        return values.join(quality, on=["station_id", "date", "parameter"], how="left")
+
+    @staticmethod
+    def _unpivot(df: pl.DataFrame, resolution: Resolution, value_name: str) -> pl.DataFrame:
+        """Turn the year/month[/day] columns into a date and the remaining columns into rows."""
         if resolution == Resolution.DAILY:
             exp1 = pl.all().exclude(["year", "month", "day"])
             exp2 = pl.datetime("year", "month", "day").alias("date")
@@ -680,8 +705,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             exp1 = pl.all().exclude(["year", "month"])
             exp2 = pl.datetime("year", "month", 1).alias("date")
         df = df.select(exp1, exp2)
-        df = df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name="value")
-        return df.with_columns(pl.col("value").cast(pl.Float64))
+        return df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name=value_name)
 
     def _get_urls(self, dataset: DatasetModel, station_id: str) -> list[str]:
         """Get URLs for the given dataset."""

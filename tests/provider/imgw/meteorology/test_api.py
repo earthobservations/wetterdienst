@@ -75,7 +75,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "parameter": "precipitation_height",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
-                "quality": None,
+                "quality": 9.0,
             },
             {
                 "station_id": "253160090",
@@ -84,7 +84,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "parameter": "snow_depth",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
-                "quality": None,
+                "quality": 9.0,
             },
             {
                 "station_id": "253160090",
@@ -470,7 +470,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "parameter": "snow_depth",
                 "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
-                "quality": None,
+                "quality": 9.0,
             },
             {
                 "station_id": "354150100",
@@ -659,7 +659,7 @@ _SMDB_SCHEMA = {
 
 
 def test_imgw_meteorology_reads_every_status_the_files_document() -> None:
-    """Each status has to reach the value, including the one whose value cell is empty.
+    """Each status has to reach the value and the quality column, including an empty value cell.
 
     The files do not write a status the same way twice. Where the status is "8" the value cell holds
     a literal ".0" -- the reason the status has to be read at all -- but where it is "9",
@@ -667,8 +667,10 @@ def test_imgw_meteorology_reads_every_status_the_files_document() -> None:
     three files apart. Passing the cell through therefore returned no value for a day IMGW documents
     as having had no precipitation, so "9" is written as the zero it means (GH-1997).
 
-    ``Z``, *opad zbiorczy*, is a sum over the preceding days that were not measured. It keeps its
-    value, because it is a real measurement.
+    The status itself is carried into ``quality``, which the provider used to return null throughout
+    (GH-1998). "8" and "9" are IMGW's own codes. ``Z``, *opad zbiorczy*, is a sum over the preceding
+    days that were not measured: the value is kept, because it is a real measurement, and 10 is what
+    says it does not belong to this date alone.
     """
     values = ImgwMeteorologyValues._parse_csv(  # noqa: SLF001
         file=_o_d_rows([("1.2", ""), (".0", "8"), ("", "9"), ("7.4", "Z")]),
@@ -677,6 +679,7 @@ def test_imgw_meteorology_reads_every_status_the_files_document() -> None:
         schema=_SMDB_SCHEMA,
     )
     assert values.get_column("value").to_list() == [1.2, None, 0.0, 7.4]
+    assert values.get_column("quality").to_list() == [None, 8.0, 9.0, 10.0]
 
 
 @pytest.mark.remote
@@ -708,6 +711,7 @@ def test_imgw_meteorology_brak_zjawiska_is_a_zero_even_when_the_cell_is_empty(
         .df
     )
     assert values.get_column("value").to_list() == [0.0]
+    assert values.get_column("quality").to_list() == [9.0]
 
 
 # One `k_m_d` row -- PSZCZYNA, January 2010 -- filled in only where the test reads it. Field 25 is

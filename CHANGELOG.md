@@ -55,6 +55,17 @@ Types of changes:
   than a rule because the files disagree with each other: `PSDN` carries a status in `s_m_d` and
   none in `k_m_d`. Nothing changes in what the provider returns, since none of these positions is
   declared (GH-1995)
+- `imgw/meteorology` carries IMGW's own status in `quality`, which was null for every value the
+  provider returned. The status was read to decide the value and then thrown away, so a plain
+  measurement of zero, a documented *brak zjawiska* returned as zero, and an `opad zbiorczy` -- a sum
+  over the preceding unmeasured days, published on the day the reading was taken without saying which
+  days it covers -- were indistinguishable from each other. `metoffice/observation` sets the pattern:
+  it carries MIDAS's raw `MESQL` flag verbatim and documents it on the provider's page, and IMGW's
+  column is literally *Status pomiaru*. "8" and "9" are IMGW's own codes; `quality` is numeric and
+  IMGW's `Z` is a letter, so `Z` is reported as 10, the one code here this library assigns itself. A
+  blank status is a plain measurement and stays null, which is what every other value carries.
+  `Z` appears in none of the 672,383 `o_d` rows sampled across 1961, 1985, 1995, 2010, 2015, 2020 and
+  2024, so it is a documented status rather than an observed one (GH-1998)
 - An `imgw/meteorology` column whose Polish name states a minimum or a maximum has to be declared
   under a canonical name that says the same. These declarations are in a language the rest of the
   repository is not written in, so `temperatura minimalna przy gruncie` sat under
