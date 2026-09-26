@@ -74,6 +74,22 @@ Types of changes:
   `RESOLUTION_DESCRIPTIONS` carries the model side, so it is compared in both directions like the
   rest. Three pages have one -- `dwd/observation` subdaily, `meteofrance/synop` subdaily and
   `metno/frost` 6_hour -- and the model has the same three
+- `imgw/hydrology` monthly is described as "historical monthly hydrology data", not "historical
+  daily climate data" -- wrong in both the resolution and the subject, and wrong in the model and
+  the page alike, which is why a comparison between the two could not see it. A caller asking
+  `discover`, the REST API or MCP for `monthly/hydrology` was told it holds daily climate data. Its
+  `daily` sibling and every `imgw/meteorology` entry already follow the pattern it now follows
+- A `#### metadata` table is read only under the section's own `metadata` heading, and that heading
+  is matched whatever its case -- `dwd/mosmix` hourly writes `#### Metadata`. Taking any
+  property/value table inside a `###` section made a second one, a `#### source file` or `####
+  periods`, read as a repeated metadata table: correct documentation reported as "carries 2
+  metadata tables", with its rows compared against the model besides. All 238 such tables in the
+  tree are under that heading, so nothing is lost by asking for it, and the resolution-level reader
+  was already asking
+- A blank description cell and a `-` are read the same way, since both say "no text here". A `-`
+  against a model that carries no description was reported as "the page describes it, the model
+  does not", which states the opposite of what happened. Either is still compared where the model
+  does carry one
 - A fence marker inside a code block is literal content, not a fence of its own. Reading it as one
   left the stack permanently open and dropped every line below it -- a whole page, for a ```text
   block showing a `~~~` or an unclosed `:::{note}`. On a resolution page that came out as a flood

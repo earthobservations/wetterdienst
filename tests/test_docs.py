@@ -193,6 +193,15 @@ def test_docs_parameters_link_to_glossary() -> None:
 _NO_SECTION = "<no dataset section>"
 
 
+def _is_metadata_heading(line: str) -> bool:
+    """Say whether a heading opens a ``metadata`` table, at whatever level and in whatever case.
+
+    `dwd/mosmix` hourly writes ``#### Metadata`` where every other page writes ``#### metadata``, and
+    `_heading_datasets` already tolerates that page's capitalisation, so both readers below do too.
+    """
+    return line.lstrip("#").strip().strip("#").strip().casefold() == "metadata"
+
+
 def _heading_datasets(line: str, current: list[str]) -> list[str]:
     """Name the datasets a heading opens, for the two parsers below.
 
@@ -228,11 +237,13 @@ def _section_datasets(path: Path) -> list[list[str]]:
     """
     sections: list[list[str]] = []
     in_metadata = False
+    under_metadata = False
     for line in _prose_lines(path):
         if line.startswith("#"):
             level = len(line) - len(line.lstrip("#"))
             if level == 3:
                 sections.append(_heading_datasets(line, []))
+            under_metadata = _is_metadata_heading(line)
             in_metadata = False
             continue
         if not line.startswith("|"):
@@ -240,7 +251,7 @@ def _section_datasets(path: Path) -> list[list[str]]:
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells[:1] == ["property"]:
-            in_metadata = bool(sections)
+            in_metadata = bool(sections) and under_metadata
             continue
         if in_metadata and cells[:1] == ["name"] and len(cells) >= 2:
             sections[-1] = [name.strip() for name in cells[1].split(",")]
@@ -415,10 +426,11 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
                 # one thing about them nothing checked
                 for shown in documented.get((dataset.name, parameter.name, parameter.name_original), []):
                     tag = f"{provider}/{network}/{resolution.name} {parameter.name}"
-                    # a blank or "-" cell is compared like any other text rather than waved through.
-                    # No row writes either today, and no parameter lacks a description, so the two
-                    # escapes this replaces could only ever have hidden a description being dropped
-                    if not parameter.description and not shown:
+                    # a blank cell and a "-" both say "no text here", so they are read the same way --
+                    # and either is still compared where the model has a description, which is the
+                    # escape this replaced: no row writes either today and no parameter lacks a
+                    # description, so waving them through could only have hidden one being dropped
+                    if shown in ("", "-") and not parameter.description:
                         continue
                     if not parameter.description:
                         mismatches.append(f"{tag}: the page describes it, the model does not")
@@ -435,8 +447,15 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
     row where it has one, which is the key the model declares. `dwd/mosmix` heads its sections
     ``Small`` and ``Large`` against datasets ``small`` and ``large``, so keying on the heading
     matched nothing there and left the whole page uncompared.
+
+    The table has to sit under the section's own ``metadata`` heading. Taking any property/value table
+    inside a ``###`` section made a second one -- a ``#### source file`` or ``#### periods``, both
+    plausible -- read as a repeated metadata table, so correct documentation was reported as "carries 2
+    metadata tables" and its rows compared against the model besides. All 238 such tables in the tree
+    are under that heading today, so nothing is lost by asking.
     """
     datasets: list[str] = []
+    under_metadata = False
     prop: dict[str, str] | None = None
     for line in _prose_lines(path):
         if not line.startswith("|"):
@@ -447,10 +466,11 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
             prop = None
             if line.startswith("#"):
                 datasets = _heading_datasets(line, datasets)
+                under_metadata = _is_metadata_heading(line)
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells[:1] == ["property"]:
-            prop = {} if datasets else None
+            prop = {} if datasets and under_metadata else None
         elif prop is not None and len(cells) >= 2 and not all(set(cell) <= {"-", ":"} for cell in cells):
             prop[cells[0]] = cells[1]
     if prop is not None and datasets:
@@ -478,7 +498,7 @@ def _documented_resolution_description(path: Path) -> str | None:
             level = len(line) - len(line.lstrip("#"))
             if level == 3:
                 break
-            under_metadata = level == 2 and line.lstrip("#").strip().strip("#").strip() == "metadata"
+            under_metadata = level == 2 and _is_metadata_heading(line)
             in_table = False
             continue
         if not line.startswith("|"):

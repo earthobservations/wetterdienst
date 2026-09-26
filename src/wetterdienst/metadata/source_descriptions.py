@@ -2376,7 +2376,7 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     "HubeauMetadata": {(resolution, "data"): "Flow and stage for France." for resolution in _HUBEAU_RESOLUTIONS},
     "ImgwHydrologyMetadata": {
         ("daily", "hydrology"): "historical daily hydrology data.",
-        ("monthly", "hydrology"): "historical daily climate data.",
+        ("monthly", "hydrology"): "historical monthly hydrology data.",
     },
     "ImgwMeteorologyMetadata": {
         ("daily", "climate"): "historical daily climate data.",
