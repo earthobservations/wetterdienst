@@ -157,6 +157,15 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("millimeter", "millimeter", 42, 42),
         ("millimeter", "liter_per_square_meter", 42, 42),
         ("liter_per_square_meter", "millimeter", 42, 42),
+        # precipitation_intensity. 0.0056 mm/s is what a dwd/road station reports in a shower, its
+        # BUFR element being kg m-2 s-1, and 20.16 mm/h is the same rain
+        ("millimeter_per_hour", "millimeter_per_hour", 42, 42),
+        ("millimeter_per_hour", "liter_per_square_meter_per_hour", 42, 42),
+        ("liter_per_square_meter_per_hour", "millimeter_per_hour", 42, 42),
+        ("millimeter_per_second", "millimeter_per_hour", 0.0056, 20.16),
+        ("millimeter_per_second", "liter_per_square_meter_per_hour", 0.0056, 20.16),
+        ("millimeter_per_hour", "millimeter_per_second", 20.16, 0.0056),
+        ("liter_per_square_meter_per_hour", "millimeter_per_second", 20.16, 0.0056),
         # pressure
         ("hectopascal", "hectopascal", 42, 42),
         ("pascal", "hectopascal", 4200, 42),

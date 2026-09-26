@@ -96,6 +96,10 @@ class UnitConverter:
             "precipitation_intensity": [
                 Unit("millimeter_per_hour", "mm/h"),
                 Unit("liter_per_square_meter_per_hour", "l/m²/h"),
+                # what BUFR publishes a precipitation rate in, as `kg m-2 s-1`: a mass flux per
+                # area, which for water is a depth per second, so 1 kg m-2 s-1 is 1 mm/s. A source
+                # unit rather than one to read values in, which is why the target stays mm/h
+                Unit("millimeter_per_second", "mm/s"),
             ],
             "pressure": [
                 Unit("pascal", "Pa"),
@@ -271,7 +275,11 @@ class UnitConverter:
             ("liter_per_square_meter", "millimeter"): lambda x: x,
             # precipitation_intensity
             ("millimeter_per_hour", "liter_per_square_meter_per_hour"): lambda x: x,
+            ("millimeter_per_hour", "millimeter_per_second"): lambda x: x / 3600,
             ("liter_per_square_meter_per_hour", "millimeter_per_hour"): lambda x: x,
+            ("liter_per_square_meter_per_hour", "millimeter_per_second"): lambda x: x / 3600,
+            ("millimeter_per_second", "millimeter_per_hour"): lambda x: x * 3600,
+            ("millimeter_per_second", "liter_per_square_meter_per_hour"): lambda x: x * 3600,
             # pressure
             ("pascal", "hectopascal"): lambda x: x / 100,
             ("pascal", "kilopascal"): lambda x: x / 1000,

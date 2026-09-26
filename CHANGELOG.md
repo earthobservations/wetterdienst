@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- `precipitation_intensity` can be declared in `millimeter_per_second`, which is what BUFR publishes
+  a precipitation rate in: `kg m-2 s-1`, a mass flux per area, and a depth per second once the
+  density of water divides out. The unit type carried only the two hourly spellings, so there was
+  nowhere to put a per-second rate and `dwd/road` labelled one `millimeter_per_hour`.
+  `millimeter_per_hour` stays the target, being the unit to read a rain rate in, so declaring the
+  new one is what makes a conversion happen rather than merely relabelling the number (GH-1984)
 - Every column `imgw/meteorology` renames has to be declared by the dataset it is read for.
   `_parse_file` renames raw `column_N` headers to `name_original` strings and the result is matched
   against the dataset actually requested, so a name only some *other* dataset declares is dropped
