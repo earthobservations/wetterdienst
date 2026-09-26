@@ -959,12 +959,14 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
         tag = f"{provider}/{network}/{resolution.name}"
         malformed = [f"{tag}: {problem}" for problem in _malformed_parameter_tables(path)]
         if not documented:
-            # collected rather than asserted, so one unparseable page does not hide every other
-            # page's findings -- and skipped rather than compared, because otherwise it contributes
-            # one error per declared parameter and fills the report the same way an abort emptied it
-            # the cause first, where there is one: a page whose only table is the broken one used to
-            # report nothing but the symptom, which is the message this check exists to replace. Capped
-            # like the path below, since one page with an extra header column reports every row of it
+            # Collected rather than asserted, so one unparseable page does not hide every other page's
+            # findings -- and skipped rather than compared, because otherwise it contributes one error
+            # per declared parameter and fills the report the same way an abort emptied it.
+            #
+            # The cause comes first where there is one: a page whose only table is the broken one used
+            # to report nothing but the symptom, which is the message `_malformed_parameter_tables`
+            # exists to replace. Capped as the path below is, since one page with an extra header
+            # column reports every row of it.
             errors.extend(_capped([*malformed, f"{tag}: {path.name} parses to no parameter row at all"], 10, tag))
             continue
         declared = {
