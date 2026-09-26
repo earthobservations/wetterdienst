@@ -86,6 +86,25 @@ Types of changes:
   metadata tables", with its rows compared against the model besides. All 238 such tables in the
   tree are under that heading, so nothing is lost by asking for it, and the resolution-level reader
   was already asking
+- `test_docs_parameter_units_name_the_quantity_the_model_declares`, holding the `unit` column,
+  which was hand-written and compared by nothing -- which is how three cells came to name a
+  different physical quantity than the value carries. A documented unit has to be the model's unit
+  by name or by symbol, or one of the four notations in `_UNIT_SPELLINGS`: `kg/m²` for `mm`, which
+  are equal for water and which is what DWD's MOSMIX documentation writes; `-` for a coded value
+  whose model symbol is the unhelpful `sign [0..95]`; a Greek mu where the model writes a micro
+  sign; and `Bft` for the model's lower-case `bft`. Those four cover all 60 cells that disagree, so
+  the check runs without reflowing any of them first, and they are listed rather than tolerated
+  wholesale so that a cell naming a different *quantity* fails instead of hiding among them.
+  Reverting any of the three wrong-quantity fixes below now fails; the `hectopascal`/`hPa` one does
+  not, because that is notation and stays GH-1980's
+- A `###` dataset section carrying neither a `#### metadata` nor a `#### parameters` table is
+  reported if the model does not declare it. Both halves of the orphan check were derived from
+  tables, so such a section named no dataset at all and a page could advertise one no request can
+  ask for -- the GH-1971 defect this test exists to report -- and be read by nothing
+- Where one `description` cell documents several datasets, and so cannot be compared against any
+  one of their model descriptions, those descriptions are at least required to differ from each
+  other. A copied entry is the likeliest error that exemption hides: setting
+  `cooling_degreehours_18` to the 13-degree sentence passed before and fails now
 - A parameter table whose header has no `description` column is reported as that, and so is a row
   carrying *more* cells than its header -- an unescaped `|` in a description, which used to be read
   with every column shifted, so the text compared was whatever sat before the stray pipe. Both are

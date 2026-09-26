@@ -299,7 +299,17 @@ def _malformed_parameter_tables(path: Path) -> list[str]:
 
 
 def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]]:
-    """Return {(dataset, canonical name, original name): descriptions} for one provider docs page.
+    """Return {(dataset, canonical name, original name): descriptions} for one provider docs page."""
+    return _documented_column(path, "description")
+
+
+def _documented_units(path: Path) -> dict[tuple[str, str, str], list[str]]:
+    """Return {(dataset, canonical name, original name): unit cells} for one provider docs page."""
+    return _documented_column(path, "unit")
+
+
+def _documented_column(path: Path, column: str) -> dict[tuple[str, str, str], list[str]]:
+    """Return {(dataset, canonical name, original name): cells of `column`} for one docs page.
 
     A list, not a string: a table can carry the same row twice, which is how `dwd/mosmix` hourly and
     `imgw/meteorology` daily came to hold a stale row beside its replacement. Overwriting would keep
@@ -344,7 +354,7 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells and cells[0] == "name" and "original name" in cells:
-            header = cells if "description" in cells else None
+            header = cells if column in cells else None
             continue
         if header is None or all(set(cell) <= {"-", ":"} for cell in cells) or len(cells) != len(header):
             # a row with more cells than its header reads every column shifted, so it is left to
@@ -353,7 +363,7 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]
         name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[header.index("name")])
         for dataset in datasets or [_NO_SECTION]:
             key = (dataset, name, cells[header.index("original name")])
-            documented.setdefault(key, []).append(cells[header.index("description")])
+            documented.setdefault(key, []).append(cells[header.index(column)])
     return documented
 
 
@@ -480,6 +490,59 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
                     if shown.rstrip(".") != parameter.description.rstrip("."):
                         mismatches.append(f"{tag}: docs {shown!r} != model {parameter.description!r}")
     assert not mismatches, "\n".join(_capped(mismatches, 20, "the report"))
+
+
+# Spellings a page uses where the model names the unit differently. All four are questions of notation
+# rather than of quantity, and GH-1980 is where they are settled: `kg/m²` and `mm` are equal for water
+# and `kg/m²` is what DWD's MOSMIX documentation writes; `-` reads as "no unit" for a coded value whose
+# model symbol is the unhelpful `sign [0..95]`; the docs write a Greek mu where the model writes a
+# micro sign; and the model's Beaufort symbol is lower case. Listed rather than tolerated wholesale so
+# that a cell naming a different *quantity* -- `mm/s` where the model says `millimeter_per_hour`, a
+# factor of 3600, or `Bft` where it says `meter_per_second` -- fails instead of hiding among them. The
+# four cover all 60 cells that disagree; the three just named were the only wrong quantities.
+_UNIT_SPELLINGS = frozenset(
+    [
+        ("kg/m²", "millimeter"),
+        ("-", "significant_weather"),
+        ("\u03bcS/cm", "microsiemens_per_centimeter"),
+        ("Bft", "beaufort"),
+    ],
+)
+
+
+def test_docs_parameter_units_name_the_quantity_the_model_declares() -> None:
+    """Test that a documented unit is the model's unit, by name or by symbol or by a known spelling.
+
+    The `unit` column was hand-written and compared by nothing, which is how three cells came to name a
+    different physical quantity than the value carries: `dwd/road` 15_minutes wrote `mm/s` for a
+    `millimeter_per_hour` parameter, a factor of 3600 out, and `dwd/observation` monthly and annual
+    wrote `Bft` for `wind_gust_max`, which is `meter_per_second` -- copied, it looks like, from the
+    `wind_force_beaufort` row above. Nothing would have stopped them coming back.
+
+    Accepting `_UNIT_SPELLINGS` alongside the model's own name and symbol is what lets this run without
+    reflowing 60 cells first: those four notations are real editorial choices for GH-1980 to settle,
+    and holding them in a list keeps the check honest about which disagreements are tolerated. What it
+    does not tolerate is a cell naming a different quantity, which is the only kind that misleads a
+    reader about the numbers.
+    """
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+
+    converter = UnitConverter()
+    wrong = []
+    for provider, network, resolution, path in _documented_resolutions():
+        documented = _documented_units(path)
+        for dataset in resolution:
+            for parameter in dataset.parameters:
+                key = (dataset.name, parameter.name, parameter.name_original)
+                unit = converter.get_unit(parameter.unit, parameter.unit_type)
+                for shown in documented.get(key, []):
+                    if shown in (unit.name, unit.symbol) or (shown, parameter.unit) in _UNIT_SPELLINGS:
+                        continue
+                    wrong.append(
+                        f"{provider}/{network}/{resolution.name}/{dataset.name} {parameter.name}: "
+                        f"docs {shown!r}, model {unit.name!r} ({unit.symbol!r})",
+                    )
+    assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
 
 
 def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
@@ -625,6 +688,63 @@ def _documented_dataset_descriptions(path: Path) -> dict[str, list[tuple[str, bo
     return documented
 
 
+def _dataset_description_problems(
+    resolution: object,
+    documented: dict[str, list[tuple[str, bool]]],
+    dataset: object,
+) -> Iterator[str]:
+    """Yield what is wrong between one dataset's model description and the page's, if anything.
+
+    Presence in both directions, then the text of each description the page carries for it -- except
+    where that description's table names several datasets, which `_shared_description_repeat` answers
+    instead.
+    """
+    shown = documented.get(dataset.name, [])
+    if not dataset.description and not shown:
+        return
+    if not shown:
+        yield "the model describes it, the page does not"
+        return
+    if not dataset.description:
+        yield "the page describes it, the model does not"
+        return
+    for shown_text, from_shared_table in shown:
+        if from_shared_table:
+            repeat = _shared_description_repeat(resolution, documented, shown_text, dataset.name)
+            if repeat:
+                yield repeat
+            continue
+        text = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", shown_text).strip().rstrip(".")
+        if text != dataset.description.rstrip("."):
+            yield f"docs {text!r} != model {dataset.description!r}"
+
+
+def _shared_description_repeat(
+    resolution: object,
+    documented: dict[str, list[tuple[str, bool]]],
+    text: str,
+    first_of: str,
+) -> str | None:
+    """Say whether the model repeats a description among the datasets one shared cell documents.
+
+    One `description` cell cannot equal the descriptions of the several datasets its table names, so
+    its text is not compared -- but those descriptions must at least differ from each other. A copied
+    entry is the likeliest error that exemption hides, and it surfaces as two of the datasets a shared
+    section documents reporting the same thing. Reported once, from the first of them, rather than
+    once per dataset.
+    """
+    sharing = [
+        dataset for dataset in resolution if dataset.description and (text, True) in documented.get(dataset.name, [])
+    ]
+    if not sharing or sharing[0].name != first_of:
+        return None
+    described = [dataset.description for dataset in sharing]
+    if len(set(described)) == len(described):
+        return None
+    names = [dataset.name for dataset in sharing]
+    return f"{names} are documented by one description and the model repeats one of theirs"
+
+
 def test_docs_dataset_descriptions_match_the_model() -> None:
     """Test that the docs dataset metadata tables agree with the model, and are there at all.
 
@@ -646,27 +766,15 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
         sections = _documented_dataset_sections(path)
         for dataset in resolution:
             tag = f"{provider}/{network}/{resolution.name}/{dataset.name}"
-            shown = documented.get(dataset.name, [])
-            # counted before either presence branch can `continue`, so a repeat is reported for the 54
-            # datasets no description names as much as for the 217 that do -- and counted from the
-            # sections rather than the descriptions, so a second table without a `description` row,
-            # which `_documented_dataset_descriptions` drops, is reported as well
+            # counted before the presence branches, so a repeat is reported for the 54 datasets no
+            # description names as much as for the 217 that do -- and counted from the sections rather
+            # than the descriptions, so a second table with no `description` row, which
+            # `_documented_dataset_descriptions` drops, is reported as well
             if sections.get(dataset.name, 0) > 1:
                 mismatches.append(f"{tag}: carries {sections[dataset.name]} metadata tables")
-            if not dataset.description and not shown:
-                continue
-            if not shown:
-                mismatches.append(f"{tag}: the model describes it, the page does not")
-                continue
-            if not dataset.description:
-                mismatches.append(f"{tag}: the page describes it, the model does not")
-                continue
-            for shown_text, from_shared_table in shown:
-                if from_shared_table:
-                    continue
-                text = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", shown_text).strip().rstrip(".")
-                if text != dataset.description.rstrip("."):
-                    mismatches.append(f"{tag}: docs {text!r} != model {dataset.description!r}")
+            mismatches.extend(
+                f"{tag}: {problem}" for problem in _dataset_description_problems(resolution, documented, dataset)
+            )
     assert not mismatches, "\n".join(_capped(mismatches, 20, "the report"))
 
 
@@ -722,7 +830,15 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
         # unioned with the metadata tables, because a section left behind when its dataset was dropped
         # from the model need not still carry a `#### parameters` table, and the description test
         # walks the model's datasets so it never reaches one
-        sections = {key[0] for key in documented} | set(_documented_dataset_sections(path))
+        sections = (
+            {key[0] for key in documented}
+            | set(_documented_dataset_sections(path))
+            # and the headings, because both of the above are derived from tables: a `###` section
+            # carrying neither a `#### metadata` nor a `#### parameters` table named no dataset at all,
+            # so a page could advertise one no request can ask for -- the GH-1971 defect this test
+            # exists to report -- and be read by nothing
+            | {name for entry in _section_datasets(path) for name in entry}
+        )
         found.extend(f"{tag}: {malformed}" for malformed in _malformed_parameter_tables(path))
         for orphan in sorted(sections - {dataset.name for dataset in resolution}):
             if orphan == _NO_SECTION:
