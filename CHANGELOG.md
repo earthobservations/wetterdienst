@@ -86,6 +86,18 @@ Types of changes:
   metadata tables", with its rows compared against the model besides. All 238 such tables in the
   tree are under that heading, so nothing is lost by asking for it, and the resolution-level reader
   was already asking
+- A parameter table whose header has no `description` column is reported as that, and so is a row
+  carrying *more* cells than its header -- an unescaped `|` in a description, which used to be read
+  with every column shifted, so the text compared was whatever sat before the stray pipe. Both are
+  the same "opposite of what happened" report the short-row check was added to remove, one level up
+  and one direction over
+- A `#### metadata` table only names its section while a section is open. A `## Notes` after the
+  last `###` closes it, and a metadata table under that was renaming the last real section's
+  dataset -- filing every one of its rows under a name the model does not declare -- while
+  `_metadata_tables` kept the right name, so the two parsers came out disagreeing on such a page
+- A directive name is matched whatever its case, as Sphinx resolves it and as the `metadata`
+  heading already is here. `:::{Note}` fell through to the unknown-directive default, was read as
+  code, and dropped every table inside it
 - A parameter row carrying fewer cells than its header is reported as that. It cannot be read --
   the column wanted may not be there -- and dropping it silently made the presence test say the
   opposite of what happened: a row plainly on the page came out as "declares X, which it does not

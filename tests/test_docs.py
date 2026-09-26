@@ -139,7 +139,8 @@ def _prose_lines(path: Path) -> Iterator[str]:
             if closes:
                 fences.pop()
             elif not fences or fences[-1][2]:
-                directive = info.startswith("{") and info[1:].removesuffix("}") in _MARKUP_DIRECTIVES
+                name = info[1:].removesuffix("}").casefold() if info.startswith("{") else ""
+                directive = name in _MARKUP_DIRECTIVES
                 fences.append((char, length, directive))
             # else: a marker inside a code fence is literal content, not a fence of its own. Reading
             # it as one left the stack permanently open and dropped every line below it -- a whole page
@@ -236,6 +237,10 @@ def _section_datasets(path: Path) -> list[list[str]]:
     out disagreeing, which is what sharing `_heading_datasets` is supposed to prevent.
     """
     sections: list[list[str]] = []
+    # tracked separately from `sections` being non-empty: a `## Notes` after the last `###` closes the
+    # section, and a metadata table under it was renaming that section's dataset -- while
+    # `_metadata_tables` kept the right name, so the two parsers came out disagreeing
+    section_open = False
     in_metadata = False
     under_metadata = False
     for line in _prose_lines(path):
@@ -243,6 +248,9 @@ def _section_datasets(path: Path) -> list[list[str]]:
             level = len(line) - len(line.lstrip("#"))
             if level == 3:
                 sections.append(_heading_datasets(line, []))
+                section_open = True
+            elif level < 3:
+                section_open = False
             under_metadata = _is_metadata_heading(line)
             in_metadata = False
             continue
@@ -251,22 +259,26 @@ def _section_datasets(path: Path) -> list[list[str]]:
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells[:1] == ["property"]:
-            in_metadata = bool(sections) and under_metadata
+            in_metadata = section_open and under_metadata
             continue
         if in_metadata and cells[:1] == ["name"] and len(cells) >= 2:
             sections[-1] = [name.strip() for name in cells[1].split(",")]
     return sections
 
 
-def _short_parameter_rows(path: Path) -> list[str]:
-    """Return a line per parameter row carrying fewer cells than its table's header.
+def _malformed_parameter_tables(path: Path) -> list[str]:
+    """Return a line per parameter table or row that `_documented_descriptions` cannot read.
 
-    `_documented_descriptions` cannot read such a row -- the column it wants may not be there -- and
-    dropping it silently made the presence test report the opposite of what happened: a row plainly on
-    the page came out as "declares X, which it does not document". Forgetting a trailing `constraints`
-    cell is a likelier slip than omitting a row, so the report has to name the real one.
+    It skips a row whose cell count does not match its header -- the column it wants is either absent
+    or shifted -- and a table whose header has no ``description`` column at all. Dropping any of them
+    silently made the presence test report the opposite of what happened: a row plainly on the page
+    came out as "declares X, which it does not document", or a whole table as "parses to no parameter
+    row at all". Forgetting a trailing ``constraints`` cell, leaving an unescaped ``|`` in a
+    description, or omitting the column are all likelier slips than omitting a row, so the report has
+    to name the real one. Every table in the tree has a ``description`` column and every row matches
+    its header today.
     """
-    short = []
+    malformed = []
     header = None
     for line in _prose_lines(path):
         if line.startswith("#") or not line.startswith("|"):
@@ -275,13 +287,15 @@ def _short_parameter_rows(path: Path) -> list[str]:
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells and cells[0] == "name" and "original name" in cells:
             header = cells
+            if "description" not in cells:
+                malformed.append(f"a parameter table has no `description` column: {cells}")
             continue
         if header is None or all(set(cell) <= {"-", ":"} for cell in cells):
             continue
-        if len(cells) < len(header):
+        if len(cells) != len(header):
             name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[0])
-            short.append(f"{name}: {len(cells)} cells against a header of {len(header)}")
-    return short
+            malformed.append(f"{name}: {len(cells)} cells against a header of {len(header)}")
+    return malformed
 
 
 def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]]:
@@ -332,7 +346,9 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]
         if cells and cells[0] == "name" and "original name" in cells:
             header = cells if "description" in cells else None
             continue
-        if header is None or all(set(cell) <= {"-", ":"} for cell in cells) or len(cells) < len(header):
+        if header is None or all(set(cell) <= {"-", ":"} for cell in cells) or len(cells) != len(header):
+            # a row with more cells than its header reads every column shifted, so it is left to
+            # `_malformed_parameter_tables` rather than compared as though the cells lined up
             continue
         name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[header.index("name")])
         for dataset in datasets or [_NO_SECTION]:
@@ -707,7 +723,7 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
         # from the model need not still carry a `#### parameters` table, and the description test
         # walks the model's datasets so it never reaches one
         sections = {key[0] for key in documented} | set(_documented_dataset_sections(path))
-        found.extend(f"{tag}: a parameter row is short -- {short}" for short in _short_parameter_rows(path))
+        found.extend(f"{tag}: {malformed}" for malformed in _malformed_parameter_tables(path))
         for orphan in sorted(sections - {dataset.name for dataset in resolution}):
             if orphan == _NO_SECTION:
                 found.append(f"{tag}: has a parameter table that no `###` dataset section encloses")

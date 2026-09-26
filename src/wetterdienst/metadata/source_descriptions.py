@@ -2424,6 +2424,13 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
 # over the same interval -- or, failing that, from the canonical sentence in ``parameter_table``.
 # Kept apart from SOURCE_DESCRIPTIONS so that a description here is not mistaken for the wording of
 # the source itself, and applied only where nothing else supplies one.
+#
+# An entry may also be *narrower* than the canonical sentence where the field is narrower: the three
+# ``Kuehltage`` below count days with at least one cooling hour, which is what DWD's Kuehltage is,
+# while canonical ``count_days_cooling_degree`` keeps the general "days on which cooling was required"
+# because cooling degree days elsewhere are defined against a base temperature. Their
+# ``count_days_heating_degree`` sibling is split the same way. So a difference from `parameter_table`
+# here is not necessarily drift to be reconciled.
 DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "DwdDerivedMetadata": {
         ("monthly", "cooling_degreehours_13", "Kuehltage"): "Number of days with at least one cooling hour.",
