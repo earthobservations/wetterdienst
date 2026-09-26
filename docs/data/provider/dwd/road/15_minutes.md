@@ -28,7 +28,7 @@
 | {term}`humidity`                      | relativeHumidity                         | mean humidity                    | %    | >=0,<=100   |
 | {term}`precipitation_type_flags`      | precipitationType                        | types of precipitation, as flags | -    | -           |
 | {term}`precipitation_height`          | totalPrecipitationOrTotalWaterEquivalent | precipitation height             | mm   | >=0         |
-| {term}`precipitation_intensity`       | intensityOfPrecipitation                 | precipitation intensity          | mm/s | >=0         |
+| {term}`precipitation_intensity`       | intensityOfPrecipitation                 | precipitation intensity          | mm/h | >=0         |
 | {term}`road_surface_condition`        | roadSurfaceCondition                     | road surface condition           | -    | -           |
 | {term}`temperature_air_mean_2m`       | airTemperature                           | mean air temperature in 2m       | K    | -           |
 | {term}`temperature_dew_point_mean_2m` | dewpointTemperature                      | mean dew point temperature in 2m | K    | -           |
@@ -39,6 +39,21 @@
 | {term}`wind_direction_gust_max`       | maximumWindGustDirection                 | direction of maximum wind gust   | °    | >=0,<=360   |
 | {term}`wind_gust_max`                 | maximumWindGustSpeed                     | maximum wind gust                | m/s  | >=0         |
 | {term}`wind_speed`                    | windSpeed                                | mean wind speed                  | m/s  | >=0         |
+
+:::{warning}
+{term}`precipitation_intensity` is labelled `mm/h` because that is the unit the model declares, but
+the value delivered is almost certainly millimetres per **second**: BUFR gives
+`intensityOfPrecipitation` (`0 13 055`) as `kg m-2 s-1`, this parser applies no conversion, and a day
+of real data tops out at 0.006 -- no observable precipitation at all as mm/h, an ordinary shower as
+mm/s. {term}`water_film_thickness` is labelled `cm` against a BUFR `m` for the same reason, a factor
+of 100. Both are tracked in
+[GH-1984](https://github.com/earthobservations/wetterdienst/issues/1984). Until it is settled, read a
+value as the unit it is really in and convert it yourself: the number is millimetres per second, so
+`0.006` is 21.6 mm/h, and it is metres, so `0.0005` is 0.05 cm -- multiply by 3600 and by 100 to get
+the labelled unit. `WD_TS_UNIT_TARGETS` converts from the declared unit, so it compounds the error
+rather than correcting it. Only the first of the two bites today: as the note below records,
+{term}`water_film_thickness` has never carried a value at all.
+:::
 
 #### precipitation type
 

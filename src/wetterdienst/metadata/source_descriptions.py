@@ -2119,6 +2119,17 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
 }
 
 
+# one sentence per dataset, phrased as the `heating_degreedays` sibling is: each of the three covers a
+# single reference temperature, so the docs page's shared blurb naming all three would over-claim here,
+# where `discover`, the REST API and MCP report it for one dataset at a time
+def _cooling_degreehours(reference: int) -> str:
+    """Describe the cooling_degreehours dataset taken against one reference temperature."""
+    return (
+        "Data on cooling degree hours, comparing the hourly temperatures to the reference "
+        f"temperature of {reference} degree Celsius."
+    )
+
+
 # What a dataset holds, keyed by metadata model name then ``(resolution, dataset)``.
 # The docs tables carry a trailing "([details](url))" pointer; that is page formatting and
 # is not part of the description here.
@@ -2133,6 +2144,9 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "Data on climate correction factors, comparing the degree days between a postal code and "
             "a reference station."
         ),
+        ("monthly", "cooling_degreehours_13"): _cooling_degreehours(13),
+        ("monthly", "cooling_degreehours_16"): _cooling_degreehours(16),
+        ("monthly", "cooling_degreehours_18"): _cooling_degreehours(18),
         ("monthly", "heating_degreedays"): (
             "Data on degree days, comparing the monthly temperatures to the reference temperature of 20 degree Celsius."
         ),
@@ -2327,6 +2341,14 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
     },
+    "DwdMosmixMetadata": {
+        ("hourly", "small"): (
+            "Local forecast of 40 parameters for worldwide stations, 24 times a day with a lead-time of 240 hours."
+        ),
+        ("hourly", "large"): (
+            "Local forecast of 122 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours."
+        ),
+    },
     "DwdRoadMetadata": {
         ("15_minutes", "data"): "15-minute road weather data of German highway stations.",
     },
@@ -2354,12 +2376,13 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     "HubeauMetadata": {(resolution, "data"): "Flow and stage for France." for resolution in _HUBEAU_RESOLUTIONS},
     "ImgwHydrologyMetadata": {
         ("daily", "hydrology"): "historical daily hydrology data.",
-        ("monthly", "hydrology"): "historical daily climate data.",
+        ("monthly", "hydrology"): "historical monthly hydrology data.",
     },
     "ImgwMeteorologyMetadata": {
         ("daily", "climate"): "historical daily climate data.",
         ("daily", "precipitation"): "historical daily precipitation data.",
         ("daily", "synop"): "historical daily synop data.",
+        ("monthly", "climate"): "historical monthly climate data.",
         ("monthly", "precipitation"): "historical monthly precipitation data.",
         ("monthly", "synop"): "historical monthly synop data.",
     },
@@ -2401,11 +2424,18 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
 # over the same interval -- or, failing that, from the canonical sentence in ``parameter_table``.
 # Kept apart from SOURCE_DESCRIPTIONS so that a description here is not mistaken for the wording of
 # the source itself, and applied only where nothing else supplies one.
+#
+# An entry may also be *narrower* than the canonical sentence where the field is narrower: the three
+# ``Kuehltage`` below count days with at least one cooling hour, which is what DWD's Kuehltage is,
+# while canonical ``count_days_cooling_degree`` keeps the general "days on which cooling was required"
+# because cooling degree days elsewhere are defined against a base temperature. Their
+# ``count_days_heating_degree`` sibling is split the same way. So a difference from `parameter_table`
+# here is not necessarily drift to be reconciled.
 DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "DwdDerivedMetadata": {
-        ("monthly", "cooling_degreehours_13", "Kuehltage"): "Number of days on which cooling was required.",
-        ("monthly", "cooling_degreehours_16", "Kuehltage"): "Number of days on which cooling was required.",
-        ("monthly", "cooling_degreehours_18", "Kuehltage"): "Number of days on which cooling was required.",
+        ("monthly", "cooling_degreehours_13", "Kuehltage"): "Number of days with at least one cooling hour.",
+        ("monthly", "cooling_degreehours_16", "Kuehltage"): "Number of days with at least one cooling hour.",
+        ("monthly", "cooling_degreehours_18", "Kuehltage"): "Number of days with at least one cooling hour.",
     },
     "DwdDmoMetadata": {},
     "DwdMosmixMetadata": {},

@@ -26,11 +26,9 @@
 
 | name                                                       | original name | description                                                                     | unit  | constraints |
 |------------------------------------------------------------|---------------|---------------------------------------------------------------------------------|-------|-------------|
-| {term}`cloud_base_convective`                              | h_bsc         | Cloud base of convective clouds                                                 | m     | >=0         |
 | {term}`cloud_cover_above_7km`                              | nh            | High cloud cover (>7 km)                                                        | %     | >=0,<=100   |
 | {term}`cloud_cover_below_500ft`                            | n05           | Cloud cover below 500 ft.                                                       | %     | >=0,<=100   |
-| {term}`cloud_cover_below_1000ft`                           | n1            | Low cloud cover (lower than 2 km)                                               | %     | >=0,<=100   |
-| {term}`cloud_cover_below_7km`                              | nlm           | Cloud cover low and mid level clouds below 7000 m                               | %     | >=0,<=100   |
+| {term}`cloud_cover_below_1000ft`                           | nl            | Low cloud cover (lower than 2 km)                                               | %     | >=0,<=100   |
 | {term}`cloud_cover_between_2km_to_7km`                     | nm            | Midlevel cloud cover (2-7 km)                                                   | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                              | neff          | Effective cloud cover                                                           | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                                  | n             | Total cloud cover                                                               | %     | >=0,<=100   |
@@ -68,7 +66,6 @@
 | {term}`wind_gust_max_last_3h`                              | fx3           | Maximum wind gust within the last 3 hours                                       | m/s   | >=0         |
 | {term}`wind_gust_max_last_12h`                             | fxh           | Maximum wind gust within the last 12 hours                                      | m/s   | >=0         |
 | {term}`wind_speed`                                         | ff            | Wind speed                                                                      | m/s   | >=0         |
-| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km) | percent | - |
 
 ### Large
 
@@ -78,7 +75,7 @@
 |------------------|------------------------------------------------------------------------------------------------------|
 | name             | large                                                                                                |
 | original name    | mosmix_l                                                                                             |
-| description      | Local forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours |
+| description      | Local forecast of 122 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours |
 | description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                 |
 | access           | [here](https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/)                                |
 
@@ -86,10 +83,12 @@
 
 | name                                                             | original name | description                                                                         | unit  | constraints |
 |------------------------------------------------------------------|---------------|-------------------------------------------------------------------------------------|-------|-------------|
+| {term}`cloud_base_convective`                                    | h_bsc         | Cloud base of convective clouds                                                     | m     | >=0         |
 | {term}`cloud_cover_above_7km`                                    | nh            | High cloud cover (>7 km)                                                            | %     | >=0,<=100   |
 | {term}`cloud_cover_below_500ft`                                  | n05           | Cloud cover below 500 ft.                                                           | %     | >=0,<=100   |
-| {term}`cloud_cover_below_1000ft`                                 | n1            | Low cloud cover (lower than 2 km)                                                   | %     | >=0,<=100   |
+| {term}`cloud_cover_below_1000ft`                                 | nl            | Low cloud cover (lower than 2 km)                                                   | %     | >=0,<=100   |
 | {term}`cloud_cover_between_2km_to_7km`                           | nm            | Midlevel cloud cover (2-7 km)                                                       | %     | >=0,<=100   |
+| {term}`cloud_cover_below_7km`                                    | nlm           | Cloud cover low and mid level clouds below 7000 m                                   | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                                    | neff          | Effective cloud cover                                                               | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                                        | n             | Total cloud cover                                                                   | %     | >=0,<=100   |
 | {term}`error_absolute_pressure_air_site`                         | e_ppp         | Absolute error surface pressure                                                     | Pa    | -           |
@@ -151,6 +150,7 @@
 | {term}`probability_precipitation_last_1h`                        | wwp           | Probability: Occurrence of precipitation within the last hour                       | %     | >=0,<=100   |
 | {term}`probability_precipitation_last_6h`                        | wwp6          | Probability: Occurrence of precipitation within the last 6 hours                    | %     | >=0,<=100   |
 | {term}`probability_precipitation_last_12h`                       | wwph          | Probability: Occurrence of precipitation within the last 12 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_last_24h`                       | wwpd          | Probability: Occurrence of any precipitation within the last 24 hours               | %     | >=0,<=100   |
 | {term}`probability_precipitation_liquid_last_1h`                 | wwl           | Probability: Occurrence of liquid precipitation within the last hour                | %     | >=0,<=100   |
 | {term}`probability_precipitation_liquid_last_6h`                 | wwl6          | Probability: Occurrence of liquid precipitation within the last 6 hours             | %     | >=0,<=100   |
 | {term}`probability_precipitation_liquid_last_12h`                | wwlh          | Probability: Occurrence of liquid precipitation within the last 12 hours            | %     | >=0,<=100   |
@@ -205,7 +205,3 @@
 | {term}`wind_gust_max_last_3h`                                    | fx3           | Maximum wind gust within the last 3 hours                                           | m/s   | >=0         |
 | {term}`wind_gust_max_last_12h`                                   | fxh           | Maximum wind gust within the last 12 hours                                          | m/s   | >=0         |
 | {term}`wind_speed`                                               | ff            | Wind speed                                                                          | m/s   | >=0         |
-| {term}`cloud_base_convective` | h_bsc | Cloud base of convective clouds | meter | - |
-| {term}`cloud_cover_below_1000ft` | nl | Low cloud cover (lower than 2 km) | percent | - |
-| {term}`cloud_cover_below_7km` | nlm | Cloud cover low and mid level clouds below 7000 m | percent | - |
-| {term}`probability_precipitation_last_24h` | wwpd | Probability: Occurrence of any precipitation within the last 24 hours | percent | - |

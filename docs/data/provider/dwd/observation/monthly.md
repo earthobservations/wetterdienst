@@ -54,7 +54,7 @@
 | {term}`sunshine_duration` | mo_sd_s | Monthly sum of sunshine duration. | h | >=0 |
 | {term}`wind_force_beaufort` | mo_fk | Monthly mean of daily wind speed Bft. | Bft | >=0 |
 | {term}`temperature_air_max_2m` | mx_tx | Monthly maximum of daily temperature maxima in 2 m above ground. | °C | - |
-| {term}`wind_gust_max` | mx_fx | Monthly maximum of daily wind speed. | Bft | >=0 |
+| {term}`wind_gust_max` | mx_fx | Monthly maximum of daily wind speed. | m/s | >=0 |
 | {term}`temperature_air_min_2m` | mx_tn | Monthly minimum of daily temperature minima in 2 m above ground. | °C | - |
 | {term}`precipitation_height` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
 | {term}`precipitation_height_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |

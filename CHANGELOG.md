@@ -18,6 +18,267 @@ Types of changes:
 
 ### Added
 
+- A documented parameter has to exist and a declared parameter has to be documented.
+  `test_docs_parameter_descriptions_match_the_model` compares the *text* of rows that appear on
+  both sides and says nothing about a row appearing on one side alone, in either direction, so a
+  table could advertise a parameter no request can ask for or quietly omit one it can.
+  `test_docs_parameter_tables_hold_the_parameters_the_dataset_declares` asserts both, plus that
+  every documented section names a dataset the model declares. That last one is what had been
+  hiding the rest: `dwd/mosmix` heads its sections `Small` and `Large` while the datasets are
+  `small` and `large`, so the parse matched nothing on that page and *every* row on it went
+  unchecked -- the description comparison silently skipped the whole file through its "no
+  documented text" branch. The dataset now comes from the `name` row of the section's own metadata
+  table rather than from the heading, which also lets `dwd/derived` keep documenting
+  `cooling_degreehours_13`, `_16` and `_18` in one section as it says it does, rather than forcing
+  three copies of an identical table. The plain `quality` flag stays out of the presence check --
+  58 datasets declare it and 25 document it -- and the exclusion stops there rather than covering
+  every `quality*` name, so that it matches what the descriptions test skips: the other five are
+  all documented, and holding them here is what says so. The exemption applies to the *declared*
+  side alone, because the gap runs one way: no page carries a `quality` row for a dataset that has
+  no quality flag, and exempting the documented side too would have let one in -- along with a
+  wrong `name_original` on any of those 25 rows, which the descriptions test skips as well, so
+  nothing at all would have checked them
+- `test_docs_cover_every_resolution`, asserting that each resolution the model declares has a docs
+  page. The three tests above pair a resolution with its page and can only check the pages that
+  exist, so a resolution added without one was compared by nothing -- the same silent skip as a
+  page that parses to nothing, which they already report. `test_data_coverage` checks the other
+  direction, that every page is linked from its network index, and could not see this one
+- Dataset descriptions are held in both directions, the way the parameter rows are. A deleted
+  `description` row, a missing `#### metadata` table or a mistyped `name` row was answered by
+  comparing nothing, and so was text living only in the markdown, where the REST API, MCP and CLI
+  never see it. All 217 described datasets now document it and vice versa, and the 54 that document
+  none describe none either, so nothing is demanded that does not exist. A second metadata table
+  for one dataset is reported rather than overwriting its twin, for the same reason as the
+  parameter rows below. The repeat is counted from the sections rather than from the descriptions,
+  so it is reported for the 54 datasets no description names as much as for the 217 that do, and a
+  second table carrying no `description` row at all is reported too
+- The three `dwd/derived` monthly `cooling_degreehours_*` datasets are each described by the
+  reference temperature they actually use, phrased as their `heating_degreedays` sibling is, rather
+  than sharing the docs page's blurb about "13, 16 and 18 degree Celsius". The page documents all
+  three in one section and says so, which is the right documentation, but `discover`, the REST API
+  and MCP report a dataset at a time and were telling a caller asking for `cooling_degreehours_13`
+  that it covers three base temperatures. One `description` cell cannot equal three descriptions,
+  so the text of a section naming several datasets is no longer compared -- their presence still
+  is, and exactly one section is in that state
+- Six dataset descriptions the docs carried and the model did not: `dwd/mosmix` hourly `small` and
+  `large`, the three `dwd/derived` monthly `cooling_degreehours_*`, and `imgw/meteorology` monthly
+  `climate`, whose siblings `daily/climate`, `monthly/precipitation` and `monthly/synop` were all
+  already there. They are what the assertion above was missing, and what let the `mosmix` figure
+  below go stale unnoticed
+- A description cell that is blank, or holds a `-`, is compared like any other text rather than
+  waved through. No row writes either and no parameter lacks a description, so the two escapes this
+  replaces could never have caught anything -- they could only have hidden a description being
+  dropped from a page, which is the failure this test exists to report
+- `test_docs_resolution_descriptions_match_the_model`, holding the one description table the other
+  two never reached: the `## metadata` block a page opens with, above its first dataset section.
+  `RESOLUTION_DESCRIPTIONS` carries the model side, so it is compared in both directions like the
+  rest. Three pages have one -- `dwd/observation` subdaily, `meteofrance/synop` subdaily and
+  `metno/frost` 6_hour -- and the model has the same three
+- `imgw/hydrology` monthly is described as "historical monthly hydrology data", not "historical
+  daily climate data" -- wrong in both the resolution and the subject, and wrong in the model and
+  the page alike, which is why a comparison between the two could not see it. A caller asking
+  `discover`, the REST API or MCP for `monthly/hydrology` was told it holds daily climate data. Its
+  `daily` sibling and every `imgw/meteorology` entry already follow the pattern it now follows
+- A `#### metadata` table is read only under the section's own `metadata` heading, and that heading
+  is matched whatever its case -- `dwd/mosmix` hourly writes `#### Metadata`. Taking any
+  property/value table inside a `###` section made a second one, a `#### source file` or `####
+  periods`, read as a repeated metadata table: correct documentation reported as "carries 2
+  metadata tables", with its rows compared against the model besides. All 238 such tables in the
+  tree are under that heading, so nothing is lost by asking for it, and the resolution-level reader
+  was already asking
+- A `description` cell documenting several datasets has to name what tells them apart, on top of
+  the model's descriptions having to differ from each other. Its text still cannot be compared
+  against any one of them, but rewriting the `cooling_degreehours` blurb to "13, 16 and 20 degree
+  Fahrenheit" passed before and fails now. The prose between those tokens is what stays unchecked,
+  which is the price of documenting several datasets in one section and why the exemption is kept
+  this narrow
+- A network exposing no `metadata` attribute is named in `NETWORKS_WITHOUT_A_METADATA_MODEL` rather
+  than merely skipped. The skip was keyed on an attribute, so renaming it would drop that provider
+  out of all four comparisons and, because it lands in `skipped`, exempt its published pages from
+  the page side of `test_docs_cover_every_resolution` too. Renaming `metadata` to `_metadata` on
+  `ipma/observation` left all nine tests passing; it now says which network and why
+- The parameter-count check walks every resolution the model declares rather than only the
+  documented ones, since what it asserts is a model fact. Gated on the page, deleting
+  `dwd/mosmix/hourly.md` stopped the only two count-bearing descriptions being checked at all
+- `test_docs_descriptions_do_not_misstate_a_parameter_count`, tying a count written into a
+  description to `len(dataset.parameters)`. `dwd/mosmix` hourly describes `small` and `large` by
+  how many parameters they carry, and a count in prose is the very fact whose drift set this change
+  off -- the page said 115 where the model declared 122, long enough that three other pages still
+  say it. Without this, adding a parameter to `large` would leave `discover`, the REST API, MCP and
+  the page all saying 122 of 123 with every other test green. Two descriptions name a count
+- The malformed-table report comes before the "parses to no parameter row at all" one, so a page
+  whose only table is the broken one says why. It used to print nothing but the symptom -- the
+  message that check was added to replace -- and a table is now reported for missing either column
+  it is read for, `description` or `unit`: losing `unit` made the units test compare nothing, and
+  no other test noticed
+- `test_docs_parameter_units_name_the_quantity_the_model_declares`, holding the `unit` column,
+  which was hand-written and compared by nothing -- which is how three cells came to name a
+  different physical quantity than the value carries. A documented unit has to be the model's unit
+  by name or by symbol, or one of the four notations in `_UNIT_SPELLINGS`: `kg/m²` for `mm`, which
+  are equal for water and which is what DWD's MOSMIX documentation writes; `-` for a coded value
+  whose model symbol is the unhelpful `sign [0..95]`; a Greek mu where the model writes a micro
+  sign; and `Bft` for the model's lower-case `bft`. Those four cover all 60 cells that disagree, so
+  the check runs without reflowing any of them first, and they are listed rather than tolerated
+  wholesale so that a cell naming a different *quantity* fails instead of hiding among them.
+  Reverting any of the three wrong-quantity fixes below now fails; the `hectopascal`/`hPa` one does
+  not, because that is notation and stays GH-1980's
+- A `###` dataset section carrying neither a `#### metadata` nor a `#### parameters` table is
+  reported if the model does not declare it. Both halves of the orphan check were derived from
+  tables, so such a section named no dataset at all and a page could advertise one no request can
+  ask for -- the GH-1971 defect this test exists to report -- and be read by nothing
+- Where one `description` cell documents several datasets, and so cannot be compared against any
+  one of their model descriptions, those descriptions are at least required to differ from each
+  other. A copied entry is the likeliest error that exemption hides: setting
+  `cooling_degreehours_18` to the 13-degree sentence passed before and fails now
+- A parameter table whose header has no `description` column is reported as that, and so is a row
+  carrying *more* cells than its header -- an unescaped `|` in a description, which used to be read
+  with every column shifted, so the text compared was whatever sat before the stray pipe. Both are
+  the same "opposite of what happened" report the short-row check was added to remove, one level up
+  and one direction over
+- A `#### metadata` table only names its section while a section is open. A `## Notes` after the
+  last `###` closes it, and a metadata table under that was renaming the last real section's
+  dataset -- filing every one of its rows under a name the model does not declare -- while
+  `_metadata_tables` kept the right name, so the two parsers came out disagreeing on such a page
+- A directive name is matched whatever its case, as Sphinx resolves it and as the `metadata`
+  heading already is here. `:::{Note}` fell through to the unknown-directive default, was read as
+  code, and dropped every table inside it
+- A parameter row carrying fewer cells than its header is reported as that. It cannot be read --
+  the column wanted may not be there -- and dropping it silently made the presence test say the
+  opposite of what happened: a row plainly on the page came out as "declares X, which it does not
+  document". Forgetting a trailing `constraints` cell is a likelier slip than omitting a row, so
+  the report now names the real one first
+- The exemption for a `#### metadata` table naming several datasets rides with the description
+  rather than with the dataset name, so a page documenting one of them in its own section as well
+  has that section compared. Exempting the name let both go unread -- the silent skip this change
+  set exists to close, back in by the side door
+- A blank description cell and a `-` are read the same way, since both say "no text here". A `-`
+  against a model that carries no description was reported as "the page describes it, the model
+  does not", which states the opposite of what happened. Either is still compared where the model
+  does carry one
+- Under the shared-description exemption, each model description also has to name its own dataset's
+  distinguishing token. Asking only that the several differ from each other, and that the docs cell
+  list them all, left the 18-degree `cooling_degreehours` free to be described by the 20-degree
+  sentence -- satisfying both, while nothing else reads those three. `discover`, the REST API and
+  MCP would have reported the wrong reference temperature
+- A `#### metadata` table under a prose `###` heading is reported rather than dropped, as the
+  parameter rows in that position already were. One naming a real dataset is reported as that
+  dataset's second description, so a contradictory blurb under a `## Notes` cannot slip in; one
+  naming nothing is reported as a table no section encloses. The page's own resolution-level `##
+  metadata` table stays out, since it sits above every section and belongs to no dataset
+- `_metadata_tables` takes which section a table belongs to from `_section_datasets`, by position,
+  rather than reading the heading itself. Reading it in both places is how the two came to disagree
+  again: this one had no notion of the `## datasets` block, so a `#### metadata` table under a
+  prose `###` elsewhere was read as a dataset -- reported as one the model does not declare, or,
+  where the prose heading reused a real dataset's name, as that dataset's own description drifting.
+  Taking the answer from one place is the invariant the rest of the module rests on
+- A network skipped because its request class needs a package outside the base install has to be
+  named in `NETWORKS_NEEDING_AN_EXTRA`, which holds `dwd/derived` alone. The skip is only a warning
+  and nothing escalates it, and landing in `skipped` also exempts that network's pages from both
+  directions of `test_docs_cover_every_resolution` -- so on a bare `uv sync`, where pandas is
+  absent, its three resolutions went unverified with every test green. Bounded now for the same
+  reason the metadata-less networks are
+- A `###` heading is read as a dataset only inside the page's `## datasets` block. All 269 dataset
+  sections in the tree sit there and `metno/frost` already writes prose under its own `## Notes`,
+  so a prose section elsewhere was being reported as "documents a dataset 'Detail' that the model
+  does not declare" -- the opposite of what happened. Each `###` still gets an entry either way,
+  empty for a prose one, so this walk and the row parser stay index for index in step and rows
+  under a prose heading are reported as belonging to no dataset rather than filed under the heading
+- The "parses to no parameter row at all" path caps its report per page like the other one. One
+  page with an extra header column reported every row of it uncapped -- 12 lines for `aemet` daily,
+  hundreds for `dwd/observation` hourly -- which would then have pushed every other page's findings
+  past the overall cap, the exact failure the per-page cap was added for
+- A `-` description cell says "no text here" for a dataset and for a resolution, as it already did
+  for a parameter row. Either was reported as "the page describes it, the model does not" where the
+  model describes nothing, which is the inverted report this change set removed one level down.
+  Where the model does describe it, a `-` is still compared and still fails
+- `_MARKUP_DIRECTIVES` holds the table wrappers -- `{table}`, `{list-table}`, `{csv-table}`,
+  `{figure}` and `{toggle}` -- alongside the admonitions and layout containers. `{table}` exists
+  only to give a markdown table a caption, so wrapping a `#### parameters` table in one is the
+  likeliest next step on these pages, and it would have fallen through to the unknown-directive
+  default, been read as code, and taken the table with it. Verified for the colon and backtick
+  spellings of `{table}` and for `{figure}`: one row parsed where none was before
+- A prose line beginning with a long inline code span is yielded rather than dropped, which is what
+  the comment beside it already claimed. Nothing was lost by dropping it -- a heading or a table
+  row cannot start with a backtick -- but the two disagreed
+- A fence marker inside a code block is literal content, not a fence of its own. Reading it as one
+  left the stack permanently open and dropped every line below it -- a whole page, for a
+  ```` ```text ```` block showing a `~~~` or an unclosed `:::{note}`. On a resolution page that
+  came out as a flood of "declares X, which it does not document"; on a network index, where only
+  the glossary test runs, it came out as nothing at all
+- The datasets a `###` section names are read by its position rather than by its heading text, so
+  two sections sharing a heading no longer collapse into the later one's datasets -- which filed
+  the earlier section's rows under the wrong dataset, and disagreed with `_metadata_tables`, which
+  reads the same page positionally
+- The resolution description is read from under the page's own `## metadata` heading rather than
+  from any property table above the first dataset section. A second such table -- under a `##
+  Notes` or a `## periods`, say -- would have been compared against the resolution's description
+  and sent the author to the wrong table
+- A parameter table that no `###` dataset section encloses is reported rather than dropped. Any
+  heading of level 1 or 2 closes the section, and this tree carries `## Notes` and the like, so a
+  table placed after one was filed under no dataset and read by neither comparison -- the last
+  silent skip of the class this change is about. Verified on `metno/frost` 6_hour, whose `## Notes`
+  heading swallowed a made-up row without a word
+- A page for a resolution the model does not declare is reported. The three comparisons walk the
+  model, so a page left behind by a renamed resolution stayed published and stayed linked from its
+  network index -- which is all `test_data_coverage` asks of it -- and was read by nothing. The
+  networks skipped for a missing optional dependency are excluded from that direction, since a
+  network that was never walked declares nothing and its published pages would otherwise all be
+  reported -- turning the skip into the failure it exists to avoid
+- A `#### metadata` section naming a dataset the model does not declare is reported even when it
+  carries no `#### parameters` table. The orphan check read the parameter rows, and the description
+  test walks the model's datasets, so neither reached a section left behind when its dataset was
+  dropped
+- `quality` descriptions are compared like any other parameter's. The presence check requires the
+  25 documented `quality` rows to exist and to be keyed by the right `name_original`, so their text
+  was the one thing about them that nothing checked. Removing the skip turned up two `dwd/derived`
+  hourly rows writing "quality flag" against the model's "Quality flag."
+- A parameter row written twice is reported rather than deduped. The parse keys on (dataset, name,
+  original name), so a repeated row used to overwrite its twin and leave only the last of them
+  compared -- which is the exact shape of two of the defects below, a stale row left in place
+  beside the one that replaced it, so with a matching `original name` the next one was invisible
+- Only a genuinely missing module excuses a network from the docs tests, and it says so with a
+  warning
+  naming the network and the module. `dwd/derived` imports pandas, which arrives with the `export`
+  extra, so a bare `uv sync` cannot verify its three resolutions -- the reason the clause exists.
+  It used to catch every exception, which meant a `metadata.py` that made `build_metadata_model`
+  raise, or a typo in a provider's `api.py`, excused that provider from all four tests silently,
+  including the one above whose whole purpose is to stop that. The test is read off `__cause__`
+  rather than off the exception type, because `Wetterdienst.resolve` re-raises the
+  `ModuleNotFoundError` as a plain `ImportError`: catching `ModuleNotFoundError` catches nothing,
+  and under a bare `uv sync` the skip would have surfaced as four errors instead. A module name
+  inside this package is not excused either, since `resolve` reports any name it cannot import as a
+  missing dependency -- so a mistyped intra-package import in a provider's `api.py` would otherwise
+  have dropped that provider out of all four tests with nothing but a warning
+- All three docs comparisons state how many lines they truncated. The parameter descriptions test
+  still sliced its list bare, and it is the one that gained the most coverage here, since the
+  heading fix unblocked two whole pages
+- The presence report is capped per page as well as overall, and states how many lines it left out.
+  A single mistyped dataset `name` row matches nothing and so reports every parameter on both sides
+  -- 33 lines for one page, enough to fill a flat 20-line cap and report a corpus-wide problem as a
+  local one. A truncated list that does not say it was truncated reads like a complete one
+- The docs tests apply `EXCLUDE_PROVIDER_NETWORKS`, which `test_data_coverage` has always applied
+  and `test_docs_cover_every_resolution` did not. `dwd/radar` is deliberately undocumented and
+  already has a `metadata/` package, so the day it grows a metadata model the two tests in that
+  module would have contradicted each other and one would have had to fail
+- The docs parsers read only the lines outside a fenced code block, so a `#` comment in a shell or
+  Python example is not mistaken for a level-1 heading. One would have closed the dataset section
+  it sits in and dropped every row below it out of that dataset, which the descriptions test
+  answers by silently comparing nothing -- the failure mode this change set exists to remove. A
+  fence closes only on a marker at least as long as the one that opened it, so a ```` ``` ```` line
+  inside a ````` ```` `````-opened block is content rather than the end of it, and the open fences
+  are a stack, so a code block nested in a directive still hides its own body. What is hidden is
+  decided by the directive, not by the marker: a table inside a MyST admonition or layout container
+  -- written `:::{note}` or ```` ```{note} ````, both legal -- is published
+  documentation and has to be parsed, while `{code-block}`, `{literalinclude}`, `{doctest}`,
+  `{eval-rst}` and the `{code-cell}` this repo opens 57 times all hold code. An unlisted directive
+  is read as code, because the two mistakes do not cost the same: a code body read as markdown puts
+  a `#` comment where a heading goes and makes the descriptions test compare nothing, silently,
+  while a container read as code drops its tables, which the presence tests report. The backtick
+  spelling is the one this tree writes, four times, in `docs/usage` and on `dwd/phenology`'s index;
+  the colon spelling it writes once, in the `dwd/road` warning below -- which is also the only
+  fence on any of the 88 resolution pages, so the guard is load-bearing rather than hypothetical.
+  A backtick fence's info string may hold no backtick, so a line that merely starts with a long
+  inline code span -- the shape these entries use -- is prose, not a fence that nothing closes
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
   default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
   argument since it was written and the export docs advertise it, but no command passed it, so
@@ -125,6 +386,84 @@ Types of changes:
 
 ### Fixed
 
+- `imgw/meteorology` daily writes `mm`/`>=0` for the precipitation and pressure rows its `synop`
+  table had as `millimeter`/`-` and `hectopascal`/`-`, which is what the same page's other datasets
+  and the same table's `pressure_air_site` already wrote. The monthly page was corrected in the
+  same change and the daily twin left alone
+- Parameter tables keep the order the model declares them in, which 229 of the 271 documented
+  tables carry once the rows they omit are ignored and 196 match exactly -- 224 and 191 on `main`,
+  so this change puts five more back -- and which lines a page up one-to-one with its
+  `metadata.py`. Sorting `mosmix` hourly and `imgw` monthly alphabetically had broken the
+  ascending-window grouping that made `precipitation_height_last_1h, _3h, _6h, _12h, _24h` legible,
+  reading it as `_12h, _1h, _24h, _3h, _6h` instead, and the same for the `probability_fog_last_*`,
+  `probability_drizzle_last_*` and `wind_gust_max_last_*` families
+- Four documented parameters that no request could ask for, and four requestable ones that no page
+  documented, found by the presence test above. `dwd/mosmix` hourly documented
+  `cloud_base_convective` and `cloud_cover_below_7km` under `small`, which the model declares for
+  `large` alone -- the same defect, in the same two parameters, that GH-1971 fixed for `dwd/dmo`
+  `icon_eu`, because DMO's tables were copied from MOSMIX's. It also carried a stale `n1` row for
+  `cloud_cover_below_1000ft` in both datasets, superseded by the `nl` row appended beside it; the
+  model maps `nl` and has never mapped `n1`. `imgw/meteorology` daily documented
+  `precipitation_height` under `synop`, which declares `precipitation_height_day` and `_night`
+  instead, so the row named something that raises `NoParametersFoundError` -- while
+  `imgw/meteorology` monthly `synop` documented none of its four precipitation parameters at all
+- Three unit cells disagreeing with the model about the quantity, not just the notation: `dwd/road`
+  15_minutes wrote `mm/s` where the model declares `millimeter_per_hour`, and `dwd/observation`
+  monthly and annual wrote `Bft` for `wind_gust_max`, which the model declares `meter_per_second`,
+  apparently copied from the `wind_force_beaufort` row above it, which really is Beaufort. All
+  three now say what the model says. Found by checking every unit cell against
+  `UnitConverter.get_unit`: 63 of 2213 disagreed, and the other 60 are notations rather than
+  quantities -- `kg/m²` for `mm` (36), `-` for the coded `significant_weather` (16), a Greek mu
+  where the model writes a micro sign (5) and `Bft` for `bft` (3), which
+  `test_docs_parameter_units_name_the_quantity_the_model_declares` lists and GH-1980 is to settle.
+  For the `dwd/road` cell the model is the side under question rather than the page: that module
+  labels the BUFR units of the elements it decodes -- it declares `degree_kelvin` for
+  `airTemperature`, whose CREX unit is Celsius -- and BUFR gives `intensityOfPrecipitation` as
+  `kg m-2 s-1`, which is millimetres per second. GH-1984 carries that, with what would settle it;
+  the page follows the model either way, so one label is wrong rather than two statements of it
+
+- The changelog renders as prose again. Three bare ``` and ```` runs written into these entries
+  opened real code fences, so `poe docs` warned about a Pygments lexer named `-opened` and nine
+  lines of one bullet rendered as an unstyled block with the markup showing, one sentence
+  disappearing from the visible text entirely. They are code spans now, with the delimiters
+  CommonMark wants
+- `dwd/road` 15_minutes carries a warning that its `precipitation_intensity` is labelled `mm/h`
+  while the delivered value is almost certainly millimetres per second, with the factor to multiply
+  by and a pointer to GH-1984 -- the page has to say what the model says, but not silently. Its
+  `water_film_thickness`, labelled `cm` against a BUFR `m`, is named there too
+- `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
+  declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
+  the markdown, so nothing compared it; GH-1975 corrects the same number in
+  `docs/data/overview.md`, `dwd/index.md` and `mosmix/index.md`, and this is the fourth copy, which
+  it does not reach. Those three still read 115 until GH-1975 lands, so this change wants to go in
+  first and that one straight after -- its hunks there rewrite the station counts on the same
+  lines, so duplicating the figure here would only have made it conflict
+- `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
+  `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote, and puts the
+  two rows in the order the model declares them -- the one table this change touched that was among
+  the 47 of 271 `main` leaves out of order, five of which this change fixes. `main` carries 69 rows
+  that spell a unit out where their own page uses the symbol for it: 57 write `dimensionless`
+  against a `-` elsewhere on the page, which is a convention to settle rather than a slip
+  (GH-1980), and of the other 12 this change fixes 9 -- 5 on `dwd/mosmix` hourly and 3 on
+  `imgw/meteorology` daily, both described above, plus this one -- leaving the 3 on `dwd/dmo`
+  hourly to GH-1975, which has that file open
+- The three `dwd/derived` `Kuehltage` overrides are described as "Number of days with at least one
+  cooling hour", which is what DWD's *Kuehltage* counts, rather than the vaguer "Number of days on
+  which cooling was required". The precise wording sat in the docs table, where nothing compared it
+  -- that page is one of the two the heading mismatch above had left unchecked. The canonical
+  `count_days_cooling_degree` keeps the general wording, because cooling degree days elsewhere are
+  defined against a base temperature rather than by counting hours, and because that is exactly how
+  the sibling `count_days_heating_degree` is split: a general canonical, with DWD's "number of days
+  with daily mean air temperature less than 15 degree Celsius" in the override
+- The same parser keys `test_docs_dataset_descriptions_match_the_model` too, which had the
+  identical heading bug and so compared nothing on those same two pages. Both now resolve:
+  `dwd/mosmix` under `small`/`large` and `dwd/derived` under all three `cooling_degreehours_*`.
+  Both are compared now, since this change gives the model the descriptions those pages had been
+  carrying alone. `dwd/observation` subdaily `wind_extreme` also gained the `quality_3` and
+  `quality_6` rows it declares but never showed, placed where the model declares them, interleaved
+  with the gust rows -- so that table reads differently from the four beside it, which put their
+  `quality` row last against a model that declares it first. Declaration order is the convention
+  this change adopts, and `quality`'s placement is part of the row-order question GH-1980 carries
 - A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM origin`
   matches by position, so two frames carrying the same number of columns under different names were
   both accepted and the second one's values landed under the first one's headings -- measured on a

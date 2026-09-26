@@ -18,7 +18,7 @@
 |---------------|-------------------------------------------------------------------------------------------------------|
 | name          | hydrology                                                                                             |
 | original name | dane_hydrologiczne                                                                                    |
-| description   | historical daily climate data                                                                         |
+| description   | historical monthly hydrology data                                                                     |
 | access        | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/miesieczne/) |
 
 #### parameters
