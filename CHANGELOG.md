@@ -25,10 +25,20 @@ Types of changes:
   dataset is what makes it bite: pooled over the provider it finds the two misspellings GH-1981
   reported and nothing further, where per dataset it found eight entries -- those two, one name the
   model had taken from the wrong upstream file, and five columns `daily/synop` reads and can never
-  return. The five are pinned rather than skipped, so closing that gap fails this test and has to
-  update it. What the check cannot see is a declared name sitting on the wrong `column_N`, which is
+  return. Those five are declared now, so the check asserts the set is empty: every column the
+  parser renames is answerable by the dataset it is read for. What the check cannot see is a
+  declared name sitting on the wrong `column_N`, which is
   how `monthly/precipitation` came to publish a count of snow days as millimetres; positions are
   held by the remote tests that compare a value against the file it is read from (GH-1991)
+- `imgw/meteorology`'s `daily/synop` declares the five columns it has always read. Upstream `s_d`
+  carries `TMAX`, `TMIN`, `TMNG`, `SMDB` and `PKSN` at columns 6, 8, 12, 14 and 17 -- the positions
+  the rename map already named -- so the parser read all five and then dropped them for want of a
+  declaration, and no synop station could return a daily maximum or minimum temperature at all, nor
+  its daily precipitation total or its snow cover. They are now `temperature_air_max_2m`,
+  `temperature_air_min_2m`, `temperature_air_min_0_05m`, `precipitation_height` and `snow_depth`,
+  the same canonical names `daily/climate` uses for the same five columns of `k_d`. BIELSKO-BIAŁA
+  on 2010-01-15 answers -4.2 °C, -5.4, -5.4, 0.0 mm and 18 cm, every one of them present in the
+  file all along (GH-1991)
 - `imgw/meteorology`'s status columns cannot collide with its value columns. The parse reads
   `column_N+1` as the status of `column_N`, so declaring a measurement there would make one column
   both, and the parse resolves that by leaving its neighbour unstatused -- silently, and for that

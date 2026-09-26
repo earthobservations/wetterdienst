@@ -410,6 +410,15 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 4.9,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
                 "parameter": "precipitation_height_day",
                 "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.1,
@@ -455,9 +464,36 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
+                "parameter": "temperature_air_max_2m",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 5.3,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
                 "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.6,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "temperature_air_min_0_05m",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1.6,
+                "quality": None,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
+                "parameter": "temperature_air_min_2m",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 3.5,
                 "quality": None,
             },
             {
@@ -477,12 +513,16 @@ def test_imgw_meteorology_api_daily_synop() -> None:
             "parameter": pl.Enum(
                 [
                     "humidity",
+                    "precipitation_height",
                     "precipitation_height_day",
                     "precipitation_height_night",
                     "pressure_air_sea_level",
                     "pressure_air_site",
                     "pressure_vapor",
+                    "temperature_air_max_2m",
                     "temperature_air_mean_2m",
+                    "temperature_air_min_0_05m",
+                    "temperature_air_min_2m",
                     "wind_speed",
                 ]
             ),
@@ -495,22 +535,6 @@ def test_imgw_meteorology_api_daily_synop() -> None:
     assert_frame_equal(values.df, df_expected_values)
 
 
-# columns the s_d file carries and the parser reads, but that daily/synop does not declare -- so
-# they are renamed and then dropped. Upstream s_d_format.txt puts TMAX/TMIN/TMNG/SMDB/PKSN at
-# exactly these positions, and k_d serves the same five under daily/climate, so the measurements
-# are there and only the declaration is missing (GH-1991). Pinned rather than skipped: this set
-# shrinking is the signal that the gap was closed.
-_UNDECLARED_COLUMNS = frozenset(
-    {
-        ("daily", "synop", "s_d_[^t].*.csv", "column_6", "maksymalna temperatura dobowa"),
-        ("daily", "synop", "s_d_[^t].*.csv", "column_8", "minimalna temperatura dobowa"),
-        ("daily", "synop", "s_d_[^t].*.csv", "column_12", "temperatura minimalna przy gruncie"),
-        ("daily", "synop", "s_d_[^t].*.csv", "column_14", "suma dobowa opadów"),
-        ("daily", "synop", "s_d_[^t].*.csv", "column_17", "wysokość pokrywy śnieżnej"),
-    },
-)
-
-
 def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() -> None:
     """Every column the rename map produces must be declared by the dataset it is read for.
 
@@ -519,7 +543,9 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
     dataset declares is dropped exactly as silently as a misspelt one, and nothing upstream or in
     the suite notices. Comparing per dataset is what makes this bite: pooled over the provider,
     ``monthly/climate``'s ``maksymalna dobowa suma opadów`` passes because ``monthly/synop``
-    declares it, which is how GH-1981 saw two entries where this finds eight.
+    declares it, which is how GH-1981 saw two entries where this found eight. Five of those eight
+    were columns ``daily/synop`` read and never declared, closed by GH-1991, so the set is now
+    empty: every column the parser renames is answerable by the dataset it is read for.
 
     This holds names, not positions -- a declared name sitting on the wrong ``column_N`` passes.
     ``test_imgw_meteorology_values_match_the_upstream_column`` covers that.
@@ -535,7 +561,7 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
                     if name_original in structural or name_original in declared:
                         continue
                     undeclared.add((resolution.value, dataset_name, file_pattern, column, name_original))
-    assert undeclared == _UNDECLARED_COLUMNS
+    assert undeclared == set()
 
 
 # The Polish word for the aggregation a column carries, and the marker its canonical name has to
@@ -683,3 +709,37 @@ def test_imgw_meteorology_values_read_the_status_column(
         assert values.is_empty(), f"{parameter} returned {values.get_column('value').to_list()}"
     else:
         assert values.get_column("value").to_list() == [expected]
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("parameter", "expected"),
+    [
+        ("temperature_air_max_2m", -4.2),
+        ("temperature_air_min_2m", -5.4),
+        ("temperature_air_min_0_05m", -5.4),
+        ("precipitation_height", 0.0),
+        ("snow_depth", 18.0),
+    ],
+)
+def test_imgw_meteorology_daily_synop_returns_the_columns_it_reads(parameter: str, expected: float) -> None:
+    """Test the five s_d columns daily/synop read and never declared (GH-1991).
+
+    ``s_d_format.txt`` puts TMAX, TMIN, TMNG, SMDB and PKSN at columns 6, 8, 12, 14 and 17, the
+    positions the file schema already renamed -- so no synop station could return a daily maximum
+    or minimum temperature at all, nor its daily precipitation total or snow cover. The raw row for
+    BIELSKO-BIALA on 2010-01-15 reads ``-4.2,"",-5.4,"",-4.9,"",-5.4,"",.0,"9","",18,""``, which
+    also exercises GH-1994 in the other direction: SMDB is ``.0`` beside a status of "9", brak
+    zjawiska, so zero is the measurement and stays.
+    """
+    values = (
+        ImgwMeteorologyRequest(
+            parameters=[("daily", "synop", parameter)],
+            start_date="2010-01-15",
+            end_date="2010-01-15",
+        )
+        .filter_by_station_id("349190600")
+        .values.all()
+        .df
+    )
+    assert values.get_column("value").to_list() == [expected]

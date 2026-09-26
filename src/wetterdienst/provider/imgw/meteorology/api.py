@@ -141,6 +141,11 @@ ImgwMeteorologyMetadata = {
                             "unit": "percent",
                         },
                         {
+                            "name": "precipitation_height",
+                            "name_original": "suma dobowa opadów",
+                            "unit": "millimeter",
+                        },
+                        {
                             "name": "precipitation_height_day",
                             "name_original": "suma opadu dzień",
                             "unit": "millimeter",
@@ -166,8 +171,28 @@ ImgwMeteorologyMetadata = {
                             "unit": "hectopascal",
                         },
                         {
+                            "name": "snow_depth",
+                            "name_original": "wysokość pokrywy śnieżnej",
+                            "unit": "centimeter",
+                        },
+                        {
+                            "name": "temperature_air_max_2m",
+                            "name_original": "maksymalna temperatura dobowa",
+                            "unit": "degree_celsius",
+                        },
+                        {
                             "name": "temperature_air_mean_2m",
                             "name_original": "średnia dobowa temperatura",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "temperatura minimalna przy gruncie",
+                            "unit": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m",
+                            "name_original": "minimalna temperatura dobowa",
                             "unit": "degree_celsius",
                         },
                         {
