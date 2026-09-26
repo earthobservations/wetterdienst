@@ -484,11 +484,9 @@ Types of changes:
   `water_film_thickness`, labelled `cm` against a BUFR `m`, is named there too
 - `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
   declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
-  the markdown, so nothing compared it; GH-1975 corrects the same number in
-  `docs/data/overview.md`, `dwd/index.md` and `mosmix/index.md`, and this is the fourth copy, which
-  it does not reach. Those three still read 115 until GH-1975 lands, so this change wants to go in
-  first and that one straight after -- its hunks there rewrite the station counts on the same
-  lines, so duplicating the figure here would only have made it conflict
+  the markdown, so nothing compared it. It was the fourth copy of the number: GH-1975 corrects the
+  other three, in `docs/data/overview.md`, `dwd/index.md` and `mosmix/index.md`, so all four agree
+  in this release
 - `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
   `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote, and puts the
   two rows in the order the model declares them -- the one table this change touched that was among
