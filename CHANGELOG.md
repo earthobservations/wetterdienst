@@ -74,6 +74,19 @@ Types of changes:
   `RESOLUTION_DESCRIPTIONS` carries the model side, so it is compared in both directions like the
   rest. Three pages have one -- `dwd/observation` subdaily, `meteofrance/synop` subdaily and
   `metno/frost` 6_hour -- and the model has the same three
+- A fence marker inside a code block is literal content, not a fence of its own. Reading it as one
+  left the stack permanently open and dropped every line below it -- a whole page, for a ```text
+  block showing a `~~~` or an unclosed `:::{note}`. On a resolution page that came out as a flood
+  of "declares X, which it does not document"; on a network index, where only the glossary test
+  runs, it came out as nothing at all
+- The datasets a `###` section names are read by its position rather than by its heading text, so
+  two sections sharing a heading no longer collapse into the later one's datasets -- which filed
+  the earlier section's rows under the wrong dataset, and disagreed with `_metadata_tables`, which
+  reads the same page positionally
+- The resolution description is read from under the page's own `## metadata` heading rather than
+  from any property table above the first dataset section. A second such table -- under a `##
+  Notes` or a `## periods`, say -- would have been compared against the resolution's description
+  and sent the author to the wrong table
 - A parameter table that no `###` dataset section encloses is reported rather than dropped. Any
   heading of level 1 or 2 closes the section, and this tree carries `## Notes` and the like, so a
   table placed after one was filed under no dataset and read by neither comparison -- the last

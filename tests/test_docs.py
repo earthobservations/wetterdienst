@@ -135,11 +135,15 @@ def _prose_lines(path: Path) -> Iterator[str]:
         marker = re.match(r"\s*(`{3,}|~{3,}|:{3,})\s*(\S*)", line)
         if marker:
             char, length, info = marker.group(1)[0], len(marker.group(1)), marker.group(2)
-            if fences and not info and char == fences[-1][0] and length >= fences[-1][1]:
+            closes = not info and bool(fences) and char == fences[-1][0] and length >= fences[-1][1]
+            if closes:
                 fences.pop()
-            else:
+            elif not fences or fences[-1][2]:
                 directive = info.startswith("{") and info[1:].removesuffix("}") in _MARKUP_DIRECTIVES
                 fences.append((char, length, directive))
+            # else: a marker inside a code fence is literal content, not a fence of its own. Reading
+            # it as one left the stack permanently open and dropped every line below it -- a whole page
+            # for a ```text block showing a ~~~ or an unclosed :::{note}
             continue
         if not any(not directive for _, _, directive in fences):
             yield line
@@ -210,22 +214,25 @@ def _heading_datasets(line: str, current: list[str]) -> list[str]:
     return []
 
 
-def _section_datasets(path: Path) -> dict[str, list[str]]:
-    """Return {``###`` heading: the datasets its own metadata table names} for one provider docs page.
+def _section_datasets(path: Path) -> list[list[str]]:
+    """Return the datasets each ``###`` section names, one entry per section, in page order.
 
     A first pass, so that the row parser below does not depend on the ``#### metadata`` table coming
-    before the ``#### parameters`` one. A heading whose section names no dataset is absent, and the
-    caller falls back to the heading text -- which is the dataset name on the 31 sections that carry
-    no metadata table at all.
+    before the ``#### parameters`` one. A section naming no dataset falls back to its heading text,
+    which is the dataset name on the 31 sections that carry no metadata table at all.
+
+    By position rather than by heading text, because two sections can share a heading while naming
+    different datasets. Keyed by text, the later one won and the earlier one's rows were filed under
+    its datasets -- and `_metadata_tables` reads the same page positionally, so the two parsers came
+    out disagreeing, which is what sharing `_heading_datasets` is supposed to prevent.
     """
-    named: dict[str, list[str]] = {}
-    heading: str | None = None
+    sections: list[list[str]] = []
     in_metadata = False
     for line in _prose_lines(path):
         if line.startswith("#"):
             level = len(line) - len(line.lstrip("#"))
-            if level <= 3:
-                heading = line.lstrip("#").strip().strip("#").strip() if level == 3 else None
+            if level == 3:
+                sections.append(_heading_datasets(line, []))
             in_metadata = False
             continue
         if not line.startswith("|"):
@@ -233,11 +240,11 @@ def _section_datasets(path: Path) -> dict[str, list[str]]:
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells[:1] == ["property"]:
-            in_metadata = heading is not None
+            in_metadata = bool(sections)
             continue
-        if in_metadata and cells[:1] == ["name"] and len(cells) >= 2 and heading is not None:
-            named[heading] = [name.strip() for name in cells[1].split(",")]
-    return named
+        if in_metadata and cells[:1] == ["name"] and len(cells) >= 2:
+            sections[-1] = [name.strip() for name in cells[1].split(",")]
+    return sections
 
 
 def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]]:
@@ -267,16 +274,18 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]
     """
     documented: dict[tuple[str, str, str], list[str]] = {}
     sections = _section_datasets(path)
+    index = -1
     datasets: list[str] = []
     header = None
     for line in _prose_lines(path):
         if line.startswith("#"):
-            datasets = _heading_datasets(line, datasets)
-            # resolved only where a section opens, never on the `####` headings inside it: those carry
-            # the names forward already, and looking them up again could send a section whose dataset
-            # is named after another section's heading off to that one's datasets
-            if datasets and len(line) - len(line.lstrip("#")) == 3:
-                datasets = sections.get(datasets[0], datasets)
+            if len(line) - len(line.lstrip("#")) == 3:
+                # the section's own answer, by position; `_heading_datasets` still answers for the
+                # `####` headings inside it and for anything that closes it
+                index += 1
+                datasets = sections[index]
+            else:
+                datasets = _heading_datasets(line, datasets)
             header = None
             continue
         if not line.startswith("|"):
@@ -455,13 +464,21 @@ def _documented_resolution_description(path: Path) -> str | None:
     `_metadata_tables` skips it, and why nothing compared it until now. `RESOLUTION_DESCRIPTIONS`
     carries the model side, so this is the last of the three description tables to be held in both
     directions; three pages have one today.
+
+    Read from under the page's ``## metadata`` heading rather than from any property table above the
+    first section, and reset per table, so that a second one added later -- under a ``## Notes`` or
+    ``## periods``, say -- is not compared against the resolution's description and the author sent to
+    the wrong table.
     """
     prop: dict[str, str] = {}
+    under_metadata = False
     in_table = False
     for line in _prose_lines(path):
         if line.startswith("#"):
-            if len(line) - len(line.lstrip("#")) == 3:
+            level = len(line) - len(line.lstrip("#"))
+            if level == 3:
                 break
+            under_metadata = level == 2 and line.lstrip("#").strip().strip("#").strip() == "metadata"
             in_table = False
             continue
         if not line.startswith("|"):
@@ -469,7 +486,11 @@ def _documented_resolution_description(path: Path) -> str | None:
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells[:1] == ["property"]:
-            in_table = True
+            in_table = under_metadata
+            if in_table:
+                # reset on entering a table this reads, never on skipping one -- resetting on every
+                # property table let a later `## Notes` table wipe the description it must not read
+                prop = {}
             continue
         if in_table and len(cells) >= 2 and not all(set(cell) <= {"-", ":"} for cell in cells):
             prop[cells[0]] = cells[1]
