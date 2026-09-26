@@ -357,35 +357,33 @@ Types of changes:
   `NoParametersFoundError` where it used to be built and return an empty frame, so a job pinned to
   one of those names stops at construction rather than quietly producing nothing. The old lists
   were MOSMIX's, copied in when the provider was written -- which is also why `icon` held
-  MOSMIX-L's count and `icon_eu` MOSMIX-S's, a split DMO
-  does not have: both products carry the same elements per run, and differ in the domain they cover
-  and the lead times they cover it for -- `icon` declares more only because it publishes the second,
-  3-hourly run as well. Measured over 22 runs across 12 stations, both products, both lead times and
-  both station groups: every run carries 21 elements, `dd ff fx3 n neff nh nl nm pppp rad1h radl1
-  rads1 rr1 rrs1c t5cm td tn ttt tx w1w2 ww`, with the 3-hourly run substituting `rad3h radl3 rads3
-  rr3 rrs3c` for their 1-hourly counterparts. Asking for one of the other 99 and 22 returned an
-  empty frame with nothing saying the product never forecasts it -- indistinguishable from a station
-  that happens to have no data. `precipitation_height_last_1h` is *added* to `icon_eu`, which serves
-  it and did not declare it. Three served elements stay undeclared, for two different reasons:
-  `radl1` and `rads1` are 1-hourly radiation *balances* and no canonical parameter describes a net
-  flux, while `rad3h` is described exactly by `radiation_global_last_3h` -- except that name is
-  already taken by `rads3`, which is a balance and not global radiation, so declaring `rad3h` means
-  correcting that first (GH-1977). What this does not fix is which *run* carries what:
-  the model has no lead-time axis, so `icon` declares both the 1-hourly and the 3-hourly family and
-  four of its 23 are carried only by `lead_time="long"` (`precipitation_height_last_3h`,
-  `radiation_global_last_3h`, `radiation_sky_long_wave_last_3h`,
-  `water_equivalent_snow_depth_new_last_3h`) while three are carried only by the default
-  `lead_time="short"` (`precipitation_height_last_1h`, `radiation_global`,
-  `water_equivalent_snow_depth_new_last_1h`). Those still answer with the empty frame this entry is
-  otherwise about -- 4 of 23 on the default path rather than 99 of 122, and GH-1976 tracks saying
-  so.
-  `test_dmo_declares_the_elements_its_runs_carry` reads a run through the same `KMLReader` handle
-  the values path parses, and pins each run's element set separately rather than unioning them, so
-  an element changing run fails it. It also asserts which lead times each product publishes, read
-  off the `all_stations` listing that holds one file per run for the whole product rather than off
-  one station's directory, because `icon_eu` gaining a 168 run -- which would arrive at a subset of
-  stations first -- would give it the same split and leave it declaring 1-hourly elements its long
-  run does not carry
+  MOSMIX-L's count and `icon_eu` MOSMIX-S's, a split DMO does not have: both products carry the
+  same elements per run, and differ in the domain they cover and the lead times they cover it for
+  -- `icon` declares more only because it publishes the second, 3-hourly run as well. Measured over
+  22 runs across 12 stations, both products, both lead times and both station groups: every run
+  carries 21 elements, `dd ff fx3 n neff nh nl nm pppp rad1h radl1 rads1 rr1 rrs1c t5cm td tn ttt
+  tx w1w2 ww`, with the 3-hourly run substituting `rad3h radl3 rads3 rr3 rrs3c` for their 1-hourly
+  counterparts. Asking for one of the other 99 and 22 returned an empty frame with nothing saying
+  the product never forecasts it -- indistinguishable from a station that happens to have no data.
+  `precipitation_height_last_1h` is *added* to `icon_eu`, which serves it and did not declare it.
+  Three served elements stay undeclared, for two different reasons: `radl1` and `rads1` are
+  1-hourly radiation *balances* and no canonical parameter describes a net flux, while `rad3h` is
+  described exactly by `radiation_global_last_3h` -- except that name is already taken by `rads3`,
+  which is a balance and not global radiation, so declaring `rad3h` means correcting that first
+  (GH-1977). What this does not fix is which *run* carries what: the model has no lead-time axis,
+  so `icon` declares both the 1-hourly and the 3-hourly family and four of its 23 are carried only
+  by `lead_time="long"` (`precipitation_height_last_3h`, `radiation_global_last_3h`,
+  `radiation_sky_long_wave_last_3h`, `water_equivalent_snow_depth_new_last_3h`) while three are
+  carried only by the default `lead_time="short"` (`precipitation_height_last_1h`,
+  `radiation_global`, `water_equivalent_snow_depth_new_last_1h`). Those still answer with the empty
+  frame this entry is otherwise about -- 4 of 23 on the default path rather than 99 of 122, and
+  GH-1976 tracks saying so. `test_dmo_declares_the_elements_its_runs_carry` reads a run through the
+  same `KMLReader` handle the values path parses, and pins each run's element set separately rather
+  than unioning them, so an element changing run fails it. It also asserts which lead times each
+  product publishes, read off the `all_stations` listing that holds one file per run for the whole
+  product rather than off one station's directory, because `icon_eu` gaining a 168 run -- which
+  would arrive at a subset of stations first -- would give it the same split and leave it declaring
+  1-hourly elements its long run does not carry
 - **Breaking**: `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset`
   (`icon` or `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
   `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request
@@ -442,8 +440,9 @@ Types of changes:
   and the same table's `pressure_air_site` already wrote. The monthly page was corrected in the
   same change and the daily twin left alone
 - Parameter tables keep the order the model declares them in, which 229 of the 271 documented
-  tables carry once the rows they omit are ignored and 196 match exactly -- 224 and 191 on `main`,
-  so this change puts five more back -- and which lines a page up one-to-one with its
+  tables carried once the rows they omit are ignored and 196 matched exactly when this change was
+  made -- 224 and 191 before it, so it put five more back, and one more again once the DMO prune
+  later in this release rewrites `icon`'s table -- and which lines a page up one-to-one with its
   `metadata.py`. Sorting `mosmix` hourly and `imgw` monthly alphabetically had broken the
   ascending-window grouping that made `precipitation_height_last_1h, _3h, _6h, _12h, _24h` legible,
   reading it as `_12h, _1h, _24h, _3h, _6h` instead, and the same for the `probability_fog_last_*`,
@@ -543,13 +542,13 @@ Types of changes:
   statistical postprocessing that DMO explicitly is not, and "worldwide" cannot be right for a
   limited-area model covering 3688 stations where the global product covers 5757 -- though
   "European" is not right for it either, since 11 of those 3688 sit between 13.25 and 22.52 degrees
-  north and 35.6 and 49.12 degrees east, which no sense of the word covers, so the description
-  names the set it is published for instead. That set sits inside nothing else here: 132 of the
-  3688 are absent from the 5811-row shared catalogue, which is what
+  north and between 35.6 and 49.12 degrees east, which no sense of the word covers, so the
+  description names the set it is published for instead. That set sits inside nothing else here:
+  132 of the 3688 are absent from the 5811-row shared catalogue, which is what
   `_with_stations_the_catalogue_omits` recovers, and 189 are absent from `icon`'s 5757, so it is
-  smaller than the global product's set without being a subset of it. Read off upstream: products
-  are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly from 78 to
-  168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
+  smaller than the global product's set without being a subset of it. Read off upstream: both
+  products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly
+  from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
   `icon_eu` hourly out to 78 only. Neither description names a parameter count any more: both
   counts came from MOSMIX's leaflet, 115 being MOSMIX-L's and 40 MOSMIX-S's, a split DMO does not
   have. 40 did match what `icon_eu` declared before this release, but only because that parameter
@@ -618,8 +617,8 @@ Types of changes:
   shared catalogue rather than answering that a product has no stations, and says which it handed
   back; so does a listing that shares no station with the catalogue, which is not a station listing
   however many names it carries. Four of the seven hardcoded station patches are genuinely outside
-  `icon_eu` -- Gao, São Gabriel da Cachoeira, Quito and Quito/Mariscal Sucre lie outside a European
-  domain -- and are now dropped for it too
+  `icon_eu` -- Gao, São Gabriel da Cachoeira, Quito and Quito/Mariscal Sucre are absent from the
+  3688 stations it publishes -- and are now dropped for it too
 
 - DWD DMO: the directory a product is served from is named by a total mapping rather than one special
   case with a pass-through, so a product added without deciding its upstream spelling is refused where
