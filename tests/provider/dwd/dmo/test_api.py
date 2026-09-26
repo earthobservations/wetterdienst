@@ -1132,7 +1132,11 @@ def test_dmo_declares_the_elements_its_runs_carry(
     publish today, either of which makes that fact wrong.
 
     Upstream rather than a stub, because what is asserted is a fact about upstream. It reads a
-    single-station run through `KMLReader`, the same handle the values path parses.
+    single-station run through `KMLReader`, the same handle the values path parses -- 3 to 5 kB per
+    run, against the 16.9, 11.2 and 7.8 MB of the `all_stations` files that `station_group=
+    "all_stations"` reads, which the same metadata serves. Those were measured too and carry the
+    same sets element for element, per lead time: they are two renderings of one model run, so this
+    reads the cheap one rather than 36 MB and 258 MB of decompressed KML per pass.
     """
     import re  # noqa: PLC0415
     from urllib.parse import urljoin  # noqa: PLC0415
