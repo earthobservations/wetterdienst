@@ -51,7 +51,8 @@ of 100. Both are tracked in
 value as the unit it is really in and convert it yourself: the number is millimetres per second, so
 `0.006` is 21.6 mm/h, and it is metres, so `0.0005` is 0.05 cm -- multiply by 3600 and by 100 to get
 the labelled unit. `WD_TS_UNIT_TARGETS` converts from the declared unit, so it compounds the error
-rather than correcting it.
+rather than correcting it. Only the first of the two bites today: as the note below records,
+{term}`water_film_thickness` has never carried a value at all.
 :::
 
 #### precipitation type
