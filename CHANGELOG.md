@@ -330,50 +330,90 @@ Types of changes:
 
 ### Changed
 
-- Every export a sink refuses raises `ExportRefusedError`: a mode it does not do, a target already
-  holding data under `if_exists="fail"`, or a format or protocol nothing here writes. It replaces a
-  `NotImplementedError`, a `FileExistsError`, two `KeyError`s and, in the SQLAlchemy sinks, pandas'
-  own `ValueError` -- five classes for one meaning, none of them exclusive to it. Callers matching on
-  the old classes have to match on this one instead, which is why this is here rather than in Fixed.
-  What it buys is that nothing has to infer what a failure meant. The CLI's export handler tried to,
-  over three rounds of review: `fail` arrives from DuckDB as a `KeyError` and from pandas as a
-  `ValueError`, both classes are also simply how a sink breaks, and every rule over types and
-  messages let something through -- a `KeyError` from inside a sink printed its own argument and
-  nothing else (`ERROR date`, for a stations frame sent to InfluxDB, which pops a `date` column only
-  values carry), a bare `NotImplementedError` from scipy would have printed an empty `ERROR` line,
-  and `Unknown export file type` reported a traceback or a sentence depending on which `--if_exists`
-  the run happened to pass. The handler is two arms with nothing to decide now, and
-  `Unknown export file type` names the target it could not write
-- `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset` (`icon` or
-  `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
-  `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request built
-  with no arguments accepts. It used to list `icon/single_stations/<id>/kmz/` whatever the request
-  would go on to read, and name issues that request then rejected: `all_stations` publishes only the
-  `078` lead time, so an issue advertised from a `168` file met `IndexError: Unable to find a 168 h
-  forecast within ...`, and a station the shared catalogue listed for `icon_eu` without `icon_eu`
-  covering it has no single-station directory, so every issue advertised for it resolved to an empty
-  frame with nothing said. Both measured against the live server. The directory is named by one
-  function that the values path uses too, so the two cannot drift apart again. `wetterdienst
-  issues` and `/api/issues` take `--dataset`/`--lead_time`
+- **Breaking**: Every export a sink refuses raises `ExportRefusedError`: a mode it does not do, a
+  target already holding data under `if_exists="fail"`, or a format or protocol nothing here
+  writes. It replaces a `NotImplementedError`, a `FileExistsError`, two `KeyError`s and, in the
+  SQLAlchemy sinks, pandas' own `ValueError` -- five classes for one meaning, none of them
+  exclusive to it. Callers matching on the old classes have to match on this one instead, which is
+  why this is here rather than in Fixed. What it buys is that nothing has to infer what a failure
+  meant. The CLI's export handler tried to, over three rounds of review: `fail` arrives from DuckDB
+  as a `KeyError` and from pandas as a `ValueError`, both classes are also simply how a sink
+  breaks, and every rule over types and messages let something through -- a `KeyError` from inside
+  a sink printed its own argument and nothing else (`ERROR date`, for a stations frame sent to
+  InfluxDB, which pops a `date` column only values carry), a bare `NotImplementedError` from scipy
+  would have printed an empty `ERROR` line, and `Unknown export file type` reported a traceback or
+  a sentence depending on which `--if_exists` the run happened to pass. The handler is two arms
+  with nothing to decide now, and `Unknown export file type` names the target it could not write
+- The stale MOSMIX and DMO figures the docs carried beside the ones this release measured.
+  `docs/data/provider/dwd/index.md` advertised MOSMIX-L at "~115 parameters" and both products at
+  "over 5000 stations worldwide", and `dwd/mosmix/index.md` the same two, while
+  `docs/data/overview.md` was being corrected to 5649 and 122 in the same change -- the twin one
+  file over. Measured: MOSMIX 5649 stations for both datasets, 40 parameters for `small` and 122
+  for `large`; DMO 5757 stations and 23 parameters for `icon`, 3688 and 19 for `icon_eu`. The DMO
+  bullet also described the long run as "168 h lead time" beside the short one, which reads as one
+  grid rather than a second run starting where the first ends
+- **Breaking**: DWD DMO declares the elements its runs carry, which is 23 parameters for `icon` and
+  19 for `icon_eu` rather than 122 and 40. A request for one of the 99 and 22 that are gone raises
+  `NoParametersFoundError` where it used to be built and return an empty frame, so a job pinned to
+  one of those names stops at construction rather than quietly producing nothing. The old lists
+  were MOSMIX's, copied in when the provider was written -- which is also why `icon` held
+  MOSMIX-L's count and `icon_eu` MOSMIX-S's, a split DMO does not have: both products carry the
+  same elements per run, and differ in the domain they cover and the lead times they cover it for
+  -- `icon` declares more only because it publishes the second, 3-hourly run as well. Measured over
+  22 runs across 12 stations, both products, both lead times and both station groups: every run
+  carries 21 elements, `dd ff fx3 n neff nh nl nm pppp rad1h radl1 rads1 rr1 rrs1c t5cm td tn ttt
+  tx w1w2 ww`, with the 3-hourly run substituting `rad3h radl3 rads3 rr3 rrs3c` for their 1-hourly
+  counterparts. Asking for one of the other 99 and 22 returned an empty frame with nothing saying
+  the product never forecasts it -- indistinguishable from a station that happens to have no data.
+  `precipitation_height_last_1h` is *added* to `icon_eu`, which serves it and did not declare it.
+  Three served elements stay undeclared, for two different reasons: `radl1` and `rads1` are
+  1-hourly radiation *balances* and no canonical parameter describes a net flux, while `rad3h` is
+  described exactly by `radiation_global_last_3h` -- except that name is already taken by `rads3`,
+  which is a balance and not global radiation, so declaring `rad3h` means correcting that first
+  (GH-1977). What this does not fix is which *run* carries what: the model has no lead-time axis,
+  so `icon` declares both the 1-hourly and the 3-hourly family and four of its 23 are carried only
+  by `lead_time="long"` (`precipitation_height_last_3h`, `radiation_global_last_3h`,
+  `radiation_sky_long_wave_last_3h`, `water_equivalent_snow_depth_new_last_3h`) while three are
+  carried only by the default `lead_time="short"` (`precipitation_height_last_1h`,
+  `radiation_global`, `water_equivalent_snow_depth_new_last_1h`). Those still answer with the empty
+  frame this entry is otherwise about -- 4 of 23 on the default path rather than 99 of 122, and
+  GH-1976 tracks saying so. `test_dmo_declares_the_elements_its_runs_carry` reads a run through the
+  same `KMLReader` handle the values path parses, and pins each run's element set separately rather
+  than unioning them, so an element changing run fails it. It also asserts which lead times each
+  product publishes, read off the `all_stations` listing that holds one file per run for the whole
+  product rather than off one station's directory, because `icon_eu` gaining a 168 run -- which
+  would arrive at a subset of stations first -- would give it the same split and leave it declaring
+  1-hourly elements its long run does not carry
+- **Breaking**: `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset`
+  (`icon` or `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
+  `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request
+  built with no arguments accepts. It used to list `icon/single_stations/<id>/kmz/` whatever the
+  request would go on to read, and name issues that request then rejected: `icon_eu`'s
+  `all_stations` publishes only the `078` lead time, so an issue advertised from a `168` file met
+  `IndexError: Unable to find a 168 h forecast within ...`, and a station the shared catalogue
+  listed for `icon_eu` without `icon_eu` covering it has no single-station directory, so every
+  issue advertised for it resolved to an empty frame with nothing said. Both measured against the
+  live server. The directory is named by one function that the values path uses too, so the two
+  cannot drift apart again. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time`
   to match, and say so rather than ignoring them where the network is not DMO. Passing
   `lead_time=None` restores the old listing of every lead time together, which is a question about
   the directory rather than about anything that can be requested. GH-1956
 
-- `Settings.auth` holds `SecretStr` rather than `str`, so code that reads a credential off the
-  settings has to ask for it: `reveal(settings.auth.aemet)`, or `.get_secret_value()`. Setting them
-  is unchanged -- the env vars, the strings and the pairs all read as they did -- and so is every
-  `if not settings.auth.x` check, an empty secret being falsy. What changes is reading one back
-  without asking: an f-string or a `str()` of a credential now yields `**********` rather than the
-  value, which is the point of the change but is silent where the old behaviour was not. The mask
-  is refused as a credential on the way in, so a JSON dump read back fails where it is given rather
-  than at the provider later
+- **Breaking**: `Settings.auth` holds `SecretStr` rather than `str`, so code that reads a
+  credential off the settings has to ask for it: `reveal(settings.auth.aemet)`, or
+  `.get_secret_value()`. Setting them is unchanged -- the env vars, the strings and the pairs all
+  read as they did -- and so is every `if not settings.auth.x` check, an empty secret being falsy.
+  What changes is reading one back without asking: an f-string or a `str()` of a credential now
+  yields `**********` rather than the value, which is the point of the change but is silent where
+  the old behaviour was not. The mask is refused as a credential on the way in, so a JSON dump read
+  back fails where it is given rather than at the provider later
 
-- The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py` builds the
-  `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP 4 moved off
-  httpx entirely and types that provider's `client` as `httpx2.AsyncClient`; an httpx client is
-  still taken there by duck typing, but warns and is to be rejected in a later release, so the
-  floor now says which library the code is written against. `httpx2` is declared alongside the
-  extra (`>=2.12,<3`) rather than leaned on as a transitive dependency of `fastmcp`
+- **Breaking**: The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py`
+  builds the `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP
+  4 moved off httpx entirely and types that provider's `client` as `httpx2.AsyncClient`; an httpx
+  client is still taken there by duck typing, but warns and is to be rejected in a later release,
+  so the floor now says which library the code is written against. `httpx2` is declared alongside
+  the extra (`>=2.12,<3`) rather than leaned on as a transitive dependency of `fastmcp`
 - Locked dependencies refreshed to their latest compatible versions -- 74 packages, among them the
   majors cloup 4, fastmcp 4 (mcp 2), plotly 7 and tzfpy 2 -- and the dev toolchain with them (ruff
   0.16.7, ty 0.0.81, zizmor 1.30.1). Three specifiers had to widen to admit them: `cloup<5`,
@@ -400,8 +440,9 @@ Types of changes:
   and the same table's `pressure_air_site` already wrote. The monthly page was corrected in the
   same change and the daily twin left alone
 - Parameter tables keep the order the model declares them in, which 229 of the 271 documented
-  tables carry once the rows they omit are ignored and 196 match exactly -- 224 and 191 on `main`,
-  so this change puts five more back -- and which lines a page up one-to-one with its
+  tables carried once the rows they omit are ignored and 196 matched exactly when this change was
+  made -- 224 and 191 before it, so it put five more back, and one more again once the DMO prune
+  later in this release rewrites `icon`'s table -- and which lines a page up one-to-one with its
   `metadata.py`. Sorting `mosmix` hourly and `imgw` monthly alphabetically had broken the
   ascending-window grouping that made `precipitation_height_last_1h, _3h, _6h, _12h, _24h` legible,
   reading it as `_12h, _1h, _24h, _3h, _6h` instead, and the same for the `probability_fog_last_*`,
@@ -442,11 +483,9 @@ Types of changes:
   `water_film_thickness`, labelled `cm` against a BUFR `m`, is named there too
 - `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
   declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
-  the markdown, so nothing compared it; GH-1975 corrects the same number in
-  `docs/data/overview.md`, `dwd/index.md` and `mosmix/index.md`, and this is the fourth copy, which
-  it does not reach. Those three still read 115 until GH-1975 lands, so this change wants to go in
-  first and that one straight after -- its hunks there rewrite the station counts on the same
-  lines, so duplicating the figure here would only have made it conflict
+  the markdown, so nothing compared it. It was the fourth copy of the number: GH-1975 corrects the
+  other three, in `docs/data/overview.md`, `dwd/index.md` and `mosmix/index.md`, so all four agree
+  in this release
 - `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
   `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote, and puts the
   two rows in the order the model declares them -- the one table this change touched that was among
@@ -473,17 +512,18 @@ Types of changes:
   with the gust rows -- so that table reads differently from the four beside it, which put their
   `quality` row last against a model that declares it first. Declaration order is the convention
   this change adopts, and `quality`'s placement is part of the row-order question GH-1980 carries
-- A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM origin`
-  matches by position, so two frames carrying the same number of columns under different names were
-  both accepted and the second one's values landed under the first one's headings -- measured on a
-  `--shape=wide` schedule that changed one parameter: `2025-03-23` ended up holding both `10.1`,
-  the temperature, and `0.0`, that day's precipitation, in the column named
+- **Breaking**: A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM
+  origin` matches by position, so two frames carrying the same number of columns under different
+  names were both accepted and the second one's values landed under the first one's headings --
+  measured on a `--shape=wide` schedule that changed one parameter: `2025-03-23` ended up holding
+  both `10.1`, the temperature, and `0.0`, that day's precipitation, in the column named
   `temperature_air_mean_2m`, exit 0 and nothing said. Reachable from the command line only since
-  `--if_exists` existed, and reachable by exactly the schedule the docs recommend. `BY NAME` refuses
-  it with `Binder Error: Table "weather" does not have a column with name "precipitation_height"`.
-  It does not catch every parameter drift, and the docs no longer say it does: a frame whose columns
-  are a subset of the table's is accepted, with nulls for the rest, and under `--shape=long` the
-  column set never varies, so nothing about `--parameters` reaches the insert there at all
+  `--if_exists` existed, and reachable by exactly the schedule the docs recommend. `BY NAME`
+  refuses it with `Binder Error: Table "weather" does not have a column with name
+  "precipitation_height"`. It does not catch every parameter drift, and the docs no longer say it
+  does: a frame whose columns are a subset of the table's is accepted, with nulls for the rest, and
+  under `--shape=long` the column set never varies, so nothing about `--parameters` reaches the
+  insert there at all
 - The InfluxDB sink takes `if_exists="append"`, which is the one word for what it actually does:
   every write is points, and a point carrying the timestamp and tags another already has replaces
   that one. Refusing that spelling made the batch export impossible rather than merely awkward --
@@ -500,15 +540,21 @@ Types of changes:
   forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours"
   and `icon_eu` as the 40-parameter, 24-times-a-day one -- that is MOSMIX-L and MOSMIX-S, a
   statistical postprocessing that DMO explicitly is not, and "worldwide" cannot be right for a
-  limited-area model covering 3688 of the 5757 catalogue stations. Read off upstream instead: both
+  limited-area model covering 3688 stations where the global product covers 5757 -- though
+  "European" is not right for it either, since 11 of those 3688 sit between 13.25 and 22.52 degrees
+  north and between 35.6 and 49.12 degrees east, which no sense of the word covers, so the
+  description names the set it is published for instead. That set sits inside nothing else here:
+  132 of the 3688 are absent from the 5811-row shared catalogue, which is what
+  `_with_stations_the_catalogue_omits` recovers, and 189 are absent from `icon`'s 5757, so it is
+  smaller than the global product's set without being a subset of it. Read off upstream: both
   products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly
   from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
   `icon_eu` hourly out to 78 only. Neither description names a parameter count any more: both
   counts came from MOSMIX's leaflet, 115 being MOSMIX-L's and 40 MOSMIX-S's, a split DMO does not
-  have. 40 does match what `icon_eu` declares today, but only because that parameter list is
-  MOSMIX-S's verbatim as well. The `icon_eu` parameter table also listed `cloud_base_convective`
-  and `cloud_cover_below_7km`, which the model does not define for that dataset, so the docs
-  advertised two parameters no request could ask for
+  have. 40 did match what `icon_eu` declared before this release, but only because that parameter
+  list was MOSMIX-S's verbatim as well. The `icon_eu` parameter table also listed
+  `cloud_base_convective` and `cloud_cover_below_7km`, which the model does not define for that
+  dataset, so the docs advertised two parameters no request could ask for
 - WSV pegel: the wave tests ask each station whether its own values are in the declared unit, rather
   than asking whether two stations agree with each other. Comparing them assumed the same sea at
   both, and they do not carry the same window -- MELLUMPLATE had 98 readings over 1.6 days against LT
@@ -560,19 +606,19 @@ Types of changes:
   really are positive -- it is read as written, exactly as before. The MOSMIX catalogue shares the
   format and the conversion but has no such row, so this stays with DMO
 
-- DWD DMO: a station is advertised only for the product that forecasts for it. `dmo_stationsliste_txt.asc`
-  is one list for both DMO products and matches neither: of its 5811 stations `icon` covers 5622 and
-  `icon_eu` 3556, so a request for `icon_eu` listed 2255 stations that could only ever answer with an
-  empty frame -- indistinguishable, from the caller's side, from a forecast that is merely missing
-  right now, and from the swallowed listing GH-1947 was about. Which stations a product covers is now
-  read from its `single_stations/` directory, whose entries are exactly the placemarks that product's
-  `all_stations` run carries, so the correction costs one directory listing rather than a 20 MB parse.
-  A listing that cannot be read keeps the shared catalogue rather than answering that a product has no
-  stations, and says which it handed back; so does a listing that shares no station with the
-  catalogue, which is not a station listing however many names it carries. Four of the seven
-  hardcoded station patches are genuinely
-  outside `icon_eu` -- Gao, São Gabriel da Cachoeira, Quito and Quito/Mariscal Sucre lie outside a
-  European domain -- and are now dropped for it too
+- **Breaking**: DWD DMO: a station is advertised only for the product that forecasts for it.
+  `dmo_stationsliste_txt.asc` is one list for both DMO products and matches neither: of its 5811
+  stations `icon` covers 5622 and `icon_eu` 3556, so a request for `icon_eu` listed 2255 stations
+  that could only ever answer with an empty frame -- indistinguishable, from the caller's side,
+  from a forecast that is merely missing right now, and from the swallowed listing GH-1947 was
+  about. Which stations a product covers is now read from its `single_stations/` directory, whose
+  entries are exactly the placemarks that product's `all_stations` run carries, so the correction
+  costs one directory listing rather than a 20 MB parse. A listing that cannot be read keeps the
+  shared catalogue rather than answering that a product has no stations, and says which it handed
+  back; so does a listing that shares no station with the catalogue, which is not a station listing
+  however many names it carries. Four of the seven hardcoded station patches are genuinely outside
+  `icon_eu` -- Gao, São Gabriel da Cachoeira, Quito and Quito/Mariscal Sucre are absent from the
+  3688 stations it publishes -- and are now dropped for it too
 
 - DWD DMO: the directory a product is served from is named by a total mapping rather than one special
   case with a pass-through, so a product added without deciding its upstream spelling is refused where

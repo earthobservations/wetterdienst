@@ -1077,3 +1077,177 @@ def test_dmo_a_run_stamp_becomes_the_hour_it_names(stamp: str, expected: dt.date
     )
 
     assert df.get_column("date").item() == expected
+
+
+# what each DMO run carries: 16 elements common to both, and one of two families of five that the
+# runs swap between -- the 078 run the 1-hourly quantities, the 168 run the 3-hourly ones. 21 each.
+_DMO_SHARED = frozenset(
+    ["dd", "ff", "fx3", "n", "neff", "nh", "nl", "nm", "pppp", "t5cm", "td", "tn", "ttt", "tx", "w1w2", "ww"]
+)
+_DMO_PER_1H = frozenset(["rad1h", "radl1", "rads1", "rr1", "rrs1c"])
+_DMO_PER_3H = frozenset(["rad3h", "radl3", "rads3", "rr3", "rrs3c"])
+_DMO_SERVED_BY = {"078": _DMO_SHARED | _DMO_PER_1H, "168": _DMO_SHARED | _DMO_PER_3H}
+# `ptp_gdmog_01001_168_3_251200.kmz` in a station directory, `ptp_gdmog_168_3_251200.kmz` under
+# `all_stations`, which omits the id -- so `{station_id}` is either `"<id>_"` or `""`, and the id is
+# escaped, being a value read out of `dmo_stationsliste_txt.asc` rather than a literal. Anchored,
+# not a substring test: `_run_stamp` records a bare `078` having matched inside a station id.
+_DMO_RUN_NAME = r"ptp_[a-z]+_{station_id}(\d{{3}})_(\d+)_(\d{{6}})\.kmz"
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    # `without_a_canonical_name`: upstream serves these and the metadata does not declare them. Named
+    # rather than skipped, so that declaring one makes this test say so. `radl1` and `rads1` are the
+    # 1-hourly radiation *balances* and no canonical parameter describes a net flux. `rad3h` is the
+    # different case: `radiation_global_last_3h` describes it exactly, but that name is taken by
+    # `rads3`, a balance -- GH-1977. It is also only in the 3-hourly run, which is why `icon_eu`,
+    # publishing 078 alone, does not see it.
+    ("dataset", "lead_times", "without_a_canonical_name"),
+    [
+        pytest.param("icon", ("078", "168"), {"rad3h", "radl1", "rads1"}, id="icon"),
+        pytest.param("icon_eu", ("078",), {"radl1", "rads1"}, id="icon_eu"),
+    ],
+)
+def test_dmo_declares_the_elements_its_runs_carry(
+    dataset: str,
+    lead_times: tuple[str, ...],
+    without_a_canonical_name: set[str],
+    default_settings: Settings,
+) -> None:
+    """A DMO run carries 21 elements; the metadata declared 122 for `icon` and 40 for `icon_eu`.
+
+    Those lists were MOSMIX's, copied in when the provider was written -- which is also why `icon`
+    held MOSMIX-L's 122 and `icon_eu` MOSMIX-S's 40, a split DMO does not have: both products carry
+    the same elements per run, and differ in the domain they cover and the lead times they cover it
+    for -- `icon` declares four more only because it publishes the second, 3-hourly run as well. A
+    request for one of the other 99 and 22 came back empty with nothing saying the product never forecasts
+    it, which reads exactly like a station with no data.
+
+    Which run it is does matter, so each run's element set is pinned separately: the 078 run carries
+    the 1-hourly quantities and the 168 run the 3-hourly ones. `icon` therefore declares both
+    families, because the model has no lead-time axis to hang them on, and four of its 23 are
+    carried only by the long run and three only by the short one -- which is a fact about the model
+    recorded in GH-1976, not something this test can catch the model getting wrong. What it does
+    catch is upstream moving: an element changing run, or `icon_eu` gaining the 168 run it does not
+    publish today, either of which makes that fact wrong.
+
+    Upstream rather than a stub, because what is asserted is a fact about upstream. It reads a
+    single-station run through `KMLReader`, the same handle the values path parses -- 3 to 5 kB per
+    run, against the 16.9, 11.2 and 7.8 MB of the `all_stations` files that `station_group=
+    "all_stations"` reads, which the same metadata serves. Those were measured too and carry the
+    same sets element for element, per lead time: they are two renderings of one model run, so this
+    reads the cheap one, and takes its station ids off a directory listing rather than `all()`, which
+    would fetch one of them.
+    """
+    import re  # noqa: PLC0415
+    from urllib.parse import urljoin  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo.api import (  # noqa: PLC0415
+        DwdDmoStationGroup,
+        _dmo_kmz_path,
+        _dmo_station_dir,
+    )
+    from wetterdienst.provider.dwd.mosmix.access import KMLReader  # noqa: PLC0415
+    from wetterdienst.util.network import list_remote_directory_fsspec  # noqa: PLC0415
+
+    name_original = DwdDmoRequest.metadata["hourly"][dataset].name_original
+    # the station directory rather than `.all()`, which routes through
+    # `_with_stations_the_catalogue_omits` and downloads the whole `all_stations` run -- 17 MB for
+    # `icon` -- to recover the stations the shared catalogue leaves out. That is a lot of bytes for a
+    # handful of ids, and a failure to fetch it is swallowed into a warning, so a timeout there would
+    # leave this running against the catalogue-only fallback rather than failing. This is the listing
+    # `_covered_station_ids` reads, and every name in it is a station that has a directory, which is
+    # what the loop below is looking for.
+    station_dir = urljoin("https://opendata.dwd.de", _dmo_station_dir(name_original))
+    stations = sorted(
+        entry["name"].rstrip("/").rsplit("/", 1)[-1]
+        for entry in list_remote_directory_fsspec(station_dir, settings=default_settings)
+    )
+    assert stations, f"{dataset} covers no station at all"
+
+    # which lead times the product serves, read off the listing rather than checked against a list of
+    # the ones already known: `icon_eu` publishing a 168 run would give it the same split `icon` has
+    # and leave the metadata declaring 1-hourly elements its long run does not carry, and a third run
+    # family would carry a third set of elements. Neither is visible to a loop over the expected
+    # lead times. Taken from `all_stations`, which is one file per run for the whole product, because
+    # the single-station directory above answers only for that station -- a run family rolled out to
+    # a subset of stations, which is how a new one would arrive, need not have reached it yet.
+    all_stations = urljoin(
+        "https://opendata.dwd.de",
+        _dmo_kmz_path(name_original, DwdDmoStationGroup.ALL_STATIONS, None),
+    )
+    whole_product = [
+        entry["name"].rsplit("/", 1)[-1]
+        for entry in list_remote_directory_fsspec(all_stations, settings=default_settings)
+        if entry["name"].endswith(".kmz")
+    ]
+    # `ptp_gdmog_078_1_241200.kmz` -- no station id in this listing, so the lead time is field three
+    served_leads = [re.fullmatch(_DMO_RUN_NAME.format(station_id=""), name) for name in whole_product]
+    published = {match.group(1) for match in served_leads if match}
+    assert published, f"{dataset} publishes no all_stations run whose name parses, out of {sorted(whole_product)}"
+    assert published == set(lead_times), (
+        f"{dataset} publishes {sorted(published)} h runs, not {sorted(lead_times)}; "
+        f"the lead times it serves have changed"
+    )
+
+    # every name the listing above yields has a directory, but a directory need not hold a run for
+    # every lead time the product serves, so take the first candidate that carries all of them rather
+    # than pinning one id upstream is free to drop: a family rolled out to a subset of stations would
+    # otherwise fail below as a metadata fault rather than be skipped here.
+    # The lead time is read off the anchored parse rather than as a substring, which `_run_stamp`
+    # records having been a bug of its own: a bare `078` also matches inside a station id.
+    runs_by_lead: dict[str, list[str]] = {}
+    listed = 0
+    transport: Exception | None = None
+    for candidate in stations[:8]:
+        url = urljoin(
+            "https://opendata.dwd.de",
+            _dmo_kmz_path(name_original, DwdDmoStationGroup.SINGLE_STATIONS, candidate),
+        )
+        try:
+            entries = list_remote_directory_fsspec(url, settings=default_settings)
+        except Exception as e:  # noqa: BLE001
+            transport = e
+            continue
+        listed += 1
+        found: dict[str, list[str]] = {}
+        for entry in entries:
+            # not every `.kmz` here need be a forecast -- `_run_stamp` tolerates a sidecar rather
+            # than failing on it, so anything that does not parse is passed over here as well
+            match = re.fullmatch(
+                _DMO_RUN_NAME.format(station_id=re.escape(candidate) + "_"), entry["name"].rsplit("/", 1)[-1]
+            )
+            if match:
+                found.setdefault(match.group(1), []).append(entry["name"])
+        if all(lead_time in found for lead_time in lead_times):
+            station_id, runs_by_lead = candidate, found
+            break
+    assert listed, f"no {dataset} station directory could be listed at all: {transport!r}"
+    assert runs_by_lead, f"none of the first eight {dataset} stations publishes a run for every lead time"
+
+    reader = KMLReader(station_ids=[station_id], settings=default_settings)
+    served: dict[str, set[str]] = {}
+    for lead_time in lead_times:
+        # one issue chosen the same way every time, rather than whatever the listing returned first
+        # -- otherwise which run the element set is pinned against varies with listing order and
+        # cache state. Not necessarily the newest: the stamp is DDHHMM, so across a month boundary
+        # the largest string is the older day. That costs nothing, because the element set is a
+        # property of the run family and the directory holds two days of it either way.
+        run = max(runs_by_lead[lead_time])
+        raw = reader.fetch(run).read()
+        served[lead_time] = {element.decode().lower() for element in re.findall(rb'elementName="([^"]+)"', raw)}
+        assert served[lead_time] == _DMO_SERVED_BY[lead_time], (
+            f"the {dataset} {lead_time} h run no longer carries the elements it did: "
+            f"gained {sorted(served[lead_time] - _DMO_SERVED_BY[lead_time])}, "
+            f"lost {sorted(_DMO_SERVED_BY[lead_time] - served[lead_time])}"
+        )
+
+    declared = {parameter.name_original.lower() for parameter in DwdDmoRequest.metadata["hourly"][dataset]}
+    served_anywhere = set().union(*served.values())
+
+    assert not declared - served_anywhere, (
+        f"{dataset} declares parameters no run carries: {sorted(declared - served_anywhere)}"
+    )
+    assert served_anywhere - declared == without_a_canonical_name, (
+        f"{dataset} serves elements it does not declare: {sorted(served_anywhere - declared)}"
+    )

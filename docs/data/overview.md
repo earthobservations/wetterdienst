@@ -16,13 +16,13 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - see the [rdwd](https://bookdown.org/brry/rdwd/) pages for an interactive map and table of available datasets
     - Mosmix - statistical optimized scalar forecasts extracted from weather models
         - Point forecast
-        - 5400 stations worldwide
+        - 5649 stations worldwide
         - Both MOSMIX-L and MOSMIX-S is supported
-        - Up to 115 parameters
+        - `small` (MOSMIX-S): 40 parameters, `large` (MOSMIX-L): 122
     - DMO - timeseries extracted from weather models
         - Point forecast
-        - 5400 stations worldwide
-        - Up to 115 parameters
+        - `icon`: 5757 stations worldwide, 23 parameters
+        - `icon_eu`: the 3688 stations it is published for, 19 parameters
     - Road
         - Historical weather observations of German highway stations
     - SWSMOS
