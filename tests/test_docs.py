@@ -81,11 +81,18 @@ def test_data_coverage() -> None:
                 assert f"{resolution.stem}{resolution.suffix}" in network_readme_content
 
 
-# The MyST directives whose body is markdown, so a table inside one is documentation: admonitions and
-# layout containers. `_prose_lines` explains why anything unlisted is read as code instead.
+# The MyST directives whose body is markdown, so a table inside one is documentation: admonitions,
+# layout containers, and the table wrappers -- `{table}` exists only to give a markdown table a
+# caption, so wrapping a `#### parameters` table in one is the likeliest next step on these pages.
+# `_prose_lines` explains why anything unlisted is read as code instead.
 _MARKUP_DIRECTIVES = frozenset(
     [
         "admonition",
+        "csv-table",
+        "figure",
+        "list-table",
+        "table",
+        "toggle",
         "attention",
         "caution",
         "danger",
@@ -143,15 +150,14 @@ def _prose_lines(path: Path) -> Iterator[str]:
     fences: list[tuple[str, int, bool]] = []
     for line in path.read_text(encoding="utf8").splitlines():
         marker = re.match(r"\s*(`{3,}|~{3,}|:{3,})\s*(\S*)", line)
-        if marker:
+        # a backtick fence's info string may hold no backtick, so a line that merely *starts* with a
+        # long inline code span is prose, and falls through to be yielded as such. Reading it as a fence
+        # pushed one that the run closing that span could not close -- its own info string is not empty
+        # -- and swallowed the rest of the page: loud on a resolution page, silent on a network index,
+        # where only the glossary test runs. This module's own changelog entries are written that way
+        inline_span = marker is not None and marker.group(1)[0] == "`" and "`" in line[marker.end(1) :]
+        if marker and not inline_span:
             char, length, info = marker.group(1)[0], len(marker.group(1)), marker.group(2)
-            if char == "`" and "`" in line[marker.end(1) :]:
-                # a backtick fence's info string may hold no backtick, so a line that merely *starts*
-                # with a long inline code span is prose. Reading it as a fence pushed one that the run
-                # closing that span could not close -- its own info string is not empty -- and swallowed
-                # the rest of the page: loud on a resolution page, silent on a network index, where only
-                # the glossary test runs. This module's own changelog entries are written that way
-                continue
             closes = not info and bool(fences) and char == fences[-1][0] and length >= fences[-1][1]
             if closes:
                 fences.pop()

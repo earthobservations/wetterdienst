@@ -155,6 +155,15 @@ Types of changes:
   against a model that carries no description was reported as "the page describes it, the model
   does not", which states the opposite of what happened. Either is still compared where the model
   does carry one
+- `_MARKUP_DIRECTIVES` holds the table wrappers -- `{table}`, `{list-table}`, `{csv-table}`,
+  `{figure}` and `{toggle}` -- alongside the admonitions and layout containers. `{table}` exists
+  only to give a markdown table a caption, so wrapping a `#### parameters` table in one is the
+  likeliest next step on these pages, and it would have fallen through to the unknown-directive
+  default, been read as code, and taken the table with it. Verified for the colon and backtick
+  spellings of `{table}` and for `{figure}`: one row parsed where none was before
+- A prose line beginning with a long inline code span is yielded rather than dropped, which is what
+  the comment beside it already claimed. Nothing was lost by dropping it -- a heading or a table
+  row cannot start with a backtick -- but the two disagreed
 - A fence marker inside a code block is literal content, not a fence of its own. Reading it as one
   left the stack permanently open and dropped every line below it -- a whole page, for a
   ```` ```text ```` block showing a `~~~` or an unclosed `:::{note}`. On a resolution page that
