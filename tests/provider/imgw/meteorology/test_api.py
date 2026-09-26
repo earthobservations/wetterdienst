@@ -9,7 +9,10 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.meteorology.api import (
+    _STATUSLESS_COLUMNS,
+    _STRUCTURAL_COLUMNS,
     ImgwMeteorologyMetadata,
     ImgwMeteorologyRequest,
     ImgwMeteorologyValues,
@@ -72,7 +75,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "parameter": "precipitation_height",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
-                "quality": None,
+                "quality": 9.0,
             },
             {
                 "station_id": "253160090",
@@ -81,7 +84,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "parameter": "snow_depth",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
-                "quality": None,
+                "quality": 9.0,
             },
             {
                 "station_id": "253160090",
@@ -464,6 +467,15 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
+                "parameter": "snow_depth",
+                "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 0.0,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "354150100",
+                "resolution": "daily",
+                "dataset": "synop",
                 "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 5.3,
@@ -519,6 +531,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                     "pressure_air_sea_level",
                     "pressure_air_site",
                     "pressure_vapor",
+                    "snow_depth",
                     "temperature_air_max_2m",
                     "temperature_air_mean_2m",
                     "temperature_air_min_0_05m",
@@ -550,7 +563,6 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
     This holds names, not positions -- a declared name sitting on the wrong ``column_N`` passes.
     ``test_imgw_meteorology_values_match_the_upstream_column`` covers that.
     """
-    structural = {"station_id", "year", "month", "day"}
     undeclared = set()
     for resolution, datasets in ImgwMeteorologyValues._file_schema.items():  # noqa: SLF001
         for dataset_name, files in datasets.items():
@@ -558,7 +570,7 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
             declared = {parameter.name_original for parameter in dataset.parameters}
             for file_pattern, columns in files.items():
                 for column, name_original in columns.items():
-                    if name_original in structural or name_original in declared:
+                    if name_original in _STRUCTURAL_COLUMNS or name_original in declared:
                         continue
                     undeclared.add((resolution.value, dataset_name, file_pattern, column, name_original))
     assert undeclared == set()
@@ -603,7 +615,7 @@ def test_imgw_meteorology_status_columns_do_not_collide_with_value_columns() -> 
     """Test that the status column of a measurement is never itself a declared measurement.
 
     IMGW writes each status immediately after the value it belongs to, verified for all 61 declared
-    columns against the ``*_format.txt`` files, so ``__parse_file`` reads ``column_N+1`` as the
+    columns against the ``*_format.txt`` files, so ``_parse_csv`` reads ``column_N+1`` as the
     status of ``column_N``. Declaring a value at ``column_N+1`` would make it both, and the parse
     resolves that by leaving ``column_N`` unstatused -- silently, and only for that one column.
     """
@@ -614,10 +626,179 @@ def test_imgw_meteorology_status_columns_do_not_collide_with_value_columns() -> 
                 values = {
                     int(column.removeprefix("column_"))
                     for column, name in columns.items()
-                    if name not in {"station_id", "year", "month", "day"}
+                    if name not in _STRUCTURAL_COLUMNS
                 }
                 colliding |= {(resolution.value, dataset_name, file_pattern, n) for n in values if n + 1 in values}
     assert colliding == set()
+
+
+# One `o_d` row per status, for the same column: field 6 is `SMDB`, the daily precipitation total,
+# and field 7 its status. The other fields are filled only far enough to be read.
+def _o_d_rows(cases: list[tuple[str, str]]) -> bytes:
+    rows = []
+    for day, (value, status) in enumerate(cases, start=1):
+        fields = [""] * 16
+        fields[0] = "249180020"
+        fields[1] = "WARSZOWICE"
+        fields[2] = "2024"
+        fields[3] = "07"
+        fields[4] = f"{day:02d}"
+        fields[5] = value
+        fields[6] = status
+        rows.append(",".join(fields))
+    return "\n".join(rows).encode("latin-1")
+
+
+_SMDB_SCHEMA = {
+    "column_1": "station_id",
+    "column_3": "year",
+    "column_4": "month",
+    "column_5": "day",
+    "column_6": "suma dobowa opadów",
+}
+
+
+def test_imgw_meteorology_reads_every_status_the_files_document() -> None:
+    """Each status has to reach the value and the quality column, including an empty value cell.
+
+    The files do not write a status the same way twice. Where the status is "8" the value cell holds
+    a literal ".0" -- the reason the status has to be read at all -- but where it is "9",
+    ``o_d_01_2024`` writes ".0" and ``o_d_07_2024`` leaves the cell empty, for the same parameter
+    three files apart. Passing the cell through therefore returned no value for a day IMGW documents
+    as having had no precipitation, so "9" is written as the zero it means (GH-1997).
+
+    The status itself is carried into ``quality``, which the provider used to return null throughout
+    (GH-1998). "8" and "9" are IMGW's own codes. ``Z``, *opad zbiorczy*, is a sum over the preceding
+    days that were not measured: the value is kept, because it is a real measurement, and 10 is what
+    says it does not belong to this date alone.
+    """
+    values = ImgwMeteorologyValues._parse_csv(  # noqa: SLF001
+        file=_o_d_rows([("1.2", ""), (".0", "8"), ("", "9"), ("7.4", "Z")]),
+        station_id="249180020",
+        resolution=Resolution.DAILY,
+        schema=_SMDB_SCHEMA,
+    )
+    assert values.get_column("value").to_list() == [1.2, None, 0.0, 7.4]
+    assert values.get_column("quality").to_list() == [None, 8.0, 9.0, 10.0]
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("dataset", "parameter", "station_id", "start_date"),
+    [
+        # o_d for July 2024 leaves the value cell empty beside its "9"s: WARSZOWICE reported no rain
+        # on the 2nd, which came back as no value at all rather than 0.0 mm.
+        ("precipitation", "precipitation_height", "249180020", "2024-07-02"),
+        # the same in s_d, for a parameter that is zero all winter: no snow cover on New Year's Day.
+        ("synop", "snow_depth", "354150100", "2024-01-01"),
+    ],
+)
+def test_imgw_meteorology_brak_zjawiska_is_a_zero_even_when_the_cell_is_empty(
+    dataset: str,
+    parameter: str,
+    station_id: str,
+    start_date: str,
+) -> None:
+    """A documented *brak zjawiska* has to be the zero it means, not a missing value (GH-1997)."""
+    values = (
+        ImgwMeteorologyRequest(
+            parameters=[("daily", dataset, parameter)],
+            start_date=start_date,
+            end_date=start_date,
+        )
+        .filter_by_station_id(station_id)
+        .values.all()
+        .df
+    )
+    assert values.get_column("value").to_list() == [0.0]
+    assert values.get_column("quality").to_list() == [9.0]
+
+
+# One `k_m_d` row -- PSZCZYNA, January 2010 -- filled in only where the test reads it. Field 25 is
+# `PSDN`, the count of days with snow cover, and field 26 `DESD`, the count of days with rain; both
+# are among the day counts the file ends with, and neither carries a status.
+def _k_m_d_row(*, snow_cover_days: str, rain_days: str) -> bytes:
+    fields = ["0"] * 27
+    fields[0] = "249180010"
+    fields[1] = "PSZCZYNA"
+    fields[2] = "2010"
+    fields[3] = "1"
+    fields[24] = snow_cover_days
+    fields[25] = rain_days
+    return ",".join(fields).encode("latin-1")
+
+
+# `PSDN` is not declared today. Declaring it is the thing the guard has to survive, so the test
+# declares it here rather than waiting for the model to.
+_PSDN_SCHEMA = {
+    "column_1": "station_id",
+    "column_3": "year",
+    "column_4": "month",
+    "column_25": "liczba dni z pokrywą śnieżną",
+}
+
+
+def test_imgw_meteorology_a_statusless_column_does_not_take_its_neighbour_for_a_status() -> None:
+    """A column IMGW publishes with no status beside it must keep the value it holds.
+
+    ``_parse_csv`` reads ``column_N+1`` as the status of ``column_N``, which holds for every column
+    declared today but not for every column in the files: ``ROOP``, ``SGR``, the ``DN1``/``DN2`` days
+    a monthly maximum fell on and the day counts ``k_m_d`` ends with have no status, and the field
+    after them is another measurement. ``_STATUSLESS_COLUMNS`` names those positions so that
+    declaring one does not silently start reading its neighbour as a status -- the failure would be
+    confined to that one column and conditional on the neighbour's value, which is the kind that
+    survives a review and a full remote suite (GH-1995).
+    """
+    values = ImgwMeteorologyValues._parse_csv(  # noqa: SLF001
+        file=_k_m_d_row(snow_cover_days="12", rain_days="8"),
+        station_id="249180010",
+        resolution=Resolution.MONTHLY,
+        schema=_PSDN_SCHEMA,
+        statusless=_STATUSLESS_COLUMNS["k_m_d.*.csv"],
+    )
+    assert values.get_column("value").to_list() == [12.0]
+    # The same row with the position not held statusless, which is what the parse did before: eight
+    # days of rain is read as "brak pomiaru" and twelve days of snow cover are thrown away.
+    unguarded = ImgwMeteorologyValues._parse_csv(  # noqa: SLF001
+        file=_k_m_d_row(snow_cover_days="12", rain_days="8"),
+        station_id="249180010",
+        resolution=Resolution.MONTHLY,
+        schema=_PSDN_SCHEMA,
+        statusless=frozenset(),
+    )
+    assert unguarded.get_column("value").to_list() == [None]
+
+
+def test_imgw_meteorology_statusless_columns_agree_with_the_file_schema() -> None:
+    """Every statusless position must be keyed by a file the parser reads, and not be a status.
+
+    ``_STATUSLESS_COLUMNS`` is keyed by the same regex strings as ``_file_schema``, so rewording one
+    of those patterns leaves the entry behind with nothing to match and the guard silently off. The
+    second half holds the other direction: a position declared statusless cannot also be the
+    ``column_N+1`` the parse reads as some declared column's status, because the file cannot have it
+    both ways.
+    """
+    patterns = {
+        file_pattern
+        for datasets in ImgwMeteorologyValues._file_schema.values()  # noqa: SLF001
+        for files in datasets.values()
+        for file_pattern in files
+    }
+    assert set(_STATUSLESS_COLUMNS) <= patterns
+    contradicting = set()
+    for resolution, datasets in ImgwMeteorologyValues._file_schema.items():  # noqa: SLF001
+        for dataset_name, files in datasets.items():
+            for file_pattern, columns in files.items():
+                statusless = _STATUSLESS_COLUMNS.get(file_pattern, frozenset())
+                values = {
+                    int(column.removeprefix("column_"))
+                    for column, name in columns.items()
+                    if name not in _STRUCTURAL_COLUMNS
+                }
+                contradicting |= {
+                    (resolution.value, dataset_name, file_pattern, n) for n in values if n + 1 in statusless
+                }
+    assert contradicting == set()
 
 
 @pytest.mark.remote

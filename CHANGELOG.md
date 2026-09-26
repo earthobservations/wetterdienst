@@ -43,6 +43,39 @@ Types of changes:
   `column_N+1` as the status of `column_N`, so declaring a measurement there would make one column
   both, and the parse resolves that by leaving its neighbour unstatused -- silently, and for that
   one column only (GH-1994)
+- `imgw/meteorology` holds the positions IMGW publishes with no status column beside them, so
+  declaring one cannot start reading its neighbour as a status. The parse reads `column_N+1` as the
+  status of `column_N`, which is true of all 61 columns declared today but is not a property of the
+  files: `ROOP`, the kind of precipitation, `SGR`, the state of the ground, the `DN1`/`DN2` days a
+  monthly maximum fell on and the day counts `k_m_d` ends with carry no status, and the field after
+  them is another measurement. Declaring `k_m_d`'s `PSDN` would have taken `DESD`, a count of days
+  with rain, for the status of a count of days with snow cover, and returned no snow cover at all
+  for every month that had exactly eight days of rain -- one column, conditional on a neighbouring
+  value, so neither a review nor a full remote run would have had to show it. It is a table rather
+  than a rule because the files disagree with each other: `PSDN` carries a status in `s_m_d` and
+  none in `k_m_d`. Nothing changes in what the provider returns, since none of these positions is
+  declared (GH-1995)
+- `imgw/meteorology` carries IMGW's own status in `quality`, which was null for every value the
+  provider returned. The status was read to decide the value and then thrown away, so a plain
+  measurement of zero, a documented *brak zjawiska* returned as zero, and an `opad zbiorczy` -- a sum
+  over the preceding unmeasured days, published on the day the reading was taken without saying which
+  days it covers -- were indistinguishable from each other. `metoffice/observation` sets the pattern:
+  it carries MIDAS's raw `MESQL` flag verbatim and documents it on the provider's page, and IMGW's
+  column is literally *Status pomiaru*. "8" and "9" are IMGW's own codes; `quality` is numeric and
+  IMGW's `Z` is a letter, so `Z` is reported as 10, the one code here this library assigns itself. A
+  blank status is a plain measurement and stays null, which is what every other value carries.
+  `Z` appears in none of the 672,383 `o_d` rows sampled across 1961, 1985, 1995, 2010, 2015, 2020 and
+  2024, so it is a documented status rather than an observed one (GH-1998)
+- `imgw/meteorology`'s page states each status IMGW documents, what the library returns for it and
+  what reaches `quality`, and -- the part the old paragraph got wrong -- the two things the status
+  does not settle. A `0` in `monthly/climate`'s `snow_depth_max` that carries no status means either
+  that there was no snow cover in the month or that the maximum could not be determined;
+  `k_m_d_format.txt` says so in as many words, it is 96 of the 196 rows of 2024, and it is returned
+  as 0 cm. And `daily/precipitation` carries a row only for the days a station has something to
+  report, while `o_d_format.txt` adds that *brak zjawiska* covers a day absent from a month that is
+  itself present, so those days are absent from the result rather than returned as 0 mm. The page had
+  said a parameter a station does not measure "comes back with no values", which those two cases
+  contradict (GH-1997, GH-1998)
 - An `imgw/meteorology` column whose Polish name states a minimum or a maximum has to be declared
   under a canonical name that says the same. These declarations are in a language the rest of the
   repository is not written in, so `temperatura minimalna przy gruncie` sat under
@@ -458,6 +491,17 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `imgw/meteorology` returns a documented *brak zjawiska* as the zero it means, where
+  it returned no value at all. Status "9" was treated as the true zero it is by passing the value
+  cell through, which only works where the cell holds a zero -- and the files do not agree that it
+  does. `o_d_01_2024` writes ".0" beside all 3,658 of its "9"s on the daily precipitation total;
+  `o_d_07_2024` leaves the cell empty beside all 8,490 of its, the same column six months later.
+  WARSZOWICE on 2024-07-02, a day IMGW records as having had no precipitation, answered null and now
+  answers 0.0 mm. `daily/synop` lost whole parameters rather than single days: station 354150100 on
+  2024-01-01 carries `PKSN` empty beside a "9", so `snow_depth` was missing from the result instead
+  of reporting the 0 cm of snow cover the file states. One reading of "9" is not a zero and would
+  need its own branch -- `s_m_d_format.txt` gives it as "the station does not observe this
+  phenomenon" for a `Liczba dni z` aggregation -- but none of those columns is declared (GH-1997)
 - **Breaking**: `imgw/meteorology` returns three parameters that were permanently empty and one
   that published a different column's numbers, and `monthly/climate/precipitation_height_max`
   answers to a different original name. `monthly/synop/temperature_air_min_2m_mean` renamed its
