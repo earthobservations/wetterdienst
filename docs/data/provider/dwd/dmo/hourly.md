@@ -14,13 +14,13 @@
 
 #### metadata
 
-| property         | value                                                                                                                                                                                      |
-|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | icon_eu                                                                                                                                                                                    |
-| original name    | icon_eu                                                                                                                                                                                    |
-| description      | Direct model output of the regional ICON-EU model, extracted at the subset of the catalogue it is published for. Issued twice a day (00 and 12 UTC), hourly out to a lead-time of 78 hours |
-| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                                                                                                       |
-| access           | [here](https://opendata.dwd.de/weather/local_forecasts/dmo/icon-eu/)                                                                                                                       |
+| property         | value                                                                                                                                                                                                                     |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | icon_eu                                                                                                                                                                                                                   |
+| original name    | icon_eu                                                                                                                                                                                                                   |
+| description      | Direct model output of the regional ICON-EU model, extracted at the stations it is published for, a smaller set than the global product covers. Issued twice a day (00 and 12 UTC), hourly out to a lead-time of 78 hours |
+| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                                                                                                                                      |
+| access           | [here](https://opendata.dwd.de/weather/local_forecasts/dmo/icon-eu/)                                                                                                                                                      |
 
 #### parameters
 

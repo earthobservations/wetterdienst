@@ -390,16 +390,16 @@ Types of changes:
   (`icon` or `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
   `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request
   built with no arguments accepts. It used to list `icon/single_stations/<id>/kmz/` whatever the
-  request would go on to read, and name issues that request then rejected: `all_stations` publishes
-  only the `078` lead time, so an issue advertised from a `168` file met `IndexError: Unable to
-  find a 168 h forecast within ...`, and a station the shared catalogue listed for `icon_eu`
-  without `icon_eu` covering it has no single-station directory, so every issue advertised for it
-  resolved to an empty frame with nothing said. Both measured against the live server. The
-  directory is named by one function that the values path uses too, so the two cannot drift apart
-  again. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time` to match, and say
-  so rather than ignoring them where the network is not DMO. Passing `lead_time=None` restores the
-  old listing of every lead time together, which is a question about the directory rather than
-  about anything that can be requested. GH-1956
+  request would go on to read, and name issues that request then rejected: `icon_eu`'s
+  `all_stations` publishes only the `078` lead time, so an issue advertised from a `168` file met
+  `IndexError: Unable to find a 168 h forecast within ...`, and a station the shared catalogue
+  listed for `icon_eu` without `icon_eu` covering it has no single-station directory, so every
+  issue advertised for it resolved to an empty frame with nothing said. Both measured against the
+  live server. The directory is named by one function that the values path uses too, so the two
+  cannot drift apart again. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time`
+  to match, and say so rather than ignoring them where the network is not DMO. Passing
+  `lead_time=None` restores the old listing of every lead time together, which is a question about
+  the directory rather than about anything that can be requested. GH-1956
 
 - **Breaking**: `Settings.auth` holds `SecretStr` rather than `str`, so code that reads a
   credential off the settings has to ask for it: `reveal(settings.auth.aemet)`, or
@@ -542,11 +542,12 @@ Types of changes:
   and `icon_eu` as the 40-parameter, 24-times-a-day one -- that is MOSMIX-L and MOSMIX-S, a
   statistical postprocessing that DMO explicitly is not, and "worldwide" cannot be right for a
   limited-area model covering 3688 of the 5757 catalogue stations -- though "European" is not right
-  for it either, since 11 of those 3688 sit between 13.25 and 22.52 degrees north in Yemen, Eritrea,
-  Sudan and Saudi Arabia, so the description names the subset it is published for instead. Read off
-  upstream: both products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second
-  run 3-hourly from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168
-  hour grid),
+  for it either, since 11 of those 3688 sit between 13.25 and 22.52 degrees north in Yemen,
+  Eritrea, Sudan and Saudi Arabia, so the description names the set it is published for instead --
+  which is not the shared catalogue's subset either: 132 of those 3688 are absent from the
+  catalogue, which is what `_with_stations_the_catalogue_omits` recovers. Read off upstream: both
+  products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly
+  from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
   `icon_eu` hourly out to 78 only. Neither description names a parameter count any more: both
   counts came from MOSMIX's leaflet, 115 being MOSMIX-L's and 40 MOSMIX-S's, a split DMO does not
   have. 40 does match what `icon_eu` declares today, but only because that parameter list is

@@ -1136,21 +1136,32 @@ def test_dmo_declares_the_elements_its_runs_carry(
     run, against the 16.9, 11.2 and 7.8 MB of the `all_stations` files that `station_group=
     "all_stations"` reads, which the same metadata serves. Those were measured too and carry the
     same sets element for element, per lead time: they are two renderings of one model run, so this
-    reads the cheap one rather than 36 MB and 258 MB of decompressed KML per pass.
+    reads the cheap one, and takes its station ids off a directory listing rather than `all()`, which
+    would fetch one of them.
     """
     import re  # noqa: PLC0415
     from urllib.parse import urljoin  # noqa: PLC0415
 
-    from wetterdienst.provider.dwd.dmo.api import DwdDmoStationGroup, _dmo_kmz_path  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo.api import (  # noqa: PLC0415
+        DwdDmoStationGroup,
+        _dmo_kmz_path,
+        _dmo_station_dir,
+    )
     from wetterdienst.provider.dwd.mosmix.access import KMLReader  # noqa: PLC0415
     from wetterdienst.util.network import list_remote_directory_fsspec  # noqa: PLC0415
 
     name_original = DwdDmoRequest.metadata["hourly"][dataset].name_original
-    stations = (
-        DwdDmoRequest(parameters=[("hourly", dataset)], settings=default_settings)
-        .all()
-        .df.get_column("station_id")
-        .to_list()
+    # the station directory rather than `.all()`, which routes through
+    # `_with_stations_the_catalogue_omits` and downloads the whole `all_stations` run -- 17 MB for
+    # `icon` -- to recover the stations the shared catalogue leaves out. That is a lot of bytes for a
+    # handful of ids, and a failure to fetch it is swallowed into a warning, so a timeout there would
+    # leave this running against the catalogue-only fallback rather than failing. This is the listing
+    # `_covered_station_ids` reads, and every name in it is a station that has a directory, which is
+    # what the loop below is looking for.
+    station_dir = urljoin("https://opendata.dwd.de", _dmo_station_dir(name_original))
+    stations = sorted(
+        entry["name"].rstrip("/").rsplit("/", 1)[-1]
+        for entry in list_remote_directory_fsspec(station_dir, settings=default_settings)
     )
     assert stations, f"{dataset} covers no station at all"
 
@@ -1179,10 +1190,10 @@ def test_dmo_declares_the_elements_its_runs_carry(
         f"the lead times it serves have changed"
     )
 
-    # a station the catalogue lists may still have no directory of its own, so take the first that
-    # does rather than pinning one id that upstream is free to drop -- and it has to carry a run for
-    # every lead time the product serves, not merely some run, because a family rolled out to a
-    # subset of stations would otherwise fail below as a metadata fault rather than be skipped here.
+    # every name the listing above yields has a directory, but a directory need not hold a run for
+    # every lead time the product serves, so take the first candidate that carries all of them rather
+    # than pinning one id upstream is free to drop: a family rolled out to a subset of stations would
+    # otherwise fail below as a metadata fault rather than be skipped here.
     # The lead time is read off the anchored parse rather than as a substring, which `_run_stamp`
     # records having been a bug of its own: a bare `078` also matches inside a station id.
     runs_by_lead: dict[str, list[str]] = {}
