@@ -39,6 +39,23 @@ _STRUCTURAL_COLUMNS = frozenset({"station_id", "year", "month", "day"})
 # cover, no precipitation -- and o_d's "Z", opad zbiorczy, is a real measurement summed over the
 # days around it, so only "8" becomes null.
 _STATUS_NO_MEASUREMENT = "8"
+# The raw positions IMGW publishes with no status column beside them, by the file pattern that reads
+# them, taken from each `*_format.txt`. They hold the fields that are not measurements: `ROOP`, the
+# kind of precipitation, `SGR`, the state of the ground, the `DN1`/`DN2` days a monthly maximum fell
+# on, and the day counts `k_m_d` ends with. None is declared today, so this changes nothing about
+# what is read now. Declaring one without it would read the neighbour as a status, because the
+# neighbour is another field: `k_m_d`'s `PSDN` would take `DESD`, a count of days with rain, as the
+# status of a count of days with snow cover, and null the snow days of every month that had exactly
+# eight days of rain. The files whose fields are all value/status pairs are absent -- `k_d_t`,
+# `s_d_t`, `k_m_t` and `s_m_t` -- as is `PSDN` in `s_m_d`, which unlike `k_m_d` does carry a status.
+_STATUSLESS_COLUMNS: dict[str, frozenset[int]] = {
+    "k_d_[^t].*.csv": frozenset({16}),
+    "o_d.*.csv": frozenset({8}),
+    "s_d_[^t].*.csv": frozenset({16, 59}),
+    "k_m_d.*.csv": frozenset({21, 22, 25, 26, 27}),
+    "o_m.*.csv": frozenset({11, 12}),
+    "s_m_d.*.csv": frozenset({21, 22}),
+}
 
 ImgwMeteorologyMetadata = {
     **_METADATA,
@@ -597,7 +614,13 @@ class ImgwMeteorologyValues(TimeseriesValues):
                 if re.match(file_pattern, f):
                     matched_path = f
                     break
-            df = self.__parse_file(zfs.read_bytes(matched_path), station_id, resolution, schema)
+            df = self._parse_csv(
+                file=zfs.read_bytes(matched_path),
+                station_id=station_id,
+                resolution=resolution,
+                schema=schema,
+                statusless=_STATUSLESS_COLUMNS.get(file_pattern, frozenset()),
+            )
             if not df.is_empty():
                 data.append(df)
         try:
@@ -609,16 +632,23 @@ class ImgwMeteorologyValues(TimeseriesValues):
         return df.unique(subset=["parameter", "date"], keep="first")
 
     @staticmethod
-    def __parse_file(file: bytes, station_id: str, resolution: Resolution, schema: dict) -> pl.DataFrame:
+    def _parse_csv(
+        file: bytes,
+        station_id: str,
+        resolution: Resolution,
+        schema: dict,
+        statusless: frozenset[int] = frozenset(),
+    ) -> pl.DataFrame:
         """Parse a single file from the meteorological zip file."""
         df = pl.read_csv(file, encoding="latin-1", separator=",", has_header=False, infer_schema_length=0)
-        status_columns = {
-            column: status
-            for column, name in schema.items()
-            if name not in _STRUCTURAL_COLUMNS
-            and (status := f"column_{int(column.removeprefix('column_')) + 1}") in df.columns
-            and status not in schema
-        }
+        status_columns = {}
+        for column, name in schema.items():
+            position = int(column.removeprefix("column_"))
+            if name in _STRUCTURAL_COLUMNS or position in statusless:
+                continue
+            status = f"column_{position + 1}"
+            if status in df.columns and status not in schema:
+                status_columns[column] = status
         df = df.select(*schema, *status_columns.values())
         df = df.with_columns(
             pl.when(pl.col(status).str.strip_chars().eq(_STATUS_NO_MEASUREMENT))

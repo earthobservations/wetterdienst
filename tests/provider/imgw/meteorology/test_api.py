@@ -9,7 +9,10 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.meteorology.api import (
+    _STATUSLESS_COLUMNS,
+    _STRUCTURAL_COLUMNS,
     ImgwMeteorologyMetadata,
     ImgwMeteorologyRequest,
     ImgwMeteorologyValues,
@@ -603,7 +606,7 @@ def test_imgw_meteorology_status_columns_do_not_collide_with_value_columns() -> 
     """Test that the status column of a measurement is never itself a declared measurement.
 
     IMGW writes each status immediately after the value it belongs to, verified for all 61 declared
-    columns against the ``*_format.txt`` files, so ``__parse_file`` reads ``column_N+1`` as the
+    columns against the ``*_format.txt`` files, so ``_parse_csv`` reads ``column_N+1`` as the
     status of ``column_N``. Declaring a value at ``column_N+1`` would make it both, and the parse
     resolves that by leaving ``column_N`` unstatused -- silently, and only for that one column.
     """
@@ -618,6 +621,93 @@ def test_imgw_meteorology_status_columns_do_not_collide_with_value_columns() -> 
                 }
                 colliding |= {(resolution.value, dataset_name, file_pattern, n) for n in values if n + 1 in values}
     assert colliding == set()
+
+
+# One `k_m_d` row -- PSZCZYNA, January 2010 -- filled in only where the test reads it. Field 25 is
+# `PSDN`, the count of days with snow cover, and field 26 `DESD`, the count of days with rain; both
+# are among the day counts the file ends with, and neither carries a status.
+def _k_m_d_row(*, snow_cover_days: str, rain_days: str) -> bytes:
+    fields = ["0"] * 27
+    fields[0] = "249180010"
+    fields[1] = "PSZCZYNA"
+    fields[2] = "2010"
+    fields[3] = "1"
+    fields[24] = snow_cover_days
+    fields[25] = rain_days
+    return ",".join(fields).encode("latin-1")
+
+
+# `PSDN` is not declared today. Declaring it is the thing the guard has to survive, so the test
+# declares it here rather than waiting for the model to.
+_PSDN_SCHEMA = {
+    "column_1": "station_id",
+    "column_3": "year",
+    "column_4": "month",
+    "column_25": "liczba dni z pokrywą śnieżną",
+}
+
+
+def test_imgw_meteorology_a_statusless_column_does_not_take_its_neighbour_for_a_status() -> None:
+    """A column IMGW publishes with no status beside it must keep the value it holds.
+
+    ``_parse_csv`` reads ``column_N+1`` as the status of ``column_N``, which holds for every column
+    declared today but not for every column in the files: ``ROOP``, ``SGR``, the ``DN1``/``DN2`` days
+    a monthly maximum fell on and the day counts ``k_m_d`` ends with have no status, and the field
+    after them is another measurement. ``_STATUSLESS_COLUMNS`` names those positions so that
+    declaring one does not silently start reading its neighbour as a status -- the failure would be
+    confined to that one column and conditional on the neighbour's value, which is the kind that
+    survives a review and a full remote suite (GH-1995).
+    """
+    values = ImgwMeteorologyValues._parse_csv(  # noqa: SLF001
+        file=_k_m_d_row(snow_cover_days="12", rain_days="8"),
+        station_id="249180010",
+        resolution=Resolution.MONTHLY,
+        schema=_PSDN_SCHEMA,
+        statusless=_STATUSLESS_COLUMNS["k_m_d.*.csv"],
+    )
+    assert values.get_column("value").to_list() == [12.0]
+    # The same row with the position not held statusless, which is what the parse did before: eight
+    # days of rain is read as "brak pomiaru" and twelve days of snow cover are thrown away.
+    unguarded = ImgwMeteorologyValues._parse_csv(  # noqa: SLF001
+        file=_k_m_d_row(snow_cover_days="12", rain_days="8"),
+        station_id="249180010",
+        resolution=Resolution.MONTHLY,
+        schema=_PSDN_SCHEMA,
+        statusless=frozenset(),
+    )
+    assert unguarded.get_column("value").to_list() == [None]
+
+
+def test_imgw_meteorology_statusless_columns_agree_with_the_file_schema() -> None:
+    """Every statusless position must be keyed by a file the parser reads, and not be a status.
+
+    ``_STATUSLESS_COLUMNS`` is keyed by the same regex strings as ``_file_schema``, so rewording one
+    of those patterns leaves the entry behind with nothing to match and the guard silently off. The
+    second half holds the other direction: a position declared statusless cannot also be the
+    ``column_N+1`` the parse reads as some declared column's status, because the file cannot have it
+    both ways.
+    """
+    patterns = {
+        file_pattern
+        for datasets in ImgwMeteorologyValues._file_schema.values()  # noqa: SLF001
+        for files in datasets.values()
+        for file_pattern in files
+    }
+    assert set(_STATUSLESS_COLUMNS) <= patterns
+    contradicting = set()
+    for resolution, datasets in ImgwMeteorologyValues._file_schema.items():  # noqa: SLF001
+        for dataset_name, files in datasets.items():
+            for file_pattern, columns in files.items():
+                statusless = _STATUSLESS_COLUMNS.get(file_pattern, frozenset())
+                values = {
+                    int(column.removeprefix("column_"))
+                    for column, name in columns.items()
+                    if name not in _STRUCTURAL_COLUMNS
+                }
+                contradicting |= {
+                    (resolution.value, dataset_name, file_pattern, n) for n in values if n + 1 in statusless
+                }
+    assert contradicting == set()
 
 
 @pytest.mark.remote
