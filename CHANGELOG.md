@@ -86,6 +86,15 @@ Types of changes:
   metadata tables", with its rows compared against the model besides. All 238 such tables in the
   tree are under that heading, so nothing is lost by asking for it, and the resolution-level reader
   was already asking
+- A parameter row carrying fewer cells than its header is reported as that. It cannot be read --
+  the column wanted may not be there -- and dropping it silently made the presence test say the
+  opposite of what happened: a row plainly on the page came out as "declares X, which it does not
+  document". Forgetting a trailing `constraints` cell is a likelier slip than omitting a row, so
+  the report now names the real one first
+- The exemption for a `#### metadata` table naming several datasets rides with the description
+  rather than with the dataset name, so a page documenting one of them in its own section as well
+  has that section compared. Exempting the name let both go unread -- the silent skip this change
+  set exists to close, back in by the side door
 - A blank description cell and a `-` are read the same way, since both say "no text here". A `-`
   against a model that carries no description was reported as "the page describes it, the model
   does not", which states the opposite of what happened. Either is still compared where the model
@@ -300,7 +309,9 @@ Types of changes:
   is Beaufort. Found by checking every unit cell against `UnitConverter.get_unit`: 63 of 2213
   disagree with the model, and the rest are spellings rather than quantities -- `kg/m²` for `mm`
   (36), `-` for the coded `significant_weather` (16), a Greek mu where the model writes a micro
-  sign (5) and `Bft` for `bft` (3). GH-1980 carries those
+  sign (5) and `Bft` for `bft` (3). GH-1980 carries those, and it is the follow-through these three
+  fixes depend on: the `unit` and `constraints` columns are compared by nothing, so until it lands
+  they can drift straight back, exactly as the descriptions did before this change
 - `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
   declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
   the markdown, so nothing compared it; GH-1975 corrects the same number in

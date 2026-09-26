@@ -258,6 +258,32 @@ def _section_datasets(path: Path) -> list[list[str]]:
     return sections
 
 
+def _short_parameter_rows(path: Path) -> list[str]:
+    """Return a line per parameter row carrying fewer cells than its table's header.
+
+    `_documented_descriptions` cannot read such a row -- the column it wants may not be there -- and
+    dropping it silently made the presence test report the opposite of what happened: a row plainly on
+    the page came out as "declares X, which it does not document". Forgetting a trailing `constraints`
+    cell is a likelier slip than omitting a row, so the report has to name the real one.
+    """
+    short = []
+    header = None
+    for line in _prose_lines(path):
+        if line.startswith("#") or not line.startswith("|"):
+            header = None
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells and cells[0] == "name" and "original name" in cells:
+            header = cells
+            continue
+        if header is None or all(set(cell) <= {"-", ":"} for cell in cells):
+            continue
+        if len(cells) < len(header):
+            name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[0])
+            short.append(f"{name}: {len(cells)} cells against a header of {len(header)}")
+    return short
+
+
 def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]]:
     """Return {(dataset, canonical name, original name): descriptions} for one provider docs page.
 
@@ -557,37 +583,29 @@ def _documented_dataset_sections(path: Path) -> dict[str, int]:
     return counts
 
 
-def _shared_dataset_sections(path: Path) -> set[str]:
-    """Return the datasets whose "#### metadata" table names more than one of them.
-
-    `dwd/derived` monthly documents `cooling_degreehours_13`, `_16` and `_18` in one section, saying so
-    in the section itself -- the three carry identical parameters and differ only in the reference
-    temperature. One `description` cell cannot equal three different model descriptions, and the model
-    is right to carry one per dataset, since `discover`, the REST API and MCP report them one at a
-    time. So the text of such a section is not compared, only its presence. Exactly one section is in
-    this state; tripling an identical four-row table to avoid it would be worse documentation.
-    """
-    shared = set()
-    for table in _metadata_tables(path):
-        names = [dataset.strip() for dataset in table["name"].split(",")]
-        if len(names) > 1:
-            shared.update(names)
-    return shared
-
-
-def _documented_dataset_descriptions(path: Path) -> dict[str, list[str]]:
-    """Return {dataset: descriptions} from the "#### metadata" tables of one provider docs page.
+def _documented_dataset_descriptions(path: Path) -> dict[str, list[tuple[str, bool]]]:
+    """Return {dataset: [(description, came from a table naming several datasets)]} for one page.
 
     A list for the same reason `_documented_descriptions` returns one: a page can carry two sections
     for one dataset, and overwriting would leave only the last of them compared while the other went
     on being rendered. The repeat is reported by the test below.
+
+    The flag rides with each description rather than with the dataset, because the exemption belongs
+    to the table. `dwd/derived` monthly documents `cooling_degreehours_13`, `_16` and `_18` in one
+    section and says so: the three carry identical parameters and differ only in the reference
+    temperature, so one `description` cell cannot equal three model descriptions, and the model is
+    right to carry one per dataset since `discover`, the REST API and MCP report them one at a time.
+    Exempting the dataset *name* instead would have let a dedicated `### cooling_degreehours_13`
+    section go uncompared too, on a page that documented it both ways -- the silent skip this module
+    exists to close, let back in by the side door.
     """
-    documented: dict[str, list[str]] = {}
+    documented: dict[str, list[tuple[str, bool]]] = {}
     for table in _metadata_tables(path):
         if not table.get("description"):
             continue
-        for dataset in table["name"].split(","):
-            documented.setdefault(dataset.strip(), []).append(table["description"])
+        names = [dataset.strip() for dataset in table["name"].split(",")]
+        for dataset in names:
+            documented.setdefault(dataset, []).append((table["description"], len(names) > 1))
     return documented
 
 
@@ -610,7 +628,6 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
     for provider, network, resolution, path in _documented_resolutions():
         documented = _documented_dataset_descriptions(path)
         sections = _documented_dataset_sections(path)
-        shared = _shared_dataset_sections(path)
         for dataset in resolution:
             tag = f"{provider}/{network}/{resolution.name}/{dataset.name}"
             shown = documented.get(dataset.name, [])
@@ -628,10 +645,10 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
             if not dataset.description:
                 mismatches.append(f"{tag}: the page describes it, the model does not")
                 continue
-            if dataset.name in shared:
-                continue
-            for text in shown:
-                text = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", text).strip().rstrip(".")
+            for shown_text, from_shared_table in shown:
+                if from_shared_table:
+                    continue
+                text = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", shown_text).strip().rstrip(".")
                 if text != dataset.description.rstrip("."):
                     mismatches.append(f"{tag}: docs {text!r} != model {dataset.description!r}")
     assert not mismatches, "\n".join(_capped(mismatches, 20, "the report"))
@@ -690,6 +707,7 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
         # from the model need not still carry a `#### parameters` table, and the description test
         # walks the model's datasets so it never reaches one
         sections = {key[0] for key in documented} | set(_documented_dataset_sections(path))
+        found.extend(f"{tag}: a parameter row is short -- {short}" for short in _short_parameter_rows(path))
         for orphan in sorted(sections - {dataset.name for dataset in resolution}):
             if orphan == _NO_SECTION:
                 found.append(f"{tag}: has a parameter table that no `###` dataset section encloses")
