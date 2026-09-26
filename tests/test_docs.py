@@ -73,6 +73,36 @@ def test_data_coverage() -> None:
                 assert f"{resolution.stem}{resolution.suffix}" in network_readme_content
 
 
+# The MyST directives whose body is markdown, so a table inside one is documentation: admonitions and
+# layout containers. `_prose_lines` explains why anything unlisted is read as code instead.
+_MARKUP_DIRECTIVES = frozenset(
+    [
+        "admonition",
+        "attention",
+        "caution",
+        "danger",
+        "error",
+        "hint",
+        "important",
+        "note",
+        "seealso",
+        "tip",
+        "warning",
+        "card",
+        "container",
+        "div",
+        "dropdown",
+        "grid",
+        "grid-item",
+        "grid-item-card",
+        "margin",
+        "sidebar",
+        "tab-item",
+        "tab-set",
+    ],
+)
+
+
 def _prose_lines(path: Path) -> Iterator[str]:
     """Yield the lines of a docs page that sit outside a fenced code block.
 
@@ -81,17 +111,24 @@ def _prose_lines(path: Path) -> Iterator[str]:
     descriptions test silently stops comparing them. Which is the skip this module exists to stop,
     and the reason the fence is stripped here rather than in each parser.
 
-    Only a *code* fence hides its contents. A MyST directive holds rendered markdown, so a table
-    inside one is published documentation and has to be parsed -- and a directive is written either
-    ``:::{note}`` or `````{note}``, both legal and both used in this repo, which writes
-    `````{toctree}`` on every network index page. Skipping either spelling dropped the
+    A fence hides its contents unless it opens one of the markdown containers in
+    `_MARKUP_DIRECTIVES`. A table inside a ``:::{note}`` or a `````{note}`` -- both legal, both
+    used in this repo -- is published documentation and has to be parsed; skipping it dropped the
     table and reported the absence as a missing row somewhere else entirely, which is the authoring
-    trap this guard exists to remove rather than add. A ``#`` comment, which is what it is for, belongs
-    to a code example, and those carry a language or nothing at all.
+    trap this guard exists to remove rather than add.
+
+    The list decides the default rather than the exception, because the two mistakes do not cost the
+    same. A code body read as markdown puts a ``#`` comment where a level-1 heading goes, which
+    closes the dataset section and makes the descriptions test compare *nothing* -- silent, and this
+    module exists to stop that. A markdown container left off the list drops its tables instead,
+    which the presence tests report. So an unrecognised directive is read as code: ``{code-block}``,
+    ``{literalinclude}``, ``{doctest}``, ``{eval-rst}`` and the ``{code-cell}`` this repo
+    writes 114 times all hold code, and a name nobody here has used yet is likelier to be another of
+    those than another admonition.
 
     The open fences are a stack, so a code block nested in a directive still hides its own contents,
-    and a closing fence is a bare marker at least as long as the one it closes -- a ```````
-    line inside a ````````-opened block is content rather than the end of it.
+    and a closing fence is a bare marker at least as long as the one it closes: a three-backtick line
+    inside a four-backtick block is content rather than the end of it.
     """
     fences: list[tuple[str, int, bool]] = []
     for line in path.read_text(encoding="utf8").splitlines():
@@ -101,7 +138,8 @@ def _prose_lines(path: Path) -> Iterator[str]:
             if fences and not info and char == fences[-1][0] and length >= fences[-1][1]:
                 fences.pop()
             else:
-                fences.append((char, length, info.startswith("{")))
+                directive = info.startswith("{") and info[1:].removesuffix("}") in _MARKUP_DIRECTIVES
+                fences.append((char, length, directive))
             continue
         if not any(not directive for _, _, directive in fences):
             yield line

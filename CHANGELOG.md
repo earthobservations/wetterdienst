@@ -126,11 +126,16 @@ Types of changes:
   it sits in and dropped every row below it out of that dataset, which the descriptions test
   answers by silently comparing nothing -- the failure mode this change set exists to remove. A
   fence closes only on a marker at least as long as the one that opened it, so a ``` line inside a
-  ````-opened block is content rather than the end of it. Only backticks and tildes count: MyST's
-  `colon_fence` is enabled, but a `:::{note}` block holds rendered markdown, so a table inside one
-  is published documentation and has to be parsed, while a `#` comment -- what this guard is for --
-  belongs to a code example, which is fenced with backticks. No resolution page carries a fence
-  today; the guard is there so that adding one is not a trap
+  ````-opened block is content rather than the end of it, and the open fences are a stack, so a
+  code block nested in a directive still hides its own body. What is hidden is decided by the
+  directive, not by the marker: a table inside a MyST admonition or layout container -- written
+  `:::{note}` or ```{note}`, both legal and both used here -- is published documentation and has to
+  be parsed, while `{code-block}`, `{literalinclude}`, `{doctest}`, `{eval-rst}` and the
+  `{code-cell}` this repo writes 114 times all hold code. An unlisted directive is read as code,
+  because the two mistakes do not cost the same: a code body read as markdown puts a `#` comment
+  where a heading goes and makes the descriptions test compare nothing, silently, while a container
+  read as code drops its tables, which the presence tests report. No resolution page carries a
+  fence today; the guard is there so that adding one is not a trap
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
   default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
   argument since it was written and the export docs advertise it, but no command passed it, so
@@ -271,7 +276,9 @@ Types of changes:
   declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
   the markdown, so nothing compared it; GH-1975 corrects the same number in
   `docs/data/overview.md`, `dwd/index.md` and `mosmix/index.md`, and this is the fourth copy, which
-  it does not reach
+  it does not reach. Those three still read 115 until GH-1975 lands, so this change wants to go in
+  first and that one straight after -- its hunks there rewrite the station counts on the same
+  lines, so duplicating the figure here would only have made it conflict
 - `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
   `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote, and puts the
   two rows in the order the model declares them -- the one table this change touched that was among
