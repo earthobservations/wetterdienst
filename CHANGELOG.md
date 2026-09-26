@@ -386,6 +386,15 @@ Types of changes:
 
 ### Fixed
 
+- `wsv/pegel` returns no data for a timeseries between measurements rather than raising
+  `ColumnNotFoundError`. Pegelonline answers `[]` with HTTP 200 for a series it lists but holds no
+  current measurements for, and `pl.read_json` reads that body as a frame with **no columns**, so
+  renaming `timestamp` raised out of an ordinary `values.all()` -- from the station list, not from
+  anything the caller did wrong. The station now drops out, which is what the neighbouring guards
+  already do for no internet, a 404 and a series the station does not publish, and what the wave
+  tests rely on when one contributor goes quiet. MELLUMPLATE answered that way for all three of its
+  wave series for days, failing `test_wsv_wave_height_comes_back_in_centimetres` and
+  `test_wsv_wave_period_is_seconds` on every CI job, which is how it was found (GH-1987)
 - `imgw/meteorology` daily writes `mm`/`>=0` for the precipitation and pressure rows its `synop`
   table had as `millimeter`/`-` and `hectopascal`/`-`, which is what the same page's other datasets
   and the same table's `pressure_air_site` already wrote. The monthly page was corrected in the
